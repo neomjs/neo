@@ -836,8 +836,19 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         const alarmState  = state?.remConsolidationAlarm ?? null;
         const thresholdMs = runtime.remConsolidationWatchdogThresholdMs;
 
-        const {stalled, shouldAlarm, nextAlarmState} = evaluateConsolidationStallAlarm({
-            hasCycle, readFault: readFault || backlogReadFault, stalenessMs, undigestedCount, thresholdMs, alarmState
+        const {stalled, shouldAlarm, downTimeSuppressed, drainObserved, recoveryStarted, effectiveStalenessMs, nextAlarmState} = evaluateConsolidationStallAlarm({
+            hasCycle,
+            readFault      : readFault || backlogReadFault,
+            stalenessMs,
+            undigestedCount,
+            thresholdMs,
+            // Down-time exclusion: host-off / orchestrator-stopped intervals are time no cycle could
+            // have run, so the stall clock is capped by this process's uptime (the evaluator defaults
+            // to legacy wall-clock behavior for callers that do not pass it). The runtime override
+            // exists so fixtures can pin the process-age dimension instead of depending on ambient
+            // test-worker uptime.
+            uptimeMs       : runtime.remConsolidationWatchdogUptimeMs ?? Math.round(process.uptime() * 1000),
+            alarmState
         });
 
         // Stamp the stall-onset timestamp (the clock-free evaluator leaves it null on the latching
@@ -845,7 +856,9 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         const stalledSince = stalled
             ? (shouldAlarm ? now : (alarmState?.stalledSince ?? now))
             : null;
-        if (state) state.remConsolidationAlarm = {alarmed: nextAlarmState.alarmed, stalledSince};
+        // Persist the FULL recovery state: dropping recoveryBaseline would re-open the phase on the
+        // next check (repeat note, undrainable comparison).
+        if (state) state.remConsolidationAlarm = {alarmed: nextAlarmState.alarmed, stalledSince, recoveryBaseline: nextAlarmState.recoveryBaseline};
 
         const details = {
             reason,
@@ -910,7 +923,15 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
                 }
             }
         } else {
-            services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
+            services.healthService?.recordTaskOutcome?.(taskName, 'completed', {...details, drainObserved, recoveryBaseline: nextAlarmState.recoveryBaseline});
+
+            if (recoveryStarted) {
+                // Digest-resume note (INFO, never the swarm alarm): the cycle gap spans host-offline
+                // time, so the stall clock resumed from boot instead of alerting. Emitted exactly
+                // once at recovery-phase onset; the phase completes only when a later check observes
+                // a strictly decreased backlog (evaluator recoveryBaseline).
+                runtime.writeLog?.('INFO', `[Orchestrator] rem-consolidation-liveness-watchdog: digest-resume — cycle gap of ${stalenessMs}ms spans host-offline time (uptime ${effectiveStalenessMs}ms); recovery phase opened, watching for backlog drain (undigested: ${undigestedCount}).`);
+            }
         }
 
         services.taskStateService.markCompleted(taskName);
