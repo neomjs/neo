@@ -2383,16 +2383,17 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. appName is required by the service for osascript-style bridge-daemon routes (not for adapters 'opencode-server' or 'kimi-server'); url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions. envelopePath overrides the opencode-server seat-envelope or kimi-server wake-envelope location. lockPath/tokenPath/cwd tune kimi-server coordinate discovery.
+                  description: Channel-specific metadata. appName is required for osascript-style bridge-daemon routes (exempt for envelope-routed adapters 'opencode-server', 'kimi-server', 'kimi-pull-bridge'); url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field. envelopePath overrides the seat wake-envelope location. lockPath/tokenPath/cwd tune kimi-server coordinate discovery. 'kimi-pull-bridge' requires only a readable wake envelope; outboxPath overrides the seat outbox location and lockPath/tokenPath are retired when it is selected.
                   properties:
                     url:              {type: string}
                     coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
                     daemonSocketPath: {type: string}
-                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server, opencode-server, kimi-server]}
+                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server, opencode-server, kimi-server, kimi-pull-bridge]}
                     appName:          {type: string}
                     envelopePath:     {type: string}
                     lockPath:         {type: string}
                     tokenPath:        {type: string}
+                    outboxPath:       {type: string}
                     cwd:              {type: string}
                     instanceAddress:  {type: string, nullable: true}
                     addressType:      {type: string, enum: [userDataDir, pid, tmuxSession, webhookUrl], nullable: true}
