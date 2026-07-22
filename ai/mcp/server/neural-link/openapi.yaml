@@ -2684,8 +2684,17 @@ components:
           description: The method name (e.g. 'load' or 'series.push')
         args:
           type: array
-          items: {}
-          description: Arguments to pass to the method (heterogeneous — any JSON-serializable value)
+          items:
+            oneOf:
+              - type: string
+                nullable: true
+              - type: number
+              - type: boolean
+              - type: object
+                additionalProperties: true
+              - type: array
+                items: {}
+          description: Arguments to pass to the method (heterogeneous — any JSON-serializable value — string, number, boolean, object, array, or null). Pass values natively; strings are forwarded verbatim.
         sessionId:
           type: string
           description: The target App Worker Session ID

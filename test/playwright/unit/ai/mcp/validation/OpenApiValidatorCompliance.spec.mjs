@@ -364,6 +364,30 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
     });
 
     /**
+     * Heterogeneous `call_method` args: the explicit JsonValue union must emit as `anyOf`
+     * (concrete item types survive client schema normalizers that collapse empty `items`
+     * to string) AND the runtime Zod union must parse every representative JSON class —
+     * string, number, boolean, null, an open object (the object-bearing wire), and nested arrays.
+     */
+    test('call_method args emit an explicit JsonValue union and parse every JSON class', async () => {
+        const doc  = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8'));
+        const op   = doc.paths['/instance/method/call'].post;
+        const zod  = buildZodSchema(doc, op);
+        const json = toOpenApiJsonSchema(zod),
+              items = json.properties.args.items;
+
+        expect(items.anyOf).toBeDefined();
+        expect(items.anyOf.map(member => member.type)).toEqual(['string', 'number', 'boolean', 'object', 'array']);
+        expect(items.anyOf[0].nullable).toBe(true);
+
+        const cases = ['a string', 42, 3.14, true, null, {url: 'http://x', bearerToken: 'tok'}, [1, 'two', {three: 3}], [], {}];
+
+        for (const value of cases) {
+            expect(zod.shape.args.safeParse([value]).success, `args must accept ${JSON.stringify(value)}`).toBe(true)
+        }
+    });
+
+    /**
      * Direct regression for https://github.com/neomjs/neo/issues/9837 (re-purposed).
      * Confirms that `.passthrough()` on a `z.object(...)` flips the emission to
      * `additionalProperties: true`. This is the mechanism by which output schemas
