@@ -417,3 +417,182 @@ test.describe('wrapper lease/truth semantics (source contracts + projection shap
         }
     });
 });
+
+test.describe('wrapper + projection behavioral witnesses', () => {
+    const fakeBundle = root => ({
+        bundleRoot : path.join(root, 'backup-2026-07-22T12-00-00-000Z'),
+        completedAt: '2026-07-22T12:00:01.000Z'
+    });
+
+    const completedLease = result => async fn => ({status: 'completed', result: await fn()});
+
+    test('success path: receipt carries provenance, sync outcome, and a local-backup-scoped duration', async () => {
+        const root = makeTmp();
+        try {
+            const {runBackupWithOffHostSync} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+            const result                     = await runBackupWithOffHostSync({
+                runBackupImpl: async () => fakeBundle(root),
+                withLeaseImpl: completedLease(),
+                backupRoot   : root
+            });
+
+            expect(result.bundleRoot).toContain('backup-2026-07-22');
+
+            const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
+            expect(read.status).toBe('ok');
+            expect(read.receipt.backup.status).toBe('success');
+            expect(read.receipt.bundleName).toBe('backup-2026-07-22T12-00-00-000Z');
+            expect(read.receipt.bundleCompletedAt).toBe('2026-07-22T12:00:01.000Z');
+            expect(read.receipt.offHostSync.status).toBe('disabled');
+            expect(read.receipt.backup.durationMs).toBeLessThan(5000); // local backup time, not sync time
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('failure path: a thrown backup writes the not-run receipt INSIDE the lease with backup.status failed', async () => {
+        const root = makeTmp();
+        try {
+            const {runBackupWithOffHostSync} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+            await expect(runBackupWithOffHostSync({
+                runBackupImpl: async () => { throw new Error('integrity check failed') },
+                withLeaseImpl: completedLease(),
+                backupRoot   : root
+            })).rejects.toThrow('integrity check failed');
+
+            const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
+            expect(read.status).toBe('ok');
+            expect(read.receipt.backup.status).toBe('failed');
+            expect(read.receipt.backup.error).toContain('integrity check failed');
+            expect(read.receipt.bundleName).toBe(null);
+            expect(read.receipt.offHostSync.status).toBe('not-run-backup-failed');
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('validation path: a malformed subtree yields the validation-failed receipt and never launches a child', async () => {
+        const root = makeTmp();
+        try {
+            const {runBackupWithOffHostSync} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+            await runBackupWithOffHostSync({
+                runBackupImpl: async () => fakeBundle(root),
+                withLeaseImpl: completedLease(),
+                backupRoot   : root,
+                syncConfig   : {command: 'rsync', timeoutMs: 5} // out-of-bounds: validation failure
+            });
+
+            const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
+            expect(read.status).toBe('ok');
+            expect(read.receipt.backup.status).toBe('success'); // the bundle completed — only the sync was refused
+            expect(read.receipt.offHostSync.status).toBe('validation-failed');
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('projection: missing → null; unreadable → stable shape; valid → the validated envelope; custom root round trip', async () => {
+        const root = makeTmp();
+        try {
+            const bridge  = (await import('../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs')).default;
+            const collect = opts => bridge.prototype.collectMaintenanceSnapshot.call({}, opts);
+
+            const receiptPath = path.join(root, 'last-backup-receipt.json');
+
+            expect(await collect({receiptPath})).toBe(null);
+
+            await writeBackupReceipt({
+                filePath: receiptPath,
+                receipt : buildBackupReceipt({
+                    backup           : {durationMs: 42, error: null, status: 'success'},
+                    bundleCompletedAt: '2026-07-22T12:00:01.000Z',
+                    bundleName       : 'backup-2026-07-22'
+                })
+            });
+
+            const projected = await collect({receiptPath});
+            expect(projected.lastBackup.bundleName).toBe('backup-2026-07-22');
+            expect(projected.lastBackup.backup.status).toBe('success');
+
+            writeFileSync(receiptPath, 'not json{');
+            const unreadable = await collect({receiptPath});
+            expect(unreadable.lastBackup).toEqual({finishedAt: null, kind: 'corrupt', status: 'unreadable'});
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+});
+
+test.describe('adversarial IO + encoding edges', () => {
+    test('a synchronous spawn throw becomes a failed outcome with terminatedVia null (no child started)', async () => {
+        const outcome = await runOffHostSync({
+            bundleDir : '/tmp/b',
+            bundleName: 'b',
+            config    : {...VALID_CONFIG, command: '/definitely/not/a/real/executable-9f3c2a'},
+        });
+
+        expect(outcome.status).toBe('failed');
+        expect(outcome.terminatedVia).toBe(null);
+    });
+
+    test('UTF-8-safe bounding: multibyte-heavy diagnostics stay within the byte cap on write and projection paths', async () => {
+        const emojiError = '🔥'.repeat(5000);
+
+        const boundedWrite = redactAndBound(emojiError, {});
+        expect(Buffer.byteLength(boundedWrite, 'utf8')).toBeLessThanOrEqual(4096);
+
+        const root = makeTmp();
+        try {
+            const filePath = path.join(root, 'last-backup-receipt.json');
+            writeFileSync(filePath, JSON.stringify({schemaVersion: 1, bundleCompletedAt: null, bundleName: 'b', finishedAt: 'x',
+                backup     : {durationMs: 1, error: emojiError, status: 'success'},
+                offHostSync: {completionScope: 'direct-child', descendants: 'unknown', durationMs: 1, exitCode: 0, signal: null, status: 'success', stderrTail: emojiError, terminatedVia: 'exit'}}));
+
+            const read = await readBackupReceipt({filePath});
+            expect(read.status).toBe('ok');
+            expect(Buffer.byteLength(read.receipt.backup.error, 'utf8')).toBeLessThanOrEqual(4096);
+            expect(Buffer.byteLength(read.receipt.offHostSync.stderrTail, 'utf8')).toBeLessThanOrEqual(4096);
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('basename-only provenance rejects POSIX, Windows, and drive-letter absolute forms', async () => {
+        const root = makeTmp();
+        try {
+            const filePath = path.join(root, 'last-backup-receipt.json');
+
+            for (const bundleName of ['a/b', 'a\\b', 'C:\\evil']) {
+                writeFileSync(filePath, JSON.stringify({schemaVersion: 1, bundleCompletedAt: null, bundleName, finishedAt: 'x',
+                    backup     : {durationMs: 1, error: null, status: 'success'},
+                    offHostSync: {completionScope: 'direct-child', descendants: 'unknown', durationMs: 1, exitCode: 0, signal: null, status: 'success', stderrTail: '', terminatedVia: 'exit'}}));
+                expect((await readBackupReceipt({filePath})).status).toBe('unreadable');
+            }
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('concurrent adjacent-millisecond writes never collide or lose a temp (gated-fsync race witness)', async () => {
+        const root = makeTmp();
+        try {
+            const filePath = path.join(root, 'last-backup-receipt.json');
+            const t        = 1710000000000;
+
+            await Promise.all([
+                writeBackupReceipt({filePath, now: t,     receipt: buildBackupReceipt({backup: {durationMs: 1, error: null, status: 'success'}, bundleName: 'first'})}),
+                writeBackupReceipt({filePath, now: t + 1, receipt: buildBackupReceipt({backup: {durationMs: 2, error: null, status: 'success'}, bundleName: 'second'})}),
+                writeBackupReceipt({filePath, now: t,     receipt: buildBackupReceipt({backup: {durationMs: 3, error: null, status: 'success'}, bundleName: 'third'})})
+            ]);
+
+            const read = await readBackupReceipt({filePath});
+            expect(read.status).toBe('ok');
+            expect(['first', 'second', 'third']).toContain(read.receipt.bundleName);
+            expect(readdirSync(root).filter(e => e.includes('.tmp-'))).toEqual([]);
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+});

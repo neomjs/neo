@@ -13,10 +13,33 @@ import path   from 'path';
 
 export const OFFHOST_SYNC_SCHEMA_VERSION = 1;
 
-const MAX_RECEIPT_BYTES = 64 * 1024,
-      MAX_TAIL_BYTES    = 4 * 1024;
+const MAX_RECEIPT_BYTES     = 64 * 1024,
+      MAX_TAIL_BYTES        = 4 * 1024,
+      STALE_TEMP_HORIZON_MS = 60_000;
 
 const now = () => new Date().toISOString();
+
+/**
+ * Bounds a string to the LAST maxBytes bytes with UTF-8-safe output: partial lead sequences are
+ * dropped until the re-encoded result fits the budget (replacement-char inflation can otherwise
+ * exceed it). Tail-biased because the most recent error context lives at the end.
+ * @param {*} value
+ * @param {Number} maxBytes
+ * @returns {String}
+ */
+export function utf8SafeTail(value, maxBytes) {
+    const text = value == null ? '' : String(value);
+
+    if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text;
+
+    let out = Buffer.from(text, 'utf8').subarray(-maxBytes).toString('utf8');
+
+    while (Buffer.byteLength(out, 'utf8') > maxBytes && out.length > 0) {
+        out = out.slice(1)
+    }
+
+    return out
+}
 
 /**
  * Builds the deployment-global receipt envelope.
@@ -95,8 +118,9 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
     }
     await fs.promises.rename(tempPath, filePath);
 
-    // Stale-temp sweep: only temps OLDER than this write's timestamp — a live writer's current-ms
-    // temp is untouchable. Best-effort, never blocks the receipt.
+    // Stale-temp sweep: only temps older than the staleness HORIZON. A temp younger than the
+    // horizon may belong to a live writer — even one that started before this write — so "older
+    // than this write's start millisecond" is never the staleness criterion. Best-effort only.
     try {
         const prefix = `${path.basename(filePath)}.tmp-`;
         for (const entry of await fs.promises.readdir(path.dirname(filePath))) {
@@ -104,7 +128,7 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
 
             const entryMs = Number(entry.slice(prefix.length).split('-')[1]);
 
-            if (!Number.isFinite(entryMs) || entryMs < now) {
+            if (Number.isFinite(entryMs) && entryMs < now - STALE_TEMP_HORIZON_MS) {
                 await fs.promises.rm(path.join(path.dirname(filePath), entry), {force: true})
             }
         }
@@ -123,20 +147,22 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
 export async function readBackupReceipt({filePath}) {
     let raw;
 
-    // The 64 KiB cap is enforced BEFORE whole-file allocation: a stat precedes the read, so an
-    // oversize artifact is never materialized into memory.
+    // The 64 KiB ceiling is enforced on ONE opened handle: open → fstat → read at most cap bytes
+    // from that handle. A path replacement between stat and read cannot bypass the bound because
+    // the handle pins the file it measured.
     try {
-        const stat = await fs.promises.stat(filePath);
-        if (stat.size > MAX_RECEIPT_BYTES) {
-            return {finishedAt: null, kind: 'oversize', status: 'unreadable'}
+        const handle = await fs.promises.open(filePath, 'r');
+        try {
+            const stat = await handle.stat();
+            if (stat.size > MAX_RECEIPT_BYTES) {
+                return {finishedAt: null, kind: 'oversize', status: 'unreadable'}
+            }
+            const buffer = Buffer.alloc(stat.size);
+            await handle.read(buffer, 0, stat.size, 0);
+            raw = buffer.toString('utf8')
+        } finally {
+            await handle.close()
         }
-    } catch (error) {
-        if (error.code === 'ENOENT') return {status: 'missing'};
-        return {finishedAt: null, kind: 'corrupt', status: 'unreadable'}
-    }
-
-    try {
-        raw = await fs.promises.readFile(filePath, 'utf8')
     } catch (error) {
         if (error.code === 'ENOENT') return {status: 'missing'};
         return {finishedAt: null, kind: 'corrupt', status: 'unreadable'}
@@ -182,7 +208,8 @@ export function validateReceiptShape(parsed) {
     if (typeof backup.durationMs !== 'number') return null;
     if (!(backup.error === null || typeof backup.error === 'string')) return null;
     // Provenance is a basename, never an absolute/host path.
-    if (parsed.bundleName !== null && (typeof parsed.bundleName !== 'string' || parsed.bundleName.includes('/'))) return null;
+    if (parsed.bundleName !== null && (typeof parsed.bundleName !== 'string' ||
+        parsed.bundleName.includes('/') || parsed.bundleName.includes('\\') || /^[A-Za-z]:/.test(parsed.bundleName))) return null;
     if (!(parsed.finishedAt === null || typeof parsed.finishedAt === 'string')) return null;
     if (!(parsed.bundleCompletedAt === null || typeof parsed.bundleCompletedAt === 'string')) return null;
 
@@ -198,7 +225,7 @@ export function validateReceiptShape(parsed) {
 
     // Read-side bounds: a hostile or legacy writer's oversized diagnostics are sanitized at the
     // projection boundary, never projected wholesale.
-    const boundError = backup.error === null ? null : Buffer.from(backup.error, 'utf8').subarray(0, MAX_TAIL_BYTES).toString('utf8');
+    const boundError = backup.error === null ? null : utf8SafeTail(backup.error, MAX_TAIL_BYTES);
 
     return {
         backup           : {durationMs: backup.durationMs, error: boundError, status: backup.status},
@@ -212,7 +239,7 @@ export function validateReceiptShape(parsed) {
             exitCode       : offHostSync.exitCode,
             signal         : offHostSync.signal,
             status         : offHostSync.status,
-            stderrTail     : Buffer.from(offHostSync.stderrTail, 'utf8').subarray(0, MAX_TAIL_BYTES).toString('utf8'),
+            stderrTail     : utf8SafeTail(offHostSync.stderrTail, MAX_TAIL_BYTES),
             terminatedVia  : offHostSync.terminatedVia
         },
         schemaVersion    : OFFHOST_SYNC_SCHEMA_VERSION

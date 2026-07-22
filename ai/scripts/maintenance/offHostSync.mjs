@@ -2,6 +2,7 @@ import {execFile} from 'node:child_process';
 
 import {
     buildBackupReceipt,
+    utf8SafeTail,
     writeBackupReceipt
 } from '../../services/memory-core/helpers/offHostSyncStore.mjs';
 
@@ -131,9 +132,7 @@ export function redactAndBound(text, env, maxBytes = MAX_TAIL_BYTES, allowlist =
         if (value.length > 0) out = out.split(value).join('***')
     }
 
-    return Buffer.byteLength(out, 'utf8') <= maxBytes
-        ? out
-        : Buffer.from(out, 'utf8').subarray(0, maxBytes).toString('utf8')
+    return utf8SafeTail(out, maxBytes)
 }
 
 function substituteArgv(argv, {bundleDir, bundleName}) {
@@ -186,7 +185,10 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
             })
         };
 
-        const child = execFileImpl(
+        let child;
+
+        try {
+            child = execFileImpl(
             config.command,
             args,
             {env: childEnv, shell: false, timeout: config.timeoutMs, killSignal: 'SIGTERM', maxBuffer: 1024 * 1024},
@@ -210,5 +212,10 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
         }, config.timeoutMs + config.killGraceMs);
 
         killTimer.unref?.()
+        } catch (spawnError) {
+            // A synchronous spawn failure means no child ever started — the termination field is
+            // null, not an invented signal.
+            done({status: 'failed', error: spawnError, terminatedVia: null})
+        }
     })
 }

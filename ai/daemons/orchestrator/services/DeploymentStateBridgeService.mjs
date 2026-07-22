@@ -206,8 +206,7 @@ export class DeploymentStateBridgeService extends Base {
      * is last-known, never refreshed-on-read.
      * @returns {Promise<Object|null>}
      */
-    async collectMaintenanceSnapshot() {
-        const receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json');
+    async collectMaintenanceSnapshot({receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json')} = {}) {
 
         try {
             const outcome = await readBackupReceipt({filePath: receiptPath});

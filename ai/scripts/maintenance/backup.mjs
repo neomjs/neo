@@ -569,23 +569,32 @@ async function copyJsonlSource(source, destDir, logger=console) {
  *
  * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
  */
-export async function runBackupWithOffHostSync() {
+export async function runBackupWithOffHostSync({
+    runBackupImpl  = runBackup,
+    withLeaseImpl  = withHeavyMaintenanceLease,
+    backupRoot     = null,
+    syncConfig     = undefined
+} = {}) {
     // The sync + BOTH receipts live INSIDE the self-acquired lease: success receipts and the
     // truthful not-run failure receipt are persisted before the lease releases.
-    return withHeavyMaintenanceLease(async () => {
+    return withLeaseImpl(async () => {
         const backupStartedAt = Date.now();
+
+        // Validation precedes ANY subtree read: a malformed subtree never reaches the allowlist
+        // consumer (and never throws at the consumer). `syncConfig` is the test seam for the
+        // malformed-config branches; production callers leave it undefined to read the leaf.
+        const
+            validation  = validateOffHostSyncConfig(syncConfig === undefined ? AiConfig.maintenance.backup.offHostSync : syncConfig),
+            allowlist   = validation.value?.envAllowlist ?? [],
+            receiptPath = path.join(backupRoot ?? AiConfig.backupPath, 'last-backup-receipt.json');
 
         let result, backupError = null;
 
         try {
-            result = await runBackup()
+            result = await runBackupImpl()
         } catch (error) {
             backupError = error
         }
-
-        const
-            allowlist   = AiConfig.maintenance.backup.offHostSync.envAllowlist,
-            receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json');
 
         if (backupError) {
             // Only a backup/lease failure reaches this branch: the truthful not-run receipt, written
@@ -612,7 +621,6 @@ export async function runBackupWithOffHostSync() {
         const
             {bundleRoot, completedAt} = result,
             bundleName                = path.basename(bundleRoot),
-            validation                = validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync),
             backupDurationMs          = Date.now() - backupStartedAt;
 
         let syncOutcome = null,
