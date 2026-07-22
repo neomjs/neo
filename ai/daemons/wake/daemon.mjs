@@ -71,6 +71,7 @@ import {
 import {
     computeFlushDelayMs,
     computeFlushHoldMs,
+    isMessageWakeFresh,
     resolveCoalesceWindowMs
 } from './coalescePolicy.mjs';
 import {
@@ -531,7 +532,15 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     const {payload, logId} = result;
     switch (result.type) {
         case 'sent_to_me':
-            return {type: 'message', messageId: payload.messageId, from: payload.from, subject: payload.subject, priority: payload.priority, logId};
+            return {
+                type     : 'message',
+                messageId: payload.messageId,
+                from     : payload.from,
+                subject  : payload.subject,
+                priority : payload.priority,
+                sentAt   : payload.sentAt,
+                logId
+            };
         case 'task_state_changed':
             return {
                 type               : 'task',
@@ -779,6 +788,62 @@ function isMessageReadFor(db, messageId, recipient) {
     return node ? node.readAt != null : false;
 }
 
+/**
+ * @summary Partitions message events by canonical mailbox age at the delivery boundary.
+ *
+ * The event's `sentAt` comes from the immutable MESSAGE node through the shared `SENT_TO_ME`
+ * evaluator. GraphLog position is intentionally not consulted: projection replay can append a new
+ * position for an old message. Suppressed events are returned to the caller so it can still advance
+ * durable consumption state without exposing their subjects or mutating mailbox read state.
+ *
+ * @param {Object[]} messages Coalesced message wake events.
+ * @param {Number}   [now=Date.now()] Current epoch ms, shared across one partition pass.
+ * @returns {{eligible: Object[], suppressed: Object[], oldestAgeMs: Number|null}}
+ * @private
+ */
+function partitionMessageWakesByFreshness(messages, now = Date.now()) {
+    const eligible    = [], suppressed = [];
+    let   oldestAgeMs = null;
+
+    for (const message of messages) {
+        if (isMessageWakeFresh({sentAt: message.sentAt, now})) {
+            eligible.push(message);
+            continue;
+        }
+
+        suppressed.push(message);
+
+        const sentAtMs = typeof message.sentAt === 'string' ? Date.parse(message.sentAt) : NaN,
+              ageMs    = now - sentAtMs;
+
+        if (Number.isFinite(ageMs) && ageMs >= 0) {
+            oldestAgeMs = Math.max(oldestAgeMs ?? 0, ageMs);
+        }
+    }
+
+    return {eligible, suppressed, oldestAgeMs}
+}
+
+/**
+ * @summary Emits bounded stale-wake observability without copying mailbox content into daemon logs.
+ * @param {Object} opts
+ * @param {String} opts.identity Target agent identity.
+ * @param {String} opts.subId Subscription id fallback.
+ * @param {String} opts.phase Delivery phase (`initial` or `retry`).
+ * @param {Object[]} opts.suppressed Suppressed message events.
+ * @param {Number|null} opts.oldestAgeMs Oldest parseable non-future age.
+ * @returns {void}
+ * @private
+ */
+function logSuppressedMessageWakes({identity, subId, phase, suppressed, oldestAgeMs}) {
+    if (suppressed.length === 0) return;
+
+    writeLog('INFO',
+        `[Wake Daemon] Suppressed ${suppressed.length} stale/invalid message wake event(s) for ` +
+        `${identity || subId} at ${phase} delivery; oldestAgeMs=${oldestAgeMs ?? 'unknown'}.`
+    );
+}
+
 // WAKE_LANE_DIRECTIVE — the standing lifecycle-first directive, appended in buildWakeDigest ONLY to
 // pure-heartbeat digests (the idle-watchdog nudge; message / task / permission wakes omit it — they
 // already carry actionable content). Its single canonical, testable authority is `./wakeLaneDirective.mjs`
@@ -881,6 +946,19 @@ async function flushSubscription(subId) {
           duplicateMessages = messageClaims.duplicates;
     messages = messageClaims.claimed;
 
+    // Canonical mailbox-age gate: stable-id claims happen first so an old replay is durably consumed,
+    // then only still-live messages may affect digest count, preview, or priority. Mailbox state stays
+    // untouched; old unread material remains available to explicit inbox recovery.
+    const messageFreshness = partitionMessageWakesByFreshness(messages);
+    messages = messageFreshness.eligible;
+    logSuppressedMessageWakes({
+        identity,
+        subId,
+        phase      : 'initial',
+        suppressed : messageFreshness.suppressed,
+        oldestAgeMs: messageFreshness.oldestAgeMs
+    });
+
     // Mixed-wake heartbeat suppression (digest content only): a heartbeat is the idle-watchdog nudge,
     // but when it coalesces with an actionable wake (message / task / permission) the agent is already
     // being woken — so the redundant heartbeat is dropped FROM THE DIGEST. A heartbeat-only queue still
@@ -893,7 +971,7 @@ async function flushSubscription(subId) {
         heartbeats = [];
     }
 
-    const consumedMessages = [...messages, ...duplicateMessages];
+    const consumedMessages = [...messages, ...messageFreshness.suppressed, ...duplicateMessages];
 
     // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
     // A stable-id duplicate may carry a newer GraphLog row, so consume that position before returning.
@@ -2177,12 +2255,23 @@ async function attemptDeliveryRetries() {
         const snapshot = entry.events;
         entry.events   = {messages: [], tasks: [], permissions: [], heartbeats: []};
 
-        // Re-apply the read-state reconcile the initial digest used (see `flushSubscription`): a message
-        // the recipient read between the failed delivery and this retry must NOT be re-delivered. The
-        // watermark filter is deliberately NOT re-applied — it advanced past these events on the first
-        // attempt, and the retry's whole job is to re-deliver those below-watermark events; only the
-        // read-state axis is reconciled here.
-        const liveMessages = snapshot.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity));
+        // Re-apply BOTH delivery-time eligibility axes used by the initial digest: a message read
+        // between attempts must not re-deliver, and a message that crosses the canonical age horizon
+        // while queued must not regain urgency through retry. The watermark is deliberately NOT
+        // re-applied — it advanced past these events on the first attempt, and retry exists to deliver
+        // the still-eligible below-watermark snapshot.
+        const attemptNow       = Date.now(),
+              unreadMessages   = snapshot.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity)),
+              messageFreshness = partitionMessageWakesByFreshness(unreadMessages, attemptNow),
+              liveMessages     = messageFreshness.eligible;
+
+        logSuppressedMessageWakes({
+            identity   : entry.identity,
+            subId,
+            phase      : 'retry',
+            suppressed : messageFreshness.suppressed,
+            oldestAgeMs: messageFreshness.oldestAgeMs
+        });
 
         if (liveMessages.length === 0 && snapshot.tasks.length === 0 &&
             snapshot.permissions.length === 0 && snapshot.heartbeats.length === 0
@@ -2190,9 +2279,10 @@ async function attemptDeliveryRetries() {
             // The swap above is synchronous, so the live entry cannot have gained events yet —
             // the entry retires whole.
             pendingDeliveryRetries.delete(subId);
-            writeLog('INFO',
-                `[Wake Daemon] Retry for ${subId} dropped: all queued messages were read before re-delivery.`
-            );
+            const dropReason = unreadMessages.length === 0
+                ? 'all queued messages were read before re-delivery'
+                : 'all queued messages became stale or invalid before re-delivery';
+            writeLog('INFO', `[Wake Daemon] Retry for ${subId} dropped: ${dropReason}.`);
             continue;
         }
 
@@ -2216,7 +2306,7 @@ async function attemptDeliveryRetries() {
             // Restore the undelivered snapshot INTO the live entry — union with anything merged
             // during the await (the sets are disjoint by watermark, so concat is loss-free).
             entry.events = {
-                messages   : [...snapshot.messages,    ...entry.events.messages],
+                messages   : [...liveMessages,         ...entry.events.messages],
                 tasks      : [...snapshot.tasks,       ...entry.events.tasks],
                 permissions: [...snapshot.permissions, ...entry.events.permissions],
                 heartbeats : [...snapshot.heartbeats,  ...entry.events.heartbeats]
