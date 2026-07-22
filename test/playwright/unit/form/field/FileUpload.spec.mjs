@@ -34,6 +34,26 @@ test.describe('FileUpload documented-optional URL configs', () => {
         instance.destroy()
     });
 
+    test('createUrl fails fast only when a present token has a nullish value', () => {
+        let instance = Neo.create(FileUpload, {
+            appName  : 'TestApp',
+            uploadUrl: '/upload'
+        });
+
+        expect(() => instance.createUrl('/documents/{documentId}', {documentId: null}))
+            .toThrow('Cannot substitute nullish URL parameter: documentId');
+        expect(() => instance.createUrl('/documents/{documentId}', {documentId: undefined}))
+            .toThrow('Cannot substitute nullish URL parameter: documentId');
+
+        expect(instance.createUrl('/documents/static', {documentId: null})).toBe('/documents/static');
+        expect(instance.createUrl('/documents/{otherId}', {documentId: undefined})).toBe('/documents/{otherId}');
+        expect(instance.createUrl('/documents/{documentId}', {documentId: 0})).toBe('/documents/0');
+        expect(instance.createUrl('/documents/{documentId}', {documentId: false})).toBe('/documents/false');
+        expect(instance.createUrl('/documents/{documentId}', {documentId: ''})).toBe('/documents/');
+
+        instance.destroy()
+    });
+
     test('an upload-only field reaches downloadable on success without throwing', () => {
         let instance = Neo.create(FileUpload, {
             appName  : 'TestApp',
@@ -54,22 +74,40 @@ test.describe('FileUpload documented-optional URL configs', () => {
         instance.destroy()
     });
 
-    test('configured URLs keep token substitution and the function form', () => {
-        let calls    = [],
-            instance = Neo.create(FileUpload, {
-                appName          : 'TestApp',
-                documentDeleteUrl: '/documents/{documentId}',
-                documentStatusUrl: () => '/status/fn',
-                uploadUrl        : '/upload'
-            });
+    test('configured URLs inherit fail-fast substitution while token-free and function forms remain valid', () => {
+        let instance = Neo.create(FileUpload, {
+            appName          : 'TestApp',
+            documentDeleteUrl: '/documents/{documentId}',
+            documentStatusUrl: '/status/{documentId}',
+            downloadUrl      : '/download/{documentId}',
+            uploadUrl        : '/upload'
+        });
 
         instance.documentId = 7;
 
         expect(instance.documentDeleteUrl).toBe('/documents/7');
-        expect(instance.documentStatusUrl).toBe('/status/fn');
+        expect(instance.documentStatusUrl).toBe('/status/7');
+        expect(instance.downloadUrl).toBe('/download/7');
 
         instance.documentId = null;
-        expect(instance.documentDeleteUrl).toBe('/documents/null');
+
+        expect(() => instance.documentDeleteUrl).toThrow('Cannot substitute nullish URL parameter: documentId');
+        expect(() => instance.documentStatusUrl).toThrow('Cannot substitute nullish URL parameter: documentId');
+        expect(() => instance.downloadUrl).toThrow('Cannot substitute nullish URL parameter: documentId');
+
+        instance.destroy();
+
+        instance = Neo.create(FileUpload, {
+            appName          : 'TestApp',
+            documentDeleteUrl: '/documents/static',
+            documentStatusUrl: () => '/status/fn',
+            downloadUrl      : '/download/static',
+            uploadUrl        : '/upload'
+        });
+
+        expect(instance.documentDeleteUrl).toBe('/documents/static');
+        expect(instance.documentStatusUrl).toBe('/status/fn');
+        expect(instance.downloadUrl).toBe('/download/static');
 
         instance.destroy()
     });
