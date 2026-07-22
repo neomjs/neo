@@ -91,39 +91,88 @@ export async function getRemCycleStaleness({remRunStateDir, now, readRecent = re
  * Latch: an alarm fires only on the transition into stalled (`stalled && !alreadyAlarmed`); once
  * latched it stays quiet on subsequent stalled checks; a healthy check clears the latch.
  *
+ * **Down-time exclusion:** `stalenessMs` is wall-clock age and therefore counts intervals when the
+ * orchestrator was not running at all (host off, laptop lid closed, process intentionally stopped)
+ * — time in which no cycle could have run by design. When `uptimeMs` is provided, the stall clock
+ * is the *effective* staleness: `min(stalenessMs, uptimeMs)` for a recorded cycle, or `uptimeMs`
+ * when no cycle exists. A deployment that was off for 6.5h and booted 5 minutes ago evaluates as
+ * 5 minutes stale — digest-resume, not a stall — while a genuinely starved consolidation still
+ * alarms once the *process* has been up past the threshold without a cycle. `downTimeSuppressed`
+ * marks the exclusion so the caller can log the resume note; callers that omit `uptimeMs` (default
+ * `Infinity`) get the legacy wall-clock behavior unchanged.
+ *
+ * **Recovery baseline (drain verification):** a stall onset or a downtime-suppressed reading opens
+ * a recovery *phase*, not a healthy state. The evaluator persists `recoveryBaseline` (the backlog
+ * count at phase onset) inside `nextAlarmState`, and only a strictly DECREASING backlog completes
+ * the phase and clears the latch — a merely non-stalled reading with an unchanged backlog holds
+ * the state, so "the backlog actually drained" is observed, never assumed. `recoveryStarted`
+ * marks the transition into the phase (the caller emits its resume note exactly once, on that
+ * transition, never on every check).
+ *
  * @param {Object} options
  * @param {Boolean} options.hasCycle Whether a REM cycle has been recorded (from {@link getRemCycleStaleness}).
  * @param {Boolean} [options.readFault] When true, the run-state read failed — fail soft to no alarm.
  * @param {Number} options.stalenessMs Age since the last successful cycle.
  * @param {Number} options.undigestedCount Current undigested-session backlog (the work-pending guard).
  * @param {Number} options.thresholdMs Stall threshold; `<= 0` disables alarming (never stalled).
- * @param {Object} [options.alarmState] Prior latch state `{alarmed, stalledSince}` from task state.
- * @returns {{stalled: Boolean, shouldAlarm: Boolean, nextAlarmState: {alarmed: Boolean, stalledSince: (Number|null)}}}
+ * @param {Number} [options.uptimeMs] Orchestrator process uptime; caps the stall clock so host-offline
+ *   intervals cannot masquerade as consolidation starvation. Default `Infinity` (legacy behavior).
+ * @param {Object} [options.alarmState] Prior latch state `{alarmed, stalledSince, recoveryBaseline}` from task state.
+ * @returns {{stalled: Boolean, shouldAlarm: Boolean, downTimeSuppressed: Boolean, drainObserved: Boolean,
+ *   recoveryStarted: Boolean, effectiveStalenessMs: Number,
+ *   nextAlarmState: {alarmed: Boolean, stalledSince: (Number|null), recoveryBaseline: (Number|null)}}}
  */
-export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessMs, undigestedCount, thresholdMs, alarmState} = {}) {
-    const alreadyAlarmed = !!alarmState?.alarmed;
+export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessMs, undigestedCount, thresholdMs, uptimeMs = Infinity, alarmState} = {}) {
+    const alreadyAlarmed = !!alarmState?.alarmed,
+          baseline       = Number.isFinite(alarmState?.recoveryBaseline) ? alarmState.recoveryBaseline : null;
 
     // Read fault → inconclusive; fail soft to no alarm and PRESERVE the latch (we neither observed a
     // healthy cycle to clear it, nor confirmed a stall to raise one).
     if (readFault) {
-        return {stalled: false, shouldAlarm: false, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null}};
+        return {stalled: false, shouldAlarm: false, downTimeSuppressed: false, drainObserved: false, recoveryStarted: false, effectiveStalenessMs: stalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null, recoveryBaseline: baseline}};
     }
 
     const hasBacklog = Number(undigestedCount) > 0;
-    // No recorded cycle is maximally stale (the `recentCycles: []` symptom); otherwise compare ages.
-    const cycleStale = !hasCycle || stalenessMs > thresholdMs;
+
+    // Down-time exclusion: no cycle could have run while the process was down, so the stall clock is
+    // the effective (uptime-capped) staleness. A recorded cycle older than the boot evaluates as the
+    // uptime; no recorded cycle at all evaluates as the uptime directly.
+    const effectiveStalenessMs = hasCycle ? Math.min(stalenessMs, uptimeMs) : uptimeMs,
+          downTimeSuppressed   = hasCycle && stalenessMs > uptimeMs,
+          cycleStale           = effectiveStalenessMs > thresholdMs;
+
     // Backlog guard is load-bearing: no undigested work → nothing to consolidate → never a stall.
-    const stalled    = thresholdMs > 0 && hasBacklog && cycleStale;
+    const stalled = thresholdMs > 0 && hasBacklog && cycleStale;
+
+    // Recovery onset is a genuinely SUPPRESSED stall — wall-clock stale past the threshold with the
+    // backlog present, held back only by the young process. A pre-boot cycle with no backlog or
+    // with sub-threshold wall age opens no phase (no permanent baseline-0 latch, no noise phase).
+    const suppressedStall = thresholdMs > 0 && hasBacklog && hasCycle && stalenessMs > thresholdMs && effectiveStalenessMs <= thresholdMs;
 
     if (!stalled) {
-        // Healthy / nothing-to-do check: clear the latch so a future stall re-alarms.
-        return {stalled: false, shouldAlarm: false, nextAlarmState: {alarmed: false, stalledSince: null}};
+        // Recovery phase open? Only a strictly decreasing backlog completes it — a non-stalled
+        // reading with an undrained backlog holds the latch (drain observed, never assumed).
+        if (baseline !== null) {
+            if (undigestedCount < baseline) {
+                return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: true, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: null}};
+            }
+            return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null, recoveryBaseline: baseline}};
+        }
+
+        // First genuinely-suppressed stall opens the recovery phase: resume note fires exactly
+        // once (on this transition), and the baseline makes the drain observable across checks.
+        if (suppressedStall) {
+            return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: true, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: undigestedCount}};
+        }
+
+        // Genuinely healthy / nothing-to-do check: clear the latch so a future stall re-alarms.
+        return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: null}};
     }
 
     const shouldAlarm  = !alreadyAlarmed;
     const stalledSince = alreadyAlarmed ? (alarmState?.stalledSince ?? null) : null;
 
-    return {stalled: true, shouldAlarm, nextAlarmState: {alarmed: true, stalledSince}};
+    return {stalled: true, shouldAlarm, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: true, stalledSince, recoveryBaseline: baseline ?? undigestedCount}};
 }
 
 /**
