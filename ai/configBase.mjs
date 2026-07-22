@@ -232,7 +232,9 @@ class ConfigBase extends ConfigProvider {
                     }]
                 }),
                 // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
-                patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
+                patCacheTtlSeconds     : leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
+                // One wall-clock deadline for each cache-miss PAT validation sequence.
+                patValidationTimeoutMs: leaf(5000, 'NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS', 'number'),
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
                 // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.

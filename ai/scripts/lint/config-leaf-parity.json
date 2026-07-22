@@ -14,6 +14,7 @@
         "auth.localBearerToken",
         "auth.mode",
         "auth.patCacheTtlSeconds",
+        "auth.patValidationTimeoutMs",
         "auth.port",
         "auth.realm",
         "auth.trustProxyIdentity",
