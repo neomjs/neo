@@ -70,7 +70,7 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
         });
         expect(r.stalled).toBe(false);
         expect(r.shouldAlarm).toBe(false);
-        expect(r.nextAlarmState).toEqual({alarmed: true, stalledSince: 1});
+        expect(r.nextAlarmState).toEqual({alarmed: true, stalledSince: 1, recoveryBaseline: null});
     });
 
     test('one-shot latch: no re-alarm while already alarmed', () => {
@@ -88,7 +88,7 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
             alarmState: {alarmed: true, stalledSince: 1}
         });
         expect(r.stalled).toBe(false);
-        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null});
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null});
     });
 
     test('a recent cycle below the threshold is healthy (not stalled)', () => {
@@ -103,7 +103,7 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
     });
 
     // ── down-time exclusion (uptimeMs caps the stall clock) ───────────────────────────────────────
-    test('host-offline gap: a cycle older than the process uptime is digest-resume, not a stall', () => {
+    test('host-offline gap: a cycle older than the process uptime opens a recovery phase, not an alarm', () => {
         const r = evaluateConsolidationStallAlarm({
             hasCycle  : true, stalenessMs: 23_400_000, undigestedCount: 22, thresholdMs: 21_600_000,
             uptimeMs  : 300_000,
@@ -111,8 +111,40 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
         });
         expect(r.stalled).toBe(false);
         expect(r.downTimeSuppressed).toBe(true);
+        expect(r.recoveryStarted).toBe(true);
         expect(r.effectiveStalenessMs).toBe(300_000);
-        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null}); // latch still clears
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: 22});
+    });
+
+    test('recovery holds on an undrained backlog: no note repeat, no latch clear', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle  : true, stalenessMs: 23_400_000, undigestedCount: 22, thresholdMs: 21_600_000,
+            uptimeMs  : 300_000,
+            alarmState: {alarmed: false, stalledSince: null, recoveryBaseline: 22}
+        });
+        expect(r.stalled).toBe(false);
+        expect(r.recoveryStarted).toBe(false); // note already fired at phase onset — never repeated
+        expect(r.drainObserved).toBe(false);
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: 22});
+    });
+
+    test('recovery completes only when the backlog strictly decreases (drain observed)', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle  : true, stalenessMs: 23_400_000, undigestedCount: 7, thresholdMs: 21_600_000,
+            uptimeMs  : 300_000,
+            alarmState: {alarmed: false, stalledSince: null, recoveryBaseline: 22}
+        });
+        expect(r.stalled).toBe(false);
+        expect(r.drainObserved).toBe(true);
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null});
+    });
+
+    test('stall onset records the backlog baseline for the recovery phase', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: true, stalenessMs: 10_000, undigestedCount: 5, thresholdMs: 6_000
+        });
+        expect(r.stalled).toBe(true);
+        expect(r.nextAlarmState.recoveryBaseline).toBe(5);
     });
 
     test('alive-but-starved still alarms: uptime past the threshold with no fresh cycle', () => {
@@ -206,8 +238,12 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
 
     function makeRuntime(overrides = {}) {
         return {
-            remConsolidationWatchdogRunStateDir : remRunStateDir,
-            remConsolidationWatchdogThresholdMs : 6 * HOUR_MS,
+            remConsolidationWatchdogRunStateDir: remRunStateDir,
+            remConsolidationWatchdogThresholdMs: 6 * HOUR_MS,
+            // Pin the process-age dimension: stall fixtures need an uptime past the threshold so the
+            // verdict never depends on ambient test-worker uptime. The digest-resume witness below
+            // overrides this with a young process age.
+            remConsolidationWatchdogUptimeMs    : 8 * HOUR_MS,
             remConsolidationWatchdogAlarmEnabled: true,
             writeLog                            : () => {},
             ...overrides
@@ -294,6 +330,29 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
             // ...and the alarm still fires regardless (advisory-only classification).
             expect(alarmCalls.length).toBeGreaterThanOrEqual(1);
         }
+    });
+
+    test('host-offline gap at pipeline level: young process + stale cycle = digest-resume, never the alarm', async () => {
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const logLines         = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
+        const taskStateService = makeTaskStateService();
+        const now              = Date.now();
+
+        await appendRemRunState({runId: 'stale', completedAt: now - 7 * HOUR_MS}, {dir: remRunStateDir});
+
+        const runtime = makeRuntime({
+            remConsolidationWatchdogUptimeMs: 5 * 60 * 1000, // booted 5 minutes ago after an overnight off
+            writeLog                        : (level, line) => logLines.push(`${level}:${line}`)
+        });
+
+        await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
+
+        expect(outcomes.some(o => o.status === 'failed')).toBe(false);
+        expect(outcomes.some(o => o.status === 'completed')).toBe(true);
+        expect(alarmCalls).toHaveLength(0);
+        expect(logLines.some(line => line.startsWith('INFO:') && line.includes('digest-resume'))).toBe(true)
     });
 
     test('fires the active alarm once on stall-onset and latches subsequent stalled checks', async () => {

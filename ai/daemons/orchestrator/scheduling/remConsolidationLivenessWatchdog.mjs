@@ -101,6 +101,14 @@ export async function getRemCycleStaleness({remRunStateDir, now, readRecent = re
  * marks the exclusion so the caller can log the resume note; callers that omit `uptimeMs` (default
  * `Infinity`) get the legacy wall-clock behavior unchanged.
  *
+ * **Recovery baseline (drain verification):** a stall onset or a downtime-suppressed reading opens
+ * a recovery *phase*, not a healthy state. The evaluator persists `recoveryBaseline` (the backlog
+ * count at phase onset) inside `nextAlarmState`, and only a strictly DECREASING backlog completes
+ * the phase and clears the latch — a merely non-stalled reading with an unchanged backlog holds
+ * the state, so "the backlog actually drained" is observed, never assumed. `recoveryStarted`
+ * marks the transition into the phase (the caller emits its resume note exactly once, on that
+ * transition, never on every check).
+ *
  * @param {Object} options
  * @param {Boolean} options.hasCycle Whether a REM cycle has been recorded (from {@link getRemCycleStaleness}).
  * @param {Boolean} [options.readFault] When true, the run-state read failed — fail soft to no alarm.
@@ -109,17 +117,19 @@ export async function getRemCycleStaleness({remRunStateDir, now, readRecent = re
  * @param {Number} options.thresholdMs Stall threshold; `<= 0` disables alarming (never stalled).
  * @param {Number} [options.uptimeMs] Orchestrator process uptime; caps the stall clock so host-offline
  *   intervals cannot masquerade as consolidation starvation. Default `Infinity` (legacy behavior).
- * @param {Object} [options.alarmState] Prior latch state `{alarmed, stalledSince}` from task state.
- * @returns {{stalled: Boolean, shouldAlarm: Boolean, downTimeSuppressed: Boolean,
- *   effectiveStalenessMs: Number, nextAlarmState: {alarmed: Boolean, stalledSince: (Number|null)}}}
+ * @param {Object} [options.alarmState] Prior latch state `{alarmed, stalledSince, recoveryBaseline}` from task state.
+ * @returns {{stalled: Boolean, shouldAlarm: Boolean, downTimeSuppressed: Boolean, drainObserved: Boolean,
+ *   recoveryStarted: Boolean, effectiveStalenessMs: Number,
+ *   nextAlarmState: {alarmed: Boolean, stalledSince: (Number|null), recoveryBaseline: (Number|null)}}}
  */
 export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessMs, undigestedCount, thresholdMs, uptimeMs = Infinity, alarmState} = {}) {
-    const alreadyAlarmed = !!alarmState?.alarmed;
+    const alreadyAlarmed = !!alarmState?.alarmed,
+          baseline       = Number.isFinite(alarmState?.recoveryBaseline) ? alarmState.recoveryBaseline : null;
 
     // Read fault → inconclusive; fail soft to no alarm and PRESERVE the latch (we neither observed a
     // healthy cycle to clear it, nor confirmed a stall to raise one).
     if (readFault) {
-        return {stalled: false, shouldAlarm: false, downTimeSuppressed: false, effectiveStalenessMs: stalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null}};
+        return {stalled: false, shouldAlarm: false, downTimeSuppressed: false, drainObserved: false, recoveryStarted: false, effectiveStalenessMs: stalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null, recoveryBaseline: baseline}};
     }
 
     const hasBacklog = Number(undigestedCount) > 0;
@@ -135,14 +145,29 @@ export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessM
     const stalled = thresholdMs > 0 && hasBacklog && cycleStale;
 
     if (!stalled) {
-        // Healthy / nothing-to-do check: clear the latch so a future stall re-alarms.
-        return {stalled: false, shouldAlarm: false, downTimeSuppressed, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null}};
+        // Recovery phase open? Only a strictly decreasing backlog completes it — a non-stalled
+        // reading with an undrained backlog holds the latch (drain observed, never assumed).
+        if (baseline !== null) {
+            if (undigestedCount < baseline) {
+                return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: true, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: null}};
+            }
+            return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null, recoveryBaseline: baseline}};
+        }
+
+        // First downtime-suppressed reading opens the recovery phase: resume note fires exactly
+        // once (on this transition), and the baseline makes the drain observable across checks.
+        if (downTimeSuppressed) {
+            return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: true, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: undigestedCount}};
+        }
+
+        // Genuinely healthy / nothing-to-do check: clear the latch so a future stall re-alarms.
+        return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: null}};
     }
 
     const shouldAlarm  = !alreadyAlarmed;
     const stalledSince = alreadyAlarmed ? (alarmState?.stalledSince ?? null) : null;
 
-    return {stalled: true, shouldAlarm, downTimeSuppressed, effectiveStalenessMs, nextAlarmState: {alarmed: true, stalledSince}};
+    return {stalled: true, shouldAlarm, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: true, stalledSince, recoveryBaseline: baseline ?? undigestedCount}};
 }
 
 /**
