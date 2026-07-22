@@ -24,6 +24,14 @@ import {
 } from '../../services.mjs';
 
 import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {
+    buildBackupReceipt,
+    buildSyncChildEnv,
+    redactAndBound,
+    runOffHostSync,
+    validateOffHostSyncConfig,
+    writeBackupReceipt
+} from './offHostSync.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -104,7 +112,6 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const DEFAULT_CONCEPTS_DIR      = path.join(PROJECT_ROOT, '.neo-ai-data', 'concepts');
 const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datasets', 'rlaif', 'trajectories.jsonl');
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
-const DEFAULT_BACKUP_ROOT       = path.join(PROJECT_ROOT, '.neo-ai-data', 'backups');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
 
 /**
@@ -158,8 +165,8 @@ export async function runBackup({
     sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
     logger                 = console
 } = {}) {
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const resolvedRoot = bundleRoot ?? path.join(DEFAULT_BACKUP_ROOT, `backup-${timestamp}`);
+    const timestamp    = new Date().toISOString().replace(/:/g, '-');
+    const resolvedRoot = bundleRoot ?? path.join(AiConfig.backupPath, `backup-${timestamp}`);
 
     const layout = {
         kb          : path.join(resolvedRoot, 'kb'),
@@ -209,10 +216,12 @@ export async function runBackup({
     subsystems.mailbox = await copyJsonlSource(sentToCullSourceFile, layout.mailbox, logger);
 
     logger.log('[7/7] Applying retention sweep...');
-    await loadTopLevelAiConfig();
     // Retention comes from Tier-1 AI maintenance policy; missing keys fail loud
-    // at the direct resolved-leaf read site.
-    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, resolveBackupRetention());
+    // at the direct resolved-leaf read site. Bundle root, retention sweep, receipt, and
+    // snapshot-root all resolve from the same `AiConfig.backupPath` leaf (the CLI wrapper
+    // loads the gitignored overlay before this call so the local overlay is honored too).
+    await loadTopLevelAiConfig();
+    await cleanOldBackups(AiConfig.backupPath, logger, resolveBackupRetention());
 
     logger.log('Verifying bundle integrity (row-count parity)...');
     const integrity    = await verifyBundleIntegrity(layout, subsystems);
@@ -548,15 +557,135 @@ async function copyJsonlSource(source, destDir, logger=console) {
     return {copied: 1};
 }
 
+/**
+ * The lease-owning orchestration path: exported `runBackup()` stays the pure local
+ * bundle/retention primitive; this wrapper owns the configured off-host sync step and the
+ * deployment-global receipt. Direct module callers of `runBackup()` never fire the configured
+ * command and never overwrite the global receipt.
+ *
+ * Lease semantics: the sync lifetime extends the exclusive-heavy backup lease; the lease remains
+ * held through the bounded-size receipt fsync/rename and releases afterward (no exact wall-clock
+ * bound — local filesystem completion is not a hard real-time guarantee).
+ *
+ * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
+ */
+export async function runBackupWithOffHostSync({
+    runBackupImpl  = runBackup,
+    withLeaseImpl  = null,
+    backupRoot     = null,
+    syncConfig     = undefined
+} = {}) {
+    // The sync + BOTH receipts live INSIDE the self-acquired lease: success receipts and the
+    // truthful not-run failure receipt are persisted before the lease releases.
+    return (withLeaseImpl ?? withHeavyMaintenanceLease)(async () => {
+        const backupStartedAt = Date.now();
+
+        // Validation precedes ANY subtree read: a malformed subtree never reaches the allowlist
+        // consumer (and never throws at the consumer). `syncConfig` is the test seam for the
+        // malformed-config branches; production callers leave it undefined to read the leaf.
+        const
+            validation  = validateOffHostSyncConfig(syncConfig === undefined ? AiConfig.maintenance.backup.offHostSync : syncConfig),
+            allowlist   = validation.value?.envAllowlist ?? [],
+            receiptPath = path.join(backupRoot ?? AiConfig.backupPath, 'last-backup-receipt.json');
+
+        let result, backupError = null;
+
+        try {
+            result = await runBackupImpl()
+        } catch (error) {
+            backupError = error
+        }
+
+        if (backupError) {
+            // Only a backup/lease failure reaches this branch: the truthful not-run receipt, written
+            // while the lease is still held. A receipt write failure never masks the backup failure.
+            await writeBackupReceipt({
+                filePath: receiptPath,
+                receipt : buildBackupReceipt({
+                    backup: {
+                        durationMs: Date.now() - backupStartedAt,
+                        error     : redactAndBound(backupError?.stack ?? backupError?.message ?? String(backupError), buildSyncChildEnv(allowlist), undefined, allowlist),
+                        status    : 'failed'
+                    },
+                    bundleCompletedAt: null,
+                    bundleName       : null,
+                    syncStatus       : 'not-run-backup-failed'
+                })
+            }).catch(receiptError => {
+                console.warn(`[Backup] failed to write the failure receipt: ${receiptError.message}`)
+            });
+
+            throw backupError
+        }
+
+        const
+            {bundleRoot, completedAt} = result,
+            bundleName                = path.basename(bundleRoot),
+            backupDurationMs          = Date.now() - backupStartedAt;
+
+        let syncOutcome = null,
+            syncStatus  = 'disabled';
+
+        if (validation.error) {
+            syncStatus = 'validation-failed';
+            console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
+        } else if (validation.enabled) {
+            try {
+                syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value})
+            } catch (syncError) {
+                // An unexpected spawn/config error is a SYNC outcome — the completed local bundle
+                // never becomes backup.status: 'failed' because the hook broke.
+                syncOutcome = {
+                    completionScope: 'direct-child',
+                    descendants    : 'unknown',
+                    durationMs     : null,
+                    exitCode       : null,
+                    signal         : null,
+                    status         : 'failed',
+                    stderrTail     : redactAndBound(syncError?.message ?? String(syncError), buildSyncChildEnv(allowlist), undefined, allowlist),
+                    terminatedVia  : 'exit'
+                }
+            }
+
+            if (syncOutcome.status !== 'success') {
+                console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
+            }
+        }
+
+        try {
+            await writeBackupReceipt({
+                filePath: receiptPath,
+                receipt : buildBackupReceipt({
+                    backup: {
+                        durationMs: backupDurationMs,
+                        error     : null,
+                        status    : 'success'
+                    },
+                    bundleCompletedAt: completedAt,
+                    bundleName,
+                    offHostSync      : syncOutcome,
+                    syncStatus
+                })
+            });
+        } catch (receiptError) {
+            // A receipt write failure degrades observability, never the successful backup's truth.
+            console.warn(`[Backup] failed to write the receipt after a successful backup: ${receiptError.message}`)
+        }
+
+        return result
+    }, {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}});
+    // Held: no backup ran — no receipt. Completed: sync + receipt already ran inside the lease.
+}
+
 // Auto-run under the shared heavy-maintenance lease so this CLI cannot collide with the
 // orchestrator's heavy tasks or with another manual graph-heavy script. The exported
 // `runBackup` function is left lease-free so test harnesses and other module-level
-// callers retain full control of their own concurrency context.
+// callers retain full control of their own concurrency context. The gitignored Tier-1
+// overlay loads BEFORE any backupPath read (bundle, retention, receipt, snapshot-root).
 if (import.meta.url === `file://${process.argv[1]}`) {
-    withHeavyMaintenanceLease(
-        () => runBackup(),
-        {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}}
-    )
+    await loadTopLevelAiConfig();
+
+    runBackupWithOffHostSync()
         .then(outcome => {
             if (outcome.status === 'held') {
                 const held = outcome.lease;

@@ -1266,6 +1266,20 @@ class ConfigBase extends ConfigProvider {
                     retention : {
                         keepMinimum: 3,
                         maxDays    : 30
+                    },
+                    /**
+                     * Off-host durability hook (plain nested keys inside this object leaf — the owning
+                     * ticket owns validation; see backup.mjs#validateOffHostSyncConfig). An empty
+                     * `command` disables the hook entirely. Secrets never enter this tree: `envAllowlist`
+                     * names env vars the sync child may inherit; values live only in the process env.
+                     * @type {Object}
+                     */
+                    offHostSync: {
+                        argv        : [],
+                        command     : '',
+                        envAllowlist: [],
+                        killGraceMs : 5000,
+                        timeoutMs   : 600000
                     }
                 },
                 /**

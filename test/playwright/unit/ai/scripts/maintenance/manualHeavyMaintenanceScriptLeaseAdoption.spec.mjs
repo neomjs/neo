@@ -43,7 +43,7 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
         {file: 'runSandman.mjs',           owner: 'sandman',            invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
         {file: 'syncKnowledgeBase.mjs',    owner: 'kbSync',             invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/},
         {file: 'defragChromaDB.mjs',       owner: 'defrag',             invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
-        {file: 'backup.mjs',               owner: 'backup',             invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/},
+        {file: 'backup.mjs',               owner: 'backup',             invocation: 'withLeaseImpl ?? withHeavyMaintenanceLease', heldExitPattern: /process\.exit\(0\)/},
         {file: 'syncGithubWorkflow.mjs',   owner: 'syncGithubWorkflow', invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/}
     ];
 
@@ -75,9 +75,10 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
     }
 
     test('runSandman.mjs: fail-closed on lease-acquisition error — does NOT continue to the REM cycle', async () => {
-        // GPT's cycle-1 review (PR #11509 PRR_kwDODSospM8AAAABAJIdTg) caught: my prior code set
+        // GPT's cycle-1 review caught: prior code set
         // process.exitCode=1 in the outer catch but FELL THROUGH to GraphService.decayGlobalTopology()
         // which mutates SQLite graph edges + _SYSTEM_STATE. That defeats the substrate protection the
+        // lease exists to provide. ticket-ref-ok: load-bearing review-history anchor for this spec's existence.
         // PR is shipping — the one path where the lease was NOT acquired could still mutate the graph.
         //
         // Fix: exit(1) directly in the catch block to short-circuit before the canonical REM cycle.
@@ -143,8 +144,9 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
     });
 
     test('all heavy maintenance scripts share the same lease-wrapper pattern (no per-script private locks)', async () => {
-        // Empirical anchor: #11503 explicitly named "per-script private locks" as an avoided
-        // trap. This test pins that none of the heavy-maintenance scripts introduces an alternative
+        // Empirical anchor: the original lease-work explicitly named "per-script private locks" as
+        // an avoided trap (ticket-ref-ok: load-bearing design-history anchor). This test pins that
+        // none of the heavy-maintenance scripts introduces an alternative
         // lock-file or in-process mutex — they all consume the shared lease primitive.
         for (const {file} of SCRIPTS) {
             const source = await fs.readFile(scriptPath(file), 'utf-8');
