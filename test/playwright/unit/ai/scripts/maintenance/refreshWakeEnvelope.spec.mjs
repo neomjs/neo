@@ -19,7 +19,9 @@ import os                    from 'node:os';
 import path                  from 'node:path';
 import {refreshWakeEnvelope} from '../../../../../../ai/scripts/maintenance/refreshWakeEnvelope.mjs';
 
-const ENVELOPE_PATH = path.join(os.homedir(), '.local/share/opencode/wake-envelope.json');
+// The spec NEVER touches the live seat envelope — every write targets an injected temp root.
+const TEMP_ROOT     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-wake-env-'));
+const ENVELOPE_PATH = path.join(TEMP_ROOT, 'wake-envelope.json');
 
 const SESSIONS = [
     {id: 'ses_old_1', time: {updated: 1000}},
@@ -38,38 +40,17 @@ function makeApi({sessions = SESSIONS, failProbe = false, calls = []} = {}) {
     }
 }
 
-function backupEnvelope() {
-    try {
-        return fs.readFileSync(ENVELOPE_PATH, 'utf8')
-    } catch {
-        return null
-    }
-}
-
-function restoreEnvelope(content) {
-    if (content === null) {
-        try { fs.unlinkSync(ENVELOPE_PATH) } catch { /* absent */ }
-    } else {
-        fs.writeFileSync(ENVELOPE_PATH, content)
-    }
-}
-
 test.describe('refreshWakeEnvelope — agent-side boot self-write (#15684)', () => {
-    let saved;
-
-    test.beforeEach(() => {
-        saved = backupEnvelope()
-    });
-
-    test.afterEach(() => {
-        restoreEnvelope(saved)
+    test.afterAll(() => {
+        fs.rmSync(TEMP_ROOT, {force: true, recursive: true})
     });
 
     test('binds the latest-updated session from an 11-session checkout and writes a 0600 envelope', async () => {
         const outcome = await refreshWakeEnvelope({
-            apiImpl  : makeApi({}),
-            directory: '/seat/checkout',
-            port     : 65000
+            apiImpl     : makeApi({}),
+            directory   : '/seat/checkout',
+            port        : 65000,
+            envelopePath: ENVELOPE_PATH
         });
 
         expect(outcome.status).toBe('written-probed');
@@ -89,9 +70,10 @@ test.describe('refreshWakeEnvelope — agent-side boot self-write (#15684)', () 
         const calls = [];
 
         await refreshWakeEnvelope({
-            apiImpl  : makeApi({calls}),
-            directory: '/seat/checkout',
-            port     : 65000
+            apiImpl     : makeApi({calls}),
+            directory   : '/seat/checkout',
+            port        : 65000,
+            envelopePath: ENVELOPE_PATH
         });
 
         const probe = calls.find(call => call.method === 'POST');
@@ -103,20 +85,41 @@ test.describe('refreshWakeEnvelope — agent-side boot self-write (#15684)', () 
 
     test('a failed probe degrades honestly: the envelope is written, the outcome is written-probe-failed', async () => {
         const outcome = await refreshWakeEnvelope({
-            apiImpl  : makeApi({failProbe: true}),
-            directory: '/seat/checkout',
-            port     : 65000
+            apiImpl     : makeApi({failProbe: true}),
+            directory   : '/seat/checkout',
+            port        : 65000,
+            envelopePath: ENVELOPE_PATH
         });
 
         expect(outcome.status).toBe('written-probe-failed');
         expect(JSON.parse(fs.readFileSync(ENVELOPE_PATH, 'utf8')).sessionId).toBe('ses_live');
     });
 
+    test('falsifier B: a parent-id-bearing child session is never selected even when newer', async () => {
+        const calls   = [];
+        const outcome = await refreshWakeEnvelope({
+            apiImpl  : makeApi({calls, sessions: [
+                {id: 'ses_writer', time: {updated: 1000}},
+                {id: 'ses_child', parentID: 'ses_writer', time: {updated: 2000}}
+            ]}),
+            directory   : '/seat/checkout',
+            port        : 65000,
+            envelopePath: ENVELOPE_PATH
+        });
+
+        expect(outcome.sessionId).toBe('ses_writer');
+
+        const probe = calls.find(call => call.method === 'POST');
+        expect(probe.path).toBe('/session/ses_writer/prompt_async');
+        expect(JSON.parse(fs.readFileSync(ENVELOPE_PATH, 'utf8')).sessionId).toBe('ses_writer');
+    });
+
     test('an empty session list yields no-session without writing', () => {
         return refreshWakeEnvelope({
-            apiImpl  : makeApi({sessions: []}),
-            directory: '/seat/checkout',
-            port     : 65000
+            apiImpl     : makeApi({sessions: []}),
+            directory   : '/seat/checkout',
+            port        : 65000,
+            envelopePath: ENVELOPE_PATH
         }).then(outcome => {
             expect(outcome.status).toBe('no-session');
             expect(outcome.sessionId).toBe(null);

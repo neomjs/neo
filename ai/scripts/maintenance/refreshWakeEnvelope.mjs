@@ -21,7 +21,7 @@ import path       from 'node:path';
  * - The probe is mandatory: a write without a 204 self-injection is a degraded result, not success.
  */
 
-const ENVELOPE_PATH = path.join(os.homedir(), '.local/share/opencode/wake-envelope.json');
+const ENVELOPE_PATH = path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local/share'), 'opencode/wake-envelope.json');
 
 /**
  * Discovers the live OpenCode server port: the current envelope's port first, then the NodeService
@@ -95,7 +95,7 @@ async function api({method, path: apiPath, port, body = null, expectStatus = [20
  * @param {Object} [options.apiImpl] Injection seam for tests.
  * @returns {Promise<{status: 'written-probed'|'written-probe-failed'|'no-server'|'no-session', sessionId: String|null, port: Number|null}>
  */
-export async function refreshWakeEnvelope({directory, port = null, probe = true, apiImpl = api} = {}) {
+export async function refreshWakeEnvelope({directory, port = null, probe = true, apiImpl = api, envelopePath = ENVELOPE_PATH} = {}) {
     const
         username   = process.env.OPENCODE_SERVER_USERNAME || 'opencode',
         password   = process.env.OPENCODE_SERVER_PASSWORD,
@@ -104,7 +104,11 @@ export async function refreshWakeEnvelope({directory, port = null, probe = true,
     if (!serverPort) return {port: null, sessionId: null, status: 'no-server'};
 
     const sessions = await apiImpl({method: 'GET', path: `/session?directory=${encodeURIComponent(directory)}`, port: serverPort, username, password});
-    const live     = [...(sessions ?? [])].sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))[0];
+    // Falsifier B (child exclusion): a parent-id-bearing session is a subagent/twin, never the
+    // operator session — filtered BEFORE any timestamp comparison. A 204 certifies the chosen
+    // route; only the filter makes that route owner-shaped.
+    const topLevel = (sessions ?? []).filter(session => !session.parentID && !session.parentId);
+    const live     = [...topLevel].sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))[0];
 
     if (!live?.id) return {port: serverPort, sessionId: null, status: 'no-session'};
 
@@ -119,12 +123,12 @@ export async function refreshWakeEnvelope({directory, port = null, probe = true,
         username
     };
 
-    const tempPath = `${ENVELOPE_PATH}.tmp-${process.pid}-${Date.now()}`;
+    const tempPath = `${envelopePath}.tmp-${process.pid}-${Date.now()}`;
 
-    fs.mkdirSync(path.dirname(ENVELOPE_PATH), {recursive: true});
-    fs.writeFileSync(tempPath, JSON.stringify(envelope, null, 2));
-    fs.chmodSync(tempPath, 0o600);
-    fs.renameSync(tempPath, ENVELOPE_PATH);
+    fs.mkdirSync(path.dirname(envelopePath), {recursive: true});
+    // The credential-bearing temp is 0600 at creation — never 0644-then-chmod.
+    fs.writeFileSync(tempPath, JSON.stringify(envelope, null, 2), {mode: 0o600});
+    fs.renameSync(tempPath, envelopePath);
 
     if (!probe) return {port: serverPort, sessionId: live.id, status: 'written-probe-failed'};
 
