@@ -3,7 +3,7 @@ name: Ticket Archaeology Lint
 # CI mirror of the .husky/pre-commit check-ticket-archaeology guard, so `git commit --no-verify` cannot
 # bypass it at the merge-gate. Boy-scout: scans each in-scope file CHANGED in the PR in FULL (whole
 # touched-file, like block-alignment) — touching a file obligates cleaning all its ticket-archaeology.
-# PR-only: the data-sync pipeline / sync_all push to dev with `[skip ci]`, so they never reach this gate.
+# PR-only: the scheduled data-sync pipeline pushes to dev with `[skip ci]`, so it never reaches this gate.
 
 on:
   pull_request:

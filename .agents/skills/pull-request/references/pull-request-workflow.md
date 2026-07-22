@@ -81,10 +81,6 @@ git fetch origin
 
 `.husky/pre-push` blocks `chore(data):` commits on feature branches: [`audits/branch-discipline-check.md`](../audits/branch-discipline-check.md).
 
-### 2.3 Tool-Specific Branch Constraints
-
-If you intend to use the `sync_all` MCP tool, you MUST read [sync-all-constraints.md](./sync-all-constraints.md) before execution to prevent severe branch pollution.
-
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.

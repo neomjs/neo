@@ -255,7 +255,7 @@ wraps each method with `makeSafe()` — a function that generates Zod validators
 |---|---|---|
 | **Knowledge Base** | Semantic RAG over the indexed codebase | `ask_knowledge_base`, `query_documents` |
 | **Memory Core** | Episodic memory, session summaries, native edge graph | `add_memory`, `query_raw_memories`, `get_context_frontier` |
-| **GitHub Workflow** | Offline-first issue and PR management | `create_issue`, `sync_all`, `manage_issue_labels` |
+| **GitHub Workflow** | Live issue and PR management plus scheduled local mirroring | `create_issue`, `list_issues`, `manage_issue_labels` |
 | **GitLab Workflow** | GitLab issue and merge-request workflow support | `list_issues`, `list_merge_requests`, `manage_mr_reviewers` |
 | **Neural Link** | Live application introspection via WebSocket | `get_component_tree`, `patch_code`, `simulate_event` |
 | **File System** | Direct codebase read/write access | `read_file`, `write_file`, `list_directory`, `check_syntax` |

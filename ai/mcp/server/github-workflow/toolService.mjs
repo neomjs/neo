@@ -11,7 +11,6 @@ import LocalFileService                                                         
 import PullRequestService                                                              from '../../../services/github-workflow/PullRequestService.mjs';
 import RepositoryService                                                               from '../../../services/github-workflow/RepositoryService.mjs';
 import ToolService                                                                     from '../../ToolService.mjs';
-import SyncService                                                                     from '../../../services/github-workflow/SyncService.mjs';
 import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
 import RequestContextService                                                           from '../shared/services/RequestContextService.mjs';
 import config                                                                          from './config.mjs';
@@ -59,7 +58,6 @@ const GITHUB_TOOL_ACCESS = Object.freeze({
     manage_pr_review           : PUBLIC_GITHUB_WRITE_ACCESS,
     manage_pr_reviewers        : PUBLIC_GITHUB_WRITE_ACCESS,
     signal_state_transition    : PUBLIC_GITHUB_WRITE_ACCESS,
-    sync_all                   : PUBLIC_GITHUB_WRITE_ACCESS,
     update_issue_relationship  : PUBLIC_GITHUB_WRITE_ACCESS,
     validate_pr_review_body    : NON_PUBLIC_GITHUB_WRITE_ACCESS
 });
@@ -301,78 +299,6 @@ function guardGitHubWriteTools(mapping, guardOptions) {
 }
 
 /**
- * Default branch detector. Exec's `git branch --show-current` against the MCP
- * server's projectRoot. Returns the trimmed branch name (or empty string on detached HEAD).
- * Throws on git execution failure.
- *
- * @returns {Promise<String>} current branch name, '' for detached HEAD.
- */
-async function defaultBranchDetector() {
-    let toplevel;
-    try {
-        const {stdout} = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {cwd: config.projectRoot});
-        toplevel = stdout.trim();
-    } catch (e) {
-        throw new Error(`sync_all REJECTED: could not resolve git top-level (git error: ${e.message}).`);
-    }
-
-    const normalizedProjectRoot = path.resolve(config.projectRoot);
-    const normalizedToplevel    = path.resolve(toplevel);
-
-    if (normalizedProjectRoot !== normalizedToplevel) {
-        throw new Error(
-            `sync_all REJECTED: Root mismatch. MCP server projectRoot '${normalizedProjectRoot}' ` +
-            `does not match git repository top-level '${normalizedToplevel}'. ` +
-            `This prevents cross-checkout branch diagnostics and context leakage.`
-        );
-    }
-
-    const {stdout} = await execFileAsync('git', ['branch', '--show-current'], {cwd: config.projectRoot});
-    return stdout.trim();
-}
-
-/**
- * Wraps a SyncService method with a dev-branch-only guard at the tool boundary.
- *
- * Why tool-boundary, not library: `SyncService` callers include the daemon path
- * (Orchestrator's PrimaryRepoSyncService, scheduled context, spawned in canonical-on-dev)
- * and build-scripts (`buildScripts/release/publish.mjs`, build-context). Both are legit.
- * Only the agent-callable MCP tool surface needs rejection — that's the violation vector.
- *
- * Description-as-policy on the OpenAPI tool was empirically insufficient: repeated off-dev
- * sync attempts showed that the tool boundary needs executable branch enforcement.
- *
- * Branch-detector is injectable for testability; default uses `git branch --show-current`.
- *
- * @param {Function} delegate           The SyncService method to invoke when on dev.
- * @param {Function} [getBranch]        Branch-detector; default exec's git.
- * @returns {Function} wrapped variadic async function.
- */
-function buildDevBranchGuard(delegate, getBranch = defaultBranchDetector) {
-    return async function syncAllOnDevOnly(...args) {
-        let branch;
-        try {
-            branch = await getBranch();
-        } catch (e) {
-            if (e.message && e.message.startsWith('sync_all REJECTED:')) {
-                throw e;
-            }
-            throw new Error(`sync_all REJECTED: could not determine current branch (git error: ${e.message}). Refusing to sync without branch confirmation.`);
-        }
-        if (branch !== 'dev') {
-            throw new Error(
-                `sync_all REJECTED: working-tree is on branch '${branch || '(detached)'}', not 'dev'. ` +
-                `sync_all writes to resources/content/{issues,pull-requests,discussions}/ which would pollute the non-dev branch. ` +
-                `Switch to 'dev' to sync, or invoke sync via daemon (PrimaryRepoSyncService runs on schedule and is spawned in a canonical-on-dev context).`
-            );
-        }
-        return delegate(...args);
-    };
-}
-
-const syncAllOnDevOnly = buildDevBranchGuard(SyncService.runFullSync.bind(SyncService));
-
-/**
  * `get_conversation` dispatch router. The tool serves BOTH pull requests and
  * issues; it routes to the matching service by which identifier the caller supplied.
  * Rejects ambiguous (both ids) and empty (neither id) argument shapes with structured
@@ -446,7 +372,6 @@ const serviceMapping = {
     manage_pr_review           : PullRequestService.managePrReview         .bind(PullRequestService),
     manage_pr_reviewers        : PullRequestService.managePrReviewers      .bind(PullRequestService),
     signal_state_transition    : AgentStateService .signalStateTransition  .bind(AgentStateService),
-    sync_all                   : syncAllOnDevOnly,
     update_issue_relationship  : IssueService      .updateIssueRelationship.bind(IssueService),
     validate_pr_review_body    : PullRequestService.validatePrReviewBody   .bind(PullRequestService)
 };
@@ -461,13 +386,11 @@ export {
     GITHUB_TOOL_ACCESS,
     assertCompleteGitHubToolAccessPolicy,
     assertNoUnclassifiedGitHubTools,
-    buildDevBranchGuard,
     buildGitHubWriteIdentityGuard,
     getConversationRouter,
     guardGitHubWriteTools,
     isPublicGitHubWriteTool,
-    normalizeGitHubIdentityLogin,
-    syncAllOnDevOnly
+    normalizeGitHubIdentityLogin
 };
 
 const toolService = Neo.create(ToolService, {

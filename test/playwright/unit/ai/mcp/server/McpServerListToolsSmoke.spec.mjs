@@ -610,7 +610,8 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             found : true,
             source: 'description'
         });
-        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('Run `sync_all` to update local markdown files');
+        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('scheduled `githubWorkflowSync` lane refreshes the local markdown mirror');
+        expect(handbook.handbook).not.toContain('sync_all');
 
         expect(missing).toEqual({
             toolId : 'missing_tool',
@@ -618,6 +619,24 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             code   : 'TOOL_NOT_FOUND',
             message: 'Tool "missing_tool" does not exist in this MCP server.'
         });
+    });
+
+    test('github-workflow retires sync_all from list, handbook, and dispatch (#15662)', async () => {
+        const
+            server     = servers.find(item => item.name === 'github-workflow'),
+            {tools}    = await listTools(server),
+            moduleUrl  = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool} = await import(moduleUrl),
+            handbook   = await callTool('get_mcp_tool_handbook', {toolId: 'sync_all'});
+
+        expect(tools.some(tool => tool.name === 'sync_all')).toBe(false);
+        expect(handbook).toEqual({
+            toolId : 'sync_all',
+            found  : false,
+            code   : 'TOOL_NOT_FOUND',
+            message: 'Tool "sync_all" does not exist in this MCP server.'
+        });
+        await expect(callTool('sync_all', {})).rejects.toThrow('Tool "sync_all" not found or not implemented.');
     });
 
     test('neural-link exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {

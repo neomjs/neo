@@ -1020,7 +1020,7 @@ paths:
         **When to Use:**
         Use this tool for a fast, offline-capable way to read the content of an issue that is already present on the local disk. This tool reads directly from the file system and does **not** access the GitHub API.
 
-        **Important:** The content returned reflects the state of the issue at the time of the last `sync_all` operation and may not be the most up-to-date version if remote changes have occurred since.
+        **Important:** The content returned reflects the last completed scheduled `githubWorkflowSync` run and may lag GitHub. Use the live GitHub tools when freshness matters.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -1660,7 +1660,7 @@ paths:
 
         **Important Notes:**
         - Changes are made directly on GitHub via the GraphQL API
-        - The local markdown files will be updated on the next `sync_all` operation
+        - The local markdown mirror is refreshed by the scheduled `githubWorkflowSync` lane; use live GitHub reads when freshness matters
         - For parent_child: An issue can only have ONE parent at a time
         - For blocked_by: An issue can be blocked by MULTIPLE issues
         - Use `replace_parent=true` to replace an existing parent relationship (parent_child only)
@@ -1669,7 +1669,7 @@ paths:
         **Workflow:**
         1. Identify the issue numbers and relationship type
         2. Call this tool to establish or modify the relationship
-        3. Run `sync_all` to update local markdown files with the new relationship
+        3. Read the updated relationship from live GitHub; the scheduled `githubWorkflowSync` lane refreshes the local markdown mirror
       tags: [Issues]
       requestBody:
         required: true
@@ -1720,41 +1720,6 @@ paths:
                 $ref: '#/components/schemas/UpdateIssueRelationshipResponse'
         '500':
           description: Internal server error, e.g., GraphQL API failure.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /sync-all:
-    post:
-      summary: Sync GitHub Issues & Releases
-      operationId: sync_all
-      x-neo-tool-tier: extended
-      x-annotations:
-        readOnlyHint: false
-      description: |
-        Bi-directional sync of GitHub issues/releases with local markdown files in `resources/content/`.
-
-        **Precondition: working tree MUST be on `dev`.** Mechanically enforced — calls from non-dev branches are rejected pre-flight with no remote calls and no local writes.
-
-        **Use sparingly:**
-        - DO: pull remote ticket updates or push manual edits to local `.md` files.
-        - DON'T: after `create_issue` or `create_comment` (already in context).
-        - DON'T: for code changes (syncs only ticket metadata).
-
-        **How it works:** pulls remote data, creates `.md` files for new issues, pushes modified `.md` files to GitHub, then rebuilds the derived Portal indexes, `sitemap.xml`, and `llms.txt`. Cached for fast no-ops; derive failures reject the sync instead of returning success with stale generated artifacts.
-
-        **Rejection:** throws `sync_all REJECTED: working-tree is on branch '<name>', not 'dev'.` with remediation guidance pointing to switch-to-dev or daemon-driven sync.
-      tags: [Issues]
-      responses:
-        '200':
-          description: Synchronization process completed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SyncIssuesResponse'
-        '500':
-          description: Internal server error during the sync process.
           content:
             application/json:
               schema:
@@ -2088,136 +2053,6 @@ components:
           format: date-time
           description: The last-modified timestamp (ISO-8601). Populated by 'update' action only.
           example: "2026-04-24T02:15:33Z"
-
-    SyncIssuesResponse:
-      type: object
-      required:
-        - success
-        - summary
-        - statistics
-        - timing
-      properties:
-        success:
-          type: boolean
-          example: true
-          description: Whether the sync operation completed successfully
-        summary:
-          type: string
-          example: "Synchronization complete"
-          description: Human-readable summary of the sync operation
-        statistics:
-          type: object
-          required:
-            - pushed
-            - pulled
-            - dropped
-            - reconciled
-            - releases
-          properties:
-            pushed:
-              type: object
-              properties:
-                count:
-                  type: integer
-                  example: 2
-                  description: Number of local changes pushed to GitHub
-                issues:
-                  type: array
-                  items:
-                    type: integer
-                  example: [1234, 1235]
-                  description: Issue numbers that were pushed
-                failures:
-                  type: array
-                  items:
-                    type: integer
-                  example: [1236]
-                  description: Issue numbers that failed to push
-            pulled:
-              type: object
-              properties:
-                count:
-                  type: integer
-                  example: 15
-                  description: Total number of issues pulled from GitHub
-                created:
-                  type: integer
-                  example: 3
-                  description: Number of new issues created locally
-                updated:
-                  type: integer
-                  example: 12
-                  description: Number of existing issues updated locally
-                moved:
-                  type: integer
-                  example: 2
-                  description: Number of issues moved between directories
-                issues:
-                  type: array
-                  items:
-                    type: integer
-                  example: [1230, 1231, 1232]
-                  description: Issue numbers that were pulled
-            dropped:
-              type: object
-              properties:
-                count:
-                  type: integer
-                  example: 1
-                  description: Number of dropped issues removed locally
-                issues:
-                  type: array
-                  items:
-                    type: integer
-                  example: [999]
-                  description: Issue numbers that were dropped
-            reconciled:
-              type: object
-              properties:
-                count:
-                  type: integer
-                  example: 5
-                  description: Number of closed issues moved to archives during reconciliation
-                issues:
-                  type: array
-                  items:
-                    type: integer
-                  example: [1200, 1201, 1202, 1203, 1204]
-                  description: Issue numbers that were reconciled and archived
-            releases:
-              type: object
-              properties:
-                count:
-                  type: integer
-                  example: 5
-                  description: Number of release notes synced
-                synced:
-                  type: array
-                  items:
-                    type: string
-                  example: ['v11.0', 'v10.9', 'v10.8']
-                  description: Release version tags that were synced
-        timing:
-          type: object
-          required:
-            - startTime
-            - endTime
-            - durationMs
-          properties:
-            startTime:
-              type: string
-              format: date-time
-              example: "2025-10-21T10:00:00.000Z"
-              description: ISO timestamp when sync started
-            endTime:
-              type: string
-              format: date-time
-              example: "2025-10-21T10:02:30.000Z"
-              description: ISO timestamp when sync completed
-            durationMs:
-              type: integer
-              example: 150000
-              description: Total sync duration in milliseconds
 
     ErrorResponse:
       type: object
