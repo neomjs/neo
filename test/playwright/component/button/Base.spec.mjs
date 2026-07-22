@@ -219,9 +219,7 @@ test.describe('Neo.button.Base', () => {
         await expect(nativeButtons.nth(1)).toBeEnabled();
     });
 
-    // Linux CI Chromium resolves UA disabled paint differently than the macOS run this witness was
-    // calibrated on — the probed property set must become author-owned per platform before this gates.
-    test.fixme('disabled paint is class-owned — the native attribute contributes no UA styling', async ({page}) => {
+    test('disabled paint is class-owned — the native attribute contributes no UA styling', async ({page}) => {
         const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);
         }, {
@@ -244,8 +242,10 @@ test.describe('Neo.button.Base', () => {
         await expect(button).toHaveClass(/neo-disabled/);
 
         // Projecting the native attribute activates the UA `button:disabled` cascade, which had been
-        // dormant for as long as `.neo-disabled` was the only disabled authority. Same node, attribute
-        // on vs off, class constant: any inequality is user-agent paint leaking past the class.
+        // dormant for as long as `.neo-disabled` was the only disabled authority. The class explicitly
+        // owns background, border and opacity via disabled tokens, plus the root color via inheritance
+        // (child glyph/text colors have their own tokens). Same node, attribute on vs off, class constant:
+        // any inequality across these four author-owned axes is user-agent paint leaking past the class.
         const {withAttribute, classOnly} = await button.evaluate(node => {
             const probe = () => {
                 const style = getComputedStyle(node);
