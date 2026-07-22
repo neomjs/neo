@@ -72,21 +72,31 @@ export function buildBackupReceipt({backup, bundleName, bundleCompletedAt, finis
     }
 }
 
-/**
- * Writes the receipt atomically: unique temp path, write, rename. A torn write leaves the previous
- * receipt intact; a stale temp from a crashed writer is swept on the next write.
- * @param {Object} options
- * @param {String} options.filePath Receipt destination (inside `AiConfig.backupPath`).
- * @param {Object} options.receipt Envelope from {@link buildBackupReceipt}.
- * @returns {Promise<{filePath: String, bytes: Number}>}
- */
 let writeCounter = 0;
+
+/**
+ * @summary Returns true only when the encoded temp owner is provably gone. A live process, an
+ * indeterminate permission result, malformed metadata, or PID reuse all retain the temp: leaking a
+ * bounded stale file is safer than unlinking a writer that still intends to rename it.
+ * @param {Number} pid
+ * @returns {Boolean}
+ */
+function isProcessProvablyDead(pid) {
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+
+    try {
+        process.kill(pid, 0);
+        return false
+    } catch (error) {
+        return error?.code === 'ESRCH'
+    }
+}
 
 /**
  * Writes the receipt atomically: a per-write unique temp path (pid + timestamp + monotonic counter
  * + random suffix — two writes inside the same millisecond on the same pid never collide), fsync,
- * rename. A torn write leaves the previous receipt intact. The stale-temp sweep only removes temps
- * older than this write's own timestamp, so it can never delete another live writer's in-flight temp.
+ * rename. A torn write leaves the previous receipt intact. The stale-temp sweep only removes an old
+ * temp when its encoded owner PID is provably dead; age alone is never treated as liveness proof.
  * @param {Object} options
  * @param {String} options.filePath Receipt destination (inside `AiConfig.backupPath`).
  * @param {Object} options.receipt Envelope from {@link buildBackupReceipt}.
@@ -118,23 +128,46 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
     }
     await fs.promises.rename(tempPath, filePath);
 
-    // Stale-temp sweep: only temps older than the staleness HORIZON. A temp younger than the
-    // horizon may belong to a live writer — even one that started before this write — so "older
-    // than this write's start millisecond" is never the staleness criterion. Best-effort only.
+    // Stale-temp sweep: age makes a temp eligible, but only a provably dead encoded owner makes it
+    // removable. PID reuse / EPERM / malformed metadata intentionally leak in the safe direction.
     try {
         const prefix = `${path.basename(filePath)}.tmp-`;
         for (const entry of await fs.promises.readdir(path.dirname(filePath))) {
             if (!entry.startsWith(prefix) || entry === tempName) continue;
 
-            const entryMs = Number(entry.slice(prefix.length).split('-')[1]);
+            const
+                [ownerPidToken, entryMsToken] = entry.slice(prefix.length).split('-'),
+                ownerPid                      = Number(ownerPidToken),
+                entryMs                       = Number(entryMsToken);
 
-            if (Number.isFinite(entryMs) && entryMs < now - STALE_TEMP_HORIZON_MS) {
+            if (Number.isFinite(entryMs) && entryMs < now - STALE_TEMP_HORIZON_MS && isProcessProvablyDead(ownerPid)) {
                 await fs.promises.rm(path.join(path.dirname(filePath), entry), {force: true})
             }
         }
     } catch { /* best-effort */ }
 
     return {bytes, filePath}
+}
+
+/**
+ * @summary Reads one already-opened file handle through ordinary short reads, returning only bytes
+ * actually delivered before the measured length or EOF.
+ * @param {Object} handle Open file handle exposing `read(buffer, offset, length, position)`.
+ * @param {Number} size
+ * @returns {Promise<Buffer>}
+ */
+async function readOpenedFile(handle, size) {
+    const buffer = Buffer.alloc(size);
+    let   offset = 0;
+
+    while (offset < size) {
+        const {bytesRead} = await handle.read(buffer, offset, size - offset, offset);
+
+        if (bytesRead === 0) break;
+        offset += bytesRead
+    }
+
+    return buffer.subarray(0, offset)
 }
 
 /**
@@ -157,9 +190,7 @@ export async function readBackupReceipt({filePath}) {
             if (stat.size > MAX_RECEIPT_BYTES) {
                 return {finishedAt: null, kind: 'oversize', status: 'unreadable'}
             }
-            const buffer = Buffer.alloc(stat.size);
-            await handle.read(buffer, 0, stat.size, 0);
-            raw = buffer.toString('utf8')
+            raw = (await readOpenedFile(handle, stat.size)).toString('utf8')
         } finally {
             await handle.close()
         }
@@ -246,4 +277,4 @@ export function validateReceiptShape(parsed) {
     }
 }
 
-export const __private__ = {MAX_RECEIPT_BYTES, MAX_TAIL_BYTES};
+export const __private__ = {MAX_RECEIPT_BYTES, MAX_TAIL_BYTES, isProcessProvablyDead, readOpenedFile};

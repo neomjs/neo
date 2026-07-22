@@ -1,5 +1,7 @@
 import {test, expect}                                                  from '@playwright/test';
 import {mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync} from 'node:fs';
+import {open, rename}                                                  from 'node:fs/promises';
+import {spawn}                                                         from 'node:child_process';
 import {tmpdir}                                                        from 'node:os';
 import path                                                            from 'node:path';
 
@@ -11,7 +13,7 @@ import {
     validateOffHostSyncConfig,
     writeBackupReceipt
 } from '../../../../../../ai/scripts/maintenance/offHostSync.mjs';
-import {readBackupReceipt} from '../../../../../../ai/services/memory-core/helpers/offHostSyncStore.mjs';
+import {__private__, readBackupReceipt} from '../../../../../../ai/services/memory-core/helpers/offHostSyncStore.mjs';
 
 const VALID_CONFIG = {
     argv        : ['-e', 'process.exit(0)'],
@@ -209,7 +211,16 @@ test.describe('backup receipt store', () => {
         const root = makeTmp();
         try {
             const filePath = path.join(root, 'last-backup-receipt.json');
-            writeFileSync(path.join(root, `${path.basename(filePath)}.tmp-999-111`), '{}');
+            const deadPid  = await new Promise((resolve, reject) => {
+                const child = spawn(process.execPath, ['-e', ''], {stdio: 'ignore'}),
+                      pid   = child.pid;
+
+                child.once('error', reject);
+                child.once('exit', () => resolve(pid))
+            });
+
+            expect(__private__.isProcessProvablyDead(deadPid)).toBe(true);
+            writeFileSync(path.join(root, `${path.basename(filePath)}.tmp-${deadPid}-111-1-stale`), '{}');
 
             const receipt = buildBackupReceipt({backup: {durationMs: 1, error: null, status: 'success'}, bundleName: 'b'});
             await writeBackupReceipt({filePath, receipt});
@@ -265,7 +276,7 @@ test.describe('backup receipt store', () => {
         }
     });
 
-    test('two writes in the same millisecond on the same pid never collide (deterministic race witness)', async () => {
+    test('same-millisecond sequential writes use distinct temp names', async () => {
         const root = makeTmp();
         try {
             const filePath = path.join(root, 'last-backup-receipt.json');
@@ -306,7 +317,7 @@ test.describe('backup receipt store', () => {
         }
     });
 
-    test('the 64 KiB read cap fires from stat before whole-file allocation', async () => {
+    test('the 64 KiB read cap fires from the opened handle before bounded allocation', async () => {
         const root = makeTmp();
         try {
             const filePath = path.join(root, 'last-backup-receipt.json');
@@ -575,7 +586,7 @@ test.describe('adversarial IO + encoding edges', () => {
         }
     });
 
-    test('concurrent adjacent-millisecond writes never collide or lose a temp (gated-fsync race witness)', async () => {
+    test('concurrent adjacent-millisecond writes complete without temp collisions', async () => {
         const root = makeTmp();
         try {
             const filePath = path.join(root, 'last-backup-receipt.json');
@@ -594,5 +605,59 @@ test.describe('adversarial IO + encoding edges', () => {
         } finally {
             rmSync(root, {force: true, recursive: true})
         }
+    });
+
+    test('stale sweep preserves an old open temp whose encoded owner is still alive', async () => {
+        const root = makeTmp();
+        try {
+            const
+                filePath   = path.join(root, 'last-backup-receipt.json'),
+                startedAt  = 1710000000000,
+                livePath   = path.join(root, `${path.basename(filePath)}.tmp-${process.pid}-${startedAt}-1-live`),
+                commitPath = path.join(root, 'live-writer-commit.json'),
+                handle     = await open(livePath, 'w');
+
+            try {
+                await handle.write('live writer payload');
+                await handle.sync();
+
+                await writeBackupReceipt({
+                    filePath,
+                    now    : startedAt + 60_001,
+                    receipt: buildBackupReceipt({backup: {durationMs: 1, error: null, status: 'success'}, bundleName: 'newer'})
+                })
+            } finally {
+                await handle.close()
+            }
+
+            await rename(livePath, commitPath);
+            expect(readFileSync(commitPath, 'utf8')).toBe('live writer payload')
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('opened-handle reader loops across legal short reads and decodes only delivered bytes', async () => {
+        const
+            receipt = buildBackupReceipt({backup: {durationMs: 1, error: null, status: 'success'}, bundleName: 'short-read'}),
+            payload = Buffer.from(JSON.stringify(receipt));
+
+        let calls = 0;
+
+        const handle = {
+            async read(buffer, offset, length, position) {
+                const bytesRead = Math.min(length, 7);
+
+                payload.copy(buffer, offset, position, position + bytesRead);
+                calls++;
+
+                return {buffer, bytesRead}
+            }
+        };
+
+        const raw = await __private__.readOpenedFile(handle, payload.length);
+
+        expect(calls).toBeGreaterThan(1);
+        expect(JSON.parse(raw.toString('utf8')).bundleName).toBe('short-read')
     });
 });
