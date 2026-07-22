@@ -45,7 +45,7 @@ function buildBundle({subdirs = ['kb', 'mc', 'graph', 'concepts', 'trajectories'
 
     if (layout.kb) fs.writeFileSync(path.join(layout.kb, 'kb.jsonl'),
         (kbRows ?? [{embedding: vector(), id: 'kb-1', metadata: {k: 'cls'}}]).map(r => JSON.stringify(r)).join('\n') + '\n');
-    if (layout.mc) fs.writeFileSync(path.join(layout.mc, 'mc.jsonl'),
+    if (layout.mc) fs.writeFileSync(path.join(layout.mc, 'memory-backup.jsonl'),
         (mcRows ?? [{embedding: vector(), id: 'm-1', metadata: {t: 'prompt'}}]).map(r => JSON.stringify(r)).join('\n') + '\n');
     if (layout.graph) fs.writeFileSync(path.join(layout.graph, 'graph.jsonl'), '{"type":"node","data":{"id":"n-1"}}\n');
     if (layout.concepts) fs.writeFileSync(path.join(layout.concepts, 'nodes.jsonl'), '{"id":"c-1"}\n');
@@ -66,11 +66,10 @@ const liveConsumer = () => {
     }
 };
 
-function liveMeta({consumer = liveConsumer(), dimension = DIM, kbCount = 1, mcCount = 1, schemaVersion = 1} = {}) {
+function liveMeta({consumer = liveConsumer(), counts = {kb: 1, memories: 1, summaries: 0}, dimension = DIM, schemaVersion = 1} = {}) {
     const embedding = {
+        counts,
         dimension,
-        kb: {count: kbCount},
-        mc: {count: mcCount},
         schemaVersion
     };
 
@@ -84,18 +83,21 @@ test.describe('embedding compatibility contract (#15691)', () => {
         fs.rmSync(TMP_ROOT, {force: true, recursive: true})
     });
 
-    test('the backup stamps write-time facts (dimension, counts) plus an advisory consumer expectation — never vector provenance', () => {
-        const contract = buildEmbeddingContract({subsystems: {kb: 12000, mc: 450}});
+    test('the backup stamps write-time facts (dimension, per-collection counts) plus an advisory consumer expectation — never vector provenance', () => {
+        const contract = buildEmbeddingContract({
+            subsystems: {
+                kb: 12000,
+                mc: {memories: {exported: 400}, summaries: {exported: 50}}
+            }
+        });
 
         expect(contract.schemaVersion).toBe(1);
         expect(contract.dimension).toBe(AiConfig.vectorDimension);
         expect(contract.expectedConsumer.provider).toBe(AiConfig.embeddingProvider);
         expect(typeof contract.expectedConsumer.model).toBe('string');
-        expect(contract.kb).toEqual({count: 12000});
-        expect(contract.mc).toEqual({count: 450});
+        expect(contract.counts).toEqual({kb: 12000, memories: 400, summaries: 50});
         // No fingerprint, no producer claim: a config snapshot is not write-time vector provenance.
         expect('fingerprint' in contract).toBe(false);
-        expect('fingerprint' in contract.kb).toBe(false);
     });
 
     test('a corrupt FINAL row cannot slip past the line-1 sample era — full streaming catches it', async () => {
@@ -142,12 +144,24 @@ test.describe('embedding compatibility contract (#15691)', () => {
         await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/dimension-contract-mismatch/);
 
         // Declared count contradicts the streamed row total
-        bundle = buildBundle({meta: liveMeta({kbCount: 5})});
+        bundle = buildBundle({meta: liveMeta({counts: {kb: 5, memories: 1, summaries: 0}})});
         await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/count-contract-mismatch.*declares 5.*streams 1/);
 
-        // Malformed per-collection block
-        bundle = buildBundle({meta: liveMeta({kbCount: -1})});
+        // Null and negative counts are not attestations
+        bundle = buildBundle({meta: liveMeta({counts: {kb: null, memories: 1, summaries: 0}})});
         await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/invalid-embedding-schema/);
+        bundle = buildBundle({meta: liveMeta({counts: {kb: -1, memories: 1, summaries: 0}})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/invalid-embedding-schema/);
+
+        // Cross-collection truth: a declared summaries count with no summaries file contradicts the stream
+        bundle = buildBundle({meta: liveMeta({counts: {kb: 1, memories: 1, summaries: 3}})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/count-contract-mismatch.*summaries declares 3.*streams 0/);
+
+        // An undeclared streamed collection is a mismatch in the other direction
+        bundle = buildBundle({meta: liveMeta({counts: {kb: 1, memories: 1}})});
+        fs.writeFileSync(path.join(bundle.layout.mc, 'summaries-backup.jsonl'),
+            JSON.stringify({embedding: vector(), id: 's-1', metadata: {}}) + '\n');
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/count-contract-mismatch.*streams 1 summaries.*no count is declared/);
     });
 
     test('a consumer-expectation mismatch is an advisory classification, never a hard refusal', async () => {
@@ -158,9 +172,10 @@ test.describe('embedding compatibility contract (#15691)', () => {
 
         const meta = await validateBundle(bundleRoot, layout, {log: () => {}, warn: message => warnings.push(message)}, DIM);
 
-        expect(meta.embeddingAdvisories).toHaveLength(1);
-        expect(meta.embeddingAdvisories[0].reason).toBe('consumer-expectation-mismatch');
-        expect(meta.embeddingAdvisories[0].bundle).toEqual({model: 'other-model', provider: 'other-provider'});
+        expect(meta.embeddingAdvisories).toHaveLength(2);
+        expect(meta.embeddingAdvisories[0].reason).toBe('semantic-provenance-unverified');
+        expect(meta.embeddingAdvisories[1].reason).toBe('consumer-expectation-mismatch');
+        expect(meta.embeddingAdvisories[1].bundle).toEqual({model: 'other-model', provider: 'other-provider'});
         expect(warnings.some(message => message.includes('consumer-expectation-mismatch'))).toBe(true);
     });
 
@@ -176,11 +191,12 @@ test.describe('embedding compatibility contract (#15691)', () => {
         expect(advisories[0].reason).toBe('semantic-provenance-unverified');
     });
 
-    test('a compatible bundle passes admission with zero embedding-provider contact and no advisories', async () => {
+    test('a matching consumer expectation still classifies provenance as unverified — a match is not evidence', async () => {
         const {bundleRoot, layout} = buildBundle({meta: liveMeta()});
         const meta                 = await validateBundle(bundleRoot, layout, SILENT, DIM);
 
-        expect(meta.embeddingAdvisories).toEqual([]);
+        expect(meta.embeddingAdvisories).toHaveLength(1);
+        expect(meta.embeddingAdvisories[0].reason).toBe('semantic-provenance-unverified');
         expect(meta.embedding.dimension).toBe(DIM);
     });
 
@@ -190,6 +206,7 @@ test.describe('embedding compatibility contract (#15691)', () => {
         const meta                 = await validateBundle(bundleRoot, layout, {log: () => {}, warn: message => warnings.push(message)}, DIM);
 
         expect(meta.bundleVersion).toBe(1);
+        expect(meta.embeddingAdvisories[0].reason).toBe('semantic-provenance-unverified');
         expect(warnings.some(message => message.includes('semantic-provenance-unverified'))).toBe(true);
     });
 

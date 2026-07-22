@@ -152,15 +152,18 @@ export function resolveBackupRetention({
  * Builds the versioned embedding-space block declared in `bundle-meta.json`.
  *
  * Truth discipline: the block separates what the bundle can prove from what it cannot.
- * - `dimension` + per-collection `count` are write-time facts: the counts come from the integrity
- *   check's per-subsystem source counts, and the exported rows themselves carry the dimension.
+ * - `dimension` + `counts` are write-time facts: counts attest each actual vector collection (KB
+ *   chunks, Memory Core memories, summaries) from the export receipts, and the exported rows
+ *   themselves carry the dimension. Counts are never null — a new bundle attests exactly the rows
+ *   it exported.
  * - `expectedConsumer` is the backup host's ACTIVE config at backup time. It is NOT write-time
  *   vector provenance: no persisted record of which provider/model embedded the stored rows exists
  *   in the substrate, so a config snapshot must never be presented as one. Restore admission treats
  *   it as advisory context for the orchestrator's semantic-space classification, never as a hard
  *   gate, and never contacts a provider to verify it.
  * @param {Object} options
- * @param {Object} options.subsystems runBackup's subsystem receipt map (kb/mc entries carry counts).
+ * @param {Object} options.subsystems runBackup's subsystem receipt map (kb carries a count; mc
+ *   carries per-collection `memories`/`summaries` export receipts).
  * @returns {Object}
  */
 export function buildEmbeddingContract({subsystems}) {
@@ -170,15 +173,16 @@ export function buildEmbeddingContract({subsystems}) {
             ? AiConfig.ollama.embeddingModel
             : AiConfig.openAiCompatible.embeddingModel;
 
-    const contractOf = key => ({
-        count: typeof subsystems[key] === 'number' ? subsystems[key] : subsystems[key]?.count ?? null
-    });
+    const countOf = value => typeof value === 'number' ? value : value?.count ?? value?.exported ?? 0;
 
     return {
+        counts: {
+            kb       : countOf(subsystems.kb),
+            memories : countOf(subsystems.mc?.memories),
+            summaries: countOf(subsystems.mc?.summaries)
+        },
         dimension       : AiConfig.vectorDimension,
         expectedConsumer: {model, provider},
-        kb              : contractOf('kb'),
-        mc              : contractOf('mc'),
         schemaVersion   : 1
     }
 }
