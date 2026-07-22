@@ -71,6 +71,8 @@ test.describe('openWorkCensusReader — the source page boundary', () => {
         expect(page.endCursor).toBe('CURSOR_1');
         // only OPEN work is censused, and the cursor is passed through to the source
         expect(calls[0].variables).toMatchObject({owner: 'neomjs', repo: 'neo', limit: 100, cursor: null, states: ['OPEN']});
+        // the census reads the live no-filter path: filterBy:{assignee:null} is served stale (#15603; ticket-ref-ok: measured-quirk evidence ledger)
+        expect(calls[0].queryString).not.toContain('filterBy');
     });
 
     test('hasNextPage is the SOURCE\'s answer, never inferred from a full or short page', async () => {

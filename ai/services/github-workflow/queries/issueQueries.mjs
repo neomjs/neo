@@ -298,7 +298,17 @@ export const FETCH_ISSUES_FOR_SYNC = `
 `;
 
 /**
- * Optimized query for listing issues with minimal fields required by the Issue schema.
+ * Builds the optimized query for listing issues with minimal fields required by the Issue schema,
+ * with or without the assignee `filterBy` argument.
+ *
+ * The no-filter variant exists because GitHub routes an issues connection carrying
+ * `filterBy: {assignee: null}` through a stale, hours-lagged read path. Measured live on
+ * 2026-07-22, #15603; ticket-ref-ok: measured-quirk evidence ledger): the same query with the null-valued argument returned an UPDATED_AT first
+ * page frozen hours behind (a controlled assignment did not surface for 10+ minutes and prior
+ * observations lagged 1.5h+), while the identical connection without `filterBy` returned the live
+ * page — and `after: null` was exonerated as the trigger. An unfiltered list must therefore OMIT
+ * the argument entirely. GraphQL has no conditional-argument mechanism and rejects unused declared
+ * variables, so the two shapes are built from one selection source here.
  *
  * Variables required:
  * - $owner: String!
@@ -306,17 +316,22 @@ export const FETCH_ISSUES_FOR_SYNC = `
  * - $limit: Int!
  * - $cursor: String
  * - $states: [IssueState!]
+ * - $assignee: String (filtered variant only)
  * - $maxLabels: Int!
  * - $maxAssignees: Int!
+ *
+ * @param {Object}  options
+ * @param {Boolean} options.withAssigneeFilter Include `filterBy: {assignee: $assignee}` + its variable declaration.
+ * @returns {String} The GraphQL query text.
  */
-export const FETCH_ISSUES_LIST = `
+const buildIssuesListQuery = ({withAssigneeFilter}) => `
   query FetchIssuesList(
     $owner: String!
     $repo: String!
     $limit: Int!
     $cursor: String
     $states: [IssueState!]
-    $assignee: String
+    ${withAssigneeFilter ? '$assignee: String' : ''}
     $maxLabels: Int!
     $maxAssignees: Int!
   ) {
@@ -325,7 +340,7 @@ export const FETCH_ISSUES_LIST = `
         first: $limit
         after: $cursor
         states: $states
-        filterBy: {assignee: $assignee}
+        ${withAssigneeFilter ? 'filterBy: {assignee: $assignee}' : ''}
         orderBy: {field: UPDATED_AT, direction: DESC}
       ) {
         totalCount
@@ -362,6 +377,19 @@ export const FETCH_ISSUES_LIST = `
     }
   }
 `;
+
+/**
+ * Issue listing filtered by assignee. See `buildIssuesListQuery` for why this constant must only
+ * be used when an assignee filter is actually requested (#15603; ticket-ref-ok: measured-quirk evidence ledger).
+ */
+export const FETCH_ISSUES_LIST = buildIssuesListQuery({withAssigneeFilter: true});
+
+/**
+ * Issue listing WITHOUT the assignee `filterBy` argument — the live-read-path variant. Use
+ * whenever no assignee filter is requested; an unfiltered call through `FETCH_ISSUES_LIST` is
+ * served from GitHub's stale filtered-read path (measured 2026-07-22, #15603; ticket-ref-ok: measured-quirk evidence ledger).
+ */
+export const FETCH_ISSUES_LIST_NO_FILTER = buildIssuesListQuery({withAssigneeFilter: false});
 
 /**
  * Simplified query for fetching a single issue's details.

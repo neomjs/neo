@@ -1,4 +1,4 @@
-import {FETCH_ISSUES_LIST}            from './queries/issueQueries.mjs';
+import {FETCH_ISSUES_LIST_NO_FILTER}  from './queries/issueQueries.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from './queries/pullRequestQueries.mjs';
 
 /**
@@ -60,7 +60,10 @@ export function makeOpenWorkCensusReader({query, config} = {}) {
      * @returns {Promise<{items: Object[], hasNextPage: Boolean, endCursor: String|null}>}
      */
     const fetchIssuesPage = async ({cursor = null, limit} = {}) => {
-        const data = await query(FETCH_ISSUES_LIST, {
+        // The census never filters by assignee, so it reads through the no-filter query: a
+        // `filterBy: {assignee: null}` connection is served from GitHub's stale filtered-read
+        // path (#15603; ticket-ref-ok: measured-quirk evidence ledger), which would silently age the "current-state" census this reader exists for.
+        const data = await query(FETCH_ISSUES_LIST_NO_FILTER, {
             owner,
             repo,
             limit,

@@ -160,14 +160,20 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         expect(capture.query).toContain('filterBy: {assignee: $assignee}');
     });
 
-    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
+    test('an unfiltered list OMITS filterBy + the assignee variable — the live-read-path contract (#15603)', async () => {
         const capture = {};
         installIssueListStub(capture);
 
         const result = await IssueService.listIssues({limit: 10, state: 'open'});
 
-        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
-        expect(capture.variables.assignee).toBeNull();
+        // Measured live 2026-07-22 (#15603; ticket-ref-ok: measured-quirk evidence ledger): `filterBy: {assignee: null}` is served from a stale,
+        // hours-lagged read path — a controlled assignment stayed invisible on the unfiltered first
+        // page 10+ minutes (1.5h+ in the original incident) while the connection without `filterBy`
+        // returned the live page. The old null pass-through was complete but stale; the unfiltered
+        // call must omit the argument AND the variable (GraphQL rejects unused declarations).
+        expect(capture.query).not.toContain('filterBy');
+        expect(capture.query).not.toContain('$assignee');
+        expect(capture.variables).not.toHaveProperty('assignee');
         expect(result.count).toBe(2);
     });
 
