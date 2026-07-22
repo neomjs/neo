@@ -25,7 +25,7 @@ Duplicates hide in **two substrates**, and you MUST sweep **both as the LAST ste
 gh issue list --state open --limit 20 --json number,title,author,labels,url
 ```
 
-An equivalent GitHub Workflow MCP or GitHub API call is acceptable when it returns the same fields. This live sweep is required even when KB and local searches return no duplicates: the most likely active-swarm duplicate can exist on GitHub before Knowledge Base or `resources/content/**` sync has ingested it.
+An equivalent MCP call is acceptable only when its page is live AND created-descending (`list_issues` with `sort: 'created'`); updated-descending is only supplemental — it buries untouched fresh filings below recently-updated older issues. Failure mode `#15603`: a stale filtered-read path lagged the tracker by days across this herd window. This live sweep is required even when KB and local searches return no duplicates: the most likely active-swarm duplicate can exist on GitHub before Knowledge Base or `resources/content/**` sync has ingested it.
 
 If the live latest-open sweep fails because of sandbox, network, or auth state, retry through the appropriate approved/escalated path. If live GitHub state still cannot be fetched, stop before `create_issue` and report the blocker; do not file from stale-only evidence.
 

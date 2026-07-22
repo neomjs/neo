@@ -160,15 +160,52 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         expect(capture.query).toContain('filterBy: {assignee: $assignee}');
     });
 
-    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
+    test('an unfiltered list OMITS filterBy + the assignee variable — the live-read-path contract (#15603)', async () => {
         const capture = {};
         installIssueListStub(capture);
 
         const result = await IssueService.listIssues({limit: 10, state: 'open'});
 
-        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
-        expect(capture.variables.assignee).toBeNull();
+        // Measured live 2026-07-22 (#15603; ticket-ref-ok: measured-quirk evidence ledger): `filterBy: {assignee: null}` is served from a stale,
+        // hours-lagged read path — a controlled assignment stayed invisible on the unfiltered first
+        // page 10+ minutes (1.5h+ in the original incident) while the connection without `filterBy`
+        // returned the live page. The old null pass-through was complete but stale; the unfiltered
+        // call must omit the argument AND the variable (GraphQL rejects unused declarations).
+        expect(capture.query).not.toContain('filterBy');
+        expect(capture.query).not.toContain('$assignee');
+        expect(capture.variables).not.toHaveProperty('assignee');
         expect(result.count).toBe(2);
+    });
+
+    test('sort: created emits the CREATED_AT order field — the freshness-sweep evidence contract (#15603)', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', sort: 'created'});
+
+        // Measured live 2026-07-22 (#15603; ticket-ref-ok: measured-quirk evidence ledger): an updated-descending page buries an untouched fresh
+        // filing below older issues with mere recent activity (4 of the latest-20 filings
+        // displaced). The duplicate sweep's evidence bar is creation order; the default stays
+        // UPDATED_AT, so the created path must build its query per call.
+        expect(capture.query).toContain('orderBy: {field: CREATED_AT, direction: DESC}');
+        expect(capture.query).not.toContain('filterBy');
+        expect(capture.variables).not.toHaveProperty('assignee');
+        expect(result.count).toBe(2);
+    });
+
+    test('the default sort keeps UPDATED_AT and invalid sort values fail closed', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 10, state: 'open'});
+        expect(capture.query).toContain('orderBy: {field: UPDATED_AT, direction: DESC}');
+
+        const result = await IssueService.listIssues({sort: 'size'});
+
+        expect(result).toMatchObject({
+            code : 'INVALID_SORT',
+            error: 'Bad Request'
+        });
     });
 
     test('labels are NOT delegated to GitHub — its label filter is ANY-of, and this surface promises ALL-of', async () => {
@@ -342,10 +379,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
 
     test.describe('create action', () => {
         test('returns {message, commentId, url, createdAt} on successful issue-comment creation', async () => {
-            const ISSUE_NODE_ID     = 'I_kwDOABcD1234567890';
-            const NEW_COMMENT_ID    = 'IC_kwDOABcD_newcomment_9876';
-            const NEW_COMMENT_URL   = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
-            const NEW_COMMENT_TS    = '2026-04-24T01:48:14Z';
+            const ISSUE_NODE_ID   = 'I_kwDOABcD1234567890';
+            const NEW_COMMENT_ID  = 'IC_kwDOABcD_newcomment_9876';
+            const NEW_COMMENT_URL = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
+            const NEW_COMMENT_TS  = '2026-04-24T01:48:14Z';
 
             let callCount = 0;
 
@@ -480,9 +517,9 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
         test('returns {message, commentId, url, updatedAt} — unchanged by create-path enrichment', async () => {
             // Update path was already enriched before the create-path work; this test pins the existing contract
             // so the create-path enrichment doesn't accidentally drift it. Symmetry matters.
-            const COMMENT_ID      = 'IC_kwDOABcD_existing_1234';
-            const COMMENT_URL     = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
-            const UPDATED_TS      = '2026-04-24T02:15:33Z';
+            const COMMENT_ID  = 'IC_kwDOABcD_existing_1234';
+            const COMMENT_URL = 'https://github.com/neomjs/neo/issues/10272#issuecomment-4309098042';
+            const UPDATED_TS  = '2026-04-24T02:15:33Z';
 
             GraphqlService.query = async (query, variables) => {
                 expect(variables.commentId).toBe(COMMENT_ID);
@@ -578,7 +615,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
 
     test('adds labels to an Issue using the issue Labelable id', async () => {
         const ISSUE_NODE_ID = 'I_kwDOABcD_issue10077';
-        let callCount       = 0;
+        let   callCount     = 0;
 
         GraphqlService.query = async (query, variables) => {
             callCount++;
@@ -615,7 +652,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
 
     test('adds labels to a Pull Request using the pullRequest Labelable id', async () => {
         const PR_NODE_ID = 'PR_kwDOABcD_pr11695';
-        let callCount    = 0;
+        let   callCount  = 0;
 
         GraphqlService.query = async (query, variables) => {
             callCount++;
@@ -657,7 +694,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabel
 
     test('removes labels from a Pull Request using the pullRequest Labelable id', async () => {
         const PR_NODE_ID = 'PR_kwDOABcD_pr11695';
-        let callCount    = 0;
+        let   callCount  = 0;
 
         GraphqlService.query = async (query, variables) => {
             callCount++;
@@ -807,8 +844,8 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
             GraphqlService.query = async () => { callCount++; return null; };
 
             const result = await IssueService.manageIssueProjects({
-                issue_number: 11233,
-                action      : 'delete',  // not a supported action
+                issue_number  : 11233,
+                action        : 'delete',  // not a supported action
                 projectNumbers: [12]
             });
 
@@ -887,9 +924,9 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
         test('collects per-project warnings when a project is not found (partial-attach)', async () => {
             test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
 
-            const ISSUE_NODE_ID  = 'I_kwDOABcD_issue11233';
-            const VALID_PROJECT  = 'PVT_kwDOA0zl484BXGrv';
-            const NEW_ITEM_ID    = 'PVTI_kwDOA0zl484BXGrv_partialOK';
+            const ISSUE_NODE_ID = 'I_kwDOABcD_issue11233';
+            const VALID_PROJECT = 'PVT_kwDOA0zl484BXGrv';
+            const NEW_ITEM_ID   = 'PVTI_kwDOA0zl484BXGrv_partialOK';
 
             let callCount = 0;
             GraphqlService.query = async () => {
@@ -924,11 +961,11 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
         test("updates Status field via single-select option ID resolution + updateProjectV2ItemFieldValue", async () => {
             test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
 
-            const ISSUE_NODE_ID  = 'I_kwDOABcD_issue11233';
-            const PROJECT_ID     = 'PVT_kwDOA0zl484BXGrv';
+            const ISSUE_NODE_ID   = 'I_kwDOABcD_issue11233';
+            const PROJECT_ID      = 'PVT_kwDOA0zl484BXGrv';
             const STATUS_FIELD_ID = 'PVTF_kwDOA0zl484BXGrv_status';
-            const IN_PROG_OPT_ID = 'opt_in_progress_xyz';
-            const ITEM_ID        = 'PVTI_kwDOA0zl484BXGrv_item11233';
+            const IN_PROG_OPT_ID  = 'opt_in_progress_xyz';
+            const ITEM_ID         = 'PVTI_kwDOA0zl484BXGrv_item11233';
 
             let callCount = 0;
             GraphqlService.query = async () => {
@@ -940,8 +977,8 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
                     return {
                         organization: {
                             projectV2: {
-                                id: PROJECT_ID,
-                                title: 'v13 Release',
+                                id    : PROJECT_ID,
+                                title : 'v13 Release',
                                 fields: {
                                     nodes: [
                                         {
@@ -1004,11 +1041,11 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
                     return {
                         organization: {
                             projectV2: {
-                                id: PROJECT_ID, title: 'v13 Release',
+                                id    : PROJECT_ID, title: 'v13 Release',
                                 fields: {
                                     nodes: [
                                         {
-                                            id: 'PVTF_status', name: 'Status',
+                                            id     : 'PVTF_status', name: 'Status',
                                             options: [{id: 'opt_todo', name: 'Todo'}, {id: 'opt_done', name: 'Done'}]
                                         }
                                     ]
@@ -1166,7 +1203,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
 
     test.describe('permission gate (preserved from pre-#11537 behavior)', () => {
         test('returns FORBIDDEN when viewer lacks WRITE/MAINTAIN/ADMIN permission; precondition fetch NOT called', async () => {
-            const writePermStub                   = RepositoryService.getViewerPermission;
+            const writePermStub = RepositoryService.getViewerPermission;
             RepositoryService.getViewerPermission = async () => ({permission: 'READ'});
 
             let graphqlCalled = false;
