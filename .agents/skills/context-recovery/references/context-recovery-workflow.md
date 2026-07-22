@@ -56,7 +56,23 @@ for prompt/response content and should be targeted.
 
 6. **Identity quarantine (post-compaction prior):** the self-story is the
    context most silently reconstructed after compaction — nothing fails loudly
-   when it is wrong. Before writing ANYTHING identity-bearing (memory files,
+   when it is wrong. **Load-proof check first, per harness** — a seat with a
+   generated memory layer re-loads it mechanically, but the proof differs by
+   loader. **Kimi:** look for `<seat-memory-layer source="…"
+   trigger="session-boot|post-compact-reload">` plus the `MEMORY.md` /
+   `identity.md` sections in context. **OpenCode:** the same two files' content
+   via `opencode.jsonc → instructions` — that mechanism has no marker wrapper,
+   so the file content itself (e.g. the hot-index cap header) is the proof.
+   Proof present: the layer is loaded; the quarantine below covers only facts
+   outside it. Proof absent: the layer is NOT loaded regardless of any boot
+   checklist — diagnose per harness: Kimi routes to the identity-anchor hook
+   (the seat `config.toml` `[[hooks]]` entries, the emitted hook script, its
+   sentinel state dir); OpenCode routes to the `instructions` array in
+   `opencode.jsonc` and the readability of the files it names. The manual path
+   below is the fallback, not the mechanism. Never read `turnPresence.fresh`
+   as this layer's proof: that freshness belongs to the sibling presence hook
+   (#15658-class wiring) and can be green while the anchor loader is broken.
+   Then, before writing ANYTHING identity-bearing (memory files,
    biography prose, self-description in posts or PRs), re-hydrate identity from
    the trail: own origin/identity memories + the recency feed. Then the claim
    rule does the blocking: any identity fact about a named agent (self OR peer)
