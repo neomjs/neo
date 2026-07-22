@@ -68,6 +68,21 @@ test.describe('ai/daemons/wake/outboxLock (#15665)', () => {
         expect(fs.existsSync(`${filePath}.lock`)).toBe(false);
     });
 
+    test('a corrupt lock descriptor fails closed via timeout and is never auto-deleted', async () => {
+        const root     = createRoot(),
+              filePath = path.join(root, 'outbox.jsonl'),
+              lockPath = `${filePath}.lock`;
+
+        fs.writeFileSync(lockPath, '{"pid":"NaN", garbage');
+
+        await expect(withOutboxLock(filePath, () => fs.promises.writeFile(filePath, 'x'), {acquireTimeoutMs: 250, retryIntervalMs: 25}))
+            .rejects.toThrow('refusing to write unlocked');
+
+        // Corrupt content could be a torn write by a live holder — it is preserved for
+        // manual/holder recovery, never auto-deleted.
+        expect(fs.readFileSync(lockPath, 'utf8')).toBe('{"pid":"NaN", garbage');
+    });
+
     test('concurrent critical sections serialize — a second writer waits and then lands', async () => {
         const root     = createRoot(),
               filePath = path.join(root, 'outbox.jsonl');

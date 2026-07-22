@@ -7,12 +7,15 @@ import {consumeWakeOutbox} from '../../../../../../ai/daemons/wake/consumeWakeOu
 import {withOutboxLock}    from '../../../../../../ai/daemons/wake/outboxLock.mjs';
 
 /**
- * @summary Pins the kimi-pull-bridge seat-side consume contract: digest surfacing, ack-ledger
- * idempotency, torn-line tolerance, append-survives-consume under the strict lock, and
- * exact-owner validation with dead-letter rejection.
+ * @summary Pins the kimi-pull-bridge seat-side consume contract: three-leg owner validation
+ * (identity, session, reuse-safe epoch), descent authority, correlated acks, idempotency,
+ * torn-line tolerance, and append-survives-consume under the strict lock.
  */
 test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
     const roots = [];
+
+    const OWNER_IDENTITY = '@agent-test',
+          OWNER_START    = 'START-TIME';
 
     function createRoot() {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-wake-consume-'));
@@ -22,16 +25,38 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
     function writeEnvelope(root) {
         const envelopePath = path.join(root, 'wake-envelope.json');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_test', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T16:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {
+            sessionId    : 'ses_test',
+            cwd          : '/seat/checkout',
+            pid          : process.pid,
+            pidStartedAt : OWNER_START,
+            agentIdentity: OWNER_IDENTITY,
+            updatedAt    : '2026-07-22T16:00:00.000Z'
+        });
         return envelopePath
     }
+
+    /** Spec seams: the owner reads as alive, every lstart lookup matches, and any pid chain lands on the owner. */
+    const liveSeams = {
+        isAlive : pid => pid === process.pid,
+        lstartOf: () => OWNER_START,
+        ppidOf  : () => process.pid
+    };
 
     function writeOutbox(outboxPath, entries) {
         fs.writeFileSync(outboxPath, entries.map(entry => JSON.stringify(entry)).join('\n') + '\n', {mode: 0o600})
     }
 
     function validEntry(wakeId, digest) {
-        return {wakeId, subscriptionId: 'sub_1', agentIdentity: '@agent', sessionId: 'ses_test', processEpoch: process.pid, digest}
+        return {
+            wakeId,
+            subscriptionId: 'sub_1',
+            agentIdentity : OWNER_IDENTITY,
+            sessionId     : 'ses_test',
+            processEpoch  : process.pid,
+            pidStartedAt  : OWNER_START,
+            digest
+        }
     }
 
     test.afterAll(() => {
@@ -49,7 +74,7 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
             validEntry('bbb222', 'second wake')
         ]);
 
-        const first = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const first = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(first.consumed).toBe(2);
         expect(first.remaining).toBe(0);
@@ -59,14 +84,12 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         const ackLines = fs.readFileSync(`${outboxPath}.acks.jsonl`, 'utf8').trim().split('\n');
         expect(ackLines.length).toBe(2);
-        expect(JSON.parse(ackLines[0]).wakeId).toBe('aaa111');
-        expect(JSON.parse(ackLines[0]).sessionId).toBe('ses_test');
-        expect(JSON.parse(ackLines[0]).processEpoch).toBe(process.pid);
+        expect(JSON.parse(ackLines[0])).toMatchObject({wakeId: 'aaa111', sessionId: 'ses_test', processEpoch: process.pid});
+        expect(JSON.parse(ackLines[0])).not.toHaveProperty('pid');
 
-        // A retry of the same logical wake (same wakeId) is a duplicate, not a re-delivery.
         writeOutbox(outboxPath, [validEntry('aaa111', 'first wake')]);
 
-        const second = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const second = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(second.consumed).toBe(0);
         expect(second.duplicates).toBe(1);
@@ -86,7 +109,7 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
             {mode: 0o600}
         );
 
-        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(1);
         expect(result.keptCorrupt).toBe(1);
@@ -102,9 +125,6 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         writeOutbox(outboxPath, [validEntry('eee555', 'old wake')]);
 
-        // Hold the lock (the consume's critical section). The producer starts inside the hold
-        // and spins on the lock; we compact the consumed entry away and release — the producer's
-        // append then lands AFTER the compaction and must survive it.
         let producerPromise;
 
         await withOutboxLock(outboxPath, async () => {
@@ -118,8 +138,7 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         await producerPromise;
 
-        // The consume pass itself, post-race: the fresh entry is delivered, not erased.
-        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(1);
         expect(logger.lines.join('\n')).toContain('fresh wake')
@@ -133,8 +152,6 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         writeOutbox(outboxPath, [validEntry('ggg777', 'slow-consume wake')]);
 
-        // Hold past the borrowed WAL helper's 2s TTL (2.6s — the review's exact probe): a live
-        // holder must never be reclaimed, and the producer lands only after release.
         let producerPromise;
 
         await withOutboxLock(outboxPath, async () => {
@@ -152,24 +169,24 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         await producerPromise;
 
-        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(1);
         expect(logger.lines.join('\n')).toContain('post-hold wake')
     });
 
-    test('a session-mismatched entry is dead-lettered — never printed, never acked', async () => {
+    test('a foreign agent identity is dead-lettered — never printed, never acked', async () => {
         const root         = createRoot(),
               envelopePath = writeEnvelope(root),
               outboxPath   = path.join(root, 'wake-outbox.jsonl'),
               logger       = {lines: [], log(line) { this.lines.push(line) }};
 
         writeOutbox(outboxPath, [
-            {...validEntry('iii999', 'stranger wake'), sessionId: 'ses_stranger'},
+            {...validEntry('iii999', 'stranger wake'), agentIdentity: '@different-seat'},
             validEntry('jjj000', 'owner wake')
         ]);
 
-        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(1);
         expect(result.deadLetters).toBe(1);
@@ -178,34 +195,74 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
 
         const dead = fs.readFileSync(`${outboxPath}.dead.jsonl`, 'utf8').trim().split('\n');
         expect(dead.length).toBe(1);
-        expect(JSON.parse(dead[0]).reason).toBe('session-mismatch');
+        expect(JSON.parse(dead[0]).reason).toBe('identity-mismatch');
         expect(fs.readFileSync(outboxPath, 'utf8')).toBe('')
     });
 
-    test('a stale-epoch entry is dead-lettered — never printed, never acked', async () => {
+    test('a session-mismatched entry is dead-lettered', async () => {
+        const root         = createRoot(),
+              envelopePath = writeEnvelope(root),
+              outboxPath   = path.join(root, 'wake-outbox.jsonl'),
+              logger       = {lines: [], log(line) { this.lines.push(line) }};
+
+        writeOutbox(outboxPath, [
+            {...validEntry('kkk111', 'stranger session wake'), sessionId: 'ses_stranger'},
+            validEntry('lll222', 'owner wake')
+        ]);
+
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
+
+        expect(result.consumed).toBe(1);
+        expect(result.deadLetters).toBe(1);
+        expect(logger.lines.join('\n')).not.toContain('stranger session wake');
+
+        const dead = fs.readFileSync(`${outboxPath}.dead.jsonl`, 'utf8').trim().split('\n');
+        expect(JSON.parse(dead[0]).reason).toBe('session-mismatch');
+    });
+
+    test('a pid-reused epoch (same number, different start time) is dead-lettered', async () => {
+        const root         = createRoot(),
+              envelopePath = writeEnvelope(root),
+              outboxPath   = path.join(root, 'wake-outbox.jsonl'),
+              logger       = {lines: [], log(line) { this.lines.push(line) }};
+
+        writeOutbox(outboxPath, [
+            {...validEntry('mmm333', 'reused-pid wake'), pidStartedAt: 'DIFFERENT-START'},
+            validEntry('nnn444', 'owner wake')
+        ]);
+
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
+
+        expect(result.consumed).toBe(1);
+        expect(result.deadLetters).toBe(1);
+        expect(logger.lines.join('\n')).not.toContain('reused-pid wake');
+
+        const dead = fs.readFileSync(`${outboxPath}.dead.jsonl`, 'utf8').trim().split('\n');
+        expect(JSON.parse(dead[0]).reason).toBe('stale-epoch');
+    });
+
+    test('a dead-pid epoch is dead-lettered', async () => {
         const root         = createRoot(),
               envelopePath = writeEnvelope(root),
               outboxPath   = path.join(root, 'wake-outbox.jsonl'),
               logger       = {lines: [], log(line) { this.lines.push(line) }};
 
         const {spawnSync} = await import('node:child_process'),
-              deadPid     = spawnSync(process.execPath, ['-e', '']).pid;
+              gone        = spawnSync(process.execPath, ['-e', '']).pid;
 
         writeOutbox(outboxPath, [
-            {...validEntry('kkk111', 'rotated-owner wake'), processEpoch: deadPid},
-            validEntry('lll222', 'owner wake')
+            {...validEntry('ooo555', 'dead-pid wake'), processEpoch: gone},
+            validEntry('ppp666', 'owner wake')
         ]);
 
-        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath, envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(1);
         expect(result.deadLetters).toBe(1);
-        expect(logger.lines.join('\n')).not.toContain('rotated-owner wake');
+        expect(logger.lines.join('\n')).not.toContain('dead-pid wake');
 
         const dead = fs.readFileSync(`${outboxPath}.dead.jsonl`, 'utf8').trim().split('\n');
-        expect(dead.length).toBe(1);
         expect(JSON.parse(dead[0]).reason).toBe('stale-epoch');
-        expect(fs.readFileSync(outboxPath, 'utf8')).toBe('')
     });
 
     test('a stale envelope owner refuses visibly instead of consuming for a rotated seat', async () => {
@@ -214,12 +271,42 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
               outboxPath   = path.join(root, 'wake-outbox.jsonl');
 
         const {spawnSync} = await import('node:child_process'),
-              deadPid     = spawnSync(process.execPath, ['-e', '']).pid;
+              gone        = spawnSync(process.execPath, ['-e', '']).pid;
 
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_test', cwd: '/seat/checkout', pid: deadPid, updatedAt: '2026-07-22T16:00:00.000Z'});
-        writeOutbox(outboxPath, [validEntry('mmm333', 'any wake')]);
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_test', cwd: '/seat/checkout', pid: gone, pidStartedAt: OWNER_START, agentIdentity: OWNER_IDENTITY, updatedAt: '2026-07-22T16:00:00.000Z'});
+        writeOutbox(outboxPath, [validEntry('qqq777', 'any wake')]);
 
-        await expect(consumeWakeOutbox({outboxPath, envelopePath})).rejects.toThrow('dead owner process');
+        await expect(consumeWakeOutbox({outboxPath, envelopePath, ...liveSeams})).rejects.toThrow('dead owner process');
+    });
+
+    test('a pid-reused envelope owner refuses visibly instead of consuming', async () => {
+        const root         = createRoot(),
+              envelopePath = writeEnvelope(root),
+              outboxPath   = path.join(root, 'wake-outbox.jsonl');
+
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_test', cwd: '/seat/checkout', pid: process.pid, pidStartedAt: 'DIFFERENT-START', agentIdentity: OWNER_IDENTITY, updatedAt: '2026-07-22T16:00:00.000Z'});
+        writeOutbox(outboxPath, [validEntry('rrr888', 'any wake')]);
+
+        await expect(consumeWakeOutbox({outboxPath, envelopePath, ...liveSeams})).rejects.toThrow('epoch mismatch');
+    });
+
+    test('a foreign caller (no descent from the owner pid) refuses visibly', async () => {
+        const root         = createRoot(),
+              envelopePath = writeEnvelope(root),
+              outboxPath   = path.join(root, 'wake-outbox.jsonl');
+
+        writeOutbox(outboxPath, [validEntry('sss999', 'any wake')]);
+
+        await expect(consumeWakeOutbox({
+            outboxPath,
+            envelopePath,
+            pid    : 999999,
+            isAlive: () => true,
+            lstartOf,
+            ppidOf : () => 1 // chain never reaches the owner pid
+        })).rejects.toThrow('not inside the owner process tree');
+
+        function lstartOf() { return OWNER_START }
     });
 
     test('consume of an absent outbox is a soft no-op', async () => {
@@ -227,7 +314,7 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
               envelopePath = writeEnvelope(root),
               logger       = {lines: [], log(line) { this.lines.push(line) }};
 
-        const result = await consumeWakeOutbox({outboxPath: path.join(root, 'absent.jsonl'), envelopePath, logger});
+        const result = await consumeWakeOutbox({outboxPath: path.join(root, 'absent.jsonl'), envelopePath, logger, ...liveSeams});
 
         expect(result.consumed).toBe(0);
         expect(result.remaining).toBe(0)

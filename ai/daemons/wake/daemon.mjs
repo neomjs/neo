@@ -41,7 +41,7 @@ import fs                               from 'fs-extra';
 import os                               from 'os';
 import path                             from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { spawn, execSync }              from 'child_process';
+import { spawn, execSync, spawnSync }   from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -1327,6 +1327,22 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
 }
 
 /**
+ * @summary Reads a process's `ps lstart` start time — the reuse-safe half of an owner-process
+ * epoch. A dead pid whose number was reassigned by the OS reports a different start time, so the
+ * comparison distinguishes "alive" from "alive but a different process".
+ * @param {Number} pid
+ * @returns {String|null}
+ */
+function readProcessStartTime(pid) {
+    try {
+        const out = spawnSync('ps', ['-p', String(pid), '-o', 'lstart=']).stdout?.toString().trim();
+        return out || null
+    } catch {
+        return null
+    }
+}
+
+/**
  * `kimi-pull-bridge` — the pull-inversion wake route for Kimi seats. Instead of POSTing into a
  * `kimi web` process (whose prompt route materializes the serverside twin per the pinned
  * `prompts.ts` `resume()` semantics), the daemon appends one wake line to the seat's local
@@ -1403,6 +1419,29 @@ async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = ''
         // EPERM = alive but unsignalable from this uid — still alive, and the seat's own process.
     }
 
+    // Reuse-safe epoch: a dead pid whose number was reassigned by the OS fails the start-time
+    // comparison. The envelope records the owner's `ps lstart` at SessionStart; a live pid with a
+    // different start time is a different process.
+    if (typeof envelope.pidStartedAt !== 'string' || envelope.pidStartedAt.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'pidStartedAt' (owner process start time) — refresh it via the seat's SessionStart hook`);
+    }
+
+    const liveStartedAt = readProcessStartTime(processEpoch);
+
+    if (liveStartedAt !== envelope.pidStartedAt) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' epoch mismatch for pid ${processEpoch}: recorded start '${envelope.pidStartedAt}' vs live '${liveStartedAt}' — a rotated or pid-reused owner`);
+    }
+
+    // Identity leg: the subscription's owner must be the seat's owner. The envelope carries the
+    // seat's provisioned identity; a mismatch means the route targets a different seat entirely.
+    if (typeof envelope.agentIdentity !== 'string' || envelope.agentIdentity.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'agentIdentity' — provision the seat identity and refresh via the SessionStart hook`);
+    }
+
+    if (subscription.properties?.agentIdentity !== envelope.agentIdentity) {
+        throw new Error(`kimi-pull-bridge subscription identity '${subscription.properties?.agentIdentity}' does not match seat owner '${envelope.agentIdentity}'`);
+    }
+
     // Path confinement: the outbox must live inside the seat home (the envelope's directory),
     // with no symlinked parent directory or symlinked outbox file. Comparisons run on realpaths —
     // on macOS the tmp root itself is a `/var` → `/private/var` symlink, so a naive literal
@@ -1445,6 +1484,7 @@ async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = ''
               agentIdentity : subscription.properties?.agentIdentity ?? null,
               sessionId,
               processEpoch,
+              pidStartedAt  : envelope.pidStartedAt,
               digest,
               writtenAt     : new Date().toISOString()
           };

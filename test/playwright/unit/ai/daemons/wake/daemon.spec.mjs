@@ -25,8 +25,27 @@ import { withOutboxLock }                                                       
 function writeMockPs(binDir, psOutput = '') {
     const mockPsPath = path.join(binDir, 'ps');
 
-    fs.writeFileSync(mockPsPath, `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(psOutput)});\n`);
+    fs.writeFileSync(mockPsPath, `#!/usr/bin/env node
+// Instance-listing calls are stubbed for determinism; 'lstart' queries pass through to the real
+// ps so process-epoch (pid start-time) checks keep working in daemon integration specs.
+const {spawnSync} = require('child_process');
+if (process.argv.includes('lstart=')) {
+    const r = spawnSync('/bin/ps', process.argv.slice(2));
+    process.stdout.write(r.stdout ?? '');
+} else {
+    process.stdout.write(${JSON.stringify(psOutput)});
+}
+`);
     fs.chmodSync(mockPsPath, 0o755);
+}
+
+/**
+ * @summary Returns the spec process's own `ps lstart` string — the reuse-safe epoch half the
+ * kimi-pull-bridge envelope fixtures must carry to satisfy the producer's owner validation.
+ * @returns {String}
+ */
+function liveLstart() {
+    return spawnSync('ps', ['-p', String(process.pid), '-o', 'lstart=']).stdout.toString().trim()
 }
 
 function insertWakeSubscription(db, {
@@ -4096,7 +4115,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull', cwd: '/seat/checkout', pid: process.pid, pidStartedAt: liveLstart(), agentIdentity: agentId, updatedAt: '2026-07-22T12:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
@@ -4330,7 +4349,7 @@ test.describe('Wake Daemon', () => {
         const deadPid      = spawnSync(process.execPath, ['-e', '']).pid;
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-dead-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-dead-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_dead', cwd: '/seat/checkout', pid: deadPid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_dead', cwd: '/seat/checkout', pid: deadPid, pidStartedAt: liveLstart(), agentIdentity: agentId, updatedAt: '2026-07-22T12:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
@@ -4367,7 +4386,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-repair-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-repair-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_repair', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_repair', cwd: '/seat/checkout', pid: process.pid, pidStartedAt: liveLstart(), agentIdentity: agentId, updatedAt: '2026-07-22T12:00:00.000Z'});
         fs.writeFileSync(outboxPath, '', {mode: 0o644});
 
         insertWakeSubscription(db, {
@@ -4404,7 +4423,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-escape-envelope.json');
         const outboxPath   = path.join(os.tmpdir(), `kimi-pull-escape-${crypto.randomUUID()}.jsonl`);
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_escape', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_escape', cwd: '/seat/checkout', pid: process.pid, pidStartedAt: liveLstart(), agentIdentity: agentId, updatedAt: '2026-07-22T12:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
@@ -4441,7 +4460,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-race-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-race-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_race', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_race', cwd: '/seat/checkout', pid: process.pid, pidStartedAt: liveLstart(), agentIdentity: agentId, updatedAt: '2026-07-22T12:00:00.000Z'});
         fs.writeFileSync(outboxPath, JSON.stringify({wakeId: 'preexisting', digest: 'stale pre-consume entry'}) + '\n', {mode: 0o600});
 
         insertWakeSubscription(db, {

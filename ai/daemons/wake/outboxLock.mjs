@@ -81,12 +81,15 @@ export async function withOutboxLock(filePath, fn, {
 
             // Existing holder: reclaim ONLY when its pid is dead — a live consumer compacts for as
             // long as it needs and is never reclaimed. The byte-match re-read fences the reclaim
-            // against a successor that already replaced the stale descriptor.
+            // against a successor that already replaced the stale descriptor. A CORRUPT descriptor
+            // is deliberately NOT reclaimed here: unparseable content could be a torn write by a
+            // live holder, so acquisition times out and the leftover is recovered by hand or by
+            // the holder's own release — never auto-deleted.
             const raw = await fsImpl.readFile(lockPath, 'utf8').catch(() => null);
 
             let holder = null;
 
-            try { holder = JSON.parse(raw) } catch { /* corrupt descriptor is reclaimable */ }
+            try { holder = JSON.parse(raw) } catch { /* corrupt → fail closed via timeout */ }
 
             if (holder && Number.isInteger(holder.pid) && !isAlive(holder.pid)) {
                 const current = await fsImpl.readFile(lockPath, 'utf8').catch(() => null);

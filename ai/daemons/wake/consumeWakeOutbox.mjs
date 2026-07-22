@@ -1,44 +1,47 @@
 /**
  * @module ai/daemons/wake/consumeWakeOutbox
  * @summary Seat-side consumer for the `kimi-pull-bridge` wake outbox: drains the seat's local
- * wake-outbox under the STRICT outbox lock (no TTL reclaim of a live holder, no unlocked
- * fall-through), validates every entry against the CURRENT seat authority before surfacing or
- * acknowledging it, prints each accepted wake digest for the calling agent turn, records a
- * correlated owner-ack receipt per entry, and compacts the file — so a daemon append landing
- * mid-consume is preserved, never erased by a stale snapshot rewrite.
+ * wake-outbox under the STRICT outbox lock, validates every entry against ALL THREE
+ * independently-authoritative owner legs before surfacing or acknowledging it — agent identity,
+ * session id, and a reuse-safe process epoch (pid + start time) — and compacts the file, so a
+ * daemon append landing mid-consume is preserved, never erased by a stale snapshot rewrite.
  *
  * Contract:
  * - **One strict lock, both sides.** Read + compact run inside `withOutboxLock(outboxPath)`; the
  *   daemon's append takes the same lock. A live consumer is never reclaimed (no TTL), and a
  *   writer that cannot acquire throws rather than writing unlocked.
- * - **Exact-owner validation.** The wake envelope names the current seat owner
- *   (`{sessionId, pid}`). An entry is accepted only when its `{sessionId, processEpoch}` matches
- *   the envelope's owner exactly and that owner is alive. Anything else — a session mismatch
- *   (queued for a previous TUI session) or a stale epoch (queued for a dead/rotated process) —
- *   is moved to `<outboxPath>.dead.jsonl` with its reason, never printed, never acked.
- * - **Owner-ack.** Each accepted entry appends `{wakeId, sessionId, processEpoch, consumedAt,
- *   pid}` to `<outboxPath>.acks.jsonl` — the receipt correlating the queued tuple to the owner
- *   process that actually consumed the wake.
+ * - **Three-leg owner validation.** The wake envelope names the current seat owner
+ *   (`{agentIdentity, sessionId, pid, pidStartedAt}`). The owner must be alive AND match its
+ *   recorded start time (a pid whose number was reassigned by the OS fails the comparison). Each
+ *   entry must match all three legs; the consumer itself must run inside the owner's process
+ *   tree (descent from `pid` via `ps`). Anything else — foreign identity, session mismatch,
+ *   stale or reused epoch, foreign caller — is rejected: entries go to `<outboxPath>.dead.jsonl`
+ *   with their reason; a foreign caller or stale envelope refuses visibly.
+ * - **Truthful owner-ack.** Each accepted entry appends `{wakeId, sessionId, processEpoch,
+ *   consumedAt}` to `<outboxPath>.acks.jsonl` — the receipt names the validated owner tuple and
+ *   nothing else. No arbitrary caller pid is recorded as owner proof.
  * - **Idempotency.** `wakeId` is the daemon's content digest of the logical wake; an entry
  *   already present in the ack ledger is dropped as a duplicate (retry-safe).
  * - **Torn-write tolerance.** A final line that does not parse as JSON is kept untouched for the
  *   next consume; mid-file unparseable lines are kept and counted as corrupt-kept.
- * - **Fail-open.** A missing outbox is a no-op; a missing/stale envelope refuses visibly (the CLI
- *   warns and exits 0 — a poll must never break the seat's cron turn).
+ * - **Fail-open.** A missing outbox is a no-op; a missing/stale envelope or a foreign caller
+ *   refuses visibly (the CLI warns and exits 0 — a poll must never break the seat's cron turn).
  *
  * Usage (the seat's wake-poll cron prompt):
  * `node ai/daemons/wake/consumeWakeOutbox.mjs --outbox ~/.kimi-code/wake-outbox.jsonl`
  */
-import fs   from 'node:fs';
-import os   from 'node:os';
-import path from 'node:path';
+import fs          from 'node:fs';
+import os          from 'node:os';
+import path        from 'node:path';
+import {spawnSync} from 'node:child_process';
 
 import {withOutboxLock} from './outboxLock.mjs';
 
 /**
- * @summary Reads + validates the current seat owner from the wake envelope.
+ * @summary Reads + validates the current seat owner from the wake envelope — all three
+ * independently-authoritative legs must be present.
  * @param {String} envelopePath
- * @returns {Promise<{sessionId: String, processEpoch: Number}>}
+ * @returns {Promise<{agentIdentity: String, sessionId: String, processEpoch: Number, pidStartedAt: String}>}
  */
 async function readOwnerAuthority(envelopePath) {
     let envelope;
@@ -55,13 +58,53 @@ async function readOwnerAuthority(envelopePath) {
     if (!Number.isInteger(envelope?.pid)) {
         throw new Error(`wake envelope at '${envelopePath}' requires an integer 'pid' (owner process epoch)`);
     }
+    if (typeof envelope?.pidStartedAt !== 'string' || envelope.pidStartedAt.length === 0) {
+        throw new Error(`wake envelope at '${envelopePath}' requires 'pidStartedAt' (reuse-safe owner epoch)`);
+    }
+    if (typeof envelope?.agentIdentity !== 'string' || envelope.agentIdentity.length === 0) {
+        throw new Error(`wake envelope at '${envelopePath}' requires 'agentIdentity' — provision the seat identity and refresh via the SessionStart hook`);
+    }
 
-    return {sessionId: envelope.sessionId, processEpoch: envelope.pid}
+    return {
+        agentIdentity: envelope.agentIdentity,
+        sessionId    : envelope.sessionId,
+        processEpoch : envelope.pid,
+        pidStartedAt : envelope.pidStartedAt
+    }
 }
 
 /**
- * @summary Drains the outbox once under the strict lock, validating each entry against the
- * current seat authority before surfacing or acknowledging it.
+ * @summary Default `ps lstart` lookup — a process's recorded start time on this host.
+ * @param {Number} pid
+ * @returns {String|null}
+ */
+function defaultLstartOf(pid) {
+    try {
+        const out = spawnSync('ps', ['-p', String(pid), '-o', 'lstart=']).stdout?.toString().trim();
+        return out || null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * @summary Default `ps -o ppid=` lookup for the process-tree descent check.
+ * @param {Number} pid
+ * @returns {Number|null}
+ */
+function defaultPpidOf(pid) {
+    try {
+        const out  = spawnSync('ps', ['-p', String(pid), '-o', 'ppid=']).stdout?.toString().trim();
+        const ppid = Number(out);
+        return Number.isInteger(ppid) && ppid > 0 ? ppid : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * @summary Drains the outbox once under the strict lock, validating every entry against all
+ * three owner legs before surfacing or acknowledging it.
  * @param {Object}   options
  * @param {String}   options.outboxPath    Absolute outbox path (seat home only).
  * @param {String}  [options.envelopePath] Wake envelope path (default `~/.kimi-code/wake-envelope.json`).
@@ -69,6 +112,8 @@ async function readOwnerAuthority(envelopePath) {
  * @param {String}  [options.deadPath]     Dead-letter path (default `<outboxPath>.dead.jsonl`).
  * @param {Number}  [options.pid]          Consuming process (defaults to the caller's parent).
  * @param {Function}[options.isAlive]      Liveness probe `(pid) => boolean` (injected for specs).
+ * @param {Function}[options.lstartOf]     `(pid) => startTime` lookup (injected for specs).
+ * @param {Function}[options.ppidOf]       `(pid) => parentPid` lookup (injected for specs).
  * @param {Object}  [options.logger]       Console-compatible sink for digests + the summary line.
  * @returns {Promise<{consumed: Number, duplicates: Number, deadLetters: Number, keptCorrupt: Number, remaining: Number}>}
  */
@@ -79,6 +124,8 @@ export async function consumeWakeOutbox({
     deadPath     = `${outboxPath}.dead.jsonl`,
     pid          = process.ppid,
     isAlive      = pidToCheck => { try { process.kill(pidToCheck, 0); return true } catch (error) { return error.code === 'EPERM' } },
+    lstartOf     = defaultLstartOf,
+    ppidOf       = defaultPpidOf,
     logger       = console
 } = {}) {
     if (typeof outboxPath !== 'string' || outboxPath.length === 0) {
@@ -89,6 +136,22 @@ export async function consumeWakeOutbox({
 
     if (!isAlive(owner.processEpoch)) {
         throw new Error(`wake envelope at '${envelopePath}' names a dead owner process (pid ${owner.processEpoch}) — the seat rotated; refusing to consume for a stale owner`);
+    }
+    if (lstartOf(owner.processEpoch) !== owner.pidStartedAt) {
+        throw new Error(`wake envelope at '${envelopePath}' epoch mismatch for pid ${owner.processEpoch} — a pid-reused owner; refusing to consume for a stale owner`);
+    }
+
+    // The consumer must run inside the owner's process tree (cron child of the TUI or its
+    // descendants): walk the parent chain; a foreign caller can never authenticate.
+    let ancestor = pid, levels = 0;
+
+    while (ancestor && ancestor !== owner.processEpoch && levels < 6) {
+        ancestor = ppidOf(ancestor);
+        levels++;
+    }
+
+    if (ancestor !== owner.processEpoch) {
+        throw new Error(`consumer pid ${pid} is not inside the owner process tree (owner pid ${owner.processEpoch}) — refusing to consume as a foreign caller`);
     }
 
     let consumed = 0, duplicates = 0, deadLetters = 0, keptCorrupt = 0, remaining = 0;
@@ -105,6 +168,11 @@ export async function consumeWakeOutbox({
         );
         const kept = [];
 
+        const deadLetter = async (entry, reason) => {
+            deadLetters++;
+            await fs.promises.appendFile(deadPath, JSON.stringify({wakeId: entry?.wakeId ?? null, reason, entry, deadAt: new Date().toISOString(), byPid: pid}) + '\n', {mode: 0o600});
+        };
+
         for (const line of lines) {
             let entry;
 
@@ -118,17 +186,18 @@ export async function consumeWakeOutbox({
                 continue;
             }
 
-            // Exact-owner validation BEFORE output or acknowledgement: the entry must name the
-            // current seat owner — anything else is rejected to the dead-letter file with its
-            // reason, never printed, never acked.
-            if (entry?.sessionId !== owner.sessionId) {
-                deadLetters++;
-                await fs.promises.appendFile(deadPath, JSON.stringify({wakeId: entry?.wakeId ?? null, reason: 'session-mismatch', entry, deadAt: new Date().toISOString(), byPid: pid}) + '\n', {mode: 0o600});
+            // Three-leg owner validation BEFORE output or acknowledgement — identity, session,
+            // and the reuse-safe epoch must all match the current seat authority.
+            if (entry?.agentIdentity !== owner.agentIdentity) {
+                await deadLetter(entry, 'identity-mismatch');
                 continue
             }
-            if (entry?.processEpoch !== owner.processEpoch) {
-                deadLetters++;
-                await fs.promises.appendFile(deadPath, JSON.stringify({wakeId: entry?.wakeId ?? null, reason: 'stale-epoch', entry, deadAt: new Date().toISOString(), byPid: pid}) + '\n', {mode: 0o600});
+            if (entry?.sessionId !== owner.sessionId) {
+                await deadLetter(entry, 'session-mismatch');
+                continue
+            }
+            if (entry?.processEpoch !== owner.processEpoch || entry?.pidStartedAt !== owner.pidStartedAt) {
+                await deadLetter(entry, 'stale-epoch');
                 continue
             }
 
@@ -145,8 +214,7 @@ export async function consumeWakeOutbox({
                 wakeId      : entry.wakeId,
                 sessionId   : entry.sessionId,
                 processEpoch: entry.processEpoch,
-                consumedAt  : new Date().toISOString(),
-                pid
+                consumedAt  : new Date().toISOString()
             }) + '\n', {mode: 0o600});
         }
 
