@@ -28,6 +28,17 @@ const fleetUrl   = 'http://127.0.0.1:8083/fleet',
       okFetch    = () => async () => ({json: async () => ({ok: true, result: null})});
 
 test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->fleet HTTP transport', () => {
+    test('the selected flag: default install is unselected; the injector-style install stamps selected', () => {
+        const targetDefault  = {},
+              targetSelected = {};
+
+        const bridgeDefault  = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target: targetDefault});
+        const bridgeSelected = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), selected: true, target: targetSelected});
+
+        expect(Object.getOwnPropertyDescriptor(bridgeDefault, 'selected')).toMatchObject({enumerable: false, value: false});
+        expect(Object.getOwnPropertyDescriptor(bridgeSelected, 'selected')).toMatchObject({enumerable: false, value: true});
+    });
+
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});

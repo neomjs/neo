@@ -2072,9 +2072,11 @@ class FleetCockpit extends Container {
             // The shipped sample is the cold-first-run authority. A reachable but fresh/empty
             // private registry has answered, but it has not supplied a working fleet and no source
             // was selected — replacing the sample here would turn successful boot into an empty
-            // flagship. Once selected or once any populated snapshot made the surface live, empty
-            // regains its ordinary authoritative meaning (the real fleet may genuinely drain).
-            if (!me.rosterWired && mapped.length === 0 && me.rosterSourceMode !== 'selected') {
+            // flagship. An explicitly wired bridge (the injector marks it `selected`) IS a source
+            // selection, so its empty registry renders the true zero state; once any populated
+            // snapshot made the surface live, empty regains its ordinary authoritative meaning
+            // (the real fleet may genuinely drain).
+            if (!me.rosterWired && mapped.length === 0 && !bridge?.selected && me.rosterSourceMode !== 'selected') {
                 return
             }
 

@@ -53,7 +53,10 @@ class ViewportController extends Controller {
      *     not a live handle carrying the credentialed `send`).
      */
     wireFleetBridge(config) {
-        installFleetBridge(config);
+        // The injector IS the selection act: Neural Link, tests, and dev tooling wiring a bridge
+        // here means "this source was deliberately chosen" — its empty registry renders the true
+        // zero state. The packaged/default boot installs elsewhere and keeps the sample flagship.
+        installFleetBridge({...config, selected: true});
         return true
     }
 
