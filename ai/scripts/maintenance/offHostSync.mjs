@@ -198,7 +198,8 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
                     // after our SIGKILL escalation (uncooperative).
                     done({signal: error.signal ?? 'SIGTERM', status: 'timeout', error, terminatedVia: sigkillSent ? 'sigkill' : 'sigterm'})
                 } else if (error) {
-                    done({exitCode: typeof error.code === 'number' ? error.code : null, signal: error.signal ?? null, status: 'failed', error})
+                    // A spawn-level ENOENT means no child ever started — null, not an invented signal.
+                    done({exitCode: typeof error.code === 'number' ? error.code : null, signal: error.signal ?? null, status: 'failed', error, terminatedVia: error?.code === 'ENOENT' ? null : 'exit'})
                 } else {
                     done({exitCode: 0, status: 'success'})
                 }

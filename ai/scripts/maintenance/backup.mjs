@@ -571,13 +571,13 @@ async function copyJsonlSource(source, destDir, logger=console) {
  */
 export async function runBackupWithOffHostSync({
     runBackupImpl  = runBackup,
-    withLeaseImpl  = withHeavyMaintenanceLease,
+    withLeaseImpl  = null,
     backupRoot     = null,
     syncConfig     = undefined
 } = {}) {
     // The sync + BOTH receipts live INSIDE the self-acquired lease: success receipts and the
     // truthful not-run failure receipt are persisted before the lease releases.
-    return withLeaseImpl(async () => {
+    return (withLeaseImpl ?? withHeavyMaintenanceLease)(async () => {
         const backupStartedAt = Date.now();
 
         // Validation precedes ANY subtree read: a malformed subtree never reaches the allowlist

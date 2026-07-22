@@ -366,7 +366,7 @@ test.describe('wrapper lease/truth semantics (source contracts + projection shap
 
         // the lease callback CONTAINS the failure receipt + the sync + the success receipt
         const leaseBody = wrapperBody.slice(0, wrapperBody.indexOf("owner: 'backup'"));
-        expect(leaseBody).toContain('withHeavyMaintenanceLease(async () =>');
+        expect(leaseBody).toContain('(withLeaseImpl ?? withHeavyMaintenanceLease)(async () =>');
         expect(leaseBody).toContain("syncStatus       : 'not-run-backup-failed'");
         expect(leaseBody).toContain('runOffHostSync');
         expect(leaseBody).toContain('writeBackupReceipt');
@@ -436,7 +436,7 @@ test.describe('wrapper + projection behavioral witnesses', () => {
                 backupRoot   : root
             });
 
-            expect(result.bundleRoot).toContain('backup-2026-07-22');
+            expect(result.result.bundleRoot).toContain('backup-2026-07-22');
 
             const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
             expect(read.status).toBe('ok');
