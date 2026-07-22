@@ -57,10 +57,12 @@ export function validateOffHostSyncConfig(config = {}) {
     // validation failure, not a silent pass.
     if (config === null || typeof config !== 'object' || Array.isArray(config)) return fail('config must be an object');
     if (typeof command !== 'string') return fail('command must be a string');
-    if (command.includes('\0') || argv.some(token => typeof token === 'string' && token.includes('\0'))) {
+    // Array-shape before any traversal: null/object/number argv must return a validation outcome,
+    // never a thrown TypeError.
+    if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail('argv must be an array of strings');
+    if (command.includes('\0') || argv.some(token => token.includes('\0'))) {
         return fail('command/argv must not contain NUL bytes')
     }
-    if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail('argv must be an array of strings');
 
     for (const token of argv) {
         if (ANY_PLACEHOLDER.test(token) && !PLACEHOLDER_PATTERN.test(token)) {
@@ -160,9 +162,8 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
 
     return new Promise(resolve => {
         let
-            killTimer   = null,
-            settled     = false,
-            sigkillSent = false;
+            killTimer = null,
+            settled   = false;
 
         // terminatedVia is the signal that actually ENDED the child: a cooperative child dies on
         // execFile's timeout SIGTERM ('sigterm'); an ignoring child dies on our escalation ('sigkill').
@@ -196,7 +197,9 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
                 if (error?.killed || error?.signal === 'SIGTERM' || error?.signal === 'SIGKILL') {
                     // The callback fires when the child actually dies: on SIGTERM (cooperative) or
                     // after our SIGKILL escalation (uncooperative).
-                    done({signal: error.signal ?? 'SIGTERM', status: 'timeout', error, terminatedVia: sigkillSent ? 'sigkill' : 'sigterm'})
+                    // The callback's signal is the authority: a failed SIGKILL send (ESRCH) can never
+                    // be reported as a sigkill completion — only a kill that actually landed counts.
+                    done({signal: error.signal ?? 'SIGTERM', status: 'timeout', error, terminatedVia: error?.signal === 'SIGKILL' ? 'sigkill' : 'sigterm'})
                 } else if (error) {
                     // A spawn-level ENOENT means no child ever started — null, not an invented signal.
                     done({exitCode: typeof error.code === 'number' ? error.code : null, signal: error.signal ?? null, status: 'failed', error, terminatedVia: error?.code === 'ENOENT' ? null : 'exit'})
@@ -208,8 +211,7 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
 
         killTimer = setTimeout(() => {
             if (settled || !child?.pid) return;
-            sigkillSent = true;
-            try { process.kill(child.pid, 'SIGKILL') } catch { /* already gone */ }
+            try { process.kill(child.pid, 'SIGKILL') } catch { /* already gone — the callback's signal remains the authority */ }
         }, config.timeoutMs + config.killGraceMs);
 
         killTimer.unref?.()

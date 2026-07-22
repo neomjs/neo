@@ -108,6 +108,14 @@ test.describe('sync child environment boundary', () => {
         expect(out).toContain('writing');           // ordinary text survives
     });
 
+    test('null/object/number argv returns a validation outcome, never a thrown TypeError', () => {
+        for (const argv of [null, 42, {0: '-a'}]) {
+            const result = validateOffHostSyncConfig({...VALID_CONFIG, argv});
+            expect(result.enabled).toBe(false);
+            expect(result.error).toContain('array of strings');
+        }
+    });
+
     test('non-object and NUL-bearing configs fail before launch', () => {
         expect(validateOffHostSyncConfig(null).enabled).toBe(false);
         expect(validateOffHostSyncConfig([]).enabled).toBe(false);
@@ -162,6 +170,24 @@ test.describe('runOffHostSync execution contract', () => {
 
         expect(outcome.status).toBe('timeout');
         expect(outcome.terminatedVia).toBe('sigterm');
+    });
+
+    test('a failed SIGKILL send (ESRCH) is never reported as sigkill — the callback signal is the authority', async () => {
+        // Child obeys SIGTERM (cooperative) but the escalation timer ALSO fires before the callback
+        // lands: the kill fails ESRCH. terminatedVia must read sigterm, not sigkill.
+        const outcome = await runOffHostSync({
+            bundleDir : '/tmp/b',
+            bundleName: 'b',
+            config    : {
+                ...VALID_CONFIG,
+                argv       : ['-e', 'setTimeout(()=>process.exit(0), 60)'],
+                killGraceMs: 0,   // escalation scheduled as early as possible
+                timeoutMs  : 200
+            }
+        });
+
+        expect(outcome.status).not.toBe('timeout'); // cooperative exit is not a timeout either
+        expect(outcome.terminatedVia).not.toBe('sigkill');
     });
 
     test('a SIGTERM-ignoring child receives SIGKILL within timeoutMs + killGraceMs', async () => {
