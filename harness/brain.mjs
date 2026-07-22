@@ -31,8 +31,7 @@ import {randomUUID}                    from 'node:crypto';
 import fs                              from 'node:fs';
 import net                             from 'node:net';
 import path                            from 'node:path';
-import {normalizeAgentIdentityNodeId}  from '../ai/graph/normalizeAgentIdentityNodeId.mjs';
-import {probeExistingFleetServer}      from '../ai/services/fleet/fleetLaunchContract.mjs';
+import {fileURLToPath, pathToFileURL}  from 'node:url';
 
 export const ORCHESTRATOR_ENTRY = 'ai/daemons/orchestrator/daemon.mjs';
 export const FLEET_SERVER_ENTRY = 'ai/services/fleet/devFleetServer.mjs';
@@ -41,6 +40,40 @@ export const FLEET_SERVER_ENTRY = 'ai/services/fleet/devFleetServer.mjs';
 // the earliest honest "the supervisor supervises" observable. The PID file is NOT it: the daemon
 // writes that before config load and before start(), so it only proves the process exists.
 const ORCHESTRATOR_READY_MARKER = '[Orchestrator] Started.';
+
+const
+    DEFAULT_REPO_ROOT     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+    fleetRuntimeContracts = new Map();
+
+/**
+ * Loads Fleet trust primitives from the selected organism instead of the shell bundle.
+ * @summary Keeps checkout and packaged launchers on one canonical Fleet contract implementation.
+ * @param {String} [repoRoot=DEFAULT_REPO_ROOT] Authoritative checkout or packaged organism root.
+ * @returns {Promise<Object>}
+ */
+export function loadFleetRuntimeContracts(repoRoot = DEFAULT_REPO_ROOT) {
+    const absoluteRoot = path.resolve(repoRoot);
+
+    let contract = fleetRuntimeContracts.get(absoluteRoot);
+
+    if (!contract) {
+        contract = Promise.all([
+            import(pathToFileURL(path.join(absoluteRoot, 'ai/graph/normalizeAgentIdentityNodeId.mjs')).href),
+            import(pathToFileURL(path.join(absoluteRoot, 'ai/services/fleet/fleetLaunchContract.mjs')).href),
+            import(pathToFileURL(path.join(absoluteRoot, 'src/ai/fleet/fleetWireMethods.mjs')).href)
+        ]).then(([identityContract, fleetContract, wireContract]) => ({
+            FLEET_CREDENTIAL_METHODS    : wireContract.FLEET_CREDENTIAL_METHODS,
+            FLEET_WIRE_METHODS          : wireContract.FLEET_WIRE_METHODS,
+            normalizeAgentIdentityNodeId: identityContract.normalizeAgentIdentityNodeId,
+            probeExistingFleetServer    : fleetContract.probeExistingFleetServer,
+            resolveFleetBearer          : fleetContract.resolveFleetBearer
+        }));
+
+        fleetRuntimeContracts.set(absoluteRoot, contract)
+    }
+
+    return contract
+}
 
 function nodeBin() {
     return process.env.NEO_HARNESS_NODE_BIN || 'node'
@@ -324,18 +357,27 @@ export function assertIsolatedProfile({resolved, isolationRoot, chromaPort}) {
  * @param {Number|String} options.port
  * @param {String} options.bearerToken Main-owned process bearer.
  * @param {String} options.agentIdentityNodeId Trusted launcher's expected viewer node id.
+ * @param {String} [options.repoRoot=DEFAULT_REPO_ROOT] Authoritative organism root.
  * @param {Number} [options.timeoutMs=2500]
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
  * @returns {Promise<Object>} Canonical `{reusable, reason}` probe outcome.
  */
-export function probeFleetServing({port, bearerToken, agentIdentityNodeId, timeoutMs = 2500, fetchFn = fetch}) {
-    const viewer = normalizeAgentIdentityNodeId(agentIdentityNodeId);
+export async function probeFleetServing({
+    port,
+    bearerToken,
+    agentIdentityNodeId,
+    repoRoot = DEFAULT_REPO_ROOT,
+    timeoutMs = 2500,
+    fetchFn = fetch
+}) {
+    const {normalizeAgentIdentityNodeId, probeExistingFleetServer} = await loadFleetRuntimeContracts(repoRoot);
+    const viewer                                                   = normalizeAgentIdentityNodeId(agentIdentityNodeId);
 
     if (typeof viewer !== 'string' || !/^@[^@:\s]+$/.test(viewer)) {
-        return Promise.resolve({
+        return {
             reusable: false,
             reason  : 'cannot resolve a canonical expected Fleet viewer from NEO_AGENT_IDENTITY — refusing existing-port reuse'
-        })
+        }
     }
 
     return probeExistingFleetServer({
@@ -357,6 +399,7 @@ export function probeFleetServing({port, bearerToken, agentIdentityNodeId, timeo
  * @param {Number|String} options.fleetPort Fleet transport port to probe.
  * @param {String} options.bearerToken Main-owned process bearer.
  * @param {String} [options.agentIdentityNodeId=process.env.NEO_AGENT_IDENTITY] Trusted launcher viewer.
+ * @param {String} [options.repoRoot] Authoritative packaged organism root; checkout callers may omit it.
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
  * @param {Function} [options.commandFn] pid → command line. Injection seam for tests.
  * @param {Function} [options.probePortFn=probePort] Injection seam for tests.
@@ -368,16 +411,18 @@ export async function detectLiveBrain({
     fleetPort,
     bearerToken,
     agentIdentityNodeId = process.env.NEO_AGENT_IDENTITY,
+    repoRoot      = null,
     killFn       = process.kill,
     commandFn    = null,
     probePortFn  = probePort,
     probeFleetFn = probeFleetServing
 }) {
     const
-        pidFile       = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
-        fleetPortHeld = await probePortFn({port: fleetPort}),
-        fleetProbe    = fleetPortHeld
-            ? await probeFleetFn({agentIdentityNodeId, bearerToken, port: fleetPort})
+        pidFile           = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
+        fleetPortHeld     = await probePortFn({port: fleetPort}),
+        fleetProbeOptions = {agentIdentityNodeId, bearerToken, port: fleetPort},
+        fleetProbe        = fleetPortHeld
+            ? await probeFleetFn(repoRoot ? {...fleetProbeOptions, repoRoot} : fleetProbeOptions)
             : {reusable: false, reason: null},
         result        = {
             fleetPortHeld,
