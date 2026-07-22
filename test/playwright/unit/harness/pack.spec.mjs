@@ -8,13 +8,32 @@ import {
     assertNoInstanceOverlays,
     buildNodeShim,
     buildOrganismManifest,
+    collectTreeBarePackages,
     deriveCopySpecs,
     extractBarePackages,
+    extractLiteralImportSpecifiers,
     extractLocalMjsImports,
     isInstanceOverlayPath
 } from '../../../../harness/pack.mjs';
 import {buildPackagedBrainEnv, resolveBrainMode} from '../../../../harness/brain.mjs';
 import path                                      from 'node:path';
+
+/**
+ * @summary Fails when JavaScript syntax resolves to a parent-root Brain or Body import. Normalizing
+ * the literal before comparison closes equivalent spellings such as `../middle/../ai/module.mjs`.
+ * @param {String} source
+ * @returns {void}
+ */
+function assertNoParentRootImports(source) {
+    const offenders = extractLiteralImportSpecifiers(source)
+        .map(specifier => path.posix.normalize(specifier))
+        .filter(specifier => specifier === '../ai' || specifier.startsWith('../ai/') ||
+            specifier === '../src' || specifier.startsWith('../src/'));
+
+    if (offenders.length) {
+        throw new Error(`packaged harness source imports forbidden parent roots: ${offenders.join(', ')}`)
+    }
+}
 
 test.describe('harness pack stage', () => {
     test('packaged main imports are closed over app.asar and parent-root contracts are forbidden', async () => {
@@ -35,11 +54,30 @@ test.describe('harness pack stage', () => {
             expect(builderConfig).toContain(`- ${importedFile}`)
         }
 
-        for (const source of [brainSource, capabilitySource, mainSource]) {
-            expect(source).not.toMatch(/from\s+['"]\.\.\/(?:ai|src)\//)
-        }
+        [brainSource, capabilitySource, mainSource].forEach(assertNoParentRootImports);
 
         expect(mainSource).toContain('loadFleetRuntimeContracts(organismRoot)')
+    });
+
+    test('parent-root guard covers static, re-export, side-effect, and literal dynamic imports after normalization', () => {
+        for (const source of [
+            "import Brain from '../ai/Brain.mjs';",
+            "import {Neo} from '../src/Neo.mjs';",
+            "import '../src/Neo.mjs';",
+            "export {Brain} from '../ai/Brain.mjs';",
+            "export * from '../src/core/_export.mjs';",
+            "const Brain = import('../middle/../ai/Brain.mjs');"
+        ]) {
+            expect(() => assertNoParentRootImports(source)).toThrow(/forbidden parent roots/)
+        }
+
+        expect(() => assertNoParentRootImports([
+            "const prose = \"import('../ai/Brain.mjs')\";",
+            "const template = `import('../src/Neo.mjs')`;",
+            "const runtime = import(runtimeSpecifier);",
+            "// import '../ai/Brain.mjs';",
+            "/* export * from '../src/core/_export.mjs'; */"
+        ].join('\n'))).not.toThrow()
     });
 
     test('deriveCopySpecs rides the contentPolicy allowlist plus the Brain trees, skipping node_modules entries', () => {
@@ -82,6 +120,30 @@ test.describe('harness pack stage', () => {
         expect(extractBarePackages(source)).toEqual(['@scope/pkg', 'better-sqlite3', 'chromadb', 'dotenv', 'fs-extra'])
     });
 
+    test('extractLiteralImportSpecifiers follows syntax without matching strings, templates, comments, or expressions', () => {
+        const source = [
+            "import StaticDefault from './static-default.mjs';",
+            "import './side-effect.mjs';",
+            "export {named} from './re-export.mjs';",
+            "export * from './re-export-all.mjs';",
+            "const lazy = import('./dynamic.mjs');",
+            "const prose = \"import './ordinary-string.mjs'\";",
+            "const sentence = \"value from './ordinary-from.mjs'\";",
+            "const template = `export * from './template.mjs'`;",
+            "const runtime = import(runtimeSpecifier);",
+            "// import './line-comment.mjs';",
+            "/* import('./block-comment.mjs'); */"
+        ].join('\n');
+
+        expect(extractLiteralImportSpecifiers(source)).toEqual([
+            './dynamic.mjs',
+            './re-export-all.mjs',
+            './re-export.mjs',
+            './side-effect.mjs',
+            './static-default.mjs'
+        ])
+    });
+
     test('extractLocalMjsImports covers every literal local module shape without parsing comments or expressions', () => {
         const source = [
             "import StaticDefault from './static-default.mjs';",
@@ -101,6 +163,33 @@ test.describe('harness pack stage', () => {
             'side-effect.mjs',
             'static-default.mjs'
         ])
+    });
+
+    test('collectTreeBarePackages scans staged mjs, cjs, and js files through the shared syntax scanner', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-import-scan-'));
+
+        try {
+            writeFileSync(path.join(root, 'module.mjs'), [
+                "import MjsPackage from 'mjs-package';",
+                "const prose = \"import 'mjs-ghost'\";"
+            ].join('\n'), 'utf8');
+            writeFileSync(path.join(root, 'common.cjs'), [
+                "void import('cjs-package/subpath');",
+                "// import('cjs-ghost');"
+            ].join('\n'), 'utf8');
+            writeFileSync(path.join(root, 'plain.js'), [
+                "export {value} from '@scope/js-package/deep/path.mjs';",
+                "const runtime = import(runtimeSpecifier);"
+            ].join('\n'), 'utf8');
+
+            expect(collectTreeBarePackages({rootDir: root})).toEqual([
+                '@scope/js-package',
+                'cjs-package',
+                'mjs-package'
+            ])
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
     });
 
     test('buildOrganismManifest pins scanned packages to repo-declared versions and fails loud on undeclared imports', () => {

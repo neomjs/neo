@@ -24,6 +24,7 @@ import fs                                           from 'node:fs';
 import {builtinModules}                             from 'node:module';
 import path                                         from 'node:path';
 import {fileURLToPath}                              from 'node:url';
+import {parse}                                      from 'acorn';
 import {ALLOWED_EXACT_PATHS, ALLOWED_PATH_PREFIXES} from './contentPolicy.mjs';
 
 const
@@ -141,37 +142,56 @@ export function deriveCopySpecs() {
     return {files: [...files].sort(), trees: [...trees].sort()}
 }
 
-const
-    IMPORT_SPECIFIER_RE = /(?:from\s+|import\s+|import\s*\(\s*)['"]([^'"\n]+)['"]/g,
-    // npm package-name shape — rejects the prose/template fragments a naive scan of JSDoc
-    // examples and interpolated strings would otherwise surface as "packages".
-    PACKAGE_NAME_RE     = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+// npm package-name shape — rejects non-package specifiers before manifest projection.
+const PACKAGE_NAME_RE = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 
 /**
- * @summary Strips line and block comments so JSDoc example snippets ("import x from 'pkg'") never
- * reach the specifier scan. Deliberately naive (a `//` inside a string literal would truncate the
- * line) — the derivation is fail-loud downstream: an over-strip surfaces as a missing declared
- * package at install/boot, never as a silent ship.
- * @param {String} source
- * @returns {String}
- */
-function stripComments(source) {
-    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-}
-
-/**
- * @summary Extracts unique string-literal module specifiers from static imports, side-effect
- * imports, re-exports, and dynamic `import()` calls after removing comments. Non-literal dynamic
- * expressions remain deliberately outside this bounded packaging guard.
+ * @summary Extracts unique string-literal module specifiers from JavaScript syntax: static imports,
+ * side-effect imports, re-exports, and dynamic `import()` expressions. Ordinary strings, template
+ * text, comments, and non-literal dynamic expressions remain inert. Module syntax is attempted
+ * first; a script fallback covers staged CommonJS sources. Unparseable source fails the pack loudly.
  * @param {String} source
  * @returns {String[]}
  */
 export function extractLiteralImportSpecifiers(source) {
+    const
+        options = {allowHashBang: true, ecmaVersion: 'latest'},
+        text    = String(source);
+
+    let ast;
+
+    try {
+        ast = parse(text, {...options, sourceType: 'module'})
+    } catch (moduleError) {
+        try {
+            ast = parse(text, {...options, allowReturnOutsideFunction: true, sourceType: 'script'})
+        } catch (scriptError) {
+            throw new SyntaxError(`pack import scan could not parse source as module (${moduleError.message}) or script (${scriptError.message})`)
+        }
+    }
+
     const specifiers = new Set();
 
-    for (const match of stripComments(source).matchAll(IMPORT_SPECIFIER_RE)) {
-        specifiers.add(match[1])
-    }
+    const visit = node => {
+        if (!node || typeof node !== 'object') return;
+
+        if ((node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') &&
+            node.source?.type === 'Literal' && typeof node.source.value === 'string') {
+            specifiers.add(node.source.value)
+        } else if (node.type === 'ImportExpression' && node.source?.type === 'Literal' && typeof node.source.value === 'string') {
+            specifiers.add(node.source.value)
+        }
+
+        for (const value of Object.values(node)) {
+            if (Array.isArray(value)) {
+                value.forEach(visit)
+            } else if (value?.type) {
+                visit(value)
+            }
+        }
+    };
+
+    visit(ast);
 
     return [...specifiers].sort()
 }
@@ -190,8 +210,8 @@ export function extractLocalMjsImports(source) {
 
 /**
  * @summary Extracts the BARE (package) import specifiers from one module source: static imports,
- * side-effect imports, re-exports, and string-literal dynamic imports. Comments are stripped
- * first; relative (`./`), absolute, subpath-alias (`#`), and node built-in specifiers are
+ * side-effect imports, re-exports, and string-literal dynamic imports. Relative (`./`), absolute,
+ * subpath-alias (`#`), and node built-in specifiers are
  * excluded; non-npm-shaped candidates are dropped; subpath imports reduce to their package name
  * (`chromadb/x` → `chromadb`, `@scope/pkg/x` → `@scope/pkg`).
  * @param {String} source
