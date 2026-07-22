@@ -29,7 +29,7 @@ import InstanceManager from '../../../src/manager/Instance.mjs';
 import {fileURLToPath, pathToFileURL}        from 'url';
 import fs                                    from 'fs-extra';
 import path                                  from 'path';
-import {execSync}                            from 'child_process';
+import {spawnSync}                           from 'child_process';
 import AiConfig                              from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
 import {assertConfigFresh}                   from '../../scripts/setup/initServerConfigs.mjs';
@@ -101,7 +101,7 @@ function writeLog(level, message) {
 }
 
 function processCommand(pid) {
-    return execSync(`ps -p ${pid} -o command=`).toString().trim();
+    return spawnSync('ps', ['-p', String(pid), '-o', 'command=']).stdout.toString().trim();
 }
 
 async function waitForExit(pid, timeoutMs) {
