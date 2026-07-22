@@ -1,3 +1,18 @@
+import {setup} from '../../../../setup.mjs';
+
+setup({
+    neoConfig: {
+        unitTestMode: true
+    },
+    appConfig: {
+        name             : 'OffHostSyncTest',
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+});
+
+import Neo                                                             from '../../../../../../src/Neo.mjs';
+import * as core                                                       from '../../../../../../src/core/_export.mjs';
 import {test, expect}                                                  from '@playwright/test';
 import {mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync} from 'node:fs';
 import {open, rename}                                                  from 'node:fs/promises';
@@ -173,20 +188,36 @@ test.describe('runOffHostSync execution contract', () => {
     });
 
     test('a failed SIGKILL send (ESRCH) is never reported as sigkill — the callback signal is the authority', async () => {
-        // Child obeys SIGTERM (cooperative) but the escalation timer ALSO fires before the callback
-        // lands: the kill fails ESRCH. terminatedVia must read sigterm, not sigkill.
+        // Deterministic: an injected child whose pid is provably dead (kill() -> ESRCH), with the
+        // timeout callback arriving afterwards carrying SIGTERM. The failed kill MUST fire; the
+        // outcome must still read sigterm, never sigkill.
+        const deadPid = await new Promise((resolve, reject) => {
+            const probe = spawn(process.execPath, ['-e', 'process.exit(0)'], {stdio: 'ignore'});
+            probe.on('exit', code => code === 0 ? resolve(probe.pid) : reject(new Error('probe failed')));
+            probe.on('error', reject);
+        });
+        expect(__private__.isProcessProvablyDead(deadPid)).toBe(true);
+
+        const execFileImpl = (command, args, options, callback) => {
+            setTimeout(() => {
+                const error = new Error('Command was killed with SIGTERM');
+                error.killed      = true;
+                error.signal      = 'SIGTERM';
+                callback(error)
+            }, 50);
+
+            return {pid: deadPid}
+        };
+
         const outcome = await runOffHostSync({
             bundleDir : '/tmp/b',
             bundleName: 'b',
-            config    : {
-                ...VALID_CONFIG,
-                argv       : ['-e', 'setTimeout(()=>process.exit(0), 60)'],
-                killGraceMs: 0,   // escalation scheduled as early as possible
-                timeoutMs  : 200
-            }
+            execFileImpl,
+            config    : {...VALID_CONFIG, killGraceMs: 0, timeoutMs: 0}
         });
 
-        expect(outcome.status).not.toBe('timeout'); // cooperative exit is not a timeout either
+        expect(outcome.status).toBe('timeout');
+        expect(outcome.terminatedVia).toBe('sigterm');
         expect(outcome.terminatedVia).not.toBe('sigkill');
     });
 
