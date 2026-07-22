@@ -160,6 +160,35 @@ function stripComments(source) {
 }
 
 /**
+ * @summary Extracts unique string-literal module specifiers from static imports, side-effect
+ * imports, re-exports, and dynamic `import()` calls after removing comments. Non-literal dynamic
+ * expressions remain deliberately outside this bounded packaging guard.
+ * @param {String} source
+ * @returns {String[]}
+ */
+export function extractLiteralImportSpecifiers(source) {
+    const specifiers = new Set();
+
+    for (const match of stripComments(source).matchAll(IMPORT_SPECIFIER_RE)) {
+        specifiers.add(match[1])
+    }
+
+    return [...specifiers].sort()
+}
+
+/**
+ * @summary Extracts direct or descendant `./` `.mjs` dependencies for the harness app.asar file
+ * closure. Parent-root imports remain forbidden by the separate packaged-main contract.
+ * @param {String} source
+ * @returns {String[]}
+ */
+export function extractLocalMjsImports(source) {
+    return extractLiteralImportSpecifiers(source)
+        .filter(specifier => specifier.startsWith('./') && specifier.endsWith('.mjs'))
+        .map(specifier => specifier.slice(2))
+}
+
+/**
  * @summary Extracts the BARE (package) import specifiers from one module source: static imports,
  * side-effect imports, re-exports, and string-literal dynamic imports. Comments are stripped
  * first; relative (`./`), absolute, subpath-alias (`#`), and node built-in specifiers are
@@ -173,9 +202,7 @@ export function extractBarePackages(source) {
         builtins = new Set(builtinModules),
         packages = new Set();
 
-    for (const match of stripComments(source).matchAll(IMPORT_SPECIFIER_RE)) {
-        const specifier = match[1];
-
+    for (const specifier of extractLiteralImportSpecifiers(source)) {
         if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('#') || specifier.startsWith('node:')) {
             continue
         }

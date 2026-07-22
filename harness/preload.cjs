@@ -94,7 +94,7 @@ const timer = setInterval(() => {
 
 // Separate from generic boot: the product receipt waits for the exact cold-first-paint semantics,
 // while popup/shared-heap boot reports remain fast even if a later window has already promoted live.
-const firstPaintTimer = setInterval(() => {
+const firstPaintTimer = setInterval(function reportFirstPaint() {
     const
         elapsed  = Date.now() - t0,
         snapshot = collectFirstPaintSnapshot(),
