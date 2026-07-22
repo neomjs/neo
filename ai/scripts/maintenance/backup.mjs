@@ -625,7 +625,7 @@ export async function runBackupWithOffHostSync() {
             receipt : buildBackupReceipt({
                 backup: {
                     durationMs: Date.now() - startedAt,
-                    error     : redactAndBound(error?.stack ?? error?.message ?? String(error), buildSyncChildEnv(AiConfig.maintenance.backup.offHostSync?.envAllowlist ?? [])),
+                    error     : redactAndBound(error?.stack ?? error?.message ?? String(error), buildSyncChildEnv(AiConfig.maintenance.backup.offHostSync.envAllowlist)),
                     status    : 'failed'
                 },
                 bundleCompletedAt: null,
