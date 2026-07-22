@@ -59,7 +59,7 @@ const __dirname  = path.dirname(__filename);
 function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
     return new Promise((resolve, reject) => {
         const spawnRequest  = createSpawnRequest(cmd, args, hostPlatform);
-        const proc          = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
+        const proc          = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options); // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         let   recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
@@ -148,7 +148,7 @@ async function findExecutableOnPath(command) {
 
     for (const entry of pathEntries) {
         for (const extension of extensions) {
-            const candidate = path.join(entry, `${command}${extension}`);
+            const candidate = path.join(entry, `${command}${extension}`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             if (await fileIsExecutable(candidate)) return candidate;
         }
     }

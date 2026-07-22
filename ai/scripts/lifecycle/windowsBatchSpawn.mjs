@@ -62,6 +62,12 @@ export function buildWindowsBatchCommandLine(cmd, args) {
  * @returns {{cmd: string, args: string[], options: Object}}
  */
 export function createSpawnRequest(cmd, args, hostPlatform = process.platform) {
+    if (typeof cmd !== 'string' || !cmd.trim()) {
+        throw new Error('createSpawnRequest: cmd must be a non-empty string');
+    }
+    if (!Array.isArray(args) || args.some(a => typeof a !== 'string')) {
+        throw new Error('createSpawnRequest: args must be an array of strings');
+    }
     if (hostPlatform === 'win32' && isWindowsBatchCommand(cmd)) {
         return {
             cmd    : process.env.ComSpec || process.env.COMSPEC || 'cmd.exe',
