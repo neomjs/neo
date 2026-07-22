@@ -17,6 +17,7 @@ export default defineConfig({
     outputDir    : './test-results/component',
     fullyParallel: false, // CRITICAL
     workers      : 1,     // CRITICAL
+    globalSetup  : './e2e/globalSetup.mjs',
 
     reporter: [['list']],
 
@@ -26,11 +27,11 @@ export default defineConfig({
     },
 
     webServer: {
-        // --no-open: CI runners are headless; webpack's browser-open attempt is noise there and
-        // pointless locally under a test runner. NEVER reuse: an already-listening server from a
-        // foreign clone satisfies the readiness URL and silently serves the wrong tree to every spec
-        // (false reds AND, worse, false greens) — the exact trap this suite hit repeatedly.
-        command            : `npm run server-start -- --port ${PORT} --no-open`,
+        // Playwright starts webServer before globalSetup. Run the shared idempotent theme preflight
+        // here as well, so a tracked-only checkout cannot serve UA-only layout to component witnesses.
+        // --no-open keeps headless CI quiet. NEVER reuse: a foreign server can satisfy readiness while
+        // serving the wrong tree (false reds AND, worse, false greens).
+        command            : `node ./e2e/globalSetup.mjs && npm run server-start -- --port ${PORT} --no-open`,
         url                : `http://localhost:${PORT}`,
         reuseExistingServer: false
     },
