@@ -17,7 +17,7 @@ const
  * SyntaxError that was green locally and only red in CI (every importing spec threw). A parse gate catches
  * every such break regardless of the source that produced it.
  */
-test.describe('check-parse.mjs (#15057)', () => {
+test.describe('check-parse.mjs (#15072)', () => {
     let tempDir;
 
     test.beforeEach(() => {
