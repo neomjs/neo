@@ -1,8 +1,11 @@
-import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../../mcp/server/memory-core/config.mjs';
-import Base                 from '../../../src/core/Base.mjs';
-import logger               from '../../mcp/server/memory-core/logger.mjs';
-import OllamaProvider       from '../../provider/Ollama.mjs';
+import {
+    GoogleGenerativeAI,
+    GoogleGenerativeAIAbortError
+}                           from '@google/generative-ai';
+import aiConfig       from '../../mcp/server/memory-core/config.mjs';
+import Base           from '../../../src/core/Base.mjs';
+import logger         from '../../mcp/server/memory-core/logger.mjs';
+import OllamaProvider from '../../provider/Ollama.mjs';
 import {
     withLmsEmbeddingInputSuffix
 }                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
@@ -14,6 +17,159 @@ import {
 
 const DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS = 60 * 60 * 1000;
 const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding error HTTP (408|429|503|504):/;
+const EMBEDDING_OPERATION_LABEL_MAX_LENGTH         = 120;
+
+/**
+ * @summary Normalizes the additive embedding-call options without widening provider authority.
+ * @param {Object} options Caller options.
+ * @param {String} defaultOperationLabel Provider-scoped fallback label.
+ * @returns {{signal: AbortSignal|undefined, operationLabel: String}}
+ */
+function normalizeEmbeddingOptions(options, defaultOperationLabel) {
+    if (!options || typeof options !== 'object' || Array.isArray(options)) {
+        throw new TypeError('TextEmbeddingService: options must be an object containing only signal and operationLabel');
+    }
+
+    const unknownKeys = Object.keys(options).filter(key => !['signal', 'operationLabel'].includes(key));
+
+    if (unknownKeys.length > 0) {
+        throw new TypeError(`TextEmbeddingService: unsupported embedding option(s): ${unknownKeys.join(', ')}`);
+    }
+    if (options.signal !== undefined && (
+        typeof options.signal?.aborted !== 'boolean' ||
+        typeof options.signal?.addEventListener !== 'function' ||
+        typeof options.signal?.removeEventListener !== 'function'
+    )) {
+        throw new TypeError('TextEmbeddingService: options.signal must be an AbortSignal');
+    }
+    if (options.operationLabel !== undefined && typeof options.operationLabel !== 'string') {
+        throw new TypeError('TextEmbeddingService: options.operationLabel must be a string');
+    }
+
+    const requestedLabel = options.operationLabel?.trim() || defaultOperationLabel;
+
+    return {
+        signal        : options.signal,
+        operationLabel: requestedLabel.substring(0, EMBEDDING_OPERATION_LABEL_MAX_LENGTH)
+    };
+}
+
+/**
+ * @summary Restores an Error-valued caller abort reason or creates the bounded structural fallback.
+ * @param {AbortSignal} signal Aborted upstream signal.
+ * @param {String} operationLabel Bounded operation label.
+ * @returns {Error}
+ */
+function getEmbeddingAbortError(signal, operationLabel) {
+    if (signal?.reason instanceof Error) {
+        return signal.reason;
+    }
+
+    const error = new Error(`${operationLabel} aborted`);
+    error.name           = 'AbortError';
+    error.code           = 'ABORT_ERR';
+    error.operationLabel = operationLabel;
+
+    return error;
+}
+
+/**
+ * @summary Distinguishes caller cancellation from an earlier provider failure that already won the race.
+ * @param {Error} error Observed adapter/provider error.
+ * @param {AbortSignal|undefined} signal Caller signal.
+ * @returns {Boolean}
+ */
+function isCallerAbortError(error, signal) {
+    if (!signal?.aborted) return false;
+    if (error === signal.reason) return true;
+
+    return error?.name === 'AbortError' ||
+        error instanceof GoogleGenerativeAIAbortError ||
+        error?.code === 'ABORT_ERR';
+}
+
+/**
+ * @summary Fails synchronously before an aborted embedding phase can start more local work.
+ * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+ * @param {String} operationLabel Bounded operation label.
+ * @returns {void}
+ */
+function throwIfEmbeddingAborted(signal, operationLabel) {
+    if (signal?.aborted) {
+        throw getEmbeddingAbortError(signal, operationLabel);
+    }
+}
+
+/**
+ * @summary Waits on a Neo-owned timer that is cancelled and detached on upstream abort.
+ * @param {Number} delayMs Delay in milliseconds.
+ * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+ * @param {String} operationLabel Bounded operation label.
+ * @returns {Promise<void>}
+ */
+function waitForAbortableDelay(delayMs, signal, operationLabel) {
+    throwIfEmbeddingAborted(signal, operationLabel);
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let timer;
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', onAbort);
+        };
+        const settle = (fn, value) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            fn(value);
+        };
+        const onAbort = () => settle(reject, getEmbeddingAbortError(signal, operationLabel));
+
+        signal?.addEventListener('abort', onAbort, {once: true});
+        timer = setTimeout(() => settle(resolve), Math.max(0, delayMs || 0));
+
+        if (signal?.aborted) {
+            onAbort();
+        }
+    });
+}
+
+/**
+ * @summary Projects an abort error into a bounded structural log reason.
+ * @param {Error} error Caller or provider abort error.
+ * @returns {String}
+ */
+function describeEmbeddingAbortReason(error) {
+    if ([
+        'ABORT_ERR',
+        'EMBEDDING_PROBE_TIMEOUT',
+        'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+        'PROVIDER_TIMEOUT'
+    ].includes(error?.code)) {
+        return error.code;
+    }
+
+    return ['AbortError', 'Error', 'GoogleGenerativeAIAbortError'].includes(error?.name)
+        ? error.name
+        : 'Error';
+}
+
+/**
+ * @summary Emits bounded, input-free observability for one caller-owned embedding abort.
+ * @param {Object} options Abort observation.
+ * @returns {void}
+ */
+function logEmbeddingAbort({provider, operation, error}) {
+    logger.warn('[TextEmbeddingService] embedding operation aborted.', {
+        provider,
+        operationLabel: operation.operationLabel,
+        phase         : operation.phase,
+        classification: error?.code === 'EMBEDDING_PROBE_TIMEOUT' ? 'consumer-probe-timeout' : 'upstream-abort',
+        durationMs    : Math.max(0, Date.now() - operation.startedAt),
+        reason        : describeEmbeddingAbortReason(error)
+    });
+}
 
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
@@ -62,10 +218,12 @@ function describeOpenAiCompatibleTimeout(requestTimeoutMs) {
  * single-embedding calls send their provider request before the next batch sub-request.
  *
  * @param {Number} delayMs Delay in milliseconds.
+ * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+ * @param {String} operationLabel Bounded operation label.
  * @returns {Promise<void>}
  */
-function waitForOpenAiCompatibleBatchYield(delayMs) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, delayMs || 0)));
+function waitForOpenAiCompatibleBatchYield(delayMs, signal, operationLabel) {
+    return waitForAbortableDelay(delayMs, signal, operationLabel);
 }
 
 /**
@@ -163,14 +321,56 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #enqueueOpenAiCompatiblePost(inputData, options, priority) {
+        const {operation, operationLabel, signal} = options;
+
+        throwIfEmbeddingAborted(signal, operationLabel);
+
         return new Promise((resolve, reject) => {
-            this.#openAiCompatiblePostQueue.push({
+            const task = {
+                dispatched: false,
                 inputData,
                 options,
                 priority,
-                reject,
-                resolve
-            });
+                settled   : false
+            };
+
+            const cleanup = () => {
+                signal?.removeEventListener('abort', task.onAbort);
+            };
+            const settle = (fn, value) => {
+                if (task.settled) return;
+                task.settled = true;
+                cleanup();
+                fn(value);
+            };
+
+            task.resolve = value => settle(resolve, value);
+            task.reject  = error => settle(reject, error);
+            task.onAbort = () => {
+                if (task.dispatched || task.settled) return;
+
+                const taskIndex = this.#openAiCompatiblePostQueue.indexOf(task);
+
+                if (taskIndex !== -1) {
+                    this.#openAiCompatiblePostQueue.splice(taskIndex, 1);
+                }
+
+                task.reject(getEmbeddingAbortError(signal, operationLabel));
+            };
+            task.markDispatched = () => {
+                task.dispatched = true;
+                cleanup();
+            };
+
+            signal?.addEventListener('abort', task.onAbort, {once: true});
+
+            if (signal?.aborted) {
+                task.onAbort();
+                return;
+            }
+
+            operation.phase = 'queued';
+            this.#openAiCompatiblePostQueue.push(task);
 
             this.#drainOpenAiCompatiblePostQueue();
         });
@@ -190,6 +390,8 @@ class TextEmbeddingService extends Base {
             while (this.#openAiCompatiblePostQueue.length > 0) {
                 const taskIndex = this.#getNextOpenAiCompatiblePostQueueIndex(),
                       task      = this.#openAiCompatiblePostQueue.splice(taskIndex, 1)[0];
+
+                task.markDispatched();
 
                 try {
                     task.resolve(await this.#postOpenAiCompatible(task.inputData, task.options));
@@ -229,16 +431,19 @@ class TextEmbeddingService extends Base {
      * the LM Studio CLI from unit tests while preserving the same normalized model shape.
      *
      * @param {Number} timeoutMs LM Studio CLI timeout.
+     * @param {AbortSignal|undefined} signal Upstream cancellation signal exposed to the test seam.
+     * @param {String} operationLabel Bounded operation label.
      * @returns {Promise<Object[]>}
      * @private
      */
-    async #getOpenAiCompatibleLoadedModels(timeoutMs) {
+    async #getOpenAiCompatibleLoadedModels(timeoutMs, signal, operationLabel) {
         if (this.openAiCompatibleLoadedModelsProbe) {
-            return this.openAiCompatibleLoadedModelsProbe({timeoutMs});
+            return this.openAiCompatibleLoadedModelsProbe({timeoutMs, signal});
         }
 
         const {fetchLmsLoadedModels} = await import('../graph/providerReadinessHelper.mjs');
-        return fetchLmsLoadedModels({timeoutMs});
+        throwIfEmbeddingAborted(signal, operationLabel);
+        return fetchLmsLoadedModels({timeoutMs, signal});
     }
 
     /**
@@ -319,10 +524,16 @@ class TextEmbeddingService extends Base {
      * loaded context than Neo's `localModels.embedding.contextLimitTokens` leaf. Fetching the
      * resident row also exposes LMS model metadata used for request-boundary token handling.
      *
+     * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+     * @param {String} operationLabel Bounded operation label.
+     * @param {Object} operation Mutable local-phase observability record.
      * @returns {Promise<{configuredContextLength: Number, loadedModel: Object, model: String}|null>}
      * @private
      */
-    async #getOpenAiCompatibleEmbeddingRuntime() {
+    async #getOpenAiCompatibleEmbeddingRuntime(signal, operationLabel, operation) {
+        operation.phase = 'preflight';
+        throwIfEmbeddingAborted(signal, operationLabel);
+
         if (!this.#shouldAssertOpenAiCompatibleEmbeddingContext()) {
             return null;
         }
@@ -345,10 +556,16 @@ class TextEmbeddingService extends Base {
         let loadedModels;
 
         try {
-            loadedModels = await this.#getOpenAiCompatibleLoadedModels(timeoutMs);
+            loadedModels = await this.#getOpenAiCompatibleLoadedModels(timeoutMs, signal, operationLabel);
         } catch (error) {
+            if (isCallerAbortError(error, signal)) {
+                throw getEmbeddingAbortError(signal, operationLabel);
+            }
+
             throw new Error(`TextEmbeddingService: unable to verify LM Studio embedding context for '${model}': ${error.message}`);
         }
+
+        throwIfEmbeddingAborted(signal, operationLabel);
 
         const loadedModel = loadedModels.find(item => item.id === model);
 
@@ -411,14 +628,18 @@ class TextEmbeddingService extends Base {
     /**
      * @summary Prepares OpenAI-compatible embedding input at the provider request boundary.
      * @param {String|String[]} inputData The caller's original text input.
+     * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+     * @param {String} operationLabel Bounded operation label.
+     * @param {Object} operation Mutable local-phase observability record.
      * @returns {Promise<String|String[]>}
      * @private
      */
-    async #prepareOpenAiCompatibleEmbeddingInput(inputData) {
+    async #prepareOpenAiCompatibleEmbeddingInput(inputData, signal, operationLabel, operation) {
         const
-            runtime          = await this.#getOpenAiCompatibleEmbeddingRuntime(),
+            runtime          = await this.#getOpenAiCompatibleEmbeddingRuntime(signal, operationLabel, operation),
             requestInputData = runtime ? withLmsEmbeddingInputSuffix(inputData, runtime.loadedModel, {log: logger}) : inputData;
 
+        throwIfEmbeddingAborted(signal, operationLabel);
         this.#assertOpenAiCompatibleEmbeddingContext(requestInputData, runtime);
 
         return requestInputData;
@@ -438,6 +659,9 @@ class TextEmbeddingService extends Base {
      * @param {Number} options.unloadRetriesLeft Number of unload retries remaining.
      * @param {Number} [options.contentionRetriesLeft=0] Number of contention-timeout retries remaining.
      * @param {Number} [options.requestTimeoutMs=3600000] Request timeout in milliseconds.
+     * @param {AbortSignal} [options.signal] Upstream cancellation signal.
+     * @param {String} options.operationLabel Bounded operation label.
+     * @param {Object} options.operation Mutable local-phase observability record.
      * @returns {Promise<Object>}
      * @private
      */
@@ -445,7 +669,10 @@ class TextEmbeddingService extends Base {
         const {
             unloadRetriesLeft,
             contentionRetriesLeft = 0,
-            requestTimeoutMs      = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS
+            requestTimeoutMs      = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS,
+            signal,
+            operationLabel,
+            operation
         } = options;
         const {
             host,
@@ -456,23 +683,43 @@ class TextEmbeddingService extends Base {
         } = aiConfig.openAiCompatible;
 
         try {
-            const parsedUrl = new URL(`${host}/v1/embeddings`);
+            operation.phase = 'transport-setup';
+            throwIfEmbeddingAborted(signal, operationLabel);
+
+            const parsedUrl  = new URL(`${host}/v1/embeddings`);
             const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
 
+            throwIfEmbeddingAborted(signal, operationLabel);
+
+            let req, abortHandler;
+            let settled = false;
             let resolveFunc, rejectFunc;
             const responsePromise = new Promise((res, rej) => {
                 resolveFunc = res;
                 rejectFunc = rej;
             });
+            const cleanup = () => {
+                signal?.removeEventListener('abort', abortHandler);
+            };
+            const settle = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                fn(value);
+            };
+            const resolveOnce = value => settle(resolveFunc, value);
+            const rejectOnce  = error => settle(rejectFunc, error);
 
             const reqHeaders = { 'Content-Type': 'application/json' };
             if (apiKey) {
                 reqHeaders.Authorization = `Bearer ${apiKey}`;
             }
 
-            const req = httpModule.request(parsedUrl, {
+            operation.phase = 'in-flight';
+            req = httpModule.request(parsedUrl, {
                 method : 'POST',
                 headers: reqHeaders,
+                signal,
                 timeout: requestTimeoutMs
             }, (res) => {
                 let body = '';
@@ -483,33 +730,53 @@ class TextEmbeddingService extends Base {
                         // default vs :1234 LM Studio) or a non-resident model is diagnosable from the error
                         // alone — not a bare "resource could not be found". The `HTTP <status>:` prefix MUST
                         // stay verbatim: OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE classifies on it.
-                        rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`));
+                        rejectOnce(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`));
                     } else {
                         try {
                             const result = JSON.parse(body);
-                            resolveFunc(result);
+                            resolveOnce(result);
                         } catch (e) {
-                            rejectFunc(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
+                            rejectOnce(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
                         }
                     }
                 });
+                res.on('error', error => rejectOnce(isCallerAbortError(error, signal) ? getEmbeddingAbortError(signal, operationLabel) : error));
             });
 
-            req.on('error', (err) => rejectFunc(err));
+            abortHandler = () => {
+                const error = getEmbeddingAbortError(signal, operationLabel);
+
+                // Node's native `http.request({signal})` listener owns the single request destroy.
+                // This Neo-owned listener restores the caller reason without issuing a second destroy.
+                rejectOnce(error);
+            };
+            signal?.addEventListener('abort', abortHandler, {once: true});
+
+            req.on('error', err => rejectOnce(isCallerAbortError(err, signal) ? getEmbeddingAbortError(signal, operationLabel) : err));
             req.on('timeout', () => {
                 const err = new Error(`openAiCompatible request timed out after ${describeOpenAiCompatibleTimeout(requestTimeoutMs)}`);
                 err.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
-                req.destroy();
-                rejectFunc(err);
+                rejectOnce(err);
+                if (!req.destroyed) {
+                    req.destroy(err);
+                }
             });
 
-            req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
-            req.end();
+            if (signal?.aborted) {
+                abortHandler();
+            } else {
+                req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
+                req.end();
+            }
 
             return await responsePromise;
         } catch (err) {
+            if (isCallerAbortError(err, signal)) {
+                throw getEmbeddingAbortError(signal, operationLabel);
+            }
+
             // Shape C (HTTP 404): the model is not resident at the provider (sustained eviction / never
-            // loaded) — the live #14154 trigger. A 404 on /v1/embeddings means model-not-found, so it gets
+            // loaded). A 404 on /v1/embeddings means model-not-found, so it gets
             // the same bounded model-load-wait retry; it stays fail-loud on a permanent 404 (retries exhaust).
             const isModelLoadError = (err.message.includes('HTTP 400') && (
                 err.message.includes('Model was unloaded') ||              // Shape A — JIT-unload-then-queued-request
@@ -519,21 +786,29 @@ class TextEmbeddingService extends Base {
 
             if (unloadRetriesLeft > 0 && isModelLoadError) {
                 logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : err.message.includes('HTTP 404') ? 'C' : 'B'}), retrying (remaining retries: ${unloadRetriesLeft})`);
-                await new Promise(r => setTimeout(r, unloadRetryDelayMs));
+                operation.phase = 'retry-delay';
+                await waitForAbortableDelay(unloadRetryDelayMs, signal, operationLabel);
                 return this.#postOpenAiCompatible(inputData, {
                     unloadRetriesLeft: unloadRetriesLeft - 1,
                     contentionRetriesLeft,
-                    requestTimeoutMs
+                    requestTimeoutMs,
+                    signal,
+                    operationLabel,
+                    operation
                 });
             }
 
             if (contentionRetriesLeft > 0 && isOpenAiCompatibleContentionTimeoutError(err)) {
                 logger.log(`[TextEmbeddingService] embedding-provider contention timeout detected, retrying (remaining contention retries: ${contentionRetriesLeft})`);
-                await new Promise(r => setTimeout(r, contentionRetryDelayMs));
+                operation.phase = 'retry-delay';
+                await waitForAbortableDelay(contentionRetryDelayMs, signal, operationLabel);
                 return this.#postOpenAiCompatible(inputData, {
                     unloadRetriesLeft,
                     contentionRetriesLeft: contentionRetriesLeft - 1,
-                    requestTimeoutMs
+                    requestTimeoutMs,
+                    signal,
+                    operationLabel,
+                    operation
                 });
             }
             if (isOpenAiCompatibleContentionTimeoutError(err)) {
@@ -653,22 +928,32 @@ class TextEmbeddingService extends Base {
      * @summary Runs the native Ollama embedding call with request-shape and timeout parity.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
+     * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+     * @param {Object} operation Mutable local-phase observability record.
      * @returns {Promise<Object>}
      * @private
      */
-    async #embedOllama(inputData, operationLabel) {
+    async #embedOllama(inputData, operationLabel, signal, operation) {
         const
             provider         = this.#getOllamaProvider(),
             requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs();
 
         try {
+            operation.phase = 'in-flight';
+            throwIfEmbeddingAborted(signal, operationLabel);
+
             return await provider.embed(inputData, {
                 num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
                 operationLabel,
+                ...(signal ? {signal} : {}),
                 timeoutMs: requestTimeoutMs,
-                truncate: false
+                truncate : false
             });
         } catch (err) {
+            if (isCallerAbortError(err, signal)) {
+                throw getEmbeddingAbortError(signal, operationLabel);
+            }
+
             if (err?.code === PROVIDER_TIMEOUT_CODE) {
                 this.#emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, err);
             }
@@ -686,10 +971,12 @@ class TextEmbeddingService extends Base {
      * enter the provider queue before the next batch chunk.
      *
      * @param {String[]} texts The texts to embed.
+     * @param {Object} options Abort and observability context.
      * @returns {Promise<number[][]>}
      * @private
      */
-    async #embedOpenAiCompatibleBatch(texts) {
+    async #embedOpenAiCompatibleBatch(texts, options) {
+        const {operation, operationLabel, signal} = options;
         const {
             unloadRetryCount        = 3,
             batchEmbeddingChunkSize = 5,
@@ -701,10 +988,16 @@ class TextEmbeddingService extends Base {
               data             = [];
 
         for (let offset = 0; offset < texts.length; offset += chunkSize) {
+            operation.phase = 'batch-chunk';
+            throwIfEmbeddingAborted(signal, operationLabel);
+
             const chunk  = texts.slice(offset, offset + chunkSize),
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
                       unloadRetriesLeft: unloadRetryCount,
-                      requestTimeoutMs
+                      requestTimeoutMs,
+                      signal,
+                      operationLabel,
+                      operation
                   }, 'batch');
 
             data.push(...(result.data || []).map(item => ({
@@ -713,7 +1006,8 @@ class TextEmbeddingService extends Base {
             })));
 
             if (offset + chunkSize < texts.length) {
-                await waitForOpenAiCompatibleBatchYield(batchEmbeddingYieldMs);
+                operation.phase = 'batch-yield';
+                await waitForOpenAiCompatibleBatchYield(batchEmbeddingYieldMs, signal, operationLabel);
             }
         }
 
@@ -729,43 +1023,70 @@ class TextEmbeddingService extends Base {
      *
      * @param {String} text The text to embed.
      * @param {String} explicitProvider The embedding provider to use.
+     * @param {Object} [options={}] Abort/diagnostic options.
+     * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
+     * @param {String} [options.operationLabel] Bounded diagnostic label.
      * @returns {Promise<number[]>}
      */
-    async embedText(text, explicitProvider) {
+    async embedText(text, explicitProvider, options = {}) {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedText requires an explicit provider argument');
 
-        if (explicitProvider === 'openAiCompatible') {
-            const {
-                unloadRetryCount          = 3,
-                contentionRetryCount      = 2,
-                contentionTimeoutMs       = 15000
-            } = aiConfig.openAiCompatible;
-            const requestText = await this.#prepareOpenAiCompatibleEmbeddingInput(text);
-            const result      = await this.#enqueueOpenAiCompatiblePost(requestText, {
-                unloadRetriesLeft    : unloadRetryCount,
-                contentionRetriesLeft: contentionRetryCount,
-                requestTimeoutMs     : contentionTimeoutMs
-            }, 'interactive');
-            return result.data?.[0]?.embedding;
-        } else if (explicitProvider === 'ollama') {
-            // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
-            // project the single inner array since this method is the per-text variant.
-            const result = await this.#embedOllama(text, 'TextEmbeddingService.embedText native Ollama embedding');
-            return result.embeddings?.[0];
-        } else if (explicitProvider === 'gemini') {
-            const geminiKey = aiConfig.geminiApiKey;
-            if (!geminiKey) {
-                 throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+        const defaultOperationLabel = explicitProvider === 'ollama'
+                  ? 'TextEmbeddingService.embedText native Ollama embedding'
+                  : `TextEmbeddingService.embedText ${explicitProvider} embedding`,
+              {signal, operationLabel} = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
+
+        try {
+            throwIfEmbeddingAborted(signal, operationLabel);
+
+            if (explicitProvider === 'openAiCompatible') {
+                const {
+                    unloadRetryCount          = 3,
+                    contentionRetryCount      = 2,
+                    contentionTimeoutMs       = 15000
+                } = aiConfig.openAiCompatible;
+                const requestText = await this.#prepareOpenAiCompatibleEmbeddingInput(text, signal, operationLabel, operation);
+                const result      = await this.#enqueueOpenAiCompatiblePost(requestText, {
+                    unloadRetriesLeft    : unloadRetryCount,
+                    contentionRetriesLeft: contentionRetryCount,
+                    requestTimeoutMs     : contentionTimeoutMs,
+                    signal,
+                    operationLabel,
+                    operation
+                }, 'interactive');
+                return result.data?.[0]?.embedding;
+            } else if (explicitProvider === 'ollama') {
+                // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
+                // project the single inner array since this method is the per-text variant.
+                const result = await this.#embedOllama(text, operationLabel, signal, operation);
+                return result.embeddings?.[0];
+            } else if (explicitProvider === 'gemini') {
+                const geminiKey = aiConfig.geminiApiKey;
+                if (!geminiKey) {
+                     throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+                }
+                if (!this.embeddingModel) {
+                     throw new Error('Google Generative AI Client not initialized properly.');
+                }
+
+                operation.phase = 'in-flight';
+                const result = await this.embeddingModel.embedContent(text, signal ? {signal} : undefined);
+                return result.embedding.values;
+            } else {
+                // Unknown provider names fail loudly rather than silently fall back to
+                // the Gemini path — silent fallback is speculative-support.
+                throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
             }
-            if (!this.embeddingModel) {
-                 throw new Error('Google Generative AI Client not initialized properly.');
+        } catch (error) {
+            if (isCallerAbortError(error, signal)) {
+                const abortError = getEmbeddingAbortError(signal, operationLabel);
+
+                logEmbeddingAbort({provider: explicitProvider, operation, error: abortError});
+                throw abortError;
             }
-            const result = await this.embeddingModel.embedContent(text);
-            return result.embedding.values;
-        } else {
-            // Unknown provider names fail loudly rather than silently fall back to
-            // the Gemini path — silent fallback is speculative-support.
-            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
+
+            throw error;
         }
     }
 
@@ -777,34 +1098,57 @@ class TextEmbeddingService extends Base {
      *
      * @param {String[]} texts The texts to embed.
      * @param {String} explicitProvider The embedding provider to use.
+     * @param {Object} [options={}] Abort/diagnostic options.
+     * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
+     * @param {String} [options.operationLabel] Bounded diagnostic label.
      * @returns {Promise<number[][]>}
      */
-    async embedTexts(texts, explicitProvider) {
+    async embedTexts(texts, explicitProvider, options = {}) {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
-        if (explicitProvider === 'openAiCompatible') {
-            const requestTexts = await this.#prepareOpenAiCompatibleEmbeddingInput(texts);
-            return this.#embedOpenAiCompatibleBatch(requestTexts);
-        } else if (explicitProvider === 'ollama') {
-            // Ollama's `/api/embed` accepts array-of-strings natively + returns
-            // a parallel embeddings array — no per-text fan-out needed.
-            const result = await this.#embedOllama(texts, 'TextEmbeddingService.embedTexts native Ollama embedding');
-            return result.embeddings || [];
-        } else if (explicitProvider === 'gemini') {
-            const geminiKey = aiConfig.geminiApiKey;
-            if (!geminiKey) {
-                 throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+        const defaultOperationLabel = explicitProvider === 'ollama'
+                  ? 'TextEmbeddingService.embedTexts native Ollama embedding'
+                  : `TextEmbeddingService.embedTexts ${explicitProvider} embedding`,
+              {signal, operationLabel} = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
+
+        try {
+            throwIfEmbeddingAborted(signal, operationLabel);
+
+            if (explicitProvider === 'openAiCompatible') {
+                const requestTexts = await this.#prepareOpenAiCompatibleEmbeddingInput(texts, signal, operationLabel, operation);
+                return this.#embedOpenAiCompatibleBatch(requestTexts, {signal, operationLabel, operation});
+            } else if (explicitProvider === 'ollama') {
+                // Ollama's `/api/embed` accepts array-of-strings natively + returns
+                // a parallel embeddings array — no per-text fan-out needed.
+                const result = await this.#embedOllama(texts, operationLabel, signal, operation);
+                return result.embeddings || [];
+            } else if (explicitProvider === 'gemini') {
+                const geminiKey = aiConfig.geminiApiKey;
+                if (!geminiKey) {
+                     throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+                }
+                if (!this.embeddingModel) {
+                     throw new Error('Google Generative AI Client not initialized properly.');
+                }
+
+                operation.phase = 'in-flight';
+                const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
+                const result   = await this.embeddingModel.batchEmbedContents({requests}, signal ? {signal} : undefined);
+                return result.embeddings.map(e => e.values);
+            } else {
+                // Unknown provider names fail loudly (matches `embedText`).
+                throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
             }
-            if (!this.embeddingModel) {
-                 throw new Error('Google Generative AI Client not initialized properly.');
+        } catch (error) {
+            if (isCallerAbortError(error, signal)) {
+                const abortError = getEmbeddingAbortError(signal, operationLabel);
+
+                logEmbeddingAbort({provider: explicitProvider, operation, error: abortError});
+                throw abortError;
             }
 
-            const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
-            const result   = await this.embeddingModel.batchEmbedContents({ requests });
-            return result.embeddings.map(e => e.values);
-        } else {
-            // Unknown provider names fail loudly (matches `embedText`).
-            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
+            throw error;
         }
     }
 }

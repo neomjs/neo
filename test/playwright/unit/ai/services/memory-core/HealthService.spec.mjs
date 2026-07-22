@@ -586,7 +586,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         // Degradation DETECTION survives the trim via status + details; the verbose writeCanary
         // sub-object no longer ships in the payload.
         expect(refreshed.providers.embedding).not.toHaveProperty('writeCanary');
-        expect(refreshed.details).toContain('Embedding write canary failed: embedding provider busy');
+        expect(refreshed.details).toContain('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR');
         expect(refreshed.details).not.toContain('All features are operational');
     });
 
@@ -703,7 +703,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         // The lean payload omits the writeCanary sub-object; a failed probe still degrades the
         // probe via status + a details entry naming the failure.
         expect(result.providers.embedding).not.toHaveProperty('writeCanary');
-        expect(result.details).toContain('Embedding write canary failed: embedding provider busy');
+        expect(result.details).toContain('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR');
         expect(result.details).not.toContain('All features are operational');
     });
 
@@ -715,7 +715,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         });
 
         expect(result.status).toBe('degraded');
-        expect(result.details).toContain('Embedding write canary failed: Embedding write canary timed out after 5ms');
+        expect(result.details).toContain('Embedding write canary failed: consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT');
         expect(result.details).not.toContain('All features are operational');
     });
 
@@ -930,17 +930,22 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
 
     test('reports healthy when the active provider returns a vector', async () => {
         let   nowCalls = 0;
-        const result   = await buildEmbeddingWriteCanaryBlock({
+        let   probeSignal;
+        const result = await buildEmbeddingWriteCanaryBlock({
             cfg: {
                 embeddingProvider: 'openAiCompatible',
                 vectorDimension  : 3
             },
-            embedText: async (input, provider) => {
+            embedText: async (input, provider, options) => {
                 expect(input).toBe('neo-healthcheck-embedding-write-canary');
                 expect(provider).toBe('openAiCompatible');
+                expect(options.operationLabel).toBe('Embedding write canary');
+                expect(options.signal).toBeInstanceOf(AbortSignal);
+                probeSignal = options.signal;
                 return [0.1, 0.2, 0.3];
             },
-            now: () => nowCalls++ ? 125 : 100
+            now      : () => nowCalls++ ? 125 : 100,
+            timeoutMs: 10
         });
 
         expect(result).toEqual({
@@ -950,6 +955,9 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
             expectedDimensions: 3,
             durationMs        : 25
         });
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(probeSignal.aborted).toBe(false);
     });
 
     test('reports failed when the active provider throws', async () => {
@@ -965,33 +973,97 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
         });
 
         expect(result).toMatchObject({
-            status            : 'failed',
-            provider          : 'openAiCompatible',
-            dimensions        : null,
-            expectedDimensions: 4096,
-            durationMs        : 0,
-            error             : 'embedding provider busy'
+            status             : 'failed',
+            provider           : 'openAiCompatible',
+            dimensions         : null,
+            expectedDimensions : 4096,
+            durationMs         : 0,
+            error              : 'provider-failure:EMBEDDING_PROVIDER_ERROR',
+            errorClassification: 'provider-failure',
+            errorCode          : 'EMBEDDING_PROVIDER_ERROR'
         });
     });
 
-    test('#13458: reports failed when the active provider never resolves', async () => {
+    test('redacts and bounds an untrusted provider error before it reaches the health receipt', async () => {
+        const secret = 'sk-live-secret-must-not-escape';
         const result = await buildEmbeddingWriteCanaryBlock({
             cfg: {
                 embeddingProvider: 'openAiCompatible',
                 vectorDimension  : 4096
             },
-            embedText: async () => new Promise(() => {}),
+            embedText: async () => {
+                throw Object.assign(
+                    new Error(`provider body=${secret}; endpoint=https://private.invalid; ${'x'.repeat(500)}`),
+                    {code: `UNTRUSTED_${secret}`}
+                );
+            },
+            now: () => 100
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            error              : 'provider-failure:EMBEDDING_PROVIDER_ERROR',
+            errorClassification: 'provider-failure',
+            errorCode          : 'EMBEDDING_PROVIDER_ERROR'
+        });
+        expect(result.error.length).toBeLessThanOrEqual(96);
+        expect(JSON.stringify(result)).not.toContain(secret);
+        expect(JSON.stringify(result)).not.toContain('private.invalid');
+    });
+
+    test('#13458: reports failed when the active provider never resolves', async () => {
+        let probeSignal;
+
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 4096
+            },
+            embedText: async (input, provider, options) => new Promise((resolve, reject) => {
+                probeSignal = options.signal;
+                options.signal.addEventListener('abort', () => reject(options.signal.reason), {once: true});
+            }),
             now      : () => 100,
             timeoutMs: 5
         });
 
         expect(result).toMatchObject({
-            status            : 'failed',
-            provider          : 'openAiCompatible',
-            dimensions        : null,
-            expectedDimensions: 4096,
-            durationMs        : 0,
-            error             : 'Embedding write canary timed out after 5ms'
+            status             : 'failed',
+            provider           : 'openAiCompatible',
+            dimensions         : null,
+            expectedDimensions : 4096,
+            durationMs         : 0,
+            error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
+            errorClassification: 'consumer-probe-timeout',
+            errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+        });
+        expect(probeSignal.aborted).toBe(true);
+        expect(probeSignal.reason).toMatchObject({
+            code          : 'EMBEDDING_PROBE_TIMEOUT',
+            operationLabel: 'Embedding write canary',
+            timeoutMs     : 5
+        });
+    });
+
+    test('deadline stays failed when an abort listener resolves a valid vector (#15694)', async () => {
+        const result = await buildEmbeddingWriteCanaryBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText: async (input, provider, options) => new Promise(resolve => {
+                options.signal.addEventListener('abort', () => resolve([0.1, 0.2, 0.3]), {once: true});
+            }),
+            now      : () => 100,
+            timeoutMs: 5
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            dimensions         : null,
+            error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
+            errorClassification: 'consumer-probe-timeout',
+            errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
         });
     });
 
