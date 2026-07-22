@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path                                                                                         from 'node:path';
 import {renderAboutThisLayerMd, renderIdentityAnchorHookMjs, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
@@ -106,7 +106,7 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
     });
 
     return {files: [
-        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome})},
+        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome, servers})},
         {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers})},
         {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryIndexMd({harness: 'kimi-code'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
@@ -130,11 +130,13 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
  * @param {String} options.nodeBinary   Absolute node binary — the hook process entrypoint.
  * @param {String} options.seatEnvFile  Absolute seat `.env` — the identity + credential source.
  * @param {String} options.kimiHome     Absolute harness home — where the identity-anchor hook lives.
+ * @param {Array}  [options.servers]    The resolved server set (matrix-narrowed by callers with a
+ *                                      curated matrix); permission rules cover exactly these.
  * @returns {String}
  * @private
  */
-function renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome}) {
-    const permissionRules = KIMI_SEAT_SERVERS.map(server =>
+function renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome, servers = KIMI_SEAT_SERVERS}) {
+    const permissionRules = servers.map(server =>
         [
             '[[permission.rules]]',
             'decision = "allow"',

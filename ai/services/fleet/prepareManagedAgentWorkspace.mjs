@@ -1,11 +1,13 @@
-import {constants as fsConstants}      from 'node:fs';
-import fs                              from 'node:fs/promises';
-import path                            from 'node:path';
-import {fileURLToPath}                 from 'node:url';
-import {hydrateCurrentWorktree}        from '../../scripts/migrations/bootstrapWorktree.mjs';
-import {MCP_SERVERS, resolveMcpMatrix} from '../../../src/ai/fleet/mcpServers.mjs';
-import {deriveAgentInstanceHome}       from './deriveAgentInstanceHome.mjs';
-import {LAUNCHABLE_HARNESS_TYPES}      from './deriveHarnessLaunchSpec.mjs';
+import {constants as fsConstants}                          from 'node:fs';
+import fs                                                  from 'node:fs/promises';
+import path                                                from 'node:path';
+import {fileURLToPath}                                     from 'node:url';
+import {hydrateCurrentWorktree}                            from '../../scripts/migrations/bootstrapWorktree.mjs';
+import {MCP_SERVERS, resolveMcpMatrix}                     from '../../../src/ai/fleet/mcpServers.mjs';
+import {deriveAgentInstanceHome}                           from './deriveAgentInstanceHome.mjs';
+import {LAUNCHABLE_HARNESS_TYPES}                          from './deriveHarnessLaunchSpec.mjs';
+import {KIMI_SEAT_SERVERS, generateKimiSeatConfig}         from './generateKimiSeatConfig.mjs';
+import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from './generateOpenCodeSeatConfig.mjs';
 
 const
     __filename            = fileURLToPath(import.meta.url),
@@ -348,6 +350,10 @@ async function prepareHarnessArtifacts({agent, repoPath, instanceHome, mainCheck
         case 'codex':
         case 'codex-desktop':
             return prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckout, plan, fileSystem});
+        case 'kimi-code':
+            return prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem});
+        case 'opencode':
+            return prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem});
         case 'claude-code':
             return [await prepareClaudeJsonArtifact({
                 agent,
@@ -442,9 +448,175 @@ async function prepareClaudeJsonArtifact({agent, filePath, trustedRoot, plan, fi
     });
 }
 
-/** @private */
-function renderCodexProjectConfig(template, plan) {
+/**
+ * Birth a Kimi Code seat's full artifact set from `generateKimiSeatConfig` — the generator owns
+ * content, this composer owns convergence policy. The curated MCP matrix narrows the canonical
+ * server set (a disabled catalog server is never wired); the memory-layer files are CREATE-ONLY
+ * (story-sovereignty: after first boot they are bearer-authored, and re-provisioning must never
+ * clobber or even flag them); the config/hook surfaces converge on their Fleet-owned projections.
+ * @private
+ */
+async function prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
     const
+        enabledKeys = new Set(plan.filter(server => server.enabled).map(server => server.key)),
+        servers     = KIMI_SEAT_SERVERS.filter(server => enabledKeys.has(server.name.slice(NEO_MCP_NAME_PREFIX.length)));
+
+    if (servers.length === 0) {
+        throw unsupported("harness 'kimi-code' has no enabled MCP servers to wire");
+    }
+
+    const {files} = generateKimiSeatConfig({
+        canonicalRoot: mainCheckout,
+        seatEnvFile  : path.join(repoPath, '.env'),
+        workspaceRoot: repoPath,
+        kimiHome     : instanceHome,
+        memoryDir    : path.join(instanceHome, 'memory'),
+        nodeBinary   : plan[0].command,
+        servers
+    });
+
+    return convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies: [
+        {match: /config\.toml$/,                   ownedProjection: kimiConfigTomlOwnedProjection, ownedLabel: 'default_permission_mode,default_model,[[permission.rules]],[[hooks]]'},
+        {match: /\.kimi-code\/mcp\.json$/,         ownedProjection: claudeJsonOwnedProjection,     ownedLabel: 'mcpServers."neo-mjs-*"'},
+        {match: /hooks\/identityAnchorHook\.mjs$/, ownedProjection: wholeFileOwnedProjection,      ownedLabel: 'generated identity-anchor hook'}
+        // Everything else (the four memory-layer files) is create-only bearer substrate.
+    ]});
+}
+
+/**
+ * Birth an OpenCode seat's full artifact set from `generateOpenCodeSeatConfig` — same split as
+ * the Kimi branch: generator content, composer convergence, matrix-narrowed servers, create-only
+ * bearer memory layer. The wake-envelope boot hook is emitted into the instance home (fully
+ * Fleet-owned; divergence fails closed per the generated-artifact posture).
+ * @private
+ */
+async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
+    const
+        enabledKeys = new Set(plan.filter(server => server.enabled).map(server => server.key)),
+        servers     = OPENCODE_SEAT_SERVERS.filter(server => enabledKeys.has(server.name.slice(NEO_MCP_NAME_PREFIX.length)));
+
+    if (servers.length === 0) {
+        throw unsupported("harness 'opencode' has no enabled MCP servers to wire");
+    }
+
+    const {files} = generateOpenCodeSeatConfig({
+        canonicalRoot: mainCheckout,
+        seatEnvFile  : path.join(repoPath, '.env'),
+        workspaceRoot: repoPath,
+        memoryDir    : path.join(instanceHome, 'memory'),
+        nodeBinary   : plan[0].command,
+        seatHome     : instanceHome,
+        wakeHookPath : path.join(instanceHome, 'write-wake-envelope.mjs'),
+        servers
+    });
+
+    return convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies: [
+        {match: /opencode\.jsonc$/,          ownedProjection: opencodeJsoncOwnedProjection, ownedLabel: 'mcp."neo-mjs-*",instructions'},
+        {match: /write-wake-envelope\.mjs$/, ownedProjection: wholeFileOwnedProjection,     ownedLabel: 'generated wake-envelope boot hook'}
+    ]});
+}
+
+/**
+ * Converge a generator's emission list against the workspace: each file lands under the policy
+ * its path matches (Fleet-owned projection, fail-closed on divergence) or falls through to the
+ * create-only bearer default — an existing file of ANY content reports MATCH untouched (the
+ * seat's own authorship is never a divergence), an absent file is created from the template.
+ * @private
+ */
+async function convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies}) {
+    const artifacts = [];
+
+    for (const file of files) {
+        const policy = policies.find(entry => entry.match.test(file.path));
+
+        artifacts.push(await convergeTextArtifact({
+            filePath       : file.path,
+            desiredContent : file.content,
+            ownedProjection: policy ? policy.ownedProjection : createOnlyOwnedProjection,
+            ownedLabel     : policy ? policy.ownedLabel      : 'create-only bearer memory layer',
+            trustedRoot    : file.path.startsWith(repoPath + path.sep) ? repoPath : instanceHome,
+            fileSystem
+        }));
+    }
+
+    return artifacts;
+}
+
+/**
+ * The create-only projection: existing bearer-authored content is never a divergence.
+ * @private
+ */
+function createOnlyOwnedProjection() {
+    return null;
+}
+
+/**
+ * The whole-file projection for fully Fleet-owned generated artifacts (hook scripts): any
+ * content drift — a hand-edit or a stale template generation — fails closed and loud.
+ * @private
+ */
+function wholeFileOwnedProjection(source) {
+    return source;
+}
+
+/**
+ * The Fleet-owned surface of a generated Kimi `config.toml`: the two managed scalars plus every
+ * array-of-tables block (`[[permission.rules]]`, `[[hooks]]`) the generator emits. Harness-owned
+ * additions the seat's first login writes (provider tables) sit OUTSIDE the projection, so a
+ * post-provisioning re-birth reports MATCH instead of a false divergence.
+ * @private
+ */
+function kimiConfigTomlOwnedProjection(source) {
+    const result  = {blocks: [], scalars: {}};
+    let   current = null;
+
+    for (const line of source.split(/\r?\n/)) {
+        const trimmed = line.trim();
+
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const arrayHeader = trimmed.match(/^\[\[([^\]]+)\]\]$/);
+
+        if (arrayHeader) {
+            current = [trimmed];
+            result.blocks.push(current);
+            continue;
+        }
+        if (/^\[[^\]]+\]$/.test(trimmed)) { current = null; continue; }
+        if (current) { current.push(trimmed); continue; }
+
+        const scalar = trimmed.match(/^(default_permission_mode|default_model)\s*=\s*(.+)$/);
+        if (scalar) result.scalars[scalar[1]] = scalar[2].trim();
+    }
+
+    return canonicalize(result);
+}
+
+/**
+ * The Fleet-owned surface of a generated `opencode.jsonc`: the `neo-mjs-*` MCP entries plus the
+ * `instructions` array (the memory-layer load wiring). Resident additions outside those keys are
+ * free. Full-line `//` comments are stripped before parsing (the JSONC emission contract).
+ * @private
+ */
+function opencodeJsoncOwnedProjection(source) {
+    let parsed;
+    try {
+        parsed = JSON.parse(source.split(/\r?\n/).filter(line => !line.trimStart().startsWith('//')).join('\n'));
+    } catch {
+        return {__invalidJson: true};
+    }
+
+    const result = {instructions: parsed?.instructions};
+
+    for (const [name, definition] of Object.entries(parsed?.mcp || {})) {
+        if (name.startsWith(NEO_MCP_NAME_PREFIX)) (result.mcp ??= {})[name] = definition;
+    }
+
+    return canonicalize(result);
+}
+
+/** @private */
+function renderCodexProjectConfig(template, plan) {    const
         base     = stripManagedMcpTables(template).trimEnd(),
         sections = plan.map(renderCodexMcpTable).join('\n\n'),
         marker   = /^\[features\]\s*$/m,

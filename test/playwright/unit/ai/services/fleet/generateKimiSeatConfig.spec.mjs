@@ -1,4 +1,8 @@
 import {expect, test}                              from '@playwright/test';
+import {spawnSync}                                 from 'node:child_process';
+import fs                                          from 'node:fs';
+import os                                          from 'node:os';
+import path                                        from 'node:path';
 import {KIMI_SEAT_SERVERS, generateKimiSeatConfig} from '../../../../../../ai/services/fleet/generateKimiSeatConfig.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
@@ -190,5 +194,76 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         const toml = findFile(generateKimiSeatConfig({...PARAMS, defaultModel: 'kimi-code/kimi-for-coding'}).files, 'config.toml').content;
 
         expect(toml).toContain('default_model           = "kimi-code/kimi-for-coding"');
+    });
+
+    test('generated config parses structurally: every [[hooks]] block carries event + command + timeout', () => {
+        const
+            toml   = findFile(generateKimiSeatConfig(PARAMS).files, 'config.toml').content,
+            blocks = toml.split('[[hooks]]').slice(1).map(block => ({
+                event  : block.match(/event\s+= "([^"]+)"/)?.[1],
+                command: block.match(/command = (.+)/)?.[1],
+                timeout: block.match(/timeout = (\d+)/)?.[1]
+            }));
+
+        expect(blocks).toHaveLength(8);
+        blocks.forEach(block => {
+            expect(block.event, 'every hook block names its event').toBeTruthy();
+            expect(block.command, 'every hook block names its command').toBeTruthy();
+            expect(block.timeout).toBe('5');
+        });
+        // The load contract as a STRUCTURE: exactly these events, each wired to a real hook surface.
+        expect(blocks.map(block => block.event)).toEqual([
+            'SessionStart', 'UserPromptSubmit', 'PostCompact', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'StopFailure', 'Interrupt'
+        ]);
+    });
+
+    test('identity-anchor hook: the EMITTED artifact executes the boundary contract (boot / ordinary / compact / garbage)', () => {
+        const
+            seat      = fs.mkdtempSync(path.join(os.tmpdir(), 'kimi-seat-emission-')),
+            memoryDir = path.join(seat, 'memory'),
+            kimiHome  = path.join(seat, 'kimi-home'),
+            {files}   = generateKimiSeatConfig({...PARAMS, memoryDir, kimiHome}),
+            hookPath  = path.join(seat, 'identityAnchorHook.mjs'),
+            run       = payload => spawnSync(process.execPath, [hookPath], {
+                encoding: 'utf8',
+                env     : {...process.env, KIMI_CODE_HOME: kimiHome},
+                input   : typeof payload === 'string' ? payload : JSON.stringify(payload),
+                timeout : 5000
+            });
+
+        // Materialize the seat: the emitted layer files + the emitted hook, exactly as the birth path would.
+        fs.mkdirSync(memoryDir, {recursive: true});
+        for (const file of files) {
+            if (file.path.startsWith(memoryDir)) fs.writeFileSync(file.path, file.content);
+        }
+        fs.writeFileSync(hookPath, findFile(files, 'identityAnchorHook.mjs').content);
+
+        const
+            boot        = run({hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: '/seat/checkout'}),
+            ordinary    = run({hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: '/seat/checkout'}),
+            arm         = run({hook_event_name: 'PostCompact',      session_id: 's1', cwd: '/seat/checkout'}),
+            reload      = run({hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: '/seat/checkout'}),
+            afterReload = run({hook_event_name: 'UserPromptSubmit', session_id: 's1', cwd: '/seat/checkout'}),
+            garbage     = run('not json'),
+            unrelated   = run({hook_event_name: 'Stop',             session_id: 's1', cwd: '/seat/checkout'});
+
+        // Boot: the layer enters context, wrapped and trigger-stamped, including the bearer template.
+        expect(boot.status).toBe(0);
+        expect(boot.stdout).toContain('<seat-memory-layer source="' + memoryDir + '" trigger="session-boot">');
+        expect(boot.stdout).toContain('Seat memory index');
+        expect(boot.stdout).toContain('Identity — unwritten');
+
+        // Ordinary prompts are byte-silent; PostCompact arms without emitting; the reload fires
+        // EXACTLY once, then the boundary goes silent again.
+        expect(ordinary.stdout).toBe('');
+        expect(arm.stdout).toBe('');
+        expect(reload.stdout).toContain('trigger="post-compact-reload"');
+        expect(afterReload.stdout).toBe('');
+
+        // Fail-open: garbage and unrelated events exit 0 with zero output, never blocking a turn.
+        expect(garbage.status).toBe(0);
+        expect(garbage.stdout).toBe('');
+        expect(unrelated.status).toBe(0);
+        expect(unrelated.stdout).toBe('');
     });
 });

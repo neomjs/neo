@@ -55,6 +55,7 @@ const PRIORITIES = new Map([
     ['agentos/A2A'                                  , 1.0],
     ['agentos/IdentityFirewall'                     , 1.0],
     ['agentos/Hooks'                                , 1.0],
+    ['agentos/SeatMemoryLayer'                      , 0.9],
     ['agentos/ContentTrust'                         , 1.0],
     ['agentos/ProgressiveDisclosureSkills'          , 0.9],
     ['agentos/CoreSkills'                           , 1.0],
