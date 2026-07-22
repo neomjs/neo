@@ -144,6 +144,11 @@ export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessM
     // Backlog guard is load-bearing: no undigested work → nothing to consolidate → never a stall.
     const stalled = thresholdMs > 0 && hasBacklog && cycleStale;
 
+    // Recovery onset is a genuinely SUPPRESSED stall — wall-clock stale past the threshold with the
+    // backlog present, held back only by the young process. A pre-boot cycle with no backlog or
+    // with sub-threshold wall age opens no phase (no permanent baseline-0 latch, no noise phase).
+    const suppressedStall = thresholdMs > 0 && hasBacklog && hasCycle && stalenessMs > thresholdMs && effectiveStalenessMs <= thresholdMs;
+
     if (!stalled) {
         // Recovery phase open? Only a strictly decreasing backlog completes it — a non-stalled
         // reading with an undrained backlog holds the latch (drain observed, never assumed).
@@ -154,9 +159,9 @@ export function evaluateConsolidationStallAlarm({hasCycle, readFault, stalenessM
             return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: false, effectiveStalenessMs, nextAlarmState: {alarmed: alreadyAlarmed, stalledSince: alarmState?.stalledSince ?? null, recoveryBaseline: baseline}};
         }
 
-        // First downtime-suppressed reading opens the recovery phase: resume note fires exactly
+        // First genuinely-suppressed stall opens the recovery phase: resume note fires exactly
         // once (on this transition), and the baseline makes the drain observable across checks.
-        if (downTimeSuppressed) {
+        if (suppressedStall) {
             return {stalled: false, shouldAlarm: false, downTimeSuppressed, drainObserved: false, recoveryStarted: true, effectiveStalenessMs, nextAlarmState: {alarmed: false, stalledSince: null, recoveryBaseline: undigestedCount}};
         }
 

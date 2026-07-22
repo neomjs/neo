@@ -856,7 +856,9 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         const stalledSince = stalled
             ? (shouldAlarm ? now : (alarmState?.stalledSince ?? now))
             : null;
-        if (state) state.remConsolidationAlarm = {alarmed: nextAlarmState.alarmed, stalledSince};
+        // Persist the FULL recovery state: dropping recoveryBaseline would re-open the phase on the
+        // next check (repeat note, undrainable comparison).
+        if (state) state.remConsolidationAlarm = {alarmed: nextAlarmState.alarmed, stalledSince, recoveryBaseline: nextAlarmState.recoveryBaseline};
 
         const details = {
             reason,

@@ -116,6 +116,23 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
         expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: 22});
     });
 
+    test('recovery onset requires a genuinely suppressed stall: zero backlog opens no phase', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: true, stalenessMs: 23_400_000, undigestedCount: 0, thresholdMs: 21_600_000, uptimeMs: 300_000
+        });
+        expect(r.recoveryStarted).toBe(false);
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null}); // no baseline-0 latch
+    });
+
+    test('recovery onset requires wall-clock staleness past the threshold: a merely pre-boot cycle opens no phase', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: true, stalenessMs: 1_000_000, undigestedCount: 5, thresholdMs: 21_600_000, uptimeMs: 300_000
+        });
+        expect(r.downTimeSuppressed).toBe(true); // informational flag still reports the pre-boot cycle
+        expect(r.recoveryStarted).toBe(false);
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null});
+    });
+
     test('recovery holds on an undrained backlog: no note repeat, no latch clear', () => {
         const r = evaluateConsolidationStallAlarm({
             hasCycle  : true, stalenessMs: 23_400_000, undigestedCount: 22, thresholdMs: 21_600_000,
@@ -352,7 +369,42 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         expect(outcomes.some(o => o.status === 'failed')).toBe(false);
         expect(outcomes.some(o => o.status === 'completed')).toBe(true);
         expect(alarmCalls).toHaveLength(0);
-        expect(logLines.some(line => line.startsWith('INFO:') && line.includes('digest-resume'))).toBe(true)
+        expect(logLines.some(line => line.startsWith('INFO:') && line.includes('digest-resume'))).toBe(true);
+        // The full recovery state must persist across checks (baseline 5 from the undigested fixture)
+        expect(taskStateService.getTaskState('rem-consolidation-liveness-watchdog').remConsolidationAlarm)
+            .toEqual({alarmed: false, stalledSince: null, recoveryBaseline: 5});
+    });
+
+    test('two-run recovery: an unchanged backlog preserves the baseline and emits no second note; a decrease completes the phase', async () => {
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const logLines         = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
+        const taskStateService = makeTaskStateService();
+        const now              = Date.now();
+
+        await appendRemRunState({runId: 'stale', completedAt: now - 7 * HOUR_MS}, {dir: remRunStateDir});
+
+        const runtime = makeRuntime({
+            remConsolidationWatchdogUptimeMs: 5 * 60 * 1000,
+            writeLog                        : (level, line) => logLines.push(`${level}:${line}`)
+        });
+
+        // Run 1 — recovery opens
+        await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
+        expect(logLines.filter(line => line.includes('digest-resume'))).toHaveLength(1);
+
+        // Run 2 — unchanged backlog: phase holds, no second note, baseline preserved
+        await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
+        expect(logLines.filter(line => line.includes('digest-resume'))).toHaveLength(1);
+        expect(taskStateService.getTaskState('rem-consolidation-liveness-watchdog').remConsolidationAlarm.recoveryBaseline).toBe(5);
+        expect(outcomes.filter(o => o.details?.drainObserved === true)).toHaveLength(0);
+
+        // Run 3 — decreased backlog: drain observed, phase completes, latch + baseline cleared
+        await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime, undigestedCount: 2});
+        expect(taskStateService.getTaskState('rem-consolidation-liveness-watchdog').remConsolidationAlarm)
+            .toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null});
+        expect(outcomes.some(o => o.details?.drainObserved === true)).toBe(true)
     });
 
     test('fires the active alarm once on stall-onset and latches subsequent stalled checks', async () => {
@@ -436,6 +488,6 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog — pipe
         expect(outcomes.some(o => o.status === 'completed')).toBe(true);
         expect(alarmCalls).toHaveLength(0);
         expect(taskStateService.getTaskState('rem-consolidation-liveness-watchdog').remConsolidationAlarm)
-            .toEqual({alarmed: false, stalledSince: null});
+            .toEqual({alarmed: false, stalledSince: null, recoveryBaseline: null});
     });
 });
