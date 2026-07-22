@@ -15,9 +15,9 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Neo.mjs
+# A self-evolving software organism
 
-**Neo.mjs is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository.**
+**Neo.mjs is a professional, end-to-end AI engineering team that lives in its own open-source repository.**
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
