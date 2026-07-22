@@ -4,10 +4,44 @@ import {
     projectPublicAgentIntent,
     projectPublicCredentialIntent
 } from '../../../../harness/fleetCapability.mjs';
+import {FLEET_CREDENTIAL_METHODS, FLEET_WIRE_METHODS} from '../../../../src/ai/fleet/fleetWireMethods.mjs';
 
 const bearerToken = 'B'.repeat(43);
 
+const createCapability = options => createFleetCapability({
+    bearerToken,
+    credentialMethods: FLEET_CREDENTIAL_METHODS,
+    wireMethods      : FLEET_WIRE_METHODS,
+    ...options
+});
+
 test.describe('harness Fleet capability', () => {
+    test('requires credential methods inside the wire allowlist and snapshots both inputs', async () => {
+        expect(() => createCapability({
+            credentialMethods: ['defineAgent', 'ghostCredentialVerb'],
+            getBrain         : async () => ({fleetPort: 8083, up: true}),
+            isTrustedSender  : () => true,
+            wireMethods      : ['defineAgent']
+        })).toThrow(/canonical method allowlists/);
+
+        const
+            credentialMethods = [],
+            wireMethods       = ['listAgents'],
+            capability        = createFleetCapability({
+                bearerToken,
+                credentialMethods,
+                fetchImpl      : async () => ({json: async () => ({ok: true, result: []})}),
+                getBrain       : async () => ({fleetPort: 8083, up: true}),
+                isTrustedSender: () => true,
+                wireMethods
+            });
+
+        credentialMethods.push('listAgents');
+        wireMethods.length = 0;
+
+        await expect(capability.request({}, {method: 'listAgents', params: {}})).resolves.toEqual({ok: true, result: []})
+    });
+
     test('checks sender trust before inspecting the request or touching credential, readiness, and network seams', async () => {
         const
             calls   = {brain: 0, credential: 0, fetch: 0},
@@ -19,7 +53,7 @@ test.describe('harness Fleet capability', () => {
                     throw new Error('request enumerated before sender trust')
                 }
             }),
-            capability = createFleetCapability({
+            capability = createCapability({
                 bearerToken,
                 credentialProvider: async () => { calls.credential++; return 'never' },
                 fetchImpl         : async () => { calls.fetch++; throw new Error('network must stay dark') },
@@ -37,7 +71,7 @@ test.describe('harness Fleet capability', () => {
     test('rejects malformed, over-wide, and non-allowlisted requests before credential, readiness, or network access', async () => {
         const
             calls      = {brain: 0, credential: 0, fetch: 0},
-            capability = createFleetCapability({
+            capability = createCapability({
                 bearerToken,
                 credentialProvider: async () => { calls.credential++; return 'never' },
                 fetchImpl         : async () => { calls.fetch++; throw new Error('network must stay dark') },
@@ -66,7 +100,7 @@ test.describe('harness Fleet capability', () => {
     test('rejects credential verbs locally when the shell has no credential provider', async () => {
         const
             calls      = {brain: 0, fetch: 0},
-            capability = createFleetCapability({
+            capability = createCapability({
                 bearerToken,
                 fetchImpl      : async () => { calls.fetch++; throw new Error('network must stay dark') },
                 getBrain       : async () => { calls.brain++; return {fleetPort: 8083, up: true} },
@@ -97,7 +131,7 @@ test.describe('harness Fleet capability', () => {
             mainCredential     = 'github_pat_main_owned',
             rendererCredential = 'github_pat_renderer_smuggled',
             calls              = {credential: [], fetch: []},
-            capability         = createFleetCapability({
+            capability         = createCapability({
                 bearerToken,
                 credentialProvider: async input => { calls.credential.push(input); return mainCredential },
                 fetchImpl         : async (url, init) => {
@@ -165,7 +199,7 @@ test.describe('harness Fleet capability', () => {
             event          = {sender: 'trusted'},
             mainCredential = 'tenant_pat_main_owned',
             calls          = {credential: [], fetch: []},
-            capability     = createFleetCapability({
+            capability     = createCapability({
                 bearerToken,
                 credentialProvider: async input => { calls.credential.push(input); return mainCredential },
                 fetchImpl         : async (url, init) => {
@@ -207,7 +241,7 @@ test.describe('harness Fleet capability', () => {
     test('rejects a canceled credential before Brain readiness and network access', async () => {
         const
             calls      = {brain: 0, fetch: 0},
-            capability = createFleetCapability({
+            capability = createCapability({
                 bearerToken,
                 credentialProvider: async () => null,
                 fetchImpl         : async () => { calls.fetch++; throw new Error('network must stay dark') },
@@ -229,7 +263,7 @@ test.describe('harness Fleet capability', () => {
         const mainCredential = 'github_pat_main_owned';
 
         for (const reflectedSecret of [bearerToken, mainCredential]) {
-            const capability = createFleetCapability({
+            const capability = createCapability({
                     bearerToken,
                     credentialProvider: async () => mainCredential,
                     fetchImpl         : async () => ({
