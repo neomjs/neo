@@ -1,7 +1,9 @@
 import {expect, test}             from '@playwright/test';
+import * as yaml                  from 'js-yaml';
 import {mkdtemp, readFile, rm}    from 'node:fs/promises';
 import {mkdirSync, writeFileSync} from 'node:fs';
 import {tmpdir}                   from 'node:os';
+import {fileURLToPath}            from 'node:url';
 import {
     BRAIN_TREES,
     TREE_EXCLUDES,
@@ -19,65 +21,228 @@ import {buildPackagedBrainEnv, resolveBrainMode} from '../../../../harness/brain
 import path                                      from 'node:path';
 
 /**
- * @summary Fails when JavaScript syntax resolves to a parent-root Brain or Body import. Normalizing
- * the literal before comparison closes equivalent spellings such as `../middle/../ai/module.mjs`.
- * @param {String} source
+ * @summary Traverses the packaged main-process `.mjs` graph from one entry file. Relative literals
+ * are resolved against their importing source, so nested modules cannot spell the same harness-root
+ * escape at a different depth. Missing local modules and lexical root escapes fail loudly; bare
+ * imports and expression-based dynamic loaders stay outside this static closure contract.
+ * @param {Object} options
+ * @param {String} options.entryFile Absolute entry-module path.
+ * @param {String} options.harnessRoot Absolute packaged-main root.
+ * @returns {Promise<String[]>} Harness-relative POSIX module paths.
+ */
+async function collectPackagedMainModules({entryFile, harnessRoot}) {
+    const
+        root    = path.resolve(harnessRoot),
+        visited = new Set();
+
+    const visit = async (modulePath, importer = null, specifier = null) => {
+        const
+            resolved = path.resolve(modulePath),
+            relative = path.relative(root, resolved),
+            outside  = relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+
+        if (outside) {
+            const source = importer ? path.relative(root, importer).split(path.sep).join('/') : '<entry>';
+
+            throw new Error(`packaged harness source ${source} imports outside harness root: ${specifier ?? resolved}`)
+        }
+
+        if (visited.has(resolved)) {
+            return
+        }
+
+        visited.add(resolved);
+
+        let source;
+
+        try {
+            source = await readFile(resolved, 'utf8')
+        } catch (error) {
+            throw new Error(`packaged harness local module is missing: ${relative.split(path.sep).join('/')} (${error.code ?? error.message})`)
+        }
+
+        for (const literal of extractLiteralImportSpecifiers(source)) {
+            if (literal.startsWith('.') && literal.endsWith('.mjs')) {
+                await visit(path.resolve(path.dirname(resolved), literal), resolved, literal)
+            }
+        }
+    };
+
+    await visit(entryFile);
+
+    return [...visited]
+        .map(file => path.relative(root, file).split(path.sep).join('/'))
+        .sort()
+}
+
+/**
+ * @summary Fails when the electron-builder app.asar manifest omits any recursively discovered
+ * packaged-main module.
+ * @param {Object} options
+ * @param {String} options.builderConfig Raw electron-builder YAML.
+ * @param {String[]} options.modules Harness-relative module closure.
  * @returns {void}
  */
-function assertNoParentRootImports(source) {
-    const offenders = extractLiteralImportSpecifiers(source)
-        .map(specifier => path.posix.normalize(specifier))
-        .filter(specifier => specifier === '../ai' || specifier.startsWith('../ai/') ||
-            specifier === '../src' || specifier.startsWith('../src/'));
+function assertPackagedMainModulesDeclared({builderConfig, modules}) {
+    const declared = yaml.load(builderConfig)?.files;
 
-    if (offenders.length) {
-        throw new Error(`packaged harness source imports forbidden parent roots: ${offenders.join(', ')}`)
+    if (!Array.isArray(declared)) {
+        throw new Error('electron-builder files closure is missing or invalid')
+    }
+
+    const
+        manifest = new Set(declared.filter(entry => typeof entry === 'string')),
+        missing  = modules.filter(module => !manifest.has(module));
+
+    if (missing.length) {
+        throw new Error(`electron-builder files closure omits packaged main module(s): ${missing.join(', ')}`)
+    }
+}
+
+/**
+ * @summary Writes a small source graph under an isolated fixture root.
+ * @param {String} root
+ * @param {Object<String, String>} modules Relative path to source map.
+ * @returns {void}
+ */
+function writeModuleFixture(root, modules) {
+    for (const [relativePath, source] of Object.entries(modules)) {
+        const target = path.join(root, relativePath);
+
+        mkdirSync(path.dirname(target), {recursive: true});
+        writeFileSync(target, source, 'utf8')
     }
 }
 
 test.describe('harness pack stage', () => {
     test('packaged main imports are closed over app.asar and parent-root contracts are forbidden', async () => {
         const
-            harnessRoot                                                = new URL('../../../../harness/', import.meta.url),
-            [builderConfig, brainSource, capabilitySource, mainSource] = await Promise.all([
-                readFile(new URL('electron-builder.yml', harnessRoot), 'utf8'),
-                readFile(new URL('brain.mjs', harnessRoot), 'utf8'),
-                readFile(new URL('fleetCapability.mjs', harnessRoot), 'utf8'),
-                readFile(new URL('main.mjs', harnessRoot), 'utf8')
+            harnessRoot                 = fileURLToPath(new URL('../../../../harness/', import.meta.url)),
+            [builderConfig, mainSource] = await Promise.all([
+                readFile(path.join(harnessRoot, 'electron-builder.yml'), 'utf8'),
+                readFile(path.join(harnessRoot, 'main.mjs'), 'utf8')
             ]);
 
-        expect(builderConfig).toContain('- fleetCapability.mjs');
+        const modules = await collectPackagedMainModules({
+            entryFile: path.join(harnessRoot, 'main.mjs'),
+            harnessRoot
+        });
 
-        const localMainImports = extractLocalMjsImports(mainSource);
-
-        for (const importedFile of localMainImports) {
-            expect(builderConfig).toContain(`- ${importedFile}`)
-        }
-
-        [brainSource, capabilitySource, mainSource].forEach(assertNoParentRootImports);
-
+        expect(modules).toEqual([
+            'appLifecycle.mjs',
+            'brain.mjs',
+            'contentPolicy.mjs',
+            'fleetCapability.mjs',
+            'main.mjs'
+        ]);
+        expect(() => assertPackagedMainModulesDeclared({builderConfig, modules})).not.toThrow();
         expect(mainSource).toContain('loadFleetRuntimeContracts(organismRoot)')
     });
 
-    test('parent-root guard covers static, re-export, side-effect, and literal dynamic imports after normalization', () => {
-        for (const source of [
-            "import Brain from '../ai/Brain.mjs';",
-            "import {Neo} from '../src/Neo.mjs';",
-            "import '../src/Neo.mjs';",
-            "export {Brain} from '../ai/Brain.mjs';",
-            "export * from '../src/core/_export.mjs';",
-            "const Brain = import('../middle/../ai/Brain.mjs');"
-        ]) {
-            expect(() => assertNoParentRootImports(source)).toThrow(/forbidden parent roots/)
-        }
+    test('source-relative traversal rejects nested and normalized harness-root escapes', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-main-escape-'));
 
-        expect(() => assertNoParentRootImports([
-            "const prose = \"import('../ai/Brain.mjs')\";",
-            "const template = `import('../src/Neo.mjs')`;",
-            "const runtime = import(runtimeSpecifier);",
-            "// import '../ai/Brain.mjs';",
-            "/* export * from '../src/core/_export.mjs'; */"
-        ].join('\n'))).not.toThrow()
+        try {
+            writeModuleFixture(root, {
+                'main.mjs'   : "import './tools/x.mjs';",
+                'tools/x.mjs': ''
+            });
+
+            for (const specifier of ['../../ai/Agent.mjs', '../middle/../../src/Neo.mjs']) {
+                writeModuleFixture(root, {'tools/x.mjs': `import '${specifier}';`});
+
+                await expect(collectPackagedMainModules({
+                    entryFile  : path.join(root, 'main.mjs'),
+                    harnessRoot: root
+                })).rejects.toThrow(/tools\/x\.mjs imports outside harness root/)
+            }
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
+    });
+
+    test('source-relative traversal fails loudly when a local module is missing', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-main-missing-'));
+
+        try {
+            writeModuleFixture(root, {'main.mjs': "import './missing.mjs';"});
+
+            await expect(collectPackagedMainModules({
+                entryFile  : path.join(root, 'main.mjs'),
+                harnessRoot: root
+            })).rejects.toThrow(/local module is missing: missing\.mjs/)
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
+    });
+
+    test('source-relative traversal terminates cycles through its visited set', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-main-cycle-'));
+
+        try {
+            writeModuleFixture(root, {
+                'cycle/a.mjs': "export {value} from '../main.mjs';",
+                'main.mjs'   : "import './cycle/a.mjs';"
+            });
+
+            await expect(collectPackagedMainModules({
+                entryFile  : path.join(root, 'main.mjs'),
+                harnessRoot: root
+            })).resolves.toEqual(['cycle/a.mjs', 'main.mjs'])
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
+    });
+
+    test('one syntax authority expands every literal module shape while expressions and prose stay inert', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-main-syntax-'));
+
+        try {
+            writeModuleFixture(root, {
+                'all.mjs'    : 'export const all = true;',
+                'dynamic.mjs': 'export default null;',
+                'main.mjs'   : [
+                    "import StaticDefault from './static.mjs';",
+                    "import './side-effect.mjs';",
+                    "export {named} from './named.mjs';",
+                    "export * from './all.mjs';",
+                    "const lazy = import('./dynamic.mjs');",
+                    "const prose = \"import './ordinary-string.mjs'\";",
+                    "const template = `export * from './template.mjs'`;",
+                    'const runtime = import(runtimeSpecifier);',
+                    "// import './line-comment.mjs';",
+                    "/* import('./block-comment.mjs'); */",
+                    "import 'bare-package';"
+                ].join('\n'),
+                'named.mjs'      : 'export const named = true;',
+                'side-effect.mjs': 'void 0;',
+                'static.mjs'     : 'export default null;'
+            });
+
+            const modules = await collectPackagedMainModules({
+                entryFile  : path.join(root, 'main.mjs'),
+                harnessRoot: root
+            });
+
+            expect(modules).toEqual([
+                'all.mjs',
+                'dynamic.mjs',
+                'main.mjs',
+                'named.mjs',
+                'side-effect.mjs',
+                'static.mjs'
+            ]);
+            expect(() => assertPackagedMainModulesDeclared({
+                builderConfig: yaml.dump({files: modules}),
+                modules
+            })).not.toThrow();
+            expect(() => assertPackagedMainModulesDeclared({
+                builderConfig: yaml.dump({files: ['main.mjs']}),
+                modules
+            })).toThrow(/omits packaged main module/)
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
     });
 
     test('deriveCopySpecs rides the contentPolicy allowlist plus the Brain trees, skipping node_modules entries', () => {
