@@ -48,6 +48,9 @@ const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer',
  * @param {Function} [opts.send=null]                      Packaged-shell transport; mutually exclusive
  *     with `url` / `bearerToken`.
  * @param {'worker'|'shell'} [opts.credentialIngress='worker'] Public credential-custody fact.
+ * @param {Boolean}  [opts.selected=false]                 Whether this install is an explicit source
+ *     selection (the injector path) versus the boot default. Selected bridges render an empty
+ *     registry's true zero state; unselected defaults keep the zero-setup sample.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
  * @returns {Object} the installed registry bridge (also reachable at `target.AgentOS.fleet.registryBridge`).
  */
@@ -57,6 +60,7 @@ export function installFleetBridge({
     fetchImpl = globalThis.fetch,
     send = null,
     credentialIngress = 'worker',
+    selected = false,
     target = globalThis
 } = {}) {
     const endpointError = 'installFleetBridge requires an absolute loopback HTTP(S) fleet URL';
@@ -127,6 +131,14 @@ export function installFleetBridge({
     Object.defineProperty(registryBridge, 'credentialIngress', {
         configurable: true,
         value       : credentialIngress
+    });
+
+    // An explicitly wired bridge (the ViewportController injector — Neural Link, tests, dev
+    // tooling) marks `selected: true`: an empty registry from a deliberately chosen source renders
+    // its TRUE zero state, while the boot-default install keeps the zero-setup sample flagship.
+    Object.defineProperty(registryBridge, 'selected', {
+        configurable: true,
+        value       : selected
     });
 
     agentOS.fleet                = agentOS.fleet || {};
