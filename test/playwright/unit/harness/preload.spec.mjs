@@ -9,20 +9,26 @@ const mainPath    = new URL('../../../../harness/main.mjs', import.meta.url);
  * @summary Executes the CommonJS preload against capability-shaped Electron mocks without booting
  * Electron. Timers and DOM diagnostics are retained as inert seams; the test owns only the exposed
  * bridge contract.
+ * @param {Object} [options={}] Mock clock and DOM surfaces.
  * @returns {Promise<Object>}
  */
-async function loadPreload() {
+async function loadPreload({clock={now: 0}, dom={}} = {}) {
     const
-        invokes = [],
-        exposed = {},
-        source  = await readFile(preloadPath, 'utf8');
+        intervals     = [],
+        invokes       = [],
+        exposed       = {},
+        sends         = [],
+        source        = await readFile(preloadPath, 'utf8'),
+        emptyNodeList = [];
 
     vm.runInNewContext(source, {
-        clearInterval() {},
-        Date,
+        clearInterval(id) {
+            id.cleared = true
+        },
+        Date    : {now: () => clock.now},
         document: {
-            querySelector() { return null },
-            querySelectorAll() { return [] }
+            querySelector(selector) { return dom.selectors?.[selector] ?? null },
+            querySelectorAll(selector) { return dom.selectorLists?.[selector] ?? emptyNodeList }
         },
         process: {versions: {electron: '42.0.0'}},
         require(name) {
@@ -40,15 +46,24 @@ async function loadPreload() {
                         invokes.push(args);
                         return Promise.resolve({ok: true, result: []})
                     },
-                    send() {}
+                    send(...args) {
+                        sends.push(args)
+                    }
                 }
             }
         },
-        setInterval() { return 1 },
-        window: {addEventListener() {}}
+        setInterval(fn) {
+            const interval = {cleared: false, fn};
+            intervals.push(interval);
+            return interval
+        },
+        window: {
+            addEventListener() {},
+            getComputedStyle: dom.getComputedStyle ?? (() => ({display: 'block', visibility: 'visible'}))
+        }
     });
 
-    return {exposed, invokes}
+    return {exposed, intervals, invokes, sends}
 }
 
 test.describe('Electron harness preload capability', () => {
@@ -83,5 +98,81 @@ test.describe('Electron harness preload capability', () => {
         expect(mainSource).toContain("webContents.on('before-input-event'");
         expect(mainSource).toContain('inputEvent.preventDefault()');
         expect(mainSource).toContain('clipboard.readText()')
+    })
+
+    test('reports the exact bounded cold-first-paint semantics over the private diagnostic channel', async () => {
+        const
+            clock              = {now: 1234},
+            cockpit            = {getClientRects: () => [{}]},
+            cards              = [{getClientRects: () => [{}]}, {getClientRects: () => [{}]}],
+            roster             = {textContent: ' static roster · offline '},
+            stream             = {textContent: ' sample · live feed pending '},
+            {intervals, sends} = await loadPreload({
+                clock,
+                dom: {
+                    selectors: {
+                        '.fm-fleet-cockpit'                                           : cockpit,
+                        '.fm-fleet-cockpit .fm-fleet-head.is-sample .fm-fleet-stale'  : roster,
+                        '.fm-fleet-cockpit .fm-stream-head.is-sample .fm-stream-state': stream
+                    },
+                    selectorLists: {
+                        '.fm-fleet-cockpit .fm-agent-card'                                     : cards,
+                        '.fm-fleet-cockpit .fm-fusion-tour, .fm-fleet-cockpit .fm-tour-caption': []
+                    }
+                }
+            });
+
+        intervals[1].fn();
+
+        expect(sends).toContainEqual(['shell-first-paint-report', {
+            activityLabel       : 'sample · live feed pending',
+            cardCount           : 2,
+            cockpitVisible      : true,
+            rendererFirstPaintMs: 0,
+            rosterLabel         : 'static roster · offline',
+            timedOut            : false,
+            tourControlCount    : 0
+        }]);
+        expect(intervals[1].cleared).toBe(true)
+    })
+
+    test('times out honestly when demo controls or missing cards prevent the product receipt', async () => {
+        const
+            clock              = {now: 0},
+            cockpit            = {getClientRects: () => [{}]},
+            card               = {getClientRects: () => [{}]},
+            roster             = {textContent: 'static roster · offline'},
+            stream             = {textContent: 'sample · live feed pending'},
+            {intervals, sends} = await loadPreload({
+                clock,
+                dom: {
+                    selectors: {
+                        '.fm-fleet-cockpit'                                           : cockpit,
+                        '.fm-fleet-cockpit .fm-fleet-head.is-sample .fm-fleet-stale'  : roster,
+                        '.fm-fleet-cockpit .fm-stream-head.is-sample .fm-stream-state': stream
+                    },
+                    selectorLists: {
+                        '.fm-fleet-cockpit .fm-agent-card'                                     : [card],
+                        '.fm-fleet-cockpit .fm-fusion-tour, .fm-fleet-cockpit .fm-tour-caption': [{}]
+                    }
+                }
+            });
+
+        intervals[1].fn();
+        expect(sends.filter(([channel]) => channel === 'shell-first-paint-report')).toEqual([]);
+
+        clock.now = 60001;
+        intervals[1].fn();
+
+        expect(sends).toContainEqual(['shell-first-paint-report', {
+            activityLabel       : 'sample · live feed pending',
+            cardCount           : 1,
+            cockpitVisible      : true,
+            rendererFirstPaintMs: null,
+            rosterLabel         : 'static roster · offline',
+            timedOut            : true,
+            tourControlCount    : 1
+        }]);
+        expect(intervals[1].cleared).toBe(true)
     })
 });

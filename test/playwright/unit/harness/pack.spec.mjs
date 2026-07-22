@@ -1,5 +1,5 @@
 import {expect, test}             from '@playwright/test';
-import {mkdtemp, rm}              from 'node:fs/promises';
+import {mkdtemp, readFile, rm}    from 'node:fs/promises';
 import {mkdirSync, writeFileSync} from 'node:fs';
 import {tmpdir}                   from 'node:os';
 import {
@@ -16,6 +16,32 @@ import {buildPackagedBrainEnv, resolveBrainMode} from '../../../../harness/brain
 import path                                      from 'node:path';
 
 test.describe('harness pack stage', () => {
+    test('packaged main imports are closed over app.asar and parent-root contracts are forbidden', async () => {
+        const
+            harnessRoot                                                = new URL('../../../../harness/', import.meta.url),
+            [builderConfig, brainSource, capabilitySource, mainSource] = await Promise.all([
+                readFile(new URL('electron-builder.yml', harnessRoot), 'utf8'),
+                readFile(new URL('brain.mjs', harnessRoot), 'utf8'),
+                readFile(new URL('fleetCapability.mjs', harnessRoot), 'utf8'),
+                readFile(new URL('main.mjs', harnessRoot), 'utf8')
+            ]);
+
+        expect(builderConfig).toContain('- fleetCapability.mjs');
+
+        const localMainImports = [...mainSource.matchAll(/from\s+['"]\.\/([^'"]+\.mjs)['"]/g)]
+            .map(match => match[1]);
+
+        for (const importedFile of localMainImports) {
+            expect(builderConfig).toContain(`- ${importedFile}`)
+        }
+
+        for (const source of [brainSource, capabilitySource, mainSource]) {
+            expect(source).not.toMatch(/from\s+['"]\.\.\/(?:ai|src)\//)
+        }
+
+        expect(mainSource).toContain('loadFleetRuntimeContracts(organismRoot)')
+    });
+
     test('deriveCopySpecs rides the contentPolicy allowlist plus the Brain trees, skipping node_modules entries', () => {
         const {files, trees} = deriveCopySpecs();
 

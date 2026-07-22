@@ -19,7 +19,6 @@ import {app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, protocol, ses
 import {createReadStream}                                                                   from 'node:fs';
 import {fileURLToPath}                                                                      from 'node:url';
 import path                                                                                 from 'node:path';
-import {resolveFleetBearer}                                                                 from '../ai/services/fleet/fleetLaunchContract.mjs';
 import {createAppLifecycle}                                                                 from './appLifecycle.mjs';
 import {createFleetCapability}                                                              from './fleetCapability.mjs';
 import {
@@ -45,6 +44,7 @@ import {
     probePort,
     resolveBrainMode,
     resolveBrainPaths,
+    loadFleetRuntimeContracts,
     startBrainChild,
     stopBrainTree,
     sweepStaleRunState,
@@ -67,10 +67,11 @@ const
     // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
     // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
     // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
-    brainMode        = resolveBrainMode({env: process.env, packaged: packagedMode}),
+    brainMode             = resolveBrainMode({env: process.env, packaged: packagedMode}),
+    fleetRuntimeContracts = await loadFleetRuntimeContracts(organismRoot),
     // ONE main-owned secret per Electron boot. It crosses only into the Fleet child environment
     // and main-process Authorization headers; preload/renderer/App-Worker receive no getter or byte.
-    fleetBearerToken = resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
+    fleetBearerToken = fleetRuntimeContracts.resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
     smokeState       = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
@@ -78,8 +79,10 @@ const
         rendererErrors: [],
         secretLeaks   : new Set()
     },
-    bootReports = new Map(),
-    bootWaiters = new Map();
+    bootReports       = new Map(),
+    bootWaiters       = new Map(),
+    firstPaintReports = new Map(),
+    firstPaintWaiters = new Map();
 
 let
     brainBootPromise = Promise.resolve(null),
@@ -402,10 +405,12 @@ h1{font-size:20px;margin:0 0 16px}p{color:#b9c4d8;margin:8px 0}.hint{color:#8ea4
 // later call joins the exact boot the lifecycle owner retained.
 const fleetCapability = createFleetCapability({
     bearerToken       : fleetBearerToken,
+    credentialMethods : fleetRuntimeContracts.FLEET_CREDENTIAL_METHODS,
     credentialProvider: promptFleetCredential,
     getBrain          : () => brainBootPromise,
     isTrustedSender   : isTrustedIpcSender,
-    onAdmitted        : ({method}) => diagnosticMode && smokeState.fleetMethods.push(method)
+    onAdmitted        : ({method}) => diagnosticMode && smokeState.fleetMethods.push(method),
+    wireMethods       : fleetRuntimeContracts.FLEET_WIRE_METHODS
 });
 
 /**
@@ -429,6 +434,41 @@ function sanitizeBootReport(report) {
         mounted   : report.mounted,
         timedOut  : report.timedOut === true,
         viewportId: report.viewportId
+    }
+}
+
+/**
+ * @summary Reduces an untrusted first-paint report to bounded semantic primitives.
+ * @param {*} report
+ * @returns {Object|null}
+ */
+function sanitizeFirstPaintReport(report) {
+    const boundedText = value => value === null || (typeof value === 'string' && value.length <= 100);
+
+    if (
+        !report ||
+        !boundedText(report.activityLabel) ||
+        !Number.isInteger(report.cardCount) ||
+        report.cardCount < 0 ||
+        typeof report.cockpitVisible !== 'boolean' ||
+        !(report.rendererFirstPaintMs === null ||
+            (Number.isFinite(report.rendererFirstPaintMs) && report.rendererFirstPaintMs >= 0)) ||
+        !boundedText(report.rosterLabel) ||
+        !Number.isInteger(report.tourControlCount) ||
+        report.tourControlCount < 0
+    ) {
+        return null
+    }
+
+    return {
+        activityLabel       : report.activityLabel,
+        cardCount           : report.cardCount,
+        cockpitVisible      : report.cockpitVisible,
+        firstPaintMs        : report.rendererFirstPaintMs === null ? null : Math.round(process.uptime() * 1000),
+        rendererFirstPaintMs: report.rendererFirstPaintMs,
+        rosterLabel         : report.rosterLabel,
+        timedOut            : report.timedOut === true,
+        tourControlCount    : report.tourControlCount
     }
 }
 
@@ -462,6 +502,39 @@ function onBootReport(event, report) {
         waiter.resolve(normalized)
     } else {
         bootReports.set(senderId, normalized)
+    }
+}
+
+/**
+ * @summary Accepts, caches, and resolves a sender-validated packaged first-paint report.
+ * @param {Electron.IpcMainEvent} event
+ * @param {*} report
+ */
+function onFirstPaintReport(event, report) {
+    if (!isTrustedIpcSender(event)) {
+        recordSmokeFailure('ipc-rejected', 'shell-first-paint-report sender');
+        return
+    }
+
+    const normalized = sanitizeFirstPaintReport(report);
+
+    if (!normalized) {
+        recordSmokeFailure('ipc-rejected', 'shell-first-paint-report payload');
+        return
+    }
+
+    const
+        senderId = event.sender.id,
+        waiter   = firstPaintWaiters.get(senderId);
+
+    diagnosticMode && console.log('HARNESS_FIRST_PAINT_REPORT ' + JSON.stringify(normalized));
+
+    if (waiter) {
+        clearTimeout(waiter.timer);
+        firstPaintWaiters.delete(senderId);
+        waiter.resolve(normalized)
+    } else {
+        firstPaintReports.set(senderId, normalized)
     }
 }
 
@@ -508,6 +581,42 @@ function awaitBootReport(win, timeoutMs = 30000) {
         }, timeoutMs);
 
         bootWaiters.set(senderId, {resolve, timer})
+    })
+}
+
+/**
+ * Reports received before the main smoke reaches this await are cached by sender id.
+ * @summary Resolves one validated first-paint report or a deterministic timeout receipt.
+ * @param {BrowserWindow} win
+ * @param {Number} [timeoutMs=65000]
+ * @returns {Promise<Object>}
+ */
+function awaitFirstPaintReport(win, timeoutMs = 65000) {
+    const
+        senderId = win.webContents.id,
+        cached   = firstPaintReports.get(senderId);
+
+    if (cached) {
+        firstPaintReports.delete(senderId);
+        return Promise.resolve(cached)
+    }
+
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            firstPaintWaiters.delete(senderId);
+            resolve({
+                activityLabel       : null,
+                cardCount           : 0,
+                cockpitVisible      : false,
+                firstPaintMs        : null,
+                rendererFirstPaintMs: null,
+                rosterLabel         : null,
+                timedOut            : true,
+                tourControlCount    : 0
+            })
+        }, timeoutMs);
+
+        firstPaintWaiters.set(senderId, {resolve, timer})
     })
 }
 
@@ -791,7 +900,12 @@ async function bootProductBrain() {
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
         paths     = await resolveBrainPaths({env: packagedEnv, repoRoot: organismRoot}),
-        live      = await detectLiveBrain({bearerToken: fleetBearerToken, fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
+        live      = await detectLiveBrain({
+            bearerToken        : fleetBearerToken,
+            fleetPort,
+            orchestratorDataDir: paths.orchestratorDataDir,
+            repoRoot           : organismRoot
+        }),
         mode      = live.orchestratorAlive ? 'attach' : 'own';
 
     if (mode === 'own') {
@@ -913,6 +1027,7 @@ app.whenReady().then(async () => {
         // Preload diagnostics are smoke-only. Registering these in normal operation would cache
         // one unconsumed boot report per window even though no smoke waiter exists.
         ipcMain.on('shell-boot-report', onBootReport);
+        ipcMain.on('shell-first-paint-report', onFirstPaintReport);
         ipcMain.on('shell-runtime-error', onRuntimeError)
     }
 
@@ -965,7 +1080,10 @@ app.whenReady().then(async () => {
 
     // Smoke: slice-1 boot + slice-2 renderer-initiated popup + one-heap evidence. The popup's
     // viewport id must continue the primary window's App-worker sequence, not restart at 1.
-    const boot1 = await awaitBootReport(win1);
+    const [boot1, firstPaint] = await Promise.all([
+        awaitBootReport(win1),
+        awaitFirstPaintReport(win1)
+    ]);
 
     // Renderer window.open needs a user gesture. Post-boot executeJavaScript is bounded because the
     // same call can wedge during module-graph boot; real product popouts originate from real clicks.
@@ -1104,11 +1222,28 @@ app.whenReady().then(async () => {
             boot2.viewportId &&
             boot1.viewportId !== boot2.viewportId
         ),
+        firstPaintPassed = firstPaint.cockpitVisible === true &&
+            firstPaint.cardCount > 0 &&
+            firstPaint.rosterLabel === 'static roster · offline' &&
+            firstPaint.activityLabel === 'sample · live feed pending' &&
+            firstPaint.tourControlCount === 0 &&
+            firstPaint.firstPaintMs !== null &&
+            firstPaint.firstPaintMs <= 60000 &&
+            firstPaint.timedOut === false,
+        firstPaintReceipt = {
+            ...firstPaint,
+            brainMode,
+            brainUp             : brain.mode ? brain.up === true : null,
+            packagedMode,
+            passed              : firstPaintPassed,
+            productWitnessPassed: packagedMode && brain.mode && brain.up === true && firstPaintPassed
+        },
         results = {
             assetFailures,
             boot1,
             boot2,
             brain,
+            firstPaint       : firstPaintReceipt,
             popupMaterialized: Boolean(win2),
             rendererErrors,
             requiredAssetsReady,
@@ -1139,12 +1274,14 @@ app.whenReady().then(async () => {
         ),
         passed = boot1.mounted > 10 &&
             boot2.mounted > 10 &&
+            firstPaintPassed &&
             results.popupMaterialized &&
             requiredAssetsReady &&
             sharedHeapEvidence &&
             rendererErrors.length === 0 &&
             brainPassed;
 
+    console.log('HARNESS_FIRST_PAINT_RESULTS=' + JSON.stringify(firstPaintReceipt, null, 2));
     console.log('HARNESS_SMOKE_RESULTS=' + JSON.stringify(results, null, 2));
     await appLifecycle.exitTerminal(passed ? 0 : 1)
 });

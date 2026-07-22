@@ -1,5 +1,3 @@
-import {FLEET_CREDENTIAL_METHODS, FLEET_WIRE_METHODS} from '../src/ai/fleet/fleetWireMethods.mjs';
-
 const MAX_CREDENTIAL_LENGTH = 1024;
 
 function isRecord(value) {
@@ -58,8 +56,10 @@ export function projectPublicCredentialIntent(method, params) {
  * positively censused against both the bearer and (for Add-Peer) the submitted credential.
  * @param {Object} options
  * @param {String} options.bearerToken Main-owned per-boot Fleet bearer.
+ * @param {String[]} options.credentialMethods Canonical credential-bearing Fleet methods.
  * @param {Function} options.getBrain Resolves the main-owned Brain boot receipt.
  * @param {Function} options.isTrustedSender Validates a real Electron IPC event.
+ * @param {String[]} options.wireMethods Canonical app↔Fleet method allowlist.
  * @param {Function|null} [options.credentialProvider=null] Main-owned async credential ingress. It
  * receives only `{event, intent, method}` after all public validation; Body-supplied secret fields
  * are projected away before invocation.
@@ -70,20 +70,31 @@ export function projectPublicCredentialIntent(method, params) {
  */
 export function createFleetCapability({
     bearerToken,
+    credentialMethods,
     credentialProvider = null,
     fetchImpl = globalThis.fetch,
     getBrain,
     isTrustedSender,
-    onAdmitted = null
+    onAdmitted = null,
+    wireMethods
 } = {}) {
+    const
+        validCredentialMethods = Array.isArray(credentialMethods) && credentialMethods.every(method => typeof method === 'string'),
+        validWireMethods       = Array.isArray(wireMethods) && wireMethods.every(method => typeof method === 'string');
+
     if (typeof bearerToken !== 'string' || typeof getBrain !== 'function' ||
         typeof isTrustedSender !== 'function' || typeof fetchImpl !== 'function' ||
+        !validCredentialMethods || !validWireMethods ||
+        credentialMethods.some(method => !wireMethods.includes(method)) ||
         !(credentialProvider === null || typeof credentialProvider === 'function') ||
         !(onAdmitted === null || typeof onAdmitted === 'function')) {
-        throw new TypeError('createFleetCapability requires bearerToken, getBrain, isTrustedSender, fetchImpl, and optional credentialProvider/onAdmitted hooks')
+        throw new TypeError('createFleetCapability requires bearerToken, canonical method allowlists, getBrain, isTrustedSender, fetchImpl, and optional credentialProvider/onAdmitted hooks')
     }
 
-    const reject = error => ({ok: false, error});
+    const
+        credentialMethodSet = new Set(credentialMethods),
+        wireMethodSet       = new Set(wireMethods),
+        reject              = error => ({ok: false, error});
 
     const send = async (request, sensitiveValues = []) => {
         let boot, envelope;
@@ -143,11 +154,11 @@ export function createFleetCapability({
             if (!isRecord(request) ||
                 Object.keys(request).some(key => !['method', 'params'].includes(key)) ||
                 typeof request.method !== 'string' ||
-                !FLEET_WIRE_METHODS.includes(request.method)) {
+                !wireMethodSet.has(request.method)) {
                 return reject('fleet: malformed or disallowed request')
             }
 
-            if (FLEET_CREDENTIAL_METHODS.includes(request.method)) {
+            if (credentialMethodSet.has(request.method)) {
                 const intent = projectPublicCredentialIntent(request.method, request.params);
 
                 if (!intent) {
