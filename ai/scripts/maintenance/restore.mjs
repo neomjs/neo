@@ -11,7 +11,9 @@ import * as core from '../../../src/core/_export.mjs';
 
 import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
+import AiConfig from '../../config.mjs';
 
+import {classifyRowVector} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 import {
     KB_DatabaseService,
     KB_LifecycleService,
@@ -134,6 +136,7 @@ export async function runRestore({
     filterEdgeTypes         = [],
     onlySubstrate           = null,
     postRestoreHook         = null,
+    expectedDimension       = AiConfig.vectorDimension,
     logger                  = console
 } = {}) {
     if (!bundleRoot) {
@@ -155,7 +158,7 @@ export async function runRestore({
     };
 
     logger.log(`[1/6] Validating bundle integrity at ${resolvedRoot}...`);
-    const meta = await validateBundle(resolvedRoot, layout, logger);
+    const meta = await validateBundle(resolvedRoot, layout, logger, expectedDimension);
 
     logger.log('[2/6] Checking topology compatibility...');
     const topology = await checkTopology({meta, forceTopologyMismatch, logger});
@@ -317,7 +320,7 @@ export async function runRestore({
  * @param {Object} logger
  * @returns {Promise<Object|null>} Parsed `bundle-meta.json` content, or `null` for legacy bundles.
  */
-export async function validateBundle(bundleRoot, layout, logger = console) {
+export async function validateBundle(bundleRoot, layout, logger = console, expectedDimension = AiConfig.vectorDimension) {
     if (!await fs.pathExists(bundleRoot)) {
         throw new Error(`Bundle directory not found: ${bundleRoot}`);
     }
@@ -341,9 +344,9 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
         }
     }
 
-    // Stream-read the first non-empty line for JSONL parseability sanity-check.
-    // Full-file readFile fails on JSONL files >512MB (V8 max-string-length cap):
-    // empirical anchor 2026-05-10, kb backup 586MB → ERR_STRING_TOO_LONG.
+    // Full streaming structural + vector validation: every row of every JSONL is parsed, and every
+    // vector collection (kb/mc) row must carry a valid expected-dimension vector BEFORE any mutation.
+    // Line-1 sampling cannot satisfy the gate — a corrupt final row is the exact shape this closes.
     const readline   = (await import('readline')).default;
     const allSubdirs = [...REQUIRED_BUNDLE_SUBDIRS, ...OPTIONAL_BUNDLE_SUBDIRS];
     for (const subdir of allSubdirs) {
@@ -352,35 +355,91 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
         const entries    = await fs.readdir(dir);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
         for (const file of jsonlFiles) {
-            const stream    = fs.createReadStream(path.join(dir, file), {encoding: 'utf8'});
-            const rl        = readline.createInterface({input: stream, crlfDelay: Infinity});
-            let   firstLine = null;
+            const stream = fs.createReadStream(path.join(dir, file), {encoding: 'utf8'});
+            const rl     = readline.createInterface({input: stream, crlfDelay: Infinity});
+            let   lineNo = 0;
             for await (const line of rl) {
-                if (line.trim()) { firstLine = line; break; }
+                if (!line.trim()) continue;
+                lineNo++;
+
+                let row;
+                try {
+                    row = JSON.parse(line);
+                } catch (err) {
+                    throw new Error(`Bundle JSONL parse error at ${subdir}/${file} (line ${lineNo}): ${err.message}`);
+                }
+
+                if (subdir === 'kb' || subdir === 'mc') {
+                    const reason = classifyRowVector(row, expectedDimension);
+                    if (reason) {
+                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
+                    }
+                }
             }
             rl.close();
             stream.destroy();
-            if (firstLine) {
-                try {
-                    JSON.parse(firstLine);
-                } catch (err) {
-                    throw new Error(`Bundle JSONL parse error at ${subdir}/${file} (line 1): ${err.message}`);
-                }
-            }
         }
     }
 
     const metaPath = path.join(bundleRoot, 'bundle-meta.json');
+    let   meta     = null;
+
     if (await fs.pathExists(metaPath)) {
         try {
-            return await fs.readJson(metaPath);
+            meta = await fs.readJson(metaPath);
         } catch (err) {
             throw new Error(`Failed to parse bundle-meta.json: ${err.message}`);
         }
+    } else {
+        logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
     }
 
-    logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
-    return null
+    // Embedding compatibility preflight: the declared contract (or the legacy fallback) must match
+    // the destination's expected embedding space BEFORE any replace-mode truncate. Provider
+    // readiness is never consulted — admission is evidence, not authority.
+    assertEmbeddingCompatibility({bundleRoot, expectedDimension, logger, meta});
+
+    return meta
+}
+
+/**
+ * Compares the bundle's declared embedding contract with the destination's expected embedding
+ * space and fails closed with a structured incompatibility receipt BEFORE any mutation. A legacy
+ * bundle (no `embedding` key in its meta) is validated against the destination's expected
+ * dimension only — the fallback is explicit, never fabricated. The destination fingerprint comes
+ * from the active config (never a live provider call).
+ * @param {Object} options
+ * @param {String} options.bundleRoot
+ * @param {Number} options.expectedDimension
+ * @param {Object} [options.logger]
+ * @param {Object|null} options.meta Parsed bundle-meta.json.
+ * @returns {void}
+ * @throws {Error} structured incompatibility receipt: collection, declared vs expected fingerprint.
+ */
+export function assertEmbeddingCompatibility({bundleRoot, expectedDimension, logger = console, meta}) {
+    const
+        provider = AiConfig.embeddingProvider,
+        model    = provider === 'ollama'
+            ? AiConfig.ollama.embeddingModel
+            : AiConfig.openAiCompatible.embeddingModel,
+        expectedFingerprint = `${provider}:${model}:${expectedDimension}`;
+
+    for (const collection of ['kb', 'mc']) {
+        const declared = meta?.embedding?.[collection];
+
+        if (!declared) {
+            logger.warn?.(`[Restore] ${collection}: no declared embedding contract (legacy bundle) — validating against the live expected dimension only.`);
+            continue
+        }
+
+        if (declared.fingerprint !== expectedFingerprint) {
+            throw new Error(
+                `Embedding-space incompatibility at ${collection}: bundle declares ` +
+                `'${declared.fingerprint}' but the destination expects '${expectedFingerprint}'. ` +
+                `Re-embedding is an orchestrator-selected action, never implicit — resolve the space difference deliberately before restoring.`
+            )
+        }
+    }
 }
 
 /**

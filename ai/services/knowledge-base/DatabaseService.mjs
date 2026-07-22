@@ -1,8 +1,10 @@
-import aiConfig                  from '../../mcp/server/knowledge-base/config.mjs';
-import Base                      from '../../../src/core/Base.mjs';
-import ChromaManager             from './ChromaManager.mjs';
-import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import VectorService             from './VectorService.mjs';
+import aiConfig                        from '../../mcp/server/knowledge-base/config.mjs';
+import {partitionRowsByVectorValidity} from '../memory-core/helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}       from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
+import Base                            from '../../../src/core/Base.mjs';
+import ChromaManager                   from './ChromaManager.mjs';
+import DestructiveOperationGuard       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import VectorService                   from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
@@ -305,6 +307,14 @@ class DatabaseService extends Base {
             }
 
             if (mode === 'replace') {
+                // Prove the FULL source before any destructive operation: every row of every file
+                // must parse and carry a non-empty id plus a valid same-dimension vector. Without
+                // this pass, a corrupt final row would truncate the collection and only then be
+                // discovered by the per-batch write gate below.
+                for (const filePath of sourceFiles) {
+                    await validateJsonlSourceFile({filePath, expectedDimension: aiConfig.vectorDimension});
+                }
+
                 logger.log('Replace mode: truncating Knowledge Base collection before import...');
                 await this.truncateDatabase({confirmation});
             }
@@ -339,18 +349,30 @@ class DatabaseService extends Base {
                     const writeBatch = batch;
                     batch = [];
 
+                    // Atomic vector-write invariant (mirrors the Memory Core boundary): an
+                    // explicit-embedding import must carry a valid same-dimension vector — a row
+                    // without one is rejected fail-loud BEFORE any upsert, never half-persisted
+                    // as metadata-only. Replace mode's pre-truncate source proof catches corrupt
+                    // rows first; this is the merge path's own gate for direct import callers.
+                    const {valid, rejected} = partitionRowsByVectorValidity({rows: writeBatch, expectedDimension: aiConfig.vectorDimension});
+
+                    if (rejected.length > 0) {
+                        const reasons = rejected.map(r => `${r.id ?? 'unknown'} (${r.reason})`).slice(0, 5).join(', ');
+                        throw new Error(`Knowledge Base import vector invariant rejected ${rejected.length} row(s): ${reasons} — not persisted`);
+                    }
+
                     const upsertArgs = {
-                        ids       : writeBatch.map(r => r.id),
-                        embeddings: writeBatch.map(r => r.embedding),
-                        metadatas : writeBatch.map(r => r.metadata)
+                        ids       : valid.map(r => r.id),
+                        embeddings: valid.map(r => r.embedding),
+                        metadatas : valid.map(r => r.metadata)
                     };
-                    if (writeBatch.some(r => r.document != null)) {
-                        upsertArgs.documents = writeBatch.map(r => r.document ?? '');
+                    if (valid.some(r => r.document != null)) {
+                        upsertArgs.documents = valid.map(r => r.document ?? '');
                     }
                     await collection.upsert(upsertArgs);
 
-                    imported     += writeBatch.length;
-                    fileImported += writeBatch.length;
+                    imported     += valid.length;
+                    fileImported += valid.length;
                 };
 
                 for await (const line of rl) {

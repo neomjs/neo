@@ -149,6 +149,39 @@ export function resolveBackupRetention({
 }
 
 /**
+ * Builds the versioned embedding-space contract declared in `bundle-meta.json` for every vector
+ * collection: which provider/model produced the vectors, the dimension, the exported counts, and
+ * the fingerprint a restore admission can compare against without touching a live provider.
+ * Counts come from the integrity check's per-subsystem source counts (authoritative at write time).
+ * @param {Object} options
+ * @param {Object} options.subsystems runBackup's subsystem receipt map (kb/mc entries carry counts).
+ * @returns {Object}
+ */
+export function buildEmbeddingContract({subsystems}) {
+    const
+        provider = AiConfig.embeddingProvider,
+        model    = provider === 'ollama'
+            ? AiConfig.ollama.embeddingModel
+            : AiConfig.openAiCompatible.embeddingModel,
+        dimension   = AiConfig.vectorDimension,
+        fingerprint = `${provider}:${model}:${dimension}`;
+
+    const contractOf = key => ({
+        count        : typeof subsystems[key] === 'number' ? subsystems[key] : subsystems[key]?.count ?? null,
+        dimension,
+        model,
+        provider,
+        fingerprint,
+        schemaVersion: 1
+    });
+
+    return {
+        kb: contractOf('kb'),
+        mc: contractOf('mc')
+    }
+}
+
+/**
  * Executes a full-substrate backup.
  *
  * @param {Object}   options
@@ -249,6 +282,7 @@ export async function runBackup({
     const completedAt = new Date().toISOString();
     const topology    = buildTopologyDescriptor();
     const versionInfo = await buildVersionDescriptor(PROJECT_ROOT, logger);
+    const embedding   = buildEmbeddingContract({subsystems});
     const meta        = {
         bundleVersion: 1,
         timestamp,
@@ -256,6 +290,7 @@ export async function runBackup({
         subsystems,
         integrity,
         topology,
+        embedding,
         ...versionInfo
     };
     await fs.writeJson(path.join(resolvedRoot, 'bundle-meta.json'), meta, { spaces: 2 });
