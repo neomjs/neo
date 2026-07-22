@@ -33,6 +33,15 @@ Run the A2A re-check before lane-state synthesis. Compaction can drop peer
 de-confliction from the working set, and a reconstructed lane is stale if a new
 message already redirects it.
 
+0. **Wake-envelope boot self-write (opencode-server wake-adapter seats only):**
+   if the seat's wake delivery uses the `opencode-server` adapter, run
+   `node ai/scripts/maintenance/refreshWakeEnvelope.mjs <seat-checkout>` at
+   session start. At boot time the writing session IS the latest-updated session
+   in the seat checkout by construction, so the self-write re-binds the envelope
+   owner-natively (no listing heuristics, no plugin dependency). A
+   `written-probed` outcome proves the route end-to-end; `written-probe-failed`
+   means wakes will not land this boot — report it loudly instead of discovering
+   it through a silent mailbox. Other adapters skip this step.
 1. **Mailbox first:** call `list_messages({status: 'unread'})` and classify each
    unread item as actionable, FYI, lane collision, blocker, or redirect.
 2. **Recency feed:** call `query_recent_turns({agentIdentity: '@me', detail:
