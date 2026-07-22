@@ -1107,6 +1107,14 @@ paths:
             type: string
             enum: [full, summary, title, title_only]
             default: full
+        - name: sort
+          in: query
+          required: false
+          description: Order field. `updated` (default) sorts by last activity; `created` sorts by filing time — the freshness-sweep evidence, since updated-descending buries untouched fresh filings below recently-updated older issues.
+          schema:
+            type: string
+            enum: [updated, created]
+            default: updated
         - name: cursor
           in: query
           required: false

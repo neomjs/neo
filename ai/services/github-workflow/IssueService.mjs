@@ -1,11 +1,11 @@
-import aiConfig          from '../../mcp/server/github-workflow/config.mjs';
-import Base              from '../../../src/core/Base.mjs';
-import GraphqlService    from './GraphqlService.mjs';
-import RepositoryService from './RepositoryService.mjs';
-import logger            from '../../mcp/server/github-workflow/logger.mjs';
-import {projectConversationTrust} from './shared/conversationTrust.mjs';
-import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
-import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
+import aiConfig                                                                                                                                                                                                                      from '../../mcp/server/github-workflow/config.mjs';
+import Base                                                                                                                                                                                                                          from '../../../src/core/Base.mjs';
+import GraphqlService                                                                                                                                                                                                                from './GraphqlService.mjs';
+import RepositoryService                                                                                                                                                                                                             from './RepositoryService.mjs';
+import logger                                                                                                                                                                                                                        from '../../mcp/server/github-workflow/logger.mjs';
+import {projectConversationTrust}                                                                                                                                                                                                    from './shared/conversationTrust.mjs';
+import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER, buildIssuesListQuery} from './queries/issueQueries.mjs';
+import {GET_PULL_REQUEST_ID}                                                                                                                                                                                                         from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
     REMOVE_LABELS,
@@ -215,7 +215,7 @@ class IssueService extends Base {
                 // equivalent of the prior `gh issue edit --remove-assignee ""`, with no fetch and no
                 // intermediate state. (PATCH sends only `assignees`, so other issue fields are untouched.)
                 await GraphqlService.rest('PATCH', `/repos/${aiConfig.owner}/${aiConfig.repo}/issues/${issue_number}`, {assignees: []});
-                const message  = `Successfully unassigned all users from issue #${issue_number}`;
+                const message = `Successfully unassigned all users from issue #${issue_number}`;
                 logger.info(message);
                 return {message};
             }
@@ -365,31 +365,31 @@ class IssueService extends Base {
         // Input Validation
         if (issue_number && pr_number) {
             return {
-                error: "Bad Request",
+                error  : "Bad Request",
                 message: "Please provide either 'pr_number' or 'issue_number', not both.",
-                code: "INVALID_ARGUMENTS"
+                code   : "INVALID_ARGUMENTS"
             };
         }
         if (!issue_number && !pr_number) {
             return {
-                error: "Bad Request",
+                error  : "Bad Request",
                 message: "Missing required argument: Please provide 'pr_number' or 'issue_number'.",
-                code: "MISSING_ARGUMENTS"
+                code   : "MISSING_ARGUMENTS"
             };
         }
 
-        const isPR = !!pr_number;
-        const number = isPR ? pr_number : issue_number;
+        const isPR        = !!pr_number;
+        const number      = isPR ? pr_number : issue_number;
         const idVariables = {
-            owner : aiConfig.owner,
-            repo  : aiConfig.repo,
+            owner: aiConfig.owner,
+            repo : aiConfig.repo,
             // The PR query uses 'prNumber', the Issue query uses 'number'
             [isPR ? 'prNumber' : 'number']: number
         };
 
         try {
             // Divergent ID Lookup
-            const query = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
+            const query  = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
             const idData = await GraphqlService.query(query, idVariables);
 
             const subjectId = isPR
@@ -871,7 +871,7 @@ class IssueService extends Base {
                 optionId : option.id
             });
             return {
-                message: `Set field '${fieldName}' to '${value}' for issue #${issueNumber} on ProjectV2 #${projectNumber}.`,
+                message  : `Set field '${fieldName}' to '${value}' for issue #${issueNumber} on ProjectV2 #${projectNumber}.`,
                 projectId: metadata.projectId,
                 itemId,
                 fieldId  : field.id,
@@ -953,9 +953,9 @@ class IssueService extends Base {
     async manageIssueAssignees({issue_number, assignees, action, requireUnassigned, acknowledgedReassign}) {
         if (!['add', 'remove'].includes(action)) {
             return {
-                error: 'Bad Request',
+                error  : 'Bad Request',
                 message: "Invalid action. Must be 'add' or 'remove'.",
-                code: 'INVALID_ARGUMENTS'
+                code   : 'INVALID_ARGUMENTS'
             };
         }
 
@@ -979,9 +979,9 @@ class IssueService extends Base {
     async manageIssueComment({issue_number, pr_number, comment_id, body, action}) {
         if (!['create', 'update'].includes(action)) {
             return {
-                error: 'Bad Request',
+                error  : 'Bad Request',
                 message: "Invalid action. Must be 'create' or 'update'.",
-                code: 'INVALID_ARGUMENTS'
+                code   : 'INVALID_ARGUMENTS'
             };
         }
 
@@ -990,9 +990,9 @@ class IssueService extends Base {
         } else {
             if (!comment_id) {
                 return {
-                    error: 'Bad Request',
+                    error  : 'Bad Request',
                     message: "Missing required argument: 'comment_id' is required for updating comments.",
-                    code: 'MISSING_ARGUMENTS'
+                    code   : 'MISSING_ARGUMENTS'
                 };
             }
             return this.updateComment(comment_id, body);
@@ -1010,9 +1010,9 @@ class IssueService extends Base {
     async manageIssueLabels({issue_number, labels, action}) {
         if (!['add', 'remove'].includes(action)) {
             return {
-                error: 'Bad Request',
+                error  : 'Bad Request',
                 message: "Invalid action. Must be 'add' or 'remove'.",
-                code: 'INVALID_ARGUMENTS'
+                code   : 'INVALID_ARGUMENTS'
             };
         }
 
@@ -1041,9 +1041,9 @@ class IssueService extends Base {
 
             logger.warn(message);
             return {
-                error  : 'Permission Denied',
+                error: 'Permission Denied',
                 message,
-                code   : 'FORBIDDEN'
+                code : 'FORBIDDEN'
             };
         }
 
@@ -1127,10 +1127,10 @@ class IssueService extends Base {
      */
     async #queryLabelableIds(query, issueNumber, type) {
         const variables = {
-            owner      : aiConfig.owner,
-            repo       : aiConfig.repo,
+            owner    : aiConfig.owner,
+            repo     : aiConfig.repo,
             issueNumber,
-            maxLabels  : aiConfig.issueSync.maxRepoLabels
+            maxLabels: aiConfig.issueSync.maxRepoLabels
         };
 
         try {
@@ -1215,7 +1215,7 @@ class IssueService extends Base {
             if (currentBlockers.length === 0) {
                 logger.info(`Issue #${blockedIssue} has no blocking relationships to remove`);
                 return {
-                    message     : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
+                    message      : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
                     blockedIssue,
                     blockingIssue: null
                 };
@@ -1234,9 +1234,9 @@ class IssueService extends Base {
             logger.info(`Successfully removed blocked-by relationships from #${blockedIssue}: ${removals.join(', ')}`);
 
             return {
-                message       : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
+                message        : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
                 blockedIssue,
-                blockingIssue : null,
+                blockingIssue  : null,
                 removedBlockers: removals
             };
         }
@@ -1285,9 +1285,10 @@ class IssueService extends Base {
      * @param {string}          [options.assignee]          Filter issues by a single assignee login
      * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
      * @param {string}          [options.cursor]            Cursor for pagination; pass a prior `endCursor`
+     * @param {'updated'|'created'} [options.sort='updated'] Order field: `updated` (default) or `created` — creation order is the freshness-sweep evidence (updated-desc buries untouched fresh filings below recently-updated older issues)
      * @returns {Promise<object>} `{count, totalCount, truncated, endCursor, issues}`
      */
-    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null} = {}) {
+    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null, sort='updated'} = {}) {
         const normalizedProjection = this.normalizeIssueListProjection(projection);
 
         if (!normalizedProjection) {
@@ -1295,6 +1296,14 @@ class IssueService extends Base {
                 error  : 'Bad Request',
                 message: `Invalid projection '${projection}'. Expected one of: full, summary, title, title_only.`,
                 code   : 'INVALID_PROJECTION'
+            };
+        }
+
+        if (sort !== 'updated' && sort !== 'created') {
+            return {
+                error  : 'Bad Request',
+                message: `Invalid sort '${sort}'. Expected one of: updated, created.`,
+                code   : 'INVALID_SORT'
             };
         }
 
@@ -1318,20 +1327,37 @@ class IssueService extends Base {
             ? (Array.isArray(labels) ? labels : String(labels).split(',').map(part => part.trim())).filter(Boolean)
             : null;
 
+        // `filterBy: {assignee: null}` routes GitHub's issues connection to a stale, hours-lagged
+        // read path (measured live 2026-07-22, #15603; ticket-ref-ok: measured-quirk evidence ledger): a controlled assignment stayed invisible on
+        // the unfiltered first page 10+ minutes — 1.5h+ in the original incident — while the same
+        // connection without `filterBy` returned the live page). An unfiltered list must omit the
+        // argument AND the variable entirely, so the query constant is selected by assignee
+        // presence rather than passing null through.
+        const hasAssigneeFilter = Boolean(assignee);
+        const orderField        = sort === 'created' ? 'CREATED_AT' : 'UPDATED_AT';
+
+        // Freshness sweeps (duplicate detection) need creation order: an updated-descending page
+        // buries an untouched fresh filing below older issues that merely received recent activity
+        // (measured live 2026-07-22: 4 of the latest-20 filings displaced). `sort: 'created'`
+        // builds the CREATED_AT variant per call; the default path keeps the shared constants.
+        const listQuery = orderField === 'UPDATED_AT'
+            ? (hasAssigneeFilter ? FETCH_ISSUES_LIST : FETCH_ISSUES_LIST_NO_FILTER)
+            : buildIssuesListQuery({withAssigneeFilter: hasAssigneeFilter, orderField});
+
         const variables = {
-            owner       : aiConfig.owner,
-            repo        : aiConfig.repo,
+            owner: aiConfig.owner,
+            repo : aiConfig.repo,
             limit,
             cursor,
             states,
-            assignee,
+            ...(hasAssigneeFilter ? {assignee} : {}),
             maxLabels   : aiConfig.issueSync.maxLabelsPerIssue,
             maxAssignees: aiConfig.issueSync.maxAssigneesPerIssue
         };
 
         try {
-            const data = await GraphqlService.query(FETCH_ISSUES_LIST, variables);
-            let issues = data.repository.issues.nodes || [];
+            const data   = await GraphqlService.query(listQuery, variables);
+            let   issues = data.repository.issues.nodes || [];
 
             // ALL-label semantics, applied to the rows this page returned. See `variables` above for
             // why this cannot move server-side without turning ALL into ANY.
@@ -1516,8 +1542,8 @@ class IssueService extends Base {
                 if (!currentParent) {
                     logger.info(`Issue #${child_issue} has no parent to remove`);
                     return {
-                        message: `Issue #${child_issue} has no parent relationship to remove`,
-                        childIssue: child_issue,
+                        message    : `Issue #${child_issue} has no parent relationship to remove`,
+                        childIssue : child_issue,
                         parentIssue: null
                     };
                 }
@@ -1557,9 +1583,9 @@ class IssueService extends Base {
             logger.info(`Successfully set parent relationship: #${child_issue} is now a sub-issue of #${parent_issue}`);
 
             return {
-                message           : `Successfully set #${parent_issue} as parent of #${child_issue}`,
-                childIssue        : child_issue,
-                parentIssue       : parent_issue,
+                message             : `Successfully set #${parent_issue} as parent of #${child_issue}`,
+                childIssue          : child_issue,
+                parentIssue         : parent_issue,
                 replaceParentApplied: replace_parent
             };
 
