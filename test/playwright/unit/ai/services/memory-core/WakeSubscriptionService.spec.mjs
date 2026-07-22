@@ -747,6 +747,47 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('kimi-pull-bridge selection retires stale kimi-server web coordinates atomically (#15665)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            // Subscribe: pull-bridge metadata carrying stale web coordinates arrives retired.
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter  : 'kimi-pull-bridge',
+                    cwd      : '/seat/checkout',
+                    lockPath : '/stale/instances/dead.json',
+                    tokenPath: '/stale/server.token'
+                }
+            });
+
+            const stored = WakeSubscriptionService.subscriptionCache.get(res.subscriptionId);
+            expect(stored.harnessTargetMetadata.adapter).toBe('kimi-pull-bridge');
+            expect(stored.harnessTargetMetadata).not.toHaveProperty('lockPath');
+            expect(stored.harnessTargetMetadata).not.toHaveProperty('tokenPath');
+
+            // Update: a legacy kimi-server route switching to the pull-bridge retires coordinates.
+            const legacy = await WakeSubscriptionService.subscribe({
+                trigger              : 'TASK_STATE_CHANGED',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter  : 'kimi-server',
+                    lockPath : '/stale/instances/dead.json',
+                    tokenPath: '/stale/server.token'
+                }
+            });
+
+            const updated = await WakeSubscriptionService.update({
+                subscriptionId       : legacy.subscriptionId,
+                harnessTargetMetadata: {adapter: 'kimi-pull-bridge'}
+            });
+
+            expect(updated.currentState.harnessTargetMetadata.adapter).toBe('kimi-pull-bridge');
+            expect(updated.currentState.harnessTargetMetadata).not.toHaveProperty('lockPath');
+            expect(updated.currentState.harnessTargetMetadata).not.toHaveProperty('tokenPath');
+        });
+    });
+
     test('subscribe with the opencode-server adapter succeeds WITHOUT appName (#15394 — the route is publicly registerable)', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
