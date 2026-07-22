@@ -62,7 +62,7 @@ export function createDeploymentStateSnapshot({
         throw new TypeError('createDeploymentStateSnapshot: services must be an array');
     }
 
-    return {
+    const snapshot = {
         schemaVersion: DEPLOYMENT_STATE_BRIDGE_SCHEMA_VERSION,
         recordType   : 'deployment-state-snapshot',
         generatedAt,
@@ -72,9 +72,16 @@ export function createDeploymentStateSnapshot({
         bridgeDiagnostics,
         recoveryRuns,
         selfHeal,
-        tenantRepoSync,
-        maintenance
+        tenantRepoSync
     };
+
+    // Absent-before-first-run: the block is OMITTED (never fabricated as null); older consumers
+    // tolerate the absence, and the schema inspector treats additive sections as tolerated-absent.
+    if (maintenance !== null && maintenance !== undefined) {
+        snapshot.maintenance = maintenance
+    }
+
+    return snapshot
 }
 
 /**

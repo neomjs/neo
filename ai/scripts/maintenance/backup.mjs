@@ -573,53 +573,57 @@ export async function runBackupWithOffHostSync() {
     const receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json');
     const startedAt   = Date.now();
 
-    const finish = async outcome => {
-        if (outcome.status === 'held') return outcome; // deferred, no backup ran — no receipt
-
-        const
-            {bundleRoot, completedAt} = outcome.result,
-            bundleName                = path.basename(bundleRoot),
-            validation                = validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync);
-
-        let syncOutcome = null,
-            syncStatus  = 'disabled';
-
-        if (validation.error) {
-            syncStatus = 'validation-failed';
-            console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
-        } else if (validation.enabled) {
-            syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value});
-
-            if (syncOutcome.status !== 'success') {
-                console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
-            }
-        }
-
-        await writeBackupReceipt({
-            filePath: receiptPath,
-            receipt : buildBackupReceipt({
-                backup: {
-                    durationMs: Date.now() - startedAt,
-                    error     : null,
-                    status    : 'success'
-                },
-                bundleCompletedAt: completedAt,
-                bundleName,
-                offHostSync      : syncOutcome,
-                syncStatus
-            })
-        });
-
-        return outcome
-    };
-
     try {
-        return await finish(await withHeavyMaintenanceLease(
-            () => runBackup(),
-            {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}}
-        ))
+        // The sync + receipt lifetime extends the exclusive-heavy lease: everything below runs
+        // INSIDE the lease callback, so the lease releases only after the bounded receipt rename.
+        return await withHeavyMaintenanceLease(async () => {
+            const result = await runBackup();
+
+            const
+                {bundleRoot, completedAt} = result,
+                bundleName                = path.basename(bundleRoot),
+                validation                = validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync);
+
+            let syncOutcome = null,
+                syncStatus  = 'disabled';
+
+            if (validation.error) {
+                syncStatus = 'validation-failed';
+                console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
+            } else if (validation.enabled) {
+                syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value});
+
+                if (syncOutcome.status !== 'success') {
+                    console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
+                }
+            }
+
+            try {
+                await writeBackupReceipt({
+                    filePath: receiptPath,
+                    receipt : buildBackupReceipt({
+                        backup: {
+                            durationMs: Date.now() - startedAt,
+                            error     : null,
+                            status    : 'success'
+                        },
+                        bundleCompletedAt: completedAt,
+                        bundleName,
+                        offHostSync      : syncOutcome,
+                        syncStatus
+                    })
+                });
+            } catch (receiptError) {
+                // A receipt write failure degrades observability, never the successful backup's truth.
+                console.warn(`[Backup] failed to write the receipt after a successful backup: ${receiptError.message}`)
+            }
+
+            return result
+        }, {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}});
+        // Held: no backup ran — no receipt. Completed: sync + receipt already ran inside the lease.
     } catch (error) {
-        // Truthful failure receipt around a thrown runBackup; a receipt write failure never masks it.
+        // Only a runBackup/lease failure reaches here: the truthful not-run receipt. A receipt write
+        // failure never masks the backup failure.
         await writeBackupReceipt({
             filePath: receiptPath,
             receipt : buildBackupReceipt({

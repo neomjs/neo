@@ -29,6 +29,12 @@ test.describe('offHostSync config validation (ticket-owned contract)', () => {
         expect(validateOffHostSyncConfig(undefined)).toEqual({enabled: false, error: null, value: null});
     });
 
+    test('a disabled hook with malformed keys is a validation failure, not a silent pass', () => {
+        expect(validateOffHostSyncConfig({command: '', timeoutMs: 50}).enabled).toBe(false);
+        expect(validateOffHostSyncConfig({command: '', envAllowlist: ['bad-name']}).enabled).toBe(false);
+        expect(validateOffHostSyncConfig({command: '', argv: ['{partial}']}).enabled).toBe(false);
+    });
+
     test('a valid config passes and normalizes', () => {
         const result = validateOffHostSyncConfig(VALID_CONFIG);
         expect(result.enabled).toBe(true);
@@ -120,6 +126,22 @@ test.describe('runOffHostSync execution contract', () => {
         expect(outcome.stderrTail).toContain('boom');
     });
 
+    test('the execFile timeout path records terminatedVia sigterm truthfully', async () => {
+        const outcome = await runOffHostSync({
+            bundleDir : '/tmp/b',
+            bundleName: 'b',
+            config    : {
+                ...VALID_CONFIG,
+                argv       : ['-e', 'setInterval(()=>{},50)'],
+                killGraceMs: 50000, // grace far out: only execFile's own timeout may fire first
+                timeoutMs  : 200
+            }
+        });
+
+        expect(outcome.status).toBe('timeout');
+        expect(outcome.terminatedVia).toBe('sigterm');
+    });
+
     test('a SIGTERM-ignoring child receives SIGKILL within timeoutMs + killGraceMs', async () => {
         const startedAt = Date.now();
         const outcome   = await runOffHostSync({
@@ -178,6 +200,26 @@ test.describe('backup receipt store', () => {
             const read = await readBackupReceipt({filePath});
             expect(read.status).toBe('ok');
             expect(read.receipt.bundleName).toBe('b');
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    test('arbitrary schema-v1 JSON fails the validated allowlisted shape', async () => {
+        const root = makeTmp();
+        try {
+            const filePath = path.join(root, 'last-backup-receipt.json');
+
+            writeFileSync(filePath, JSON.stringify({schemaVersion: 1, finishedAt: 'x', backup: {status: 'success'}, offHostSync: {status: 'success'}}));
+            expect(await readBackupReceipt({filePath})).toEqual({finishedAt: 'x', kind: 'corrupt', status: 'unreadable'});
+
+            writeFileSync(filePath, JSON.stringify({schemaVersion: 1, bundleCompletedAt: null, bundleName: 'b', finishedAt: 'x',
+                backup     : {durationMs: 1, error: null, status: 'success'},
+                offHostSync: {completionScope: 'direct-child', descendants: 'unknown', durationMs: 1, exitCode: 0, signal: null, status: 'success', stderrTail: '', terminatedVia: 'exit'},
+                smuggled   : 'field'}));
+            const read = await readBackupReceipt({filePath});
+            expect(read.status).toBe('ok');
+            expect(read.receipt.smuggled).toBeUndefined(); // validated shape projects allowlisted fields only
         } finally {
             rmSync(root, {force: true, recursive: true})
         }

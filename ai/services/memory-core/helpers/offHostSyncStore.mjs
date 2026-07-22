@@ -68,7 +68,13 @@ export async function writeBackupReceipt({filePath, receipt}) {
     const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
 
     await fs.promises.mkdir(path.dirname(filePath), {recursive: true});
-    await fs.promises.writeFile(tempPath, payload, 'utf8');
+    const handle = await fs.promises.open(tempPath, 'w');
+    try {
+        await handle.write(payload, 0, 'utf8');
+        await handle.sync(); // durable before the rename — a crash never yields a torn receipt
+    } finally {
+        await handle.close()
+    }
     await fs.promises.rename(tempPath, filePath);
 
     // Stale-temp sweep: best-effort, never blocks the receipt
@@ -115,7 +121,65 @@ export async function readBackupReceipt({filePath}) {
         return {finishedAt: typeof parsed?.finishedAt === 'string' ? parsed.finishedAt : null, kind: 'unsupported-version', status: 'unreadable'}
     }
 
-    return {receipt: parsed, status: 'ok'}
+    const receipt = validateReceiptShape(parsed);
+
+    if (!receipt) {
+        return {finishedAt: typeof parsed?.finishedAt === 'string' ? parsed.finishedAt : null, kind: 'corrupt', status: 'unreadable'}
+    }
+
+    return {receipt, status: 'ok'}
+}
+
+const SYNC_STATUSES = new Set(['disabled', 'not-run-backup-failed', 'success', 'failed', 'timeout', 'validation-failed']);
+
+/**
+ * Projects a parsed receipt into the validated allowlisted shape — arbitrary schema-v1 JSON never
+ * passes through. Returns null when required fields are missing or mistyped.
+ * @param {Object} parsed
+ * @returns {Object|null}
+ */
+export function validateReceiptShape(parsed) {
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const
+        backup      = parsed.backup,
+        offHostSync = parsed.offHostSync;
+
+    if (!backup || typeof backup !== 'object') return null;
+    if (backup.status !== 'success' && backup.status !== 'failed') return null;
+    if (typeof backup.durationMs !== 'number') return null;
+    if (!(backup.error === null || typeof backup.error === 'string')) return null;
+    if (!(parsed.finishedAt === null || typeof parsed.finishedAt === 'string')) return null;
+    if (!(parsed.bundleName === null || typeof parsed.bundleName === 'string')) return null;
+    if (!(parsed.bundleCompletedAt === null || typeof parsed.bundleCompletedAt === 'string')) return null;
+
+    if (!offHostSync || typeof offHostSync !== 'object') return null;
+    if (!SYNC_STATUSES.has(offHostSync.status)) return null;
+    if (!(offHostSync.durationMs === null || typeof offHostSync.durationMs === 'number')) return null;
+    if (!(offHostSync.exitCode === null || Number.isInteger(offHostSync.exitCode))) return null;
+    if (!(offHostSync.signal === null || typeof offHostSync.signal === 'string')) return null;
+    if (!(offHostSync.terminatedVia === null || ['exit', 'sigterm', 'sigkill'].includes(offHostSync.terminatedVia))) return null;
+    if (offHostSync.completionScope !== 'direct-child') return null;
+    if (offHostSync.descendants !== 'unknown') return null;
+    if (typeof offHostSync.stderrTail !== 'string') return null;
+
+    return {
+        backup           : {durationMs: backup.durationMs, error: backup.error, status: backup.status},
+        bundleCompletedAt: parsed.bundleCompletedAt,
+        bundleName       : parsed.bundleName,
+        finishedAt       : parsed.finishedAt,
+        offHostSync      : {
+            completionScope: offHostSync.completionScope,
+            descendants    : offHostSync.descendants,
+            durationMs     : offHostSync.durationMs,
+            exitCode       : offHostSync.exitCode,
+            signal         : offHostSync.signal,
+            status         : offHostSync.status,
+            stderrTail     : offHostSync.stderrTail,
+            terminatedVia  : offHostSync.terminatedVia
+        },
+        schemaVersion    : OFFHOST_SYNC_SCHEMA_VERSION
+    }
 }
 
 export const __private__ = {MAX_RECEIPT_BYTES, MAX_TAIL_BYTES};

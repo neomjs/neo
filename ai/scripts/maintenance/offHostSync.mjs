@@ -52,8 +52,9 @@ export function validateOffHostSyncConfig(config = {}) {
 
     const fail = error => ({enabled: false, error, value: null});
 
-    if (command === '') return {enabled: false, error: null, value: null};
-    if (typeof command !== 'string' || command.trim() === '') return fail('command must be a non-empty string when set');
+    // Validate EVERY key before the disabled early-return: a disabled hook with malformed keys is a
+    // validation failure, not a silent pass.
+    if (typeof command !== 'string') return fail('command must be a string');
     if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail('argv must be an array of strings');
 
     for (const token of argv) {
@@ -72,6 +73,8 @@ export function validateOffHostSyncConfig(config = {}) {
     if (!Number.isInteger(killGraceMs) || killGraceMs < 0 || killGraceMs > GRACE_MAX_MS) {
         return fail(`killGraceMs must be an integer between 0 and ${GRACE_MAX_MS}`)
     }
+
+    if (command.trim() === '') return {enabled: false, error: null, value: null};
 
     return {
         enabled: true,
@@ -149,11 +152,13 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
 
     return new Promise(resolve => {
         let
-            killTimer     = null,
-            settled       = false,
-            terminatedVia = 'exit';
+            killTimer   = null,
+            settled     = false,
+            sigkillSent = false;
 
-        const done = ({status, exitCode = null, signal = null, error = null}) => {
+        // terminatedVia is the signal that actually ENDED the child: a cooperative child dies on
+        // execFile's timeout SIGTERM ('sigterm'); an ignoring child dies on our escalation ('sigkill').
+        const done = ({status, exitCode = null, signal = null, error = null, terminatedVia = 'exit'}) => {
             if (settled) return;
             settled = true;
             killTimer && clearTimeout(killTimer);
@@ -175,10 +180,12 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
         const child = execFileImpl(
             config.command,
             args,
-            {env: childEnv, shell: false, timeout: config.timeoutMs, killSignal: 'SIGTERM', maxBuffer: MAX_TAIL_BYTES * 2},
+            {env: childEnv, shell: false, timeout: config.timeoutMs, killSignal: 'SIGTERM', maxBuffer: 1024 * 1024},
             error => {
-                if (error?.killed || error?.signal === 'SIGTERM') {
-                    done({signal: 'SIGTERM', status: 'timeout', error})
+                if (error?.killed || error?.signal === 'SIGTERM' || error?.signal === 'SIGKILL') {
+                    // The callback fires when the child actually dies: on SIGTERM (cooperative) or
+                    // after our SIGKILL escalation (uncooperative).
+                    done({signal: error.signal ?? 'SIGTERM', status: 'timeout', error, terminatedVia: sigkillSent ? 'sigkill' : 'sigterm'})
                 } else if (error) {
                     done({exitCode: typeof error.code === 'number' ? error.code : null, signal: error.signal ?? null, status: 'failed', error})
                 } else {
@@ -189,7 +196,7 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
 
         killTimer = setTimeout(() => {
             if (settled || !child?.pid) return;
-            terminatedVia = 'sigkill';
+            sigkillSent = true;
             try { process.kill(child.pid, 'SIGKILL') } catch { /* already gone */ }
         }, config.timeoutMs + config.killGraceMs);
 
