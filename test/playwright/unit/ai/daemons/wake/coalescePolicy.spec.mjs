@@ -3,6 +3,8 @@ import {
     COALESCE_HARD_CAP_MS,
     computeFlushDelayMs,
     computeFlushHoldMs,
+    isMessageWakeFresh,
+    MESSAGE_WAKE_MAX_AGE_MS,
     POST_FLUSH_REFRACTORY_MS,
     resolveCoalesceWindowMs
 } from '../../../../../../ai/daemons/wake/coalescePolicy.mjs';
@@ -169,5 +171,35 @@ test.describe('ai/daemons/wake/coalescePolicy', () => {
     test('constants sanity: the refractory sits strictly inside the hard cap', () => {
         expect(POST_FLUSH_REFRACTORY_MS).toBeGreaterThan(0);
         expect(POST_FLUSH_REFRACTORY_MS).toBeLessThan(COALESCE_HARD_CAP_MS)
+    })
+
+    test.describe('isMessageWakeFresh — canonical mailbox age is the wake eligibility authority', () => {
+        test('accepts canonical timestamps through the closed one-hour boundary', () => {
+            expect(isMessageWakeFresh({
+                now   : T0,
+                sentAt: new Date(T0).toISOString()
+            })).toBe(true);
+            expect(isMessageWakeFresh({
+                now   : T0,
+                sentAt: new Date(T0 - MESSAGE_WAKE_MAX_AGE_MS).toISOString()
+            })).toBe(true)
+        });
+
+        test('rejects messages beyond the horizon instead of promoting replay age to live urgency', () => {
+            expect(isMessageWakeFresh({
+                now   : T0,
+                sentAt: new Date(T0 - MESSAGE_WAKE_MAX_AGE_MS - 1).toISOString()
+            })).toBe(false)
+        });
+
+        test('fails closed for missing, invalid, numeric, and future timestamps', () => {
+            expect(isMessageWakeFresh({now: T0})).toBe(false);
+            expect(isMessageWakeFresh({now: T0, sentAt: 'not-an-iso-timestamp'})).toBe(false);
+            expect(isMessageWakeFresh({now: T0, sentAt: T0})).toBe(false);
+            expect(isMessageWakeFresh({
+                now   : T0,
+                sentAt: new Date(T0 + 1).toISOString()
+            })).toBe(false)
+        })
     })
 });

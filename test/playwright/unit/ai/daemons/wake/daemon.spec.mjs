@@ -7,6 +7,7 @@ import crypto                                                                   
 import http                                                                                    from 'http';
 import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
+import { MESSAGE_WAKE_MAX_AGE_MS }                                                             from '../../../../../../ai/daemons/wake/coalescePolicy.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
 import { withOutboxLock }                                                                      from '../../../../../../ai/daemons/wake/outboxLock.mjs';
 
@@ -106,6 +107,7 @@ function insertMessageWake(db, {
     agentId,
     from = '@sender',
     priority = 'normal',
+    sentAt = new Date().toISOString(),
     subject = 'Addressed Wake Event',
     target = agentId
 }) {
@@ -116,6 +118,7 @@ function insertMessageWake(db, {
         properties: {
             from,
             priority,
+            sentAt,
             subject,
             to      : target
         }
@@ -129,9 +132,11 @@ function insertMessageWake(db, {
             target,
             type  : 'SENT_TO'
         }), msgId, target, 'SENT_TO');
-    db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+    const edgeLogId = Number(
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges').lastInsertRowid
+    );
 
-    return {msgId, edgeId};
+    return {msgId, edgeId, edgeLogId};
 }
 
 function insertTurnPresence(db, {
@@ -286,8 +291,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Test Wake Event',
-                priority: 'normal'
+                priority: 'normal',
+                sentAt  : new Date().toISOString(),
+                subject : 'Test Wake Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -627,7 +633,9 @@ test.describe('Wake Daemon', () => {
         // Inject a MESSAGE + SENT_TO edge → triggers the wake → test-fail adapter throws → retry → cap.
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId, label: 'MESSAGE', properties: { from: '@sender', subject: 'Retry Wake Event', priority: 'normal' }
+            id: msgId, label: 'MESSAGE', properties: {
+                from: '@sender', priority: 'normal', sentAt: new Date().toISOString(), subject: 'Retry Wake Event'
+            }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
@@ -692,7 +700,9 @@ test.describe('Wake Daemon', () => {
         const injectMessage = (subject) => {
             const msgId = 'msg_' + crypto.randomUUID();
             db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-                id: msgId, label: 'MESSAGE', properties: { from: '@sender', subject, priority: 'normal' }
+                id: msgId, label: 'MESSAGE', properties: {
+                    from: '@sender', priority: 'normal', sentAt: new Date().toISOString(), subject
+                }
             }));
             db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
             const edgeId = 'edge_' + crypto.randomUUID();
@@ -782,7 +792,9 @@ test.describe('Wake Daemon', () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
-            id: msgId, label: 'MESSAGE', properties: { from: '@sender', subject: 'Read Before Retry', priority: 'normal' }
+            id: msgId, label: 'MESSAGE', properties: {
+                from: '@sender', priority: 'normal', sentAt: new Date().toISOString(), subject: 'Read Before Retry'
+            }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
@@ -805,6 +817,155 @@ test.describe('Wake Daemon', () => {
         const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
         expect(logContents).toContain(`Retry for ${subId} dropped`);
         expect(logContents).not.toContain('Giving up wake delivery');
+    });
+
+    test('#15704: a retry rechecks canonical message age and drops an event that crosses the wake horizon', async () => {
+        const agentId = '@test-agent-retry-message-age';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {adapter: 'test-fail', coalesceWindow: 0}
+        });
+
+        // A temporary process preload keeps production policy free of a test/runtime override. It
+        // advances Date.now() by one hour only after the first deterministic adapter failure, while
+        // preserving real elapsed time so retry scheduling remains monotonic.
+        const clockBaseMs      = Date.now(),
+              clockAdvanceFile = path.join(DAEMON_DIR, 'advance-message-clock'),
+              clockPreloadFile = path.join(DAEMON_DIR, 'message-clock.cjs');
+        fs.writeFileSync(clockPreloadFile, [
+            "const fs = require('node:fs');",
+            'const realNow = Date.now.bind(Date);',
+            'const realBase = realNow();',
+            'const clockBase = Number(process.env.WAKE_TEST_CLOCK_BASE_MS);',
+            'const advanceMs = Number(process.env.WAKE_TEST_CLOCK_ADVANCE_MS);',
+            'const advanceFile = process.env.WAKE_TEST_CLOCK_ADVANCE_FILE;',
+            'Date.now = () => clockBase + (realNow() - realBase) + (fs.existsSync(advanceFile) ? advanceMs : 0);'
+        ].join('\n'));
+
+        let   output           = '', clockAdvanced = false;
+        const staleDropPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Retry did not drop the age-expired message within timeout')), 25000);
+            const onData  = data => {
+                output += data.toString();
+                if (!clockAdvanced && output.includes('Failed to deliver via test-fail')) {
+                    clockAdvanced = true;
+                    fs.writeFileSync(clockAdvanceFile, 'advance');
+                }
+                if (output.includes(`Retry for ${subId} dropped: all queued messages became stale or invalid before re-delivery.`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess = spawn('node', ['--require', clockPreloadFile, 'ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    NEO_MEMORY_DB_PATH          : DB_PATH,
+                    NEO_AI_DAEMON_DIR           : DAEMON_DIR,
+                    WAKE_TEST_CLOCK_ADVANCE_FILE: clockAdvanceFile,
+                    WAKE_TEST_CLOCK_ADVANCE_MS  : String(MESSAGE_WAKE_MAX_AGE_MS + 1),
+                    WAKE_TEST_CLOCK_BASE_MS     : String(clockBaseMs)
+                }
+            });
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        // First boot tails from the existing GraphLog tip by contract, so inject only after startup.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            sentAt : new Date(clockBaseMs).toISOString(),
+            subject: 'Fresh Initially, Stale On Retry'
+        });
+
+        await staleDropPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8'),
+              attempts    = logContents.match(/\[Wake Daemon Test-Fail Adapter\] Attempted/g) || [];
+
+        expect(attempts).toHaveLength(1); // initial failure only; the due retry is age-gated before adapter dispatch
+        expect(logContents).toContain('at retry delivery; oldestAgeMs=');
+        expect(logContents).not.toContain('Giving up wake delivery');
+    });
+
+    test('#15704: stale replay stays unread and consumed while a fresh peer alone shapes the digest', async () => {
+        const agentId = '@test-agent-message-age';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {adapter: 'test', coalesceWindow: 1}
+        });
+
+        let   output          = '';
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Fresh mixed-queue wake was not delivered within timeout')), 15000);
+            const onData  = data => {
+                output += data.toString();
+                if (output.includes(`[Wake Daemon Test Adapter] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+            });
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const fresh = insertMessageWake(db, {
+            agentId,
+            priority: 'normal',
+            subject : 'Current Peer Message'
+        });
+        const stale = insertMessageWake(db, {
+            agentId,
+            priority: 'high',
+            sentAt  : new Date(Date.now() - MESSAGE_WAKE_MAX_AGE_MS - 1_000).toISOString(),
+            subject : 'Four-Day Ghost Replay'
+        });
+
+        await deliveryPromise;
+        await new Promise(resolve => setTimeout(resolve, 250)); // watermark persistence follows the delivery log
+
+        let logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect(logContents).toContain('[WAKE][priority:normal] 1 events');
+        expect(logContents).toContain('1 new messages (latest: "Current Peer Message"');
+        expect(logContents).not.toContain('Four-Day Ghost Replay');
+        expect(logContents).toContain(`Suppressed 1 stale/invalid message wake event(s) for ${agentId} at initial delivery`);
+
+        const staleNode = JSON.parse(db.prepare('SELECT data FROM Nodes WHERE id = ?').get(stale.msgId).data);
+        expect(staleNode.properties.readAt ?? null).toBeNull();
+
+        let durableState = JSON.parse(fs.readFileSync(path.join(DAEMON_DIR, 'woken-watermark.json'), 'utf8'));
+        expect(durableState.__messageIdsByIdentity[agentId]).toEqual(expect.arrayContaining([stale.msgId, fresh.msgId]));
+        expect(durableState[subId]).toBeGreaterThanOrEqual(stale.edgeLogId);
+
+        // Re-emit the exact old SENT_TO edge above the numeric watermark. The stable application-id
+        // claim must consume this new GraphLog position without manufacturing another prompt. Move
+        // this verification phase onto the existing explicit-immediate route so the post-flush
+        // refractory does not postpone observation of durable consumption for two minutes.
+        const subscriptionNode = JSON.parse(db.prepare('SELECT data FROM Nodes WHERE id = ?').get(subId).data);
+        subscriptionNode.properties.harnessTargetMetadata.coalesceWindow = 0;
+        db.prepare('UPDATE Nodes SET data = ? WHERE id = ?').run(JSON.stringify(subscriptionNode), subId);
+
+        const replayLogId = Number(
+            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(stale.edgeId, 'edges').lastInsertRowid
+        );
+        await new Promise(resolve => setTimeout(resolve, 4500));
+
+        logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        expect((logContents.match(/\[Wake Daemon Test Adapter\] Delivered/g) || []).length).toBe(1);
+
+        durableState = JSON.parse(fs.readFileSync(path.join(DAEMON_DIR, 'woken-watermark.json'), 'utf8'));
+        expect(durableState.__messageIdsByIdentity[agentId]).toContain(stale.msgId);
+        expect(durableState[subId]).toBeGreaterThanOrEqual(replayLogId);
     });
 
     test('a message-wake digest omits the lane directive — it is heartbeat-only (#13118, #13137)', async () => {
@@ -967,7 +1128,7 @@ test.describe('Wake Daemon', () => {
             db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
                 id        : msgId,
                 label     : 'MESSAGE',
-                properties: { from: '@sender', subject, priority: 'normal' }
+                properties: {from: '@sender', priority: 'normal', sentAt: new Date().toISOString(), subject}
             }));
             db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
@@ -1240,6 +1401,7 @@ test.describe('Wake Daemon', () => {
                 to            : agentId,
                 subject       : 'Suppressed Sunset Ping',
                 readAt        : null,
+                sentAt        : new Date().toISOString(),
                 taggedConcepts: ['sunset-protocol-handover'],
                 wakeSuppressed: true
             }
@@ -1354,6 +1516,7 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from   : '@sender',
+                sentAt : new Date().toISOString(),
                 subject: 'Test Dedup Event'
             }
         }));
@@ -1455,6 +1618,7 @@ test.describe('Wake Daemon', () => {
                 from                   : '@task-originator',
                 lastModifiedAt         : '2026-07-12T20:01:08.009Z',
                 readAt                 : new Date().toISOString(),
+                sentAt                 : new Date().toISOString(),
                 taskAssignmentAuthority: 'memory-core.v1',
                 task                   : {state: 'Working', assignee: agentId}
             }
@@ -1762,8 +1926,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'High Priority Wake Event',
-                priority: 'high'
+                priority: 'high',
+                sentAt  : new Date().toISOString(),
+                subject : 'High Priority Wake Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(highMsgId, 'nodes');
@@ -1783,8 +1948,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Low Priority Wake Event',
-                priority: 'low'
+                priority: 'low',
+                sentAt  : new Date().toISOString(),
+                subject : 'Low Priority Wake Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowMsgId, 'nodes');
@@ -1857,7 +2023,7 @@ test.describe('Wake Daemon', () => {
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
             id        : msgId,
             label     : 'MESSAGE',
-            properties: { from: '@sender', subject: 'Test Empty AppName' }
+            properties: {from: '@sender', sentAt: new Date().toISOString(), subject: 'Test Empty AppName'}
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
 
@@ -1943,8 +2109,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Test Antigravity Event',
-                priority: 'normal'
+                priority: 'normal',
+                sentAt  : new Date().toISOString(),
+                subject : 'Test Antigravity Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -2893,8 +3060,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Test Claude Event',
-                priority: 'normal'
+                priority: 'normal',
+                sentAt  : new Date().toISOString(),
+                subject : 'Test Claude Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -3596,8 +3764,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Test Codex Event',
-                priority: 'normal'
+                priority: 'normal',
+                sentAt  : new Date().toISOString(),
+                subject : 'Test Codex Event'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -3685,8 +3854,9 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from    : '@sender',
-                subject : 'Test Codex Cleanup',
-                priority: 'normal'
+                priority: 'normal',
+                sentAt  : new Date().toISOString(),
+                subject : 'Test Codex Cleanup'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -4015,6 +4185,7 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from   : senderId,
+                sentAt : new Date().toISOString(),
                 to     : 'AGENT:*',
                 subject: 'Cross-family broadcast'
             }
@@ -4090,6 +4261,7 @@ test.describe('Wake Daemon', () => {
             label     : 'MESSAGE',
             properties: {
                 from   : agentId,
+                sentAt : new Date().toISOString(),
                 to     : agentId,
                 subject: 'Deliberate self-handoff'
             }

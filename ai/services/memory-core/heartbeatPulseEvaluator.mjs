@@ -184,6 +184,7 @@ function buildSentToMeInner(messageNode) {
         from          : props.from,
         subject       : (props.subject || '').slice(0, 200),
         priority      : props.priority || 'normal',
+        sentAt        : props.sentAt,
         taggedConcepts: props.taggedConcepts || [],
         isReplyTo     : props.inReplyTo || null,
         isBroadcast   : props.to === 'AGENT:*'
