@@ -129,29 +129,63 @@ class LockRegistry extends Base {
      * Re-acquiring an identical lock by the same writer is re-entrant (granted, no duplicate appended).
      * @param {Object[]} lockTable The caller-held active locks.
      * @param {Object} lock        The lock to acquire.
-     * @returns {{lockTable: Object[], granted: Boolean, conflict: Object|null, errors: String[]}}
+     * @returns {{lockTable: Object[], granted: Boolean, conflict: Object|null, errors: String[], created: Boolean, reentrant: Boolean, acquiredLock: Object|null}}
      */
     static acquire(lockTable, lock) {
         const table = Array.isArray(lockTable) ? lockTable : [],
               norm  = LockRegistry.normalizeLock(lock);
 
         if (!norm) {
-            return {lockTable: table, granted: false, conflict: null, errors: ['invalid lock descriptor']}
+            return {
+                lockTable   : table,
+                granted     : false,
+                conflict    : null,
+                errors      : ['invalid lock descriptor'],
+                created     : false,
+                reentrant   : false,
+                acquiredLock: null
+            }
         }
 
         const conflict = LockRegistry.findConflict(table, norm);
 
         if (conflict) {
-            return {lockTable: table, granted: false, conflict, errors: []}
+            return {
+                lockTable   : table,
+                granted     : false,
+                conflict,
+                errors      : [],
+                created     : false,
+                reentrant   : false,
+                acquiredLock: null
+            }
         }
 
-        const key = LockRegistry.lockKey(norm);
+        const
+            key      = LockRegistry.lockKey(norm),
+            existing = table.find(held => LockRegistry.lockKey(held) === key);
 
-        if (table.some(held => LockRegistry.lockKey(held) === key)) {
-            return {lockTable: table, granted: true, conflict: null, errors: []} // re-entrant, idempotent
+        if (existing) {
+            return {
+                lockTable   : table,
+                granted     : true,
+                conflict    : null,
+                errors      : [],
+                created     : false,
+                reentrant   : true,
+                acquiredLock: existing
+            }
         }
 
-        return {lockTable: [...table, norm], granted: true, conflict: null, errors: []}
+        return {
+            lockTable   : [...table, norm],
+            granted     : true,
+            conflict    : null,
+            errors      : [],
+            created     : true,
+            reentrant   : false,
+            acquiredLock: norm
+        }
     }
 
     /**
@@ -187,7 +221,7 @@ class LockRegistry extends Base {
      * @returns {{lockTable: Object[], released: Number}}
      */
     static releaseAll(lockTable, selector = {}) {
-        const table = Array.isArray(lockTable) ? lockTable : [],
+        const table                = Array.isArray(lockTable) ? lockTable : [],
               {agentId, sessionId} = selector;
 
         if (agentId === undefined && sessionId === undefined) {
