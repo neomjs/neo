@@ -5,17 +5,21 @@ import {
     deriveRepoSlugFromCloneUrl,
     deriveTenantRepoMirrorPath,
     hasCloneUrlUserInfo,
+    isTenantRepoAccessReadinessOutcome,
     normalizeRepoSlug,
+    normalizeTenantRepoCredentialRef,
     normalizeTenantRepoConfig,
     normalizeTenantRepoEntry,
-    redactTenantRepoSecrets
+    redactTenantRepoSecrets,
+    TenantRepoAccessCode,
+    TenantRepoAccessStatus
 } from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 /**
- * @summary Contract tests for tenant repo-access config normalization (#11787).
+ * @summary Contract tests for tenant repo-access config normalization.
  *
  * The helper is pure by design: it validates tenant-side repo identities without touching Git,
- * env vars, credential helpers, or the Knowledge Base graph. The Git mirror worker (#11788)
+ * env vars, credential helpers, or the Knowledge Base graph. The Git mirror worker
  * owns credential injection; this layer owns the no-secret persistence boundary.
  *
  * @see https://github.com/neomjs/neo/issues/11787
@@ -29,7 +33,7 @@ test.describe('TenantRepoAccessContract (#11787)', () => {
         expect(deriveRepoSlugFromCloneUrl('github.com:neomjs/neo.git')).toBe('github.com/neomjs/neo');
     });
 
-    test('normalizes tenant repo entries while preserving credentialRef as a reference only', () => {
+    test('normalizes tenant repo entries while preserving supported credentialRef values as references only', () => {
         expect(normalizeTenantRepoEntry({
             cloneUrl     : 'https://github.com/neomjs/neo.git',
             credentialRef: 'env:GITHUB_TOKEN'
@@ -39,13 +43,77 @@ test.describe('TenantRepoAccessContract (#11787)', () => {
             repoSlug     : 'github.com/neomjs/neo'
         });
 
-        expect(normalizeTenantRepoConfig({
+        expect(() => normalizeTenantRepoConfig({
             tenantRepos: [{
                 cloneUrl     : 'https://github.com/neomjs/neo.git',
                 credentialRef: 'helper:github-app-installation',
                 repoSlug     : 'github.com/neomjs/custom'
             }]
-        }).tenantRepos[0].repoSlug).toBe('github.com/neomjs/custom');
+        })).toThrow(/unsupported scheme/u);
+    });
+
+    test('shares one explicit credentialRef grammar with GitMirror', () => {
+        expect(normalizeTenantRepoCredentialRef('none')).toEqual({type: 'none'});
+        expect(normalizeTenantRepoCredentialRef('env:GITHUB_TOKEN')).toEqual({
+            type: 'env',
+            name: 'GITHUB_TOKEN'
+        });
+        expect(normalizeTenantRepoCredentialRef('GITHUB_TOKEN')).toEqual({
+            type: 'env',
+            name: 'GITHUB_TOKEN'
+        });
+        expect(normalizeTenantRepoCredentialRef('file:/run/secrets/git-token')).toEqual({
+            type    : 'file',
+            filePath: '/run/secrets/git-token'
+        });
+        expect(normalizeTenantRepoCredentialRef('ssh:/run/secrets/git-key')).toEqual({
+            type   : 'ssh',
+            keyPath: '/run/secrets/git-key'
+        });
+        expect(normalizeTenantRepoCredentialRef({
+            type    : 'file',
+            filePath: '/run/secrets/git-token',
+            username: 'deploy-token',
+            ignored : 'not-crossing-the-boundary'
+        })).toEqual({
+            type    : 'file',
+            filePath: '/run/secrets/git-token',
+            username: 'deploy-token'
+        });
+    });
+
+    test('rejects unsupported or incomplete credentialRef shapes at config resolution', () => {
+        expect(() => normalizeTenantRepoCredentialRef('helper:github-app-installation'))
+            .toThrow(/unsupported scheme/u);
+        expect(() => normalizeTenantRepoCredentialRef('env:'))
+            .toThrow(/valid environment-variable name/u);
+        expect(() => normalizeTenantRepoCredentialRef('file:'))
+            .toThrow(/requires filePath/u);
+        expect(() => normalizeTenantRepoCredentialRef({type: 'ssh', keyPath: ''}))
+            .toThrow(/requires keyPath/u);
+        expect(() => normalizeTenantRepoCredentialRef({type: 'ssh', keyPath: '/key', username: 'git'}))
+            .toThrow(/env\/file credentialRef username/u);
+        expect(() => normalizeTenantRepoCredentialRef({type: 'vault', name: 'tenant-token'}))
+            .toThrow(/unsupported type/u);
+    });
+
+    test('allowlists public access-readiness codes by status', () => {
+        expect(isTenantRepoAccessReadinessOutcome(
+            TenantRepoAccessStatus.READY,
+            TenantRepoAccessCode.READY
+        )).toBe(true);
+        expect(isTenantRepoAccessReadinessOutcome(
+            TenantRepoAccessStatus.UNKNOWN,
+            TenantRepoAccessCode.EVIDENCE_EXPIRED
+        )).toBe(true);
+        expect(isTenantRepoAccessReadinessOutcome(
+            TenantRepoAccessStatus.DEGRADED,
+            TenantRepoAccessCode.READY
+        )).toBe(false);
+        expect(isTenantRepoAccessReadinessOutcome(
+            TenantRepoAccessStatus.DEGRADED,
+            'KB_TENANT_REPO_ACCESS_TOKEN_SECRET'
+        )).toBe(false);
     });
 
     test('preserves optional branchRef when valid (#12040)', () => {

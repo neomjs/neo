@@ -60,6 +60,21 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         return {
             async cloneIfMissing(args) { captureCalls.push({op: 'cloneIfMissing', args}); },
             async fetch(args)          { captureCalls.push({op: 'fetch',         args}); },
+            async inspectCredentialReadiness() {
+                return {
+                    status          : 'ready',
+                    code            : 'KB_TENANT_REPO_ACCESS_CREDENTIAL_RESOLVED',
+                    cacheFingerprint: 'fake-credential-fingerprint'
+                };
+            },
+            async probeRemoteAccess() {
+                return {
+                    status          : 'ready',
+                    code            : 'KB_TENANT_REPO_ACCESS_READY',
+                    checkedAt       : new Date().toISOString(),
+                    cacheFingerprint: 'fake-credential-fingerprint'
+                };
+            },
             async resolveHead({ref})   { return `sha-for-${ref}`; },
             async isAncestor()         { return true; },
             async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
@@ -127,6 +142,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // concurrency tests cannot leak short timeouts / serial-limit to siblings.
         TenantRepoSyncService.concurrencyLimit         = 2;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
+        TenantRepoSyncService.clearTenantRepoAccessReadiness();
     });
 
     test('skipped when no tenantRepos configured', async () => {
@@ -159,6 +175,202 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.status).toBe('skipped');
         expect(result.details.reasonCode).toBe('already-running');
         expect(result.details.pid).toBe(12345);
+    });
+
+    test('preflights a not-due repo at bootstrap and re-probes only after config or credential rotation', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repo             = {
+                tenantId     : 'tenant-a',
+                repoSlug     : 'private/repo',
+                mirrorRoot,
+                cloneUrl     : 'https://git.example/private/repo.git',
+                credentialRef: 'env:TENANT_REPO_TOKEN',
+                branchRef    : 'dev'
+            },
+            probeCalls = [];
+
+        let credentialFingerprint = 'credential-a';
+
+        const gitMirror = {
+            async inspectCredentialReadiness() {
+                return {
+                    status          : 'ready',
+                    code            : 'KB_TENANT_REPO_ACCESS_CREDENTIAL_RESOLVED',
+                    cacheFingerprint: credentialFingerprint
+                };
+            },
+            async probeRemoteAccess(args) {
+                probeCalls.push(args);
+                return {
+                    status          : 'ready',
+                    code            : 'KB_TENANT_REPO_ACCESS_READY',
+                    checkedAt       : '2026-07-23T20:00:00.000Z',
+                    cacheFingerprint: credentialFingerprint
+                };
+            },
+            async cloneIfMissing() {
+                throw new Error('not-due repo must not clone');
+            },
+            async fetch() {
+                throw new Error('not-due repo must not fetch');
+            }
+        };
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                'tenant-a/private/repo': {
+                    lastIngestedRev                   : 'abcdef1234567890',
+                    lastRunAttemptAt                  : Date.now(),
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                }
+            }
+        });
+
+        const options = {
+            reason                       : 'periodic',
+            taskStateService,
+            tenantReposConfig            : {tenantRepos: [repo]},
+            gitMirror,
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            seedBootstrap                : false
+        };
+
+        await TenantRepoSyncService.runTask(options);
+        await TenantRepoSyncService.runTask(options);
+
+        expect(probeCalls).toHaveLength(1);
+        expect(probeCalls[0]).toMatchObject({
+            cloneUrl: 'https://git.example/private/repo.git',
+            ref     : 'dev'
+        });
+
+        expect(TenantRepoSyncService.getTenantRepoAccessReadiness(repo, {
+            observedAt: Date.now() + 24 * 60 * 60 * 1000
+        })).toMatchObject({
+            status: 'unknown',
+            code  : 'KB_TENANT_REPO_ACCESS_EVIDENCE_EXPIRED'
+        });
+
+        TenantRepoSyncService.accessReadinessCache.get('tenant-a/private/repo').expiresAt = 0;
+        await TenantRepoSyncService.runTask(options);
+        expect(probeCalls).toHaveLength(2);
+
+        credentialFingerprint = 'credential-b';
+        await TenantRepoSyncService.runTask(options);
+        expect(probeCalls).toHaveLength(3);
+
+        repo.cloneUrl = 'https://git.example/private/repo-renamed.git';
+        await TenantRepoSyncService.runTask(options);
+        expect(probeCalls).toHaveLength(4);
+
+        const publicReadiness = TenantRepoSyncService.getTenantRepoAccessReadiness(repo);
+
+        expect(publicReadiness).toEqual({
+            status   : 'ready',
+            code     : 'KB_TENANT_REPO_ACCESS_READY',
+            checkedAt: '2026-07-23T20:00:00.000Z'
+        });
+        expect(JSON.stringify(publicReadiness)).not.toContain('credential-b');
+        expect(JSON.stringify(publicReadiness)).not.toContain('TENANT_REPO_TOKEN');
+        expect(JSON.stringify(publicReadiness)).not.toContain('git.example');
+    });
+
+    test('isolates an inaccessible repo while unrelated repositories continue syncing', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            mirrorCalls      = [],
+            repos            = [
+                {
+                    tenantId     : 'tenant-a',
+                    repoSlug     : 'private/denied',
+                    mirrorRoot,
+                    cloneUrl     : 'https://git.example/private/denied.git',
+                    credentialRef: 'env:DENIED_TOKEN'
+                },
+                {
+                    tenantId     : 'tenant-b',
+                    repoSlug     : 'private/ready',
+                    mirrorRoot,
+                    cloneUrl     : 'https://git.example/private/ready.git',
+                    credentialRef: 'env:READY_TOKEN'
+                }
+            ],
+            gitMirror = {
+                async inspectCredentialReadiness({credentialRef}) {
+                    return {
+                        status          : 'ready',
+                        code            : 'KB_TENANT_REPO_ACCESS_CREDENTIAL_RESOLVED',
+                        cacheFingerprint: `fingerprint-${credentialRef}`
+                    };
+                },
+                async probeRemoteAccess({cloneUrl}) {
+                    const denied = cloneUrl.includes('/denied');
+                    return {
+                        status: denied ? 'degraded' : 'ready',
+                        code  : denied
+                            ? 'KB_TENANT_REPO_ACCESS_DENIED_OR_NOT_FOUND'
+                            : 'KB_TENANT_REPO_ACCESS_READY',
+                        checkedAt       : '2026-07-23T20:00:00.000Z',
+                        cacheFingerprint: denied ? 'denied' : 'ready'
+                    };
+                },
+                async cloneIfMissing(args) {
+                    mirrorCalls.push({op: 'cloneIfMissing', args});
+
+                    if (args.repoSlug === 'private/denied') {
+                        const error = new Error('bounded fake acquisition failure');
+                        error.code = 'KB_GITMIRROR_CLONE_FAILED';
+                        throw error;
+                    }
+                },
+                async fetch(args) {
+                    mirrorCalls.push({op: 'fetch', args});
+                },
+                async resolveHead({ref}) {
+                    return `sha-for-${ref}`;
+                },
+                async isAncestor() {
+                    return true;
+                },
+                async diffRevisions() {
+                    return {addedOrChanged: [], deleted: []};
+                }
+            };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason                       : 'periodic',
+            taskStateService,
+            tenantReposConfig            : {tenantRepos: repos},
+            gitMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+        expect(result.details.failedCount).toBe(1);
+        expect(mirrorCalls.filter(call => call.args.repoSlug === 'private/ready'))
+            .toEqual([
+                expect.objectContaining({op: 'cloneIfMissing'}),
+                expect.objectContaining({op: 'fetch'})
+            ]);
+        expect(TenantRepoSyncService.getTenantRepoAccessReadiness(repos[0])).toMatchObject({
+            status: 'degraded',
+            code  : 'KB_TENANT_REPO_ACCESS_SYNC_FAILED'
+        });
+        expect(TenantRepoSyncService.getTenantRepoAccessReadiness(repos[1])).toMatchObject({
+            status: 'ready',
+            code  : 'KB_TENANT_REPO_ACCESS_READY'
+        });
     });
 
     test('completed: iterates configured repos and calls ingestion service', async () => {

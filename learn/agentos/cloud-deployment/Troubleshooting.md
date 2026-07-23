@@ -217,6 +217,24 @@ identities, clone URLs, credentials, tokens, stacks, and raw filesystem/parser m
 
 For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, true no-configured-repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. A degraded config-read error means the graph/YAML/default config resolver could not prove the effective `tenantRepos`; treat that differently from a real empty config. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging. `KB_VECTOR_EMBED_FAILED` means the repository fetch and envelope reached the ingestion layer but vector writes failed; correct the embedding path before retrying.
 
+Read `tenantRepoSync.accessReadiness` before waiting for cadence. `ready` means every enabled
+repo passed the process-local credential check and bounded remote capability probe; `degraded`
+means at least one proved failure; `unknown` means the current process has not produced valid
+evidence yet (commonly immediately after restart); `not-required` means there are no enabled
+required repos. Inspection reads cached evidence and never triggers network work.
+
+| Access code | Meaning | Operator action |
+|---|---|---|
+| `KB_TENANT_REPO_ACCESS_CREDENTIAL_INVALID` | The env secret, secret file, or SSH key is missing, empty, unreadable, or its reference shape is invalid. | Align the configured reference with the orchestrator's mounted env/file/key, then let the next sweep re-resolve it. |
+| `KB_TENANT_REPO_ACCESS_TIMEOUT` | The bounded `ls-remote` probe exceeded its deadline. | Check upstream latency, firewall/proxy behavior, and DNS; do not infer token scope from a timeout. |
+| `KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED` | Git reported a network/DNS/connection-class failure. | Restore egress and name resolution from the orchestrator network. |
+| `KB_TENANT_REPO_ACCESS_DENIED_OR_NOT_FOUND` | The remote did not grant readable repository capability, or intentionally hid a missing repository behind the same response. | Verify repository membership/reach and read permission for this specific repo; do not assume one token reaches sibling groups/namespaces. |
+| `KB_TENANT_REPO_ACCESS_REF_NOT_FOUND` | The repo was readable but the configured ref was not advertised. | Correct `branchRef` or publish the intended branch/tag. |
+| `KB_TENANT_REPO_ACCESS_REF_UNVERIFIED` | A raw commit SHA was not an advertised ref tip, so `ls-remote` could prove repo access but not commit reachability. | Let the normal clone/fetch resolve the SHA; do not rewrite the ref solely from this unknown result. |
+| `KB_TENANT_REPO_ACCESS_EVIDENCE_EXPIRED` | The cached proof is older than its bounded lifetime. | Wait for the next sync sweep to re-probe; inspection does not launch network work. |
+| `KB_TENANT_REPO_ACCESS_PROBE_FAILED` / `KB_TENANT_REPO_ACCESS_PROBE_UNAVAILABLE` | The probe could not produce a certifying category. | Verify the orchestrator and GitMirror code are from one current image cohort, then inspect service health. |
+| `KB_TENANT_REPO_ACCESS_SYNC_FAILED` | A later authoritative clone/fetch failed after or without the cached probe. | Use `lastSourceErrorCode` and the normal GitMirror acquisition runbook; clone/fetch supersedes older probe evidence. |
+
 Current releases accept a tenant-repo ingest as successful only when the returned summary contains
 an array-valued, empty `errors` field. A failed attempt keeps the last known-good revision. If the
 deployment was upgraded after an older release had already advanced its checkpoint on an
