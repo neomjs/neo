@@ -118,7 +118,13 @@ tenants:
 
 The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering. Graph-only tenant config nodes are included through the graph service's RLS-aware tenant-config enumeration surface; an unreadable graph tier degrades deployment diagnostics instead of silently behaving like an empty pull-mode config.
 
-The YAML is bootstrap-only — the graph node is canonical once written. A malformed or absent file is fail-soft (logged, treated as absent → tier 3).
+The YAML is bootstrap-only — the graph node is canonical once written. Runtime resolution stays
+fail-soft: a missing, empty, unreadable, malformed, or invalid-shape file cannot block a valid graph
+or AiConfig fallback. Diagnostics remain fail-honest, however. The deployment snapshot projects
+`tenantRepoSync.config.bootstrap` with one of `missing`, `empty`, `loaded`, `read-failed`,
+`parse-failed`, or `invalid-shape`, plus only a tenant count and bounded code/message class.
+Bootstrap content, host paths, raw errors, tenant/repository identities, clone URLs, and credential
+references never cross that diagnostic boundary.
 
 **Config versioning.** Every ingested chunk is stamped with the `tenantConfigVersion` active at ingest time (server-stamped chunk metadata). A tier-3 (default-registry) resolution stamps `tenantConfigVersion: 0`. The stamp lets a future config change drive retroactive invalidation of chunks ingested under a now-stale config.
 

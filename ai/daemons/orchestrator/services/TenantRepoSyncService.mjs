@@ -621,7 +621,7 @@ class TenantRepoSyncService extends Base {
     }
 
     /**
-     * Resolves the effective `tenantRepos` across all tenants via the tiered resolver
+     * @summary Resolves the effective `tenantRepos` across all tenants via the tiered resolver
      * `KnowledgeBaseIngestionService.listConfiguredTenantRepos` (graph node > `kb-config.yaml`
      * bootstrap > `aiConfig.tenantRepos[]` default, per-tenant single-winner, flattened). Replaces
      * the prior direct `aiConfig.tenantRepos` read so the documented bootstrap / graph tiers are
@@ -652,7 +652,8 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.orchestratorConfig=AiConfig.orchestrator] Stub for the AiConfig.orchestrator section (test seam).
      * @param {Object} [options.env=process.env] Stub for the env-var lookup (test seam).
      * @param {Object} [options.ingestionService] Stub KB ingestion service (test seam); defaults to the live singleton.
-     * @returns {Promise<{tenantRepos: Array<Object>}>}
+     * @returns {Promise<{tenantRepos: Array<Object>, configDiagnostics: Object}>} Effective repos with
+     *     the Knowledge Base resolver's bounded config diagnostics preserved unchanged.
      */
     async resolveTenantReposConfig({tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env, ingestionService} = {}) {
         const tier1Default = tier1MirrorRoot

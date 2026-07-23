@@ -6,7 +6,7 @@
  * prefill) at ~100%×N-cores while serving nothing else, because `OLLAMA_NUM_PARALLEL=1`
  * queues every other request behind it. Residency probes pass; the deployment burns.
  * (Empirical anchor: a `gemma4` chat runner pegged at 399.7% for 58h of CPU-time with an
- * idle orchestrator and no users — the klarso incident.)
+ * idle orchestrator and no users in a cloud deployment.)
  *
  * The only honest signal is whether a real inference **canary** completes. The hard part is
  * NOT restarting a *legitimately-long* request — that is a self-inflicted outage. So a

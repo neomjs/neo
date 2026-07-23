@@ -26,8 +26,22 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-const LOCAL_EMBEDDING_PROVIDERS = new Set(['openAiCompatible', 'ollama']);
-const PARSED_CHUNK_SCHEMA_PATH  = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
+const LOCAL_EMBEDDING_PROVIDERS           = new Set(['openAiCompatible', 'ollama']);
+const PARSED_CHUNK_SCHEMA_PATH            = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
+const KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS = Object.freeze({
+    'read-failed': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+        messageClass: 'filesystem-read'
+    },
+    'parse-failed': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+        messageClass: 'yaml-parse'
+    },
+    'invalid-shape': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_INVALID_SHAPE',
+        messageClass: 'document-shape'
+    }
+});
 
 /**
  * @summary Orchestrates tenant-aware Knowledge Base ingestion pushes.
@@ -1290,27 +1304,114 @@ class IngestionService extends Base {
     }
 
     /**
-     * @summary Reads the optional `kb-config.yaml` deployment bootstrap, fail-soft.
+     * @summary Reads the optional `kb-config.yaml` bootstrap with bounded diagnostic provenance.
      *
-     * The bootstrap is a deployment-root first-deploy convenience (`{tenants: {<tenantId>: {...}}}`);
-     * the `KnowledgeBaseTenantConfig` graph node remains the canonical store. A missing or malformed
-     * file resolves to `null` so `getTenantConfig` falls through to the default registry rather than
-     * throwing.
-     * @returns {Object|null} The parsed bootstrap document, or `null` when absent / unreadable.
+     * Runtime resolution remains fail-soft: every non-loaded state carries `document:null`, allowing
+     * callers to continue to the AiConfig fallback. Diagnostics distinguish absence, an empty YAML
+     * document, filesystem failure, parse failure, and a top-level contract failure without retaining
+     * the host path, source text, raw error message, stack, tenant identities, or repository config.
+     *
+     * @param {Object} [options]
+     * @param {Object} [options.fileSystem=fs] File reader test seam.
+     * @returns {{status: ('missing'|'empty'|'loaded'|'read-failed'|'parse-failed'|'invalid-shape'), document: Object|null, tenantCount: Number|null, errorCode: String|null, messageClass: String|null}}
      * @protected
      */
-    readKbConfigBootstrap() {
+    readKbConfigBootstrapResult({fileSystem = fs} = {}) {
+        let source;
+
         try {
             const bootstrapPath = path.join(aiConfig.neoRootDir, 'kb-config.yaml');
 
-            if (!fs.existsSync(bootstrapPath)) {
-                return null;
+            source = fileSystem.readFileSync(bootstrapPath, 'utf8');
+        } catch (error) {
+            if (error && error.code === 'ENOENT') {
+                return {
+                    status      : 'missing',
+                    document    : null,
+                    tenantCount : 0,
+                    errorCode   : null,
+                    messageClass: null
+                };
             }
 
-            return yaml.load(fs.readFileSync(bootstrapPath, 'utf8')) || null;
-        } catch {
-            return null;
+            return {
+                status     : 'read-failed',
+                document   : null,
+                tenantCount: null,
+                ...KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS['read-failed']
+            };
         }
+
+        if (source.split(/\r?\n/u).every(line => /^\s*(?:#.*)?$/u.test(line))) {
+            return {
+                status      : 'empty',
+                document    : null,
+                tenantCount : 0,
+                errorCode   : null,
+                messageClass: null
+            };
+        }
+
+        let document;
+
+        try {
+            document = yaml.load(source);
+        } catch {
+            return {
+                status     : 'parse-failed',
+                document   : null,
+                tenantCount: null,
+                ...KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS['parse-failed']
+            };
+        }
+
+        if (document === null || document === undefined) {
+            return {
+                status      : 'empty',
+                document    : null,
+                tenantCount : 0,
+                errorCode   : null,
+                messageClass: null
+            };
+        }
+
+        if (
+            typeof document !== 'object' ||
+            Array.isArray(document) ||
+            !Object.hasOwn(document, 'tenants') ||
+            !document.tenants ||
+            typeof document.tenants !== 'object' ||
+            Array.isArray(document.tenants)
+        ) {
+            return {
+                status     : 'invalid-shape',
+                document   : null,
+                tenantCount: null,
+                ...KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS['invalid-shape']
+            };
+        }
+
+        return {
+            status      : 'loaded',
+            document,
+            tenantCount : Object.keys(document.tenants).length,
+            errorCode   : null,
+            messageClass: null
+        };
+    }
+
+    /**
+     * @summary Reads the optional `kb-config.yaml` deployment bootstrap, fail-soft.
+     *
+     * This compatibility path intentionally returns only the valid parsed document. Missing, empty,
+     * unreadable, malformed, and invalid-shape inputs resolve to `null`, preserving graph → YAML →
+     * AiConfig precedence for existing tenant-config consumers.
+     *
+     * @returns {Object|null} The valid parsed bootstrap document, or `null`.
+     * @protected
+     */
+    readKbConfigBootstrap() {
+        return this.readKbConfigBootstrapResult().document;
     }
 
     /**
@@ -1330,12 +1431,13 @@ class IngestionService extends Base {
      * `tenants.*` keys, plus the distinct `tenantId`s in `aiConfig.tenantRepos[]`. Graph-tier
      * enumeration stays inside `GraphService.listNodeRecordsByType()` so the resolver does not issue
      * raw graph scans or bypass the graph service's RLS/visibility boundary.
-     * @returns {Promise<{tenantRepos: Array<Object>}>} Contract-normalized; throws on a malformed entry.
+     * @returns {Promise<{tenantRepos: Array<Object>, configDiagnostics: {bootstrap: Object}}>} Contract-normalized repos plus bounded bootstrap provenance; throws on a malformed entry.
      */
     async listConfiguredTenantRepos() {
         await this.graphService.ready();
 
-        const bootstrap       = this.readKbConfigBootstrap(),
+        const bootstrapResult = this.readKbConfigBootstrapResult(),
+              bootstrap       = bootstrapResult.document,
               yamlTenants     = (bootstrap && bootstrap.tenants) || {},
               defaultRepos    = Array.isArray(aiConfig.tenantRepos) ? aiConfig.tenantRepos : [],
               graphRecords    = this.listTenantConfigRecords(),
@@ -1389,7 +1491,17 @@ class IngestionService extends Base {
             }));
         }
 
-        return normalizeTenantRepoConfig({tenantRepos: effective});
+        return normalizeTenantRepoConfig({
+            tenantRepos      : effective,
+            configDiagnostics: {
+                bootstrap: {
+                    status      : bootstrapResult.status,
+                    tenantCount : bootstrapResult.tenantCount,
+                    errorCode   : bootstrapResult.errorCode,
+                    messageClass: bootstrapResult.messageClass
+                }
+            }
+        });
     }
 
     /**

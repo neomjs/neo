@@ -188,6 +188,22 @@ A freshly deployed Knowledge Base can be **healthy but empty**: `healthcheck` re
 
 For push-mode deployments, trigger the deployment's ingestion entry point once, then query again.
 
+For a pull-mode deployment, read `tenantRepoSync.config.bootstrap` before treating an empty repo
+count as intentional:
+
+| Bootstrap status | Meaning | Operator action |
+|---|---|---|
+| `missing` | The optional `kb-config.yaml` file is not mounted. | Confirm graph/AiConfig is the intended authority, or mount the bootstrap file. This state does not degrade diagnostics. |
+| `empty` | The file was readable but contained no YAML document. | Add the intended `tenants:` mapping, or keep the file empty when another tier is authoritative. This state does not degrade diagnostics. |
+| `loaded` | The file matched the `{tenants: {...}}` contract. | Compare `tenantCount`, effective `repoCount`, and `tierCounts` to the intended deployment. A zero tenant count is valid. |
+| `read-failed` | The file exists or was addressed, but the service could not read it. | Fix mount visibility, ownership, or permissions, then refresh the deployment snapshot. |
+| `parse-failed` | The file was readable but was not valid YAML. | Validate and correct YAML syntax, redeploy the file, then refresh the snapshot. |
+| `invalid-shape` | YAML parsed, but the top level was not an object containing an object-valued `tenants` mapping. | Restore the documented `tenants:` bootstrap shape, then refresh the snapshot. |
+
+The three failure states degrade the config diagnostic without discarding safely resolved graph or
+AiConfig fallback repos. The snapshot deliberately omits paths, YAML content, tenant/repository
+identities, clone URLs, credentials, tokens, stacks, and raw filesystem/parser messages.
+
 For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, true no-configured-repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. A degraded config-read error means the graph/YAML/default config resolver could not prove the effective `tenantRepos`; treat that differently from a real empty config. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging. `KB_VECTOR_EMBED_FAILED` means the repository fetch and envelope reached the ingestion layer but vector writes failed; correct the embedding path before retrying.
 
 Current releases accept a tenant-repo ingest as successful only when the returned summary contains
