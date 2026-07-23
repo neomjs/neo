@@ -79,7 +79,7 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
         expect(actuator.calls.applyHeal[0].evidence).toMatchObject({missingFromVectorCount: 200, documentsPresentCount: 200});
     });
 
-    test('wipe (docs gone) → restore-delta-merge; systemic mismatch → freeze (never mass re-embed)', async () => {
+    test('wipe (docs gone) → quarantine; systemic mismatch → freeze (never mass re-embed)', async () => {
         const actuator = fakeActuator(),
               service  = createService({
                   evidenceGatherer: async () => [
@@ -93,7 +93,7 @@ test.describe('Neo.ai.daemons.services.DataIntegrityDiagnosisService', () => {
 
         expect(decision.status).toBe('healed');
         const actions = decision.heals.map(h => h.action);
-        expect(actions).toContain('restore-delta-merge');
+        expect(actions).toContain('quarantine');
         expect(actions).toContain('freeze');
         expect(actuator.calls.applyHeal).toHaveLength(2);
     });

@@ -2,8 +2,19 @@ import {test, expect}              from '@playwright/test';
 import Neo                         from '../../../../../../../src/Neo.mjs';
 import * as core                   from '../../../../../../../src/core/_export.mjs';
 import DataRecoveryActuatorService from '../../../../../../../ai/daemons/orchestrator/services/DataRecoveryActuatorService.mjs';
+import {
+    createRestoreTargetSetDescriptor,
+    deriveRestoreTargetSetIdentity
+} from '../../../../../../../ai/services/memory-core/helpers/restoreTargetSetContract.mjs';
 
-const NOW = 1_000_000_000_000;
+const NOW        = 1_000_000_000_000;
+const TARGET_SET = createRestoreTargetSetDescriptor({
+    memoriesCollection            : 'neo-agent-memory',
+    summariesCollection           : 'neo-agent-sessions',
+    graphDestination              : '/data/graph.sqlite',
+    bundleManifestFingerprint     : `sha256:${'a'.repeat(64)}`,
+    admissionDescriptorFingerprint: `sha256:${'b'.repeat(64)}`
+});
 
 /**
  * The interim autonomous data-recovery actuator: `applyHeal` is the escalate-replacement terminal.
@@ -60,6 +71,43 @@ test.describe('DataRecoveryActuatorService.applyHeal — autonomous terminal (no
         const outcome = await actuator.applyHeal({action: 're-embed-missing', collection: 'c1', now: NOW});
         expect(outcome.status).toBe('unsafe-input');
         expect(['escalate', 'escalated', 'page', 'paged']).not.toContain(outcome.status);
+    });
+
+    test('target-set recovery reads and records anti-thrash by canonical recovery-unit key', async () => {
+        const
+            seen     = [],
+            attempts = [],
+            identity = deriveRestoreTargetSetIdentity(TARGET_SET),
+            actuator = Neo.create(DataRecoveryActuatorService, {
+                recentRunsReader: async targetKey => {
+                    seen.push(targetKey);
+                    return []
+                },
+                recordRun     : async attempt => attempts.push(attempt),
+                healOperations: {
+                    'restore-empty-target': async input => ({
+                        status: 'committed',
+                        detail: input.recoveryUnitKey
+                    })
+                }
+            });
+
+        const outcome = await actuator.applyHeal({
+            action   : 'restore-empty-target',
+            targetSet: TARGET_SET,
+            now      : NOW
+        });
+
+        expect(seen).toEqual([identity.recoveryUnitKey]);
+        expect(attempts[0]).toMatchObject({
+            action            : 'restore-empty-target',
+            recoveryUnitKey   : identity.recoveryUnitKey,
+            attemptFingerprint: identity.attemptFingerprint
+        });
+        expect(outcome).toMatchObject({
+            status         : 'committed',
+            recoveryUnitKey: identity.recoveryUnitKey
+        })
     });
 });
 

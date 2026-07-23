@@ -14,56 +14,68 @@ import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
-import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport}                     from './services/ConfiguredTaskDefinitionsService.mjs';
-import PrimaryRepoSyncService                                                                       from './services/PrimaryRepoSyncService.mjs';
-import TenantRepoSyncService                                                                        from './services/TenantRepoSyncService.mjs';
-import {getDueTask as summaryGetDueTaskImport}                                                      from './scheduling/summary.mjs';
-import {getDueTask as backupGetDueTaskImport}                                                       from './scheduling/backup.mjs';
-import {getDueTask as graphLogCompactionGetDueTaskImport}                                           from './scheduling/graphLogCompaction.mjs';
-import {getDueTask as primaryDevSyncGetDueTaskImport}                                               from './scheduling/primaryDevSync.mjs';
-import {getDueTask as goldenPathGetDueTaskImport}                                                   from './scheduling/goldenPath.mjs';
-import {getDueTask as dreamGetDueTaskImport}                                                        from './scheduling/dream.mjs';
-import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport}                                   from './scheduling/embedDrainLivenessWatchdog.mjs';
-import memoryCoreConfig                                                                             from '../../mcp/server/memory-core/config.mjs';
-import MailboxService                                                                               from '../../services/memory-core/MailboxService.mjs';
-import WakeSubscriptionService                                                                      from '../../services/memory-core/WakeSubscriptionService.mjs';
-import RequestContextService                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {normalizeAgentIdentityNodeId}                                                               from '../../graph/normalizeAgentIdentityNodeId.mjs';
-import TaskStateService                                                                             from './services/TaskStateService.mjs';
-import ProcessSupervisorService                                                                     from './services/ProcessSupervisorService.mjs';
-import DeploymentRuntimeAccessService                                                               from './services/DeploymentRuntimeAccessService.mjs';
-import DeploymentStateBridgeService                                                                 from './services/DeploymentStateBridgeService.mjs';
-import RecoveryActuatorService                                                                      from './services/RecoveryActuatorService.mjs';
-import ContainerHealthDiagnosisService                                                              from './services/ContainerHealthDiagnosisService.mjs';
-import {buildBootIdentitySource}                                                                    from './services/buildBootIdentitySource.mjs';
-import {recordBootIdentityFact}                                                                     from './services/recordBootIdentityFact.mjs';
-import DataIntegrityDiagnosisService                                                                from './services/DataIntegrityDiagnosisService.mjs';
-import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
-import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
-import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}                                from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
-import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {validateHealLedgerRetention}                                                                from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {detectChronicUnsafeInput}                                                                   from '../../services/memory-core/helpers/healActionDispatch.mjs';
-import {quarantineCollection, storeFenceTargets, unquarantineCollection}                            from '../../services/memory-core/helpers/quarantineStore.mjs';
-import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}                    from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
-import {createThrottleShedHealOperation}                                                            from '../../services/memory-core/helpers/throttleShedHeal.mjs';
-import {decideSystemicCircuit, foldSystemicCircuitState}                                            from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
-import {Memory_StorageRouter as StorageRouter, Memory_TextEmbeddingService as TextEmbeddingService} from '../../services.mjs';
-import {buildDataIntegrityCoverageDiagnosis}                                                        from './services/dataIntegrityCoverageDiagnosis.mjs';
-import {assembleDataIntegrityEvidence}                                                              from './services/dataIntegrityEvidenceAssembler.mjs';
-import {createLiveDimensionConsistencyGatherer}                                                     from './services/dimensionConsistencyGatherer.mjs';
-import DreamService                                                                                 from './services/DreamService.mjs';
-import SwarmHeartbeatService                                                                        from './services/SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer                                                                        from '../../services/graph/GoldenPathSynthesizer.mjs';
-import {getDueTask as tenantRepoSyncGetDueTaskImport}                                               from './scheduling/tenantRepoSync.mjs';
-import {TASK_REGISTRY}                                                                              from './scheduling/registry.mjs';
+import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport}   from './services/ConfiguredTaskDefinitionsService.mjs';
+import PrimaryRepoSyncService                                                     from './services/PrimaryRepoSyncService.mjs';
+import TenantRepoSyncService                                                      from './services/TenantRepoSyncService.mjs';
+import {getDueTask as summaryGetDueTaskImport}                                    from './scheduling/summary.mjs';
+import {getDueTask as backupGetDueTaskImport}                                     from './scheduling/backup.mjs';
+import {getDueTask as graphLogCompactionGetDueTaskImport}                         from './scheduling/graphLogCompaction.mjs';
+import {getDueTask as primaryDevSyncGetDueTaskImport}                             from './scheduling/primaryDevSync.mjs';
+import {getDueTask as goldenPathGetDueTaskImport}                                 from './scheduling/goldenPath.mjs';
+import {getDueTask as dreamGetDueTaskImport}                                      from './scheduling/dream.mjs';
+import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport}                 from './scheduling/embedDrainLivenessWatchdog.mjs';
+import memoryCoreConfig                                                           from '../../mcp/server/memory-core/config.mjs';
+import MailboxService                                                             from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService                                                    from '../../services/memory-core/WakeSubscriptionService.mjs';
+import RequestContextService                                                      from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {normalizeAgentIdentityNodeId}                                             from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import TaskStateService                                                           from './services/TaskStateService.mjs';
+import ProcessSupervisorService                                                   from './services/ProcessSupervisorService.mjs';
+import DeploymentRuntimeAccessService                                             from './services/DeploymentRuntimeAccessService.mjs';
+import DeploymentStateBridgeService                                               from './services/DeploymentStateBridgeService.mjs';
+import RecoveryActuatorService                                                    from './services/RecoveryActuatorService.mjs';
+import ContainerHealthDiagnosisService                                            from './services/ContainerHealthDiagnosisService.mjs';
+import {buildBootIdentitySource}                                                  from './services/buildBootIdentitySource.mjs';
+import {recordBootIdentityFact}                                                   from './services/recordBootIdentityFact.mjs';
+import DataIntegrityDiagnosisService                                              from './services/DataIntegrityDiagnosisService.mjs';
+import DataRecoveryActuatorService                                                from './services/DataRecoveryActuatorService.mjs';
+import {auditChromaVectorCoverage}                                                from '../../scripts/maintenance/checkChromaIntegrity.mjs';
+import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}              from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
+import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {validateHealLedgerRetention}                                              from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {detectChronicUnsafeInput}                                                 from '../../services/memory-core/helpers/healActionDispatch.mjs';
+import {quarantineCollection, storeFenceTargets, unquarantineCollection}          from '../../services/memory-core/helpers/quarantineStore.mjs';
+import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}  from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
+import {createThrottleShedHealOperation}                                          from '../../services/memory-core/helpers/throttleShedHeal.mjs';
+import {decideSystemicCircuit, foldSystemicCircuitState}                          from '../../services/memory-core/helpers/healSystemicCircuit.mjs';
+import {
+    Memory_ChromaManager as ChromaManager,
+    Memory_GraphService as GraphService,
+    Memory_StorageRouter as StorageRouter,
+    Memory_TextEmbeddingService as TextEmbeddingService
+} from '../../services.mjs';
+import {createRestoreEmptyTargetOperation} from '../../services/memory-core/helpers/restoreEmptyTargetOperation.mjs';
+import {createRestoreTargetSetStorage}     from '../../services/memory-core/helpers/restoreTargetSetStorage.mjs';
+import {
+    appendRestoreTargetSetTransition,
+    readRestoreTargetSetTransitions
+} from '../../services/memory-core/helpers/restoreTargetSetStateStore.mjs';
+import {buildDataIntegrityCoverageDiagnosis}          from './services/dataIntegrityCoverageDiagnosis.mjs';
+import {assembleDataIntegrityEvidence}                from './services/dataIntegrityEvidenceAssembler.mjs';
+import {createLiveDimensionConsistencyGatherer}       from './services/dimensionConsistencyGatherer.mjs';
+import DreamService                                   from './services/DreamService.mjs';
+import SwarmHeartbeatService                          from './services/SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer                          from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
+import {TASK_REGISTRY}                                from './scheduling/registry.mjs';
 import {
     buildOrchestratorSchedulingOptions,
     runSchedulingPipeline
 } from './scheduling/pipeline.mjs';
 import {DEFAULT_SCRIPT_DIR} from './taskDefinitions.mjs';
 import {
-    inspectHeavyMaintenanceLeaseSync
+    inspectHeavyMaintenanceLeaseSync,
+    withHeavyMaintenanceLease
 } from './services/heavyMaintenanceLeasePrimitives.mjs';
 
 /** @summary Opens/creates the orchestrator sqlite DB via the shared Memory Core schema bootstrap. */
@@ -469,8 +481,91 @@ export class Orchestrator extends Base {
             expectedDimension: AiConfig.vectorDimension
         });
 
-        const healLedgerDir    = path.join(this.dataDir, 'data-heal-events');
-        const freezeRecordsDir = path.join(this.dataDir, 'data-freeze-records');
+        const healLedgerDir      = path.join(this.dataDir, 'data-heal-events');
+        const freezeRecordsDir   = path.join(this.dataDir, 'data-freeze-records');
+        const restoreLedgerDir   = path.join(this.dataDir, 'restore-empty-target-ledger');
+        const restoreStagingRoot = path.join(this.dataDir, 'restore-empty-target-staging');
+
+        let restoreStoragePromise = null;
+
+        const getRestoreStorage = () => {
+            if (!restoreStoragePromise) {
+                restoreStoragePromise = (async () => {
+                    await Promise.all([
+                        StorageRouter.ready(),
+                        ChromaManager.ready(),
+                        GraphService.ready()
+                    ]);
+
+                    const graphDb = GraphService.db?.storage?.db;
+                    if (!graphDb) {
+                        throw new Error('restore-empty-target requires the live Memory Core graph database')
+                    }
+
+                    return createRestoreTargetSetStorage({
+                        chromaClient          : ChromaManager.client,
+                        dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction,
+                        graphDb,
+                        expectedDestinations  : {
+                            memories : memoryCoreConfig.collections.memory,
+                            summaries: memoryCoreConfig.collections.session,
+                            graph    : memoryCoreConfig.storagePaths.graph
+                        },
+                        stagingRoot              : restoreStagingRoot,
+                        invalidateCollectionCache: type => ChromaManager.invalidateCollectionCache(type),
+                        syncGraphCache           : () => GraphService.db?.syncCache?.()
+                    })
+                })()
+            }
+
+            return restoreStoragePromise
+        };
+
+        const restoreEmptyTarget = createRestoreEmptyTargetOperation({
+            withWriterFence: async (identity, task) => {
+                const result = await withHeavyMaintenanceLease(task, {
+                    owner       : 'restore-empty-target',
+                    reason      : 'target-set-recovery',
+                    metadata    : identity,
+                    leasePath   : this.maintenanceBackpressureService.resolveHeavyMaintenanceLeasePath(),
+                    staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
+                });
+
+                return ['completed', 'inherited'].includes(result.status)
+                    ? result.result
+                    : {
+                        status: 'deferred',
+                        detail: {
+                            reason: 'writer-fence-not-acquired',
+                            holder: result.lease?.owner ?? null
+                        }
+                    }
+            },
+            inspectFreshTargetSet: async context =>
+                (await getRestoreStorage()).inspectFreshTargetSet(context),
+            stageTargetSet: async context =>
+                (await getRestoreStorage()).stageTargetSet(context),
+            validateStagedTargetSet: async context =>
+                (await getRestoreStorage()).validateStagedTargetSet(context),
+            promoteComponent: async context =>
+                (await getRestoreStorage()).promoteComponent(context),
+            revalidateProductionTargetSet: async context =>
+                (await getRestoreStorage()).revalidateProductionTargetSet(context),
+            reconcileAttempt: async context =>
+                (await getRestoreStorage()).reconcileAttempt(context),
+            cleanupUnpromotedStaging: async context =>
+                (await getRestoreStorage()).cleanupUnpromotedStaging(context),
+            cleanupCommittedArtifacts: async context =>
+                (await getRestoreStorage()).cleanupCommittedArtifacts(context),
+            readTransitions: ({attemptFingerprint}) => readRestoreTargetSetTransitions({
+                dir: restoreLedgerDir,
+                attemptFingerprint
+            }),
+            appendTransition: transition => appendRestoreTargetSetTransition(
+                transition,
+                {dir: restoreLedgerDir}
+            )
+        });
 
         return ClassSystemUtil.beforeSetInstance(value, DataRecoveryActuatorService, {
             healOperations: {
@@ -528,23 +623,24 @@ export class Orchestrator extends Base {
                 // so it is independent of reactive-config set ordering.
                 'throttle-shed': createThrottleShedHealOperation({
                     setShedWindow: (durationMs, now) => this.maintenanceBackpressureService.setShedWindow(durationMs, now)
-                })
+                }),
+                'restore-empty-target': restoreEmptyTarget
             },
             // The ledger is observability, never a gate: readHealLedger now THROWS on an unreadable FILE, so an
             // unreadable ledger must not block a heal — degrade the anti-thrash projection to "no recent runs".
-            recentRunsReader : async collectionName => {
+            recentRunsReader : async targetKey => {
                 let events = [];
                 try {
                     events = await readHealLedger({dir: healLedgerDir});
                 } catch (error) {
                     this.writeLog?.('WARN', `[Orchestrator] heal-ledger read failed for recentRuns; proceeding with none: ${error.message}`);
                 }
-                return healEventsToRecentRuns(queryHealLedger(events, {collections: [collectionName]}));
+                return healEventsToRecentRuns(queryHealLedger(events, {collections: [targetKey]}));
             },
             // Retention is read + VALIDATED from the AiConfig provider at the append boundary; the pure ledger helper
             // owns no production default.
-            recordRun        : async ({action, collection, at}) => appendHealEvent(
-                {type: action, collection, status: 'attempt'},
+            recordRun        : async ({action, collection, recoveryUnitKey, at}) => appendHealEvent(
+                {type: action, collection: collection ?? recoveryUnitKey, status: 'attempt'},
                 {
                     dir: healLedgerDir,
                     now: at,
@@ -554,8 +650,8 @@ export class Orchestrator extends Base {
                     )
                 }
             ),
-            recordHealOutcome: async ({action, collection, status, detail, healedAt}) => appendHealEvent(
-                {type: action, collection, status, detail},
+            recordHealOutcome: async ({action, collection, recoveryUnitKey, status, detail, healedAt}) => appendHealEvent(
+                {type: action, collection: collection ?? recoveryUnitKey, status, detail},
                 {
                     dir: healLedgerDir,
                     now: healedAt,
@@ -904,6 +1000,7 @@ export class Orchestrator extends Base {
         this.containerHealthDiagnosisService = {};
         this.deploymentStateBridgeService = {};
         this.recoveryActuatorService = {};
+        this.dataRecoveryActuatorService = {};
         this.dataIntegrityDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
 
