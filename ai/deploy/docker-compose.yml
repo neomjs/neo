@@ -15,6 +15,11 @@
 # service so devops can govern RAM / CPU per service. The values are conservative
 # starting points — tune per deployment host.
 
+# One project identity owns both Docker labels and the orchestrator's constrained
+# runtime-access lookup. Override NEO_DEPLOY_PROJECT_NAME once for the deployment;
+# do not pass an unrelated `-p` / `--project-name` value on individual commands.
+name: "${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}"
+
 services:
   chroma:
     image: chromadb/chroma:1.5.9
@@ -208,7 +213,7 @@ services:
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM=docker-socket
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH=/var/run/docker.sock
-      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT:-}
+      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS=inspect,logs,stats
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS=restart

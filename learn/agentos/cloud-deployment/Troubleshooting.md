@@ -51,7 +51,7 @@ Work top-to-bottom — each error means you cleared the layer above it.
 A Caddyfile (or any config copied in at image-build time) is **not** picked up by a container restart. After editing it, rebuild:
 
 ```bash
-docker compose -p <project> up -d --build caddy
+NEO_DEPLOY_PROJECT_NAME=<project> docker compose up -d --build caddy
 ```
 
 A plain `restart` re-runs the *old* baked config.
@@ -61,7 +61,7 @@ A plain `restart` re-runs the *old* baked config.
 In a typical compose deployment only the ingress (Caddy) publishes a host port; the MCP servers listen on the internal compose network. A host-side `curl http://127.0.0.1:<port>` therefore finds nothing — expected, not a failure. Test from *inside* the network instead:
 
 ```bash
-docker compose -p <project> exec <server> node ./ai/scripts/diagnostics/mcpHealthcheck.mjs --url http://127.0.0.1:<port>
+NEO_DEPLOY_PROJECT_NAME=<project> docker compose exec <server> node ./ai/scripts/diagnostics/mcpHealthcheck.mjs --url http://127.0.0.1:<port>
 ```
 
 …or go through the ingress on the public URL.
@@ -99,7 +99,7 @@ surface as other MCP clients), then recreate the affected services so the
 environment is reloaded:
 
 ```bash
-docker compose -p <project> up -d --force-recreate kb-server mc-server orchestrator
+NEO_DEPLOY_PROJECT_NAME=<project> docker compose up -d --force-recreate kb-server mc-server orchestrator
 ```
 
 This is an environment-only repair; no image rebuild is required.
@@ -118,14 +118,25 @@ Read `snapshot.bridgeDiagnostics` before changing service code:
 - `reason: broad-service-lookup-failure` means most or all configured services
   failed at the observation layer. Treat this as bridge configuration first,
   not as four independent service outages.
+- `compose-project-unavailable` means runtime access was enabled without a
+  project identity. For the canonical stack, set
+  `NEO_DEPLOY_PROJECT_NAME=<project>` and recreate the orchestrator; the Compose
+  file binds that one value to both Docker project labels and the runtime holder.
 - `compose-service-no-match` means Docker returned no container for the label
-  filter shown in the error details. Align
+  filter shown in the error details. Verify both
+  `com.docker.compose.project=<project>` and
+  `com.docker.compose.service=<service>`. Align
   `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES` and
   `NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES` with Docker
-  `com.docker.compose.service` labels, not container names.
+  service labels, not container names, and do not pass a standalone `-p` that
+  conflicts with `NEO_DEPLOY_PROJECT_NAME`.
 - `compose-service-ambiguous` means more than one container matched a service
-  label. Set `NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=<project>` to the
-  Compose project label.
+  label inside the configured project. Resolve the duplicate/scaled target;
+  project binding must not be weakened to select one arbitrarily.
+- `compose-project-mismatch` or `compose-service-mismatch` means a Docker
+  response did not prove the exact requested label pair. The holder rejects the
+  target before inspect, logs, stats, or restart and does not expose the foreign
+  label value.
 - `docker-socket-unavailable` or `docker-socket-forbidden` means the
   orchestrator cannot read the runtime socket. Mount `/var/run/docker.sock`
   into the orchestrator with suitable permissions, or disable runtime access
