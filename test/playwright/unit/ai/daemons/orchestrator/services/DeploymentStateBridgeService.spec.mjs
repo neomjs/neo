@@ -472,7 +472,17 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             },
             tenantRepoSyncService: {
                 async resolveTenantReposConfig() {
-                    return {tenantRepos: []};
+                    return {
+                        tenantRepos      : [],
+                        configDiagnostics: {
+                            bootstrap: {
+                                status      : 'missing',
+                                tenantCount : 0,
+                                errorCode   : null,
+                                messageClass: null
+                            }
+                        }
+                    };
                 },
                 defaultRevisionsFilePath() {
                     return '/state/tenant-repo-sync-revisions.json';
@@ -494,7 +504,13 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             enabled: true,
             config : {
                 status   : 'available',
-                repoCount: 0
+                repoCount: 0,
+                bootstrap: {
+                    status      : 'missing',
+                    tenantCount : 0,
+                    errorCode   : null,
+                    messageClass: null
+                }
             },
             task: {
                 lastCompletion: {
@@ -506,6 +522,152 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             errors: []
         });
     });
+
+    test('collectTenantRepoSyncSnapshot keeps empty and loaded bootstrap states non-degraded', async () => {
+        const cases = [
+            {status: 'empty', tenantCount: 0},
+            {status: 'loaded', tenantCount: 0},
+            {status: 'loaded', tenantCount: 2}
+        ];
+
+        for (const bootstrap of cases) {
+            const service = createService({
+                taskStateService: {
+                    getTaskState() {
+                        return null;
+                    }
+                },
+                tenantRepoSyncService: {
+                    async resolveTenantReposConfig() {
+                        return {
+                            tenantRepos      : [],
+                            configDiagnostics: {
+                                bootstrap: {
+                                    ...bootstrap,
+                                    errorCode   : null,
+                                    messageClass: null
+                                }
+                            }
+                        };
+                    },
+                    defaultRevisionsFilePath() {
+                        return '/state/revisions.json';
+                    },
+                    async readPersistedRevisions() {
+                        return {};
+                    }
+                },
+                tenantRepoSyncEnabledReader: () => true
+            });
+
+            const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+            expect(tenantRepoSync.status).toBe('no-configured-repos');
+            expect(tenantRepoSync.config).toMatchObject({
+                status   : 'available',
+                repoCount: 0,
+                bootstrap
+            });
+            expect(tenantRepoSync.config.errors).toEqual([]);
+            service.destroy();
+        }
+    });
+
+    for (const failure of [
+        {
+            status      : 'read-failed',
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+            messageClass: 'filesystem-read'
+        },
+        {
+            status      : 'parse-failed',
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+            messageClass: 'yaml-parse'
+        },
+        {
+            status      : 'invalid-shape',
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_INVALID_SHAPE',
+            messageClass: 'document-shape'
+        }
+    ]) {
+        test(`collectTenantRepoSyncSnapshot degrades ${failure.status} while preserving fallback repo counts`, async () => {
+            const service = createService({
+                taskStateService: {
+                    getTaskState() {
+                        return null;
+                    }
+                },
+                tenantRepoSyncService: {
+                    async resolveTenantReposConfig() {
+                        return {
+                            tenantRepos: [{
+                                tenantId     : 'private-tenant',
+                                repoSlug     : 'private/repo',
+                                cloneUrl     : 'https://git.example/private/repo.git',
+                                credentialRef: 'env:TOKEN',
+                                configTier   : 'aiConfig'
+                            }],
+                            configDiagnostics: {
+                                bootstrap: {
+                                    status      : failure.status,
+                                    tenantCount : 999,
+                                    errorCode   : 'token-secret',
+                                    messageClass: 'stack-secret',
+                                    path        : '/srv/private/kb-config.yaml',
+                                    rawYaml     : 'yaml-secret',
+                                    document    : {
+                                        tenants: {
+                                            'private-tenant': {
+                                                cloneUrl: 'https://token-secret@git.example/private/repo.git'
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    },
+                    defaultRevisionsFilePath() {
+                        return '/state/revisions.json';
+                    },
+                    async readPersistedRevisions() {
+                        return {};
+                    }
+                },
+                tenantRepoSyncEnabledReader: () => true
+            });
+
+            const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+            expect(tenantRepoSync.status).toBe('degraded');
+            expect(tenantRepoSync.config).toMatchObject({
+                status   : 'degraded',
+                repoCount: 1,
+                bootstrap: {
+                    status      : failure.status,
+                    tenantCount : null,
+                    errorCode   : failure.errorCode,
+                    messageClass: failure.messageClass
+                },
+                errors: [{
+                    reason      : `kb-config-bootstrap-${failure.status}`,
+                    code        : failure.errorCode,
+                    messageClass: failure.messageClass
+                }]
+            });
+            expect(tenantRepoSync.repos).toHaveLength(1);
+            expect(tenantRepoSync.errors).toEqual([]);
+
+            const serialized = JSON.stringify(tenantRepoSync);
+            expect(serialized).not.toContain('private-tenant');
+            expect(serialized).not.toContain('private/repo');
+            expect(serialized).not.toContain('TOKEN');
+            expect(serialized).not.toContain('/srv/private');
+            expect(serialized).not.toContain('token-secret');
+            expect(serialized).not.toContain('stack-secret');
+            expect(serialized).not.toContain('yaml-secret');
+            service.destroy();
+        });
+    }
 
     test('collectTenantRepoSyncSnapshot reports not-due repos with hashed identities only', async () => {
         const service = createService({

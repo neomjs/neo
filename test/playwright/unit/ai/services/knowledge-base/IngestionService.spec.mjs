@@ -735,6 +735,191 @@ test.describe('IngestionService.ingestSourceFiles', () => {
     });
 });
 
+test.describe('IngestionService.readKbConfigBootstrapResult (#15749)', () => {
+    let Service;
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
+    });
+
+    test('distinguishes a missing optional bootstrap without degrading it', () => {
+        const error = new Error('/srv/private/kb-config.yaml was not found');
+        error.code = 'ENOENT';
+
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    throw error;
+                }
+            }
+        });
+
+        expect(result).toEqual({
+            status      : 'missing',
+            document    : null,
+            tenantCount : 0,
+            errorCode   : null,
+            messageClass: null
+        });
+        expect(JSON.stringify(result)).not.toContain('/srv/private');
+    });
+
+    test('returns a bounded read-failed diagnostic without the raw filesystem error', () => {
+        const error = new Error('EACCES: token-secret at /srv/private/kb-config.yaml');
+        error.code = 'EACCES';
+
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    throw error;
+                }
+            }
+        });
+
+        expect(result).toEqual({
+            status      : 'read-failed',
+            document    : null,
+            tenantCount : null,
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+            messageClass: 'filesystem-read'
+        });
+
+        const serialized = JSON.stringify(result);
+        expect(serialized).not.toContain('token-secret');
+        expect(serialized).not.toContain('/srv/private');
+        expect(serialized).not.toContain('EACCES');
+    });
+
+    test('distinguishes malformed YAML without retaining source content or parser messages', () => {
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    return 'tenants:\n  tenant-a: [token-secret';
+                }
+            }
+        });
+
+        expect(result).toEqual({
+            status      : 'parse-failed',
+            document    : null,
+            tenantCount : null,
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+            messageClass: 'yaml-parse'
+        });
+        expect(JSON.stringify(result)).not.toContain('token-secret');
+        expect(JSON.stringify(result)).not.toContain('tenant-a');
+    });
+
+    test('distinguishes an empty YAML document as a non-error state', () => {
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    return '# intentionally empty\n';
+                }
+            }
+        });
+
+        expect(result).toEqual({
+            status      : 'empty',
+            document    : null,
+            tenantCount : 0,
+            errorCode   : null,
+            messageClass: null
+        });
+    });
+
+    test('rejects invalid top-level and tenants shapes without projecting parsed content', () => {
+        for (const source of [
+            '- tenant-a',
+            '{}',
+            'tenants:\n  - tenant-a'
+        ]) {
+            const result = Service.readKbConfigBootstrapResult({
+                fileSystem: {
+                    readFileSync() {
+                        return source;
+                    }
+                }
+            });
+
+            expect(result).toEqual({
+                status      : 'invalid-shape',
+                document    : null,
+                tenantCount : null,
+                errorCode   : 'KB_CONFIG_BOOTSTRAP_INVALID_SHAPE',
+                messageClass: 'document-shape'
+            });
+            expect(JSON.stringify(result)).not.toContain('tenant-a');
+        }
+    });
+
+    test('loads a valid empty tenants map with an explicit zero count', () => {
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    return 'tenants: {}';
+                }
+            }
+        });
+
+        expect(result).toEqual({
+            status      : 'loaded',
+            document    : {tenants: {}},
+            tenantCount : 0,
+            errorCode   : null,
+            messageClass: null
+        });
+    });
+
+    test('loads valid configured tenants and reports only their count beside the document', () => {
+        const result = Service.readKbConfigBootstrapResult({
+            fileSystem: {
+                readFileSync() {
+                    return [
+                        'tenants:',
+                        '  tenant-a:',
+                        '    tenantRepos: []',
+                        '  tenant-b:',
+                        '    useDefaultSources: false'
+                    ].join('\n');
+                }
+            }
+        });
+
+        expect(result.status).toBe('loaded');
+        expect(result.tenantCount).toBe(2);
+        expect(Object.keys(result.document.tenants)).toEqual(['tenant-a', 'tenant-b']);
+        expect(result.errorCode).toBeNull();
+        expect(result.messageClass).toBeNull();
+    });
+
+    test('keeps readKbConfigBootstrap as the document-only compatibility path', () => {
+        const original = Service.readKbConfigBootstrapResult;
+
+        try {
+            Service.readKbConfigBootstrapResult = () => ({
+                status      : 'loaded',
+                document    : {tenants: {}},
+                tenantCount : 0,
+                errorCode   : null,
+                messageClass: null
+            });
+            expect(Service.readKbConfigBootstrap()).toEqual({tenants: {}});
+
+            Service.readKbConfigBootstrapResult = () => ({
+                status      : 'parse-failed',
+                document    : null,
+                tenantCount : null,
+                errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+                messageClass: 'yaml-parse'
+            });
+            expect(Service.readKbConfigBootstrap()).toBeNull();
+        } finally {
+            Service.readKbConfigBootstrapResult = original;
+        }
+    });
+});
+
 test.describe('IngestionService.tenantConfig (#11637)', () => {
     let Service;
     let originals;
@@ -949,19 +1134,39 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
     test.beforeEach(() => {
         graphStub = createGraphStub();
         originals = {
-            graphService         : Service.graphService,
-            readKbConfigBootstrap: Service.readKbConfigBootstrap
+            graphService               : Service.graphService,
+            readKbConfigBootstrapResult: Service.readKbConfigBootstrapResult
         };
         originalAiConfigRepos = aiConfig.tenantRepos;
 
-        Service.graphService          = graphStub;
-        Service.readKbConfigBootstrap = () => null;
+        Service.graphService = graphStub;
+        setBootstrapDiagnostic({
+            status      : 'missing',
+            document    : null,
+            tenantCount : 0,
+            errorCode   : null,
+            messageClass: null
+        });
     });
 
     test.afterEach(() => {
         Object.assign(Service, originals);
         aiConfig.tenantRepos = originalAiConfigRepos;
     });
+
+    function setBootstrapDiagnostic(diagnostic) {
+        Service.readKbConfigBootstrapResult = () => diagnostic;
+    }
+
+    function setBootstrapDocument(document) {
+        setBootstrapDiagnostic({
+            status      : 'loaded',
+            document,
+            tenantCount : Object.keys(document.tenants).length,
+            errorCode   : null,
+            messageClass: null
+        });
+    }
 
     function seedGraphConfig(tenantId, tenantRepos) {
         graphStub.store.set(`kb-config:${tenantId}`, {
@@ -972,14 +1177,14 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
     }
 
     test('flattens per-tenant yaml-tier tenantRepos across tenants and stamps tenantId', async () => {
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {
                 'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A'}]},
                 'tenant-b': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B'}]}
             }
         });
 
-        const {tenantRepos} = await Service.listConfiguredTenantRepos();
+        const {tenantRepos, configDiagnostics} = await Service.listConfiguredTenantRepos();
 
         expect(tenantRepos).toHaveLength(2);
         expect(tenantRepos.find(r => r.tenantId === 'tenant-a')).toMatchObject({
@@ -988,11 +1193,20 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
         expect(tenantRepos.find(r => r.tenantId === 'tenant-b')).toMatchObject({
             cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:B', configTier: 'yaml'
         });
+        expect(configDiagnostics).toEqual({
+            bootstrap: {
+                status      : 'loaded',
+                tenantCount : 2,
+                errorCode   : null,
+                messageClass: null
+            }
+        });
+        expect(configDiagnostics.bootstrap).not.toHaveProperty('document');
     });
 
     test('graph-node tier wins WHOLESALE over yaml for the same tenant (no within-tenant merge)', async () => {
         seedGraphConfig('tenant-a', [{cloneUrl: 'https://github.com/neomjs/graph.git', credentialRef: 'env:G'}]);
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/yaml.git', credentialRef: 'env:Y'}]}}
         });
 
@@ -1006,7 +1220,7 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
     test('includes graph-only tenantRepos discovered through the graph service enumeration surface', async () => {
         seedGraphConfig('graph-only-tenant', [{cloneUrl: 'https://github.com/neomjs/x.git', credentialRef: 'env:X'}]);
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:A'}]}}
         });
 
@@ -1026,7 +1240,7 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
     });
 
     test('propagates the access-contract rejection for a yaml entry missing credentialRef', async () => {
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/a.git'}]}}
         });
 
@@ -1041,13 +1255,13 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
     test('fails loud when graph-tier tenant discovery is unavailable', async () => {
         delete graphStub.listNodeRecordsByType;
-        Service.readKbConfigBootstrap = () => ({tenants: {'tenant-a': {tenantRepos: []}}});
+        setBootstrapDocument({tenants: {'tenant-a': {tenantRepos: []}}});
 
         await expect(Service.listConfiguredTenantRepos()).rejects.toThrow('GraphService.listNodeRecordsByType');
     });
 
     test('returns an empty array when no tenant declares tenantRepos', async () => {
-        Service.readKbConfigBootstrap = () => ({tenants: {'tenant-a': {useDefaultSources: false}}});
+        setBootstrapDocument({tenants: {'tenant-a': {useDefaultSources: false}}});
 
         const {tenantRepos} = await Service.listConfiguredTenantRepos();
         expect(tenantRepos).toEqual([]);
@@ -1058,7 +1272,7 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
         // the tenant; it must win wholesale even though the array is empty — selecting on length > 0
         // would leak the yaml/default repos back in (the cycle-1 fallback bug).
         seedGraphConfig('tenant-a', []);
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {'tenant-a': {tenantRepos: [{cloneUrl: 'https://github.com/neomjs/yaml.git', credentialRef: 'env:Y'}]}}
         });
 
@@ -1068,11 +1282,46 @@ test.describe('IngestionService.listConfiguredTenantRepos (#12145)', () => {
 
     test('yaml tier with empty tenantRepos suppresses the aiConfig default tier for that tenant (presence-based winner)', async () => {
         aiConfig.tenantRepos = [{tenantId: 'tenant-a', cloneUrl: 'https://github.com/neomjs/default.git', credentialRef: 'env:D'}];
-        Service.readKbConfigBootstrap = () => ({
+        setBootstrapDocument({
             tenants: {'tenant-a': {tenantRepos: []}}
         });
 
         const {tenantRepos} = await Service.listConfiguredTenantRepos();
         expect(tenantRepos).toEqual([]);
+    });
+
+    test('preserves fallback repos while reporting a bounded bootstrap read failure', async () => {
+        aiConfig.tenantRepos = [{
+            tenantId     : 'tenant-a',
+            cloneUrl     : 'https://github.com/neomjs/default.git',
+            credentialRef: 'env:D'
+        }];
+        setBootstrapDiagnostic({
+            status      : 'read-failed',
+            document    : null,
+            tenantCount : null,
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+            messageClass: 'filesystem-read',
+            rawMessage  : 'token-secret at /srv/private/kb-config.yaml'
+        });
+
+        const {tenantRepos, configDiagnostics} = await Service.listConfiguredTenantRepos();
+
+        expect(tenantRepos).toHaveLength(1);
+        expect(tenantRepos[0]).toMatchObject({
+            tenantId  : 'tenant-a',
+            configTier: 'aiConfig',
+            repoSlug  : 'github.com/neomjs/default'
+        });
+        expect(configDiagnostics).toEqual({
+            bootstrap: {
+                status      : 'read-failed',
+                tenantCount : null,
+                errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+                messageClass: 'filesystem-read'
+            }
+        });
+        expect(JSON.stringify(configDiagnostics)).not.toContain('token-secret');
+        expect(JSON.stringify(configDiagnostics)).not.toContain('/srv/private');
     });
 });

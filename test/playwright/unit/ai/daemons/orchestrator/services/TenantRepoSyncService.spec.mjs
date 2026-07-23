@@ -1570,6 +1570,34 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
         expect(overrides.mirrorRoot).toBe('/custom/root');
     });
 
+    test('preserves bounded bootstrap diagnostics while materializing mirror roots', async () => {
+        const bootstrap = {
+            status      : 'parse-failed',
+            tenantCount : null,
+            errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+            messageClass: 'yaml-parse'
+        };
+        const ingestionStub = {
+            listConfiguredTenantRepos: async () => ({
+                tenantRepos: [{
+                    tenantId     : 't1',
+                    repoSlug     : 'org/repo',
+                    cloneUrl     : 'https://github.com/neomjs/a.git',
+                    credentialRef: 'env:T'
+                }],
+                configDiagnostics: {bootstrap}
+            })
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            ingestionService: ingestionStub,
+            tier1MirrorRoot : '/app/.neo-ai-data'
+        });
+
+        expect(result.tenantRepos[0].mirrorRoot).toBe('/app/.neo-ai-data');
+        expect(result.configDiagnostics).toEqual({bootstrap});
+    });
+
     test('Tier-1 default + deriveTenantRepoMirrorPath produces canonical no-double-segment path', async () => {
         const ingestionStub = {
             listConfiguredTenantRepos: async () => ({tenantRepos: [

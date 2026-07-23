@@ -25,6 +25,38 @@ import {
     isRepoDue
 } from '../scheduling/tenantRepoSync.mjs';
 
+const KB_CONFIG_BOOTSTRAP_PROJECTION_BY_STATUS = Object.freeze({
+    missing: {
+        errorCode   : null,
+        messageClass: null
+    },
+    empty: {
+        errorCode   : null,
+        messageClass: null
+    },
+    loaded: {
+        errorCode   : null,
+        messageClass: null
+    },
+    'read-failed': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_READ_FAILED',
+        messageClass: 'filesystem-read'
+    },
+    'parse-failed': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_PARSE_FAILED',
+        messageClass: 'yaml-parse'
+    },
+    'invalid-shape': {
+        errorCode   : 'KB_CONFIG_BOOTSTRAP_INVALID_SHAPE',
+        messageClass: 'document-shape'
+    }
+});
+const KB_CONFIG_BOOTSTRAP_FAILURE_STATUSES = new Set([
+    'read-failed',
+    'parse-failed',
+    'invalid-shape'
+]);
+
 /**
  * @summary Writes a bounded, graph-independent deployment-state snapshot for KB/MC tools.
  *
@@ -612,7 +644,7 @@ export class DeploymentStateBridgeService extends Base {
 
             const resolvedConfig = await this.tenantRepoSyncService.resolveTenantReposConfig();
             repos = Array.isArray(resolvedConfig.tenantRepos) ? resolvedConfig.tenantRepos : [];
-            configSummary = summarizeTenantRepoConfig(repos);
+            configSummary = summarizeTenantRepoConfig(repos, resolvedConfig.configDiagnostics);
         } catch (error) {
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-config-read-failed'));
             configSummary = {
@@ -649,12 +681,19 @@ export class DeploymentStateBridgeService extends Base {
             recordType   : 'tenant-repo-sync-deployment-state',
             source,
             observedAt,
-            status       : classifyTenantRepoSyncStatus({enabled, taskState, repoCount: repos.length, schedulerDue: scheduler.due, errors}),
+            status       : classifyTenantRepoSyncStatus({
+                enabled,
+                taskState,
+                repoCount   : repos.length,
+                schedulerDue: scheduler.due,
+                configStatus: configSummary.status,
+                errors
+            }),
             enabled,
             scheduler,
-            task         : summarizeTenantRepoTaskState(taskState),
-            config       : configSummary,
-            repos        : repoStates,
+            task  : summarizeTenantRepoTaskState(taskState),
+            config: configSummary,
+            repos : repoStates,
             errors
         };
     }
@@ -833,7 +872,18 @@ function summarizeDiagnosticError(error, reason) {
     };
 }
 
-function summarizeTenantRepoConfig(repos) {
+/**
+ * @summary Summarizes effective tenant-repo config and projects bounded bootstrap provenance.
+ *
+ * Bootstrap document content never crosses this public diagnostic boundary. Failure fields are
+ * derived from the allowlisted status rather than copied from the upstream payload, preventing a
+ * malformed diagnostic from carrying paths, YAML, tenant identities, credentials, or raw messages.
+ *
+ * @param {Object[]} repos Effective tenant repository entries.
+ * @param {Object} [configDiagnostics] Resolver-owned bounded config diagnostics.
+ * @returns {Object}
+ */
+function summarizeTenantRepoConfig(repos, configDiagnostics) {
     const tierCounts    = {};
     let   disabledCount = 0;
 
@@ -846,12 +896,64 @@ function summarizeTenantRepoConfig(repos) {
         }
     }
 
+    const
+        bootstrap = summarizeKbConfigBootstrapDiagnostic(
+            configDiagnostics && configDiagnostics.bootstrap
+        ),
+        errors = bootstrap && KB_CONFIG_BOOTSTRAP_FAILURE_STATUSES.has(bootstrap.status)
+            ? [{
+                reason      : `kb-config-bootstrap-${bootstrap.status}`,
+                code        : bootstrap.errorCode,
+                messageClass: bootstrap.messageClass
+            }]
+            : [];
+
     return {
-        status   : 'available',
+        status   : errors.length > 0 ? 'degraded' : 'available',
         repoCount: repos.length,
         disabledCount,
         tierCounts,
-        errors   : []
+        bootstrap,
+        errors
+    };
+}
+
+/**
+ * @summary Reduces an internal bootstrap diagnostic to the public allowlisted projection.
+ * @param {*} diagnostic Candidate resolver diagnostic.
+ * @returns {Object|null} Safe bootstrap state, or `null` for a legacy absent diagnostic.
+ */
+function summarizeKbConfigBootstrapDiagnostic(diagnostic) {
+    if (diagnostic === null || diagnostic === undefined) {
+        return null;
+    }
+
+    const
+        candidateStatus = typeof diagnostic === 'object' && diagnostic
+            ? diagnostic.status
+            : null,
+        status = Object.hasOwn(KB_CONFIG_BOOTSTRAP_PROJECTION_BY_STATUS, candidateStatus)
+            ? candidateStatus
+            : 'invalid-shape',
+        projection = KB_CONFIG_BOOTSTRAP_PROJECTION_BY_STATUS[status];
+
+    let tenantCount = null;
+
+    if (status === 'missing' || status === 'empty') {
+        tenantCount = 0;
+    } else if (
+        status === 'loaded' &&
+        Number.isInteger(diagnostic.tenantCount) &&
+        diagnostic.tenantCount >= 0
+    ) {
+        tenantCount = diagnostic.tenantCount;
+    }
+
+    return {
+        status,
+        tenantCount,
+        errorCode   : projection.errorCode,
+        messageClass: projection.messageClass
     };
 }
 
@@ -943,8 +1045,23 @@ function summarizeTenantRepoState({repo, observedAt, taskState, persistedRepoSta
     };
 }
 
-function classifyTenantRepoSyncStatus({enabled, taskState, repoCount, schedulerDue, errors}) {
+/**
+ * @summary Classifies the tenant-repo-sync deployment state, including fail-honest config diagnostics.
+ * @param {Object} options
+ * @param {Boolean|null} options.enabled Runtime enablement.
+ * @param {Object|null} options.taskState Persisted task state.
+ * @param {Number} options.repoCount Effective repository count.
+ * @param {Boolean|null} options.schedulerDue Scheduler due state.
+ * @param {String} options.configStatus Config diagnostic status.
+ * @param {Object[]} options.errors Snapshot collection failures.
+ * @returns {String}
+ */
+function classifyTenantRepoSyncStatus({enabled, taskState, repoCount, schedulerDue, configStatus, errors}) {
     if (errors.length > 0) {
+        return 'degraded';
+    }
+
+    if (configStatus === 'degraded') {
         return 'degraded';
     }
 
