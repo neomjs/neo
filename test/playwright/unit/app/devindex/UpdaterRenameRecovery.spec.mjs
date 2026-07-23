@@ -20,6 +20,7 @@ test.describe.serial('DevIndex Updater rename recovery (#11516)', () => {
         originalGetLowestContributionThreshold,
         originalGetUsers,
         originalRateLimit,
+        originalRefreshGraphqlRateLimit,
         originalUpdateFailed,
         originalUpdateTracker,
         originalUpdateUsers,
@@ -33,6 +34,7 @@ test.describe.serial('DevIndex Updater rename recovery (#11516)', () => {
         originalGetLowestContributionThreshold = Storage.getLowestContributionThreshold;
         originalGetUsers                      = Storage.getUsers;
         originalRateLimit                     = GitHub.rateLimit;
+        originalRefreshGraphqlRateLimit        = GitHub.refreshGraphqlRateLimit;
         originalUpdateFailed                  = Storage.updateFailed;
         originalUpdateTracker                 = Storage.updateTracker;
         originalUpdateUsers                   = Storage.updateUsers;
@@ -49,8 +51,17 @@ test.describe.serial('DevIndex Updater rename recovery (#11516)', () => {
             core: {
                 limit    : 5000,
                 remaining: 5000
+            },
+            graphql: {
+                cost        : 0,
+                limit       : 1000,
+                observedCost: 0,
+                remaining   : 1000,
+                reserved    : 0,
+                reset       : null
             }
         };
+        GitHub.refreshGraphqlRateLimit          = async () => GitHub.rateLimit.graphql;
 
         Storage.getAllowlist                  = async () => new Set();
         Storage.getLowestContributionThreshold = async () => 0;
@@ -70,6 +81,7 @@ test.describe.serial('DevIndex Updater rename recovery (#11516)', () => {
         Updater.fetchUserData                 = originalFetchUserData;
         GitHub.getLoginByDatabaseId          = originalGetLoginByDatabaseId;
         GitHub.rateLimit                     = originalRateLimit;
+        GitHub.refreshGraphqlRateLimit        = originalRefreshGraphqlRateLimit;
         Storage.getAllowlist                 = originalGetAllowlist;
         Storage.getLowestContributionThreshold = originalGetLowestContributionThreshold;
         Storage.getUsers                     = originalGetUsers;
@@ -124,6 +136,28 @@ test.describe.serial('DevIndex Updater rename recovery (#11516)', () => {
             {login: '0xBigBoss', delete: true},
             {login: 'alleneubank', lastUpdate: replacement.lu}
         ]);
+        expect(calls.failedUpdates).toEqual([]);
+    });
+
+    test('primary exhaustion during replacement fetch leaves the old login immediately retryable', async () => {
+        GitHub.getLoginByDatabaseId = async () => 'alleneubank';
+
+        Updater.fetchUserData = async login => {
+            if (login === '0xBigBoss') {
+                throw new Error('NOT_FOUND');
+            }
+
+            const error = new Error('API rate limit already exceeded for site ID installation.');
+
+            error.code = 'GRAPHQL_PRIMARY_RATE_LIMIT';
+            throw error
+        };
+
+        await Updater.processBatch(['0xBigBoss']);
+
+        expect(calls.deleteUsers).toEqual([]);
+        expect(calls.users).toEqual([]);
+        expect(calls.tracker).toEqual([]);
         expect(calls.failedUpdates).toEqual([]);
     });
 });

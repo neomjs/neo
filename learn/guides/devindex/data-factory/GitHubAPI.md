@@ -27,38 +27,45 @@ The DevIndex requires both deep, structured data and broad, shallow data. The Gi
 
 ---
 
-## 3. Advanced Rate Limit & Abuse Handling
+## 3. GraphQL Budget & Abuse Handling
 
-GitHub's API enforces strict rate limits (typically 5,000 points per hour for GraphQL) and secondary abuse detection mechanisms. The `GitHub` service is designed to be highly resilient against these constraints.
+GitHub's GraphQL allowance depends on how a request is authenticated. In particular, the repository `GITHUB_TOKEN` used by a GitHub Actions workflow receives **1,000 points per hour per repository**, rather than the 5,000-point user or baseline GitHub App allowance. The current values and exceptions are documented in GitHub's [GraphQL primary rate limits](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api#primary-rate-limit).
 
-### Header & Body Parsing
-The service tracks rate limits across multiple "buckets" (`core`, `search`, `graphql`). It updates its internal state dynamically by parsing the `x-ratelimit-*` headers attached to every response.
+The `GitHub` service therefore treats GraphQL points as their own admission currency. REST `core` capacity never stands in for GraphQL capacity.
 
-For GraphQL, it also hooks into the `rateLimit` object returned within the JSON body, which provides the most accurate reflection of the complex query costs.
+### Authoritative Snapshot & Response Cost
 
-### GraphQL Backoff
-GraphQL requests retain their existing bounded retry policy for server failures and `403` responses. A `403` with quota remaining is treated as secondary abuse detection and receives a longer cooldown; a depleted quota remains visible through the tracked `graphql` bucket.
+Before DevIndex admits updater work, `refreshGraphqlRateLimit()` reads `resources.graphql` from GitHub's REST `/rate_limit` endpoint. GitHub documents that this endpoint does not consume REST primary quota and that its response reports the independent GraphQL bucket. Every updater GraphQL operation also selects:
 
-```javascript
-if ((response.status >= 500 || response.status === 403) && retries > 0) {
-    let delay = (4 - retries) * 2000; // Default: 2s, 4s, 6s
-
-    // Secondary Rate Limit (Abuse Detection) Handling
-    if (response.status === 403) {
-        const bucket = this.rateLimit.graphql;
-        // If we have quota remaining but get a 403, it's an abuse trigger.
-        if (bucket.remaining > 0) {
-            delay = 10000; // 10s penalty box
-        }
-    }
-    // ... retry
+```graphql
+rateLimit {
+    cost
+    remaining
+    limit
+    resetAt
 }
 ```
 
-This path is GraphQL-specific. Its caller-supplied retry budget and secondary-abuse handling should not be confused with the independently configurable REST policy.
+The service updates `cost`, `remaining`, `limit`, and reset metadata after each response. Concurrent responses in the same reset window may lower the shared `remaining` value but cannot raise it when an older response arrives late. Capacity metadata from an older reset window cannot regress a newer snapshot; its already-incurred query cost still contributes to run telemetry.
+
+### Atomic Reservations
+
+`reserveGraphqlBudget(cost, reserve, context)` synchronously subtracts an in-flight reservation before a caller starts work. Sibling promises therefore cannot all admit against the same stale snapshot. `releaseGraphqlBudget()` is idempotent and returns unused capacity when that unit of work settles.
+
+The DevIndex updater reserves at most 32 points per admitted user and keeps 100 points untouched for the downstream content-index and SEO rebuild. These are conservative admission bounds, not an assertion that every user costs 32 points: response-reported `cost` and `remaining` continue to govern each later wave.
+
+### Primary Exhaustion vs. Per-Query Resource Limits
+
+Primary point exhaustion and a single query exceeding GitHub's resource ceiling are separate failure classes:
+
+- `GRAPHQL_PRIMARY_RATE_LIMIT` stops new admission immediately. It is not retried and cannot fan out into more requests.
+- `GRAPHQL_RESOURCE_LIMIT` tells the Updater that one multi-year contribution query was too large. Only that bounded window may split into single-year queries.
+- A `403` while GraphQL points remain is treated as secondary abuse detection and retains bounded backoff.
+
+GitHub explicitly advises clients not to retry primary-limit failures before the reported reset time. Its separate [resource-limit guidance](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api#other-resource-limits) recommends simplifying or splitting an oversized query.
 
 ### GraphQL Transient Retry & the Read/Mutation Boundary
-Beyond the server-failure/`403` policy above, the GraphQL path also retries **transient** failures — transport disconnects and GitHub's intermittent 200-body API errors (e.g. `Resource not accessible by integration`) — classified from the same shared `retryableTransientErrorPatterns` source of truth the REST path uses, so the two transports cannot drift into separate hand-maintained lists. Backoff uses the shared `restRetryBaseDelayMs` / `restRetryMaxDelayMs` / `restRetryJitterRatio` configs; their legacy REST-prefixed names remain stable for operator compatibility even though both transports now consume them.
+The GraphQL path retries **transient** failures — transport disconnects and GitHub's intermittent 200-body API errors (e.g. `Resource not accessible by integration`) — classified from the same shared `retryableTransientErrorPatterns` source of truth the REST path uses, so the two transports cannot drift into separate hand-maintained lists. Backoff uses the shared `restRetryBaseDelayMs` / `restRetryMaxDelayMs` / `restRetryJitterRatio` configs; their legacy REST-prefixed names remain stable for operator compatibility even though both transports now consume them.
 
 Retry **classification** (is the failure transient?) and retry **authorization** (is replay safe?) are separate decisions. A GraphQL `query` is idempotent by spec and safe to replay; a `mutation` is not. A transport disconnect leaves a mutation's server-side outcome unknowable, and a 200-body GraphQL response can carry partial `data` beside `errors` after mutation effects have applied. Mutations therefore fail loud rather than replay on either transient path; idempotent reads retain the bounded retry.
 

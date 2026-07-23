@@ -42,6 +42,7 @@ test.describe('DevIndex GitHub service', () => {
 
         process.env.GH_TOKEN                    = 'devindex-unit-test-token';
         restClient                              = new GitHub.constructor();
+        restClient.rateLimit                    = structuredClone(GitHub.rateLimit);
         restClient.restMaxRetryAttempts         = 2;
         restClient.restRetryBaseDelayMs         = 0;
         restClient.restRetryMaxDelayMs          = 0;
@@ -359,6 +360,146 @@ test.describe('DevIndex GitHub service', () => {
     // GraphQL error, transient despite its permissions wording) as fatal on attempt 1, though OptIn calls
     // query() with 3 retries. These pin the retry — and, per the AC, that it still gives up.
 
+    test('query captures response-reported GraphQL cost and reset metadata', async () => {
+        const resetAt = '2026-07-23T10:00:00Z';
+
+        globalThis.fetch = async () => jsonResponse({
+            data: {
+                rateLimit: {
+                    cost     : 7,
+                    limit    : 1000,
+                    remaining: 731,
+                    resetAt
+                },
+                viewer: {login: 'emmy'}
+            }
+        }, {
+            headers: {
+                'x-ratelimit-limit'    : '1000',
+                'x-ratelimit-remaining': '731',
+                'x-ratelimit-reset'    : String(Date.parse(resetAt) / 1000),
+                'x-ratelimit-resource' : 'graphql'
+            }
+        });
+
+        await expect(restClient.query('query { viewer { login } rateLimit { cost remaining resetAt } }'))
+            .resolves.toMatchObject({viewer: {login: 'emmy'}});
+
+        expect(restClient.rateLimit.graphql).toMatchObject({
+            cost     : 7,
+            limit    : 1000,
+            remaining: 731,
+            reset    : Date.parse(resetAt) / 1000
+        });
+    });
+
+    test('a late response from an older reset window cannot regress current GraphQL capacity', async () => {
+        const snapshots = [
+            {
+                cost     : 1,
+                limit    : 1000,
+                remaining: 900,
+                resetAt  : '2026-07-23T11:00:00Z'
+            },
+            {
+                cost     : 2,
+                limit    : 1000,
+                remaining: 9,
+                resetAt  : '2026-07-23T10:00:00Z'
+            }
+        ];
+
+        globalThis.fetch = async () => {
+            const rateLimit = snapshots.shift();
+
+            return jsonResponse({
+                data: {
+                    rateLimit,
+                    viewer: {login: 'emmy'}
+                }
+            }, {
+                headers: {
+                    'x-ratelimit-limit'    : String(rateLimit.limit),
+                    'x-ratelimit-remaining': String(rateLimit.remaining),
+                    'x-ratelimit-reset'    : String(Date.parse(rateLimit.resetAt) / 1000),
+                    'x-ratelimit-resource' : 'graphql'
+                }
+            })
+        };
+
+        await restClient.query('query { viewer { login } rateLimit { cost remaining resetAt } }');
+        await restClient.query('query { viewer { login } rateLimit { cost remaining resetAt } }');
+
+        expect(restClient.rateLimit.graphql).toMatchObject({
+            observedCost: 3,
+            remaining   : 900,
+            reset       : Date.parse('2026-07-23T11:00:00Z') / 1000
+        });
+    });
+
+    test('GraphQL reservations atomically preserve the downstream reserve', () => {
+        restClient.rateLimit.graphql = {
+            cost        : 0,
+            limit       : 1000,
+            observedCost: 0,
+            remaining   : 196,
+            reserved    : 0,
+            reset       : null
+        };
+
+        const first  = restClient.reserveGraphqlBudget(32, 100, 'first');
+        const second = restClient.reserveGraphqlBudget(32, 100, 'second');
+        const third  = restClient.reserveGraphqlBudget(32, 100, 'third');
+        const fourth = restClient.reserveGraphqlBudget(32, 100, 'fourth');
+
+        expect(first).toBeTruthy();
+        expect(second).toBeTruthy();
+        expect(third).toBeTruthy();
+        expect(fourth).toBeNull();
+        expect(restClient.getGraphqlBudget(100)).toMatchObject({
+            available: 0,
+            remaining: 196,
+            reserve  : 100,
+            reserved : 96
+        });
+
+        expect(restClient.releaseGraphqlBudget(second)).toBe(true);
+        expect(restClient.releaseGraphqlBudget(second), 'release is idempotent').toBe(false);
+        expect(restClient.reserveGraphqlBudget(32, 100, 'replacement')).toBeTruthy();
+    });
+
+    test('query classifies primary exhaustion without retrying it as a resource-limit failure', async () => {
+        let callCount = 0;
+
+        globalThis.fetch = async () => {
+            callCount++;
+
+            return jsonResponse({
+                data: {
+                    rateLimit: {
+                        cost     : 1,
+                        limit    : 1000,
+                        remaining: 0,
+                        resetAt  : '2026-07-23T10:00:00Z'
+                    }
+                },
+                errors: [{message: 'API rate limit already exceeded for site ID installation.'}]
+            }, {
+                headers: {
+                    'x-ratelimit-limit'    : '1000',
+                    'x-ratelimit-remaining': '0',
+                    'x-ratelimit-resource' : 'graphql'
+                }
+            });
+        };
+
+        const error = await restClient.query('query { viewer { login } }', {}, 3).catch(value => value);
+
+        expect(error.code).toBe('GRAPHQL_PRIMARY_RATE_LIMIT');
+        expect(restClient.isGraphqlResourceLimitError(error)).toBe(false);
+        expect(callCount).toBe(1);
+    });
+
     test('query retries the transient "Resource not accessible by integration" body error, then succeeds', async () => {
         let callCount = 0;
 
@@ -510,12 +651,11 @@ test.describe('DevIndex GitHub service', () => {
         expect(readCalls, 'an idempotent read retries the same transient failure').toBe(2);
     });
 
-    test('query does NOT replay a mutation after a 5xx server error — a read retries, and a 403 rate-limit still replays either (#15454)', async () => {
+    test('query does NOT replay a mutation after a 5xx; reads retry, while primary-limit 403 fails fast (#15454, #15745)', async () => {
         // A `>= 500` leaves a MUTATION's server-side outcome ambiguous (the write may have applied before
-        // the error), so it is not replayed — an idempotent read is. A `403` is a pre-execution rate-limit
-        // rejection (the write never ran), so it is always safe to replay, mutation or not. retries=4 zeroes
-        // this path's hardcoded `(4 - retries) * 2000` first-retry backoff — unlike the transient-body path
-        // it is not wired to the configurable delay knobs (a noted follow-up).
+        // the error), so it is not replayed — an idempotent read is. A `403` with zero GraphQL points is
+        // primary exhaustion: replay may be side-effect safe but cannot succeed before reset, so the
+        // client requires a typed fail-fast result. retries=4 zeroes the 5xx first-retry backoff.
         const mutationDoc = `
             mutation($subjectId: ID!, $body: String!) {
                 addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
@@ -539,19 +679,24 @@ test.describe('DevIndex GitHub service', () => {
             .resolves.toEqual({viewer: {login: 'ada'}});
         expect(readCalls, 'an idempotent read retries the same 5xx').toBe(2);
 
-        // MUTATION on a 403: IS replayed — a pre-execution rate-limit reject never ran the write. A zero
-        // remaining bucket keeps it on the standard backoff (a >0 quota would trip the 10s abuse penalty).
+        // MUTATION on a primary-limit 403: NOT replayed — zero remaining cannot recover before reset.
         restClient.rateLimit.graphql.remaining = 0;
         let rateLimitedMutationCalls = 0;
         globalThis.fetch = async () => {
             rateLimitedMutationCalls++;
-            return rateLimitedMutationCalls === 1
-                ? new Response('', {status: 403, statusText: 'Forbidden'})
-                : jsonResponse({data: {addComment: {clientMutationId: 'ok'}}});
+            return new Response('', {
+                status    : 403,
+                statusText: 'Forbidden',
+                headers   : {
+                    'x-ratelimit-remaining': '0',
+                    'x-ratelimit-resource' : 'graphql'
+                }
+            });
         };
-        await expect(restClient.query(mutationDoc, {}, 4, 'OptIn Comment'))
-            .resolves.toEqual({addComment: {clientMutationId: 'ok'}});
-        expect(rateLimitedMutationCalls, 'a 403 rate-limit is pre-execution, so a mutation safely replays').toBe(2);
+        const rateLimitError = await restClient.query(mutationDoc, {}, 4, 'OptIn Comment').catch(error => error);
+
+        expect(rateLimitError.code).toBe('GRAPHQL_PRIMARY_RATE_LIMIT');
+        expect(rateLimitedMutationCalls, 'a depleted primary budget cannot recover by replaying').toBe(1);
     });
 
     test('query does NOT replay a mutation after an in-body gateway (502/504) error — a read retries (#15454)', async () => {

@@ -102,7 +102,7 @@
         "devindex:optout"                      : "node ./apps/devindex/services/cli.mjs optout",
         "devindex:spider"                      : "node ./apps/devindex/services/cli.mjs spider",
         "cockpit"                              : "node ./buildScripts/devCockpit.mjs",
-        "devindex:update"                      : "node ./apps/devindex/services/cli.mjs update --limit 500",
+        "devindex:update"                      : "node ./apps/devindex/services/cli.mjs update --limit 200",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "prepare"                              : "if [ \"$npm_config_package_lock_only\" = \"true\" ]; then exit 0; fi; husky && node ./ai/scripts/setup/initServerConfigs.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
