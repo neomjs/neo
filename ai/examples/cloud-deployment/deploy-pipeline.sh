@@ -23,8 +23,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../ai/deploy/docker-compose.yml}"
 
-# A stable project name pins named-volume identity across redeploys.
+# A stable project name pins named-volume identity across redeploys. Export the
+# same value consumed by docker-compose.yml for its top-level project name and
+# the orchestrator runtime-access target identity.
 PROJECT_NAME="${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}"
+export NEO_DEPLOY_PROJECT_NAME="$PROJECT_NAME"
 
 # Profiles to deploy. Default: the full cloud stack + ingress. Override by
 # passing profile names as arguments, or via NEO_DEPLOY_PROFILES.

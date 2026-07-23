@@ -148,6 +148,13 @@ A named volume is **container-recreation durability**, not disaster recovery.
 The current backup bundle does not copy `orchestrator-state`; include that
 volume in an explicit off-host backup policy before claiming host-loss recovery.
 
+The canonical Compose file has one deployment identity:
+`NEO_DEPLOY_PROJECT_NAME` (default `neo-agent-os`). Its top-level `name` creates
+the Docker project labels and named-volume namespace; the same value configures
+the orchestrator's constrained runtime-access lookup. Set it once before the
+first startup and reuse it for inspection, self-heal, and every redeploy. Do not
+pass a conflicting `-p` / `--project-name` value on individual commands.
+
 The orchestrator consumes model-provider endpoints for `summary`, `dream`, and
 similar lanes. External provider endpoints are the MVP default. A self-hosted
 provider container is a profile variant and should not be coupled to the

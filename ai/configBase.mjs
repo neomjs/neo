@@ -668,8 +668,9 @@ class ConfigBase extends ConfigProvider {
                  * - `lifecycleOperations`: restart for recovery.
                  *
                  * `allowedServices` names Docker Compose service labels, not arbitrary
-                 * container ids. `composeProject` is optional for single-stack deployments;
-                 * set it when a host runs multiple Neo compose projects on one Docker socket.
+                 * container ids. When runtime access is enabled, `composeProject` is mandatory:
+                 * `(composeProject, composeService)` is the target identity even on a host that
+                 * currently runs only one stack.
                  *
                  * Env overrides:
                  * `NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED`,
