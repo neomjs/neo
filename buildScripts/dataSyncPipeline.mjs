@@ -47,7 +47,7 @@ const
             label  : 'DevIndex Spider'
         },
         {
-            args   : ['run', 'devindex:update', '--', '--limit=800'],
+            args   : ['run', 'devindex:update', '--', '--limit=200'],
             command: 'npm',
             label  : 'DevIndex Updater'
         },

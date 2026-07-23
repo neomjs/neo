@@ -1,9 +1,9 @@
-import Base from '../../../src/core/Base.mjs';
-import config from './config.mjs';
-import GitHub from './GitHub.mjs';
-import Heuristics from './Heuristics.mjs';
+import Base               from '../../../src/core/Base.mjs';
+import config             from './config.mjs';
+import GitHub             from './GitHub.mjs';
+import Heuristics         from './Heuristics.mjs';
 import LocationNormalizer from './LocationNormalizer.mjs';
-import Storage from './Storage.mjs';
+import Storage            from './Storage.mjs';
 
 /**
  * @summary User Enrichment & Filtering Service.
@@ -48,7 +48,8 @@ class Updater extends Base {
      *
      * **Safe Purge Protocol (Self-Healing):**
      * This method implements a defensive strategy for handling API errors:
-     * 1.  **Transient Errors (5xx, Rate Limits):** Users are moved to the "Penalty Box" (`failed.json`) to be retried later.
+     * 1.  **Transient Errors (5xx):** Users are moved to the "Penalty Box" (`failed.json`) to be retried later.
+     *     Primary GraphQL exhaustion instead stops run-level admission without mutating the interrupted user.
      * 2.  **Fatal Errors (404, Not a User):**
      *     -   **If User Has History:** If the user exists in `users.jsonl`, we assume the 404 is a glitch or temporary suspension. They are **Protected** and moved to the Penalty Box.
      *     -   **If User Is New:** If the user has *never* been successfully indexed, they are classified as a "Bad Seed" (e.g., leaked Organization, Typo). They are **Pruned** (deleted) from the tracker immediately.
@@ -72,14 +73,28 @@ class Updater extends Base {
         let successCount    = 0;
         let failCount       = 0;
         let skipCount       = 0;
-        const saveInterval  = config.updater.saveInterval;
-        const allowlist     = await Storage.getAllowlist();
-        const richUsers     = await Storage.getUsers();
-        const richUserMap   = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
-        const concurrency   = 8; // Slightly reduced from 10 to balance speed vs stability
+        let admittedCount   = 0;
+        let stopReason      = null;
+        const
+            concurrency       = config.updater.concurrency,
+            downstreamReserve = config.github.graphqlDownstreamReserve,
+            saveInterval      = config.updater.saveInterval,
+            userReservation   = config.github.graphqlUserReservation,
+            allowlist         = await Storage.getAllowlist(),
+            richUsers         = await Storage.getUsers(),
+            richUserMap       = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
 
-        const threshold     = await Storage.getLowestContributionThreshold();
-        const minTc         = Math.max(config.github.minTotalContributions, threshold);
+        await GitHub.refreshGraphqlRateLimit();
+
+        const initialBudget = GitHub.getGraphqlBudget(downstreamReserve);
+
+        console.log(
+            `[Updater] GraphQL budget: remaining=${initialBudget.remaining}/${initialBudget.limit}, ` +
+            `reserve=${initialBudget.reserve}, userReservation=${userReservation}, concurrency=${concurrency}`
+        );
+
+        const threshold = await Storage.getLowestContributionThreshold();
+        const minTc     = Math.max(config.github.minTotalContributions, threshold);
 
         // Helper to process a single user
         const processUser = async (login) => {
@@ -107,34 +122,49 @@ class Updater extends Base {
                     console.log(`[${login}] SKIPPED (No Data/Bot)`);
                 }
             } catch (error) {
+                if (error.code === 'GRAPHQL_PRIMARY_RATE_LIMIT') {
+                    stopReason ||= 'primary-rate-limit';
+                    console.warn(`[Updater] GraphQL primary budget exhausted while processing ${login}; stopping admission.`);
+                    return
+                }
+
                 const lowerLogin = login.toLowerCase();
                 const isFatal    = error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error');
                 const richUser   = richUserMap.get(lowerLogin);
 
                 // ID-Based Rename Handling
                 if (isFatal && richUser && richUser.i) {
-                     try {
-                         const newLogin = await GitHub.getLoginByDatabaseId(richUser.i);
-                         if (newLogin && newLogin.toLowerCase() !== lowerLogin) {
-                             console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
+                    try {
+                        const newLogin = await GitHub.getLoginByDatabaseId(richUser.i);
+                        if (newLogin && newLogin.toLowerCase() !== lowerLogin) {
+                            console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
 
-                             // Fetch the replacement before staging old-login deletion. If the
-                             // replacement fetch fails, the rich historical record must stay protected.
-                             const newData = await this.fetchUserData(newLogin);
-                             if (newData) {
-                                 indexUpdates.push({ login, delete: true }); // Tracker
-                                 prunedLogins.push(login); // Rich Data
-                                 results.push(newData);
-                                 indexUpdates.push({ login: newLogin, lastUpdate: newData.lu });
-                                 // Success for new user implies we handled the 'slot' for the old user effectively
-                                 successCount++;
-                                 console.log(`[${newLogin}] Rename recovery successful.`);
-                                 return; // Done
-                             }
-                         }
-                     } catch (renameErr) {
-                         console.warn(`[${login}] Rename check failed: ${renameErr.message}`);
-                     }
+                            // Fetch the replacement before staging old-login deletion. If the
+                            // replacement fetch fails, the rich historical record must stay protected.
+                            const newData = await this.fetchUserData(newLogin);
+                            if (newData) {
+                                indexUpdates.push({ login, delete: true }); // Tracker
+                                prunedLogins.push(login); // Rich Data
+                                results.push(newData);
+                                indexUpdates.push({ login: newLogin, lastUpdate: newData.lu });
+                                // Success for new user implies we handled the 'slot' for the old user effectively
+                                successCount++;
+                                console.log(`[${newLogin}] Rename recovery successful.`);
+                                return; // Done
+                            }
+                        }
+                    } catch (renameErr) {
+                        if (renameErr.code === 'GRAPHQL_PRIMARY_RATE_LIMIT') {
+                            stopReason ||= 'primary-rate-limit';
+                            console.warn(
+                                `[Updater] GraphQL primary budget exhausted while recovering ${login}; ` +
+                                'stopping admission.'
+                            );
+                            return
+                        }
+
+                        console.warn(`[${login}] Rename check failed: ${renameErr.message}`);
+                    }
                 }
 
                 if (isFatal && !richUser) {
@@ -152,30 +182,46 @@ class Updater extends Base {
                     failedLogins.push(login); // Add to Penalty Box
                     failCount++; // Count as processed even if failed
                 }
-
-                // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
-                if (error.message.includes('rate limit')) {
-                    console.warn(`[Updater] 🚨 Rate limit hit for ${login}. Forcing shutdown sequence.`);
-                    GitHub.rateLimit.core.remaining = 0;
-                }
             }
         };
 
-        // Process in chunks
-        for (let i = 0; i < logins.length; i += concurrency) {
-            // Rate Limit Check
-            if (GitHub.rateLimit.core.remaining < 50) {
-                console.warn(`\n[Updater] ⚠️ RATE LIMIT CRITICAL: ${GitHub.rateLimit.core.remaining} requests remaining.`);
-                if (GitHub.rateLimit.core.reset) {
-                    const resetDate = new Date(GitHub.rateLimit.core.reset * 1000);
-                    console.warn(`[Updater] Limit resets at: ${resetDate.toLocaleString()}`);
+        // Admit users in bounded waves. Reservations are synchronous, so every promise in a wave
+        // observes the capacity already held by its siblings instead of one shared stale snapshot.
+        let cursor = 0;
+
+        while (cursor < logins.length && stopReason === null) {
+            const wave = [];
+
+            while (wave.length < concurrency && cursor < logins.length) {
+                const
+                    login       = logins[cursor],
+                    reservation = GitHub.reserveGraphqlBudget(
+                        userReservation,
+                        downstreamReserve,
+                        login
+                    );
+
+                if (!reservation) {
+                    break
                 }
-                console.warn(`[Updater] Stopping gracefully to preserve quota.\n`);
-                break;
+
+                cursor++;
+                admittedCount++;
+                wave.push({login, reservation})
             }
 
-            const chunk = logins.slice(i, i + concurrency);
-            await Promise.all(chunk.map(login => processUser(login)));
+            if (wave.length === 0) {
+                stopReason = 'downstream-reserve';
+                break
+            }
+
+            await Promise.all(wave.map(async ({login, reservation}) => {
+                try {
+                    await processUser(login)
+                } finally {
+                    GitHub.releaseGraphqlBudget(reservation)
+                }
+            }));
 
             // Checkpoint Save
             if (results.length >= saveInterval) {
@@ -186,6 +232,14 @@ class Updater extends Base {
                 recoveredLogins = [];
                 prunedLogins    = [];
             }
+
+            const budget = GitHub.getGraphqlBudget(downstreamReserve);
+
+            console.log(
+                `[Updater] GraphQL budget: admitted=${admittedCount}/${logins.length}, ` +
+                `observedCost=${budget.observedCost}, remaining=${budget.remaining}, ` +
+                `reserved=${budget.reserved}, reserve=${budget.reserve}`
+            )
         }
 
         // Final Save for remaining items
@@ -198,6 +252,16 @@ class Updater extends Base {
         console.log(`[Updater] Successfully Updated: ${successCount}`);
         console.log(`[Updater] Skipped/Pruned: ${skipCount}`);
         console.log(`[Updater] Failed (Penalty Box): ${failCount}`);
+        console.log(`[Updater] Admitted by GraphQL budget: ${admittedCount}/${logins.length}`);
+
+        if (stopReason) {
+            const budget = GitHub.getGraphqlBudget(downstreamReserve);
+
+            console.log(
+                `[Updater] Stop reason: ${stopReason} ` +
+                `(remaining=${budget.remaining}, reserve=${budget.reserve}, reserved=${budget.reserved})`
+            )
+        }
 
         if (initialBacklog > 0) {
             const totalProcessed = successCount + skipCount + failCount;
@@ -225,7 +289,13 @@ class Updater extends Base {
         if (failedLogins.length    > 0) await Storage.updateFailed(failedLogins, true);
         if (recoveredLogins.length > 0) await Storage.updateFailed(recoveredLogins, false);
 
-        console.log(`[Updater] Checkpoint: Saved ${results.length} records, Pruned ${prunedLogins.length} old logins. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
+        const budget = GitHub.getGraphqlBudget(config.github.graphqlDownstreamReserve);
+
+        console.log(
+            `[Updater] Checkpoint: Saved ${results.length} records, Pruned ${prunedLogins.length} old logins. ` +
+            `(GraphQL: remaining=${budget.remaining}/${budget.limit}, reserve=${budget.reserve}, ` +
+            `observedCost=${budget.observedCost})`
+        )
     }
 
     /**
@@ -245,12 +315,12 @@ class Updater extends Base {
     async fetchUserData(username) {
         // 1. Fetch Basic Profile & Social Accounts (GraphQL)
         const profileQuery = `
-            query { 
-                rateLimit { remaining limit resetAt }
-                user(login: "${username}") { 
-                    createdAt 
-                    avatarUrl 
-                    name 
+            query {
+                rateLimit { cost remaining limit resetAt }
+                user(login: "${username}") {
+                    createdAt
+                    avatarUrl
+                    name
                     location
                     company
                     bio
@@ -266,7 +336,7 @@ class Updater extends Base {
                             url
                         }
                     }
-                } 
+                }
             }`;
 
         // 2. Fetch Organizations (REST API for Public Memberships)
@@ -297,9 +367,23 @@ class Updater extends Base {
 
         if (!profileRes?.user) return null;
 
-        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts, isHireable, hasSponsorsListing, sponsorshipsAsMaintainer, twitterUsername, websiteUrl } = profileRes.user;
-        const startYear   = new Date(createdAt).getFullYear();
+        const {
+            avatarUrl,
+            bio,
+            company,
+            createdAt,
+            followers,
+            hasSponsorsListing,
+            isHireable,
+            location,
+            name,
+            socialAccounts,
+            sponsorshipsAsMaintainer,
+            twitterUsername,
+            websiteUrl
+        } = profileRes.user;
         const currentYear = new Date().getFullYear();
+        const startYear   = new Date(createdAt).getFullYear();
 
         // Extract LinkedIn URL
         let linkedin_url = null;
@@ -326,11 +410,11 @@ class Updater extends Base {
         const contribData = {};
 
         const fetchYears = async (fromYear, toYear) => {
-            let query = `query { 
-                rateLimit { remaining limit resetAt }
+            let query = `query {
+                rateLimit { cost remaining limit resetAt }
                 user(login: "${username}") {`;
             for (let year = fromYear; year <= toYear; year++) {
-                query += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { 
+                query += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") {
                     totalCommitContributions
                     totalIssueContributions
                     totalPullRequestContributions
@@ -362,10 +446,24 @@ class Updater extends Base {
                 // 1. Try Fast Path (Batch of 4)
                 await fetchYears(chunk.start, chunk.end);
             } catch (err) {
-                // 2. Detect Failure (504/502/Timeout)
-                console.warn(`[Updater] [${username}] Batch failed (${chunk.start}-${chunk.end}). Falling back to single years...`);
+                const canSplitWindow = chunk.start < chunk.end && (
+                    GitHub.isGraphqlResourceLimitError(err) ||
+                    /\b(502|504)\b|timeout|couldn't respond/i.test(err.message)
+                );
 
-                // 3. Fallback: Process year by year
+                // Primary quota exhaustion and unrelated errors must never fan out into more
+                // requests. Only a multi-year query that hit GitHub's per-query resource/timeout
+                // ceiling is authorized to use the bounded single-year fallback.
+                if (!canSplitWindow) {
+                    throw err
+                }
+
+                console.warn(
+                    `[Updater] [${username}] Multi-year window failed (${chunk.start}-${chunk.end}); ` +
+                    'falling back to bounded single-year queries...'
+                );
+
+                // 2. Fallback: Process each year exactly once.
                 for (let y = chunk.start; y <= chunk.end; y++) {
                     try {
                         await fetchYears(y, y);
@@ -382,7 +480,7 @@ class Updater extends Base {
         }
 
         // 4. Aggregate Data & Minify
-        let total        = 0;
+        let   total      = 0;
         const yearsArr   = [];
         const commitsArr = [];
         const privateArr = [];
@@ -390,10 +488,10 @@ class Updater extends Base {
 
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
-            const key = `y${year}`;
+            const key        = `y${year}`;
             const collection = contribData[key];
 
-            const commits = collection?.totalCommitContributions || 0;
+            const commits      = collection?.totalCommitContributions || 0;
             const privateStats = collection?.restrictedContributionsCount || 0;
 
             // Sum up the lightweight counters

@@ -1,10 +1,10 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs                from 'fs/promises';
+import path              from 'path';
 import { fileURLToPath } from 'url';
-import Base from '../../../src/core/Base.mjs';
+import Base              from '../../../src/core/Base.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename  = fileURLToPath(import.meta.url);
+const __dirname   = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../../../');
 
 /**
@@ -36,6 +36,25 @@ const defaultConfig = {
          * @type {number}
          */
         perPage: 30,
+        /**
+         * GraphQL points kept untouched for the downstream label-index rebuild.
+         *
+         * GitHub Actions' repository `GITHUB_TOKEN` currently receives a 1,000-point GraphQL
+         * window, while a future GitHub App can receive a larger one. A fixed 100-point reserve
+         * protects the small downstream query in either posture without treating the limit as 5,000.
+         * @type {number}
+         */
+        graphqlDownstreamReserve: 100,
+        /**
+         * Maximum primary GraphQL points reserved while one user is in flight.
+         *
+         * The bound covers a profile request plus the oldest observed DevIndex history (2007)
+         * split into four-year windows, every window falling back once to single years, and rename
+         * recovery margin. Unused points are released after the user settles; response-reported
+         * `cost` and `remaining` still determine later admission.
+         * @type {number}
+         */
+        graphqlUserReservation: 32,
         /**
          * Request timeout in milliseconds.
          * @type {number}
@@ -82,6 +101,11 @@ const defaultConfig = {
      */
     updater: {
         /**
+         * Maximum number of users processed concurrently after GraphQL budget admission.
+         * @type {number}
+         */
+        concurrency: 8,
+        /**
          * Number of users to process before saving a checkpoint.
          * @type {number}
          */
@@ -98,7 +122,7 @@ const defaultConfig = {
          * @type {string}
          */
         users: path.resolve(projectRoot, 'apps/devindex/resources/data/users.jsonl'),
-        
+
         /**
          * The backend discovery index (formerly users.json).
          * Contains login, id, lastUpdate timestamp.

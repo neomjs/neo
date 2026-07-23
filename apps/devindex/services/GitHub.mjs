@@ -99,9 +99,17 @@ class GitHub extends Base {
          * @member {Object} rateLimit
          */
         rateLimit: {
-            core                : {remaining: 5000, reset: null, limit: 5000},
-            search              : {remaining:   30, reset: null, limit:   30},
-            graphql             : {remaining: 5000, reset: null, limit: 5000},
+            core   : {remaining: 5000, reset: null, limit: 5000},
+            search : {remaining:   30, reset: null, limit:   30},
+            graphql: {
+                cost        : 0,
+                limit       : 5000,
+                observedCost: 0,
+                remaining   : 5000,
+                reserved    : 0,
+                reset       : null,
+                used        : 0
+            },
             integration_manifest: {remaining: 5000, reset: null, limit: 5000}
         }
     }
@@ -112,6 +120,30 @@ class GitHub extends Base {
      * @private
      */
     #authToken = null;
+    /**
+     * Active in-process GraphQL capacity reservations.
+     *
+     * JavaScript executes each reservation mutation synchronously, so concurrent updater promises
+     * cannot all admit against the same pre-reservation snapshot. The Set also makes release idempotent.
+     * @member {Set<Object>} #graphqlReservations
+     * @private
+     */
+    #graphqlReservations = new Set();
+
+    /**
+     * @summary Creates a typed GraphQL error without coupling callers to message parsing.
+     * @param {String} message
+     * @param {String} code
+     * @returns {Error}
+     * @private
+     */
+    #createGraphqlError(message, code) {
+        const error = new Error(message);
+
+        error.code = code;
+
+        return error
+    }
 
     /**
      * Fetches the GitHub authentication token from the `gh` CLI.
@@ -207,6 +239,22 @@ class GitHub extends Base {
     }
 
     /**
+     * @summary Determines whether a GraphQL failure represents primary point-budget exhaustion.
+     * This is intentionally distinct from per-query resource pressure: primary exhaustion must not
+     * be retried or split into more requests.
+     * @param {Error|String} error
+     * @returns {Boolean}
+     * @private
+     */
+    #isGraphqlPrimaryRateLimitError(error) {
+        const message = String(error?.message || error).toLowerCase();
+
+        return error?.code === 'GRAPHQL_PRIMARY_RATE_LIMIT'
+            || message.includes('api rate limit already exceeded')
+            || message.includes('api rate limit exceeded')
+    }
+
+    /**
      * @summary Determines whether a REST response status is configured as transient.
      * @param {Number} status The HTTP response status.
      * @returns {Boolean}
@@ -286,10 +334,21 @@ class GitHub extends Base {
         const remaining = headers.get('x-ratelimit-remaining');
         const reset     = headers.get('x-ratelimit-reset');
         const limit     = headers.get('x-ratelimit-limit');
+        const used      = headers.get('x-ratelimit-used');
 
-        if (remaining !== null) bucket.remaining = parseInt(remaining, 10);
-        if (reset !== null)     bucket.reset     = parseInt(reset, 10);
-        if (limit !== null)     bucket.limit     = parseInt(limit, 10);
+        if (bucketName === 'graphql') {
+            this.#updateGraphqlRateLimit({
+                limit    : limit     === null ? undefined : parseInt(limit, 10),
+                remaining: remaining === null ? undefined : parseInt(remaining, 10),
+                reset    : reset     === null ? undefined : parseInt(reset, 10),
+                used     : used      === null ? undefined : parseInt(used, 10)
+            })
+        } else {
+            if (remaining !== null) bucket.remaining = parseInt(remaining, 10);
+            if (reset !== null)     bucket.reset     = parseInt(reset, 10);
+            if (limit !== null)     bucket.limit     = parseInt(limit, 10);
+            if (used !== null)      bucket.used      = parseInt(used, 10)
+        }
 
         // Debug: Warn if headers are missing but we are at default (implying no update ever happened)
         // Only warn on successful requests to avoid noise on 4xx/5xx errors (which might lack headers)
@@ -303,6 +362,54 @@ class GitHub extends Base {
     }
 
     /**
+     * @summary Applies GraphQL limit metadata without allowing out-of-order responses to increase
+     * same-window capacity or regress a newer reset-window snapshot.
+     * @param {Object}  rateLimit
+     * @param {Boolean} [authoritative=false] True for the explicit `/rate_limit` start snapshot.
+     * @private
+     */
+    #updateGraphqlRateLimit(rateLimit, authoritative=false) {
+        if (!rateLimit) return;
+
+        const
+            bucket          = this.rateLimit.graphql,
+            resetAt         = rateLimit.resetAt ? Date.parse(rateLimit.resetAt) / 1000 : rateLimit.reset,
+            reset           = Number(resetAt),
+            remaining       = Number(rateLimit.remaining),
+            limit           = Number(rateLimit.limit),
+            used            = Number(rateLimit.used),
+            cost            = Number(rateLimit.cost),
+            currentReset    = Number(bucket.reset),
+            hasReset        = Number.isFinite(reset),
+            hasCurrentReset = bucket.reset !== null && Number.isFinite(currentReset),
+            isNewWindow     = hasReset && hasCurrentReset && reset > currentReset,
+            isStaleWindow   = !authoritative && hasReset && hasCurrentReset && reset < currentReset;
+
+        if (!isStaleWindow && Number.isFinite(remaining)) {
+            bucket.remaining = authoritative || !hasCurrentReset || isNewWindow
+                ? remaining
+                : Math.min(bucket.remaining, remaining)
+        }
+
+        if (!isStaleWindow && Number.isFinite(limit)) {
+            bucket.limit = limit
+        }
+
+        if (!isStaleWindow && Number.isFinite(used)) {
+            bucket.used = used
+        }
+
+        if (Number.isFinite(cost)) {
+            bucket.cost         = cost;
+            bucket.observedCost = (bucket.observedCost || 0) + cost
+        }
+
+        if (!isStaleWindow && hasReset) {
+            bucket.reset = reset
+        }
+    }
+
+    /**
      * Updates rate limit from GraphQL body.
      * @param {Object} rateLimit
      * @private
@@ -310,16 +417,112 @@ class GitHub extends Base {
     #updateFromBody(rateLimit) {
         if (!rateLimit) return;
 
-        // GraphQL usually maps to 'graphql' resource (which shares quota with 'core')
-        const bucket = this.rateLimit.graphql;
+        this.#updateGraphqlRateLimit(rateLimit)
+    }
 
-        if (rateLimit.remaining !== undefined) bucket.remaining = rateLimit.remaining;
-        if (rateLimit.limit !== undefined)     bucket.limit     = rateLimit.limit;
+    /**
+     * @summary Returns the shared GraphQL point-budget snapshot after subtracting active
+     * reservations and a caller-declared downstream reserve.
+     * @param {Number} [reserve=0]
+     * @returns {Object}
+     */
+    getGraphqlBudget(reserve=0) {
+        const
+            bucket            = this.rateLimit.graphql,
+            normalizedReserve = Math.max(0, Number(reserve) || 0),
+            remaining         = Math.max(0, Number(bucket.remaining) || 0),
+            reserved          = Math.max(0, Number(bucket.reserved) || 0);
 
-        if (rateLimit.resetAt) {
-            // GraphQL returns ISO string, we store epoch seconds
-            bucket.reset = Math.floor(new Date(rateLimit.resetAt).getTime() / 1000);
+        return {
+            available   : Math.max(0, remaining - reserved - normalizedReserve),
+            cost        : Number(bucket.cost) || 0,
+            limit       : Number(bucket.limit) || 0,
+            observedCost: Number(bucket.observedCost) || 0,
+            remaining,
+            reserve     : normalizedReserve,
+            reserved,
+            reset       : bucket.reset
         }
+    }
+
+    /**
+     * @summary Atomically reserves GraphQL points for one bounded unit of work.
+     * Returns `null` rather than crossing the caller's downstream reserve.
+     * @param {Number} cost
+     * @param {Number} [reserve=0]
+     * @param {String} [context='']
+     * @returns {Object|null}
+     */
+    reserveGraphqlBudget(cost, reserve=0, context='') {
+        const normalizedCost = Math.ceil(Number(cost));
+
+        if (!Number.isFinite(normalizedCost) || normalizedCost <= 0) {
+            throw new TypeError('GraphQL reservation cost must be a positive finite number')
+        }
+
+        if (this.getGraphqlBudget(reserve).available < normalizedCost) {
+            return null
+        }
+
+        const reservation = {context, cost: normalizedCost};
+
+        this.rateLimit.graphql.reserved = (this.rateLimit.graphql.reserved || 0) + normalizedCost;
+        this.#graphqlReservations.add(reservation);
+
+        return reservation
+    }
+
+    /**
+     * @summary Releases one active GraphQL reservation exactly once.
+     * @param {Object|null} reservation
+     * @returns {Boolean} True when an active reservation was released.
+     */
+    releaseGraphqlBudget(reservation) {
+        if (!reservation || !this.#graphqlReservations.delete(reservation)) {
+            return false
+        }
+
+        this.rateLimit.graphql.reserved = Math.max(
+            0,
+            (this.rateLimit.graphql.reserved || 0) - reservation.cost
+        );
+
+        return true
+    }
+
+    /**
+     * @summary Refreshes the authoritative GraphQL bucket from GitHub's no-primary-cost
+     * REST rate-limit endpoint before the updater admits work.
+     * @returns {Promise<Object>} The refreshed shared budget snapshot.
+     */
+    async refreshGraphqlRateLimit() {
+        const
+            data   = await this.rest('rate_limit', 'GraphQL Budget'),
+            status = data?.resources?.graphql;
+
+        if (!status) {
+            throw new Error('GitHub rate-limit response did not include the GraphQL bucket')
+        }
+
+        this.rateLimit.graphql.cost         = 0;
+        this.rateLimit.graphql.observedCost = 0;
+        this.#updateGraphqlRateLimit(status, true);
+
+        return this.getGraphqlBudget()
+    }
+
+    /**
+     * @summary Identifies GitHub's per-query resource ceiling without conflating it with
+     * primary point exhaustion. Updater window-splitting is authorized only for this class
+     * (plus explicit gateway timeouts), never for a depleted primary budget.
+     * @param {Error|String} error
+     * @returns {Boolean}
+     */
+    isGraphqlResourceLimitError(error) {
+        const message = String(error?.message || error).toLowerCase();
+
+        return error?.code === 'GRAPHQL_RESOURCE_LIMIT'
+            || message.includes('resource limits for this query exceeded')
     }
 
     /**
@@ -351,6 +554,13 @@ class GitHub extends Base {
             this.#updateRateLimit(response);
 
             if (!response.ok) {
+                if (response.status === 403 && this.rateLimit.graphql.remaining <= 0) {
+                    throw this.#createGraphqlError(
+                        `GraphQL Primary Rate Limit: ${response.status} ${response.statusText}`,
+                        'GRAPHQL_PRIMARY_RATE_LIMIT'
+                    )
+                }
+
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse). A `>= 500` leaves a MUTATION's
                 // server-side outcome AMBIGUOUS (the write may have applied before the error), so a mutation
                 // is not replayed on it — a read still is. A `403` is a pre-execution rate-limit rejection,
@@ -371,7 +581,7 @@ class GitHub extends Base {
 
                     console.log(`${prefix} Error ${response.status}. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
-                    return this.query(query, variables, retries - 1, logContext);
+                    return this.query(query, variables, retries - 1, logContext, attempt + 1);
                 }
                 throw new Error(`GraphQL Error: ${response.status} ${response.statusText}`);
             }
@@ -391,6 +601,20 @@ class GitHub extends Base {
                     throw new Error(`GraphQL Fatal Error: ${messages}`);
                 }
 
+                if (this.rateLimit.graphql.remaining <= 0 || this.#isGraphqlPrimaryRateLimitError(messages)) {
+                    throw this.#createGraphqlError(
+                        `GraphQL Primary Rate Limit: ${messages}`,
+                        'GRAPHQL_PRIMARY_RATE_LIMIT'
+                    )
+                }
+
+                if (this.isGraphqlResourceLimitError(messages)) {
+                    throw this.#createGraphqlError(
+                        `GraphQL Query Errors: ${messages}`,
+                        'GRAPHQL_RESOURCE_LIMIT'
+                    )
+                }
+
                 // Sometimes 502s come as 200 OK with errors body. Like a `>= 500`, a gateway error leaves a
                 // MUTATION's outcome ambiguous, so it is not replayed for one — a read still is.
                 const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
@@ -399,7 +623,7 @@ class GitHub extends Base {
                     const delay = (4 - retries) * 2000;
                     console.log(`${prefix} Gateway Error in body. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
-                    return this.query(query, variables, retries - 1, logContext);
+                    return this.query(query, variables, retries - 1, logContext, attempt + 1);
                 }
 
                 // IP Allow List restriction usually returns partial data (public contributions).
@@ -436,6 +660,14 @@ class GitHub extends Base {
 
             return json.data;
         } catch (error) {
+            if (
+                error.code === 'GRAPHQL_PRIMARY_RATE_LIMIT' ||
+                error.code === 'GRAPHQL_RESOURCE_LIMIT'
+            ) {
+                console.error(`${prefix} GraphQL Query Failed:`, error.message);
+                throw error
+            }
+
             // Fatal errors (Do not retry)
             if (error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error')) {
                 throw error;

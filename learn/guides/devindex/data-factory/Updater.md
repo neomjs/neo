@@ -54,12 +54,12 @@ The Updater begins by fetching the user's basic profile and public social accoun
 
 ```javascript readonly
 const profileQuery = `
-    query { 
-        rateLimit { remaining limit resetAt }
-        user(login: "${username}") { 
-            createdAt 
-            avatarUrl 
-            name 
+    query {
+        rateLimit { cost remaining limit resetAt }
+        user(login: "${username}") {
+            createdAt
+            avatarUrl
+            name
             location
             company
             bio
@@ -75,19 +75,19 @@ const profileQuery = `
                     url
                 }
             }
-        } 
+        }
     }`;
 ```
 
 #### The Multi-Year Contribution Matrix
-To build the historical charts on the frontend, the DevIndex requires the total contribution count for *every year* since the user created their account. 
+To build the historical charts on the frontend, the DevIndex requires the total contribution count for *every year* since the user created their account.
 
 Fetching this sequentially (one API call per year) is too slow. Fetching it all at once often results in GitHub API timeouts (`502 Bad Gateway` or `504 Gateway Timeout`) for prolific users. The Updater implements a smart **Chunking Strategy**:
 
 ```javascript readonly
 // We split the years into chunks of 4 to prevent 502/504 errors on large accounts.
 const yearChunks = [];
-const chunkSize  = 4; 
+const chunkSize  = 4;
 for (let y = startYear; y <= currentYear; y += chunkSize) {
     const end = Math.min(y + chunkSize - 1, currentYear);
     yearChunks.push({ start: y, end });
@@ -98,9 +98,18 @@ for (const chunk of yearChunks) {
     try {
         await fetchYears(chunk.start, chunk.end); // Fast Path
     } catch (err) {
-        // Fallback: If the 4-year chunk times out, try year-by-year
+        const canSplitWindow = chunk.start < chunk.end && (
+            GitHub.isGraphqlResourceLimitError(err) ||
+            /\b(502|504)\b|timeout|couldn't respond/i.test(err.message)
+        );
+
+        if (!canSplitWindow) {
+            throw err;
+        }
+
+        // Bounded fallback: try each year once for this window only.
         for (let y = chunk.start; y <= chunk.end; y++) {
-            await fetchYears(y, y); 
+            await fetchYears(y, y);
         }
     }
 }
@@ -121,22 +130,24 @@ The internet is chaotic. Users change their names, accounts get suspended, and A
 ```mermaid
 flowchart TD
     Error((API Error)) --> Type{Error Type?}
-    
+
     Type -- 5xx / Rate Limit --> Transient[Transient Error]
     Transient --> PB[Move to Penalty Box]
-    
+
     Type -- 404 / Not Found --> Fatal{Has History?}
-    
+
     Fatal -- Yes --> Rename{Check Database ID}
     Rename -- New Login Found --> Recover[Prune Old, Fetch New immediately]
     Rename -- No New Login --> Protected[Assume Suspended / Protected in Penalty Box]
-    
+
     Fatal -- No --> BadSeed[Bad Seed / Typo]
     BadSeed --> Prune[Prune from Tracker immediately]
 ```
 
 ### 1. Transient Errors (The Penalty Box)
-If a fetch fails due to a network timeout or a GitHub rate limit, the user is moved to the `failed.json` map (the "Penalty Box") and their `lastUpdate` timestamp in the tracker is refreshed. This pushes them to the back of the queue, allowing the system to retry them naturally on a subsequent pass.
+If an individual fetch fails due to a network or upstream error, the user is moved to the `failed.json` map (the "Penalty Box") and their `lastUpdate` timestamp in the tracker is refreshed. This pushes them to the back of the queue, allowing the system to retry them naturally on a subsequent pass.
+
+Primary GraphQL quota exhaustion is deliberately different: it is a run-level capacity boundary, not evidence that the user failed. The Updater stops admitting work and checkpoints completed results without adding the interrupted login to the Penalty Box or refreshing its timestamp.
 
 ### 2. The Rename Problem (Database ID Resolution)
 The most sophisticated recovery mechanism handles account renames.
@@ -153,14 +164,14 @@ if (isFatal && richUser && richUser.i) {
             console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
 
             // 1. Mark old login for removal
-            indexUpdates.push({ login, delete: true }); 
-            prunedLogins.push(login); 
+            indexUpdates.push({ login, delete: true });
+            prunedLogins.push(login);
 
             // 2. Fetch data for new login immediately to preserve their spot
             const newData = await this.fetchUserData(newLogin);
             // ...
         }
-    } 
+    }
     // ...
 }
 ```
@@ -198,13 +209,21 @@ This guarantees that the database remains perfectly consistent, even if the Node
 
 ## Rate Limit Protection
 
-Because the Updater consumes significant GraphQL query points, it constantly monitors the quota. Before processing *every chunk*, it checks the `core` limit. If it drops below a critical threshold (e.g., 50 requests remaining), it instantly triggers a graceful shutdown. 
+The CLI `--limit` is only a candidate ceiling. At run start, the Updater obtains an authoritative GraphQL snapshot, keeps a 100-point downstream reserve, and admits candidates in waves of at most eight. Each in-flight user atomically reserves 32 points before its promise starts.
 
 ```javascript readonly
-if (GitHub.rateLimit.core.remaining < 50) {
-    console.warn(`[Updater] ⚠️ RATE LIMIT CRITICAL: Stopping gracefully.`);
-    break; 
+const reservation = GitHub.reserveGraphqlBudget(
+    config.github.graphqlUserReservation,
+    config.github.graphqlDownstreamReserve,
+    login
+);
+
+if (!reservation) {
+    stopReason = 'downstream-reserve';
+    break;
 }
 ```
 
-This prevents the Action from failing violently and ensures that all progress made up to that point is safely checkpointed to disk.
+Reservations close the stale-snapshot race between concurrent promises. After every settled wave, actual response-reported cost and remaining capacity determine whether the next wave can start. The 32-point bound covers the profile query, the oldest observed DevIndex account history split into four-year windows, one bounded single-year fallback per window, and rename-recovery margin.
+
+The scheduled workflow begins this rollout with a hard ceiling of 200 candidates. Actual admission may be lower. Compact logs report admitted candidates, observed cost, remaining points, active reservations, the protected reserve, and any stop reason. Completed work is checkpointed before a budget stop, leaving the downstream content-index and SEO rebuild its declared reserve.
