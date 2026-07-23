@@ -235,9 +235,15 @@ For bootstrap, one-off after a config change, or scoped re-sync, use the standal
 node ./ai/scripts/maintenance/syncTenantRepos.mjs                   # all configured tenantRepos
 node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b   # subset
 node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b --repo-slug c/d
+node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug a/b  # scoped full replay
 ```
 
-Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; it does not race against a running Orchestrator's lane.
+`--full` requires at least one explicit, repeatable `--repo-slug` selector. It builds the selected
+repo envelopes from a null revision base while retaining each stored checkpoint until the replay
+returns an error-free ingestion summary. Use it after correcting an ingestion failure when an older
+deployment may already have checkpointed the failed head; do not delete the revisions file.
+
+Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error, and `3` when a requested repo slug is not configured. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; it does not race against a running Orchestrator's lane.
 
 ### Mirror Volume
 
@@ -329,7 +335,8 @@ When a repo enters `quarantined`, the lane stops attempting it on periodic cycle
    - `lastSourceErrorCode: KB_GITMIRROR_CLONE_FAILED` / `KB_GITMIRROR_FETCH_FAILED` → verify upstream access, token read scope, repo path, and network egress.
    - Persistent network/DNS error → the deployment can't reach the upstream remote; verify network egress.
    - Repository deleted / renamed upstream → update the `tenantRepos[]` config or remove the entry.
-4. Once the underlying issue is resolved, force a manual sync via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. A successful run returns the repo to `active`.
+4. Once the underlying issue is resolved, retry via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. Current releases preserve the last known-good checkpoint on any returned ingestion error.
+5. If the deployment was upgraded from a release that could checkpoint an error-bearing summary, or the ordinary retry produces no files because the stored base is already the failed head, run `node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>`. A failed replay retains the old checkpoint; only an error-free replay replaces it and returns the repo to `active`.
 
 The lane never silently abandons a `quarantined` repo — operator action is the recovery path. Webhook-driven retry on git push is deferred.
 
@@ -359,7 +366,7 @@ A single `repoSlug` can be served by both surfaces, but the operational rules ar
 - **Deployment compose / volume:** add `tenant-repo-mirrors` to the `cloud` profile and mount at `NEO_TENANT_REPO_MIRROR_ROOT`. See [`DeploymentCookbook.md`](../DeploymentCookbook.md) for the canonical compose shape.
 - **Tenant config storage:** `tenantRepos[]` is persisted via `KnowledgeBaseIngestionService.setTenantConfig({tenantId, config})` when a tenant-config operator tool is added. Cross-tenant writes remain rejected by the existing RLS gate; missing/invalid `credentialRef` or credential-bearing `cloneUrl` surfaces stable rejection errors at normalization.
 - **Parser/source-family dispatch:** pull-mode files enter the same parser/source-family model as push/bulk ingestion. No new parser contract is introduced by server-side git acquisition; the [Parser Dispatch](#parser-dispatch) and [Source-Family Inventory](#source-family-inventory) tables above apply unchanged. Unsupported source families use [`CustomSources.md`](./CustomSources.md) / [`CustomParsers.md`](./CustomParsers.md) guidance, not a pull-specific path.
-- **Deletion telemetry:** the `lastSyncDeletedCount` health field surfaces the per-cycle deletion count from the ingestion summary. Partial ingest or manifest update failure leaves `lastIngestedRev` unchanged so the next cycle re-detects and retries deletion idempotently.
+- **Deletion telemetry:** the `lastSyncDeletedCount` health field surfaces the per-cycle deletion count from the ingestion summary. The pull caller accepts only a summary with an array-valued, empty `errors` field; partial ingest, malformed summary, or manifest update failure leaves `lastIngestedRev` unchanged so the next cycle re-detects and retries deletion idempotently.
 
 ## Evidence Boundary
 

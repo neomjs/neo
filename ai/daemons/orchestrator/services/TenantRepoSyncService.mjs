@@ -14,7 +14,9 @@ import {
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
 
-const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
+const
+    BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/,
+    PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
 
 /**
  * @summary In-memory async semaphore with optional slot-acquisition timeout.
@@ -79,13 +81,51 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
 }
 
 function getSourceErrorCode(error, outerCode) {
-    const sourceCode = error?.code;
+    const sourceCode = error?.sourceErrorCode || error?.code;
 
     if (typeof sourceCode !== 'string' || sourceCode === outerCode) {
         return null;
     }
 
-    return /^KB_[A-Z0-9_]{1,120}$/.test(sourceCode) ? sourceCode : null;
+    return BOUNDED_KB_ERROR_CODE_PATTERN.test(sourceCode) ? sourceCode : null;
+}
+
+/**
+ * @summary Fails closed unless the KB ingestion result explicitly proves an error-free summary.
+ *
+ * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft:
+ * ingestion failures are returned inside `summary.errors` rather than necessarily
+ * rejecting the promise. The tenant-repo caller therefore accepts only an object
+ * with an array-valued, empty `errors` field before advancing revision state.
+ *
+ * Error messages and details from the summary are deliberately not copied into the
+ * thrown error. The first bounded `KB_*` code is retained separately as source
+ * provenance so the existing per-repo catch path can expose it as
+ * `lastSourceErrorCode` without replacing the stable outer sync-failure code.
+ *
+ * @param {Object} summary Returned KB ingestion summary.
+ * @returns {Object} The validated error-free summary.
+ * @throws {Error} When the summary shape is ambiguous or contains any errors.
+ */
+function assertErrorFreeIngestionSummary(summary) {
+    if (!summary || typeof summary !== 'object' || Array.isArray(summary) || !Array.isArray(summary.errors)) {
+        throw new Error('Knowledge Base ingestion returned an invalid summary.')
+    }
+
+    if (summary.errors.length > 0) {
+        const error      = new Error('Knowledge Base ingestion returned an error-bearing summary.');
+        const sourceCode = summary.errors
+            .map(item => item?.code)
+            .find(code => typeof code === 'string' && BOUNDED_KB_ERROR_CODE_PATTERN.test(code));
+
+        if (sourceCode) {
+            error.sourceErrorCode = sourceCode
+        }
+
+        throw error
+    }
+
+    return summary
 }
 
 /**
@@ -100,6 +140,7 @@ function getSourceErrorCode(error, outerCode) {
  *          -> GitMirror.cloneIfMissing + GitMirror.fetch
  *          -> buildIngestEnvelope({tenantId, repoSlug, mirrorRoot, lastIngestedRev, ...})
  *          -> KnowledgeBaseIngestionService.ingestSourceFiles(envelope) (viaMcp: false)
+ *          -> require an explicit error-free ingestion summary
  *          -> persist lastIngestedRev for next cycle
  * ```
  *
@@ -218,6 +259,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.gitMirror=GitMirror] Injectable mirror primitive (test seam).
      * @param {Object} [options.knowledgeBaseIngestionService] KB ingestion service singleton (test seam). Resolved from `ai/services.mjs` if omitted.
      * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
+     * @param {Boolean} [options.fullReplay=false] Build selected-repo envelopes from a null revision base. Requires non-empty `onlyRepoSlugs`; persisted checkpoints remain unchanged until each replay completes without summary errors.
      * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<orchestrator dataDir leaf>/tenant-repo-sync-revisions.json`.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
@@ -232,6 +274,7 @@ class TenantRepoSyncService extends Base {
         gitMirror = GitMirror,
         knowledgeBaseIngestionService,
         onlyRepoSlugs,
+        fullReplay = false,
         revisionsFilePath,
         envelopeBuilder = buildIngestEnvelope,
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
@@ -252,7 +295,7 @@ class TenantRepoSyncService extends Base {
         try {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-                taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
+                fullReplay, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status         = result.status;
@@ -301,11 +344,19 @@ class TenantRepoSyncService extends Base {
      */
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-        taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
+        fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         seedBootstrap   = true
     }) {
+        if (fullReplay && (!Array.isArray(onlyRepoSlugs) || onlyRepoSlugs.length === 0)) {
+            throw new TenantRepoSyncError(
+                KB_TENANT_REPO_SYNC_SYNC_FAILED,
+                'Full replay requires at least one explicitly selected repo slug.',
+                {phase: 'full-replay-validation'}
+            )
+        }
+
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({ingestionService: knowledgeBaseIngestionService});
         const allRepos       = resolvedConfig.tenantRepos || [];
         const repos          = onlyRepoSlugs
@@ -447,7 +498,7 @@ class TenantRepoSyncService extends Base {
                     tenantId       : repo.tenantId,
                     repoSlug       : repo.repoSlug,
                     mirrorRoot     : repo.mirrorRoot,
-                    lastIngestedRev: priorState?.lastIngestedRev || null,
+                    lastIngestedRev: fullReplay ? null : (priorState?.lastIngestedRev || null),
                     newHead        : repo.branchRef || 'HEAD',
                     rootKind       : repo.rootKind || 'external-source',
                     parserId       : repo.parserId,
@@ -455,10 +506,10 @@ class TenantRepoSyncService extends Base {
                     gitMirror
                 });
 
-                const ingestResult = await ingestionService.ingestSourceFiles({
+                const ingestResult = assertErrorFreeIngestionSummary(await ingestionService.ingestSourceFiles({
                     ...envelope,
                     viaMcp: false // operator-bulk path
-                });
+                }));
 
                 // Persist full per-repo state on success. Reset consecutiveFailures
                 // to 0 (backoff is the multiplier-component of effectiveCadence; reset on
