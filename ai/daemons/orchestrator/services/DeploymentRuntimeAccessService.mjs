@@ -93,8 +93,9 @@ export function dockerSocketRequest({
  *
  * The service deliberately talks to the Docker socket through a deny-by-default wrapper instead
  * of exposing docker/compose as a generic executor. Service identity resolves through Docker
- * Compose labels (`com.docker.compose.service`, optionally project-scoped), so callers name an
- * allowlisted service key and never pass an arbitrary container id or shell command.
+ * Compose labels (`com.docker.compose.project` + `com.docker.compose.service`), so callers name an
+ * allowlisted service key inside one configured deployment project and never pass an arbitrary
+ * container id or shell command.
  *
  * @class Neo.ai.daemons.services.DeploymentRuntimeAccessService
  * @extends Neo.core.Base
@@ -288,21 +289,21 @@ export class DeploymentRuntimeAccessService extends Base {
     }
 
     /**
-     * Resolves an allowlisted compose service key to exactly one Docker container.
+     * @summary Resolves an allowlisted Compose service key inside the configured deployment project.
+     *
      * @param {String} serviceKey Allowlisted compose service key.
      * @returns {Promise<Object>} Resolved target.
      */
     async resolveServiceTarget(serviceKey) {
         this.assertServiceKeyAllowed(serviceKey);
 
-        const composeProject = this.configValues.composeProject || null,
+        const composeProject = this.resolveComposeProject(),
               filters        = {
-                  label: [`com.docker.compose.service=${serviceKey}`]
+                  label: [
+                      `com.docker.compose.service=${serviceKey}`,
+                      `com.docker.compose.project=${composeProject}`
+                  ]
               };
-
-        if (composeProject) {
-            filters.label.push(`com.docker.compose.project=${composeProject}`);
-        }
 
         let response,
             containers;
@@ -345,26 +346,79 @@ export class DeploymentRuntimeAccessService extends Base {
         if (containers.length > 1) {
             throw createRuntimeAccessError({
                 reason : 'compose-service-ambiguous',
-                message: `Compose service '${serviceKey}' resolved to ${containers.length} containers; configure composeProject to disambiguate`,
+                message: `Compose service '${serviceKey}' resolved to ${containers.length} containers inside the configured Compose project`,
                 details: this.createLookupDetails({serviceKey, filters, matchCount: containers.length})
             });
         }
 
         const [container] = containers;
 
+        this.assertTargetIdentity({container, serviceKey, composeProject, filters});
+
         return {
             serviceKey,
-            containerId   : container.Id,
-            names         : container.Names || [],
-            image         : container.Image || null,
-            state         : container.State || null,
-            status        : container.Status || null,
-            composeProject: container.Labels?.['com.docker.compose.project'] || composeProject,
-            labels        : {
-                composeService: container.Labels?.['com.docker.compose.service'] || serviceKey,
-                composeProject: container.Labels?.['com.docker.compose.project'] || composeProject
+            containerId: container.Id,
+            names      : container.Names || [],
+            image      : container.Image || null,
+            state      : container.State || null,
+            status     : container.Status || null,
+            composeProject,
+            labels     : {
+                composeService: serviceKey,
+                composeProject
             }
         };
+    }
+
+    /**
+     * @summary Resolves the mandatory Compose project identity before any Docker lookup.
+     *
+     * @returns {String} Configured Compose project identity.
+     */
+    resolveComposeProject() {
+        const composeProject = this.configValues.composeProject;
+
+        if (typeof composeProject !== 'string' || composeProject.trim().length === 0) {
+            throw createRuntimeAccessError({
+                reason : 'compose-project-unavailable',
+                message: 'Deployment runtime access requires an explicit Compose project identity',
+                details: this.createEffectiveConfigSummary()
+            });
+        }
+
+        return composeProject.trim();
+    }
+
+    /**
+     * @summary Verifies that Docker returned the exact project-and-service identity requested.
+     *
+     * @param {Object} options
+     * @param {Object} options.container Docker container-list item.
+     * @param {String} options.serviceKey Expected Compose service key.
+     * @param {String} options.composeProject Expected Compose project identity.
+     * @param {Object} options.filters Docker label filter descriptor.
+     * @returns {void}
+     */
+    assertTargetIdentity({container, serviceKey, composeProject, filters}) {
+        const labels = container && typeof container.Labels === 'object'
+            ? container.Labels
+            : {};
+
+        if (labels['com.docker.compose.project'] !== composeProject) {
+            throw createRuntimeAccessError({
+                reason : 'compose-project-mismatch',
+                message: 'Docker target did not prove the configured Compose project identity',
+                details: this.createLookupDetails({serviceKey, filters, matchCount: 1})
+            });
+        }
+
+        if (labels['com.docker.compose.service'] !== serviceKey) {
+            throw createRuntimeAccessError({
+                reason : 'compose-service-mismatch',
+                message: 'Docker target did not prove the requested Compose service identity',
+                details: this.createLookupDetails({serviceKey, filters, matchCount: 1})
+            });
+        }
     }
 
     /**
@@ -442,7 +496,8 @@ export class DeploymentRuntimeAccessService extends Base {
             filters,
             matchCount,
             hints: [
-                'Set NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT when multiple compose projects share the Docker socket.',
+                'Set NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT to the exact deployment project before enabling runtime access.',
+                'Keep the deployment project name stable across startup, inspection, self-heal, and redeploy operations.',
                 'Align NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES with Docker com.docker.compose.service labels.',
                 'Mount /var/run/docker.sock into the orchestrator only when B1 runtime diagnostics/recovery are intended.',
                 'Disable NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED when the deployment intentionally has no runtime handle.'

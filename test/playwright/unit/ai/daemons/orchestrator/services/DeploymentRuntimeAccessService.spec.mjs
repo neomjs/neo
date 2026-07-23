@@ -1,3 +1,4 @@
+import {readFileSync}                   from 'node:fs';
 import {test, expect}                   from '@playwright/test';
 import Neo                              from '../../../../../../../src/Neo.mjs';
 import * as core                        from '../../../../../../../src/core/_export.mjs';
@@ -7,7 +8,7 @@ const BASE_CONFIG = {
     enabled                     : true,
     mechanism                   : 'docker-socket',
     socketPath                  : '/var/run/docker.sock',
-    composeProject              : null,
+    composeProject              : 'neo',
     allowedServices             : ['chroma', 'kb-server', 'mc-server', 'local-model'],
     readOperations              : ['inspect', 'logs', 'stats'],
     lifecycleOperations         : ['restart'],
@@ -83,11 +84,24 @@ function createService({
 }
 
 test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
-    test('readObserve inspect resolves an allowlisted compose service by Docker labels', async () => {
+    test('canonical cloud Compose binds project naming and runtime access to one deployment variable', () => {
+        const composeText = readFileSync(
+            new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url),
+            'utf8'
+        );
+
+        expect(composeText).toContain('name: "${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}"');
+        expect(composeText).toContain(
+            'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}'
+        );
+    });
+
+    test('readObserve inspect resolves an allowlisted compose service by project and service labels', async () => {
         const {service, calls} = createService();
 
         const result = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'});
 
+        expect(service).toBeInstanceOf(core.Base);
         expect(result.ok).toBe(true);
         expect(result.data).toEqual({Name: '/neo-mc-server-1'});
         expect(result.proof).toMatchObject({
@@ -104,7 +118,10 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         expect(calls[0]).toMatchObject({method: 'GET'});
         const filters = JSON.parse(decodeURIComponent(calls[0].path.split('filters=')[1]));
         expect(filters).toEqual({
-            label: ['com.docker.compose.service=mc-server']
+            label: [
+                'com.docker.compose.service=mc-server',
+                'com.docker.compose.project=neo'
+            ]
         });
         expect(calls[1]).toMatchObject({
             method: 'GET',
@@ -113,7 +130,15 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
     });
 
     test('readObserve includes composeProject in the Docker label filter when configured', async () => {
-        const {service, calls} = createService({config: {composeProject: 'prod'}});
+        const {service, calls} = createService({
+            config    : {composeProject: 'prod'},
+            containers: [makeContainer({
+                Labels: {
+                    'com.docker.compose.service': 'mc-server',
+                    'com.docker.compose.project': 'prod'
+                }
+            })]
+        });
 
         await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'});
 
@@ -205,6 +230,23 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         expect(sidecar.calls).toHaveLength(0);
     });
 
+    test('requires a Compose project identity before read or lifecycle Docker access', async () => {
+        const {service, calls} = createService({config: {composeProject: null}});
+
+        const readError      = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}).catch(e => e);
+        const lifecycleError = await service.applyLifecycle({
+            serviceKey: 'mc-server',
+            operation : 'restart'
+        }).catch(e => e);
+
+        expect(readError).toMatchObject({
+            reason : 'compose-project-unavailable',
+            message: 'Deployment runtime access requires an explicit Compose project identity'
+        });
+        expect(lifecycleError.reason).toBe('compose-project-unavailable');
+        expect(calls).toHaveLength(0);
+    });
+
     test('adds structured config and filter details when a compose service has no match', async () => {
         const {service} = createService({
             config    : {composeProject: 'prod'},
@@ -238,7 +280,64 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         expect(error.details.hints).toContain('Align NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES with Docker com.docker.compose.service labels.');
     });
 
-    test('requires composeProject when a service label resolves ambiguously', async () => {
+    test('rejects a same-named service returned from a foreign Compose project before read or lifecycle access', async () => {
+        const attempts = [
+            service => service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}),
+            service => service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'})
+        ];
+
+        for (const attempt of attempts) {
+            const {service, calls} = createService({
+                containers: [makeContainer({
+                    Id    : 'foreign-container',
+                    Labels: {
+                        'com.docker.compose.service': 'mc-server',
+                        'com.docker.compose.project': 'foreign'
+                    }
+                })]
+            });
+            const error = await attempt(service).catch(e => e);
+
+            expect(error).toMatchObject({
+                reason : 'compose-project-mismatch',
+                message: 'Docker target did not prove the configured Compose project identity',
+                details: {
+                    composeProject: 'neo',
+                    serviceKey    : 'mc-server',
+                    matchCount    : 1
+                }
+            });
+            expect(calls).toHaveLength(1);
+            expect(calls[0].path).toContain('/containers/json?');
+            expect(calls[0].path).not.toContain('foreign-container');
+        }
+    });
+
+    test('rejects a Docker response without the exact requested Compose service label', async () => {
+        const {service, calls} = createService({
+            containers: [makeContainer({
+                Labels: {
+                    'com.docker.compose.service': 'kb-server',
+                    'com.docker.compose.project': 'neo'
+                }
+            })]
+        });
+
+        const error = await service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}).catch(e => e);
+
+        expect(error).toMatchObject({
+            reason : 'compose-service-mismatch',
+            message: 'Docker target did not prove the requested Compose service identity',
+            details: {
+                composeProject: 'neo',
+                serviceKey    : 'mc-server',
+                matchCount    : 1
+            }
+        });
+        expect(calls).toHaveLength(1);
+    });
+
+    test('fails closed when a service resolves ambiguously inside the configured project', async () => {
         const {service} = createService({
             containers: [
                 makeContainer({Id: 'container-a'}),
@@ -250,12 +349,15 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
 
         expect(error).toMatchObject({
             reason : 'compose-service-ambiguous',
-            message: "Compose service 'mc-server' resolved to 2 containers; configure composeProject to disambiguate",
+            message: "Compose service 'mc-server' resolved to 2 containers inside the configured Compose project",
             details: {
                 serviceKey: 'mc-server',
                 matchCount: 2,
                 filters   : {
-                    label: ['com.docker.compose.service=mc-server']
+                    label: [
+                        'com.docker.compose.service=mc-server',
+                        'com.docker.compose.project=neo'
+                    ]
                 }
             }
         });
@@ -274,7 +376,10 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             details: {
                 serviceKey: 'mc-server',
                 filters   : {
-                    label: ['com.docker.compose.service=mc-server']
+                    label: [
+                        'com.docker.compose.service=mc-server',
+                        'com.docker.compose.project=neo'
+                    ]
                 }
             }
         });
