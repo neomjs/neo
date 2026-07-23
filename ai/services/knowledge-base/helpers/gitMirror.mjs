@@ -1,30 +1,41 @@
-import {spawn} from 'child_process';
-import fs      from 'fs-extra';
-import os      from 'os';
-import path    from 'path';
+import {spawn}                    from 'child_process';
+import {createHmac, randomBytes}  from 'node:crypto';
+import {constants as fsConstants} from 'node:fs';
+import fs                         from 'fs-extra';
+import os                         from 'os';
+import path                       from 'path';
 
 import {
     assertCleanCloneUrl,
     deriveTenantRepoMirrorPath,
-    redactTenantRepoSecrets
+    normalizeTenantRepoCredentialRef,
+    redactTenantRepoSecrets,
+    TenantRepoAccessCode,
+    TenantRepoAccessStatus
+} from './tenantRepoAccessContract.mjs';
+
+export {
+    TenantRepoAccessCode,
+    TenantRepoAccessStatus
 } from './tenantRepoAccessContract.mjs';
 
 /**
  * @summary Git-backed persistent mirror primitive for server-side tenant repo ingestion.
  *
- * `GitMirror` owns only the low-level mirror lifecycle for #11788: clone-if-missing,
+ * `GitMirror` owns only the low-level mirror lifecycle: clone-if-missing,
  * fetch, ref resolution, ancestry checks, and revision diffs. It deliberately consumes
- * the #11787 clean repo-access helpers instead of deriving paths or persisting
+ * the clean repo-access helpers instead of deriving paths or persisting
  * credential material itself. Higher-level `tenant-repo-sync` cadence and
- * `ingestSourceFiles()` envelope construction remain owned by sibling subs #11790
- * and #11789.
+ * `ingestSourceFiles()` envelope construction remain owned by sibling services.
  *
  * @see https://github.com/neomjs/neo/issues/11788
  * @see https://github.com/neomjs/neo/issues/11787
  */
 
 const GIT_TERMINAL_PROMPT_DISABLED = '0';
-const ASKPASS_SCRIPT = `#!/bin/sh
+const ACCESS_PROBE_TIMEOUT_MS      = 15_000;
+const CREDENTIAL_FINGERPRINT_KEY   = randomBytes(32);
+const ASKPASS_SCRIPT               = `#!/bin/sh
 case "$1" in
     *Username*|*username*) printf '%s\\n' "\${NEO_GITMIRROR_USERNAME:-x-access-token}" ;;
     *) printf '%s\\n' "$NEO_GITMIRROR_PASSWORD" ;;
@@ -88,44 +99,36 @@ function createGitEnv(overrides = {}) {
 }
 
 /**
- * @summary Normalizes supported credential reference shapes.
+ * @summary Maps the shared tenant-repo credential grammar onto GitMirror's stable error contract.
  * @param {String|Object|null} credentialRef Durable credential reference.
  * @returns {Object|null}
  * @private
  */
-function normalizeCredentialRef(credentialRef) {
-    if (!credentialRef) {
-        return null;
+function normalizeGitCredentialRef(credentialRef) {
+    try {
+        return normalizeTenantRepoCredentialRef(credentialRef, {allowOmitted: true});
+    } catch (error) {
+        throw createGitMirrorError(
+            'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
+            'GitMirror credentialRef is invalid or unsupported',
+            {cause: error}
+        );
     }
+}
 
-    if (typeof credentialRef === 'string') {
-        if (credentialRef === 'none') {
-            return {type: 'none'};
-        }
-
-        if (credentialRef.startsWith('env:')) {
-            return {type: 'env', name: credentialRef.slice(4)};
-        }
-
-        if (credentialRef.startsWith('ssh:')) {
-            return {type: 'ssh', keyPath: credentialRef.slice(4)};
-        }
-
-        if (credentialRef.startsWith('file:')) {
-            return {type: 'file', filePath: credentialRef.slice(5)};
-        }
-
-        return {type: 'env', name: credentialRef};
-    }
-
-    if (typeof credentialRef === 'object' && !Array.isArray(credentialRef)) {
-        return credentialRef;
-    }
-
-    throw createGitMirrorError(
-        'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
-        'GitMirror credentialRef must be a string, object, or omitted for local mirrors'
-    );
+/**
+ * @summary Produces a process-local, non-persistable fingerprint for credential-change detection.
+ * @param {String} type Credential type discriminator.
+ * @param {String|Buffer} value Resolved credential material.
+ * @returns {String}
+ * @private
+ */
+function fingerprintCredential(type, value = '') {
+    return createHmac('sha256', CREDENTIAL_FINGERPRINT_KEY)
+        .update(type)
+        .update('\0')
+        .update(value)
+        .digest('hex');
 }
 
 /**
@@ -165,44 +168,50 @@ async function createAskPassCredentialEnvironment({secret, username = 'x-access-
 }
 
 /**
- * @summary Resolves transient git credential environment overrides.
+ * @summary Resolves and validates credential material without exposing it to callers.
+ *
+ * The returned fingerprint is keyed with process-local entropy. It can compare two
+ * resolutions within this process, but cannot be persisted or reused to test a secret
+ * outside the running orchestrator.
+ *
  * @param {Object} options
  * @param {String|Object|null} options.credentialRef Durable credential reference.
- * @returns {Promise<{env: Object, secretHints: String[], cleanup: Function}>}
+ * @returns {Promise<{ref: Object|null, secret: String|undefined, cacheFingerprint: String}>}
  * @private
  */
-async function resolveCredentialEnvironment({credentialRef} = {}) {
-    const ref = normalizeCredentialRef(credentialRef);
+async function resolveCredentialMaterial({credentialRef} = {}) {
+    const ref = normalizeGitCredentialRef(credentialRef);
 
     if (!ref || ref.type === 'none') {
-        return {env: {}, secretHints: [], cleanup: async () => {}};
+        return {
+            ref,
+            cacheFingerprint: fingerprintCredential('none')
+        };
     }
 
     if (ref.type === 'env') {
         const name   = ref.name;
         const secret = process.env[name];
 
-        if (!name || !secret) {
+        if (typeof secret !== 'string' || secret.trim() === '') {
             throw createGitMirrorError(
                 'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
                 'GitMirror env credentialRef could not be resolved'
             );
         }
 
-        return createAskPassCredentialEnvironment({secret, username: ref.username});
+        return {
+            ref,
+            secret,
+            cacheFingerprint: fingerprintCredential('env', secret)
+        };
     }
 
     if (ref.type === 'file') {
-        if (!ref.filePath) {
-            throw createGitMirrorError(
-                'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
-                'GitMirror file credentialRef requires filePath'
-            );
-        }
-
         let secret;
 
         try {
+            await fs.access(ref.filePath, fsConstants.R_OK);
             secret = (await fs.readFile(ref.filePath, 'utf-8')).trim();
         } catch (error) {
             throw createGitMirrorError(
@@ -219,31 +228,37 @@ async function resolveCredentialEnvironment({credentialRef} = {}) {
             );
         }
 
-        return createAskPassCredentialEnvironment({secret, username: ref.username});
+        return {
+            ref,
+            secret,
+            cacheFingerprint: fingerprintCredential('file', secret)
+        };
     }
 
     if (ref.type === 'ssh') {
-        if (!ref.keyPath) {
+        let key;
+
+        try {
+            await fs.access(ref.keyPath, fsConstants.R_OK);
+            key = await fs.readFile(ref.keyPath);
+        } catch (error) {
             throw createGitMirrorError(
                 'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
-                'GitMirror ssh credentialRef requires keyPath'
+                'GitMirror ssh credentialRef could not be resolved',
+                {cause: error}
+            );
+        }
+
+        if (key.toString('utf-8').trim() === '') {
+            throw createGitMirrorError(
+                'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
+                'GitMirror ssh credentialRef resolved to an empty key'
             );
         }
 
         return {
-            env: {
-                GIT_SSH_COMMAND: [
-                    'ssh',
-                    '-i',
-                    shellQuote(ref.keyPath),
-                    '-o',
-                    'IdentitiesOnly=yes',
-                    '-o',
-                    'StrictHostKeyChecking=accept-new'
-                ].join(' ')
-            },
-            secretHints: [],
-            cleanup    : async () => {}
+            ref,
+            cacheFingerprint: fingerprintCredential('ssh', key)
         };
     }
 
@@ -251,6 +266,40 @@ async function resolveCredentialEnvironment({credentialRef} = {}) {
         'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
         `GitMirror unsupported credentialRef type: ${ref.type}`
     );
+}
+
+/**
+ * @summary Builds transient Git environment overrides from already-validated credential material.
+ * @param {Object} material Resolved credential material.
+ * @returns {Promise<{env: Object, secretHints: String[], cleanup: Function}>}
+ * @private
+ */
+async function createCredentialEnvironment(material) {
+    const {ref, secret} = material;
+
+    if (!ref || ref.type === 'none') {
+        return {env: {}, secretHints: [], cleanup: async () => {}};
+    }
+
+    if (ref.type === 'env' || ref.type === 'file') {
+        return createAskPassCredentialEnvironment({secret, username: ref.username});
+    }
+
+    return {
+        env: {
+            GIT_SSH_COMMAND: [
+                'ssh',
+                '-i',
+                shellQuote(ref.keyPath),
+                '-o',
+                'IdentitiesOnly=yes',
+                '-o',
+                'StrictHostKeyChecking=accept-new'
+            ].join(' ')
+        },
+        secretHints: [],
+        cleanup    : async () => {}
+    };
 }
 
 /**
@@ -264,10 +313,15 @@ async function runGit(args, {
     acceptedExitCodes = [0],
     cwd,
     credentialRef,
+    credentialMaterial,
     failureCode = 'KB_GITMIRROR_GIT_FAILED',
-    failureMessage = 'GitMirror git command failed'
+    failureMessage = 'GitMirror git command failed',
+    timeoutCode = 'KB_GITMIRROR_GIT_TIMEOUT',
+    timeoutMessage = 'GitMirror git command timed out',
+    timeoutMs = 0
 } = {}) {
-    const credential = await resolveCredentialEnvironment({credentialRef});
+    const material   = credentialMaterial || await resolveCredentialMaterial({credentialRef});
+    const credential = await createCredentialEnvironment(material);
 
     try {
         const result = await new Promise((resolve, reject) => {
@@ -278,6 +332,24 @@ async function runGit(args, {
             });
             let stdout = '';
             let stderr = '';
+            let settled = false;
+            let timeoutId;
+
+            const settle = callback => value => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+
+                callback(value);
+            };
+            const resolveOnce = settle(resolve);
+            const rejectOnce  = settle(reject);
 
             child.stdout.on('data', data => {
                 stdout += data;
@@ -287,8 +359,20 @@ async function runGit(args, {
                 stderr += data;
             });
 
-            child.on('error', reject);
-            child.on('close', exitCode => resolve({exitCode, stdout, stderr}));
+            child.on('error', rejectOnce);
+            child.on('close', exitCode => resolveOnce({exitCode, stdout, stderr}));
+
+            if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+                timeoutId = setTimeout(() => {
+                    try {
+                        child.kill('SIGKILL');
+                    } catch {}
+
+                    rejectOnce(createGitMirrorError(timeoutCode, timeoutMessage, {
+                        secretHints: credential.secretHints
+                    }));
+                }, timeoutMs);
+            }
         });
 
         if (!acceptedExitCodes.includes(result.exitCode)) {
@@ -314,6 +398,179 @@ async function runGit(args, {
         });
     } finally {
         await credential.cleanup();
+    }
+}
+
+/**
+ * @summary Classifies a redacted Git probe failure into the public access-readiness vocabulary.
+ * @param {Error} error Redacted GitMirror error.
+ * @returns {String}
+ * @private
+ */
+function classifyAccessProbeFailure(error) {
+    if (error.code === 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT') {
+        return TenantRepoAccessCode.TIMEOUT;
+    }
+
+    if (error.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID') {
+        return TenantRepoAccessCode.CREDENTIAL_INVALID;
+    }
+
+    const stderr = String(error.stderr || '');
+
+    if (
+        /could not resolve host|temporary failure in name resolution|network is unreachable|failed to connect|connection (?:timed out|refused|reset)|ssh: connect to host/iu
+            .test(stderr)
+    ) {
+        return TenantRepoAccessCode.TRANSPORT_FAILED;
+    }
+
+    if (Number.isInteger(error.exitCode)) {
+        return TenantRepoAccessCode.DENIED_OR_NOT_FOUND;
+    }
+
+    return TenantRepoAccessCode.PROBE_FAILED;
+}
+
+/**
+ * @summary Validates local credential resolution and returns only a process-local cache fingerprint.
+ *
+ * No credential reference, path, environment-variable name, username, or secret is
+ * returned. Callers may compare `cacheFingerprint` only inside the current process;
+ * the HMAC key is random per process and deliberately unavailable.
+ *
+ * @param {Object} options
+ * @param {String|Object|null} options.credentialRef Durable credential reference.
+ * @returns {Promise<{status: String, code: String, cacheFingerprint: String|null}>}
+ */
+export async function inspectCredentialReadiness({credentialRef} = {}) {
+    try {
+        const material = await resolveCredentialMaterial({credentialRef});
+
+        return {
+            status          : TenantRepoAccessStatus.READY,
+            code            : TenantRepoAccessCode.CREDENTIAL_RESOLVED,
+            cacheFingerprint: material.cacheFingerprint
+        };
+    } catch {
+        return {
+            status          : TenantRepoAccessStatus.DEGRADED,
+            code            : TenantRepoAccessCode.CREDENTIAL_INVALID,
+            cacheFingerprint: null
+        };
+    }
+}
+
+/**
+ * @summary Performs a bounded, read-only capability probe for one repository and ref.
+ *
+ * The probe uses `git ls-remote --exit-code` through the same credential, askpass,
+ * SSH, redaction, and subprocess boundary as clone/fetch. Its output is categorical:
+ * raw Git stdout/stderr and credential metadata never cross this function.
+ *
+ * @param {Object} options
+ * @param {String} options.cloneUrl Clean repository URL.
+ * @param {String|Object|null} options.credentialRef Durable credential reference.
+ * @param {String} [options.ref='HEAD'] Configured branch, tag, or ref.
+ * @param {Number} [options.timeoutMs=15000] Positive subprocess deadline.
+ * @returns {Promise<{status: String, code: String, checkedAt: String, cacheFingerprint: String|null}>}
+ */
+export async function probeRemoteAccess({
+    cloneUrl,
+    credentialRef,
+    ref = 'HEAD',
+    timeoutMs = ACCESS_PROBE_TIMEOUT_MS
+} = {}) {
+    const checkedAt = new Date().toISOString();
+    let   cleanCloneUrl,
+          material;
+
+    try {
+        cleanCloneUrl = assertCleanCloneUrl(cloneUrl);
+    } catch {
+        return {
+            status          : TenantRepoAccessStatus.DEGRADED,
+            code            : TenantRepoAccessCode.PROBE_FAILED,
+            checkedAt,
+            cacheFingerprint: null
+        };
+    }
+
+    try {
+        material = await resolveCredentialMaterial({credentialRef});
+    } catch {
+        return {
+            status          : TenantRepoAccessStatus.DEGRADED,
+            code            : TenantRepoAccessCode.CREDENTIAL_INVALID,
+            checkedAt,
+            cacheFingerprint: null
+        };
+    }
+
+    const effectiveTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+        ? timeoutMs
+        : ACCESS_PROBE_TIMEOUT_MS;
+
+    try {
+        const
+            rawRevision = typeof ref === 'string' && /^[a-f0-9]{7,64}$/iu.test(ref),
+            args        = ['ls-remote', '--exit-code', cleanCloneUrl];
+
+        if (!rawRevision) {
+            args.push(ref);
+        }
+
+        const result = await runGit(args, {
+            acceptedExitCodes: [0, 2],
+            credentialMaterial: material,
+            failureCode      : 'KB_GITMIRROR_ACCESS_PROBE_FAILED',
+            failureMessage   : 'GitMirror repository access probe failed',
+            timeoutCode      : 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT',
+            timeoutMessage   : 'GitMirror repository access probe timed out',
+            timeoutMs        : effectiveTimeoutMs
+        });
+
+        const advertisedRefs = rawRevision && result.exitCode === 0
+            ? result.stdout
+                .split('\n')
+                .map(line => line.trim().split(/\s+/u))
+                .filter(([revision, refName]) => revision && refName)
+            : [];
+        const advertisedRevision = advertisedRefs
+            .some(([revision]) => revision.toLowerCase().startsWith(ref.toLowerCase()));
+        const advertisedNamedRef = advertisedRefs
+            .some(([, refName]) => [
+                ref,
+                `refs/heads/${ref}`,
+                `refs/tags/${ref}`
+            ].includes(refName));
+
+        if (rawRevision && !advertisedRevision && !advertisedNamedRef) {
+            return {
+                status          : TenantRepoAccessStatus.UNKNOWN,
+                code            : TenantRepoAccessCode.REF_UNVERIFIED,
+                checkedAt,
+                cacheFingerprint: material.cacheFingerprint
+            };
+        }
+
+        return {
+            status: result.exitCode === 0
+                ? TenantRepoAccessStatus.READY
+                : TenantRepoAccessStatus.DEGRADED,
+            code: result.exitCode === 0
+                ? TenantRepoAccessCode.READY
+                : TenantRepoAccessCode.REF_NOT_FOUND,
+            checkedAt,
+            cacheFingerprint: material.cacheFingerprint
+        };
+    } catch (error) {
+        return {
+            status          : TenantRepoAccessStatus.DEGRADED,
+            code            : classifyAccessProbeFailure(error),
+            checkedAt,
+            cacheFingerprint: material.cacheFingerprint
+        };
     }
 }
 
@@ -594,7 +851,9 @@ const GitMirror = {
     cloneIfMissing,
     diffRevisions,
     fetch,
+    inspectCredentialReadiness,
     isAncestor,
+    probeRemoteAccess,
     resolveHead
 };
 

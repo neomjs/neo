@@ -118,6 +118,12 @@ tenants:
 
 The `tenantRepos:` block is the bootstrap tier for the pull-mode polling config — `listConfiguredTenantRepos()` resolves it under the graph node → `kb-config.yaml` → `aiConfig` tiering. Graph-only tenant config nodes are included through the graph service's RLS-aware tenant-config enumeration surface; an unreadable graph tier degrades deployment diagnostics instead of silently behaving like an empty pull-mode config.
 
+`credentialRef` accepts only `none`, `env:NAME`, `file:/path`, or `ssh:/path` (plus a
+legacy bare environment-variable name). The object equivalents use `type: none|env|file|ssh`
+with `name`, `filePath`, or `keyPath`; `env` and `file` may also specify a non-empty
+`username`. An unknown scheme such as `helper:*` is rejected during effective-config
+resolution instead of being reinterpreted as an environment-variable name.
+
 The YAML is bootstrap-only — the graph node is canonical once written. Runtime resolution stays
 fail-soft: a missing, empty, unreadable, malformed, or invalid-shape file cannot block a valid graph
 or AiConfig fallback. Diagnostics remain fail-honest, however. The deployment snapshot projects

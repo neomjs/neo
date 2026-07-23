@@ -754,6 +754,14 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                             lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                         }
                     };
+                },
+                getTenantRepoAccessReadiness() {
+                    return {
+                        status          : 'ready',
+                        code            : 'KB_TENANT_REPO_ACCESS_READY',
+                        checkedAt       : '2024-03-09T15:59:00.000Z',
+                        cacheFingerprint: 'must-not-cross-the-bridge'
+                    };
                 }
             },
             tenantRepoSyncEnabledReader: () => true
@@ -762,6 +770,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(tenantRepoSync.status).toBe('not-due');
+        expect(tenantRepoSync.schemaVersion).toBe(2);
         expect(tenantRepoSync.config).toMatchObject({
             repoCount : 1,
             tierCounts: {yaml: 1}
@@ -773,11 +782,157 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             due                : false,
             lastIngestedRev    : 'abcdef123456',
             consecutiveFailures: 0,
-            checkpointStatus   : 'complete'
+            checkpointStatus   : 'complete',
+            accessReadiness    : {
+                status   : 'ready',
+                code     : 'KB_TENANT_REPO_ACCESS_READY',
+                checkedAt: '2024-03-09T15:59:00.000Z'
+            }
+        });
+        expect(tenantRepoSync.accessReadiness).toEqual({
+            status       : 'ready',
+            requiredCount: 1,
+            readyCount   : 1,
+            degradedCount: 0,
+            unknownCount : 0,
+            checkedCount : 1
         });
         expect(JSON.stringify(tenantRepoSync)).not.toContain('tenant-a');
         expect(JSON.stringify(tenantRepoSync)).not.toContain('private/repo');
         expect(JSON.stringify(tenantRepoSync)).not.toContain('TOKEN');
+        expect(JSON.stringify(tenantRepoSync)).not.toContain('must-not-cross-the-bridge');
+    });
+
+    test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {
+        const repos = [
+            {
+                tenantId     : 'tenant-ready',
+                repoSlug     : 'private/ready',
+                cloneUrl     : 'https://git.example/private/ready.git',
+                credentialRef: 'env:READY_TOKEN'
+            },
+            {
+                tenantId     : 'tenant-denied',
+                repoSlug     : 'private/denied',
+                cloneUrl     : 'https://git.example/private/denied.git',
+                credentialRef: 'file:/run/secrets/denied-token'
+            },
+            {
+                tenantId     : 'tenant-unknown',
+                repoSlug     : 'private/unknown',
+                cloneUrl     : 'ssh://git.example/private/unknown.git',
+                credentialRef: 'ssh:/run/secrets/unknown-key'
+            },
+            {
+                tenantId     : 'tenant-disabled',
+                repoSlug     : 'private/disabled',
+                cloneUrl     : 'https://git.example/private/disabled.git',
+                credentialRef: 'env:DISABLED_TOKEN',
+                disabled     : true
+            }
+        ];
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return null;
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {tenantRepos: repos};
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    return {};
+                },
+                getTenantRepoAccessReadiness(repo) {
+                    if (repo.tenantId === 'tenant-ready') {
+                        return {
+                            status          : 'ready',
+                            code            : 'KB_TENANT_REPO_ACCESS_READY',
+                            checkedAt       : '2024-03-09T15:59:00.000Z',
+                            cacheFingerprint: 'secret-fingerprint',
+                            cloneUrl        : repo.cloneUrl,
+                            credentialRef   : repo.credentialRef
+                        };
+                    }
+
+                    if (repo.tenantId === 'tenant-denied') {
+                        return {
+                            status   : 'degraded',
+                            code     : 'KB_TENANT_REPO_ACCESS_DENIED_OR_NOT_FOUND',
+                            checkedAt: '2024-03-09T15:58:00.000Z',
+                            stderr   : 'fatal token secret-value',
+                            keyPath  : '/host/private/key',
+                            username : 'private-user',
+                            stack    : 'private-stack'
+                        };
+                    }
+
+                    return {
+                        status   : 'degraded',
+                        code     : 'KB_TENANT_REPO_ACCESS_TOKEN_SECRET',
+                        checkedAt: '2024-03-09T15:57:00.000Z',
+                        token    : 'secret-value'
+                    };
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.accessReadiness).toEqual({
+            status       : 'degraded',
+            requiredCount: 3,
+            readyCount   : 1,
+            degradedCount: 1,
+            unknownCount : 1,
+            checkedCount : 2
+        });
+        expect(tenantRepoSync.repos.map(repo => repo.accessReadiness)).toEqual([
+            {
+                status   : 'ready',
+                code     : 'KB_TENANT_REPO_ACCESS_READY',
+                checkedAt: '2024-03-09T15:59:00.000Z'
+            },
+            {
+                status   : 'degraded',
+                code     : 'KB_TENANT_REPO_ACCESS_DENIED_OR_NOT_FOUND',
+                checkedAt: '2024-03-09T15:58:00.000Z'
+            },
+            {
+                status   : 'unknown',
+                code     : null,
+                checkedAt: null
+            },
+            {
+                status   : 'not-required',
+                code     : null,
+                checkedAt: null
+            }
+        ]);
+
+        const serialized = JSON.stringify(tenantRepoSync);
+
+        for (const forbidden of [
+            'tenant-ready',
+            'private/ready',
+            'git.example',
+            'READY_TOKEN',
+            '/run/secrets',
+            'secret-fingerprint',
+            'fatal token',
+            'secret-value',
+            '/host/private',
+            'private-user',
+            'private-stack',
+            'KB_TENANT_REPO_ACCESS_TOKEN_SECRET'
+        ]) {
+            expect(serialized).not.toContain(forbidden);
+        }
     });
 
     test('collectTenantRepoSyncSnapshot surfaces bounded failure outcome codes', async () => {

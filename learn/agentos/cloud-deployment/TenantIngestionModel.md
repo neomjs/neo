@@ -202,9 +202,18 @@ The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConf
 }
 ```
 
-**Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** The `credentialRef` is a reference (env-var name, secret-store path, etc.) that `GitMirror` resolves only at the git subprocess invocation boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
+**Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** The `credentialRef` is a reference that uses one shared grammar: `none`, `env:NAME`, `file:/path`, or `ssh:/path` (a legacy bare environment-variable name remains accepted). The same normalized grammar feeds `GitMirror`; unknown schemes such as `helper:*` fail during effective-config resolution rather than becoming delayed environment lookups. `GitMirror` resolves credential material only at its local validation or git-subprocess boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
 
-Use `file:/run/secrets/<name>` when the deployment mounts Git credentials through Docker `secrets:` or a Kubernetes Secret volume. `GitMirror` reads and trims the file at subprocess time, then feeds the value through the same transient `GIT_ASKPASS` path as `env:` credentials; empty or missing files fail before git runs.
+Use `file:/run/secrets/<name>` when the deployment mounts Git credentials through Docker `secrets:` or a Kubernetes Secret volume. `GitMirror` reads and trims the file at resolution time, then feeds the value through the same transient `GIT_ASKPASS` path as `env:` credentials; empty, missing, or unreadable files fail before git runs. `ssh:` references likewise require a present, readable, non-empty key before Git constructs `GIT_SSH_COMMAND`.
+
+At the first orchestrator sync sweep, before per-repo cadence/jitter can defer clone/fetch,
+`TenantRepoSyncService` performs a bounded, read-only capability preflight for every enabled
+effective repo. It resolves credential material locally, then runs `git ls-remote --exit-code`
+against the clean URL and configured ref through GitMirror's existing askpass/SSH/redaction
+boundary. The process caches only a keyed credential fingerprint plus bounded status/code/time;
+config or credential rotation invalidates that entry. A normal clone/fetch remains authoritative
+and can supersede stale probe evidence. One failed preflight does not block unrelated repositories
+or suppress the normal retry path.
 
 **`branchRef` (optional)** selects which git ref to ingest from. Omitted = `'HEAD'` = the remote's default branch. Useful when the canonical product-source-of-truth branch differs from the repo's default branch — e.g., trunk-based teams using `dev` as integration line + `main` as release-tag-only. Validated as a non-empty string at config normalization; accepts any git ref name (branch, tag, sha) since it flows through `gitMirror.resolveHead()`.
 
@@ -321,6 +330,15 @@ the checkpoint aggregate unavailable; counts are likewise unavailable when repo
 enumeration or revision-state reading fails. Existing per-repo rows add only the version values and
 `checkpointStatus` beside their already-hashed identities.
 
+The same section exposes `accessReadiness`. Its aggregate is `ready` only when every enabled
+required repo has current process-local capability evidence; otherwise it is `degraded`,
+`unknown`, or `not-required`, with ready/degraded/unknown/checked counts. Each already-hashed
+repo row adds only `{status, code, checkedAt}`. A process restart clears this volatile evidence,
+and evidence expires after two effective repo-cadence windows (with a fifteen-minute floor), so
+inspection reports `unknown` until the next sync sweep re-probes. Inspection itself never launches
+Git or network work. Clone URLs, refs, credential references, env names, file/key paths,
+usernames, fingerprints, Git output, and stacks never enter the snapshot.
+
 ### Repo Freshness Status Enum
 
 | Status | Meaning | Transition |
@@ -346,6 +364,16 @@ Per-repo failures carry a stable `lastErrorCode` field on the health payload; op
 
 The `KB_TENANT_REPO_SYNC_*` prefix distinguishes these codes from sibling-subsystem error families (`KB_GITMIRROR_*`, `KB_INGEST_*`, `KB_TENANT_REPO_ACCESS_*`).
 `lastSourceErrorCode` is optional and bounded to stable `KB_*` codes only; it never carries clone URLs, credential references, tokens, raw repository identities, or git stderr.
+
+Access preflight uses the provider-neutral `KB_TENANT_REPO_ACCESS_*` family:
+`READY`, `CREDENTIAL_INVALID`, `TIMEOUT`, `TRANSPORT_FAILED`,
+`DENIED_OR_NOT_FOUND`, `REF_NOT_FOUND`, `REF_UNVERIFIED`, and the bounded fallback
+`PROBE_FAILED`. `PROBE_UNAVAILABLE` means the scheduler could not obtain the
+GitMirror preflight surface, while `SYNC_FAILED` means a later authoritative
+clone/fetch failed. A raw commit SHA that is not an advertised ref tip reports
+`REF_UNVERIFIED` rather than falsely reporting it missing; normal fetch remains
+the authority for that revision. These codes prove capability categories only; they do not
+infer PAT, deploy-token, group-token, or provider-specific scope metadata.
 
 ### Quarantine Runbook
 

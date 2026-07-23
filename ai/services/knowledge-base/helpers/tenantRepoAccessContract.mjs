@@ -11,9 +11,61 @@ import path from 'path';
  * @see https://github.com/neomjs/neo/issues/11787
  */
 
-const URL_WITH_USERINFO_RE = /^[a-z][a-z0-9+.-]*:\/\/[^/\s@]+@/iu;
-const SCP_LIKE_USERINFO_RE = /^[^/\s@:]+@[^/\s@:]+:/u;
-const SECRET_REPLACEMENT   = '[REDACTED]';
+const URL_WITH_USERINFO_RE   = /^[a-z][a-z0-9+.-]*:\/\/[^/\s@]+@/iu;
+const SCP_LIKE_USERINFO_RE   = /^[^/\s@:]+@[^/\s@:]+:/u;
+const ENV_CREDENTIAL_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+const SECRET_REPLACEMENT     = '[REDACTED]';
+
+export const TenantRepoAccessStatus = Object.freeze({
+    READY   : 'ready',
+    DEGRADED: 'degraded',
+    UNKNOWN : 'unknown'
+});
+
+export const TenantRepoAccessCode = Object.freeze({
+    CREDENTIAL_RESOLVED: 'KB_TENANT_REPO_ACCESS_CREDENTIAL_RESOLVED',
+    CREDENTIAL_INVALID : 'KB_TENANT_REPO_ACCESS_CREDENTIAL_INVALID',
+    READY              : 'KB_TENANT_REPO_ACCESS_READY',
+    TIMEOUT            : 'KB_TENANT_REPO_ACCESS_TIMEOUT',
+    TRANSPORT_FAILED   : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+    DENIED_OR_NOT_FOUND: 'KB_TENANT_REPO_ACCESS_DENIED_OR_NOT_FOUND',
+    REF_NOT_FOUND      : 'KB_TENANT_REPO_ACCESS_REF_NOT_FOUND',
+    REF_UNVERIFIED     : 'KB_TENANT_REPO_ACCESS_REF_UNVERIFIED',
+    PROBE_FAILED       : 'KB_TENANT_REPO_ACCESS_PROBE_FAILED',
+    EVIDENCE_EXPIRED   : 'KB_TENANT_REPO_ACCESS_EVIDENCE_EXPIRED',
+    PROBE_UNAVAILABLE  : 'KB_TENANT_REPO_ACCESS_PROBE_UNAVAILABLE',
+    SYNC_FAILED        : 'KB_TENANT_REPO_ACCESS_SYNC_FAILED'
+});
+
+const TENANT_REPO_ACCESS_CODES_BY_STATUS = Object.freeze({
+    [TenantRepoAccessStatus.READY]: Object.freeze([
+        TenantRepoAccessCode.READY
+    ]),
+    [TenantRepoAccessStatus.DEGRADED]: Object.freeze([
+        TenantRepoAccessCode.CREDENTIAL_INVALID,
+        TenantRepoAccessCode.TIMEOUT,
+        TenantRepoAccessCode.TRANSPORT_FAILED,
+        TenantRepoAccessCode.DENIED_OR_NOT_FOUND,
+        TenantRepoAccessCode.REF_NOT_FOUND,
+        TenantRepoAccessCode.PROBE_FAILED,
+        TenantRepoAccessCode.SYNC_FAILED
+    ]),
+    [TenantRepoAccessStatus.UNKNOWN]: Object.freeze([
+        TenantRepoAccessCode.REF_UNVERIFIED,
+        TenantRepoAccessCode.EVIDENCE_EXPIRED,
+        TenantRepoAccessCode.PROBE_UNAVAILABLE
+    ])
+});
+
+/**
+ * @summary Checks the strict public status/code pairing for tenant-repo access evidence.
+ * @param {String} status Candidate readiness status.
+ * @param {String} code Candidate stable readiness code.
+ * @returns {Boolean}
+ */
+export function isTenantRepoAccessReadinessOutcome(status, code) {
+    return TENANT_REPO_ACCESS_CODES_BY_STATUS[status]?.includes(code) === true;
+}
 
 /**
  * @summary Creates a contract error with a stable code for callers and tests.
@@ -189,6 +241,144 @@ export function normalizeRepoSlug(repoSlug) {
 }
 
 /**
+ * @summary Normalizes the shared, reference-only credential grammar for tenant repositories.
+ *
+ * Supported string forms are `none`, `env:NAME`, `file:/path`, and `ssh:/path`.
+ * A bare environment-variable name remains supported for backward compatibility, but
+ * any string containing an unknown scheme delimiter is rejected instead of being
+ * reinterpreted as an environment-variable name.
+ *
+ * Object forms use the same four `type` values and the corresponding `name`,
+ * `filePath`, or `keyPath` property. The returned object contains only fields consumed
+ * by GitMirror, preventing unrelated config data from crossing the credential boundary.
+ *
+ * @param {String|Object|null} credentialRef Durable credential reference.
+ * @param {Object} [options]
+ * @param {Boolean} [options.allowOmitted=false] Allow `null` / `undefined` for local GitMirror callers.
+ * @returns {Object|null}
+ */
+export function normalizeTenantRepoCredentialRef(credentialRef, {allowOmitted = false} = {}) {
+    if (credentialRef === null || credentialRef === undefined) {
+        if (allowOmitted) {
+            return null;
+        }
+
+        throw createContractError(
+            'KB_TENANT_REPO_CREDENTIAL_REF_REQUIRED',
+            'Tenant repo config entries require credentialRef'
+        );
+    }
+
+    let candidate;
+
+    if (typeof credentialRef === 'string') {
+        const value = credentialRef.trim();
+
+        if (!value) {
+            throw createContractError(
+                'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                'Tenant repo credentialRef must be a non-empty supported reference'
+            );
+        }
+
+        if (value === 'none') {
+            return {type: 'none'};
+        }
+
+        const separatorIndex = value.indexOf(':');
+
+        if (separatorIndex === -1) {
+            candidate = {type: 'env', name: value};
+        } else {
+            const
+                type   = value.slice(0, separatorIndex),
+                target = value.slice(separatorIndex + 1).trim();
+
+            if (type === 'env') {
+                candidate = {type, name: target};
+            } else if (type === 'file') {
+                candidate = {type, filePath: target};
+            } else if (type === 'ssh') {
+                candidate = {type, keyPath: target};
+            } else {
+                throw createContractError(
+                    'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                    'Tenant repo credentialRef uses an unsupported scheme'
+                );
+            }
+        }
+    } else if (typeof credentialRef === 'object' && !Array.isArray(credentialRef)) {
+        candidate = credentialRef;
+    } else {
+        throw createContractError(
+            'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+            'Tenant repo credentialRef must be a supported string or object reference'
+        );
+    }
+
+    const type = candidate.type;
+
+    if (!['none', 'env', 'file', 'ssh'].includes(type)) {
+        throw createContractError(
+            'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+            'Tenant repo credentialRef uses an unsupported type'
+        );
+    }
+
+    const normalized = {type};
+
+    if (type === 'env') {
+        const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+
+        if (!ENV_CREDENTIAL_NAME_RE.test(name)) {
+            throw createContractError(
+                'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                'Tenant repo env credentialRef requires a valid environment-variable name'
+            );
+        }
+
+        normalized.name = name;
+    } else if (type === 'file') {
+        const filePath = typeof candidate.filePath === 'string' ? candidate.filePath.trim() : '';
+
+        if (!filePath) {
+            throw createContractError(
+                'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                'Tenant repo file credentialRef requires filePath'
+            );
+        }
+
+        normalized.filePath = filePath;
+    } else if (type === 'ssh') {
+        const keyPath = typeof candidate.keyPath === 'string' ? candidate.keyPath.trim() : '';
+
+        if (!keyPath) {
+            throw createContractError(
+                'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                'Tenant repo ssh credentialRef requires keyPath'
+            );
+        }
+
+        normalized.keyPath = keyPath;
+    }
+
+    if (Object.hasOwn(candidate, 'username')) {
+        const username = typeof candidate.username === 'string' ? candidate.username.trim() : '';
+
+        if (!['env', 'file'].includes(type) || !username || /[\r\n]/u.test(username)) {
+            throw createContractError(
+                'KB_TENANT_REPO_CREDENTIAL_REF_INVALID',
+                'Tenant repo env/file credentialRef username must be a non-empty single-line string'
+            );
+        }
+
+        normalized.username = username;
+    }
+
+    return normalized;
+}
+
+/**
  * @summary Normalizes one tenant repo-access config entry and enforces the no-secret boundary.
  * @param {Object} entry Tenant repo-access config entry.
  * @param {String} [entry.branchRef] Optional git ref (branch / tag / sha) to ingest from. When
@@ -214,6 +404,8 @@ export function normalizeTenantRepoEntry(entry = {}) {
             'Tenant repo config entries require credentialRef'
         );
     }
+
+    normalizeTenantRepoCredentialRef(entry.credentialRef);
 
     if (Object.hasOwn(entry, 'branchRef') && (typeof entry.branchRef !== 'string' || entry.branchRef.trim() === '')) {
         throw createContractError(

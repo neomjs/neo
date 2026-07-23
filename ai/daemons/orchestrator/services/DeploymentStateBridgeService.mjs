@@ -3,6 +3,9 @@ import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
 import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
+import {
+    isTenantRepoAccessReadinessOutcome
+} from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 
 import {
     boundUtf8Tail,
@@ -683,11 +686,12 @@ export class DeploymentStateBridgeService extends Base {
             persistedRepoState: persistedRevisions[createTenantRepoLabel(repo)] || null,
             revisionStateAvailable,
             globalCadenceMs   : scheduler.globalCadenceMs,
-            jitterRatio       : scheduler.jitterRatio
+            jitterRatio       : scheduler.jitterRatio,
+            accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt)
         }));
 
         return {
-            schemaVersion: 1,
+            schemaVersion: 2,
             recordType   : 'tenant-repo-sync-deployment-state',
             source,
             observedAt,
@@ -706,6 +710,10 @@ export class DeploymentStateBridgeService extends Base {
             checkpointRevalidation: summarizeCheckpointRevalidation({
                 repoStates,
                 stateAvailable: configEnumerationAvailable && revisionStateAvailable
+            }),
+            accessReadiness: summarizeTenantRepoAccessReadiness({
+                repoStates,
+                stateAvailable: configEnumerationAvailable
             }),
             repos : repoStates,
             errors
@@ -1063,6 +1071,114 @@ function summarizeCheckpointRevalidation({repoStates, stateAvailable}) {
 }
 
 /**
+ * @summary Reads process-local access evidence without letting inspection trigger network work.
+ * @param {Object|null} service TenantRepoSyncService-compatible source.
+ * @param {Object} repo Effective repository entry.
+ * @param {Number} observedAt Snapshot observation epoch.
+ * @returns {Object|null}
+ */
+function readTenantRepoAccessReadiness(service, repo, observedAt) {
+    if (typeof service?.getTenantRepoAccessReadiness !== 'function') {
+        return null;
+    }
+
+    try {
+        return service.getTenantRepoAccessReadiness(repo, {observedAt});
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Reduces one cached access result to its strict public allowlist.
+ * @param {Object|null} candidate Process-local readiness candidate.
+ * @param {Boolean} disabled Whether the repository is disabled.
+ * @returns {{status: String, code: String|null, checkedAt: String|null}}
+ */
+function summarizeTenantRepoAccessState(candidate, disabled) {
+    if (disabled) {
+        return {
+            status   : 'not-required',
+            code     : null,
+            checkedAt: null
+        };
+    }
+
+    const
+        status    = candidate?.status,
+        code      = typeof candidate?.code === 'string' ? candidate.code : null,
+        checkedAt = typeof candidate?.checkedAt === 'string' && Number.isFinite(Date.parse(candidate.checkedAt))
+            ? new Date(candidate.checkedAt).toISOString()
+            : null;
+
+    if (checkedAt && isTenantRepoAccessReadinessOutcome(status, code)) {
+        return {status, code, checkedAt};
+    }
+
+    return {
+        status   : 'unknown',
+        code     : null,
+        checkedAt: null
+    };
+}
+
+/**
+ * @summary Builds aggregate access-readiness counts without exposing repository identities.
+ * @param {Object} options
+ * @param {Object[]} options.repoStates Redacted per-repo diagnostic rows.
+ * @param {Boolean} options.stateAvailable Whether effective repo enumeration succeeded.
+ * @returns {Object}
+ */
+function summarizeTenantRepoAccessReadiness({repoStates, stateAvailable}) {
+    if (!stateAvailable) {
+        return {
+            status       : 'unknown',
+            requiredCount: null,
+            readyCount   : null,
+            degradedCount: null,
+            unknownCount : null,
+            checkedCount : null
+        };
+    }
+
+    const required = repoStates.filter(repo => !repo.disabled);
+    const summary  = {
+        status       : 'not-required',
+        requiredCount: required.length,
+        readyCount   : 0,
+        degradedCount: 0,
+        unknownCount : 0,
+        checkedCount : 0
+    };
+
+    for (const repo of required) {
+        const status = repo.accessReadiness.status;
+
+        if (status === 'ready') {
+            summary.readyCount++;
+        } else if (status === 'degraded') {
+            summary.degradedCount++;
+        } else {
+            summary.unknownCount++;
+        }
+
+        if (repo.accessReadiness.checkedAt) {
+            summary.checkedCount++;
+        }
+    }
+
+    if (summary.degradedCount > 0) {
+        summary.status = 'degraded';
+    } else if (summary.unknownCount > 0) {
+        summary.status = 'unknown';
+    } else if (summary.readyCount > 0) {
+        summary.status = 'ready';
+    }
+
+    return summary;
+}
+
+/**
  * @summary Projects one configured repository into a redacted scheduler and
  * checkpoint-revalidation diagnostic row.
  * @param {Object} options
@@ -1073,6 +1189,7 @@ function summarizeCheckpointRevalidation({repoStates, stateAvailable}) {
  * @param {Boolean} options.revisionStateAvailable Whether the manifest was readable.
  * @param {Number} options.globalCadenceMs Global per-repo cadence.
  * @param {Number} options.jitterRatio Deterministic jitter ratio.
+ * @param {Object|null} options.accessReadiness Process-local access evidence.
  * @returns {Object}
  */
 function summarizeTenantRepoState({
@@ -1082,7 +1199,8 @@ function summarizeTenantRepoState({
     persistedRepoState,
     revisionStateAvailable,
     globalCadenceMs,
-    jitterRatio
+    jitterRatio,
+    accessReadiness
 }) {
     const
         normalizedCheckpoint = normalizeTenantRepoCheckpointState(persistedRepoState),
@@ -1106,6 +1224,7 @@ function summarizeTenantRepoState({
         repoHash                          : hashValue(repo.repoSlug),
         configTier                        : repo.configTier || 'unreported',
         disabled,
+        accessReadiness                   : summarizeTenantRepoAccessState(accessReadiness, disabled),
         status                            : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
         due                               : disabled ? false : dueState.due,
         nextDueAt                         : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
