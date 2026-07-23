@@ -392,6 +392,9 @@ export class DeploymentRuntimeAccessService extends Base {
     /**
      * @summary Verifies that Docker returned the exact project-and-service identity requested.
      *
+     * Missing or malformed label maps fail through the existing bounded mismatch reasons. Diagnostic
+     * details describe only the expected lookup contract and never echo label values returned by Docker.
+     *
      * @param {Object} options
      * @param {Object} options.container Docker container-list item.
      * @param {String} options.serviceKey Expected Compose service key.
@@ -400,7 +403,7 @@ export class DeploymentRuntimeAccessService extends Base {
      * @returns {void}
      */
     assertTargetIdentity({container, serviceKey, composeProject, filters}) {
-        const labels = container && typeof container.Labels === 'object'
+        const labels = container?.Labels && typeof container.Labels === 'object'
             ? container.Labels
             : {};
 
