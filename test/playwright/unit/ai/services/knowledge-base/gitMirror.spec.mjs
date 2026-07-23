@@ -1,23 +1,26 @@
 import {test, expect} from '@playwright/test';
 
-import fs             from 'fs-extra';
-import os             from 'os';
-import path           from 'path';
-import {execFile}     from 'child_process';
-import {promisify}    from 'util';
+import fs          from 'fs-extra';
+import os          from 'os';
+import path        from 'path';
+import {execFile}  from 'child_process';
+import {promisify} from 'util';
 
 import GitMirror, {
     cloneIfMissing,
     diffRevisions,
     fetch,
+    inspectCredentialReadiness,
     isAncestor,
+    probeRemoteAccess,
+    TenantRepoAccessCode,
     resolveHead
 } from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
 
 const execFileAsync = promisify(execFile);
 
 /**
- * @summary Contract tests for the persistent Git mirror primitive (#11788).
+ * @summary Contract tests for the persistent Git mirror primitive.
  *
  * The tests use local fixture repositories only. Credentialed remote acquisition is
  * represented by no-leak failure assertions so the suite never depends on provider
@@ -102,6 +105,23 @@ exit 1
 
         try {
             await callback(capturePath);
+        } finally {
+            process.env.PATH = originalPath;
+        }
+    }
+
+    async function withFakeGitScript(script, callback) {
+        const originalPath = process.env.PATH;
+        const binDir       = path.join(root, 'fake-probe-bin');
+        const gitPath      = path.join(binDir, 'git');
+
+        await fs.ensureDir(binDir);
+        await fs.writeFile(gitPath, `#!/bin/sh\n${script}\n`);
+        await fs.chmod(gitPath, 0o755);
+        process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+
+        try {
+            await callback();
         } finally {
             process.env.PATH = originalPath;
         }
@@ -199,6 +219,159 @@ exit 1
             credentialRef: 'env:NEO_GITMIRROR_MISSING_TOKEN',
             repoSlug     : 'local/other-source'
         })).rejects.toMatchObject({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'});
+    });
+
+    test('rejects an unsupported credentialRef scheme through the shared config grammar', async () => {
+        const source = await createSourceRepo();
+
+        await expect(cloneIfMissing({
+            ...mirrorOptions(source),
+            credentialRef: 'helper:github-app-installation'
+        })).rejects.toMatchObject({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'});
+    });
+
+    test('checks env, file, and SSH credential material without exposing reference metadata', async () => {
+        const tokenPath = path.join(root, 'readiness-token');
+        const keyPath   = path.join(root, 'readiness-key');
+
+        process.env.NEO_GITMIRROR_TEST_TOKEN = 'local-readiness-secret';
+        await fs.writeFile(tokenPath, 'file-readiness-secret\n');
+        await fs.writeFile(keyPath, '-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----\n');
+
+        const results = await Promise.all([
+            inspectCredentialReadiness({credentialRef: 'env:NEO_GITMIRROR_TEST_TOKEN'}),
+            inspectCredentialReadiness({credentialRef: `file:${tokenPath}`}),
+            inspectCredentialReadiness({credentialRef: `ssh:${keyPath}`})
+        ]);
+
+        for (const result of results) {
+            expect(result).toMatchObject({
+                status: 'ready',
+                code  : TenantRepoAccessCode.CREDENTIAL_RESOLVED
+            });
+            expect(result.cacheFingerprint).toMatch(/^[a-f0-9]{64}$/u);
+        }
+
+        const serialized = JSON.stringify(results);
+        expect(serialized).not.toContain('local-readiness-secret');
+        expect(serialized).not.toContain('file-readiness-secret');
+        expect(serialized).not.toContain('NEO_GITMIRROR_TEST_TOKEN');
+        expect(serialized).not.toContain(tokenPath);
+        expect(serialized).not.toContain(keyPath);
+    });
+
+    test('classifies missing or unreadable local credential material before Git runs', async () => {
+        const unreadableKeyPath = path.join(root, 'key-directory');
+
+        await fs.ensureDir(unreadableKeyPath);
+
+        await expect(inspectCredentialReadiness({
+            credentialRef: 'env:NEO_GITMIRROR_MISSING_TOKEN'
+        })).resolves.toEqual({
+            status          : 'degraded',
+            code            : TenantRepoAccessCode.CREDENTIAL_INVALID,
+            cacheFingerprint: null
+        });
+        await expect(inspectCredentialReadiness({
+            credentialRef: `file:${path.join(root, 'missing-token')}`
+        })).resolves.toMatchObject({
+            status: 'degraded',
+            code  : TenantRepoAccessCode.CREDENTIAL_INVALID
+        });
+        await expect(inspectCredentialReadiness({
+            credentialRef: `ssh:${unreadableKeyPath}`
+        })).resolves.toMatchObject({
+            status: 'degraded',
+            code  : TenantRepoAccessCode.CREDENTIAL_INVALID
+        });
+    });
+
+    test('probes a readable repository and distinguishes a missing ref', async () => {
+        const source = await createSourceRepo();
+        const head   = await git(['rev-parse', 'HEAD'], source);
+
+        await git(['branch', 'deadbee'], source);
+
+        await expect(probeRemoteAccess({
+            cloneUrl     : source,
+            credentialRef: 'none',
+            ref          : 'main'
+        })).resolves.toMatchObject({
+            status: 'ready',
+            code  : TenantRepoAccessCode.READY
+        });
+        await expect(probeRemoteAccess({
+            cloneUrl     : source,
+            credentialRef: 'none',
+            ref          : 'deadbee'
+        })).resolves.toMatchObject({
+            status: 'ready',
+            code  : TenantRepoAccessCode.READY
+        });
+        await expect(probeRemoteAccess({
+            cloneUrl     : source,
+            credentialRef: 'none',
+            ref          : 'missing-ref'
+        })).resolves.toMatchObject({
+            status: 'degraded',
+            code  : TenantRepoAccessCode.REF_NOT_FOUND
+        });
+
+        await expect(probeRemoteAccess({
+            cloneUrl     : source,
+            credentialRef: 'none',
+            ref          : head
+        })).resolves.toMatchObject({
+            status: 'ready',
+            code  : TenantRepoAccessCode.READY
+        });
+
+        await git(['branch', '-D', 'deadbee'], source);
+        await commitSecondRevision(source);
+
+        await expect(probeRemoteAccess({
+            cloneUrl     : source,
+            credentialRef: 'none',
+            ref          : head
+        })).resolves.toMatchObject({
+            status: 'unknown',
+            code  : TenantRepoAccessCode.REF_UNVERIFIED
+        });
+    });
+
+    test('classifies denied, transport, and timeout probe failures without returning Git prose', async () => {
+        const cases = [
+            {
+                script : "printf '%s\\n' 'fatal: Authentication failed for https://example.invalid/private.git' >&2\nexit 128",
+                code   : TenantRepoAccessCode.DENIED_OR_NOT_FOUND,
+                timeout: 1000
+            },
+            {
+                script : "printf '%s\\n' 'fatal: Could not resolve host: example.invalid' >&2\nexit 128",
+                code   : TenantRepoAccessCode.TRANSPORT_FAILED,
+                timeout: 1000
+            },
+            {
+                script : 'sleep 1\nexit 0',
+                code   : TenantRepoAccessCode.TIMEOUT,
+                timeout: 20
+            }
+        ];
+
+        for (const item of cases) {
+            await withFakeGitScript(item.script, async () => {
+                const result = await probeRemoteAccess({
+                    cloneUrl     : 'https://example.invalid/private.git',
+                    credentialRef: 'none',
+                    ref          : 'main',
+                    timeoutMs    : item.timeout
+                });
+
+                expect(result).toMatchObject({status: 'degraded', code: item.code});
+                expect(JSON.stringify(result)).not.toContain('Authentication failed');
+                expect(JSON.stringify(result)).not.toContain('example.invalid');
+            });
+        }
     });
 
     test('resolves file credentialRef strings through askpass and redacts the resolved secret', async () => {

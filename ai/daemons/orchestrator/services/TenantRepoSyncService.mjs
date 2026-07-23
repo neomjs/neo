@@ -1,10 +1,17 @@
-import fs                    from 'fs-extra';
-import path                  from 'node:path';
-import Base                  from '../../../../src/core/Base.mjs';
-import AiConfig              from '../../../config.mjs';
-import GitMirror             from '../../../services/knowledge-base/helpers/gitMirror.mjs';
-import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
-import {isRepoDue}           from '../scheduling/tenantRepoSync.mjs';
+import fs                        from 'fs-extra';
+import {createHmac, randomBytes} from 'node:crypto';
+import path                      from 'node:path';
+import Base                      from '../../../../src/core/Base.mjs';
+import AiConfig                  from '../../../config.mjs';
+import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import {buildIngestEnvelope}     from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
+import {
+    isTenantRepoAccessReadinessOutcome,
+    normalizeTenantRepoCredentialRef,
+    TenantRepoAccessCode,
+    TenantRepoAccessStatus
+} from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
+import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -22,6 +29,8 @@ import {
 } from './tenantRepoCheckpointValidity.mjs';
 
 const
+    ACCESS_CONFIG_FINGERPRINT_KEY = randomBytes(32),
+    ACCESS_READINESS_MIN_TTL_MS   = 15 * 60 * 1000,
     BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/,
     PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
 
@@ -95,6 +104,76 @@ function getSourceErrorCode(error, outerCode) {
     }
 
     return BOUNDED_KB_ERROR_CODE_PATTERN.test(sourceCode) ? sourceCode : null;
+}
+
+/**
+ * @summary Builds an internal-only digest of the effective access configuration.
+ * @param {Object} repo Effective tenant-repo entry.
+ * @returns {String}
+ * @private
+ */
+function hashTenantRepoAccessConfig(repo) {
+    return createHmac('sha256', ACCESS_CONFIG_FINGERPRINT_KEY).update(JSON.stringify({
+        branchRef    : repo.branchRef || 'HEAD',
+        cloneUrl     : repo.cloneUrl,
+        credentialRef: normalizeTenantRepoCredentialRef(repo.credentialRef)
+    })).digest('hex');
+}
+
+/**
+ * @summary Returns the stable internal key for one effective tenant repository.
+ * @param {Object} repo Effective tenant-repo entry.
+ * @returns {String}
+ * @private
+ */
+function createTenantRepoAccessKey(repo) {
+    return `${repo.tenantId}/${repo.repoSlug}`;
+}
+
+/**
+ * @summary Returns true when a configured tenant repository is disabled.
+ * @param {Object} repo Effective tenant-repo entry.
+ * @returns {Boolean}
+ * @private
+ */
+function isTenantRepoDisabled(repo) {
+    return repo.disabled === true || repo.enabled === false;
+}
+
+/**
+ * @summary Normalizes a readiness timestamp without copying arbitrary upstream data.
+ * @param {*} value Candidate ISO timestamp.
+ * @param {String} fallback Current observation timestamp.
+ * @returns {String}
+ * @private
+ */
+function safeAccessReadinessTimestamp(value, fallback) {
+    return typeof value === 'string' && Number.isFinite(Date.parse(value))
+        ? new Date(value).toISOString()
+        : fallback;
+}
+
+/**
+ * @summary Derives a bounded evidence lifetime from the repo's normal acquisition cadence.
+ *
+ * Two cadence windows avoid an extra remote probe immediately beside every scheduled
+ * fetch. The fifteen-minute floor prevents high-frequency repos from turning readiness
+ * into a network poller.
+ *
+ * @param {Object} repo Effective tenant-repo entry.
+ * @param {Number} globalCadenceMs Global per-repo cadence fallback.
+ * @returns {Number}
+ * @private
+ */
+function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
+    const cadenceMs = Number.isFinite(repo.cadenceMs) && repo.cadenceMs > 0
+        ? repo.cadenceMs
+        : globalCadenceMs;
+
+    return Math.max(
+        Number.isFinite(cadenceMs) && cadenceMs > 0 ? cadenceMs * 2 : 0,
+        ACCESS_READINESS_MIN_TTL_MS
+    );
 }
 
 /**
@@ -206,6 +285,16 @@ class TenantRepoSyncService extends Base {
     }
 
     /**
+     * Process-local tenant-repo capability evidence. Hidden fingerprints exist
+     * only to detect effective config or credential rotation; the public getter
+     * projects status, code, and timestamp only. Container restart deliberately
+     * clears the cache and returns readiness to unknown until bootstrap probes run.
+     * @member {Map<String, Object>} accessReadinessCache
+     * @protected
+     */
+    accessReadinessCache = new Map()
+
+    /**
      * Rejects non-positive-integer `concurrencyLimit` values. `0` would create a
      * never-acquirable semaphore; negatives and fractional values produce ambiguous
      * `active < limit` semantics (1.5 admits two slots, etc.). Invalid values fall
@@ -231,6 +320,254 @@ class TenantRepoSyncService extends Base {
     beforeSetConcurrencyGateTimeoutMs(value, oldValue) {
         if (!Number.isFinite(value) || value < 0) return oldValue ?? 30000;
         return value;
+    }
+
+    /**
+     * @summary Returns a bounded readiness result for one effective repository.
+     * @param {Object} repo Tenant and repository identity.
+     * @param {Object} [options]
+     * @param {Number} [options.observedAt=Date.now()] Observation epoch.
+     * @returns {{status: String, code: String, checkedAt: String}|null}
+     */
+    getTenantRepoAccessReadiness(repo = {}, {observedAt = Date.now()} = {}) {
+        const entry = this.accessReadinessCache.get(createTenantRepoAccessKey(repo));
+
+        if (!entry) {
+            return null;
+        }
+
+        if (!Number.isFinite(entry.expiresAt) || entry.expiresAt <= observedAt) {
+            return {
+                status   : TenantRepoAccessStatus.UNKNOWN,
+                code     : TenantRepoAccessCode.EVIDENCE_EXPIRED,
+                checkedAt: entry.checkedAt
+            };
+        }
+
+        return {
+            status   : entry.status,
+            code     : entry.code,
+            checkedAt: entry.checkedAt
+        };
+    }
+
+    /**
+     * @summary Clears volatile access evidence, mirroring a process restart.
+     * @returns {void}
+     * @protected
+     */
+    clearTenantRepoAccessReadiness() {
+        this.accessReadinessCache.clear();
+    }
+
+    /**
+     * @summary Probes every enabled effective repository at bootstrap or access-config rotation.
+     *
+     * Local credential resolution runs on every sweep so file/key replacement is observed.
+     * Remote capability work runs only when the process-local config or credential fingerprint
+     * changes. A failure remains isolated to its repository and never prevents other probes or
+     * the authoritative scheduled clone/fetch path.
+     *
+     * @param {Object} options
+     * @param {Object[]} options.repos Effective tenant repositories.
+     * @param {Object} [options.gitMirror=GitMirror] GitMirror-compatible primitive.
+     * @param {Function} [options.writeLog] Optional orchestrator logger.
+     * @param {Number} [options.globalCadenceMs] Global per-repo cadence fallback.
+     * @returns {Promise<void>}
+     */
+    async refreshTenantRepoAccessReadiness({
+        repos = [],
+        gitMirror = GitMirror,
+        writeLog,
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs
+    } = {}) {
+        const enabledRepos = repos.filter(repo => !isTenantRepoDisabled(repo));
+        const activeKeys   = new Set(enabledRepos.map(createTenantRepoAccessKey));
+
+        for (const key of this.accessReadinessCache.keys()) {
+            if (!activeKeys.has(key)) {
+                this.accessReadinessCache.delete(key);
+            }
+        }
+
+        const semaphore = createConcurrencySemaphore({
+            limit: this.concurrencyLimit
+        });
+
+        await Promise.all(enabledRepos.map(async repo => {
+            await semaphore.acquire();
+
+            try {
+                await this.refreshTenantRepoAccessReadinessEntry({
+                    repo,
+                    gitMirror,
+                    writeLog,
+                    globalCadenceMs
+                });
+            } finally {
+                semaphore.release();
+            }
+        }));
+    }
+
+    /**
+     * @summary Refreshes one process-local access-readiness cache entry.
+     * @param {Object} options
+     * @param {Object} options.repo Effective tenant repository.
+     * @param {Object} options.gitMirror GitMirror-compatible primitive.
+     * @param {Function} [options.writeLog] Optional orchestrator logger.
+     * @param {Number} options.globalCadenceMs Global per-repo cadence fallback.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async refreshTenantRepoAccessReadinessEntry({repo, gitMirror, writeLog, globalCadenceMs}) {
+        const
+            key        = createTenantRepoAccessKey(repo),
+            checkedAt  = new Date().toISOString(),
+            maxAgeMs   = getAccessReadinessMaxAgeMs(repo, globalCadenceMs),
+            nextExpiry = Date.now() + maxAgeMs;
+
+        let configFingerprint;
+
+        try {
+            configFingerprint = hashTenantRepoAccessConfig(repo);
+        } catch {
+            this.accessReadinessCache.set(key, {
+                status               : TenantRepoAccessStatus.DEGRADED,
+                code                 : TenantRepoAccessCode.CREDENTIAL_INVALID,
+                checkedAt,
+                configFingerprint    : null,
+                credentialFingerprint: null,
+                expiresAt            : nextExpiry,
+                maxAgeMs
+            });
+            return;
+        }
+
+        if (
+            typeof gitMirror?.inspectCredentialReadiness !== 'function'
+            || typeof gitMirror?.probeRemoteAccess !== 'function'
+        ) {
+            this.accessReadinessCache.set(key, {
+                status               : TenantRepoAccessStatus.UNKNOWN,
+                code                 : TenantRepoAccessCode.PROBE_UNAVAILABLE,
+                checkedAt,
+                configFingerprint,
+                credentialFingerprint: null,
+                expiresAt            : nextExpiry,
+                maxAgeMs
+            });
+            return;
+        }
+
+        let local;
+
+        try {
+            local = await gitMirror.inspectCredentialReadiness({
+                credentialRef: repo.credentialRef
+            });
+        } catch {
+            local = null;
+        }
+
+        if (
+            local?.status !== TenantRepoAccessStatus.READY
+            || typeof local.cacheFingerprint !== 'string'
+            || !local.cacheFingerprint
+        ) {
+            this.accessReadinessCache.set(key, {
+                status               : TenantRepoAccessStatus.DEGRADED,
+                code                 : TenantRepoAccessCode.CREDENTIAL_INVALID,
+                checkedAt,
+                configFingerprint,
+                credentialFingerprint: null,
+                expiresAt            : nextExpiry,
+                maxAgeMs
+            });
+            writeLog?.('WARN', `[TenantRepoSync] Access preflight degraded for ${key}: ${TenantRepoAccessCode.CREDENTIAL_INVALID}.`);
+            return;
+        }
+
+        const previous = this.accessReadinessCache.get(key);
+
+        if (
+            previous?.configFingerprint === configFingerprint
+            && previous?.credentialFingerprint === local.cacheFingerprint
+            && Number.isFinite(previous.expiresAt)
+            && previous.expiresAt > Date.now()
+        ) {
+            return;
+        }
+
+        let probe;
+
+        try {
+            probe = await gitMirror.probeRemoteAccess({
+                cloneUrl     : repo.cloneUrl,
+                credentialRef: repo.credentialRef,
+                ref          : repo.branchRef || 'HEAD'
+            });
+        } catch {
+            probe = null;
+        }
+
+        const
+            validOutcome = isTenantRepoAccessReadinessOutcome(probe?.status, probe?.code),
+            status       = validOutcome ? probe.status : TenantRepoAccessStatus.DEGRADED,
+            code         = validOutcome ? probe.code : TenantRepoAccessCode.PROBE_FAILED;
+
+        this.accessReadinessCache.set(key, {
+            status,
+            code,
+            checkedAt            : safeAccessReadinessTimestamp(probe?.checkedAt, checkedAt),
+            configFingerprint,
+            credentialFingerprint: typeof probe?.cacheFingerprint === 'string' && probe.cacheFingerprint
+                ? probe.cacheFingerprint
+                : local.cacheFingerprint,
+            expiresAt: nextExpiry,
+            maxAgeMs
+        });
+
+        if (status !== TenantRepoAccessStatus.READY) {
+            writeLog?.('WARN', `[TenantRepoSync] Access preflight degraded for ${key}: ${code}.`);
+        }
+    }
+
+    /**
+     * @summary Lets an authoritative clone/fetch result supersede cached probe evidence.
+     * @param {Object} options
+     * @param {Object} options.repo Effective tenant repository.
+     * @param {Boolean} options.ready Whether Git acquisition succeeded.
+     * @param {Error} [options.error] GitMirror failure when acquisition did not succeed.
+     * @param {Number} [options.globalCadenceMs] Global per-repo cadence fallback.
+     * @returns {void}
+     * @protected
+     */
+    recordTenantRepoAccessOutcome({
+        repo,
+        ready,
+        error,
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs
+    } = {}) {
+        const
+            key       = createTenantRepoAccessKey(repo),
+            previous  = this.accessReadinessCache.get(key) || {},
+            checkedAt = new Date().toISOString(),
+            maxAgeMs  = getAccessReadinessMaxAgeMs(repo, globalCadenceMs),
+            code      = ready
+                ? TenantRepoAccessCode.READY
+                : (error?.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'
+                    ? TenantRepoAccessCode.CREDENTIAL_INVALID
+                    : TenantRepoAccessCode.SYNC_FAILED);
+
+        this.accessReadinessCache.set(key, {
+            ...previous,
+            status   : ready ? TenantRepoAccessStatus.READY : TenantRepoAccessStatus.DEGRADED,
+            code,
+            checkedAt,
+            expiresAt: Date.now() + maxAgeMs,
+            maxAgeMs
+        });
     }
 
     /**
@@ -393,6 +730,13 @@ class TenantRepoSyncService extends Base {
             writeLog?.('INFO', `[TenantRepoSync] No tenantRepos configured; skipping.`);
             return {status: 'skipped', details};
         }
+
+        await this.refreshTenantRepoAccessReadiness({
+            repos: allRepos,
+            gitMirror,
+            writeLog,
+            globalCadenceMs
+        });
 
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
@@ -558,7 +902,8 @@ class TenantRepoSyncService extends Base {
                 return;
             }
 
-            let slotAcquired = false;
+            let slotAcquired    = false,
+                accessConfirmed = false;
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
@@ -577,6 +922,8 @@ class TenantRepoSyncService extends Base {
                     mirrorRoot   : repo.mirrorRoot,
                     credentialRef: repo.credentialRef
                 });
+                accessConfirmed = true;
+                this.recordTenantRepoAccessOutcome({repo, ready: true, globalCadenceMs});
 
                 const envelope = await envelopeBuilder({
                     tenantId       : repo.tenantId,
@@ -645,6 +992,10 @@ class TenantRepoSyncService extends Base {
                 const sourceErrorCode = getSourceErrorCode(e, code);
                 const sourceSuffix    = sourceErrorCode ? ` source=${sourceErrorCode}` : '';
                 writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code}${sourceSuffix} (${e.message})`);
+
+                if (slotAcquired && !accessConfirmed) {
+                    this.recordTenantRepoAccessOutcome({repo, ready: false, error: e, globalCadenceMs});
+                }
 
                 // Increment consecutiveFailures on failure; preserve last good
                 // ingested revision so the next successful run starts from the correct base.
