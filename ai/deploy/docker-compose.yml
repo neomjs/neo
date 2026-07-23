@@ -191,6 +191,7 @@ services:
       - NEO_ORCHESTRATOR_MLX_ENABLED=false
       - NEO_ORCHESTRATOR_LMS_ENABLED=false
       - NEO_ORCHESTRATOR_OLLAMA_ENABLED=false
+      - NEO_AI_ORCHESTRATOR_DIR=/app/.neo-ai-data/orchestrator-daemon
       - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data
       - NEO_HANDOFF_FILE_PATH=/app/.neo-ai-data/handoff/sandman_handoff.md
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
@@ -212,6 +213,12 @@ services:
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS=inspect,logs,stats
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS=restart
     volumes:
+      # Scheduler cadence, tenant-repo revisions, recovery ledgers, logs, and
+      # process-epoch files share AiConfig.orchestrator.dataDir. Persist the
+      # directory as one orchestrator-owned lifecycle boundary: PID/lease files
+      # remain safely reclaimable on boot, while continuity state survives a
+      # container recreate. This named volume is durability, not off-host backup.
+      - orchestrator-state:/app/.neo-ai-data/orchestrator-daemon
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
       # The `golden-path` scheduler lane writes the handoff and its derived
@@ -250,7 +257,7 @@ services:
     # margin) = orchestrator is alive and polling. 90s start_period covers the
     # first-poll latency on cold container boot.
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"const fs=require('fs');const f=(process.env.NEO_AI_ORCHESTRATOR_DIR||'/app/.neo-ai-data/orchestrator-daemon')+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch(e){process.exit(1)}\""]
+      test: ["CMD-SHELL", "node -e \"const fs=require('fs');const d=process.env.NEO_AI_ORCHESTRATOR_DIR;if(!d)process.exit(1);const f=d+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch(e){process.exit(1)}\""]
       interval: 60s
       timeout: 5s
       retries: 3
@@ -344,6 +351,7 @@ networks:
 
 volumes:
   chroma-data:
+  orchestrator-state:
   shared-sqlite-data:
   shared-handoff-data:
   tenant-repo-mirrors:

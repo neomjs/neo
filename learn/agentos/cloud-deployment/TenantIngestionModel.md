@@ -261,7 +261,7 @@ The mirror directory is a deployment cache, not authoritative state. Per-repo `l
 
 Mirrors are reproducible from upstream git. **Backup is not required** for correctness — on redeploy, `GitMirror.cloneIfMissing()` re-clones any missing mirror on the next sync. Operators who want faster cold-start recovery may include the `tenant-repo-mirrors` volume in their backup bundle, but this is an operational preference, not a Chroma/MC correctness dependency.
 
-`lastIngestedRev` persistence in `tenant-repo-sync-revisions.json` IS load-bearing for incremental ingestion. Treat that file as part of the orchestrator state dir (already backed up alongside the orchestrator's other state).
+`lastIngestedRev` persistence in `tenant-repo-sync-revisions.json` IS load-bearing for incremental ingestion. The canonical cloud profile keeps that file on the dedicated `orchestrator-state` named volume, so it survives orchestrator-container recreation under a stable Compose project name. That volume is **not** an off-host backup; include it in an explicit backup/export policy before claiming host-loss recovery.
 
 ### Health and Telemetry
 

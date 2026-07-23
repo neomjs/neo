@@ -1,19 +1,23 @@
-import {randomUUID}                                                       from 'node:crypto';
-import {test, expect}                                                     from '@playwright/test';
+import {spawnSync}                                                         from 'node:child_process';
+import {randomUUID}                                                        from 'node:crypto';
+import fs                                                                  from 'node:fs';
+import {fileURLToPath}                                                     from 'node:url';
+import {test, expect}                                                      from '@playwright/test';
+import * as yaml                                                           from 'js-yaml';
 import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from './fixtures/mcpClient.mjs';
 
 /**
- * #11725 Sub D — the incremental adoption-ladder journey proof (Discussion #11718 §8).
+ * The incremental adoption-ladder journey proof.
  *
  * The per-capability integration specs (`healthcheck`, `RemoteMcpTransport`,
  * `ai/kb-ingestion/multi-tenant`, `BackupRestoreWipe`) each prove ONE rung in isolation.
  * This spec proves the operator JOURNEY: the adoption-ladder milestones run as an ordered,
  * each-independently-verifiable sequence against the same Dockerized cloud-profile stack a
- * fresh operator deploys — the central #11720 mission proof ("a fresh agent/operator
+ * fresh operator deploys — the central cloud-deployment proof ("a fresh agent/operator
  * completes the adoption ladder without tacit maintainer knowledge").
  *
- * Test-evidence lane (1) — CI-safe deterministic (per @neo-gpt's #11718 test-strategy
- * `DC_kwDODSospM4BA4Rx`): runs against `ai/deploy/docker-compose.test.yml` via the
+ * Test-evidence lane (1) — CI-safe deterministic: runs against
+ * `ai/deploy/docker-compose.test.yml` via the
  * integration `composeWebServer`; no heavyweight local-model inference. Lanes (2) the
  * heavyweight local/docker provider proof and (3) the manual real-world harness demo are
  * kept distinct and are not run here.
@@ -24,21 +28,51 @@ import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from 
  * reconciliation) remain owned by the per-capability specs above; duplicating them here
  * would couple the journey proof to embedding-fixture internals.
  *
- * Ladder coverage (`Refs #11725`): milestones 0-5 run as LIVE rungs — the connectivity
+ * Ladder coverage: milestones 0-5 run as LIVE rungs — the connectivity
  * ladder (0-2) plus tenant ingestion (3), the `parsed-chunk-v1` client-side-parser
- * transport gate (4), and the bulk/backfill volume gate (5). Milestones 6-7 are
- * documented-DEFERRED rungs, not fabricated assertions: server-side clone (6) is post-MVP
- * (#11731 exploration; ADR 0014 D3 keeps it out of the MVP profile) and the full
- * backup → redeploy → handoff round-trip (7) is owned by the per-capability backup specs
- * plus test-evidence lane (3) — a single Playwright spec cannot redeploy the
- * `composeWebServer` stack mid-run. Each deferred rung carries a precise `test.skip`
- * citation so the ladder reaches all 8 milestones without over-claiming.
+ * transport gate (4), and the bulk/backfill volume gate (5). Milestone 6 remains
+ * a documented-DEFERRED rung, not a fabricated assertion: server-side clone is
+ * post-MVP and deliberately kept out of the MVP profile.
+ * Milestone 7's backup → redeploy → handoff round-trip is split honestly: this spec runs a
+ * Docker-backed container-recreation witness for the orchestrator's dedicated
+ * state volume, while the whole-stack backup/restore/handoff round-trip remains
+ * owned by the per-capability specs plus test-evidence lane (3). A single
+ * Playwright spec cannot redeploy the shared `composeWebServer` stack mid-run.
  *
  * @see https://github.com/neomjs/neo/issues/11725
  */
 
-const KB_URL = process.env.NEO_INTEGRATION_KB_URL || 'http://127.0.0.1:13000';
-const MC_URL = process.env.NEO_INTEGRATION_MC_URL || 'http://127.0.0.1:13001';
+const KB_URL                  = process.env.NEO_INTEGRATION_KB_URL || 'http://127.0.0.1:13000';
+const MC_URL                  = process.env.NEO_INTEGRATION_MC_URL || 'http://127.0.0.1:13001';
+const PRODUCTION_COMPOSE_PATH = fileURLToPath(
+    new URL('../../../ai/deploy/docker-compose.yml', import.meta.url)
+);
+
+/**
+ * @summary Runs a Docker CLI command and returns its trimmed stdout.
+ * @param {String[]} args Docker CLI arguments.
+ * @returns {String}
+ */
+function runDocker(args) {
+    const result = spawnSync('docker', args, {encoding: 'utf8'});
+
+    if (result.status !== 0) {
+        throw new Error(
+            `docker ${args.join(' ')} failed (${result.status}): ${result.stderr || result.stdout}`
+        );
+    }
+
+    return result.stdout.trim();
+}
+
+/**
+ * @summary Parses the final JSON line emitted by a short-lived witness container.
+ * @param {String} output Captured container stdout.
+ * @returns {Object}
+ */
+function parseLastJsonLine(output) {
+    return JSON.parse(output.split('\n').at(-1));
+}
 
 /**
  * Builds a well-formed `parsed-chunk-v1` record — the shape a fresh operator's client-side
@@ -216,7 +250,7 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)',
         }));
 
         try {
-            const result    = await client.callTool({
+            const result = await client.callTool({
                 name     : 'ingest_source_files',
                 arguments: {tenantId: 'journey-operator', repoSlug: 'journey-ladder', files: oversizedBatch}
             });
@@ -246,7 +280,93 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)',
         );
     });
 
-    test('Milestone 7 — backup → redeploy → handoff: round-trip owned by the per-capability backup specs', async () => {
+    test('Milestone 7a — orchestrator continuity state survives a fresh container on its named volume', () => {
+        const compose      = yaml.load(fs.readFileSync(PRODUCTION_COMPOSE_PATH, 'utf8'));
+        const orchestrator = compose.services.orchestrator;
+        const dataDirEntry = orchestrator.environment.find(entry =>
+            entry.startsWith('NEO_AI_ORCHESTRATOR_DIR=')
+        );
+        const dataDir    = dataDirEntry?.slice(dataDirEntry.indexOf('=') + 1);
+        const stateMount = orchestrator.volumes.find(entry =>
+            typeof entry === 'string' && entry.endsWith(`:${dataDir}`)
+        );
+        const composeVolumeName  = stateMount?.slice(0, stateMount.indexOf(':'));
+        const witnessVolumeName  = `neo-15759-orchestrator-state-${randomUUID()}`;
+        const mount              = `${witnessVolumeName}:${dataDir}`;
+        const representativeData = {
+            'orchestrator-state.json': {
+                tasks: {'tenant-repo-sync': {lastRunAt: 1784822400000, status: 'completed'}}
+            },
+            'tenant-repo-sync-revisions.json': {
+                revisions: {
+                    'fixture/repo': {
+                        lastIngestedRev    : 'fixture-revision',
+                        lastRunAttemptAt   : 1784822400000,
+                        consecutiveFailures: 0
+                    }
+                }
+            },
+            'restore-empty-target-ledger/fixture-run.json': {
+                operationId: 'fixture-run',
+                phase      : 'committed'
+            },
+            'orchestrator-daemon.pid'     : '2147483647',
+            'heavy-maintenance-lease.json': {
+                owner     : 'fixture-maintenance',
+                pid       : 2147483647,
+                acquiredAt: '2026-07-22T00:00:00.000Z',
+                token     : 'fixture-token'
+            }
+        };
+        const witnessScript = `
+            const crypto = require('node:crypto');
+            const fs = require('node:fs');
+            const os = require('node:os');
+            const path = require('node:path');
+            const dir = process.argv[1];
+            const input = process.argv[2] ? JSON.parse(process.argv[2]) : null;
+            if (input) {
+                for (const [name, value] of Object.entries(input)) {
+                    const target = path.join(dir, name);
+                    fs.mkdirSync(path.dirname(target), {recursive: true});
+                    fs.writeFileSync(target, typeof value === 'string' ? value : JSON.stringify(value));
+                }
+            }
+            const names = input ? Object.keys(input) : JSON.parse(process.argv[3]);
+            const values = Object.fromEntries(names.map(name => {
+                const raw = fs.readFileSync(path.join(dir, name));
+                return [name, {
+                    hash : crypto.createHash('sha256').update(raw).digest('hex'),
+                    value: name.endsWith('.json') ? JSON.parse(raw) : raw.toString()
+                }];
+            }));
+            process.stdout.write(JSON.stringify({containerId: os.hostname(), values}));
+        `;
+
+        expect(dataDir).toBe('/app/.neo-ai-data/orchestrator-daemon');
+        expect(compose.volumes).toHaveProperty(composeVolumeName);
+        expect(composeVolumeName).toBe('orchestrator-state');
+
+        runDocker(['volume', 'create', witnessVolumeName]);
+
+        try {
+            const written = parseLastJsonLine(runDocker([
+                'run', '--rm', '--volume', mount, 'node:24-alpine',
+                'node', '-e', witnessScript, dataDir, JSON.stringify(representativeData), '[]'
+            ]));
+            const readBack = parseLastJsonLine(runDocker([
+                'run', '--rm', '--volume', mount, 'node:24-alpine',
+                'node', '-e', witnessScript, dataDir, '', JSON.stringify(Object.keys(representativeData))
+            ]));
+
+            expect(readBack.containerId).not.toBe(written.containerId);
+            expect(readBack.values).toEqual(written.values);
+        } finally {
+            runDocker(['volume', 'rm', witnessVolumeName]);
+        }
+    });
+
+    test('Milestone 7b — full backup → redeploy → handoff remains a separate whole-stack proof', async () => {
         test.skip(true,
             'The backup → wipe → restore round-trip is owned by KBBackupRestoreWipe.integration.spec.mjs ' +
             '(#11644) and BackupRestoreWipe.integration.spec.mjs. The full redeploy → handoff demo — ' +

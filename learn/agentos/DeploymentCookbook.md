@@ -89,6 +89,12 @@ Delivered by Sub C / Sub D:
 - Healthcheck/readiness semantics for KB and MC, plus cloud-orchestrator startup
   gating on healthy MCP server containers.
 
+Delivered by follow-up persistence hardening:
+
+- A dedicated `orchestrator-state` named volume, explicitly bound through
+  `NEO_AI_ORCHESTRATOR_DIR`, so scheduler, tenant-ingestion, recovery, and
+  diagnostic continuity survives orchestrator-container recreation.
+
 Still owned by follow-up deployment hardening:
 
 - Optional platform variants for Kubernetes, managed Chroma, managed SQL, and
@@ -128,9 +134,19 @@ The deployment substrates have different recovery properties:
   scales with tenant count.
 - Memory Core graph/session data is a primary store. A wipe between backups is
   data loss.
+- Orchestrator runtime continuity lives on the `orchestrator-state` named volume
+  at `/app/.neo-ai-data/orchestrator-daemon`. It survives a container recreate
+  when the Compose project name stays stable. This includes task cadence,
+  tenant-repo revision/backoff state, recovery ledgers, and logs. Persisted PID
+  and lease files are process-epoch artifacts; boot reconciliation safely
+  reclaims dead owners instead of deleting the continuity directory.
 - Backup bundles persist via a host bind-mount (`./.neo-ai-data/backups` on the
   `cloud`-profile orchestrator) that survives container rebuilds; off-site copy
   or a managed-object-storage target is the disaster-recovery layer above that.
+
+A named volume is **container-recreation durability**, not disaster recovery.
+The current backup bundle does not copy `orchestrator-state`; include that
+volume in an explicit off-host backup policy before claiming host-loss recovery.
 
 The orchestrator consumes model-provider endpoints for `summary`, `dream`, and
 similar lanes. External provider endpoints are the MVP default. A self-hosted
@@ -373,8 +389,10 @@ so the `GitMirror` primitive has a persistent clone target. The env-bound Tier-1
 the helper `deriveTenantRepoMirrorPath` appends the `tenant-repos/<tenant>/<repo>` segment. Per-repo `lastIngestedRev`
 persistence lives in the orchestrator state dir
 (`<NEO_AI_ORCHESTRATOR_DIR>/tenant-repo-sync-revisions.json`), so it survives a
-container restart alongside the rest of the orchestrator state. The mirror cache
-itself is reproducible from upstream git — backup is optional, not load-bearing.
+container restart on the dedicated `orchestrator-state` named volume. This is
+not an off-host backup claim: the mirror cache itself is reproducible from
+upstream git, while operators who require host-loss recovery for revision
+continuity must back up the orchestrator-state volume separately.
 
 The `tenant-repo-sync` lane is gated by `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED`
 (cloud profile default-on; local maintainer profile default-off) and runs on a
