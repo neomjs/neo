@@ -68,7 +68,7 @@ test.describe('assembleDataIntegrityEvidence — producers→classifier glue', (
             collectionSizes             : {'neo-agent-memory': 1000},
             documentsPresentByCollection: {'neo-agent-memory': 0}
         });
-        expect(classifyDataIntegrityMode(wipe[0])).toMatchObject({mode: 'wipe', terminalAction: 'restore-delta-merge'});
+        expect(classifyDataIntegrityMode(wipe[0])).toMatchObject({mode: 'wipe', terminalAction: 'quarantine'});
 
         // Store-level sqlite failure → quarantine.
         const sqlite = assembleDataIntegrityEvidence({

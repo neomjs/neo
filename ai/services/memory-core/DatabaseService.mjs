@@ -8,6 +8,7 @@ import StorageRouter                                              from './manage
 import DestructiveOperationGuard                                  from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
 import {validateJsonlSourceFile}                                  from './helpers/vectorJsonlSourceValidation.mjs';
+import {importGraphJsonl}                                         from './helpers/graphJsonlImport.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -268,98 +269,14 @@ class DatabaseService extends Base {
             });
 
             logger.log(`Replace mode: Truncating existing Graph Nodes and Edges...`);
-            db.prepare('DELETE FROM Nodes').run();
-            db.prepare('DELETE FROM Edges').run();
         }
 
-        const fs       = (await import('fs-extra')).default;
-        const readline = (await import('readline')).default;
-
-        const fileStream = fs.createReadStream(filePath);
-        const rl         = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-
-        let imported = 0;
-
-        // Mode-dependent INSERT semantics:
-        //   - 'replace' mode: TRUNCATE-then-OR-REPLACE. Conflict impossible after truncate,
-        //     OR REPLACE retained for backward parity. Backup IS the new state.
-        //   - 'merge' mode: OR IGNORE. Preserves live rows when IDs collide; backup-only IDs
-        //     still INSERT; live-only IDs untouched. This preserves live post-wipe re-ingestion
-        //     while letting backups fill records that are genuinely missing.
-        const conflictClause = mode === 'replace' ? 'OR REPLACE' : 'OR IGNORE';
-        const insertNode     = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
-        const insertEdge     = db.prepare(`
-            INSERT ${conflictClause} INTO Edges (id, user_id, source, target, type, data)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
-        // Truthful counters distinguish inserted (`changes === 1`) from skippedExisting
-        // (`changes === 0`; OR IGNORE no-op) and failed (exception per record). better-sqlite3
-        // exposes this through `stmt.run().changes`.
-        const counts = {
-            nodes: {inserted: 0, skippedExisting: 0, failed: 0},
-            edges: {inserted: 0, skippedExisting: 0, failed: 0}
-        };
-
-        // Run within a transaction for speed
-        const insertBatch = db.transaction((records) => {
-            for (const record of records) {
-                if (record.type === 'node') {
-                    try {
-                        const result = insertNode.run(
-                            record.data.id,
-                            record.data.properties?.userId || record.data.user_id || null,
-                            JSON.stringify(record.data)
-                        );
-                        if (result.changes === 1) counts.nodes.inserted++;
-                        else                       counts.nodes.skippedExisting++;
-                    } catch (e) {
-                        counts.nodes.failed++;
-                        if (counts.nodes.failed <= 5) logger.warn(`[importGraph] node insert failed for id=${record.data?.id}: ${e.message}`);
-                    }
-                } else if (record.type === 'edge') {
-                    const edgeData = record.data;
-                    const edgeId   = edgeData.id || `${edgeData.source}->${edgeData.target}:${edgeData.type}`;
-
-                    if (!edgeData.source || !edgeData.target || !edgeData.type) {
-                        counts.edges.failed++;
-                        if (counts.edges.failed <= 5) logger.warn(`[importGraph] edge missing source/target/type: id=${edgeId}`);
-                        continue;
-                    }
-
-                    try {
-                        const result = insertEdge.run(
-                            edgeId,
-                            edgeData.properties?.userId || edgeData.user_id || null,
-                            edgeData.source,
-                            edgeData.target,
-                            edgeData.type,
-                            JSON.stringify(edgeData)
-                        );
-                        if (result.changes === 1) counts.edges.inserted++;
-                        else                       counts.edges.skippedExisting++;
-                    } catch (e) {
-                        counts.edges.failed++;
-                        if (counts.edges.failed <= 5) logger.warn(`[importGraph] edge insert failed for id=${edgeId}: ${e.message}`);
-                    }
-                }
-                imported++;
-            }
+        const {imported, counts} = await importGraphJsonl({
+            db,
+            filePath,
+            mode,
+            warn: message => logger.warn(message)
         });
-
-        const batch = [];
-        for await (const line of rl) {
-            if (line.trim()) {
-                batch.push(JSON.parse(line));
-                if (batch.length >= 2000) {
-                     insertBatch(batch);
-                     batch.length = 0;
-                }
-            }
-        }
-        if (batch.length > 0) {
-             insertBatch(batch);
-        }
 
         const summary = `nodes(inserted=${counts.nodes.inserted}, skipped=${counts.nodes.skippedExisting}, failed=${counts.nodes.failed}) ` +
                         `edges(inserted=${counts.edges.inserted}, skipped=${counts.edges.skippedExisting}, failed=${counts.edges.failed})`;

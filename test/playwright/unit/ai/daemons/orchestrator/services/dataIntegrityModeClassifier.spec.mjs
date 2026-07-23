@@ -1,5 +1,59 @@
 import {test, expect}                                                               from '@playwright/test';
-import {classifyDataIntegrityMode, DataIntegrityTerminal, DEFAULT_FALSE_STORM_RATE} from '../../../../../../../ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs';
+import {
+    classifyDataIntegrityMode,
+    classifyFreshEmptyBootstrapDiagnosis,
+    DataIntegrityTerminal,
+    DEFAULT_FALSE_STORM_RATE
+} from '../../../../../../../ai/daemons/orchestrator/services/dataIntegrityModeClassifier.mjs';
+import {
+    createRestoreTargetSetDescriptor,
+    fingerprintCanonical
+} from '../../../../../../../ai/services/memory-core/helpers/restoreTargetSetContract.mjs';
+
+const ADMISSION_COMPONENTS = {
+    memories: {
+        fileFingerprint: `sha256:${'c'.repeat(64)}`,
+        rowCount       : 5
+    },
+    summaries: {
+        fileFingerprint: `sha256:${'d'.repeat(64)}`,
+        rowCount       : 3
+    },
+    graph: {
+        fileFingerprint  : `sha256:${'e'.repeat(64)}`,
+        rowCount         : 3,
+        nodeCount        : 2,
+        edgeCount        : 1,
+        recordFingerprint: `sha256:${'f'.repeat(64)}`
+    }
+};
+const ADMISSION_FINGERPRINT = fingerprintCanonical({
+    schemaVersion    : 1,
+    expectedDimension: 4096,
+    components       : ADMISSION_COMPONENTS
+});
+const ADMISSION = {
+    schemaVersion            : 1,
+    status                   : 'admitted',
+    bundleManifestFingerprint: `sha256:${'a'.repeat(64)}`,
+    descriptorFingerprint    : ADMISSION_FINGERPRINT,
+    expectedDimension        : 4096,
+    components               : {
+        memories : {...ADMISSION_COMPONENTS.memories, filePath: '/bundle/memories.jsonl'},
+        summaries: {...ADMISSION_COMPONENTS.summaries, filePath: '/bundle/summaries.jsonl'},
+        graph    : {...ADMISSION_COMPONENTS.graph, filePath: '/bundle/graph.jsonl'}
+    }
+};
+const TARGET_SET = {
+    ...createRestoreTargetSetDescriptor({
+    memoriesCollection            : 'neo-agent-memory',
+    summariesCollection           : 'neo-agent-sessions',
+    graphDestination              : '/data/graph.sqlite',
+    bundleManifestFingerprint     : `sha256:${'a'.repeat(64)}`,
+    admissionDescriptorFingerprint: ADMISSION_FINGERPRINT
+    }),
+    admission: ADMISSION
+};
 
 test.describe('dataIntegrityModeClassifier', () => {
     test('clean evidence → clean / none', () => {
@@ -14,10 +68,65 @@ test.describe('dataIntegrityModeClassifier', () => {
         expect(d.autonomous).toBe(true);
     });
 
-    test('coverage gap + documents also gone → wipe / restore-delta-merge', () => {
+    test('coverage gap + documents also gone → wipe / quarantine (count evidence cannot select target-set restore)', () => {
         const d = classifyDataIntegrityMode({rowCount: 1000, missingFromVectorCount: 200, documentsPresentCount: 50});
         expect(d.mode).toBe('wipe');
-        expect(d.terminalAction).toBe(DataIntegrityTerminal.RESTORE_DELTA_MERGE);
+        expect(d.terminalAction).toBe(DataIntegrityTerminal.QUARANTINE);
+    });
+
+    test('only an explicitly enabled typed bootstrap diagnosis selects restore-empty-target', () => {
+        expect(classifyFreshEmptyBootstrapDiagnosis({
+            type     : 'fresh-empty-bootstrap',
+            enabled  : true,
+            targetSet: TARGET_SET
+        })).toMatchObject({
+            accepted      : true,
+            mode          : 'fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.RESTORE_EMPTY_TARGET,
+            targetSet     : TARGET_SET
+        });
+
+        expect(classifyFreshEmptyBootstrapDiagnosis({
+            type     : 'wipe',
+            enabled  : true,
+            targetSet: TARGET_SET
+        })).toMatchObject({accepted: false, terminalAction: DataIntegrityTerminal.NONE});
+
+        expect(classifyFreshEmptyBootstrapDiagnosis({
+            type     : 'fresh-empty-bootstrap',
+            enabled  : false,
+            targetSet: TARGET_SET
+        })).toMatchObject({accepted: false, terminalAction: DataIntegrityTerminal.NONE});
+    });
+
+    test('typed bootstrap selection fails closed on a tampered topology fingerprint', () => {
+        const tampered = structuredClone(TARGET_SET);
+        tampered.destinations[0].id = 'different';
+
+        expect(classifyFreshEmptyBootstrapDiagnosis({
+            type     : 'fresh-empty-bootstrap',
+            enabled  : true,
+            targetSet: tampered
+        })).toMatchObject({
+            accepted      : false,
+            mode          : 'invalid-fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.NONE
+        });
+    });
+
+    test('typed bootstrap selection fails closed without the admitted source descriptor', () => {
+        const noAdmission = structuredClone(TARGET_SET);
+        delete noAdmission.admission;
+
+        expect(classifyFreshEmptyBootstrapDiagnosis({
+            type     : 'fresh-empty-bootstrap',
+            enabled  : true,
+            targetSet: noAdmission
+        })).toMatchObject({
+            accepted      : false,
+            mode          : 'invalid-fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.NONE
+        })
     });
 
     test('row-count regressed → count-loss / quarantine', () => {

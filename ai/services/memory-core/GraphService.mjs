@@ -1,13 +1,14 @@
-import path                from 'path';
-import aiConfig            from '../../mcp/server/memory-core/config.mjs';
-import logger              from '../../mcp/server/memory-core/logger.mjs';
-import Base                from '../../../src/core/Base.mjs';
-import CoreDatabase        from '../../../ai/graph/Database.mjs';
-import SQLite              from '../../../ai/graph/storage/SQLite.mjs';
-import { IDENTITIES }      from '../../../ai/graph/identityRoots.mjs';
-import { normalizeUserId } from '../../mcp/server/shared/services/RequestContextService.mjs';
-import fsExtra             from 'fs-extra';
-import {projectNode}       from './nodeProjection.mjs';
+import path                          from 'path';
+import aiConfig                      from '../../mcp/server/memory-core/config.mjs';
+import logger                        from '../../mcp/server/memory-core/logger.mjs';
+import Base                          from '../../../src/core/Base.mjs';
+import CoreDatabase                  from '../../../ai/graph/Database.mjs';
+import SQLite                        from '../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES }                from '../../../ai/graph/identityRoots.mjs';
+import {createGraphBootSeedManifest} from '../../../ai/graph/bootSeedManifest.mjs';
+import { normalizeUserId }           from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fsExtra                       from 'fs-extra';
+import {projectNode}                 from './nodeProjection.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -144,50 +145,14 @@ class GraphService extends Base {
                 await storage.load();
                 this.graphInitError = null;
 
-                // Ensure the frontier node exists to prevent context frontier errors
+                // One enumerable manifest is shared by ordinary boot and the exact
+                // restore-empty-target freshness proof. Boot remains additive-only:
+                // missing records are provisioned, existing records are never replayed
+                // from a potentially stale process-local registry.
                 try {
-                    this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
-                    if (!this.db.nodes.has('frontier')) {
-                        this.upsertGlobalNode({
-                            id         : 'frontier',
-                            type       : 'SYSTEM_ANCHOR',
-                            name       : 'Active Context Frontier',
-                            description: 'The shifting focal point of the active Neo OS agent session.'
-                        });
-                    }
+                    this.provisionMissingBootSeeds();
                 } catch (error) {
-                    logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
-                }
-
-                // --- 1. THE GLOBAL SYSTEM PRIMER ---
-                // Inject the Master Architecture Tenets directly into the Native Graph at boot.
-                // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
-                // it acts as a deterministic onboarding payload for every agent session.
-                try {
-                    this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
-                    if (!this.db.nodes.has('Neo-Master-Architecture')) {
-                        this.upsertGlobalNode({
-                            id         : 'Neo-Master-Architecture',
-                            type       : 'System',
-                            name       : 'Global System Primer',
-                            description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
-                        });
-                    }
-                    this.linkGlobalNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
-                } catch (error) {
-                    logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
-                }
-
-                // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
-                // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
-                // Ordinary boot is additive-only: a stale process may provision a missing root, but
-                // must never replay its process-local registry over an existing graph identity.
-                // Intentional canonical updates belong to seedAgentIdentities.mjs after the owning
-                // runtime checkout has pulled the merged registry.
-                try {
-                    this.provisionMissingIdentityRoots();
-                } catch (error) {
-                    logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
+                    logger.warn(`[GraphService] Non-fatal DB contention during canonical boot-seed provisioning: ${error.message}`);
                 }
 
                 logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
@@ -202,6 +167,53 @@ class GraphService extends Base {
         })();
 
         await this._initPromise;
+    }
+
+    /**
+     * @summary Provisions every missing record from the canonical graph boot-seed
+     * manifest without rewriting an existing node or edge.
+     *
+     * The explicit edge-existence check is load-bearing: calling `linkNodes` on
+     * every boot increments an existing edge's weight, which would make a
+     * deterministic fresh graph cease to match its own boot fingerprint after
+     * the second process start.
+     *
+     * @param {Object} [manifest=createGraphBootSeedManifest()] Enumerable seed manifest.
+     * @returns {{nodesCreated: Number, edgesCreated: Number}}
+     */
+    provisionMissingBootSeeds(manifest = createGraphBootSeedManifest()) {
+        let nodesCreated = 0,
+            edgesCreated = 0;
+
+        for (const node of manifest.nodes) {
+            this.db.getAdjacentNodes(node.id, 'both');
+
+            if (!this.db.nodes.has(node.id)) {
+                this.upsertGlobalNode(node);
+                nodesCreated++;
+            }
+        }
+
+        const storageDb = this.db?.storage?.db;
+        if (!storageDb) {
+            throw new Error('provisionMissingBootSeeds: graph storage database is required')
+        }
+
+        const findEdge = storageDb.prepare(`
+            SELECT id
+            FROM Edges
+            WHERE source = ? AND target = ? AND type = ?
+            LIMIT 1
+        `);
+
+        for (const edge of manifest.edges) {
+            if (!findEdge.get(edge.source, edge.target, edge.type)) {
+                this.linkGlobalNodes(edge.source, edge.target, edge.type, edge.weight);
+                edgesCreated++;
+            }
+        }
+
+        return {nodesCreated, edgesCreated}
     }
 
     /**
