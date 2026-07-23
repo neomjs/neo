@@ -223,7 +223,8 @@ Toggles:
 | Env var | AiConfig path | Default | Effect |
 |---|---|---|---|
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | `orchestrator.cloudOnly.tenantRepoSyncEnabled` | cloud profile: enabled; local: disabled | Master toggle for the periodic lane |
-| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | `orchestrator.intervals.tenantRepoSyncMs` | 30 minutes | Period between sweeps |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | `orchestrator.intervals.tenantRepoSyncMs` | 30 minutes | Base per-repo ingestion cadence before deterministic jitter and failure backoff |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS` | `orchestrator.tenantRepoSync.sweepCadenceMs` | 1 minute | Scheduler scan cadence for admitting repos whose individual cadence is due |
 
 The `cloudOnly` collection is the inverse-polarity sibling of `localOnly`. `null` means "use the deployment-profile default" (cloud enables, local disables); explicit `true`/`false` overrides. Local Neo-maintainer deployments default-off because most operator checkouts don't have `tenantRepos[]` configured.
 
@@ -240,8 +241,9 @@ node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug a/b  # scop
 
 `--full` requires at least one explicit, repeatable `--repo-slug` selector. It builds the selected
 repo envelopes from a null revision base while retaining each stored checkpoint until the replay
-returns an error-free ingestion summary. Use it after correcting an ingestion failure when an older
-deployment may already have checkpointed the failed head; do not delete the revisions file.
+returns an error-free ingestion summary. Current releases automatically revalidate unversioned
+checkpoints through the periodic lane; use `--full` only to accelerate or explicitly repeat one
+selected repo after correcting its underlying failure. Do not delete the revisions file.
 
 Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error, and `3` when a requested repo slug is not configured. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; it does not race against a running Orchestrator's lane.
 
@@ -257,6 +259,20 @@ The env var names the **parent** of `tenant-repos/`; `deriveTenantRepoMirrorPath
 
 The mirror directory is a deployment cache, not authoritative state. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
 
+Each checkpoint also carries `ingestContractVersion`, written together with the
+head only after the Knowledge Base returns an explicit error-free summary, and
+`lastAttemptedIngestContractVersion`, which records a failed revalidation
+attempt without advancing the head. A head without the current success marker
+has unknown historical validity and is never used as an incremental base.
+
+After an upgrade, the periodic lane automatically replays such legacy
+checkpoints from a null base. It admits at most `concurrencyLimit` legacy
+replays per scheduler sweep, ordered by the oldest prior attempt, while normal
+repos retain their cadence and the semaphore still bounds simultaneous work.
+A failed replay preserves the old head and participates in the existing
+exponential backoff. A clean replay co-writes the new head and current proof
+markers in one repo record, after which normal incremental sync resumes.
+
 ### Redeploy Posture
 
 Mirrors are reproducible from upstream git. **Backup is not required** for correctness — on redeploy, `GitMirror.cloneIfMissing()` re-clones any missing mirror on the next sync. Operators who want faster cold-start recovery may include the `tenant-repo-mirrors` volume in their backup bundle, but this is an operational preference, not a Chroma/MC correctness dependency.
@@ -269,17 +285,19 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
 
 ```js
 {
-    reason     : 'periodic-sweep:1800000' | 'manual' | 'no-tenant-repos-configured',
-    repoCount  : 3,
-    completedCount: 3,
-    failedCount   : 0,
+    reason                       : 'periodic-sweep:60000' | 'manual' | 'no-tenant-repos-configured',
+    repoCount                    : 3,
+    completedCount               : 3,
+    failedCount                  : 0,
+    revalidationDeferredCount     : 0,
     repos: [
         {
             tenantId             : 'neomjs',
             repoSlug             : 'neomjs/create-app',
             lastIngestedRev      : 'a1b2c3d4',    // short SHA from the most recent successful ingest
             lastSyncAt           : '2026-05-25T05:30:00.000Z',
-            status               : 'active',      // 'active' | 'degraded' | 'quarantined' | 'disabled'
+            status               : 'active',      // also degraded, revalidation-deferred, quarantined, or disabled
+            checkpointStatus     : 'complete',    // 'pending' | 'failed' | 'complete' | 'uninitialized' | 'unsupported'
             lastSyncDeletedCount : 0,
             lastErrorCode        : null,          // present only when status !== 'active'
             lastSourceErrorCode  : null           // optional bounded source code, e.g. KB_GITMIRROR_FETCH_FAILED
@@ -296,7 +314,12 @@ surface when a cloud KB is healthy but empty: it combines the orchestrator enabl
 state, config-tier counts, per-repo due/backoff state, and bounded failure codes without exposing
 clone URLs, credentials, or raw logs. If tenant-config graph discovery itself fails, the snapshot
 reports a degraded/unreadable config state rather than flattening that failure into
-`no-configured-repos`.
+`no-configured-repos`. Its `checkpointRevalidation` aggregate reports the
+current contract version plus pending, failed, complete, uninitialized, and
+unsupported counts. Present-but-malformed version fields fail closed by making
+the checkpoint aggregate unavailable; counts are likewise unavailable when repo
+enumeration or revision-state reading fails. Existing per-repo rows add only the version values and
+`checkpointStatus` beside their already-hashed identities.
 
 ### Repo Freshness Status Enum
 

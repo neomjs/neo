@@ -209,15 +209,30 @@ For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deploym
 Current releases accept a tenant-repo ingest as successful only when the returned summary contains
 an array-valued, empty `errors` field. A failed attempt keeps the last known-good revision. If the
 deployment was upgraded after an older release had already advanced its checkpoint on an
-error-bearing summary, a normal retry can produce an empty incremental envelope. Recover only the
-affected repo with:
+error-bearing summary, the stored head has no current success proof. The periodic lane classifies
+that repo as `checkpointStatus: pending` and performs one bounded null-base replay automatically.
+Only `concurrencyLimit` legacy checkpoints are admitted per one-minute scheduler sweep; failures
+become `checkpointStatus: failed`, preserve the old head, and retry through normal backoff.
+
+Inspect `tenantRepoSync.checkpointRevalidation` for pending, failed, complete, uninitialized, and
+unsupported counts. The aggregate is unavailable when repository enumeration, revision-state
+reading, or persisted-marker validation fails, because an all-zero projection cannot prove an empty checkpoint set.
+Per-repo rows use hashed identities and expose the same `checkpointStatus` without clone URLs,
+refs, credentials, or raw errors. A future/unsupported contract marker requires upgrading this
+runtime. A present but malformed marker is invalid persisted state. Both fail closed and are never
+silently downgraded; malformed state makes the aggregate unavailable rather than fabricating a
+per-repo classification.
+
+After correcting the underlying failure, ordinary periodic retry is sufficient. To accelerate one
+known repo rather than wait for its cadence/backoff, use the scoped operator override:
 
 ```text
 node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>
 ```
 
 `--full` is rejected without an explicit repo selector. It does not delete the stored checkpoint:
-a failed replay preserves it, while an error-free replay advances it to the current head.
+a failed replay preserves it, while an error-free replay advances it to the current head and writes
+the current success-contract marker.
 
 If the deployment snapshot is fresh but the tool returns `status: degraded` with
 `reason: snapshot-section-missing` or `snapshot-producer-metadata-missing`, fix

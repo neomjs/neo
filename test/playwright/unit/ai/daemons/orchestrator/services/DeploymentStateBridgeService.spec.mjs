@@ -6,6 +6,9 @@ import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
 import AiConfig                       from '../../../../../../../ai/config.template.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {
+    TENANT_REPO_INGEST_CONTRACT_VERSION
+} from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 
 const OBSERVED_AT = 1710000000000;
 let originalDeploymentStateBridgeConfig,
@@ -573,6 +576,46 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         }
     });
 
+    test('collectTenantRepoSyncSnapshot marks checkpoint counts unavailable when repo enumeration throws (#15761)', async () => {
+        const configError = new Error('repo config unavailable');
+        configError.code  = 'KB_TENANT_REPO_CONFIG_UNAVAILABLE';
+
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return null;
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    throw configError;
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    return {};
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.status).toBe('degraded');
+        expect(tenantRepoSync.config.status).toBe('degraded');
+        expect(tenantRepoSync.repos).toEqual([]);
+        expect(tenantRepoSync.checkpointRevalidation).toEqual({
+            status                      : 'unavailable',
+            currentIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            pendingCount                : null,
+            failedCount                 : null,
+            completeCount               : null,
+            uninitializedCount          : null,
+            unsupportedCount            : null
+        });
+    });
+
     for (const failure of [
         {
             status      : 'read-failed',
@@ -704,9 +747,11 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 async readPersistedRevisions() {
                     return {
                         'tenant-a/private/repo': {
-                            lastIngestedRev    : 'abcdef1234567890',
-                            lastRunAttemptAt   : OBSERVED_AT - 1_000,
-                            consecutiveFailures: 0
+                            lastIngestedRev                   : 'abcdef1234567890',
+                            lastRunAttemptAt                  : OBSERVED_AT - 1_000,
+                            consecutiveFailures               : 0,
+                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                         }
                     };
                 }
@@ -727,7 +772,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             status             : 'not-due',
             due                : false,
             lastIngestedRev    : 'abcdef123456',
-            consecutiveFailures: 0
+            consecutiveFailures: 0,
+            checkpointStatus   : 'complete'
         });
         expect(JSON.stringify(tenantRepoSync)).not.toContain('tenant-a');
         expect(JSON.stringify(tenantRepoSync)).not.toContain('private/repo');
@@ -781,9 +827,11 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 async readPersistedRevisions() {
                     return {
                         'tenant-a/private/repo': {
-                            lastIngestedRev    : 'fedcba9876543210',
-                            lastRunAttemptAt   : OBSERVED_AT - 60_000,
-                            consecutiveFailures: 2
+                            lastIngestedRev                   : 'fedcba9876543210',
+                            lastRunAttemptAt                  : OBSERVED_AT - 60_000,
+                            consecutiveFailures               : 2,
+                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                         }
                     };
                 }
@@ -810,6 +858,101 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             }
         });
         expect(JSON.stringify(tenantRepoSync)).not.toContain('env:TOKEN');
+    });
+
+    test('collectTenantRepoSyncSnapshot exposes redacted mixed checkpoint-revalidation state (#15761)', async () => {
+        const repos = [
+            {tenantId: 'tenant-a', repoSlug: 'private/pending',       cloneUrl: 'https://git.example/pending.git',       credentialRef: 'env:PENDING_TOKEN'},
+            {tenantId: 'tenant-b', repoSlug: 'private/failed',        cloneUrl: 'https://git.example/failed.git',        credentialRef: 'env:FAILED_TOKEN'},
+            {tenantId: 'tenant-c', repoSlug: 'private/complete',      cloneUrl: 'https://git.example/complete.git',      credentialRef: 'env:COMPLETE_TOKEN'},
+            {tenantId: 'tenant-d', repoSlug: 'private/uninitialized', cloneUrl: 'https://git.example/uninitialized.git', credentialRef: 'env:FRESH_TOKEN'},
+            {tenantId: 'tenant-e', repoSlug: 'private/unsupported',   cloneUrl: 'https://git.example/unsupported.git',   credentialRef: 'env:FUTURE_TOKEN'}
+        ];
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return null;
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {tenantRepos: repos};
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    return {
+                        'tenant-a/private/pending': {
+                            lastIngestedRev                   : 'aaaaaaaaaaaaaaaa',
+                            lastRunAttemptAt                  : OBSERVED_AT - 60_000,
+                            consecutiveFailures               : 4,
+                            ingestContractVersion             : null,
+                            lastAttemptedIngestContractVersion: null
+                        },
+                        'tenant-b/private/failed': {
+                            lastIngestedRev                   : 'bbbbbbbbbbbbbbbb',
+                            lastRunAttemptAt                  : OBSERVED_AT - 30_000,
+                            consecutiveFailures               : 1,
+                            ingestContractVersion             : null,
+                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                        },
+                        'tenant-c/private/complete': {
+                            lastIngestedRev                   : 'cccccccccccccccc',
+                            lastRunAttemptAt                  : OBSERVED_AT - 10_000,
+                            consecutiveFailures               : 0,
+                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                        },
+                        'tenant-e/private/unsupported': {
+                            lastIngestedRev                   : 'eeeeeeeeeeeeeeee',
+                            lastRunAttemptAt                  : OBSERVED_AT - 5_000,
+                            consecutiveFailures               : 0,
+                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION + 1,
+                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION + 1
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tenantRepoSync.checkpointRevalidation).toEqual({
+            status                      : 'available',
+            currentIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            pendingCount                : 1,
+            failedCount                 : 1,
+            completeCount               : 1,
+            uninitializedCount          : 1,
+            unsupportedCount            : 1
+        });
+        expect(tenantRepoSync.repos.map(repo => repo.checkpointStatus)).toEqual([
+            'pending',
+            'failed',
+            'complete',
+            'uninitialized',
+            'unsupported'
+        ]);
+        expect(tenantRepoSync.repos[0]).toMatchObject({
+            ingestContractVersion             : null,
+            lastAttemptedIngestContractVersion: null
+        });
+        expect(tenantRepoSync.repos[1]).toMatchObject({
+            ingestContractVersion             : null,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        });
+
+        const serialized = JSON.stringify(tenantRepoSync);
+        for (const secret of [
+            'tenant-a', 'tenant-b', 'tenant-c', 'tenant-d', 'tenant-e',
+            'private/pending', 'private/failed', 'private/complete', 'private/uninitialized', 'private/unsupported',
+            'PENDING_TOKEN', 'FAILED_TOKEN', 'COMPLETE_TOKEN', 'FRESH_TOKEN', 'FUTURE_TOKEN',
+            'https://git.example'
+        ]) {
+            expect(serialized).not.toContain(secret);
+        }
     });
 
     test('collectTenantRepoSyncSnapshot degrades when revision state is unreadable', async () => {
@@ -859,6 +1002,15 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(tenantRepoSync.errors[0]).toMatchObject({
             reason: 'tenant-repo-revision-state-read-failed',
             code  : 'KB_TENANT_REPO_SYNC_REVISIONS_READ_FAILED'
+        });
+        expect(tenantRepoSync.checkpointRevalidation).toEqual({
+            status                      : 'unavailable',
+            currentIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            pendingCount                : null,
+            failedCount                 : null,
+            completeCount               : null,
+            uninitializedCount          : null,
+            unsupportedCount            : null
         });
     });
 

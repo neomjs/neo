@@ -24,6 +24,11 @@ import {
     buildTenantRepoSyncTrigger,
     isRepoDue
 } from '../scheduling/tenantRepoSync.mjs';
+import {
+    classifyTenantRepoCheckpoint,
+    normalizeTenantRepoCheckpointState,
+    TENANT_REPO_INGEST_CONTRACT_VERSION
+} from './tenantRepoCheckpointValidity.mjs';
 
 const KB_CONFIG_BOOTSTRAP_PROJECTION_BY_STATUS = Object.freeze({
     missing: {
@@ -598,9 +603,11 @@ export class DeploymentStateBridgeService extends Base {
             },
             errors         = [];
 
-        let enabled       = null,
-            taskState     = null,
-            configSummary = {
+        let enabled                    = null,
+            taskState                  = null,
+            configEnumerationAvailable = true,
+            revisionStateAvailable     = true,
+            configSummary              = {
                 status       : 'unavailable',
                 repoCount    : 0,
                 disabledCount: 0,
@@ -646,6 +653,7 @@ export class DeploymentStateBridgeService extends Base {
             repos = Array.isArray(resolvedConfig.tenantRepos) ? resolvedConfig.tenantRepos : [];
             configSummary = summarizeTenantRepoConfig(repos, resolvedConfig.configDiagnostics);
         } catch (error) {
+            configEnumerationAvailable = false;
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-config-read-failed'));
             configSummary = {
                 ...configSummary,
@@ -664,6 +672,7 @@ export class DeploymentStateBridgeService extends Base {
                 strict  : true
             });
         } catch (error) {
+            revisionStateAvailable = false;
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-revision-state-read-failed'));
         }
 
@@ -672,6 +681,7 @@ export class DeploymentStateBridgeService extends Base {
             observedAt,
             taskState,
             persistedRepoState: persistedRevisions[createTenantRepoLabel(repo)] || null,
+            revisionStateAvailable,
             globalCadenceMs   : scheduler.globalCadenceMs,
             jitterRatio       : scheduler.jitterRatio
         }));
@@ -691,8 +701,12 @@ export class DeploymentStateBridgeService extends Base {
             }),
             enabled,
             scheduler,
-            task  : summarizeTenantRepoTaskState(taskState),
-            config: configSummary,
+            task                  : summarizeTenantRepoTaskState(taskState),
+            config                : configSummary,
+            checkpointRevalidation: summarizeCheckpointRevalidation({
+                repoStates,
+                stateAvailable: configEnumerationAvailable && revisionStateAvailable
+            }),
             repos : repoStates,
             errors
         };
@@ -980,14 +994,15 @@ function summarizeTenantRepoTaskCompletion(completion) {
     }
 
     const summary = {
-        status        : completion.status || null,
-        reason        : completion.reason || null,
-        reasonCode    : completion.reasonCode || null,
-        repoCount     : numberOrNull(completion.repoCount),
-        completedCount: numberOrNull(completion.completedCount),
-        failedCount   : numberOrNull(completion.failedCount),
-        notDueCount   : numberOrNull(completion.notDueCount),
-        repos         : []
+        status                   : completion.status || null,
+        reason                   : completion.reason || null,
+        reasonCode               : completion.reasonCode || null,
+        repoCount                : numberOrNull(completion.repoCount),
+        completedCount           : numberOrNull(completion.completedCount),
+        failedCount              : numberOrNull(completion.failedCount),
+        notDueCount              : numberOrNull(completion.notDueCount),
+        revalidationDeferredCount: numberOrNull(completion.revalidationDeferredCount),
+        repos                    : []
     };
 
     if (Array.isArray(completion.repos)) {
@@ -1013,34 +1028,96 @@ function summarizeTenantRepoOutcome(outcome) {
     };
 }
 
-function summarizeTenantRepoState({repo, observedAt, taskState, persistedRepoState, globalCadenceMs, jitterRatio}) {
+/**
+ * @summary Builds aggregate, non-identifying checkpoint-revalidation counts for
+ * the tenant-repo deployment snapshot.
+ * @param {Object} options
+ * @param {Object[]} options.repoStates Redacted per-repo diagnostic rows.
+ * @param {Boolean} options.stateAvailable Whether repo enumeration and the persisted manifest were readable.
+ * @returns {Object}
+ */
+function summarizeCheckpointRevalidation({repoStates, stateAvailable}) {
+    const summary = {
+        status                      : stateAvailable ? 'available' : 'unavailable',
+        currentIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+        pendingCount                : stateAvailable ? 0 : null,
+        failedCount                 : stateAvailable ? 0 : null,
+        completeCount               : stateAvailable ? 0 : null,
+        uninitializedCount          : stateAvailable ? 0 : null,
+        unsupportedCount            : stateAvailable ? 0 : null
+    };
+
+    if (!stateAvailable) {
+        return summary;
+    }
+
+    for (const repoState of repoStates) {
+        const countKey = `${repoState.checkpointStatus}Count`;
+
+        if (Object.hasOwn(summary, countKey)) {
+            summary[countKey]++;
+        }
+    }
+
+    return summary;
+}
+
+/**
+ * @summary Projects one configured repository into a redacted scheduler and
+ * checkpoint-revalidation diagnostic row.
+ * @param {Object} options
+ * @param {Object} options.repo Effective tenant-repo configuration.
+ * @param {Number} options.observedAt Snapshot epoch.
+ * @param {Object|null} options.taskState Current scheduler task state.
+ * @param {Object|null} options.persistedRepoState Persisted checkpoint state.
+ * @param {Boolean} options.revisionStateAvailable Whether the manifest was readable.
+ * @param {Number} options.globalCadenceMs Global per-repo cadence.
+ * @param {Number} options.jitterRatio Deterministic jitter ratio.
+ * @returns {Object}
+ */
+function summarizeTenantRepoState({
+    repo,
+    observedAt,
+    taskState,
+    persistedRepoState,
+    revisionStateAvailable,
+    globalCadenceMs,
+    jitterRatio
+}) {
     const
-        disabled = isTenantRepoDisabled(repo),
-        dueState = disabled
-            ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: persistedRepoState?.lastRunAttemptAt || 0}
-            : isRepoDue({repo, persistedRepoState, now: observedAt, globalCadenceMs, jitterRatio}),
-        nextDueAtMs  = Number.isFinite(dueState.effectiveCadenceMs)
+        normalizedCheckpoint = normalizeTenantRepoCheckpointState(persistedRepoState),
+        checkpointStatus     = revisionStateAvailable
+            ? classifyTenantRepoCheckpoint(normalizedCheckpoint)
+            : 'unavailable',
+        disabled              = isTenantRepoDisabled(repo),
+        dueState              = disabled
+            ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
+            : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio}),
+        nextDueAtMs           = Number.isFinite(dueState.effectiveCadenceMs)
             ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
             : null,
-        lastOutcome  = findTenantRepoOutcome(taskState?.lastCompletion, repo),
-        lastAttempt  = persistedRepoState?.lastRunAttemptAt || 0,
-        failures     = persistedRepoState?.consecutiveFailures ?? 0;
+        lastOutcome           = findTenantRepoOutcome(taskState?.lastCompletion, repo),
+        lastAttempt           = normalizedCheckpoint?.lastRunAttemptAt || 0,
+        failures              = normalizedCheckpoint?.consecutiveFailures ?? 0;
 
     return {
-        identityHash       : hashTenantRepoIdentity(repo),
-        tenantHash         : hashValue(repo.tenantId),
-        repoHash           : hashValue(repo.repoSlug),
-        configTier         : repo.configTier || 'unreported',
+        identityHash                      : hashTenantRepoIdentity(repo),
+        tenantHash                        : hashValue(repo.tenantId),
+        repoHash                          : hashValue(repo.repoSlug),
+        configTier                        : repo.configTier || 'unreported',
         disabled,
-        status             : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState, lastOutcome}),
-        due                : disabled ? false : dueState.due,
-        nextDueAt          : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
-        lastIngestedRev    : shortRevision(persistedRepoState?.lastIngestedRev),
-        lastRunAttemptAt   : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
-        consecutiveFailures: failures,
-        effectiveCadenceMs : dueState.effectiveCadenceMs,
-        jitterMs           : dueState.jitterMs,
-        backoffMultiplier  : dueState.backoffMultiplier,
+        status                            : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
+        due                               : disabled ? false : dueState.due,
+        nextDueAt                         : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
+        lastIngestedRev                   : shortRevision(normalizedCheckpoint?.lastIngestedRev),
+        lastRunAttemptAt                  : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
+        consecutiveFailures               : failures,
+        checkpointStatus,
+        ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
+        lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,
+        effectiveCadenceMs                : dueState.effectiveCadenceMs,
+        jitterMs                          : dueState.jitterMs,
+        backoffMultiplier                 : dueState.backoffMultiplier,
         lastOutcome
     };
 }

@@ -13,6 +13,13 @@ import {
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
+import {
+    classifyTenantRepoCheckpoint,
+    normalizeTenantRepoCheckpointState,
+    requiresTenantRepoCheckpointRevalidation,
+    TENANT_REPO_INGEST_CONTRACT_VERSION,
+    TenantRepoCheckpointStatus
+} from './tenantRepoCheckpointValidity.mjs';
 
 const
     BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/,
@@ -389,10 +396,24 @@ class TenantRepoSyncService extends Base {
 
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
-        const persistedRevisions    = await this.readPersistedRevisions({filePath: resolvedRevisionsPath});
-        const repoStates            = [];
-        let   completedCount        = 0;
-        let   failedCount           = 0;
+        const persistedRevisions    = await this.readPersistedRevisions({
+            filePath: resolvedRevisionsPath,
+            strict  : true
+        });
+
+        if (Object.values(persistedRevisions).some(
+            state => classifyTenantRepoCheckpoint(state) === TenantRepoCheckpointStatus.UNSUPPORTED
+        )) {
+            throw new TenantRepoSyncError(
+                KB_TENANT_REPO_SYNC_SYNC_FAILED,
+                'Tenant-repo checkpoint state was written by a newer ingestion contract.',
+                {phase: 'checkpoint-contract-validation'}
+            );
+        }
+
+        const repoStates     = [];
+        let   completedCount = 0;
+        let   failedCount    = 0;
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
         // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
@@ -403,7 +424,8 @@ class TenantRepoSyncService extends Base {
             timeoutMs: this.concurrencyGateTimeoutMs
         });
 
-        let notDueCount = 0;
+        let notDueCount               = 0;
+        let revalidationDeferredCount = 0;
 
         // Bootstrap-spread seeding prevents all fresh repos (`lastRunAttemptAt = 0`)
         // from becoming due on the first sweep regardless of jitter; `(now - 0)`
@@ -425,9 +447,11 @@ class TenantRepoSyncService extends Base {
                         ? repo.cadenceMs
                         : globalCadenceMs;
                     persistedRevisions[repoLabel] = {
-                        lastIngestedRev    : null,
-                        lastRunAttemptAt   : sweepStartedMs - baseCadenceMs,
-                        consecutiveFailures: 0
+                        lastIngestedRev                   : null,
+                        lastRunAttemptAt                  : sweepStartedMs - baseCadenceMs,
+                        consecutiveFailures               : 0,
+                        ingestContractVersion             : null,
+                        lastAttemptedIngestContractVersion: null
                     };
                     seededAny = true;
                     writeLog?.('INFO', `[TenantRepoSync] Bootstrap-seeding ${repoLabel} (sync scheduled within jitter window).`);
@@ -438,10 +462,50 @@ class TenantRepoSyncService extends Base {
             }
         }
 
-        await Promise.all(repos.map(async (repo) => {
-            const repoLabel  = `${repo.tenantId}/${repo.repoSlug}`;
-            const priorState = persistedRevisions[repoLabel] || null;
-            const startedMs  = Date.now();
+        // Existing jitter spreads brand-new repo states, but legacy checkpoints
+        // already have persisted timestamps and can all be due on the first upgraded
+        // sweep. Admit at most one concurrency window of automatic null-base replays
+        // per sweep. Oldest attempts go first; label ordering makes ties stable across
+        // restarts. Manual selectors remain an explicit operator bypass.
+        const revalidationAdmissionLabels = new Set();
+        if (!onlyRepoSlugs) {
+            const admissionObservedAt = Date.now();
+            const dueLegacyRepos      = repos
+                .map(repo => {
+                    const
+                        repoLabel  = `${repo.tenantId}/${repo.repoSlug}`,
+                        priorState = persistedRevisions[repoLabel] || null,
+                        dueState   = isRepoDue({
+                            repo,
+                            persistedRepoState: priorState,
+                            now               : admissionObservedAt,
+                            globalCadenceMs,
+                            jitterRatio
+                        });
+
+                    return {repoLabel, priorState, dueState};
+                })
+                .filter(({priorState, dueState}) =>
+                    dueState.due && requiresTenantRepoCheckpointRevalidation(priorState)
+                )
+                .sort((a, b) =>
+                    (a.priorState?.lastRunAttemptAt ?? 0) - (b.priorState?.lastRunAttemptAt ?? 0)
+                    || a.repoLabel.localeCompare(b.repoLabel)
+                )
+                .slice(0, this.concurrencyLimit);
+
+            for (const {repoLabel} of dueLegacyRepos) {
+                revalidationAdmissionLabels.add(repoLabel);
+            }
+        }
+
+        const syncRepo = async (repo) => {
+            const
+                repoLabel            = `${repo.tenantId}/${repo.repoSlug}`,
+                priorState           = persistedRevisions[repoLabel] || null,
+                checkpointStatus     = classifyTenantRepoCheckpoint(priorState),
+                revalidationRequired = requiresTenantRepoCheckpointRevalidation(priorState),
+                startedMs            = Date.now();
 
             // Per-repo due check applies deterministic jitter + exponential backoff on
             // top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
@@ -466,12 +530,32 @@ class TenantRepoSyncService extends Base {
                         lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
                         lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
                         status             : 'not-due',
+                        checkpointStatus,
                         nextDueAt          : new Date(nextDueAtMs).toISOString(),
                         effectiveCadenceMs : dueState.effectiveCadenceMs,
                         consecutiveFailures: priorState?.consecutiveFailures ?? 0
                     });
                     return; // skip semaphore + work entirely
                 }
+            }
+
+            if (
+                revalidationRequired
+                && !onlyRepoSlugs
+                && !revalidationAdmissionLabels.has(repoLabel)
+            ) {
+                revalidationDeferredCount++;
+                writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} legacy checkpoint replay deferred by the per-sweep admission cap.`);
+                repoStates.push({
+                    tenantId           : repo.tenantId,
+                    repoSlug           : repo.repoSlug,
+                    lastIngestedRev    : priorState.lastIngestedRev.slice(0, 8),
+                    lastSyncAt         : priorState.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
+                    status             : 'revalidation-deferred',
+                    checkpointStatus,
+                    consecutiveFailures: priorState.consecutiveFailures ?? 0
+                });
+                return;
             }
 
             let slotAcquired = false;
@@ -498,13 +582,19 @@ class TenantRepoSyncService extends Base {
                     tenantId       : repo.tenantId,
                     repoSlug       : repo.repoSlug,
                     mirrorRoot     : repo.mirrorRoot,
-                    lastIngestedRev: fullReplay ? null : (priorState?.lastIngestedRev || null),
-                    newHead        : repo.branchRef || 'HEAD',
-                    rootKind       : repo.rootKind || 'external-source',
-                    parserId       : repo.parserId,
-                    parserVersion  : repo.parserVersion,
+                    lastIngestedRev: fullReplay || revalidationRequired
+                        ? null
+                        : (priorState?.lastIngestedRev || null),
+                    newHead      : repo.branchRef || 'HEAD',
+                    rootKind     : repo.rootKind || 'external-source',
+                    parserId     : repo.parserId,
+                    parserVersion: repo.parserVersion,
                     gitMirror
                 });
+
+                if (typeof envelope?.headRevision !== 'string' || !envelope.headRevision.trim()) {
+                    throw new Error('Tenant-repo ingestion envelope did not prove a head revision.');
+                }
 
                 const ingestResult = assertErrorFreeIngestionSummary(await ingestionService.ingestSourceFiles({
                     ...envelope,
@@ -516,9 +606,11 @@ class TenantRepoSyncService extends Base {
                 // successful sync). lastRunAttemptAt advances to
                 // startedMs so subsequent due-checks measure from the actual attempt.
                 persistedRevisions[repoLabel] = {
-                    lastIngestedRev    : envelope.headRevision || priorState?.lastIngestedRev || null,
-                    lastRunAttemptAt   : startedMs,
-                    consecutiveFailures: 0
+                    lastIngestedRev                   : envelope.headRevision || priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt                  : startedMs,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -534,17 +626,19 @@ class TenantRepoSyncService extends Base {
                     lastIngestedRev     : shortHead,
                     lastSyncAt          : new Date().toISOString(),
                     status              : 'active',
+                    checkpointStatus    : TenantRepoCheckpointStatus.COMPLETE,
                     lastSyncDeletedCount: deleted
                 });
                 completedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'completed', {
-                    repo        : repoLabel,
-                    tenantId    : repo.tenantId,
-                    repoSlug    : repo.repoSlug,
+                    repo            : repoLabel,
+                    tenantId        : repo.tenantId,
+                    repoSlug        : repo.repoSlug,
                     ingested,
                     deleted,
-                    headRevision: shortHead,
-                    durationMs
+                    headRevision    : shortHead,
+                    durationMs,
+                    checkpointStatus: TenantRepoCheckpointStatus.COMPLETE
                 });
             } catch (e) {
                 const code            = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
@@ -558,9 +652,11 @@ class TenantRepoSyncService extends Base {
                 // start, not last-success).
                 const nextFailureCount = (priorState?.consecutiveFailures ?? 0) + 1;
                 persistedRevisions[repoLabel] = {
-                    lastIngestedRev    : priorState?.lastIngestedRev || null,
-                    lastRunAttemptAt   : startedMs,
-                    consecutiveFailures: nextFailureCount
+                    lastIngestedRev                   : priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt                  : startedMs,
+                    consecutiveFailures               : nextFailureCount,
+                    ingestContractVersion             : priorState?.ingestContractVersion ?? null,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 };
 
                 const failedRepoState = {
@@ -569,6 +665,7 @@ class TenantRepoSyncService extends Base {
                     lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
                     lastSyncAt         : new Date().toISOString(),
                     status             : 'degraded',
+                    checkpointStatus   : classifyTenantRepoCheckpoint(persistedRevisions[repoLabel]),
                     lastErrorCode      : code,
                     consecutiveFailures: nextFailureCount
                 };
@@ -586,14 +683,30 @@ class TenantRepoSyncService extends Base {
                     error   : e.message,
                     code,
                     ...(sourceErrorCode ? {sourceErrorCode} : {}),
-                    consecutiveFailures: nextFailureCount
+                    consecutiveFailures: nextFailureCount,
+                    checkpointStatus   : failedRepoState.checkpointStatus
                 });
                 // Continue with remaining repos — per-repo failure isolation is the
                 // tenant deployment contract.
             } finally {
                 if (slotAcquired) semaphore.release();
             }
-        }));
+        };
+
+        // Reserved migration work runs as a bounded first cohort. Normal repos
+        // are not enqueued until those admitted replays settle, so their
+        // concurrency-gate timeout clocks cannot expire behind intentionally
+        // prioritized migration work.
+        const
+            admittedRevalidationRepos = repos.filter(repo =>
+                revalidationAdmissionLabels.has(`${repo.tenantId}/${repo.repoSlug}`)
+            ),
+            remainingRepos = repos.filter(repo =>
+                !revalidationAdmissionLabels.has(`${repo.tenantId}/${repo.repoSlug}`)
+            );
+
+        await Promise.all(admittedRevalidationRepos.map(syncRepo));
+        await Promise.all(remainingRepos.map(syncRepo));
 
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
@@ -606,7 +719,7 @@ class TenantRepoSyncService extends Base {
             ? 'completed' // all repos were not-due; cycle ran cleanly
             : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'));
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due.`);
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred.`);
 
         return {
             status,
@@ -615,6 +728,7 @@ class TenantRepoSyncService extends Base {
                 completedCount,
                 failedCount,
                 notDueCount,
+                revalidationDeferredCount,
                 repos    : repoStates
             }
         };
@@ -700,22 +814,23 @@ class TenantRepoSyncService extends Base {
      * Current per-repo persisted state shape:
      * ```
      * {
-     *   lastIngestedRev    : '<sha>',
-     *   lastRunAttemptAt   : <ms-epoch>,
-     *   consecutiveFailures: <int>
+     *   lastIngestedRev                    : '<sha>',
+     *   lastRunAttemptAt                   : <ms-epoch>,
+     *   consecutiveFailures                : <int>,
+     *   ingestContractVersion              : <int|null>,
+     *   lastAttemptedIngestContractVersion : <int|null>
      * }
      * ```
      *
      * Backward-compatible read: legacy persistence stored bare SHA strings under
-     * `revisions[label]`. On read, string-shaped entries are auto-migrated to the
-     * full object shape (lastIngestedRev = old-string; lastRunAttemptAt = 0;
-     * consecutiveFailures = 0). Next write persists the new shape, completing the
-     * migration in-place.
+     * `revisions[label]`. On read, string-shaped entries are normalized to the full
+     * state shape without manufacturing an ingestion-contract proof. The scheduler
+     * therefore admits one bounded null-base replay before trusting that head.
      *
      * @param {Object} options
      * @param {String} options.filePath
      * @param {Boolean} [options.strict=false] Throw on corrupt/unreadable files instead of returning an empty map.
-     * @returns {Promise<Object<String, {lastIngestedRev: String, lastRunAttemptAt: Number, consecutiveFailures: Number}>>}
+     * @returns {Promise<Object<String, Object>>}
      */
     async readPersistedRevisions({filePath, strict = false}) {
         if (!await fs.pathExists(filePath)) {
@@ -723,23 +838,31 @@ class TenantRepoSyncService extends Base {
         }
         try {
             const data = await fs.readJson(filePath);
-            if (!data || typeof data !== 'object' || !data.revisions) return {};
+            if (
+                !data
+                || typeof data !== 'object'
+                || !data.revisions
+                || typeof data.revisions !== 'object'
+                || Array.isArray(data.revisions)
+            ) {
+                if (strict) {
+                    const error = new Error(`Tenant-repo-sync revisions at ${filePath} have an invalid shape.`);
+                    error.code  = 'KB_TENANT_REPO_SYNC_REVISIONS_INVALID';
+                    throw error;
+                }
+                return {};
+            }
 
             const normalized = {};
             for (const [label, value] of Object.entries(data.revisions)) {
-                if (typeof value === 'string') {
-                    // Legacy shape: bare SHA string. Migrate to full state shape on read.
-                    normalized[label] = {
-                        lastIngestedRev    : value,
-                        lastRunAttemptAt   : 0,
-                        consecutiveFailures: 0
-                    };
-                } else if (value && typeof value === 'object') {
-                    normalized[label] = {
-                        lastIngestedRev    : value.lastIngestedRev || null,
-                        lastRunAttemptAt   : Number.isFinite(value.lastRunAttemptAt) ? value.lastRunAttemptAt : 0,
-                        consecutiveFailures: Number.isFinite(value.consecutiveFailures) ? value.consecutiveFailures : 0
-                    };
+                const checkpointState = normalizeTenantRepoCheckpointState(value);
+
+                if (checkpointState) {
+                    normalized[label] = checkpointState;
+                } else if (strict) {
+                    const error = new Error('Tenant-repo-sync revision entry has an invalid shape.');
+                    error.code  = 'KB_TENANT_REPO_SYNC_REVISIONS_INVALID';
+                    throw error;
                 }
             }
             return normalized;
