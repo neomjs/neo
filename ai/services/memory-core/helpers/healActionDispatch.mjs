@@ -15,6 +15,11 @@
  * placement-independent decision every shape of the actuator (dedicated service or extended) consumes.
  */
 
+import {
+    deriveRestoreTargetSetIdentity,
+    RESTORE_EMPTY_TARGET_ACTION
+} from './restoreTargetSetContract.mjs';
+
 /**
  * The DISPATCHABLE heal actions (the classifier's `terminalAction` vocabulary). Non-mutating containment
  * (`freeze` / `quarantine` / `throttle-shed`) is always safe to apply; the rest are mutating (see `MUTATING_HEAL_ACTIONS`).
@@ -22,7 +27,7 @@
  * before the vocabulary check, never dispatched.
  * @type {String[]}
  */
-export const HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', 'restore-delta-merge', 'quarantine', 'freeze', 'throttle-shed', 'defrag']);
+export const HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', RESTORE_EMPTY_TARGET_ACTION, 'quarantine', 'freeze', 'throttle-shed', 'defrag']);
 
 /**
  * The non-dispatchable no-op sentinel: the classifier emits `none` for a clean collection (nothing to heal).
@@ -38,7 +43,7 @@ export const NO_HEAL_ACTION = 'none';
  * `freeze`, `quarantine` + `throttle-shed` are non-mutating containment and are exempt.
  * @type {String[]}
  */
-export const MUTATING_HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', 'restore-delta-merge', 'defrag']);
+export const MUTATING_HEAL_ACTIONS = Object.freeze(['re-embed-missing', 're-embed-rows', RESTORE_EMPTY_TARGET_ACTION, 'defrag']);
 
 /**
  * Default dispatch bounds: at most 3 mutating runs of the same action+collection per hour, with a 10-minute
@@ -56,19 +61,42 @@ export const DEFAULT_DISPATCH_BOUNDS = Object.freeze({maxRunsPerWindow: 3, windo
  *
  * @param {Object} options
  * @param {String} [options.action] The heal action (the classifier's `terminalAction`).
- * @param {String} [options.collection] The target collection (the anti-thrash / rate key, with `action`).
- * @param {Object[]} [options.recentRuns=[]] Recent heal runs `[{action, collection, at}]` (epoch ms) for anti-thrash + rate.
+ * @param {String} [options.collection] The target collection for collection-scoped actions.
+ * @param {Object} [options.targetSet] The canonical v1 descriptor for `restore-empty-target`.
+ * @param {Object[]} [options.recentRuns=[]] Recent heal runs. Collection actions key by
+ * `collection`; target-set recovery keys by `recoveryUnitKey`.
  * @param {{maxRunsPerWindow: Number, windowMs: Number, cooldownMs: Number}} [options.bounds=DEFAULT_DISPATCH_BOUNDS]
  * @param {Number} [options.now] Epoch milliseconds (the injected clock).
  * @returns {Object} `{execute, status, reason}`. `status ∈ {execute, no-op, unknown-action, unsafe-input, thrash-cooldown, rate-limited}`.
  */
-export function decideHealAction({action, collection, recentRuns = [], bounds = DEFAULT_DISPATCH_BOUNDS, now} = {}) {
+export function decideHealAction({action, collection, targetSet, recentRuns = [], bounds = DEFAULT_DISPATCH_BOUNDS, now} = {}) {
     if (action === NO_HEAL_ACTION || action == null) {
         return {execute: false, status: 'no-op', reason: 'no-heal-action'};
     }
 
     if (!HEAL_ACTIONS.includes(action)) {
         return {execute: false, status: 'unknown-action', reason: `unknown heal action: ${action}`};
+    }
+
+    let targetIdentity = null;
+
+    if (action === RESTORE_EMPTY_TARGET_ACTION) {
+        if (collection !== undefined && collection !== null) {
+            return {execute: false, status: 'unsafe-input', reason: `'${RESTORE_EMPTY_TARGET_ACTION}' rejects collection and requires targetSet`}
+        }
+
+        try {
+            targetIdentity = deriveRestoreTargetSetIdentity(targetSet);
+        } catch (error) {
+            return {execute: false, status: 'unsafe-input', reason: error.message}
+        }
+    } else {
+        if (targetSet !== undefined && targetSet !== null) {
+            return {execute: false, status: 'unsafe-input', reason: `collection-scoped '${action}' rejects targetSet`}
+        }
+        if (typeof collection !== 'string' || collection.length === 0) {
+            return {execute: false, status: 'unsafe-input', reason: `collection-scoped '${action}' requires a non-empty collection`}
+        }
     }
 
     // Non-mutating containment is always safe to apply — no rate/thrash bound.
@@ -78,9 +106,6 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
 
     // A mutating heal MUST carry the full safety context or the rate + anti-thrash gate cannot bind. Fail
     // CLOSED on a missing target/clock — an under-specified mutating heal must never execute unbounded.
-    if (typeof collection !== 'string' || collection.length === 0) {
-        return {execute: false, status: 'unsafe-input', reason: `mutating '${action}' requires a non-empty collection (the anti-thrash key)`};
-    }
     if (!Number.isFinite(now)) {
         return {execute: false, status: 'unsafe-input', reason: `mutating '${action}' requires a finite 'now' (cooldown/window clock)`};
     }
@@ -93,24 +118,35 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
         return {execute: false, status: 'unsafe-input', reason: `mutating '${action}' requires finite bounds {maxRunsPerWindow, windowMs, cooldownMs}`};
     }
 
-    const sameTarget = (Array.isArray(recentRuns) ? recentRuns : [])
-        .filter(run => run?.action === action && run?.collection === collection);
+    const
+        targetKey  = targetIdentity?.recoveryUnitKey ?? collection,
+        sameTarget = (Array.isArray(recentRuns) ? recentRuns : [])
+            .filter(run => run?.action === action && (
+                targetIdentity
+                    ? run?.recoveryUnitKey === targetKey || run?.collection === targetKey
+                    : run?.collection === targetKey
+            ));
 
     // Anti-thrash: a same-action+collection run inside the cooldown → hold.
     const lastAt = sameTarget.reduce((latest, run) => (Number.isFinite(run?.at) && run.at > latest ? run.at : latest), -Infinity);
 
     if (Number.isFinite(lastAt) && now - lastAt < cooldownMs) {
-        return {execute: false, status: 'thrash-cooldown', reason: `${action} on ${collection} ran ${now - lastAt}ms ago (< ${cooldownMs}ms cooldown)`};
+        return {execute: false, status: 'thrash-cooldown', reason: `${action} on ${targetKey} ran ${now - lastAt}ms ago (< ${cooldownMs}ms cooldown)`};
     }
 
     // Rate-limit: too many runs of this action+collection inside the window → hold.
     const inWindow = sameTarget.filter(run => Number.isFinite(run?.at) && now - run.at < windowMs).length;
 
     if (inWindow >= maxRunsPerWindow) {
-        return {execute: false, status: 'rate-limited', reason: `${action} on ${collection} hit ${inWindow}/${maxRunsPerWindow} runs in ${windowMs}ms`};
+        return {execute: false, status: 'rate-limited', reason: `${action} on ${targetKey} hit ${inWindow}/${maxRunsPerWindow} runs in ${windowMs}ms`};
     }
 
-    return {execute: true, status: 'execute', reason: 'within bounds'};
+    return {
+        execute: true,
+        status : 'execute',
+        reason : 'within bounds',
+        ...(targetIdentity || {})
+    };
 }
 
 /**
@@ -127,7 +163,8 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
  *
  * @param {Object} options
  * @param {String} [options.action] The heal action (the classifier's `terminalAction`).
- * @param {String} [options.collection] The target collection.
+ * @param {String} [options.collection] The target collection for collection-scoped actions.
+ * @param {Object} [options.targetSet] The canonical target-set descriptor for `restore-empty-target`.
  * @param {Object} [options.evidence] The diagnosis evidence passed through to the operation.
  * @param {Object[]} [options.recentRuns=[]] Recent heal runs for the safety gate (anti-thrash + rate).
  * @param {Object} [options.bounds] The dispatch bounds (defaults to `DEFAULT_DISPATCH_BOUNDS` in `decideHealAction`).
@@ -136,11 +173,15 @@ export function decideHealAction({action, collection, recentRuns = [], bounds = 
  * @param {Function} [options.recordRun] `async ({action, collection, at}) => void` — persists a mutating ATTEMPT for future anti-thrash. **Required for mutating actions** — absent → the heal fails closed (`unsafe-input`: no recorder, no mutation). Called before execution for every mutating heal (success OR failure), so a failed heal cannot hot-loop.
  * @returns {Promise<Object>} `outcomeRecord` = `{action, collection, status, detail, healedAt}`.
  */
-export async function dispatchHeal({action, collection, evidence, recentRuns = [], bounds, now, healOperations = {}, recordRun} = {}) {
-    const decision = decideHealAction({action, collection, recentRuns, bounds, now});
+export async function dispatchHeal({action, collection, targetSet, evidence, recentRuns = [], bounds, now, healOperations = {}, recordRun} = {}) {
+    const decision       = decideHealAction({action, collection, targetSet, recentRuns, bounds, now});
+    const identityFields = decision.recoveryUnitKey ? {
+        recoveryUnitKey   : decision.recoveryUnitKey,
+        attemptFingerprint: decision.attemptFingerprint
+    } : {};
 
     if (!decision.execute) {
-        return {action, collection, status: decision.status, detail: decision.reason, healedAt: now};
+        return {action, collection, ...identityFields, status: decision.status, detail: decision.reason, healedAt: now};
     }
 
     const operation = healOperations?.[action];
@@ -149,7 +190,7 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
     // `deferred` outcome — autonomous, never a page. (Until quarantine itself is wired it defers too — the
     // interim detects + records rather than contains; containment lands with the wired containment op.)
     if (typeof operation !== 'function') {
-        return {action, collection, status: 'deferred', detail: `no heal operation wired for '${action}'`, healedAt: now};
+        return {action, collection, ...identityFields, status: 'deferred', detail: `no heal operation wired for '${action}'`, healedAt: now};
     }
 
     const isMutating = MUTATING_HEAL_ACTIONS.includes(action);
@@ -158,7 +199,7 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
     // recorder, no mutation. (Containment is unbounded and needs no recorder.) The invariant holds on EVERY
     // path, not only when a recordRun happens to be wired.
     if (isMutating && typeof recordRun !== 'function') {
-        return {action, collection, status: 'unsafe-input', detail: `mutating '${action}' requires a recordRun to persist the anti-thrash attempt (no recorder, no mutation)`, healedAt: now};
+        return {action, collection, ...identityFields, status: 'unsafe-input', detail: `mutating '${action}' requires a recordRun to persist the anti-thrash attempt (no recorder, no mutation)`, healedAt: now};
     }
 
     // Record the mutating ATTEMPT BEFORE execution so a throwing/failing heal still enters the anti-thrash
@@ -166,18 +207,31 @@ export async function dispatchHeal({action, collection, evidence, recentRuns = [
     // CLOSED rather than risk an unrecorded loop.
     if (isMutating) {
         try {
-            await recordRun({action, collection, at: now});
+            await recordRun({action, collection, ...identityFields, at: now});
         } catch (recordError) {
-            return {action, collection, status: 'failed', detail: `anti-thrash recordRun failed pre-execution: ${recordError?.message ?? String(recordError)}`, healedAt: now};
+            return {action, collection, ...identityFields, status: 'failed', detail: `anti-thrash recordRun failed pre-execution: ${recordError?.message ?? String(recordError)}`, healedAt: now};
         }
     }
 
     try {
-        const result = await operation({collection, evidence, now});
-        return {action, collection, status: result?.status ?? 'healed', detail: result?.detail ?? result ?? null, healedAt: now};
+        const result = await operation({
+            collection,
+            targetSet,
+            evidence,
+            now,
+            ...identityFields
+        });
+        return {
+            action,
+            collection,
+            ...identityFields,
+            status  : result?.status ?? 'healed',
+            detail  : result?.detail ?? result ?? null,
+            healedAt: now
+        };
     } catch (error) {
         // A failed heal is already recorded (above) — never escalated; autonomous self-heal degrades to a recorded fault.
-        return {action, collection, status: 'failed', detail: error?.message ?? String(error), healedAt: now};
+        return {action, collection, ...identityFields, status: 'failed', detail: error?.message ?? String(error), healedAt: now};
     }
 }
 

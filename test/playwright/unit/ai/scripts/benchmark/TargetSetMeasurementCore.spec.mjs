@@ -282,6 +282,26 @@ test.describe('ai/scripts/benchmark target-set measurement (#15695)', () => {
         }
     });
 
+    test('ignores transient files removed between directory enumeration and stat', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-target-set-race-spec-'));
+
+        try {
+            fs.writeFileSync(path.join(root, 'chroma.sqlite3-journal'), 'transient');
+
+            const readStat = async () => {
+                const error = new Error('transient file disappeared');
+
+                error.code = 'ENOENT';
+
+                throw error
+            };
+
+            expect(await directorySizeBytes(root, {readStat})).toBe(0)
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
+    });
+
     test('reports the actual 250-row synthetic copy maximum rather than the file cardinality', async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-target-set-batch-spec-'));
 

@@ -10,8 +10,20 @@ import {
     MUTATING_HEAL_ACTIONS,
     NO_HEAL_ACTION
 } from '../../../../../../../ai/services/memory-core/helpers/healActionDispatch.mjs';
+import {
+    createRestoreTargetSetDescriptor,
+    deriveRestoreTargetSetIdentity,
+    RESTORE_EMPTY_TARGET_ACTION
+} from '../../../../../../../ai/services/memory-core/helpers/restoreTargetSetContract.mjs';
 
-const NOW = 10_000_000;
+const NOW        = 10_000_000;
+const TARGET_SET = createRestoreTargetSetDescriptor({
+    memoriesCollection            : 'neo-agent-memory',
+    summariesCollection           : 'neo-agent-sessions',
+    graphDestination              : '/data/graph.sqlite',
+    bundleManifestFingerprint     : `sha256:${'a'.repeat(64)}`,
+    admissionDescriptorFingerprint: `sha256:${'b'.repeat(64)}`
+});
 
 test.describe('decideHealAction — autonomous bounded-dispatch safety gate', () => {
     test('action none / absent → no-op (nothing to heal)', () => {
@@ -66,6 +78,42 @@ test.describe('decideHealAction — autonomous bounded-dispatch safety gate', ()
             .toMatchObject({execute: false, status: 'unsafe-input'});
     });
 
+    test('restore-empty-target requires targetSet, rejects collection, and keys anti-thrash by recovery unit', () => {
+        const identity = deriveRestoreTargetSetIdentity(TARGET_SET);
+
+        expect(decideHealAction({action: RESTORE_EMPTY_TARGET_ACTION, now: NOW}))
+            .toMatchObject({execute: false, status: 'unsafe-input'});
+        expect(decideHealAction({
+            action    : RESTORE_EMPTY_TARGET_ACTION,
+            collection: 'synthetic-collection',
+            targetSet : TARGET_SET,
+            now       : NOW
+        })).toMatchObject({execute: false, status: 'unsafe-input'});
+
+        expect(decideHealAction({
+            action    : RESTORE_EMPTY_TARGET_ACTION,
+            targetSet : TARGET_SET,
+            recentRuns: [{
+                action         : RESTORE_EMPTY_TARGET_ACTION,
+                recoveryUnitKey: identity.recoveryUnitKey,
+                at             : NOW - 1
+            }],
+            now: NOW
+        })).toMatchObject({
+            execute: false,
+            status : 'thrash-cooldown'
+        });
+    });
+
+    test('collection-scoped actions reject targetSet even when a collection is present', () => {
+        expect(decideHealAction({
+            action    : 'quarantine',
+            collection: 'mc',
+            targetSet : TARGET_SET,
+            now       : NOW
+        })).toMatchObject({execute: false, status: 'unsafe-input'});
+    });
+
     test('fail-closed: a mutating action with a non-finite now → unsafe-input (no cooldown/window clock)', () => {
         expect(decideHealAction({action: 'defrag', collection: 'mc'}))
             .toMatchObject({execute: false, status: 'unsafe-input'});
@@ -90,6 +138,8 @@ test.describe('decideHealAction — autonomous bounded-dispatch safety gate', ()
         expect(Object.isFrozen(MUTATING_HEAL_ACTIONS)).toBe(true);
         expect(MUTATING_HEAL_ACTIONS.every(a => HEAL_ACTIONS.includes(a))).toBe(true);
         expect(HEAL_ACTIONS).toContain('quarantine'); // quarantine is a containment heal-action
+        expect(HEAL_ACTIONS).toContain(RESTORE_EMPTY_TARGET_ACTION);
+        expect(HEAL_ACTIONS).not.toContain('restore-delta-merge');
         expect(DEFAULT_DISPATCH_BOUNDS.maxRunsPerWindow).toBeGreaterThan(0);
         // the no-op sentinel is non-dispatchable: it lives OUTSIDE HEAL_ACTIONS and resolves to no-op.
         expect(NO_HEAL_ACTION).toBe('none');
@@ -131,11 +181,55 @@ test.describe('dispatchHeal — actuator core dispatch (safety gate + injected e
         expect(runs).toEqual([{action: 're-embed-missing', collection: 'mc-memory', at: NOW}]);
     });
 
-    test('an executable action with NO wired operation → deferred (the missing-logic gap, autonomous, no page)', async () => {
-        const outcome = await dispatchHeal({action: 'restore-delta-merge', collection: 'mc', now: NOW, healOperations: {}});
+    test('an executable target-set action with NO wired operation → deferred (autonomous, no page)', async () => {
+        const outcome = await dispatchHeal({
+            action        : RESTORE_EMPTY_TARGET_ACTION,
+            targetSet     : TARGET_SET,
+            now           : NOW,
+            healOperations: {}
+        });
 
-        expect(outcome).toMatchObject({status: 'deferred', healedAt: NOW});
+        expect(outcome).toMatchObject({
+            action            : RESTORE_EMPTY_TARGET_ACTION,
+            status            : 'deferred',
+            healedAt          : NOW,
+            recoveryUnitKey   : deriveRestoreTargetSetIdentity(TARGET_SET).recoveryUnitKey,
+            attemptFingerprint: deriveRestoreTargetSetIdentity(TARGET_SET).attemptFingerprint
+        });
         expect(outcome.detail).toMatch(/no heal operation wired/);
+    });
+
+    test('target-set dispatch records and invokes the operation with canonical identities', async () => {
+        const
+            calls    = [],
+            records  = [],
+            expected = deriveRestoreTargetSetIdentity(TARGET_SET),
+            outcome  = await dispatchHeal({
+                action        : RESTORE_EMPTY_TARGET_ACTION,
+                targetSet     : TARGET_SET,
+                now           : NOW,
+                healOperations: {
+                    [RESTORE_EMPTY_TARGET_ACTION]: async input => {
+                        calls.push(input);
+                        return {status: 'committed', detail: {serviceEligible: true}}
+                    }
+                },
+                recordRun: async record => records.push(record)
+            });
+
+        expect(records).toEqual([expect.objectContaining({
+            action            : RESTORE_EMPTY_TARGET_ACTION,
+            collection        : undefined,
+            recoveryUnitKey   : expected.recoveryUnitKey,
+            attemptFingerprint: expected.attemptFingerprint,
+            at                : NOW
+        })]);
+        expect(calls).toEqual([expect.objectContaining({
+            targetSet         : TARGET_SET,
+            recoveryUnitKey   : expected.recoveryUnitKey,
+            attemptFingerprint: expected.attemptFingerprint
+        })]);
+        expect(outcome).toMatchObject({status: 'committed', detail: {serviceEligible: true}});
     });
 
     test('a throwing operation → failed (recorded, never escalated)', async () => {

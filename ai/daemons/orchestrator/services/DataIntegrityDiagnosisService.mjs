@@ -8,10 +8,10 @@ import {classifyDataIntegrityMode, DataIntegrityTerminal} from './dataIntegrityM
  * its AUTONOMOUS heal action via the recovery actuator's `applyHeal` sink.
  *
  * There is NO `escalate` and NO operator in the loop: in a cloud deployment there is no human to page or
- * acknowledge, so every actionable mode routes to an autonomous heal (re-embed-missing, restore-delta-merge,
- * quarantine, freeze, defrag…) — or the safe-default `quarantine` where the specific repair is not yet built.
- * The runner only routes; the actuator executes — the interim actuator defers every action (detected +
- * recorded, never a page) until the heal ops are wired, so it contains nothing yet. Safety comes from the
+ * acknowledge, so every actionable collection mode routes to an autonomous
+ * heal (re-embed-missing, quarantine, freeze, defrag…). The separate typed
+ * fresh-empty bootstrap route may select `restore-empty-target`; ordinary wipe
+ * evidence never does. The runner only routes; the actuator executes. Safety comes from the
  * actuator's bounded envelope (snapshot, reversibility, durable audit record, rate-limit), not from a human
  * gate that does not exist.
  *
@@ -51,7 +51,8 @@ export class DataIntegrityDiagnosisService extends Base {
      */
     evidenceGatherer = null
     /**
-     * The recovery actuator exposing `applyHeal({action, collection, evidence, now})`. Every actionable mode
+     * The recovery actuator exposing
+     * `applyHeal({action, collection?, targetSet?, evidence, now})`. Every actionable mode
      * routes here — there is no escalate/operator sink. Set-once injected dependency — a plain class field.
      * @member {Object|null} recoveryActuator=null
      */

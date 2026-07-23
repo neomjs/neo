@@ -281,13 +281,19 @@ export async function createTargetSetFixture({dimension, profileName, root}) {
  * invent a failure.
  *
  * @param {String} root
+ * @param {Object} [fileSystem]
+ * @param {Function} [fileSystem.readDirectory]
+ * @param {Function} [fileSystem.readStat]
  * @returns {Promise<Number>}
  */
-export async function directorySizeBytes(root) {
+export async function directorySizeBytes(root, {
+    readDirectory = readdir,
+    readStat      = stat
+} = {}) {
     let entries;
 
     try {
-        entries = await readdir(root, {withFileTypes: true})
+        entries = await readDirectory(root, {withFileTypes: true})
     } catch (error) {
         if (error?.code === 'ENOENT') return 0;
         throw error
@@ -299,9 +305,13 @@ export async function directorySizeBytes(root) {
         const target = path.join(root, entry.name);
 
         if (entry.isDirectory()) {
-            bytes += await directorySizeBytes(target)
+            bytes += await directorySizeBytes(target, {readDirectory, readStat})
         } else if (entry.isFile()) {
-            bytes += (await stat(target)).size
+            try {
+                bytes += (await readStat(target)).size
+            } catch (error) {
+                if (error?.code !== 'ENOENT') throw error
+            }
         }
     }
 

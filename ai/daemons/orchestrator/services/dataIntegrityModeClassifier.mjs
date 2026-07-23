@@ -18,6 +18,14 @@
  * @see ai/daemons/orchestrator/services/DataIntegrityDiagnosisService.mjs
  */
 
+import {
+    normalizeRestoreTargetSetDescriptor,
+    RESTORE_EMPTY_TARGET_ACTION
+} from '../../../services/memory-core/helpers/restoreTargetSetContract.mjs';
+import {
+    normalizeRestoreTargetSetAdmission
+} from '../../../services/memory-core/helpers/restoreTargetSetAdmission.mjs';
+
 /**
  * @summary The autonomous terminal actions a corruption mode routes to. There is deliberately NO `escalate`
  * or `page` action — every terminal is autonomous and bounded. Where the specific repair action is not yet
@@ -31,8 +39,8 @@ export const DataIntegrityTerminal = Object.freeze({
     REEMBED_MISSING    : 're-embed-missing',
     /** Dimension-targeted: a few wrong-dimension vectors — re-embed exactly those rows. */
     REEMBED_ROWS       : 're-embed-rows',
-    /** Wipe: metadata-without-vector, documents also gone — restore the last-good backup and delta-merge newer rows. */
-    RESTORE_DELTA_MERGE: 'restore-delta-merge',
+    /** Typed, default-off fresh-empty bootstrap only: restore one admitted three-destination target set. */
+    RESTORE_EMPTY_TARGET: RESTORE_EMPTY_TARGET_ACTION,
     /** Safe-default terminal: when the actuator executes it, fences the collection from similarity-serving (a corrupt index is never served). Bounded, lossless, reversible. The interim actuator defers it. */
     QUARANTINE         : 'quarantine',
     /** Systemic false-storm (mass mismatch): freeze the collection — never trigger a mass auto-re-embed. */
@@ -108,8 +116,8 @@ export function classifyDataIntegrityMode({
             return decision(collection, 'wal-stall', DataIntegrityTerminal.REEMBED_MISSING,
                 'metadata-without-vector, documents intact — lossless autonomous re-embed');
         }
-        return decision(collection, 'wipe', DataIntegrityTerminal.RESTORE_DELTA_MERGE,
-            'metadata-without-vector, documents also gone — restore + delta-merge');
+        return decision(collection, 'wipe', DataIntegrityTerminal.QUARANTINE,
+            'metadata-without-vector, documents also gone — contain; count/loss evidence cannot select target-set restore');
     }
 
     if (sizeAnomaly) {
@@ -118,6 +126,63 @@ export function classifyDataIntegrityMode({
     }
 
     return decision(collection, 'clean', DataIntegrityTerminal.NONE, 'no integrity signal');
+}
+
+/**
+ * @summary Maps only the typed, default-off fresh-empty bootstrap diagnosis to
+ * `restore-empty-target`.
+ *
+ * This classifier-owned boundary admits only an explicitly typed fresh-bootstrap
+ * recovery. Ordinary wipe or count-loss evidence cannot enter this route, and a
+ * malformed target set fails closed to `none`.
+ *
+ * @param {Object} diagnosis
+ * @param {'fresh-empty-bootstrap'} diagnosis.type Typed diagnosis discriminator.
+ * @param {Boolean} diagnosis.enabled Explicit default-off opt-in.
+ * @param {Object} diagnosis.targetSet Canonical v1 target-set descriptor.
+ * @returns {Object} Classification decision with the admitted target set only
+ * when the route is accepted.
+ */
+export function classifyFreshEmptyBootstrapDiagnosis({
+    type,
+    enabled = false,
+    targetSet
+} = {}) {
+    if (type !== 'fresh-empty-bootstrap' || enabled !== true) {
+        return {
+            accepted      : false,
+            autonomous    : true,
+            mode          : 'not-fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.NONE,
+            reason        : 'restore-empty-target requires an explicitly enabled typed fresh-empty bootstrap diagnosis'
+        }
+    }
+
+    try {
+        const
+            descriptor = normalizeRestoreTargetSetDescriptor(targetSet),
+            admission  = normalizeRestoreTargetSetAdmission(
+                targetSet?.admission,
+                descriptor
+            );
+
+        return {
+            accepted      : true,
+            autonomous    : true,
+            mode          : 'fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.RESTORE_EMPTY_TARGET,
+            reason        : 'typed fresh-empty bootstrap diagnosis admitted for target-set recovery',
+            targetSet     : {...descriptor, admission}
+        }
+    } catch (error) {
+        return {
+            accepted      : false,
+            autonomous    : true,
+            mode          : 'invalid-fresh-empty-bootstrap',
+            terminalAction: DataIntegrityTerminal.NONE,
+            reason        : error.message
+        }
+    }
 }
 
 /**

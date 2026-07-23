@@ -21,6 +21,10 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import os              from 'os';
 import {getPaths}      from '../../../../../../ai/graph/queries/traversal.mjs';
+import {
+    createGraphBootSeedManifest,
+    evaluateGraphBootSeedFreshness
+} from '../../../../../../ai/graph/bootSeedManifest.mjs';
 
 test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let GraphService;
@@ -1104,6 +1108,45 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             label     : 'AgentIdentity',
             properties: {participationStatus: 'temporarily_unreachable', userId: null}
         });
+    });
+
+    test('boot and recovery share one exact idempotent seed manifest', () => {
+        const
+            manifest = createGraphBootSeedManifest(),
+            first    = GraphService.provisionMissingBootSeeds(manifest),
+            db       = GraphService.db.storage.db,
+            before   = db.prepare(`
+                SELECT data
+                FROM Edges
+                WHERE source = 'frontier'
+                  AND target = 'Neo-Master-Architecture'
+                  AND type = 'SYSTEM_TENET'
+            `).get().data,
+            second   = GraphService.provisionMissingBootSeeds(manifest),
+            after    = db.prepare(`
+                SELECT data
+                FROM Edges
+                WHERE source = 'frontier'
+                  AND target = 'Neo-Master-Architecture'
+                  AND type = 'SYSTEM_TENET'
+            `).get().data,
+            freshness = evaluateGraphBootSeedFreshness({
+                nodes: db.prepare('SELECT data FROM Nodes').all(),
+                edges: db.prepare('SELECT data FROM Edges').all(),
+                manifest
+            });
+
+        expect(first).toEqual({
+            nodesCreated: manifest.nodes.length,
+            edgesCreated: manifest.edges.length
+        });
+        expect(second).toEqual({nodesCreated: 0, edgesCreated: 0});
+        expect(after).toBe(before);
+        expect(freshness).toMatchObject({
+            fresh    : true,
+            nodeCount: manifest.nodes.length,
+            edgeCount: manifest.edges.length
+        })
     });
 
     test('cross-tenant data isolation and identity stamping', async () => {
