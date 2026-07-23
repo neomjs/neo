@@ -25,6 +25,9 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService        from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import {
+    TENANT_REPO_INGEST_CONTRACT_VERSION
+} from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
     buildRunTaskOptions,
@@ -289,14 +292,25 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(ingestedSlugs).toEqual(['org/a', 'org/c']);
     });
 
-    test('persisted revisions are read on subsequent run and passed as lastIngestedRev', async () => {
+    test('current-contract checkpoints are read on subsequent run and passed as lastIngestedRev', async () => {
         const taskStateService = createInMemoryTaskStateService();
 
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/seeded'});
 
-        // Seed the revisions file with a prior run
+        // Seed the revisions file with a checkpoint proved by the current
+        // error-free ingestion contract.
         await fs.ensureDir(path.dirname(revisionsFile));
-        await fs.writeJson(revisionsFile, {revisions: {'t1/org/seeded': 'sha-prior-run'}});
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/org/seeded': {
+                    lastIngestedRev                   : 'sha-prior-run',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                }
+            }
+        });
 
         let   capturedLastIngestedRev   = null;
         const envelopeWatchingGitMirror = {
@@ -352,9 +366,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${repoSlug}`]: {
-                    lastIngestedRev    : 'sha-good',
-                    lastRunAttemptAt   : 0,
-                    consecutiveFailures: 0
+                    lastIngestedRev                   : 'sha-good',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 }
             }
         });
@@ -411,6 +427,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(failed.details.failedCount).toBe(1);
         expect(failed.details.repos[0]).toMatchObject({
             status             : 'degraded',
+            checkpointStatus   : 'complete',
             lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
             lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED',
             consecutiveFailures: 1
@@ -420,8 +437,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         let persisted = await fs.readJson(revisionsFile);
         expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
-            lastIngestedRev    : 'sha-good',
-            consecutiveFailures: 1
+            lastIngestedRev                   : 'sha-good',
+            consecutiveFailures               : 1,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
         });
 
         const recovered = await TenantRepoSyncService.runTask(options);
@@ -450,9 +469,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             await fs.writeJson(revisionsFile, {
                 revisions: {
                     [`t1/${repoSlug}`]: {
-                        lastIngestedRev    : 'sha-known-good',
-                        lastRunAttemptAt   : 0,
-                        consecutiveFailures: 2
+                        lastIngestedRev                   : 'sha-known-good',
+                        lastRunAttemptAt                  : 0,
+                        consecutiveFailures               : 2,
+                        ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                     }
                 }
             });
@@ -543,9 +564,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${repoSlug}`]: {
-                    lastIngestedRev    : 'sha-old-checkpoint',
-                    lastRunAttemptAt   : 0,
-                    consecutiveFailures: 2
+                    lastIngestedRev                   : 'sha-old-checkpoint',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 2,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 }
             }
         });
@@ -599,9 +622,419 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         persisted = await fs.readJson(revisionsFile);
         expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
-            lastIngestedRev    : 'sha-replay-clean',
-            consecutiveFailures: 0
+            lastIngestedRev                   : 'sha-replay-clean',
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
         });
+    });
+
+    test('legacy checkpoint revalidation retries returned and thrown failures from a null base before proving the new head (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/legacy-retry',
+            envelopeCalls    = [];
+        let ingestAttempt = 0;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev    : 'sha-legacy-head',
+                    lastRunAttemptAt   : 0,
+                    consecutiveFailures: 0
+                }
+            }
+        });
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy-retry.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestAttempt++;
+
+                    if (ingestAttempt === 1) {
+                        return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                    }
+
+                    if (ingestAttempt === 2) {
+                        throw new Error('bounded thrown failure')
+                    }
+
+                    return {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 0,
+            jitterRatio      : 0,
+            seedBootstrap    : false
+        };
+
+        for (const expectedFailureCount of [1, 2]) {
+            const failed = await TenantRepoSyncService.runTask(options);
+
+            expect(failed.status).toBe('failed');
+            expect(failed.details.repos[0]).toMatchObject({
+                status             : 'degraded',
+                checkpointStatus   : 'failed',
+                consecutiveFailures: expectedFailureCount
+            });
+
+            const persisted = await fs.readJson(revisionsFile);
+            expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
+                lastIngestedRev                   : 'sha-legacy-head',
+                consecutiveFailures               : expectedFailureCount,
+                ingestContractVersion             : null,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            });
+        }
+
+        const recovered = await TenantRepoSyncService.runTask(options);
+
+        expect(recovered.status).toBe('completed');
+        expect(envelopeCalls).toHaveLength(3);
+        expect(envelopeCalls.every(call => call.args.lastIngestedRev === null)).toBe(true);
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
+            lastIngestedRev                   : `sha-head-${repoSlug}`,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        });
+    });
+
+    test('periodic migration admits at most concurrencyLimit legacy replays per sweep while current repos stay incremental (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            legacySlugs      = ['org/legacy-a', 'org/legacy-b', 'org/legacy-c'],
+            currentSlug      = 'org/current',
+            envelopeCalls    = [];
+
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/org/legacy-a': {lastIngestedRev: 'sha-a', lastRunAttemptAt: 0, consecutiveFailures: 0},
+                't1/org/legacy-b': {lastIngestedRev: 'sha-b', lastRunAttemptAt: 0, consecutiveFailures: 0},
+                't1/org/legacy-c': {lastIngestedRev: 'sha-c', lastRunAttemptAt: 0, consecutiveFailures: 0},
+                't1/org/current' : {
+                    lastIngestedRev                   : 'sha-current',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                }
+            }
+        });
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [...legacySlugs, currentSlug].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false
+        };
+
+        const firstSweep = await TenantRepoSyncService.runTask(options);
+
+        expect(firstSweep.status).toBe('completed');
+        expect(firstSweep.details).toMatchObject({
+            completedCount           : 3,
+            revalidationDeferredCount: 1
+        });
+        expect(envelopeCalls.filter(call => call.args.lastIngestedRev === null)).toHaveLength(2);
+        expect(envelopeCalls.find(call => call.args.repoSlug === currentSlug).args.lastIngestedRev).toBe('sha-current');
+        const firstSweepCallCount = envelopeCalls.length;
+
+        let persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/org/legacy-a'].ingestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
+        expect(persisted.revisions['t1/org/legacy-b'].ingestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
+        expect(persisted.revisions['t1/org/legacy-c'].ingestContractVersion).toBeNull();
+
+        const secondSweep = await TenantRepoSyncService.runTask(options);
+
+        expect(secondSweep.status).toBe('completed');
+        expect(secondSweep.details.revalidationDeferredCount).toBe(0);
+        expect(envelopeCalls.filter(call =>
+            call.args.repoSlug === 'org/legacy-c' && call.args.lastIngestedRev === null
+        )).toHaveLength(1);
+        for (const repoSlug of ['org/legacy-a', 'org/legacy-b']) {
+            const secondSweepCall = envelopeCalls
+                .slice(firstSweepCallCount)
+                .find(call => call.args.repoSlug === repoSlug);
+
+            expect(secondSweepCall.args.lastIngestedRev).toBe(`sha-head-${repoSlug}`);
+        }
+
+        persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/org/legacy-c'].ingestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
+    });
+
+    test('admitted legacy replay gets the semaphore before a slow current repo across repeated sweeps (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            currentSlug      = 'org/current-slow',
+            legacySlug       = 'org/legacy-starvation',
+            mirrorCalls      = [],
+            envelopeCalls    = [];
+
+        TenantRepoSyncService.concurrencyLimit         = 1;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 15;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${currentSlug}`]: {
+                    lastIngestedRev                   : 'sha-current',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                },
+                [`t1/${legacySlug}`]: {
+                    lastIngestedRev    : 'sha-legacy',
+                    lastRunAttemptAt   : 0,
+                    consecutiveFailures: 0
+                }
+            }
+        });
+
+        const slowCurrentMirror = {
+            async cloneIfMissing(args) {
+                mirrorCalls.push({op: 'cloneIfMissing', args});
+
+                if (args.repoSlug === currentSlug) {
+                    await new Promise(resolve => setTimeout(resolve, 40));
+                }
+            },
+            async fetch(args) {
+                mirrorCalls.push({op: 'fetch', args});
+            },
+            async resolveHead({ref}) {
+                return `sha-for-${ref}`;
+            },
+            async isAncestor() {
+                return true;
+            },
+            async diffRevisions() {
+                return {addedOrChanged: [], deleted: []};
+            }
+        };
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: currentSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/current.git'},
+                {tenantId: 't1', repoSlug: legacySlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy.git'}
+            ]},
+            gitMirror                    : slowCurrentMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false
+        };
+
+        for (let sweep = 0; sweep < 3; sweep++) {
+            const result = await TenantRepoSyncService.runTask(options);
+
+            expect(result.status).toBe('completed');
+        }
+
+        expect(mirrorCalls[0]).toMatchObject({
+            op  : 'cloneIfMissing',
+            args: {repoSlug: legacySlug}
+        });
+        expect(envelopeCalls.filter(call =>
+            call.args.repoSlug === legacySlug && call.args.lastIngestedRev === null
+        )).toHaveLength(1);
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${legacySlug}`]).toMatchObject({
+            lastIngestedRev                   : `sha-head-${legacySlug}`,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        });
+    });
+
+    test('slow admitted replay settles before current repo timeout accounting begins (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            currentSlug      = 'org/current-fast',
+            legacySlug       = 'org/legacy-slow',
+            envelopeCalls    = [];
+
+        TenantRepoSyncService.concurrencyLimit         = 1;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 15;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${currentSlug}`]: {
+                    lastIngestedRev                   : 'sha-current',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                },
+                [`t1/${legacySlug}`]: {
+                    lastIngestedRev    : 'sha-legacy',
+                    lastRunAttemptAt   : 0,
+                    consecutiveFailures: 0
+                }
+            }
+        });
+
+        const slowLegacyMirror = {
+            async cloneIfMissing({repoSlug}) {
+                if (repoSlug === legacySlug) {
+                    await new Promise(resolve => setTimeout(resolve, 40));
+                }
+            },
+            async fetch() {},
+            async resolveHead({ref}) {
+                return `sha-for-${ref}`;
+            },
+            async isAncestor() {
+                return true;
+            },
+            async diffRevisions() {
+                return {addedOrChanged: [], deleted: []};
+            }
+        };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: currentSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/current.git'},
+                {tenantId: 't1', repoSlug: legacySlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy.git'}
+            ]},
+            gitMirror                    : slowLegacyMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false
+        });
+
+        expect(result).toMatchObject({
+            status : 'completed',
+            details: {
+                completedCount: 2,
+                failedCount   : 0
+            }
+        });
+        expect(result.details.repos.find(repo => repo.repoSlug === currentSlug)).toMatchObject({
+            status          : 'active',
+            checkpointStatus: 'complete'
+        });
+        expect(envelopeCalls.find(call => call.args.repoSlug === currentSlug).args.lastIngestedRev).toBe('sha-current');
+        expect(envelopeCalls.find(call => call.args.repoSlug === legacySlug).args.lastIngestedRev).toBeNull();
+    });
+
+    for (const {label, marker} of [
+        {label: 'string success marker',     marker: {ingestContractVersion: '2'}},
+        {label: 'fractional success marker', marker: {ingestContractVersion: 1.5}},
+        {label: 'negative attempt marker',   marker: {lastAttemptedIngestContractVersion: -1}},
+        {label: 'zero attempt marker',       marker: {lastAttemptedIngestContractVersion: 0}}
+    ]) {
+        test(`malformed ${label} fails closed without authorizing legacy replay (#15761)`, async () => {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                mirrorCalls      = [],
+                repoSlug         = 'org/malformed-contract';
+
+            await fs.writeJson(revisionsFile, {
+                revisions: {
+                    [`t1/${repoSlug}`]: {
+                        lastIngestedRev    : 'sha-preserve',
+                        lastRunAttemptAt   : 0,
+                        consecutiveFailures: 0,
+                        ...marker
+                    }
+                }
+            });
+            const originalManifest = await fs.readFile(revisionsFile, 'utf8');
+
+            const result = await TenantRepoSyncService.runTask({
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/malformed.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 0,
+                jitterRatio                  : 0,
+                seedBootstrap                : false
+            });
+
+            expect(result.status).toBe('failed');
+            expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+            expect(mirrorCalls).toHaveLength(0);
+            expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
+        });
+    }
+
+    test('future checkpoint-contract markers fail closed without downgrade or repo work (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            mirrorCalls      = [],
+            repoSlug         = 'org/future-contract',
+            futureVersion    = TENANT_REPO_INGEST_CONTRACT_VERSION + 1;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : 'sha-future',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : futureVersion,
+                    lastAttemptedIngestContractVersion: futureVersion,
+                    futureOnlyField                   : 'preserve-me'
+                }
+            }
+        });
+        const originalManifest = await fs.readFile(revisionsFile, 'utf8');
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/future.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details).toMatchObject({
+            reasonCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            meta      : {phase: 'checkpoint-contract-validation'}
+        });
+        expect(mirrorCalls).toHaveLength(0);
+        expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
     });
 
     test('full replay without an explicit repo selector fails before repo work begins (#15748)', async () => {
@@ -807,6 +1240,29 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(warn.level).toBe('WARN');
     });
 
+    test('corrupt persisted revision state fails closed without being overwritten as bootstrap (#15761)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            malformedJson    = '{"revisions":';
+
+        await fs.writeFile(revisionsFile, malformedJson);
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug: 'org/repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('failed');
+        expect(await fs.readFile(revisionsFile, 'utf8')).toBe(malformedJson);
+    });
+
     test('writePersistedRevisions wraps fs write failure as KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED', async () => {
         const readOnlyParent = path.join(tmpDir, 'read-only-parent');
         await fs.ensureDir(readOnlyParent);
@@ -1010,7 +1466,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/recent-repo'});
 
         const result = await TenantRepoSyncService.runTask({
-            reason           : 'periodic-sweep:1800000',
+            reason           : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
                 {tenantId: 't1', repoSlug: 'neomjs/recent-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/recent-repo.git'}
@@ -1030,6 +1486,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         const repoState = result.details.repos[0];
         expect(repoState.status).toBe('not-due');
+        expect(repoState.checkpointStatus).toBe('pending');
         expect(repoState.nextDueAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
         expect(repoState.effectiveCadenceMs).toBeGreaterThan(0);
         expect(repoState.consecutiveFailures).toBe(0);
@@ -1072,9 +1529,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // Persistence reflects the failure increment for next cycle's backoff calculation.
         const persisted = await fs.readJson(revisionsFile);
         expect(persisted.revisions['t1/neomjs/failing-repo']).toEqual({
-            lastIngestedRev    : null,
-            lastRunAttemptAt   : expect.any(Number),
-            consecutiveFailures: 1
+            lastIngestedRev                   : null,
+            lastRunAttemptAt                  : expect.any(Number),
+            consecutiveFailures               : 1,
+            ingestContractVersion             : null,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
         });
     });
 
@@ -1086,9 +1545,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 't1/neomjs/recovering-repo': {
-                    lastIngestedRev    : 'sha-old',
-                    lastRunAttemptAt   : 0, // very stale — backoff'd cadence is exceeded
-                    consecutiveFailures: 3
+                    lastIngestedRev                   : 'sha-old',
+                    lastRunAttemptAt                  : 0, // very stale — backoff'd cadence is exceeded
+                    consecutiveFailures               : 3,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 }
             }
         });
@@ -1118,6 +1579,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     test('jitter+backoff: backward-compatible read of pre-AC1 string-shaped persistence (#11942 AC1)', async () => {
         const taskStateService = createInMemoryTaskStateService();
+        const envelopeCalls    = [];
 
         // Pre-AC1 persistence shape: bare SHA strings under revisions.
         await fs.writeJson(revisionsFile, {
@@ -1135,14 +1597,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 {tenantId: 't1', repoSlug: 'neomjs/legacy-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy-repo.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
-            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile
         });
 
-        // Successful migration: pre-AC1 SHA was read as lastIngestedRev with zeroed state;
-        // run proceeds normally; persistence rewritten in new shape.
+        // A bare SHA has no error-free success proof. The upgrade therefore performs
+        // one harmless null-base replay before persisting the current contract marker.
         expect(result.status).toBe('completed');
+        expect(envelopeCalls[0].args.lastIngestedRev).toBeNull();
 
         const persisted = await fs.readJson(revisionsFile);
         const state     = persisted.revisions['t1/neomjs/legacy-repo'];
@@ -1150,6 +1613,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(state.lastIngestedRev).toBeTruthy();
         expect(state.consecutiveFailures).toBe(0); // success path resets
         expect(state.lastRunAttemptAt).toBeGreaterThan(0);
+        expect(state.ingestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
+        expect(state.lastAttemptedIngestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
     });
 
     test('jitter+backoff: onlyRepoSlugs (manual CLI path) bypasses due-check (#11942 AC1)', async () => {
@@ -1161,9 +1626,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 't1/neomjs/manual-repo': {
-                    lastIngestedRev    : 'sha-recent',
-                    lastRunAttemptAt   : recentMs,
-                    consecutiveFailures: 0
+                    lastIngestedRev                   : 'sha-recent',
+                    lastRunAttemptAt                  : recentMs,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                 }
             }
         });
