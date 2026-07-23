@@ -48,7 +48,13 @@ cloud ingestion. Use it when a KB is healthy but empty and tenant repositories
 are expected: it reports the orchestrator enablement gate, scheduler cadence,
 task state, effective repo-config counts/tiers, redacted per-repo due state, and
 stable failure reason codes without exposing clone URLs, credentials, or raw
-logs.
+logs. Its `checkpointRevalidation` aggregate reports the current ingestion
+contract version and pending, failed, complete, uninitialized, and unsupported
+checkpoint counts. Counts are unavailable when repository enumeration,
+revision-state reading, or persisted-marker validation fails. The existing hashed per-repo rows expose the corresponding
+`checkpointStatus` and version markers. After an upgrade, pending legacy
+checkpoints replay automatically through the bounded periodic lane; these tools
+remain read-only observation surfaces rather than replay actuators.
 
 `inspect_deployment` and `get_deployment_state_snapshot` include a
 `bridgeDiagnostics` envelope when the orchestrator's deployment-state bridge

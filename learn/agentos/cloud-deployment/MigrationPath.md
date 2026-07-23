@@ -42,6 +42,22 @@ The new config keys (`useDefaultSources`, `rawRepoSource`, `useDefaultParsers`, 
 
 How a multi-tenant deployment *stores* its per-tenant configuration — the `KnowledgeBaseTenantConfig` graph-node shape, the `kb-config.yaml` bootstrap-vs-canonical semantics, config-version metadata — is defined by #11637 and documented in **[Configuration](./Configuration.md)**. A deployment's tenant config resolves through three tiers: the `kb-config:<tenantId>` graph node → the `kb-config.yaml` bootstrap → the local `config.mjs` defaults. This tiering now also covers `tenantRepos` (the pull-mode polling config), resolved via `listConfiguredTenantRepos`.
 
+## Tenant-repo checkpoint revalidation
+
+Pull-mode deployments upgrading from a release that could persist a repository
+head after an error-bearing ingestion summary do not need to delete state or
+run an in-container recovery command. Unversioned checkpoint heads are treated
+as historically unknown and receive one automatic null-base replay.
+
+Migration is gradual: the one-minute scheduler sweep admits no more than the
+configured tenant-repo concurrency limit, while per-repo cadence, deterministic
+jitter, failure backoff, and the normal concurrency semaphore remain active.
+Failures preserve the old head and stay eligible for a later retry. Only a
+clean Knowledge Base summary writes the current success-contract marker and
+returns that repo to incremental ingestion. The deployment-state snapshot
+exposes aggregate and hashed per-repo progress; scoped CLI `--full` replay
+remains an optional acceleration override.
+
 ## Breaking-change inventory
 
 There are **no breaking changes** for an existing single-repo deployment. The substrate is additive end-to-end. The only "migration" a single-repo operator performs is `git pull` — the defaults handle the rest.
