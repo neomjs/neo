@@ -318,7 +318,59 @@ export function acquireHeavyMaintenanceLeaseSync({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    fsModule.removeSync(leasePath);
+    // Identity-preserving takeover — sync mirror of the async contract above:
+    // atomic rename-aside, verify the moved lease is the inspected one, restore
+    // a mistakenly-moved fresh lease via non-clobbering link().
+    const claimPath = `${leasePath}.reclaim-${crypto.randomUUID()}`;
+
+    try {
+        fsModule.renameSync(leasePath, claimPath);
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            throw e;
+        }
+
+        try {
+            writeLeaseFileSync(leasePath, lease, fsModule);
+            return {status: 'acquired-after-stale', acquired: true, previousStatus: current.status, lease};
+        } catch (e2) {
+            if (e2.code !== 'EEXIST') {
+                throw e2;
+            }
+
+            const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+            return {status: 'held', acquired: false, lease: raced.lease};
+        }
+    }
+
+    let movedToken  = null,
+        movedParsed = false;
+
+    try {
+        movedToken  = JSON.parse(fsModule.readFileSync(claimPath, 'utf8'))?.token ?? null;
+        movedParsed = true;
+    } catch (e) {}
+
+    const inspectedToken  = current.lease?.token ?? null;
+    const identityMatches = current.status === 'malformed'
+        ? !movedParsed
+        : movedParsed && movedToken === inspectedToken;
+
+    if (!identityMatches) {
+        try {
+            fsModule.linkSync(claimPath, leasePath);
+        } catch (e) {}
+        try {
+            fsModule.removeSync(claimPath);
+        } catch (e) {}
+
+        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, lease: raced.lease};
+    }
+
+    try {
+        fsModule.removeSync(claimPath);
+    } catch (e) {}
 
     try {
         writeLeaseFileSync(leasePath, lease, fsModule);
@@ -421,7 +473,67 @@ export async function acquireHeavyMaintenanceLease({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    await fsModule.remove(leasePath);
+    // Identity-preserving takeover. An unconditional remove() here is a TOCTOU
+    // hazard: contender B could delete contender A's FRESH lease using B's older
+    // stale verdict, letting both return `acquired`. rename() is the atomic
+    // exclusivity point — exactly one contender can move the path aside — and the
+    // moved file is then verified to BE the lease that was inspected. Moving a
+    // different (fresh) lease restores it via link(), which fails on EEXIST
+    // instead of overwriting a newer claim.
+    const claimPath = `${leasePath}.reclaim-${crypto.randomUUID()}`;
+
+    try {
+        await fsModule.rename(leasePath, claimPath);
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            throw e;
+        }
+
+        // Another reclaimer moved it first (or the owner released). A plain
+        // exclusive create decides the winner; EEXIST defers to them.
+        try {
+            await writeLeaseFile(leasePath, lease, fsModule);
+            return {status: 'acquired-after-stale', acquired: true, previousStatus: current.status, lease};
+        } catch (e2) {
+            if (e2.code !== 'EEXIST') {
+                throw e2;
+            }
+
+            const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+            return {status: 'held', acquired: false, lease: raced.lease};
+        }
+    }
+
+    let movedToken  = null,
+        movedParsed = false;
+
+    try {
+        movedToken  = JSON.parse(await fsModule.readFile(claimPath, 'utf8'))?.token ?? null;
+        movedParsed = true;
+    } catch (e) {}
+
+    const inspectedToken  = current.lease?.token ?? null;
+    const identityMatches = current.status === 'malformed'
+        ? !movedParsed
+        : movedParsed && movedToken === inspectedToken;
+
+    if (!identityMatches) {
+        // We moved a lease that is NOT the one we inspected — someone acquired
+        // legitimately in between. Restore without clobbering and defer.
+        try {
+            await fsModule.link(claimPath, leasePath);
+        } catch (e) {}
+        try {
+            await fsModule.remove(claimPath);
+        } catch (e) {}
+
+        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, lease: raced.lease};
+    }
+
+    try {
+        await fsModule.remove(claimPath);
+    } catch (e) {}
 
     try {
         await writeLeaseFile(leasePath, lease, fsModule);

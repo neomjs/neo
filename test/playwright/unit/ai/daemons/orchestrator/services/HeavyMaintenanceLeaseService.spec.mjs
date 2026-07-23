@@ -7,6 +7,7 @@ import {
     HeavyMaintenanceLeaseService,
     acquireHeavyMaintenanceLease as _rawAcquireHeavyMaintenanceLease,
     acquireHeavyMaintenanceLeaseSync as _rawAcquireHeavyMaintenanceLeaseSync,
+    buildLeasePayload,
     inspectHeavyMaintenanceLease,
     inspectHeavyMaintenanceLeaseSync,
     isPidAlive,
@@ -142,7 +143,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:03:00.000Z')})).toBe(false);
         // explicit per-call override wins over the reactive default
         expect(service.shouldYield(lease, {now: new Date('2026-05-16T20:06:00.000Z'), maxActiveHoldMs: 30 * 60 * 1000})).toBe(false);
-        // fail-safe: a falsy bound → never yields (byte-identical back-compat; #14186's absent/0-leaf path)
+        // fail-safe: a falsy bound → never yields (byte-identical back-compat for the absent/0-leaf path)
         expect(service.shouldYield(lease, {now: new Date('2026-05-16T23:00:00.000Z'), maxActiveHoldMs: 0})).toBe(false)
     });
 
@@ -866,5 +867,114 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token: 'service-token',
             now  : new Date('2026-05-16T20:00:00.000Z')
         })).resolves.toMatchObject({status: 'released'});
+    });
+
+    test('stale takeover is identity-preserving — two reclaimers cannot both acquire (#15763)', async () => {
+        const leasePath = createLeasePath('two-reclaimer-takeover');
+
+        // Seed a genuinely stale lease (dead pid).
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // Contender B blocks at its takeover point (the atomic rename), which by
+        // construction is AFTER B's stale inspection — the exact interleave where
+        // the previous unconditional remove() let both contenders acquire.
+        let bAtTakeover,
+            releaseB;
+        const bArrived = new Promise(resolve => bAtTakeover = resolve);
+        const bGate    = new Promise(resolve => releaseB = resolve);
+        const gatedFs  = {
+            ...fs,
+            async rename(...args) {
+                bAtTakeover();
+                await bGate;
+                return fs.rename(...args);
+            }
+        };
+
+        const contenderB = acquireHeavyMaintenanceLease({leasePath, owner: 'B', token: 'token-b', fsModule: gatedFs});
+
+        await bArrived;
+
+        // Contender A completes a full takeover while B is paused pre-rename.
+        const resultA = await acquireHeavyMaintenanceLease({leasePath, owner: 'A', token: 'token-a'});
+        expect(resultA).toMatchObject({acquired: true, status: 'acquired-after-stale'});
+
+        releaseB();
+        const resultB = await contenderB;
+
+        // Exactly one acquirer; the live lease belongs to that winner.
+        expect(resultB.acquired).toBe(false);
+        expect(resultB.status).toBe('held');
+        expect((await fs.readJson(leasePath)).token).toBe('token-a');
+    });
+
+    test('sync stale takeover restores a fresh lease it did not inspect (#15763)', () => {
+        const leasePath = createLeasePath('sync-takeover-restore');
+
+        fs.writeJsonSync(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // Simulate the race at the atomic boundary: between this contender's stale
+        // inspection and its rename, another process replaces the lease with a
+        // FRESH one. The moved file then fails identity verification and must be
+        // restored intact instead of deleted.
+        let   swapped  = false;
+        const racingFs = {
+            ...fs,
+            renameSync(...args) {
+                if (!swapped) {
+                    swapped = true;
+                    fs.writeJsonSync(leasePath, buildLeasePayload({
+                        owner       : 'fresh-owner',
+                        staleAfterMs: TEST_LEASE_STALE_MS,
+                        pid         : process.pid,
+                        token       : 'fresh-token'
+                    }));
+                }
+                return fs.renameSync(...args);
+            }
+        };
+
+        const result = acquireHeavyMaintenanceLeaseSync({leasePath, owner: 'reclaimer', token: 'token-r', fsModule: racingFs});
+
+        expect(result.acquired).toBe(false);
+        expect(result.status).toBe('held');
+        expect(fs.readJsonSync(leasePath).token).toBe('fresh-token');
+    });
+
+    test('a live owner inside its TTL cannot be reclaimed; the boundary is the documented backstop (#15763)', async () => {
+        const leasePath  = createLeasePath('live-owner-ttl-boundary');
+        const acquiredAt = new Date('2026-07-23T12:00:00.000Z');
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'live-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : process.pid,
+            token       : 'live-token',
+            now         : acquiredAt
+        }));
+
+        const justBefore = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'contender',
+            now  : new Date(acquiredAt.getTime() + TEST_LEASE_STALE_MS - 1)
+        });
+        expect(justBefore).toMatchObject({status: 'held', acquired: false});
+
+        const atBoundary = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'contender',
+            now  : new Date(acquiredAt.getTime() + TEST_LEASE_STALE_MS)
+        });
+        expect(atBoundary).toMatchObject({acquired: true, status: 'acquired-after-stale'});
     });
 });

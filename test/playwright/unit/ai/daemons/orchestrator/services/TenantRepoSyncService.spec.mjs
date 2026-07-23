@@ -2334,6 +2334,92 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(await fs.readFile(target, 'utf8')).toBe(original);
         expect((await fs.readdir(roDir)).filter(name => name.includes('.tmp-'))).toEqual([]);
     });
+
+    test('commit-point fence: an evicted writer aborts without writing (#15763)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            foreignLease     = buildLeasePayload({
+                owner       : 'tenant-repo-sync:scheduler',
+                reason      : 'tenant-repo-sync',
+                pid         : process.pid,
+                staleAfterMs: 60_000,
+                token       : 'foreign-takeover-token'
+            });
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+        const originalManifest = await fs.readFile(revisionsFile, 'utf8');
+
+        // Simulate a TTL eviction: a new owner replaces the lease mid-sweep.
+        const takeoverMirror = {
+            ...makeFakeGitMirror(),
+            async fetch() {
+                await fs.writeJson(leaseFilePath(), foreignLease);
+            }
+        };
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            gitMirror: takeoverMirror
+        }));
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+        expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
+        // Token-guarded release must not clobber the new owner's lease.
+        expect((await fs.readJson(leaseFilePath())).token).toBe('foreign-takeover-token');
+    });
+
+    test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
+        const target = path.join(tmpDir, 'fault-injected.json');
+        await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
+        const original = await fs.readFile(target, 'utf8');
+
+        const shortWriteFs = {
+            ...fs,
+            async writeFile(filePath, payload, ...rest) {
+                await fs.writeFile(filePath, String(payload).slice(0, 10), ...rest);
+                const error = new Error('interrupted after a partial write');
+                error.code  = 'EIO';
+                throw error;
+            }
+        };
+
+        await expect(TenantRepoSyncService.writePersistedRevisions({
+            filePath : target,
+            revisions: {'t1/org/keep': {lastIngestedRev: 'sha-new'}},
+            fsModule : shortWriteFs
+        })).rejects.toMatchObject({code: 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'});
+
+        expect(await fs.readFile(target, 'utf8')).toBe(original);
+        expect((await fs.readdir(tmpDir)).filter(name => name.includes('.tmp-'))).toEqual([]);
+    });
+
+    test('atomic manifest write: a multi-chunk payload lands complete and parseable (#15763)', async () => {
+        const target    = path.join(tmpDir, 'large-manifest.json');
+        const revisions = {};
+
+        for (let i = 0; i < 2000; i++) {
+            revisions[`t1/org/repo-${i}`] = {
+                lastIngestedRev                   : 'f'.repeat(512) + i,
+                lastRunAttemptAt                  : i,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            };
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({filePath: target, revisions});
+
+        const persisted = await fs.readJson(target);
+        expect(Object.keys(persisted.revisions)).toHaveLength(2000);
+        expect(persisted.revisions['t1/org/repo-1999'].lastIngestedRev.endsWith('1999')).toBe(true);
+    });
 });
 
 test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {

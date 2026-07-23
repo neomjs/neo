@@ -15,6 +15,7 @@ import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
+    KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
@@ -23,6 +24,7 @@ import {
 } from './TenantRepoSyncErrors.mjs';
 import {
     acquireHeavyMaintenanceLease,
+    inspectHeavyMaintenanceLease,
     releaseHeavyMaintenanceLease
 } from './heavyMaintenanceLeasePrimitives.mjs';
 import {
@@ -693,10 +695,27 @@ class TenantRepoSyncService extends Base {
 
         taskStateService.markStarted(taskName, reason);
 
+        // Commit-point fence: manifest writes re-verify lease ownership right before
+        // committing. A live-but-slow sweep that outlives the TTL (and is reclaimed
+        // by a new owner) therefore aborts WITHOUT writing instead of overlapping
+        // the new owner's manifest — the fencing half of the exclusivity contract;
+        // pid-liveness + the TTL backstop are the acquisition half.
+        const leaseGuard = async () => {
+            const currentLease = await inspectHeavyMaintenanceLease({leasePath: resolvedLeasePath});
+
+            if (!currentLease.active || currentLease.lease?.token !== acquisition.lease.token) {
+                throw new TenantRepoSyncError(
+                    KB_TENANT_REPO_SYNC_LEASE_LOST,
+                    'Tenant-repo-sync lease ownership was lost before a manifest commit; aborting without writing.',
+                    {phase: 'lease-fence'}
+                );
+            }
+        };
+
         try {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-                fullReplay, taskStateService, healthService, taskName, envelopeBuilder,
+                fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
                 revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
@@ -752,6 +771,7 @@ class TenantRepoSyncService extends Base {
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
+        leaseGuard      = async () => {},
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         seedBootstrap   = true
@@ -865,6 +885,7 @@ class TenantRepoSyncService extends Base {
                 }
             }
             if (seededAny) {
+                await leaseGuard();
                 await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
             }
         }
@@ -1122,6 +1143,7 @@ class TenantRepoSyncService extends Base {
         await Promise.all(admittedRevalidationRepos.map(syncRepo));
         await Promise.all(remainingRepos.map(syncRepo));
 
+        await leaseGuard();
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
         // Status logic: not-due repos don't change the success/failure tally — a cycle
@@ -1309,25 +1331,31 @@ class TenantRepoSyncService extends Base {
      * @param {Object} options
      * @param {String} options.filePath
      * @param {Object<String, String>} options.revisions
+     * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
      * @returns {Promise<void>}
      */
-    async writePersistedRevisions({filePath, revisions}) {
+    async writePersistedRevisions({filePath, revisions, fsModule = fs}) {
         const tmpPath = `${filePath}.tmp-${process.pid}`;
 
         try {
-            await fs.ensureDir(path.dirname(filePath));
+            await fsModule.ensureDir(path.dirname(filePath));
 
-            const fd = await fs.open(tmpPath, 'w');
+            // writeFile carries Node's full-write contract (it retries partial
+            // writes internally), unlike a single unchecked fs.write() whose
+            // bytesWritten may be short. Only after the COMPLETE payload exists
+            // is it fsynced and atomically renamed over the target.
+            await fsModule.writeFile(tmpPath, JSON.stringify({revisions}, null, 2) + '\n');
+
+            const fd = await fsModule.open(tmpPath, 'r+');
             try {
-                await fs.write(fd, JSON.stringify({revisions}, null, 2) + '\n');
-                await fs.fsync(fd);
+                await fsModule.fsync(fd);
             } finally {
-                await fs.close(fd);
+                await fsModule.close(fd);
             }
 
-            await fs.rename(tmpPath, filePath);
+            await fsModule.rename(tmpPath, filePath);
         } catch (e) {
-            await fs.remove(tmpPath).catch(() => {});
+            await fsModule.remove(tmpPath).catch(() => {});
             throw new TenantRepoSyncError(
                 KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
                 `Failed to persist tenant-repo-sync revisions at ${filePath}: ${e.message}`,

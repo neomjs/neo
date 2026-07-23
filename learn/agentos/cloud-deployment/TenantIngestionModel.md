@@ -234,6 +234,7 @@ Toggles:
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | `orchestrator.cloudOnly.tenantRepoSyncEnabled` | cloud profile: enabled; local: disabled | Master toggle for the periodic lane |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | `orchestrator.intervals.tenantRepoSyncMs` | 30 minutes | Base per-repo ingestion cadence before deterministic jitter and failure backoff |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS` | `orchestrator.tenantRepoSync.sweepCadenceMs` | 1 minute | Scheduler scan cadence for admitting repos whose individual cadence is due |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS` | `orchestrator.tenantRepoSync.leaseStaleAfterMs` | 6 hours | TTL backstop on the cross-process sync lease for a live-but-wedged owner. Must comfortably exceed the longest legitimate sweep; crashed owners recover instantly via pid-liveness, and lease ownership is re-verified at every manifest commit, so an evicted writer aborts instead of overlapping |
 
 The `cloudOnly` collection is the inverse-polarity sibling of `localOnly`. `null` means "use the deployment-profile default" (cloud enables, local disables); explicit `true`/`false` overrides. Local Neo-maintainer deployments default-off because most operator checkouts don't have `tenantRepos[]` configured.
 
