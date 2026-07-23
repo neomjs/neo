@@ -46,6 +46,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 | Memory Core graph + sessions — the **primary store** | `shared-sqlite-data` named volume → `/app/.neo-ai-data/sqlite` | `down -v`, or the Compose project name changes |
 | Chroma vectors | `chroma-data` named volume → `/chroma/unified` (set via `PERSIST_DIRECTORY`) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
 | Sandman handoff + derived route artifacts | `shared-handoff-data` named volume → `/app/.neo-ai-data/handoff` (writer and reader share `NEO_HANDOFF_FILE_PATH`) | `down -v`, or the Compose project name changes |
+| Orchestrator task, tenant-repo revision/backoff, recovery, and diagnostic state | `orchestrator-state` named volume → `/app/.neo-ai-data/orchestrator-daemon` (bound through `NEO_AI_ORCHESTRATOR_DIR`) | `down -v`, or the Compose project name changes |
 | Backup bundles | host bind-mount `./.neo-ai-data/backups` on the `cloud`-profile `orchestrator` | the compose file's host location changes between runs |
 | TLS certs / CA | `caddy-data` / `caddy-config` named volumes (`ingress` profile) | `down -v` (re-issued on next start — watch ACME rate limits) |
 | Local model store — opt-in `local-model` profile | `local-model-data` named volume → `/root/.ollama` | `down -v`, or the project name changes (recoverable — re-pull the models) |
@@ -56,9 +57,14 @@ Three rules keep a redeploy job safe:
 2. **Pin the Compose project name.** Named volumes are identified as `<project-name>_<volume>`. The project name defaults to the compose-file directory's basename (`deploy`). A redeploy run with a different `--project-name` (or after the compose file moves) gets *fresh, empty* volumes — the old data is intact but unreferenced. Pass an explicit, stable `--project-name` (the reference script pins one) so every redeploy reattaches the same volumes.
 3. **Deploy from a stable host location.** The backup-bundle bind-mount `./.neo-ai-data/backups` resolves relative to the compose file's project directory. If the deployment repo is checked out to a different host path on each run — common with ephemeral CI runners — the bind-mount points at a different host directory each time and prior bundles are orphaned. Deploy from a **persistent checkout location** on the deployment host, not an ephemeral per-run runner workspace; or retarget backups to an absolute host path / managed object storage.
 
-Off-site copy of the backup bundles is the disaster-recovery layer *above* redeploy-safety: redeploy-safety keeps state across a container *recreate*; backups plus off-site copy cover host loss.
+Off-site copy is the disaster-recovery layer *above* redeploy-safety:
+redeploy-safety keeps named-volume state across a container *recreate*, while
+host-loss recovery requires exporting every load-bearing named volume. The
+current logical backup bundle does not include `orchestrator-state`; copy or
+export that volume separately before claiming that its task/revision/recovery
+state is off-host backed up.
 
-**Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store, Sandman handoff, and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
+**Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store, Sandman handoff, orchestrator task/revision state, and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
 
 ## The health gate
 
@@ -75,6 +81,7 @@ A deploy job that does not gate on health reports success while serving a broken
 |---|---|---|
 | Healthcheck never goes healthy after redeploy | image build broken, a required env var unset, or Chroma unreachable | fail the job; surface `docker compose logs`; the prior volumes are intact for a retry |
 | Memory Core store empty after redeploy | the job ran `docker compose down -v`, or redeployed under a different `--project-name` | never `-v`; pin `--project-name` — the old volume still holds the data, reattach it |
+| Tenant-repo revisions or orchestrator task history reset after redeploy | `orchestrator-state` is absent/replaced, or `NEO_AI_ORCHESTRATOR_DIR` does not match its mount target | reattach the stable volume and keep the env, mount, and healthcheck on `/app/.neo-ai-data/orchestrator-daemon` |
 | `get_sandman_handoff` returns `handoff-not-found` after a successful cycle | writer and reader do not share `NEO_HANDOFF_FILE_PATH`, or `shared-handoff-data` was replaced | inspect both service env/mounts; reattach the stable named volume; never repair this by KB-ingesting the handoff |
 | Backup bundles missing after redeploy | redeployed from a different host checkout location (relative bind-mount) | deploy from a stable checkout path; recover bundles from the prior host directory |
 | TLS cert re-issued / ACME rate-limited each deploy | `caddy-data` removed by `down -v` | stop using `-v` so the issued certs persist |

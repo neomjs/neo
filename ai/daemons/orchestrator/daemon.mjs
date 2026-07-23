@@ -129,8 +129,18 @@ function removePidFile() {
     } catch (e) {}
 }
 
-async function enforceSingleton() {
-    const pidFile = pidFilePath();
+/**
+ * @summary Reconciles the persisted daemon PID file and claims it for this process.
+ *
+ * A cloud container recreation may preserve a PID from the prior process epoch.
+ * Dead or unrelated holders are safe to replace; only a live command belonging
+ * to this daemon receives the graceful-termination path.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.pidFile=pidFilePath()] PID-file override for isolated recovery tests.
+ * @returns {Promise<void>}
+ */
+export async function enforceSingleton({pidFile = pidFilePath()} = {}) {
 
     if (fs.existsSync(pidFile)) {
         try {
