@@ -1,6 +1,6 @@
 # Data Hygiene & Cleanup
 
-The **Cleanup Service** ([`DevIndex.services.Cleanup`](https://github.com/neomjs/neo/blob/dev/apps/devindex/services/Cleanup.mjs)) acts as the **Garbage Collector** and **State Enforcer** for the DevIndex data pipeline. 
+The **Cleanup Service** ([`DevIndex.services.Cleanup`](https://github.com/neomjs/neo/blob/dev/apps/devindex/services/Cleanup.mjs)) acts as the **Garbage Collector** and **State Enforcer** for the DevIndex data pipeline.
 
 Because the Data Factory operates autonomously—discovering thousands of users and constantly writing to JSON files—data entropy is inevitable. The Cleanup service is invoked automatically by the Orchestrator before any major operation to ensure the system starts with a clean, consistent, and optimized state.
 
@@ -29,7 +29,7 @@ Cleanup also audits rich `users.jsonl` profiles that are missing from `tracker.j
 ### 5. The 30-Day "Penalty Box" TTL
 When the Updater encounters an error analyzing a user (e.g., a GraphQL timeout or a 404), that user is placed in `failed.json`—the "Penalty Box."
 
-Users in the Penalty Box are temporarily protected from being completely pruned from the tracker, giving them a chance to be successfully processed in a future run. However, the Cleanup service enforces a strict **30-Day Time-To-Live (TTL)**. 
+Users in the Penalty Box are temporarily protected from being completely pruned from the tracker, giving them a chance to be successfully processed in a future run. However, the Cleanup service enforces a strict **30-Day Time-To-Live (TTL)**.
 
 ```javascript readonly
 // Enforce Retention Policy (Penalty Box TTL)
@@ -44,12 +44,12 @@ for (const [login, timestamp] of failed) {
     }
 }
 ```
-If a user remains in a failed state for more than 30 days, their protection is revoked, and the standard pruning logic will expunge them from the system. 
+If a user remains in a failed state for more than 30 days, their protection is revoked, and the standard pruning logic will expunge them from the system.
 
-**Rationale & The "Right to be Forgotten":** With a 50,000 user cap and an hourly update limit of 800, the pipeline completes a full cycle of the entire index approximately every 3 days. A 30-day retention period means a user has persistently failed roughly 10 consecutive update attempts (each of which internally utilizes multiple API retries). After a month of continuous failures, it is safe to assume the profile has either been permanently banned by GitHub or the user has explicitly deleted their own account. Automatically purging these records aligns with data minimization principles and proactively respects a user's right to be forgotten if they have chosen to remove their presence from the platform.
+**Rationale & The "Right to be Forgotten":** With a 50,000-user cap and the 200-candidate hourly rollout ceiling, one theoretical full pass takes about 10.4 days; GraphQL budget admission can make a real pass longer. The 30-day TTL therefore spans up to roughly three ceiling-rate passes, not a guaranteed count of update attempts. The policy is deliberately time-based: it leaves multiple revisit opportunities for transient failures while bounding how long an unreachable, deleted, or restricted profile remains protected from normal pruning. That bounded retention aligns with data-minimization principles and respects a user's right to be forgotten without pretending the scheduler admitted the user a fixed number of times.
 
 ### 6. Canonical Sorting
-The final step of the Cleanup routine is purely for Developer Experience (DX) and Git repository health. 
+The final step of the Cleanup routine is purely for Developer Experience (DX) and Git repository health.
 
 When JSON files are modified by asynchronous services, the order of keys or array elements is often unpredictable. If committed as-is, this creates massive, noisy Git diffs, making code review impossible.
 

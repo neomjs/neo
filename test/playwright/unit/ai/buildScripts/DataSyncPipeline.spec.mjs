@@ -114,7 +114,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             ['npm', 'run', 'devindex:optin'],
             ['npm', 'run', 'devindex:optout'],
             ['npm', 'run', 'devindex:spider', '--', '--strategy', 'random'],
-            ['npm', 'run', 'devindex:update', '--', '--limit=800'],
+            ['npm', 'run', 'devindex:update', '--', '--limit=200'],
             [process.execPath, './buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels']
         ]);
         expect(calls.every(call => call.options.cwd === '/repo')).toBe(true)
