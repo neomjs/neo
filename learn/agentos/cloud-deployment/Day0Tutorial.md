@@ -680,13 +680,35 @@ operator-owned Custom Source registered intentionally
 Before handing the deployment to agents, prove the Memory Core store survives a
 container rebuild and that KB content can be regenerated or re-pushed.
 
+Record the two orchestrator-state hashes from the running container before the
+recreate:
+
+```bash
+docker compose exec -T orchestrator node --input-type=module -e '
+import {createHash} from "node:crypto";
+import {readFileSync} from "node:fs";
+import {join} from "node:path";
+
+for (const name of ["orchestrator-state.json", "tenant-repo-sync-revisions.json"]) {
+    const filePath = join(process.env.NEO_AI_ORCHESTRATOR_DIR, name);
+    const digest   = createHash("sha256").update(readFileSync(filePath)).digest("hex");
+
+    console.log(`${digest}  ${name}`);
+}
+'
+```
+
+Save both output lines, run the same command after the recreated orchestrator
+starts, and compare the digests. The command uses the Node runtime guaranteed by
+the shipped orchestrator image rather than assuming a separate checksum utility.
+
 Minimum handoff checklist:
 
 ```text
 [ ] shared-sqlite-data volume or managed graph-store path is persistent.
 [ ] shared-handoff-data is mounted by orchestrator and mc-server at the configured handoff path.
-[ ] orchestrator-state is mounted at NEO_AI_ORCHESTRATOR_DIR; record hashes for
-    orchestrator-state.json and tenant-repo-sync-revisions.json before redeploy.
+[ ] orchestrator-state is mounted at NEO_AI_ORCHESTRATOR_DIR; record both state-file
+    hashes with the command above before redeploy.
 [ ] after a successful golden-path cycle, get_sandman_handoff returns non-null content.
 [ ] backup bundles write to the redeploy-safe backup mount.
 [ ] after docker compose down && docker compose up --build, MC healthcheck is healthy.
