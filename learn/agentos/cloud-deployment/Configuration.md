@@ -182,6 +182,23 @@ configured chat and embedding model ids, both role routes must pass, and the
 deployment must not depend on switching hosts or rebuilding model context
 between role calls.
 
+## Sandman handoff persistence
+
+The cloud `golden-path` scheduler lane writes the Dream Pipeline's morning
+surface, while Memory Core serves it to remote agents through
+`get_sandman_handoff`. Both processes must resolve the same persistent file:
+
+| Variable | Local default | Production compose value | Consumers |
+|---|---|---|---|
+| `NEO_HANDOFF_FILE_PATH` | `<repo>/resources/content/sandman_handoff.md` | `/app/.neo-ai-data/handoff/sandman_handoff.md` on the `shared-handoff-data` named volume | `orchestrator` writer + `mc-server` reader |
+
+Leave the variable unset for local repository workflows. In the cloud profile,
+the production compose sets it explicitly in both containers and mounts the same
+directory into each; `mc-server` receives a read-only mount so the orchestrator
+remains the sole writer. `kb-server` does not mount this volume: the handoff is
+short-lived operational state served by Memory Core, not Knowledge Base corpus
+content.
+
 ## Related
 
 - [Overview](./Overview.md) — the contract split + default-source inheritance.
