@@ -176,6 +176,144 @@ test.describe('restoreTargetSetStorage — fake Chroma + disposable SQLite targe
             reason: 'memories live storage advanced without a promoted transition'
         })
     });
+
+    for (const role of ['memories', 'summaries']) {
+        test(`contains a crash between the ${role} canonical-to-parking and shadow-to-canonical renames`, async () => {
+            const
+                storage  = createStorage(fixture),
+                identity = deriveRestoreTargetSetIdentity(fixture.targetSet),
+                context  = {
+                    targetSet : fixture.targetSet,
+                    descriptor: identity.descriptor,
+                    ...identity
+                },
+                staging   = await storage.stageTargetSet(context),
+                states    = ['admitted', 'fenced', 'staged'],
+                rowCounts = {memories: 3, summaries: 2};
+
+            await storage.validateStagedTargetSet({...context, staging});
+
+            if (role === 'summaries') {
+                await storage.promoteComponent({...context, staging, role: 'memories'});
+                states.push('promoted:memories')
+            }
+
+            for (const [index, state] of states.entries()) {
+                await appendRestoreTargetSetTransition({
+                    ...identity,
+                    state,
+                    at     : index + 1,
+                    details: {}
+                }, {dir: fixture.ledgerDir})
+            }
+
+            const live = await fixture.client.getCollection({
+                name             : fixture.destinations[role],
+                embeddingFunction: fixture.dummyEmbeddingFunction
+            });
+
+            await live.modify({name: staging.collections[role].parking});
+
+            const transitions = await readRestoreTargetSetTransitions({
+                dir               : fixture.ledgerDir,
+                attemptFingerprint: identity.attemptFingerprint
+            });
+            const reconciliation = await storage.reconcileAttempt({
+                ...context,
+                transitions
+            });
+
+            expect(reconciliation).toMatchObject({
+                safe         : false,
+                reason       : `${role} canonical storage is missing after vector promotion began`,
+                observedState: {
+                    [role]: {
+                        canonical: false,
+                        liveCount: null,
+                        shadow   : true,
+                        parking  : true
+                    }
+                }
+            });
+
+            const freshProof = await storage.inspectFreshTargetSet(context);
+            expect(freshProof).toMatchObject({
+                fresh : false,
+                reason: expect.stringContaining(
+                    `canonical ${role} collection '${fixture.destinations[role]}' is missing`
+                ),
+                components: {
+                    [role]: {
+                        count : null,
+                        exists: false
+                    }
+                }
+            });
+
+            await expect(storage.cleanupUnpromotedStaging({
+                ...context,
+                staging,
+                transitions
+            })).rejects.toThrow(
+                role === 'memories'
+                    ? 'refusing to delete restore staging because memories vector promotion may have begun'
+                    : 'refusing to delete restore staging after production promotion began'
+            );
+
+            const operation = createRestoreEmptyTargetOperation({
+                withWriterFence: async (identity, task) => task(),
+                ...storage,
+                readTransitions: ({attemptFingerprint}) => readRestoreTargetSetTransitions({
+                    dir: fixture.ledgerDir,
+                    attemptFingerprint
+                }),
+                appendTransition: input => appendRestoreTargetSetTransition(input, {
+                    dir: fixture.ledgerDir
+                })
+            });
+            const firstOutcome = await operation({
+                targetSet: fixture.targetSet,
+                ...identity
+            });
+
+            expect(firstOutcome).toMatchObject({
+                status: 'failed-contained',
+                detail: {
+                    terminal       : 'failed-contained',
+                    serviceEligible: false
+                }
+            });
+
+            const terminalTransitions = await readRestoreTargetSetTransitions({
+                dir               : fixture.ledgerDir,
+                attemptFingerprint: identity.attemptFingerprint
+            });
+            const secondOutcome = await operation({
+                targetSet: fixture.targetSet,
+                ...identity
+            });
+
+            expect(secondOutcome).toMatchObject({
+                status: 'failed-contained',
+                detail: {
+                    terminal       : 'failed-contained',
+                    serviceEligible: false
+                }
+            });
+            expect(await readRestoreTargetSetTransitions({
+                dir               : fixture.ledgerDir,
+                attemptFingerprint: identity.attemptFingerprint
+            })).toEqual(terminalTransitions);
+            expect(await fixture.client.getCollection({
+                name             : staging.collections[role].shadow,
+                embeddingFunction: fixture.dummyEmbeddingFunction
+            }).then(collection => collection.count())).toBe(rowCounts[role]);
+            expect(await fixture.client.getCollection({
+                name             : staging.collections[role].parking,
+                embeddingFunction: fixture.dummyEmbeddingFunction
+            }).then(collection => collection.count())).toBe(0)
+        })
+    }
 });
 
 test.describe('restoreTargetSetStorage — live disposable Chroma + SQLite target set', () => {

@@ -78,23 +78,35 @@ export function createRestoreTargetSetStorage({
         cleanupCommittedArtifacts
     };
 
+    /**
+     * @summary Proves that both canonical vector collections exist and that the
+     * complete production target set remains seed-aware empty.
+     */
     async function inspectFreshTargetSet(context) {
         const admission = normalizeContext(context, expectedDestinations);
         onPhase({phase: 'action-time-proof', event: 'start'});
 
         const
-            memories       = await getCanonicalCollection('memories'),
-            summaries      = await getCanonicalCollection('summaries'),
-            memoryCount    = await memories.count(),
-            summaryCount   = await summaries.count(),
+            memories       = await getCollection(expectedDestinations.memories),
+            summaries      = await getCollection(expectedDestinations.summaries),
+            memoryCount    = memories ? await memories.count() : null,
+            summaryCount   = summaries ? await summaries.count() : null,
             graphFreshness = inspectGraphBootFreshness(graphDb),
             fresh          = memoryCount === 0 &&
                 summaryCount === 0 &&
                 graphFreshness.fresh;
 
         const reasons = [];
-        if (memoryCount !== 0) reasons.push(`memories count is ${memoryCount}`);
-        if (summaryCount !== 0) reasons.push(`summaries count is ${summaryCount}`);
+        if (!memories) {
+            reasons.push(`canonical memories collection '${expectedDestinations.memories}' is missing`)
+        } else if (memoryCount !== 0) {
+            reasons.push(`memories count is ${memoryCount}`)
+        }
+        if (!summaries) {
+            reasons.push(`canonical summaries collection '${expectedDestinations.summaries}' is missing`)
+        } else if (summaryCount !== 0) {
+            reasons.push(`summaries count is ${summaryCount}`)
+        }
         if (!graphFreshness.fresh) reasons.push(graphFreshness.reason);
 
         const result = {
@@ -103,8 +115,8 @@ export function createRestoreTargetSetStorage({
             destinationTopologyFingerprint: context.descriptor.destinationTopologyFingerprint,
             admissionDescriptorFingerprint: admission.descriptorFingerprint,
             components                    : {
-                memories : {count: memoryCount},
-                summaries: {count: summaryCount},
+                memories : {count: memoryCount, exists: Boolean(memories)},
+                summaries: {count: summaryCount, exists: Boolean(summaries)},
                 graph    : graphFreshness
             }
         };
@@ -250,6 +262,10 @@ export function createRestoreTargetSetStorage({
         return result
     }
 
+    /**
+     * @summary Reconciles strict-ledger state with canonical, shadow, and
+     * parking storage without inferring an unrecorded promotion transition.
+     */
     async function reconcileAttempt(context) {
         const
             admission = normalizeContext(context, expectedDestinations),
@@ -266,16 +282,26 @@ export function createRestoreTargetSetStorage({
         for (const role of VECTOR_ROLES) {
             const
                 promoted  = transitions.some(item => item.state === `promoted:${role}`),
-                canonical = await getCanonicalCollection(role),
-                liveCount = await canonical.count(),
+                canonical = await getCollection(expectedDestinations[role]),
                 shadow    = await getCollection(staging.collections[role].shadow),
-                parking   = await getCollection(staging.collections[role].parking);
+                parking   = await getCollection(staging.collections[role].parking),
+                liveCount = canonical ? await canonical.count() : null;
 
             observed[role] = {
+                canonical: Boolean(canonical),
                 liveCount,
                 shadow : Boolean(shadow),
                 parking: Boolean(parking)
             };
+
+            if (!canonical) {
+                return unsafeReconciliation(
+                    parking
+                        ? `${role} canonical storage is missing after vector promotion began`
+                        : `${role} canonical storage is missing`,
+                    observed
+                )
+            }
 
             if (promoted) {
                 if (!parking || shadow || liveCount !== admission.components[role].rowCount) {
@@ -352,6 +378,10 @@ export function createRestoreTargetSetStorage({
         }
     }
 
+    /**
+     * @summary Deletes run-owned staging only when neither the ledger nor
+     * vector-store topology indicates that production promotion may have begun.
+     */
     async function cleanupUnpromotedStaging(context) {
         const transitions = context.transitions ?? [];
 
@@ -364,6 +394,18 @@ export function createRestoreTargetSetStorage({
             expectedDestinations,
             stagingRoot
         });
+
+        for (const role of VECTOR_ROLES) {
+            const
+                canonical = await getCollection(expectedDestinations[role]),
+                parking   = await getCollection(staging.collections[role].parking);
+
+            if (!canonical || parking) {
+                throw new Error(
+                    `refusing to delete restore staging because ${role} vector promotion may have begun`
+                )
+            }
+        }
 
         for (const role of VECTOR_ROLES) {
             await deleteRunOwnedCollection(staging.collections[role].shadow)
