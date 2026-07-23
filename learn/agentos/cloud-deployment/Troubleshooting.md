@@ -263,6 +263,18 @@ node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>
 a failed replay preserves it, while an error-free replay advances it to the current head and writes
 the current success-contract marker.
 
+The CLI and the daemon's periodic sweep serialize through a cross-process lease next to the
+revisions manifest. Exit code `4` (reason `KB_TENANT_REPO_SYNC_LEASE_HELD`) means another sync is
+active — retry after it finishes; a periodic sweep deferred the same way reports a `skipped`
+outcome with that reason and no backoff mutation. Crashed lease owners recover automatically on
+the next attempt (pid-liveness), and wedged-but-alive owners expire via `leaseStaleAfterMs`.
+
+Manifest writes are atomic (temp sibling + fsync + rename), so upgrades from this release forward
+cannot produce a torn `tenant-repo-sync-revisions.json`. Should a manifest from an older release
+(or exotic filesystem damage) fail the strict read anyway, deleting the file is the safe last
+resort: it costs one full re-ingestion pass, because every head then classifies `uninitialized`
+and replays from a null base under the normal bounded admission — never hand-edit it instead.
+
 If the deployment snapshot is fresh but the tool returns `status: degraded` with
 `reason: snapshot-section-missing` or `snapshot-producer-metadata-missing`, fix
 the bridge producer before debugging repo credentials or embeddings. Those

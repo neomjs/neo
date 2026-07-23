@@ -254,7 +254,7 @@ returns an error-free ingestion summary. Current releases automatically revalida
 checkpoints through the periodic lane; use `--full` only to accelerate or explicitly repeat one
 selected repo after correcting its underlying failure. Do not delete the revisions file.
 
-Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error, and `3` when a requested repo slug is not configured. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; it does not race against a running Orchestrator's lane.
+Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error, `3` when a requested repo slug is not configured, and `4` when another process holds the cross-process tenant-repo-sync lease (`KB_TENANT_REPO_SYNC_LEASE_HELD`). The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; serialization against a running Orchestrator's periodic lane comes from the shared lease, not from task state — a held lease is a bounded busy exit, never a silent race.
 
 ### Mirror Volume
 
@@ -267,6 +267,19 @@ Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-con
 The env var names the **parent** of `tenant-repos/`; `deriveTenantRepoMirrorPath` appends the `tenant-repos/<tenant>/<repo>` segment so the same root can host other gitignored substrate-data subdirs. Per-repo `tenantRepos[].mirrorRoot` overrides this Tier-1 default when present.
 
 The mirror directory is a deployment cache, not authoritative state. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
+
+Two invariants protect that manifest. First, every sync — the daemon's periodic
+sweep and the manual CLI alike — must acquire the dedicated cross-process lease
+(`tenant-repo-sync-lease.json`, a sibling of the manifest so lock and data share
+one persistence boundary) before reading or writing it; exactly one writer can
+exist at a time, so a manual replay can never erase a periodic update or vice
+versa. A held lease defers the periodic sweep with the non-failure reason
+`KB_TENANT_REPO_SYNC_LEASE_HELD` and touches no repo's checkpoint, attempt
+timestamp, or backoff state; crashed lease owners recover immediately via
+pid-liveness and wedged owners via the `leaseStaleAfterMs` TTL. Second, manifest
+writes are atomic — a temporary sibling file is written, fsynced, and renamed
+over the target — so a crash mid-write leaves the previous complete document
+readable instead of a truncated JSON the strict reader would fail-close on.
 
 Each checkpoint also carries `ingestContractVersion`, written together with the
 head only after the Knowledge Base returns an explicit error-free summary, and

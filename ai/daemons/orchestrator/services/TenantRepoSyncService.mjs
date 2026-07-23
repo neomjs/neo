@@ -14,12 +14,17 @@ import {
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
+    KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
+import {
+    acquireHeavyMaintenanceLease,
+    releaseHeavyMaintenanceLease
+} from './heavyMaintenanceLeasePrimitives.mjs';
 import {
     classifyTenantRepoCheckpoint,
     normalizeTenantRepoCheckpointState,
@@ -29,10 +34,11 @@ import {
 } from './tenantRepoCheckpointValidity.mjs';
 
 const
-    ACCESS_CONFIG_FINGERPRINT_KEY = randomBytes(32),
-    ACCESS_READINESS_MIN_TTL_MS   = 15 * 60 * 1000,
-    BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/,
-    PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
+    ACCESS_CONFIG_FINGERPRINT_KEY    = randomBytes(32),
+    ACCESS_READINESS_MIN_TTL_MS      = 15 * 60 * 1000,
+    BOUNDED_KB_ERROR_CODE_PATTERN    = /^KB_[A-Z0-9_]{1,120}$/,
+    PERSISTED_REVISIONS_FILE_NAME    = 'tenant-repo-sync-revisions.json',
+    TENANT_REPO_SYNC_LEASE_FILE_NAME = 'tenant-repo-sync-lease.json';
 
 /**
  * @summary In-memory async semaphore with optional slot-acquisition timeout.
@@ -605,6 +611,7 @@ class TenantRepoSyncService extends Base {
      * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
      * @param {Boolean} [options.fullReplay=false] Build selected-repo envelopes from a null revision base. Requires non-empty `onlyRepoSlugs`; persisted checkpoints remain unchanged until each replay completes without summary errors.
      * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<orchestrator dataDir leaf>/tenant-repo-sync-revisions.json`.
+     * @param {Number} [options.leaseStaleAfterMs] Override the cross-process lease TTL (test seam). Defaults to the `orchestrator.tenantRepoSync.leaseStaleAfterMs` leaf. Crashed owners recover immediately via pid-liveness; the TTL only bounds a live-but-wedged owner.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
      */
@@ -620,10 +627,11 @@ class TenantRepoSyncService extends Base {
         onlyRepoSlugs,
         fullReplay = false,
         revisionsFilePath,
-        envelopeBuilder = buildIngestEnvelope,
-        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
-        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
-        seedBootstrap   = true
+        envelopeBuilder   = buildIngestEnvelope,
+        globalCadenceMs   = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio       = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        leaseStaleAfterMs = AiConfig.data.orchestrator.tenantRepoSync.leaseStaleAfterMs,
+        seedBootstrap     = true
     } = {}) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -634,12 +642,62 @@ class TenantRepoSyncService extends Base {
             return {status: 'skipped', details};
         }
 
+        // Cross-process serialization: the daemon's periodic sweep and the manual CLI are
+        // separate processes sharing one revisions manifest, and the injected task-state
+        // guard above is process-local only. One dedicated tokenized lease — a sibling
+        // file of the manifest, so lock and data share a persistence/recovery boundary —
+        // makes them mutually exclusive. Contention is a non-failure deferral that never
+        // mutates any repo's checkpoint, attempt timestamp, or backoff state. Crashed
+        // owners recover instantly via pid-liveness; the TTL bounds wedged-but-alive ones.
+        const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
+        const resolvedLeasePath     = path.join(path.dirname(resolvedRevisionsPath), TENANT_REPO_SYNC_LEASE_FILE_NAME);
+
+        let acquisition;
+        try {
+            acquisition = await acquireHeavyMaintenanceLease({
+                owner       : `tenant-repo-sync:${reason === 'manual' ? 'manual' : 'scheduler'}`,
+                reason      : 'tenant-repo-sync',
+                leasePath   : resolvedLeasePath,
+                staleAfterMs: leaseStaleAfterMs
+            });
+        } catch (e) {
+            // An IO failure while creating the lease (unwritable state dir, broken volume)
+            // is a lane failure, not a crash: keep the structured-result contract.
+            const details = {
+                reason,
+                phase     : 'lease-acquire',
+                error     : e.message,
+                reasonCode: KB_TENANT_REPO_SYNC_SYNC_FAILED
+            };
+            taskStateService.markFailed(taskName, null, {status: 'failed', ...details});
+            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${KB_TENANT_REPO_SYNC_SYNC_FAILED} (lease-acquire: ${e.message})`);
+            healthService?.recordTaskOutcome?.(taskName, 'failed', details);
+            return {status: 'failed', details};
+        }
+
+        if (!acquisition.acquired) {
+            const heldLease = acquisition.lease;
+            const details   = {
+                reason,
+                skippedAt      : new Date().toISOString(),
+                reasonCode     : KB_TENANT_REPO_SYNC_LEASE_HELD,
+                leaseOwner     : heldLease?.owner || 'unknown',
+                leaseAcquiredAt: heldLease?.acquiredAt || null,
+                leaseExpiresAt : heldLease?.expiresAt || null
+            };
+            writeLog?.('INFO', `[TenantRepoSync] Deferring; cross-process lease held by ${details.leaseOwner}.`);
+            taskStateService.markSkipped(taskName, {status: 'skipped', ...details});
+            healthService?.recordTaskOutcome?.(taskName, 'skipped', details);
+            return {status: 'skipped', details};
+        }
+
         taskStateService.markStarted(taskName, reason);
 
         try {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-                fullReplay, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
+                fullReplay, taskStateService, healthService, taskName, envelopeBuilder,
+                revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status         = result.status;
@@ -677,6 +735,11 @@ class TenantRepoSyncService extends Base {
             writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
+        } finally {
+            // Token-guarded release on every settled path (success, returned-error result,
+            // throw). A hard process crash skips this block by definition — the next
+            // acquirer then reclaims via the pid-liveness stale check instead.
+            await releaseHeavyMaintenanceLease({token: acquisition.lease.token, leasePath: resolvedLeasePath});
         }
     }
 
@@ -1232,9 +1295,16 @@ class TenantRepoSyncService extends Base {
      * directory on first write so a fresh deployment doesn't need explicit dir
      * provisioning.
      *
+     * Atomic whole-file replacement: the document is written to a temporary
+     * sibling, fsynced, then renamed over the target. A process crash at any
+     * point therefore leaves either the previous complete manifest or the new
+     * complete manifest on disk — never a truncated JSON document (which the
+     * strict reader would otherwise fail-close the whole lane on).
+     *
      * Throws `TenantRepoSyncError(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED)` on
      * write failure so the next cycle re-detects the same diff and retries
-     * idempotently (per-repo failure isolation contract).
+     * idempotently (per-repo failure isolation contract). The temporary sibling
+     * is best-effort removed on failure.
      *
      * @param {Object} options
      * @param {String} options.filePath
@@ -1242,10 +1312,22 @@ class TenantRepoSyncService extends Base {
      * @returns {Promise<void>}
      */
     async writePersistedRevisions({filePath, revisions}) {
+        const tmpPath = `${filePath}.tmp-${process.pid}`;
+
         try {
             await fs.ensureDir(path.dirname(filePath));
-            await fs.writeJson(filePath, {revisions}, {spaces: 2});
+
+            const fd = await fs.open(tmpPath, 'w');
+            try {
+                await fs.write(fd, JSON.stringify({revisions}, null, 2) + '\n');
+                await fs.fsync(fd);
+            } finally {
+                await fs.close(fd);
+            }
+
+            await fs.rename(tmpPath, filePath);
         } catch (e) {
+            await fs.remove(tmpPath).catch(() => {});
             throw new TenantRepoSyncError(
                 KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
                 `Failed to persist tenant-repo-sync revisions at ${filePath}: ${e.message}`,
