@@ -4,14 +4,14 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-06-26 (graduated from Discussion #14032 → #14134; v13.1 epic #14039 act-half; pending human merge gate per ADR-0005 lifecycle). **Merge-ordered with/after #14143** — the executable dispatch-core proof lives there, so this record never cites unmerged code as established. |
+| **Status** | Accepted — 2026-06-26 (graduated from Discussion #14032 → #14134; merged through #14141 after the ADR-0005 human gate). **Amended 2026-07-22 via #15739** for the separately graduated v13.2 `restore-empty-target` target-set action; the amendment is merge-ordered before #15740 and #15639. |
 | **Author** | @neo-opus-grace (Grace, Claude Opus 4.8, Claude Code) — authored the actuator envelope, the heal-action vocabulary, and the OQ1/OQ9 resolutions on #14032. The detect≠actuator separation and the persisted anti-thrash discipline are inherited from ADR-0025/ADR-0026's cross-family convergence with @neo-gpt (Euclid) and carried forward via the §2.1 successor-risk audit. |
 | **Resolves** | the new-ADR requirement — Discussion #14032 **OQ1 [RESOLVED_TO_AC]** ("file a *new* ADR for the autonomous data-recovery actuator envelope; ADR-0026 remains lifecycle/config authority") — tracked under #14134. |
 | **Parent epic** | #14039 — *"Agent OS Stability & Self-Healing — the v13.1 data-integrity immune system."* |
 | **Depends on** | **ADR-0025** (detect + diagnose — the raw evidence the classifier consumes), **ADR-0026** (the lifecycle/config actuator — the *two-worlds sibling*; this ADR is its data-world complement, not its extension), **ADR-0019** (config SSOT — every bound is an existing `leaf()`, never a parallel reader), **ADR-0009** (durable harness-state — the recovery-run-state + the durable audit reuse the lease layer, never process memory). |
-| **Connects to** | **#14109** (the runner-classifier that derives the mode and calls `applyHeal`), **#14139** (the producers emitting raw evidence, not `actionClass: escalate`), **#14137** (the autonomous accepted-loss settlement — OQ9's shipped artifact, the fingerprint-bound terminal), **#14132** (the DELETE-`escalate` umbrella this ADR formalizes), the **pure dispatch core** under review in **#14143** (`ai/services/memory-core/helpers/healActionDispatch.mjs`, 20/20). |
-| **Implemented by** | the **`DataRecoveryActuatorService`** (the wired `applyHeal({action, collection, evidence, now})` seam → `dispatchHeal` with real injected repair primitives + recovery-run-state) under #14134; the **pure dispatch core** `healActionDispatch.mjs` (**under review in #14143** — the bounded, fail-closed action-admission decision). |
-| **Anti-anchor for** | `escalate`-to-operator as a **live** recovery terminal (cloud has no operator; escalation is demoted to non-blocking evidence/logging — safety lives in the envelope, not a human gate); **silent** data acceptance (every accepted loss is a durable, fingerprint-bound, **auto-reopening** audit record, never a quiet drop); **ADR-0026 expansion** into data mutation (the two-worlds boundary: lifecycle/config ≠ data, each with its own envelope); **mass auto-re-embed** during a false dimension-storm (the systemic-fault `freeze`); an **un-snapshotted** mutating heal (snapshot-before-mutate + validation-clean auto-promote is binding); folding the **mode classifier into the actuator** (the actuator is mode-blind — it admits an *action* within the envelope, it does not re-derive the mode). |
+| **Connects to** | **#14109** (the runner-classifier that derives the mode and calls `applyHeal`), **#14139** (the producers emitting raw evidence, not `actionClass: escalate`), **#14137** (the autonomous accepted-loss settlement — OQ9's shipped artifact, the fingerprint-bound terminal), **#14132** (the DELETE-`escalate` umbrella this ADR formalizes), the landed **#14143** pure dispatch core, **#15740** (the exact `restore-empty-target` action), **#15695** (its target-set scale gate), and **#15639** (the default-off selector/projection consumer). |
+| **Implemented by** | The v13.1 **`DataRecoveryActuatorService`** + `healActionDispatch.mjs` seam under #14134/#14143. The v13.2 amendment is implemented only by #15740 after this ADR amendment lands; #15639 may submit typed bootstrap evidence and project the result, but does not mutate or select the terminal. |
+| **Anti-anchor for** | `escalate`-to-operator as a **live** recovery terminal (cloud has no operator; escalation is demoted to non-blocking evidence/logging — safety lives in the envelope, not a human gate); **silent** data acceptance (every accepted loss is a durable, fingerprint-bound, **auto-reopening** audit record, never a quiet drop); **ADR-0026 expansion** into data mutation (the two-worlds boundary: lifecycle/config ≠ data, each with its own envelope); **mass auto-re-embed** during a false dimension-storm (the systemic-fault `freeze`); an **un-snapshotted** mutating heal (snapshot-before-mutate + validation-clean auto-promote is binding); folding the **mode classifier into the actuator** (the actuator is mode-blind — it admits an *action* within the envelope, it does not re-derive the mode); the retired overloaded **`restore-delta-merge`** vocabulary; per-collection or synthetic-collection substitutes for one logical target-set run; cross-store transactional-atomicity claims; and provider-gating preserved-vector restore. |
 
 ---
 
@@ -47,22 +47,22 @@ This ADR is a **successor** to the ADR-0026 actuator model on the two-worlds spl
 
 ### 2.2 Autonomous-by-default — `escalate` removed from the live recovery path (AC-1)
 
-The live data-recovery path is **producer (raw evidence) → runner/classifier (mode) → `applyHeal({action, collection, evidence, now})` → autonomous terminal**. There is **no blocking operator-acknowledgement and no `escalate` action** in this path. `escalateDiagnosis` is demoted to non-blocking evidence/logging for residue that is unhealable or not-yet-implemented. This is binding: any reintroduction of an operator-gate or a blocking-escalate terminal into the data-recovery path reverses the v13.1 premise and is rejected at review (#14132).
+The live data-recovery path is **producer (raw evidence) → runner/classifier (mode) → `applyHeal({action, collection?, targetSet?, evidence, now})` → autonomous terminal**. Collection-scoped actions and the target-set action are mutually exclusive per §2.7. There is **no blocking operator-acknowledgement and no `escalate` action** in this path. `escalateDiagnosis` is demoted to non-blocking evidence/logging for residue that is unhealable or not-yet-implemented. This is binding: any reintroduction of an operator-gate or a blocking-escalate terminal into the data-recovery path reverses the v13.1 premise and is rejected at review (#14132).
 
 ### 2.3 The heal-action vocabulary and the actuator seam (AC-2)
 
-The actuator seam is fixed: **`applyHeal({action, collection, evidence, now})`**, where
+The actuator seam is fixed: **`applyHeal({action, collection?, targetSet?, evidence, now})`**, where exactly one of `collection` and `targetSet` is accepted according to the action (§2.7), and
 
-> `action ∈ { re-embed-missing, re-embed-rows, restore-delta-merge, quarantine, freeze, defrag, none }`
+> `action ∈ { re-embed-missing, re-embed-rows, restore-empty-target, quarantine, freeze, defrag, none }`
 
-The actuator is **mode-blind** (the complement of ADR-0026 §2.4's controller-blind actuator): the classifier (§2.5) chooses the action; the actuator admits it only if the §2.4 envelope allows, executes it through an **injected** repair primitive, and records the outcome. **Containment** actions (`freeze`, `quarantine`) are non-mutating and always execute (fail-safe). **Mutating** actions (`re-embed-missing`, `re-embed-rows`, `restore-delta-merge`, `defrag`) are rate-/thrash-/snapshot-bounded. `restore-delta-merge` is **declared but v13.2-deferred** (OQ5/OQ8) — in v13.1 the `wipe` mode contains via `quarantine`; the actuator returns a recorded *deferred* outcome for `restore-delta-merge`, never a silent no-op. The pure admission decision is implemented in the #14143 dispatch core: `decideHealAction` → `{execute, status: 'execute' | 'no-op' | 'unknown-action' | 'unsafe-input' | 'thrash-cooldown' | 'rate-limited'}`, fail-closed on unknown actions AND on under-specified mutating inputs (missing collection / clock / bounds).
+The actuator is **mode-blind** (the complement of ADR-0026 §2.4's controller-blind actuator): the classifier (§2.5, §2.7) chooses the action; the actuator admits it only if the §2.4 envelope allows, executes it through an **injected** repair primitive, and records the outcome. **Containment** actions (`freeze`, `quarantine`) are non-mutating and always execute (fail-safe). **Mutating** actions (`re-embed-missing`, `re-embed-rows`, `restore-empty-target`, `defrag`) are rate-/thrash-/snapshot-bounded. The overloaded `restore-delta-merge` name is retired without a compatibility alias: exact empty-target recovery is §2.7's target-set action; row-addressable `restore-shadow-fill` and journal-backed replay remain unauthorized/deferred. The pure admission decision is implemented in the #14143 dispatch core: `decideHealAction` → `{execute, status: 'execute' | 'no-op' | 'unknown-action' | 'unsafe-input' | 'thrash-cooldown' | 'rate-limited'}`, fail-closed on unknown actions and on under-specified mutating inputs.
 
 ### 2.4 The autonomous data-mutation safety envelope (AC-3 — binding)
 
 Every action the actuator applies passes the envelope; this is the safety that replaces the (absent) human gate:
 
 - **Fail closed** on an unknown action or missing proof (`decideHealAction` → `unknown-action`, no execution).
-- **Cooldown / anti-thrash** per action **and** collection (a wedged collection cannot be re-healed in a tight loop).
+- **Cooldown / anti-thrash** per action **and canonical recovery unit** — one collection for collection-scoped actions; one versioned destination topology for `restore-empty-target` (§2.7). A different bundle cannot evade the same target set's cap.
 - **Rate-limit** mutating heal attempts per time window (`DEFAULT_DISPATCH_BOUNDS`: `maxRunsPerWindow`, `windowMs`, `cooldownMs` — config leaves per ADR-0019).
 - **Systemic-fault freeze bound** — a terminal residue at or above the systemic bound (ratio **or** absolute) is a misconfigured embedder (the #14115 `expectedDimension` false-storm class), not a repairable loss: choose **`freeze` + record**, never mass auto-re-embed or mass auto-settle.
 - **Snapshot-before-mutate + reversibility** — a mutating action snapshots the affected slice before touching it; the heal runs on a shadow/copy.
@@ -78,7 +78,7 @@ The runner-classifier (#14109) owns the mode taxonomy; the actuator consumes its
 | Mode | Autonomous terminal | Envelope note |
 |---|---|---|
 | `wal-stall` (coverage gap + documents present) | `warm-provider` (ADR-0026) **+** `re-embed-missing` (this ADR) | the lifecycle half routes to ADR-0026; the data half here |
-| `wipe` (coverage gap + documents gone) | `quarantine` (v13.1); `restore-delta-merge` deferred v13.2 | data already left — contain, do not fabricate |
+| `wipe` (coverage gap + documents gone) | `quarantine` | data already left — contain, do not fabricate; count/loss evidence cannot select target-set restore |
 | `count-loss` (row count regressed) | `quarantine` | record + contain |
 | `dimension-targeted` (mismatch below systemic bound) | `re-embed-rows` | bounded row repair |
 | `dimension-systemic` (mismatch at/above bound) | `freeze` | never mass-re-embed a false storm |
@@ -88,16 +88,75 @@ The runner-classifier (#14109) owns the mode taxonomy; the actuator consumes its
 
 **`warm-provider` stays in ADR-0026** — the `wal-stall` terminal is a *pair*: the provider-warming (lifecycle) is ADR-0026's actuator, the re-embed (data) is this actuator. The runner routes each half to its world. This is the two-worlds boundary in live operation.
 
+`restore-empty-target` is not a renamed `wipe` terminal. It is selected only from the typed, default-off fresh-empty bootstrap diagnosis defined in §2.7, after all three target identities and the admitted bundle descriptor are present.
+
 ### 2.6 Binding constraints (graduation ACs)
 
 - **AC-1 — autonomous-by-default, no live escalate.** The data-recovery path has no operator-ack and no blocking-escalate terminal; escalation is non-blocking evidence only (§2.2, #14132).
-- **AC-2 — fixed mode-blind seam.** `applyHeal({action, collection, evidence, now})`; the closed `HEAL_ACTIONS` vocabulary; the actuator admits an action within the envelope, it does not re-derive the mode (§2.3).
+- **AC-2 — fixed mode-blind seam.** `applyHeal({action, collection?, targetSet?, evidence, now})` with action-specific XOR validation; the closed `HEAL_ACTIONS` vocabulary; the actuator admits an action within the envelope, it does not re-derive the mode (§2.3, §2.7).
 - **AC-3 — the data-mutation envelope is binding.** Fail-closed, anti-thrash, rate-limit, systemic-fault freeze, snapshot-before-mutate, validation-clean auto-promote, durable audit, auto-reopening fingerprint, empty-blocklist default (§2.4). A mutating heal that skips snapshot/validation-promote is rejected.
 - **AC-4 — classifier single-sources the mode.** Producers emit raw evidence; the runner-classifier derives the mode; the actuator routes per §2.5. Producers do not re-implement terminal routing.
 - **AC-5 — two-worlds boundary kept.** ADR-0026 owns lifecycle/config; this ADR owns data mutation; `warm-provider` stays in ADR-0026; neither actuator absorbs the other's world (§2.1, §2.5).
-- **AC-6 — persisted anti-thrash, inherited.** `recentRuns` / recovery-run-state lives in the durable harness-state store (ADR-0009); a data heal re-firing across a restart is the forbidden loop.
-- **AC-7 — v13.2 deferrals are recorded, not silent.** `restore-delta-merge`, the full corruption-%×mode cost selector, and the authoritative post-backup delta source are v13.2 (OQ5/OQ7/OQ8); in v13.1 they return a recorded *deferred* outcome, never a silent no-op or a premature mutation.
+- **AC-6 — persisted anti-thrash, inherited.** `recentRuns` / recovery-run-state lives in the durable harness-state store (ADR-0009); a data heal re-firing across a restart is the forbidden loop. For `restore-empty-target`, the cap binds to the bundle-independent recovery-unit key (§2.7), not the attempt fingerprint.
+- **AC-7 — ungraduated restore surfaces stay explicit.** The legacy `restore-delta-merge` name is retired. `restore-shadow-fill`, journal replay, the full corruption-%×mode cost selector, and authoritative post-backup delta sourcing remain deferred/unauthorized; they never fall through to `restore-empty-target` or a silent no-op.
 - **AC-8 — Memory-Core-resident SPOF, accepted + recorded.** The data actuator runs where the MC repair runs; if that host dies there is no data heal. Recorded so a future agent does not grant a second independent home without re-opening the privilege/locality decision (mirrors ADR-0026 AC-8).
+
+### 2.7 `restore-empty-target` target-set recovery [Amendment 2026-07-22, #15739]
+
+Discussion #14032's v13.2 revalidation graduates exactly one restore action at raw GitHub-body SHA-256 `9b3139f6678dca536407e3d5f0d426df83f9a28d281781a7e404a2cb692d684c`, with GPT-family author signal `DC_kwDODSospM4BDrCV` and Kimi-family non-author approval `DC_kwDODSospM4BDrB9`. It does not reopen the complete v13.1 envelope above.
+
+#### 2.7.1 Authority and selection boundary
+
+- The default-off #15639 bootstrap selector may emit a typed **fresh-empty bootstrap diagnosis**. This is an opt-in selection exception to the ordinary autonomous-by-default posture; after admission, mutation is autonomous inside this ADR's envelope.
+- The orchestrator classifier alone maps that diagnosis to `restore-empty-target`. Bootstrap, diagnostics, and self-healing observers do not choose the terminal, call an importer, or spawn `restore.mjs`.
+- `DataRecoveryActuatorService` remains the sole persistent recovery-mutation seam. Knowledge Base rebuilds from source and is outside this action.
+- Preserved-vector restore performs no embedding-provider call. Embedding and eventual re-embedding remain separately classified and Orchestrator-driven.
+
+#### 2.7.2 Target identity, action identity, and the additive seam
+
+The versioned v1 target set contains exactly the configured Memory Core **memories Chroma collection, summaries Chroma collection, and SQLite graph destination**, in that order. Concepts, RLAIF trajectories, the sent-to-cull archive, temporal summaries, and every Knowledge Base target are excluded. Adding a destination requires a new target-set version, admission evidence, and scale evidence.
+
+The request carries a canonical descriptor containing the ordered destination identities, destination-topology fingerprint, bundle-manifest fingerprint, and the #15691 descriptor fingerprint. Two identities are normative:
+
+- **recovery-unit key** = action + target-set version + canonical destination identities/topology. Cooldown and rate limits bind here, so changing bundles cannot evade anti-thrash.
+- **attempt fingerprint** = recovery-unit key + bundle/descriptor fingerprints. Idempotent crash resume binds to this exact attempt.
+
+The seam extends additively without a synthetic collection alias:
+
+- collection-scoped actions require `collection` and reject `targetSet`;
+- `restore-empty-target` requires `targetSet` and rejects `collection`;
+- the safety gate derives the canonical recovery-unit key before reading or recording attempts.
+
+#### 2.7.3 Under-fence seed-aware freshness proof
+
+One heavy-maintenance lease / writer fence spans action-time proof, staging, promotion, validation, and settlement. After acquiring it, the actuator re-reads all destinations and proves:
+
+| Destination | Binding fresh predicate |
+|---|---|
+| Memories Chroma | The configured collection is opened canonically and `collection.count() === 0`. |
+| Summaries Chroma | The configured collection is opened canonically and `collection.count() === 0`. |
+| SQLite graph | Ignoring schema tables, normalized records exactly equal one canonical boot-seed manifest/fingerprint: `frontier`, `Neo-Master-Architecture`, all current `IDENTITIES` roots, and the single `frontier -[SYSTEM_TENET]-> Neo-Master-Architecture` edge. No extra, missing, or altered node/edge is allowed. |
+| Whole target set | All three predicates pass under the same fence and the destination-topology fingerprint matches the admitted descriptor. |
+
+Boot and recovery proof consume the same extracted graph-seed SSOT; they do not duplicate literals. If a future seed is not mechanically enumerable, recovery fails closed until a versioned pre-user-mutation marker is designed. Any action-time drift strict-settles `deferred-target-not-empty` with zero production promotion; a pre-fence selector snapshot is advisory only.
+
+#### 2.7.4 Staging, ordered promotion, and hard eligibility
+
+The actuator stages all three targets in run-owned isolated destinations and validates the complete staged set against the admitted bundle/target descriptor before the first production promotion. Promotion order is **memories → summaries → graph**; graph is last because it projects identities and relationships over the vector stores.
+
+The strict run ledger fails loud and includes the semantic chain
+
+> `admitted → fenced → staged → promoted:memories → promoted:summaries → promoted:graph → validated → committed`
+
+plus explicit deferred, interrupted/nonterminal, and `failed-contained` states. Only strict `committed` opens data-consuming service eligibility. `recordHealOutcome` may mirror an outcome for diagnostics, but best-effort telemetry is never completion authority.
+
+A restart consumes the same attempt fingerprint, keeps eligibility closed, reacquires the fence, reconciles component fingerprints, and resumes idempotently. Before production promotion, compensation may delete only run-owned unpromoted staging. After promotion begins, the safe direction is forward completion; if reconciliation cannot prove it, the run settles `failed-contained` / quarantine and eligibility remains denied. It never overwrites independently observed live state or claims cross-store rollback.
+
+#### 2.7.5 Merge order and measured scale gate
+
+The order is binding: this ADR amendment (#15739) → exact actuator action (#15740) → selector/projection consumer (#15639). #15691 supplies provider-free bundle/row admission; #15692 supplies bounded vector batches. Before #15740 may merge, #15695 must record exact-head 5,000/20,000 memories + summaries + graph staging/promotion timings, peak Node/Chroma/SQLite memory, temporary-disk high-water marks, maximum observed batch size, and zero provider calls. Synthetic controls do not replace the exact implementation receipt.
+
+The stores are not transactionally atomic together. The safety invariant is **atomic service eligibility**: absence of `committed` keeps every data-consuming lane closed.
 
 ## 3. Considered alternatives (rejected)
 
@@ -107,15 +166,26 @@ The runner-classifier (#14109) owns the mode taxonomy; the actuator consumes its
 - **Silent accepted-loss (drop unembeddable residue quietly).** Rejected (§2.4): every accepted loss is a durable, fingerprint-bound, auto-reopening audit record (#14137 / OQ9). Recorded-and-reversible, never silent.
 - **Mass auto-re-embed on a dimension-mismatch storm.** Rejected (§2.4): a mass-terminal residue is a misconfigured embedder; the systemic-fault bound chooses `freeze`, never amplify the fault into a mass mutation.
 - **Fold the mode classifier into the actuator.** Rejected (§2.3): welds the mode taxonomy into the actuator and forces a rewrite when a new corruption mode arrives. The mode-blind seam is the cost of not repaying that debt later (mirrors ADR-0026 §2.4).
+- **Keep the overloaded `restore-delta-merge` action.** Rejected (§2.7): empty-target reconstruction, row-addressable shadow fill, and journal replay have different evidence and collision models. One action name hides which authority exists.
+- **Model the target set as three independent collection heals or one synthetic collection.** Rejected (§2.7.2): partial success could expose vectors with a stale graph, while a synthetic key erases destination topology and permits bundle swaps to evade or corrupt identity.
+- **Claim transactional atomicity across Chroma and SQLite.** Rejected (§2.7.4): the stores promote sequentially. The enforceable invariant is a strict `committed` eligibility barrier, not fictional cross-store rollback.
+- **Reuse the broad `runRestore` CLI.** Rejected (§2.7): it owns a wider maintenance substrate and lacks the action-specific target identity, isolated three-target staging, strict component ledger, and committed-only eligibility boundary.
+- **Gate restore on provider readiness.** Rejected (§2.7.1): admitted bundles carry explicit vectors. A provider preflight tests an unrelated dependency and can dead-end otherwise valid disaster recovery.
 
 ## 4. Resolved and open questions
 
 - **OQ1 — authority shape: RESOLVED (#14032).** A new ADR (this one) for the autonomous data-recovery envelope; ADR-0026 remains lifecycle/config.
 - **OQ2 — automation default: RESOLVED (#14032).** Bounded, reversible, snapshot-protected operations automate by default; per-target blocklist opt-out; no operator-execution default.
 - **OQ9 — accepted-loss: RESOLVED + SHIPPED (#14137).** An autonomous fingerprint-bound terminal settlement, not an operator acknowledgement; governed by the PR review/merge gate.
-- **OQ5 / OQ7 / OQ8 — DEFERRED to v13.2.** `restore-delta-merge` + authoritative delta source + the full corruption-%×mode cost selector lack the empirical data to choose a selector; v13.1 contains `wipe`/`count-loss`/`sqlite-integrity` via `quarantine`. The deferrals return recorded *deferred* outcomes (AC-7).
-- **Liveness / revalidation trigger.** Re-validate this ADR if the embeddability logic changes (the #14126 `strategyVersion` fingerprint-binding) or a new corruption mode appears (add a classifier mode + a heal action + a routing row); @neo-gemini-pro is `operator_benched` — re-poll Gemini liveness before citing #14032 for v13.2 restore/delta or a future amendment.
+- **OQ5 — restore + delta: SPLIT for v13.2 (#14032 revalidation).** The overloaded `restore-delta-merge` name is retired. Exact first-boot recovery is the graduated `restore-empty-target` action (§2.7). Row-addressable `restore-shadow-fill` remains deferred, and journal-backed replay has no source authority.
+- **OQ7 — full corruption-percent × mode selector: NARROWED, STILL OPEN.** It is unnecessary for an exact fresh-empty target set and remains unresolved for broad in-place repair selection.
+- **OQ8 — post-backup authority: NARROWED, STILL OPEN.** Exact empty-target restore needs no replay journal because there is no live collision or claimed delta. Any later replay action requires a complete ordered mutation source; count evidence never supplies row identity.
+- **Liveness / revalidation trigger.** Re-validate this ADR if embeddability logic changes (the #14126 `strategyVersion` fingerprint-binding), a new corruption mode appears, the v1 target set changes, the graph boot-seed manifest cannot be enumerated, #15695 exposes an unsafe scale curve, or a source-backed `restore-shadow-fill` / replay contract graduates. @neo-gemini-pro is `operator_benched`; re-poll Gemini liveness before using a future Gemini signal as amendment authority.
 
 ## 5. Consequences
 
-The organism gains the **data act-half** of its immune response — and gains it **fully autonomous**, with no operator gate that cloud cannot honor. Paired with ADR-0026 (lifecycle/config) under ADR-0025 (detect+diagnose), the three ADRs are the v13.1 self-healing immune system: detect → classify → act, across both the lifecycle world and the data world, with escalation demoted to a record rather than a blocking page. The cost is the data-world envelope's strictness — snapshot-before-mutate, validation-clean auto-promote, the systemic-fault freeze, the auto-reopening loss fingerprint — which is *more* machinery than the lifecycle world needs, and is the deliberate price of mutating the substrate the organism remembers with. The v13.2 boundary is explicit: this ADR contains corruption; it does not yet *reconstruct* it (`restore-delta-merge` + the cost selector await empirical grounding). The wired `DataRecoveryActuatorService` (#14134) implements this envelope against the dispatch core (#14143); it is the only authority for autonomous Memory Core data mutation, and it must not widen its action set, bypass its envelope, or reintroduce a live operator gate without re-opening this ADR under cross-family review.
+The organism gains the **data act-half** of its immune response — and gains it **fully autonomous**, with no operator gate that cloud cannot honor. Paired with ADR-0026 (lifecycle/config) under ADR-0025 (detect+diagnose), the three ADRs are the v13.1 self-healing immune system: detect → classify → act, across both the lifecycle world and the data world, with escalation demoted to a record rather than a blocking page. The cost is the data-world envelope's strictness — snapshot-before-mutate, validation-clean auto-promote, the systemic-fault freeze, the auto-reopening loss fingerprint — which is *more* machinery than the lifecycle world needs, and is the deliberate price of mutating the substrate the organism remembers with.
+
+The v13.2 amendment adds one deliberately narrow reconstruction terminal: a default-off, exact fresh-empty Memory Core target set restored through the same classifier/actuator authority, with isolated staging, ordered promotion, forward-only crash recovery, and `committed` as the sole eligibility opener. It does not authorize generic in-place restore, count-based promotion, replay, Knowledge Base restore, provider gating, or re-embedding. The added machinery is substantial because multi-store mutation cannot be made transactionally atomic; strict service eligibility and a durable component ledger are the honest substitute. The #15695 exact-head scale receipt remains a merge gate so architectural safety does not conceal an operational dead end.
+
+`DataRecoveryActuatorService` remains the only authority for autonomous Memory Core data mutation. It must not widen the action set, bypass the envelope, let #15639 mutate directly, or reintroduce a live operator gate without re-opening this ADR under cross-family review.
