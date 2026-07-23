@@ -685,11 +685,15 @@ Minimum handoff checklist:
 ```text
 [ ] shared-sqlite-data volume or managed graph-store path is persistent.
 [ ] shared-handoff-data is mounted by orchestrator and mc-server at the configured handoff path.
+[ ] orchestrator-state is mounted at NEO_AI_ORCHESTRATOR_DIR; record hashes for
+    orchestrator-state.json and tenant-repo-sync-revisions.json before redeploy.
 [ ] after a successful golden-path cycle, get_sandman_handoff returns non-null content.
 [ ] backup bundles write to the redeploy-safe backup mount.
 [ ] after docker compose down && docker compose up --build, MC healthcheck is healthy.
 [ ] the memory written in Milestone 1 can still be queried.
 [ ] get_sandman_handoff still returns the pre-redeploy handoff until the next cycle replaces it.
+[ ] the orchestrator state/revision values and hashes still match after the
+    recreated orchestrator starts; stale PID/lease artifacts did not block boot.
 [ ] KB Neo-shared content is either still present or re-synced successfully.
 [ ] tenant content is either still present or re-pushed by the hook/CI job.
 [ ] endpoint URLs, token source, tenant id, repo slug, and known failure signatures are documented for the next agent.

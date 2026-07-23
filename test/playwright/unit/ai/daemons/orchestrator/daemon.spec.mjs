@@ -1,9 +1,12 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs';
+import os             from 'os';
 import path           from 'path';
+import * as yaml      from 'js-yaml';
 import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
+    enforceSingleton,
     LOCAL_AI_CONFIG_FILE,
     isOrchestratorDaemonCommand,
     loadLocalAiConfig
@@ -325,6 +328,52 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/wake/daemon.mjs')).toBe(false);
         expect(isOrchestratorDaemonCommand(`node /repo/${legacyScriptsPath}`)).toBe(false);
         expect(isOrchestratorDaemonCommand('node daemon.mjs')).toBe(false);
+    });
+
+    test('#15759: cloud Compose gives the AiConfig data dir one dedicated, sole-owner volume', () => {
+        const compose        = yaml.load(fs.readFileSync(path.resolve(process.cwd(), 'ai/deploy/docker-compose.yml'), 'utf8'));
+        const dataDir        = '/app/.neo-ai-data/orchestrator-daemon';
+        const volumeName     = 'orchestrator-state';
+        const expectedMount  = `${volumeName}:${dataDir}`;
+        const orchestrator   = compose.services.orchestrator;
+        const healthcheckCmd = orchestrator.healthcheck.test.join(' ');
+
+        expect(compose.volumes).toHaveProperty(volumeName);
+        expect(orchestrator.environment).toContain(`NEO_AI_ORCHESTRATOR_DIR=${dataDir}`);
+        expect(orchestrator.volumes).toContain(expectedMount);
+        expect(healthcheckCmd).toContain('process.env.NEO_AI_ORCHESTRATOR_DIR');
+        expect(healthcheckCmd).not.toContain(`||'${dataDir}'`);
+
+        for (const [serviceName, service] of Object.entries(compose.services)) {
+            if (serviceName === 'orchestrator') continue;
+
+            expect(
+                service.volumes || [],
+                `${serviceName} must not read or write the orchestrator-owned state volume`
+            ).not.toContain(expectedMount);
+            expect(
+                (service.volumes || []).some(mount =>
+                    typeof mount === 'string' &&
+                    (mount.startsWith(`${volumeName}:`) || mount.endsWith(`:${dataDir}`))
+                ),
+                `${serviceName} must not alias the orchestrator-owned source or target`
+            ).toBe(false);
+        }
+    });
+
+    test('#15759: a dead persisted daemon PID is reclaimed on the next process epoch', async () => {
+        const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-orchestrator-stale-pid-'));
+        const pidFile = path.join(dataDir, 'orchestrator-daemon.pid');
+
+        try {
+            fs.writeFileSync(pidFile, '2147483647', 'utf8');
+
+            await enforceSingleton({pidFile});
+
+            expect(fs.readFileSync(pidFile, 'utf8')).toBe(String(process.pid));
+        } finally {
+            fs.rmSync(dataDir, {recursive: true, force: true});
+        }
     });
 
     test('loads gitignored top-level AI config only when present', async () => {
