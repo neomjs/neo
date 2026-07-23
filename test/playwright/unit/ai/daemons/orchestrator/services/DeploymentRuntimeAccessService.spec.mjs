@@ -337,6 +337,47 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         expect(calls).toHaveLength(1);
     });
 
+    test('routes null or absent Docker labels through bounded project mismatches', async () => {
+        const attempts = [
+            service => service.readObserve({serviceKey: 'mc-server', operation: 'inspect'}),
+            service => service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'})
+        ];
+
+        for (const labels of [null, undefined]) {
+            for (const attempt of attempts) {
+                const container = makeContainer();
+
+                if (labels === undefined) {
+                    delete container.Labels
+                } else {
+                    container.Labels = labels
+                }
+
+                const {service, calls} = createService({containers: [container]});
+
+                try {
+                    const error = await attempt(service).catch(e => e);
+
+                    expect(error).not.toBeInstanceOf(TypeError);
+                    expect(error).toMatchObject({
+                        reason : 'compose-project-mismatch',
+                        message: 'Docker target did not prove the configured Compose project identity',
+                        details: {
+                            composeProject: 'neo',
+                            serviceKey    : 'mc-server',
+                            matchCount    : 1
+                        }
+                    });
+                    expect(calls).toHaveLength(1);
+                    expect(calls[0].path).toContain('/containers/json?');
+                    expect(calls[0].path).not.toContain('container-abc');
+                } finally {
+                    service.destroy()
+                }
+            }
+        }
+    });
+
     test('fails closed when a service resolves ambiguously inside the configured project', async () => {
         const {service} = createService({
             containers: [
