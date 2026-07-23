@@ -11,8 +11,11 @@
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs                # all configured tenantRepos
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>  # subset
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b --repo-slug c/d  # multiple
+ *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>  # scoped full replay
  *
- * Exit code: 0 on `completed`, 1 on `failed` or `skipped` (no-tenant-repos-configured).
+ * Exit code: 0 on `completed`, 1 on `failed` or `skipped`
+ * (no-tenant-repos-configured), 2 on argument error, and 3 when a selected
+ * repo slug is not configured.
  *
  * Mirrors the operator-side pattern of `ai/scripts/maintenance/backup.mjs` and the
  * other `./maintenance/*` scripts — bootstrap Neo namespace then invoke a service.
@@ -21,13 +24,24 @@
  * @see learn/agentos/cloud-deployment/TenantIngestionModel.md
  */
 
-import Neo from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import {pathToFileURL} from 'url';
 
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
 
+/**
+ * @summary Parses manual tenant-repo-sync selectors and scoped replay intent.
+ *
+ * Full replay is intentionally unavailable without at least one explicit repo
+ * selector. This prevents an accidental deployment-wide reset of incremental
+ * envelope bases.
+ *
+ * @param {String[]} argv Node-style argv including executable and script path.
+ * @returns {Object} Parsed replay intent, optional help flag, and selected repo slugs.
+ */
 function parseArgs(argv) {
-    const args = {repoSlugs: []};
+    const args = {fullReplay: false, repoSlugs: []};
     for (let i = 2; i < argv.length; i++) {
         const v = argv[i];
         if (v === '--repo-slug' || v === '-r') {
@@ -37,20 +51,29 @@ function parseArgs(argv) {
             }
             args.repoSlugs.push(next);
             i++;
+        } else if (v === '--full') {
+            args.fullReplay = true;
         } else if (v === '--help' || v === '-h') {
             args.help = true;
         } else {
             throw new Error(`Unknown argument: ${v}`);
         }
     }
+
+    if (args.fullReplay && args.repoSlugs.length === 0) {
+        throw new Error('--full requires at least one --repo-slug selector.')
+    }
+
     return args;
 }
 
 function printHelp() {
-    console.log(`Usage: node ./ai/scripts/maintenance/syncTenantRepos.mjs [--repo-slug <slug>]...
+    console.log(`Usage: node ./ai/scripts/maintenance/syncTenantRepos.mjs [--repo-slug <slug>]... [--full]
 
 Forces a single tenant-repo-sync sweep. With no flags, processes every configured
 tenantRepo. Pass --repo-slug to scope to a specific repo (repeatable).
+Pass --full only with one or more --repo-slug selectors to rebuild those repos
+from a null revision base. Stored checkpoints advance only after an error-free replay.
 
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
@@ -85,6 +108,24 @@ function createInMemoryTaskStateService() {
     };
 }
 
+/**
+ * @summary Builds the service dispatch envelope from validated CLI arguments.
+ * @param {Object} options
+ * @param {{fullReplay: Boolean, repoSlugs: String[]}} options.parsed
+ * @param {Object} options.taskStateService
+ * @param {Function} options.writeLog
+ * @returns {Object}
+ */
+function buildRunTaskOptions({parsed, taskStateService, writeLog}) {
+    return {
+        reason       : 'manual',
+        taskStateService,
+        writeLog,
+        onlyRepoSlugs: parsed.repoSlugs.length > 0 ? parsed.repoSlugs : undefined,
+        fullReplay   : parsed.fullReplay
+    }
+}
+
 async function main() {
     let parsed;
     try {
@@ -101,14 +142,13 @@ async function main() {
     }
 
     const taskStateService = createInMemoryTaskStateService();
-    const writeLog = (level, msg) => console.log(`[${level}] ${msg}`);
+    const writeLog         = (level, msg) => console.log(`[${level}] ${msg}`);
 
-    const result = await TenantRepoSyncService.runTask({
-        reason          : 'manual',
+    const result = await TenantRepoSyncService.runTask(buildRunTaskOptions({
+        parsed,
         taskStateService,
-        writeLog,
-        onlyRepoSlugs   : parsed.repoSlugs.length > 0 ? parsed.repoSlugs : undefined
-    });
+        writeLog
+    }));
 
     console.log(JSON.stringify(result, null, 2));
 
@@ -121,8 +161,12 @@ async function main() {
     process.exit(1);
 }
 
-main().catch(err => {
-    console.error('Fatal:', err.message);
-    if (err.stack) console.error(err.stack);
-    process.exit(2);
-});
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+    main().catch(err => {
+        console.error('Fatal:', err.message);
+        if (err.stack) console.error(err.stack);
+        process.exit(2);
+    })
+}
+
+export {buildRunTaskOptions, parseArgs};
