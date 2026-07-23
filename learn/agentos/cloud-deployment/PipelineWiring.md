@@ -45,6 +45,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 |---|---|---|
 | Memory Core graph + sessions — the **primary store** | `shared-sqlite-data` named volume → `/app/.neo-ai-data/sqlite` | `down -v`, or the Compose project name changes |
 | Chroma vectors | `chroma-data` named volume → `/chroma/unified` (set via `PERSIST_DIRECTORY`) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
+| Sandman handoff + derived route artifacts | `shared-handoff-data` named volume → `/app/.neo-ai-data/handoff` (writer and reader share `NEO_HANDOFF_FILE_PATH`) | `down -v`, or the Compose project name changes |
 | Backup bundles | host bind-mount `./.neo-ai-data/backups` on the `cloud`-profile `orchestrator` | the compose file's host location changes between runs |
 | TLS certs / CA | `caddy-data` / `caddy-config` named volumes (`ingress` profile) | `down -v` (re-issued on next start — watch ACME rate limits) |
 | Local model store — opt-in `local-model` profile | `local-model-data` named volume → `/root/.ollama` | `down -v`, or the project name changes (recoverable — re-pull the models) |
@@ -57,7 +58,7 @@ Three rules keep a redeploy job safe:
 
 Off-site copy of the backup bundles is the disaster-recovery layer *above* redeploy-safety: redeploy-safety keeps state across a container *recreate*; backups plus off-site copy cover host loss.
 
-**Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
+**Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store, Sandman handoff, and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
 
 ## The health gate
 
@@ -74,6 +75,7 @@ A deploy job that does not gate on health reports success while serving a broken
 |---|---|---|
 | Healthcheck never goes healthy after redeploy | image build broken, a required env var unset, or Chroma unreachable | fail the job; surface `docker compose logs`; the prior volumes are intact for a retry |
 | Memory Core store empty after redeploy | the job ran `docker compose down -v`, or redeployed under a different `--project-name` | never `-v`; pin `--project-name` — the old volume still holds the data, reattach it |
+| `get_sandman_handoff` returns `handoff-not-found` after a successful cycle | writer and reader do not share `NEO_HANDOFF_FILE_PATH`, or `shared-handoff-data` was replaced | inspect both service env/mounts; reattach the stable named volume; never repair this by KB-ingesting the handoff |
 | Backup bundles missing after redeploy | redeployed from a different host checkout location (relative bind-mount) | deploy from a stable checkout path; recover bundles from the prior host directory |
 | TLS cert re-issued / ACME rate-limited each deploy | `caddy-data` removed by `down -v` | stop using `-v` so the issued certs persist |
 

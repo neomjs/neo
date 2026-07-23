@@ -259,9 +259,9 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     });
 
     test('production compose pins cloud-profile local wake and mailbox boundaries', () => {
-        const compose           = readProductionCompose();
-        const orchestratorEnv   = environmentMap(compose.services.orchestrator);
-        const memoryCoreEnv     = environmentMap(compose.services['mc-server']);
+        const compose         = readProductionCompose();
+        const orchestratorEnv = environmentMap(compose.services.orchestrator);
+        const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
 
         expect(orchestratorEnv).toMatchObject({
             NEO_AI_DEPLOYMENT_MODE                              : 'cloud',
@@ -277,12 +277,32 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
     });
 
-    test('production compose keeps local-model as an opt-in provider profile', () => {
+    test('production compose persists the sandman handoff across its writer and reader', () => {
         const compose         = readProductionCompose();
-        const localModel      = compose.services['local-model'];
+        const handoffMount    = 'shared-handoff-data:/app/.neo-ai-data/handoff';
+        const readerMount     = handoffMount + ':ro';
+        const handoffPath     = '/app/.neo-ai-data/handoff/sandman_handoff.md';
+        const knowledgeBase   = compose.services['kb-server'];
+        const memoryCore      = compose.services['mc-server'];
+        const orchestrator    = compose.services.orchestrator;
+        const memoryCoreEnv   = environmentMap(memoryCore);
+        const orchestratorEnv = environmentMap(orchestrator);
+
+        expect(orchestratorEnv.NEO_HANDOFF_FILE_PATH).toBe(handoffPath);
+        expect(memoryCoreEnv.NEO_HANDOFF_FILE_PATH).toBe(handoffPath);
+        expect(orchestrator.volumes).toContain(handoffMount);
+        expect(memoryCore.volumes).toContain(readerMount);
+        expect(knowledgeBase.volumes).not.toContain(handoffMount);
+        expect(knowledgeBase.volumes).not.toContain(readerMount);
+        expect(compose.volumes).toHaveProperty('shared-handoff-data');
+    });
+
+    test('production compose keeps local-model as an opt-in provider profile', () => {
+        const compose          = readProductionCompose();
+        const localModel       = compose.services['local-model'];
         const knowledgeBaseEnv = environmentMap(compose.services['kb-server']);
-        const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
-        const orchestratorEnv = environmentMap(compose.services.orchestrator);
+        const memoryCoreEnv    = environmentMap(compose.services['mc-server']);
+        const orchestratorEnv  = environmentMap(compose.services.orchestrator);
 
         expect(localModel.profiles).toEqual(['local-model']);
         expect(localModel.image).toBe('${NEO_LOCAL_MODEL_IMAGE:-ollama/ollama:latest}');

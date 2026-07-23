@@ -684,13 +684,35 @@ Minimum handoff checklist:
 
 ```text
 [ ] shared-sqlite-data volume or managed graph-store path is persistent.
+[ ] shared-handoff-data is mounted by orchestrator and mc-server at the configured handoff path.
+[ ] after a successful golden-path cycle, get_sandman_handoff returns non-null content.
 [ ] backup bundles write to the redeploy-safe backup mount.
 [ ] after docker compose down && docker compose up --build, MC healthcheck is healthy.
 [ ] the memory written in Milestone 1 can still be queried.
+[ ] get_sandman_handoff still returns the pre-redeploy handoff until the next cycle replaces it.
 [ ] KB Neo-shared content is either still present or re-synced successfully.
 [ ] tenant content is either still present or re-pushed by the hook/CI job.
 [ ] endpoint URLs, token source, tenant id, repo slug, and known failure signatures are documented for the next agent.
 ```
+
+Use the authenticated Memory Core caller from Milestone 1 for the live handoff
+probe:
+
+```bash
+node /tmp/day0-call-tool.mjs \
+  "$NEO_MC_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  get_sandman_handoff
+```
+
+Run it after the orchestrator reports a successful `golden-path` cycle and
+record `path`, `mtimeMs`, plus a hash of `content`. Run it again immediately
+after the recreate, before another Golden Path cycle can replace the artifact.
+`content` must remain non-null and its recorded hash and `mtimeMs` must match.
+The returned container path must be the configured
+`/app/.neo-ai-data/handoff/sandman_handoff.md`. A
+`reason: "handoff-not-found"` envelope is a failed persistence proof, not an
+acceptable empty state.
 
 Production compose persistence is documented in the
 [Deployment Cookbook](../DeploymentCookbook.md). Do not treat a demo stack that
