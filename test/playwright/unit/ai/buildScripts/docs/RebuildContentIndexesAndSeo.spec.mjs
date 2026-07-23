@@ -112,14 +112,21 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
     });
 
     test('data-sync pipeline delegates to the shared helper instead of duplicating the seven derive commands', async () => {
-        const workflow = await fs.readFile(path.resolve(process.cwd(), '.github/workflows/data-sync-pipeline.yml'), 'utf8');
+        const [workflow, publisher] = await Promise.all([
+            fs.readFile(path.resolve(process.cwd(), '.github/workflows/data-sync-pipeline.yml'), 'utf8'),
+            fs.readFile(path.resolve(process.cwd(), 'buildScripts/dataSyncPipeline.mjs'), 'utf8')
+        ]);
+        const delegatedPipeline = workflow + publisher;
 
-        expect(workflow).toContain('node ./buildScripts/docs/rebuildContentIndexesAndSeo.mjs --include-labels');
-        expect(workflow).not.toContain('node ./buildScripts/docs/index/labels.mjs');
-        expect(workflow).not.toContain('node ./buildScripts/docs/index/release.mjs');
-        expect(workflow).not.toContain('node ./buildScripts/docs/index/pulls.mjs');
-        expect(workflow).not.toContain('node ./buildScripts/docs/index/discussions.mjs');
-        expect(workflow).not.toContain('node ./buildScripts/docs/index/tickets.mjs');
-        expect(workflow).toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: node ./buildScripts/docs/rebuildContentIndexesAndSeo.mjs --include-labels');
+        expect(workflow).toContain('node ./buildScripts/dataSyncPipeline.mjs');
+        expect(publisher).toContain('./buildScripts/docs/rebuildContentIndexesAndSeo.mjs');
+        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/labels.mjs');
+        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/release.mjs');
+        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/pulls.mjs');
+        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/discussions.mjs');
+        expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/tickets.mjs');
+        expect(workflow).toContain(
+            'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: node ./buildScripts/dataSyncPipeline.mjs'
+        );
     });
 });
