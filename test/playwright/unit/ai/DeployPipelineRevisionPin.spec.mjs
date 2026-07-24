@@ -72,6 +72,9 @@ async function createFakeBin(plainLines, peelLine = '') {
         'if [ "$1" = "-C" ] && [ "$3" = "init" ]; then exit 0; fi',
         'if [ "$1" = "-C" ] && [ "$3" = "fetch" ]; then [ -n "$FAKE_FETCH_FAILS" ] && exit 128; exit 0; fi',
         'if [ "$1" = "-C" ] && [ "$3" = "rev-parse" ]; then',
+        // Require the load-bearing peel expression: returning FAKE_PEEL_TO for plain FETCH_HEAD
+        // would let the annotated-tag test stay green while production reintroduced the tag-object bug.
+        '    [ "${@: -1}" != "FETCH_HEAD^{commit}" ] && exit 1',
         '    [ -z "$FAKE_PEEL_TO" ] && exit 1',
         '    printf \'%s\\n\' "$FAKE_PEEL_TO"; exit 0',
         'fi',
