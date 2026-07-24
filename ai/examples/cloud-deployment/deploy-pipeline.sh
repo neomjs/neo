@@ -40,7 +40,103 @@ fi
 
 compose() { docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"; }
 
-echo "[deploy] revision: $(git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null || echo unknown)"
+# Resolve the deployed revision BEFORE Docker runs (#15792). Every run pins:
+# there is deliberately no unpinned path, because this is the reference pipeline
+# and its default is what propagates to every downstream deployment.
+#
+# BOTH args are exported, not just NEO_REVISION. NEO_REVISION only feeds the OCI
+# revision LABEL; the source stage fetches ${NEO_REF}. Exporting only NEO_REVISION
+# would stamp a resolved SHA onto an image whose source stage fetched a mutable
+# channel — a label asserting a fact the artifact does not hold, and the cache
+# input would not change, so `--build` might not even re-fetch.
+NEO_SELECTOR="${NEO_REF:-dev}"
+NEO_REPO_URL="${NEO_REPO_URL:-https://github.com/neomjs/neo.git}"
+
+if [[ "$NEO_SELECTOR" =~ ^[0-9a-f]{40}$ ]]; then
+    # A 40-hex string is an OBJECT id — NOT necessarily a commit, and not necessarily
+    # present on the remote at all. Trusting its shape was the last hiding place of the
+    # original defect: an annotated-TAG object id is 40 hex, and the Dockerfile's
+    # `git fetch …; git checkout --detach FETCH_HEAD; git rev-parse HEAD` peels it to the
+    # commit — so the label would attest the tag object while /app/.neo-revision records
+    # the commit. A nonexistent 40-hex id would likewise sail past the fail-before-Docker
+    # contract and only break inside the build.
+    #
+    # So prove it against the remote with the SAME sequence the Dockerfile runs, and export
+    # what that sequence resolves to. `^{commit}` both asserts commit-ness and performs the
+    # peel; a tag object resolves to its commit, a tree or blob fails, and an absent id fails
+    # at fetch. Shallow + a throwaway dir keeps it cheap; the pipeline already hits the network.
+    probe_dir="$(mktemp -d)"
+    trap 'rm -rf "$probe_dir"' EXIT INT TERM
+
+    if ! git -C "$probe_dir" init --quiet >/dev/null 2>&1 \
+       || ! git -C "$probe_dir" fetch --quiet --depth=1 "$NEO_REPO_URL" "$NEO_SELECTOR" >/dev/null 2>&1; then
+        echo "[deploy] FATAL: 40-char id '${NEO_SELECTOR}' could not be fetched from ${NEO_REPO_URL}." >&2
+        echo "[deploy] It is absent, unreachable, or the remote refuses by-id fetches. Docker was NOT invoked." >&2
+        exit 1
+    fi
+
+    resolved_revision="$(git -C "$probe_dir" rev-parse --verify --quiet 'FETCH_HEAD^{commit}' 2>/dev/null || true)"
+
+    if [ -z "$resolved_revision" ]; then
+        echo "[deploy] FATAL: 40-char id '${NEO_SELECTOR}' is not a commit and has no commit to peel to." >&2
+        echo "[deploy] Pass a commit id or an annotated tag name. Docker was NOT invoked." >&2
+        exit 1
+    fi
+
+    if [ "$resolved_revision" != "$NEO_SELECTOR" ]; then
+        # The selector was a tag object (or otherwise peelable). Say so: the operator asked for
+        # one id and the images will carry another, and a silent substitution here is the exact
+        # provenance lie this ticket exists to remove.
+        echo "[deploy] note: '${NEO_SELECTOR}' peeled to commit ${resolved_revision} — the commit is what gets built and attested." >&2
+    fi
+else
+    # A channel/tag, or an abbreviated SHA (which `git fetch` would reject anyway
+    # — see PipelineWiring.md). Resolve it to exactly one full COMMIT id or abort.
+    #
+    # An ANNOTATED tag advertises two lines: the tag object at `refs/tags/X` and the
+    # peeled commit at `refs/tags/X^{}`. Docker checks out the peeled commit, so the
+    # tag-object id would make NEO_REVISION disagree with /app/.neo-revision — the
+    # label attesting an object that is not the deployed source. A 40-char git object
+    # id is not necessarily a COMMIT id. Prefer the peel; never the tag object.
+    # BOTH patterns, and this is load-bearing: an EXACT pattern never elicits the peel.
+    # Verified against a disposable annotated-tag repo — `ls-remote <url> v9.9.9` returns
+    # only `refs/tags/v9.9.9` (the tag object); `ls-remote <url> v9.9.9 'v9.9.9^{}'` also
+    # returns `refs/tags/v9.9.9^{}` (the commit). A `refs/tags/<sel>*` glob would work too
+    # but can over-match (`v9.9.9-rc1`), turning one tag into a false ambiguity abort.
+    ls_remote="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" "${NEO_SELECTOR}^{}" 2>/dev/null || true)"
+    # Ambiguity is decided on the NON-PEEL refs, never after peeling. A selector can match
+    # BOTH a branch and an annotated tag (`refs/heads/X` + `refs/tags/X` + `refs/tags/X^{}`)
+    # — git itself treats that as ambiguous. Preferring the peel first would collapse three
+    # lines to one and silently deploy the tag while ignoring the branch, bypassing this abort.
+    plain_refs="$(printf '%s\n' "$ls_remote" | awk '$2 != "" && $2 !~ /\^\{\}$/ {print $2}')"
+    match_count="$(printf '%s' "$plain_refs" | grep -c . || true)"
+
+    if [ "$match_count" -eq 1 ]; then
+        # Exactly one ref matched. Resolve it to a COMMIT: an annotated tag contributes a
+        # `^{}` peel, everything else already points at a commit.
+        peeled="$(printf '%s\n' "$ls_remote" | awk -v r="$plain_refs" '$2 == r "^{}" {print $1}')"
+
+        if [ -n "$peeled" ]; then
+            matches="$peeled"
+        else
+            matches="$(printf '%s\n' "$ls_remote" | awk -v r="$plain_refs" '$2 == r {print $1}')"
+        fi
+    fi
+
+    if [ "$match_count" -ne 1 ]; then
+        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' matched ${match_count} refs at ${NEO_REPO_URL}; expected exactly 1." >&2
+        echo "[deploy] Pass a full 40-character commit SHA, or a selector naming exactly one ref. Docker was NOT invoked." >&2
+        exit 1
+    fi
+    resolved_revision="$matches"
+fi
+
+export NEO_REF="$resolved_revision"
+export NEO_REVISION="$resolved_revision"
+
+echo "[deploy] selector:     $NEO_SELECTOR"
+echo "[deploy] revision:     $resolved_revision   <- built into the images"
+echo "[deploy] host-checkout: $(git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null || echo unknown)   (this host only; NOT what is deployed)"
 echo "[deploy] compose:  $COMPOSE_FILE"
 echo "[deploy] project:  $PROJECT_NAME"
 echo "[deploy] profiles: ${profile_args[*]}"
