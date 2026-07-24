@@ -1,21 +1,28 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'node:fs';
-import os             from 'node:os';
-import path           from 'node:path';
-import Neo            from '../../../../src/Neo.mjs';
+import {test, expect}     from '@playwright/test';
+import fs                 from 'node:fs';
+import os                 from 'node:os';
+import path               from 'node:path';
+import {fileURLToPath}    from 'node:url';
+import {load as yamlLoad} from 'js-yaml';
+import Neo                from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
+import ConfigProvider, {createConfigProxy} from '../../../../ai/ConfigProvider.mjs';
 import {
     PLANE_DEFAULTS,
     PLANE_ENV,
     assertPlaneCoherence,
+    assertPlaneMemberCoherence,
+    collectPlaneMembers,
     isOpaquePlaneId,
     parsePlaneIdEnv,
     resolvePlaneDataRoot,
     resolvePlaneId
 } from '../../../../ai/planeConfig.mjs';
-import ConfigBase   from '../../../../ai/configBase.mjs';
-import McConfigBase from '../../../../ai/mcp/server/memory-core/configBase.mjs';
-import NlConfigBase from '../../../../ai/mcp/server/neural-link/configBase.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS} from '../../../../ai/configBase.mjs';
+import McConfigBase                     from '../../../../ai/mcp/server/memory-core/configBase.mjs';
+import NlConfigBase                     from '../../../../ai/mcp/server/neural-link/configBase.mjs';
+
+const specDir = path.dirname(fileURLToPath(import.meta.url));
 
 test.describe('ai/planeConfig — the plane-identity pure-defaults twin', () => {
     test('constant maps are frozen and carry env NAMES, never values', () => {
@@ -262,4 +269,103 @@ test.describe('wakeDaemon watermark formulas — reactive derivation from the re
         expect(syncIdFormula(data)).toBe('/pins/lastSyncId');
         expect(cursorFormula(data)).toBe('/pins/cursor')
     });
+});
+
+test.describe('member coherence — a partially-moved plane fails closed', () => {
+    const anchorRoot = '/anchor/.neo-ai-data';
+
+    test('collectPlaneMembers walks resolved + descriptor trees; unresolvable claims throw', () => {
+        const entries = collectPlaneMembers({
+            memberPaths   : ['backupPath'],
+            resolvedConfig: {backupPath: path.join(anchorRoot, 'backups')},
+            descriptorData: {backupPath: {default: path.join(anchorRoot, 'backups')}}
+        });
+
+        expect(entries).toEqual([{path: 'backupPath', resolved: path.join(anchorRoot, 'backups'), default: path.join(anchorRoot, 'backups')}]);
+        expect(() => collectPlaneMembers({memberPaths: ['missing.leaf'], resolvedConfig: {}, descriptorData: {}}))
+            .toThrow('not resolvable')
+    });
+
+    test('a relocated root with members on their anchor defaults THROWS, naming the strays', () => {
+        const members = [
+            {path: 'backupPath', resolved: path.join(anchorRoot, 'backups'), default: path.join(anchorRoot, 'backups')},
+            {path: 'logPath',    resolved: '/relocated/plane/logs',          default: path.join(anchorRoot, 'logs')}
+        ];
+
+        expect(() => assertPlaneMemberCoherence({dataRoot: '/relocated/plane', members, realpathFn: p => p}))
+            .toThrow(/fails closed[\s\S]*backupPath|backupPath[\s\S]*fails closed/)
+    });
+
+    test('explicitly placed members and under-root members both pass', () => {
+        const members = [
+            // Explicitly placed: resolved differs from the declared default.
+            {path: 'memoryWal.dirProd', resolved: '/vol/wal', default: path.join(anchorRoot, 'memory-wal')},
+            // Under the resolved root.
+            {path: 'logPath', resolved: '/relocated/plane/logs', default: '/relocated/plane/logs'}
+        ];
+
+        expect(() => assertPlaneMemberCoherence({dataRoot: '/relocated/plane', members, realpathFn: p => p})).not.toThrow()
+    });
+
+    test('INTEGRATION: a Provider with ONLY NEO_PLANE_DATA_ROOT changed fails member coherence', () => {
+        process.env[PLANE_ENV.dataRoot] = path.join(os.tmpdir(), 'neo-relocated-plane-spec');
+
+        try {
+            const isolated = createConfigProxy(Neo.create(ConfigProvider, {
+                data    : ConfigBase.config.data,
+                formulas: ConfigBase.config.formulas
+            }));
+
+            try {
+                const members = collectPlaneMembers({
+                    memberPaths   : PLANE_MEMBER_PATHS,
+                    resolvedConfig: isolated,
+                    descriptorData: ConfigBase.config.data
+                });
+
+                // The relocation branch Emmy's falsifier disproved: root moved, every
+                // non-overridden claimed member still on the build-time anchor → fail closed.
+                expect(() => assertPlaneMemberCoherence({dataRoot: isolated.plane.dataRoot, members}))
+                    .toThrow('fails closed')
+            } finally {
+                isolated.destroy()
+            }
+        } finally {
+            delete process.env[PLANE_ENV.dataRoot]
+        }
+    });
+
+    test('INTEGRATION: without the relocation env, the full claimed member set passes', () => {
+        const isolated = createConfigProxy(Neo.create(ConfigProvider, {
+            data    : ConfigBase.config.data,
+            formulas: ConfigBase.config.formulas
+        }));
+
+        try {
+            const members = collectPlaneMembers({
+                memberPaths   : PLANE_MEMBER_PATHS,
+                resolvedConfig: isolated,
+                descriptorData: ConfigBase.config.data
+            });
+
+            expect(members.length).toBe(PLANE_MEMBER_PATHS.length);
+            expect(() => assertPlaneMemberCoherence({dataRoot: isolated.plane.dataRoot, members})).not.toThrow()
+        } finally {
+            isolated.destroy()
+        }
+    });
+});
+
+test.describe('healthcheck contract — the observed plane is a DECLARED schema property', () => {
+    for (const server of ['knowledge-base', 'memory-core']) {
+        test(`${server} HealthCheckResponse declares plane {id, dataRoot}`, () => {
+            const spec  = yamlLoad(fs.readFileSync(path.resolve(specDir, `../../../../ai/mcp/server/${server}/openapi.yaml`), 'utf8'));
+            const plane = spec.components.schemas.HealthCheckResponse.properties.plane;
+
+            expect(plane.type).toBe('object');
+            expect(plane.properties.id.type).toBe('string');
+            expect(plane.properties.dataRoot.type).toBe('string');
+            expect(plane.required).toEqual(['id', 'dataRoot'])
+        });
+    }
 });

@@ -1,6 +1,7 @@
 import path                          from 'path';
 import {fileURLToPath}               from 'url';
 import AiConfig                      from '../../../config.mjs';
+import mcConfig                      from './config.mjs';
 import ToolService                   from '../../ToolService.mjs';
 import GraphqlService                from '../../../services/github-workflow/GraphqlService.mjs';
 import PullRequestHistoryService     from '../../../services/github-workflow/PullRequestHistoryService.mjs';
@@ -161,18 +162,20 @@ const serviceMapping = {
     // NOT agent-callable: a mass-destructive op does not belong on the MCP surface, and any
     // confirmation an agent can supply is not a guard. An operator path, if ever needed,
     // routes through DestructiveOperationGuard — never through tool re-exposure.
-    get_all_summaries           : SummaryService         .listSummaries           .bind(SummaryService),
-    get_community_source_health : getCommunitySourceHealth,
-    get_context_frontier        : MemoryService          .getContextFrontier      .bind(MemoryService),
-    get_neighbors               : GraphService           .getNeighbors            .bind(GraphService),
-    get_node                    : GraphService           .getNode                 .bind(GraphService),
-    get_session_memories        : MemoryService          .listMemories            .bind(MemoryService),
+    get_all_summaries          : SummaryService         .listSummaries           .bind(SummaryService),
+    get_community_source_health: getCommunitySourceHealth,
+    get_context_frontier       : MemoryService          .getContextFrontier      .bind(MemoryService),
+    get_neighbors              : GraphService           .getNeighbors            .bind(GraphService),
+    get_node                   : GraphService           .getNode                 .bind(GraphService),
+    get_session_memories       : MemoryService          .listMemories            .bind(MemoryService),
     // Health payload + the OBSERVED plane identity: a deployment manifest's desired-vs-observed
     // comparison needs each process to REPORT what it resolved — host-side re-derivation cannot
-    // populate an observed column. Read at the use site per the Provider SSOT.
+    // populate an observed column. Read from the SAME per-server config the boot assertion
+    // verified (`Server.aiConfig` === this singleton) — never a second Provider, so a custom
+    // child overlay can never verify one identity and report another.
     healthcheck                 : async args => ({
         ...await HealthService.healthcheck(args),
-        plane: {id: AiConfig.plane.id, dataRoot: AiConfig.plane.dataRoot}
+        plane: {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot}
     }),
     mutate_frontier             : MemoryService          .mutateFrontier          .bind(MemoryService),
     pre_brief_session           : MemoryService          .preBriefSession         .bind(MemoryService),

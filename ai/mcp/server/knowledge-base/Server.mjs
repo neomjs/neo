@@ -1,10 +1,12 @@
-import BaseServer            from '../BaseServer.mjs';
-import aiConfig              from './config.mjs';
-import logger                from './logger.mjs';
-import DatabaseService       from '../../../services/knowledge-base/DatabaseService.mjs';
-import HealthService         from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService     from '../../../services/knowledge-base/KBRecorderService.mjs';
-import {listTools, callTool} from './toolService.mjs';
+import BaseServer                       from '../BaseServer.mjs';
+import aiConfig                         from './config.mjs';
+import {collectPlaneMembers}            from '../../../planeConfig.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
+import logger                           from './logger.mjs';
+import DatabaseService                  from '../../../services/knowledge-base/DatabaseService.mjs';
+import HealthService                    from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService                from '../../../services/knowledge-base/KBRecorderService.mjs';
+import {listTools, callTool}            from './toolService.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.
@@ -39,6 +41,20 @@ class Server extends BaseServer {
      */
     isPlaneMember() {
         return true;
+    }
+
+    /**
+     * @summary Walks this server's claimed plane-member paths against the resolved config —
+     * the boot-time input for the F-invariant's member-coherence clause.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return collectPlaneMembers({
+            memberPaths   : PLANE_MEMBER_PATHS,
+            resolvedConfig: this.aiConfig,
+            descriptorData: ConfigBase.config.data
+        });
     }
 
     /**

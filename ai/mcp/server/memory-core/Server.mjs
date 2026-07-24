@@ -28,10 +28,12 @@ import {
     createMessageGraphProjectionProcessor,
     startMessageDrainLoop
 } from '../../../daemons/message/drainCycle.mjs';
-import {acquireMessageDrainLock}      from '../../../daemons/message/drainLock.mjs';
-import {getMissingMessageWalLeaves}   from '../../../services/memory-core/helpers/messageWalStore.mjs';
-import {TRUST_TIERS}                  from '../../../graph/identityRoots.mjs';
-import {normalizeAgentIdentityNodeId} from '../../../graph/normalizeAgentIdentityNodeId.mjs';
+import {acquireMessageDrainLock}        from '../../../daemons/message/drainLock.mjs';
+import {getMissingMessageWalLeaves}     from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {TRUST_TIERS}                    from '../../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId}   from '../../../graph/normalizeAgentIdentityNodeId.mjs';
+import {collectPlaneMembers}            from '../../../planeConfig.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
 
 // Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
 const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -83,6 +85,20 @@ class Server extends BaseServer {
      */
     isPlaneMember() {
         return true;
+    }
+
+    /**
+     * @summary Walks this server's claimed plane-member paths against the resolved config —
+     * the boot-time input for the F-invariant's member-coherence clause.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return collectPlaneMembers({
+            memberPaths   : PLANE_MEMBER_PATHS,
+            resolvedConfig: this.aiConfig,
+            descriptorData: ConfigBase.config.data
+        });
     }
 
     /**

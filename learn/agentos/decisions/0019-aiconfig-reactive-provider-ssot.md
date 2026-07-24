@@ -149,16 +149,17 @@ A3 bans resolution helpers that duplicate the leaf's env-binding *for consumers 
 
 ### 10.4 The F-invariant boot assertion
 
-`assertPlaneCoherence` (twin-side, pure, injectable): resolved `planeId` must be opaque; resolved `dataRoot` must be absolute (a relative root re-imports ambient-cwd resolution); and a NON-canonical `planeId` — a declared overlay — must not resolve, **symlink-transparently**, to the canonical durable root: identity-without-isolation would mutate the durable plane (the reconcile probe's symlink-escape class). Wired at the head of `BaseServer.runHealthcheckAndLogStatus()` — the building block every boot order calls after config load, so custom `boot()` overrides inherit it. ADR 0014's wake-lane file-freshness premise rides on plane-member paths being exactly where the declared plane says they are; this assertion is what makes that premise checkable per process.
+`assertPlaneCoherence` (twin-side, pure, injectable): resolved `planeId` must be opaque; resolved `dataRoot` must be absolute (a relative root re-imports ambient-cwd resolution); and a NON-canonical `planeId` — a declared overlay — must not resolve, **symlink-transparently**, to the canonical durable root: identity-without-isolation would mutate the durable plane (the reconcile probe's symlink-escape class). The **member-coherence clause** (`assertPlaneMemberCoherence`, §10.5) extends the invariant to the member set: a declared member server walks its claimed `PLANE_MEMBER_PATHS` at the same boot point. Wired at the head of `BaseServer.runHealthcheckAndLogStatus()` — the building block every boot order calls after config load, so custom `boot()` overrides inherit it. ADR 0014's wake-lane file-freshness premise rides on plane-member paths being exactly where the declared plane says they are; this assertion is what makes that premise checkable per process.
 
-### 10.5 Member derivation: the A9/A2 decision rule
+### 10.5 Member derivation: the A9/A2 decision rule + enforced coherence
 
-Plane-member leaf defaults derive from ONE module-scope anchor (`resolvePlaneDataRoot({env: {}, rootDir: neoRootDir})` — **env-free** twin resolution; the leaf machinery owns all env binding, so the anchor computation is not an inline env read). Two shapes, chosen by what the parent is:
+Plane-member leaf defaults derive from ONE module-scope anchor (`resolvePlaneDataRoot({env: {}, rootDir: neoRootDir})` — **env-free** twin resolution; the leaf machinery owns all env binding, so the anchor computation is not an inline env read). Because `plane.dataRoot` is itself env-relocatable while member DEFAULTS are anchor-static, the derivation rule alone cannot guarantee coherence on the relocation branch — so the contract is derivation **plus enforcement**:
 
-- **Path under a STATIC root → static derivation** (A9): `leaf(path.resolve(planeDataRoot, 'sub'), ENV, 'string')`.
-- **Child of a RELOCATABLE parent leaf → formula** (the A2 remedy): the child is genuinely computed from the parent's RESOLVED value — an explicit `*Override` leaf wins, else derive from the resolved parent, so relocating the parent moves its children (the `wakeDaemon` watermark shape).
+- **Member defaults → static derivation from the anchor** (A9): `leaf(path.resolve(planeDataRoot, 'sub'), ENV, 'string')` — one source, no per-leaf re-derivation.
+- **Enforced coherence at boot** (the member-coherence clause): each member config base exports its claimed `PLANE_MEMBER_PATHS`; at boot, every claimed member must resolve **beneath the RESOLVED `plane.dataRoot`** or be **explicitly placed** (resolved ≠ its declared default). Setting `NEO_PLANE_DATA_ROOT` alone — a relocated root with members still on their anchor defaults — is a partially-moved plane and **fails boot**: relocation is per-member placement work (member env bindings / the per-profile election), never an implicit cascade.
+- **Child of a RELOCATABLE parent leaf → formula** (the A2 remedy): a child *within* the plane whose parent leaf is itself relocatable is genuinely computed from the parent's RESOLVED value — an explicit `*Override` leaf wins, else derive from the resolved parent, so relocating the parent moves its children (the `wakeDaemon` watermark shape).
 
-Per-profile-pinned members (e.g. a cloud-only default naming the cloud plane root) stay explicit rather than force-anchored; the placement election owns per-profile unification.
+Per-profile-pinned members (e.g. a cloud-only default naming the cloud plane root) stay explicit rather than force-anchored; the placement election owns per-profile unification and the member-set completeness audit.
 
 ### 10.6 Observed identity — resolvable is not observable
 

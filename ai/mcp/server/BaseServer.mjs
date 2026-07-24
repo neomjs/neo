@@ -3,7 +3,11 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import path                                            from 'node:path';
 import {fileURLToPath}                                 from 'node:url';
 import Base                                            from '../../../src/core/Base.mjs';
-import {assertPlaneCoherence, resolvePlaneDataRoot}    from '../../planeConfig.mjs';
+import {
+    assertPlaneCoherence,
+    assertPlaneMemberCoherence,
+    resolvePlaneDataRoot
+} from '../../planeConfig.mjs';
 
 // The durable-root reference for the plane fail-closed check: THIS checkout's default plane
 // root (env-free twin resolution). A declared overlay resolving it — via env leakage or a
@@ -533,6 +537,18 @@ class BaseServer extends Base {
     }
 
     /**
+     * @summary The claimed plane-member entries for this server's config — `{path, resolved,
+     * default}` per member (see `collectPlaneMembers`). Member servers override to walk their
+     * config base's `PLANE_MEMBER_PATHS`; the default empty list keeps non-members and the
+     * base class free of member claims.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return [];
+    }
+
+    /**
      * @summary Fail-closed plane-identity assertion on the RESOLVED config values. Placed on
      * this shared building block because every boot order — the default `boot()` and the
      * custom overrides — calls `runHealthcheckAndLogStatus()` after `loadCustomConfig()`,
@@ -557,11 +573,21 @@ class BaseServer extends Base {
                 `[${this.constructor.name}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
             );
         }
-        return assertPlaneCoherence({
+        const observed = assertPlaneCoherence({
             planeId : plane.id,
             dataRoot: plane.dataRoot,
             canonicalDataRoot
         });
+
+        // Member-coherence clause: a relocated plane root with members still on their
+        // build-time anchor defaults is a partially-moved plane — fail closed, never split
+        // storage across two roots.
+        const members = this.getPlaneMembers();
+
+        if (members.length > 0) {
+            assertPlaneMemberCoherence({dataRoot: plane.dataRoot, members});
+        }
+        return observed;
     }
 
     /**

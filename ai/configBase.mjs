@@ -1486,4 +1486,23 @@ class ConfigBase extends ConfigProvider {
     }
 }
 
+/**
+ * @summary The plane-member paths this Tier-1 base claims — the enumerable input for the
+ * F-invariant's member-coherence clause (`assertPlaneMemberCoherence`): each entry must
+ * resolve beneath the resolved `plane.dataRoot` or be explicitly placed per profile.
+ * Deliberately excludes `orchestrator.tenantRepoMirrorRoot` (cloud-profile-pinned; the
+ * per-profile placement election owns profile-pinned members).
+ */
+export const PLANE_MEMBER_PATHS = Object.freeze([
+    'backupPath',
+    'wakeDaemonHeartbeatAlivePath',
+    'fleet.instanceRoot',
+    'engines.chroma.dataDirProd',
+    'orchestrator.dataDir',
+    'orchestrator.dbPath',
+    'orchestrator.deploymentStateBridge.snapshotPath',
+    'orchestrator.recoveryActuator.healAttemptsPath',
+    'orchestrator.recoveryActuator.recoveryRunStateDir'
+]);
+
 export default Neo.setupClass(ConfigBase);

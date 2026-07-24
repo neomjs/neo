@@ -771,7 +771,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
  * @summary Local builder for the plane-member boundary tests — the `BareServer` isolation
  * precedent (no-op `initAsync`, so creation never races the assertion under test).
  */
-function makeBoundaryServerClass({member}) {
+function makeBoundaryServerClass({member, members = []}) {
     const id = ++_testClassCounter;
     class BoundarySrv extends BaseServer {
         static config = {className: `Neo.test.mcp.server.BoundarySrv${id}`}
@@ -780,6 +780,7 @@ function makeBoundaryServerClass({member}) {
         getServerMetadata() { return {name: 'boundary-test'}; }
         getToolService()    { return {listTools: () => ({tools: []}), callTool: async () => ({})}; }
         isPlaneMember()     { return member; }
+        getPlaneMembers()   { return members; }
     }
     return Neo.setupClass(BoundarySrv);
 }
@@ -812,6 +813,32 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
     test('a declared member with a coherent plane returns the observed identity', () => {
         const server = Neo.create(makeBoundaryServerClass({member: true}));
         server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: path.join(os.tmpdir(), 'neo-plane-boundary-spec')}};
+
+        const observed = server.assertPlaneIdentity();
+        expect(observed.planeId).toBe('overlay-boundary-spec');
+    });
+
+    test('member-coherence clause: a relocated root with anchor-default members fails boot', () => {
+        const relocatedRoot = path.join(os.tmpdir(), 'neo-plane-relocated-spec');
+        const anchorPath    = path.join(os.tmpdir(), 'neo-plane-old-anchor', 'logs');
+        const server        = Neo.create(makeBoundaryServerClass({
+            member : true,
+            members: [{path: 'logPath', resolved: anchorPath, default: anchorPath}]
+        }));
+
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: relocatedRoot}};
+
+        expect(() => server.assertPlaneIdentity()).toThrow('fails closed');
+    });
+
+    test('member-coherence clause: explicitly placed members boot clean', () => {
+        const relocatedRoot = path.join(os.tmpdir(), 'neo-plane-relocated-spec');
+        const server        = Neo.create(makeBoundaryServerClass({
+            member : true,
+            members: [{path: 'logPath', resolved: '/vol/logs', default: path.join(os.tmpdir(), 'neo-plane-old-anchor', 'logs')}]
+        }));
+
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: relocatedRoot}};
 
         const observed = server.assertPlaneIdentity();
         expect(observed.planeId).toBe('overlay-boundary-spec');

@@ -182,6 +182,76 @@ export function assertPlaneCoherence({planeId, dataRoot, canonicalDataRoot, cano
     return Object.freeze({planeId, dataRoot})
 }
 
+/**
+ * @summary Walks a claimed plane-member path list against a RESOLVED config plus the
+ * declaring class's static descriptor data, producing `{path, resolved, default}` entries
+ * for `assertPlaneMemberCoherence`. Fails loud on any unresolvable listed path — a claimed
+ * member that cannot be walked is a contract breach, never a skip.
+ * @param {Object} options
+ * @param {String[]} options.memberPaths Dotted member paths the config base claims.
+ * @param {Object} options.resolvedConfig The resolved config (Provider proxy) to read values from.
+ * @param {Object} options.descriptorData The declaring class's static `config.data` tree.
+ * @returns {Object[]} `{path, resolved, default}` entries.
+ */
+export function collectPlaneMembers({memberPaths, resolvedConfig, descriptorData}) {
+    // Read-then-check (never the `in` operator): resolved configs are Provider PROXIES whose
+    // reads delegate to the reactive data tree without implementing a `has` trap. An
+    // undefined terminal fails loud — a claimed member that cannot be walked is a contract
+    // breach, never a skip.
+    const dig = (obj, dotted, what) => {
+        const value = dotted.split('.').reduce((node, key) => node == null ? undefined : node[key], obj);
+
+        if (value === undefined) {
+            throw new Error(`planeConfig.collectPlaneMembers: claimed member "${dotted}" is not resolvable in the ${what} tree.`);
+        }
+        return value;
+    };
+
+    return memberPaths.map(memberPath => ({
+        path    : memberPath,
+        resolved: dig(resolvedConfig, memberPath, 'resolved'),
+        default : dig(descriptorData, memberPath, 'descriptor').default
+    }))
+}
+
+/**
+ * @summary Member-coherence clause of the F-invariant: when `plane.dataRoot` resolves away
+ * from the build-time anchor (an env/profile relocation), every claimed member must either
+ * sit beneath the RESOLVED root or be EXPLICITLY placed (resolved ≠ its declared default).
+ * A partially-moved plane — root relocated, members still on their anchor defaults — is the
+ * alternate-realities defect this epic exists to remove, so it FAILS BOOT rather than
+ * silently splitting storage across two roots.
+ * Comparison is LITERAL-prefix (`path.resolve` normalization, injectable): member coherence
+ * asks whether a member's resolved string derives from the resolved root — symlink
+ * forensics (a member reaching the root through a link layer) belong to the reconcile
+ * probe, not this boot clause; mixing realpath into one side of a string-derivation
+ * comparison flags every not-yet-created member on a symlinked seat.
+ * @param {Object} options
+ * @param {String} options.dataRoot Resolved `plane.dataRoot`.
+ * @param {Object[]} options.members `{path, resolved, default}` entries from `collectPlaneMembers`.
+ * @param {Function} [options.realpathFn] Path normalizer, injectable for tests.
+ * @returns {void}
+ */
+export function assertPlaneMemberCoherence({dataRoot, members, realpathFn = path.resolve}) {
+    const rootReal = realpathFn(dataRoot);
+
+    const strays = members.filter(member => {
+        if (member.resolved !== member.default) return false;
+
+        const resolvedReal = realpathFn(member.resolved);
+        return resolvedReal !== rootReal && !resolvedReal.startsWith(rootReal + path.sep);
+    });
+
+    if (strays.length > 0) {
+        throw new Error(
+            `planeConfig.assertPlaneMemberCoherence: plane.dataRoot resolves to "${dataRoot}" but ` +
+            `${strays.length} claimed member(s) still derive from the build-time anchor ` +
+            `(${strays.map(stray => stray.path).join(', ')}) — relocating the plane requires per-member ` +
+            'placement (member env bindings / the per-profile election); a partially-moved plane fails closed.'
+        );
+    }
+}
+
 // Module-load invariant: the twin is literals + env NAMES only — the frozen default must
 // satisfy the same opacity predicate every resolved value passes through. Fail at load,
 // not at review.

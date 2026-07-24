@@ -537,4 +537,15 @@ class ConfigBase extends ConfigProvider {
         }
     }
 }
+
+/**
+ * @summary The plane-member paths this server claims — the enumerable input for the
+ * F-invariant's member-coherence clause (`assertPlaneMemberCoherence`), asserted at boot
+ * by `Server.getPlaneMembers()`. The Chroma persist dir is Tier-1-owned (`engines.chroma`)
+ * and asserted by the Tier-1 member list, not re-claimed here.
+ */
+export const PLANE_MEMBER_PATHS = Object.freeze([
+    'logPath'
+]);
+
 export default Neo.setupClass(ConfigBase);

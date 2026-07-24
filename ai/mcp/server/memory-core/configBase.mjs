@@ -876,4 +876,24 @@ class ConfigBase extends ConfigProvider {
         }
     }
 }
+
+/**
+ * @summary The plane-member paths this server claims — the enumerable input for the
+ * F-invariant's member-coherence clause (`assertPlaneMemberCoherence`), asserted at boot
+ * by `Server.getPlaneMembers()`. Prod-side leaves on purpose: test-mode formulas select
+ * disposable paths by construction and are not plane members.
+ */
+export const PLANE_MEMBER_PATHS = Object.freeze([
+    'datasets.rlaif.trajectories',
+    'remRunStateDir',
+    'memoryWal.dirProd',
+    'memoryWal.daemonDataDir',
+    'messageWal.daemonDataDir',
+    'wakeDaemon.dataDir',
+    'hookProjectionRoot',
+    'goldenPathRouteAttributionLedgerDirProd',
+    'logPath',
+    'lazyEdgesQueuePath'
+]);
+
 export default Neo.setupClass(ConfigBase);
