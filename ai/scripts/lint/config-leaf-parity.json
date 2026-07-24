@@ -17,6 +17,7 @@
         "auth.patValidationTimeoutMs",
         "auth.port",
         "auth.realm",
+        "auth.seatTokenRegistryPath",
         "auth.trustProxyIdentity",
         "authMiddleware",
         "backupPath",

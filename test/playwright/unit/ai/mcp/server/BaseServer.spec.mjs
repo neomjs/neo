@@ -13,15 +13,15 @@ setup({
     }
 });
 
-import {test, expect}                                  from '@playwright/test';
-import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import os                                              from 'node:os';
-import path                                            from 'node:path';
-import Neo                                             from '../../../../../../src/Neo.mjs';
-import * as core                                       from '../../../../../../src/core/_export.mjs';
-import ConfigProvider, {createConfigProxy}             from '../../../../../../ai/ConfigProvider.mjs';
-import Tier1ConfigBase                                 from '../../../../../../ai/configBase.mjs';
-import BaseServer                                      from '../../../../../../ai/mcp/server/BaseServer.mjs';
+import {test, expect}                                              from '@playwright/test';
+import {CallToolRequestSchema, ListToolsRequestSchema}             from '@modelcontextprotocol/sdk/types.js';
+import os                                                          from 'node:os';
+import path                                                        from 'node:path';
+import Neo                                                         from '../../../../../../src/Neo.mjs';
+import * as core                                                   from '../../../../../../src/core/_export.mjs';
+import ConfigProvider, {createConfigProxy}                         from '../../../../../../ai/ConfigProvider.mjs';
+import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_MEMBER_PATHS} from '../../../../../../ai/configBase.mjs';
+import BaseServer                                                  from '../../../../../../ai/mcp/server/BaseServer.mjs';
 
 /**
  * @summary Mock McpServer that captures registered request handlers via the schema object
@@ -884,7 +884,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
             const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
             server.aiConfig = isolated;
 
-            expect(server.getPlaneMembers().length).toBe(9);
+            expect(server.getPlaneMembers().length).toBe(TIER1_MEMBER_PATHS.length);
 
             const observed = server.assertPlaneIdentity();
             expect(observed.planeId).toBe('neo-local-canonical');

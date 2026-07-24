@@ -3,6 +3,14 @@
 .fm-fleet-cockpit {
     background: var(--fm-ground);
 
+    /* The cockpit is its own width-query context — the own-width discipline the card (289) and
+       detail pane (315) already follow. Inline-size containment also stops descendant
+       min-content floors (nowrap banner, card rows, chip rows) from escalating into the vessel
+       window's width: a ~314px vessel renders a 314px cockpit, and zone content clips or scrolls
+       internally per the projection contract instead of overruling the window. */
+    container-name: fm-cockpit;
+    container-type: inline-size;
+
     /* The dock projection's tab zones are NAVIGATION vessels inside the FM tonal stack — the generic
        tab body must not leak the stock theme's surface + borders (stock rgb(14,15,13) + rgb(69,75,66)
        against --fm-ground). The pane owns the visible boundary; the tab body stays a layout/overflow
@@ -50,22 +58,22 @@
         .neo-button.fm-detail-window-toggle {
             border       : 1px solid var(--fm-line);
             border-radius: 6px;
-            background   : var(--fm-panel-2);
-            color        : var(--fm-ink-dim);
+            background: var(--fm-panel-2);
+            color     : var(--fm-ink-dim);
             box-shadow   : none;
             font-weight  : 500;
             transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-ink-dim);
-                background   : var(--fm-panel);
-                color        : var(--fm-ink);
+                background: var(--fm-panel);
+                color     : var(--fm-ink);
             }
 
             &.pressed {
                 border-color: var(--fm-ink-dim);
-                background   : var(--fm-panel);
-                color        : var(--fm-ink);
+                background: var(--fm-panel);
+                color     : var(--fm-ink);
             }
 
             .neo-button-glyph,
@@ -77,16 +85,16 @@
         .neo-button.fm-fleet-start {
             border       : 1px solid color-mix(in srgb, var(--fm-signal) 55%, var(--fm-line));
             border-radius: 6px;
-            background   : color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
-            color        : var(--fm-signal);
+            background: color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
+            color     : var(--fm-signal);
             box-shadow   : none;
             font-weight  : 600;
             transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-signal);
-                background   : color-mix(in srgb, var(--fm-signal) 24%, var(--fm-panel-2));
-                color        : var(--fm-signal);
+                background: color-mix(in srgb, var(--fm-signal) 24%, var(--fm-panel-2));
+                color     : var(--fm-signal);
             }
 
             .neo-button-glyph,
@@ -98,5 +106,30 @@
 
     > .fm-fleet-grid {
         border-bottom: 1px solid var(--fm-line-soft);
+    }
+
+    /* Vessel-narrow mode: below the width where two zones can sit beside each other honestly
+       (card floor 289 + stream usable floor + rail 34 + splitter 6 ≈ 570), the cockpit
+       re-arranges instead of overflowing. Presentation-tier only — the committed dock document
+       is the layout SSOT and stays byte-identical at every width. */
+    @container fm-cockpit (max-width: 570px) {
+        /* the bar wraps: presets + honesty line keep row 1, the action pair (pop-out toggle,
+           Start fleet) reaches row 2 — reachable instead of forcing width */
+        .fm-cockpit-bar {
+            flex-wrap: wrap;
+        }
+
+        /* any committed side-by-side split stacks: `flex` extents are axis-agnostic, so the
+           document's proportions re-map to heights untouched. The splitter affordance leaves
+           the flow — its drag axis is wrong here, and resize returns with the width. The
+           default shell document (fleet over stream) never exercises this rule; user-committed
+           horizontal splits do. */
+        .neo-dashboard-dock-split-horizontal {
+            flex-direction: column;
+
+            > .neo-dashboard-dock-splitter-horizontal {
+                display: none;
+            }
+        }
     }
 }

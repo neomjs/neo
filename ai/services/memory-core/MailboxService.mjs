@@ -1122,29 +1122,105 @@ function getArchivedAtForMessage(messageNode, deliveryEdge=null) {
     return messageNode?.properties?.archivedAt || null;
 }
 
+/**
+ * Durably persists a receipt mutation (read or archive) already applied to a per-recipient
+ * `DELIVERED_TO` edge, and reports whether the durable write actually ran.
+ *
+ * ## Why this is not gated on `autoSave`
+ *
+ * `Database#autoSave` exists to suppress **load-echo** writes: every site that clears it
+ * (`Database.mjs` delta-sync invalid-node/edge pruning, vicinity load, and the other bulk
+ * load paths) is populating the in-memory cache *from* storage, where writing back would
+ * amplify writes and pollute the delta log. A read or archive receipt is the opposite — a
+ * **user-originated** mutation that can never be a load echo — so suppressing it under that
+ * flag is a category error, not an optimisation.
+ *
+ * It is also unobservable in every reachable state: those windows are synchronous (no `await`
+ * between clearing the flag and restoring it), so a receipt call cannot execute inside one.
+ * The gate could therefore only ever fire in a state nothing reaches — which is precisely why
+ * it went unnoticed while making the receipt claim a durability it had not delivered.
+ *
+ * The `storage` guard stays: with no storage there is nowhere to write, and the caller needs
+ * to know that rather than reporting an unqualified success.
+ *
+ * @param {Object} edge `DELIVERED_TO` edge record carrying the already-applied receipt property.
+ * @returns {Promise<Boolean>} `true` when the durable write ran; `false` when there was no storage.
+ */
+async function persistReceiptEdge(edge) {
+    const db = GraphService.db;
+
+    if (!db?.storage) {
+        return false;
+    }
+
+    await db.storage.addEdges([edge]);
+    db.acknowledgeLocalMutations?.();
+
+    return true;
+}
+
+/**
+ * Builds the receipt a mailbox lifecycle tool returns, degrading it honestly when the durable
+ * write did not run.
+ *
+ * The happy-path shape is byte-identical to what callers already consume, so nothing that reads
+ * `status` breaks. When the write was skipped the receipt gains `durable: false` plus a warning
+ * instead of silently asserting a persistence that a restart would discard — the in-memory
+ * mutation is real for this process, and that is exactly as much as the receipt may claim.
+ *
+ * The stricter alternative — refusing the ack outright, or returning a retryable status — is
+ * deliberately not taken here: it would change `status` for existing consumers, and the
+ * non-durable branch is unreachable while storage is present. Surfacing beats breaking.
+ *
+ * @param {Object} receipt The success receipt (`{messageId, readAt|archivedAt, status}`).
+ * @param {Boolean} durable Whether the durable write ran.
+ * @param {String} operation Human-readable operation name for the warning text.
+ * @returns {Object} The receipt, annotated when non-durable.
+ */
+function receiptWithDurability(receipt, durable, operation) {
+    if (durable) {
+        return receipt;
+    }
+
+    const warning = `${operation} was applied in memory but NOT persisted: the graph database has no storage backing, so this state is lost on restart.`;
+
+    logger.warn(`[MailboxService] ${warning}`);
+
+    return {...receipt, durable: false, warning};
+}
+
+/**
+ * Sets the read timestamp on a per-recipient `DELIVERED_TO` edge for broadcast messages and
+ * reports whether that mutation reached durable storage.
+ *
+ * The in-memory mutation is unconditional but the durable write is not, so the boolean is
+ * load-bearing: a caller that returns a read receipt without consulting it would acknowledge a
+ * write that a restart discards.
+ *
+ * @param {Object} edge `DELIVERED_TO` edge record.
+ * @param {String} readAt ISO timestamp.
+ * @returns {Promise<Boolean>} `true` when the read state was persisted durably.
+ */
 async function setDeliveryEdgeReadAt(edge, readAt) {
     setRecordProperties(edge, {
         ...getRecordProperties(edge),
         readAt
     });
 
-    const db = GraphService.db;
-
-    if (db?.autoSave && db.storage) {
-        await db.storage.addEdges([edge]);
-        db.acknowledgeLocalMutations?.();
-    }
+    return persistReceiptEdge(edge);
 }
 
 /**
  * Sets the archive timestamp on a per-recipient DELIVERED_TO edge for broadcast
- * messages. Mirrors `setDeliveryEdgeReadAt` exactly — same write shape
- * (merge properties + addEdges + acknowledgeLocalMutations) so broadcast archive state
- * participates in the same WAL coherence guarantees as read receipts.
+ * messages. Mirrors `setDeliveryEdgeReadAt` exactly — both delegate to
+ * `persistReceiptEdge`, so broadcast archive state participates in the same durability
+ * guarantees as read receipts. That mirroring is the reason this function shares the fix:
+ * the two carried identical write shapes, so an archive receipt could report success on a
+ * skipped durable write for exactly the same reason a read receipt could.
  *
  * @param {Object} edge DELIVERED_TO edge record.
  * @param {String} archivedAt ISO timestamp.
- * @returns {Promise<void>}
+ * @returns {Promise<Boolean>} `true` when the archive state was persisted durably.
  */
 async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
     setRecordProperties(edge, {
@@ -1152,12 +1228,7 @@ async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
         archivedAt
     });
 
-    const db = GraphService.db;
-
-    if (db?.autoSave && db.storage) {
-        await db.storage.addEdges([edge]);
-        db.acknowledgeLocalMutations?.();
-    }
+    return persistReceiptEdge(edge);
 }
 
 function linkOptionalMailboxEdge(source, target, type, weight, properties) {
@@ -2246,9 +2317,9 @@ class MailboxService extends Base {
         if (deliveryEdge) {
             const readAt = new Date().toISOString();
 
-            await setDeliveryEdgeReadAt(deliveryEdge, readAt);
+            const durable = await setDeliveryEdgeReadAt(deliveryEdge, readAt);
 
-            return { messageId, readAt, status: 'read' };
+            return receiptWithDurability({ messageId, readAt, status: 'read' }, durable, 'mark_read');
         }
 
         // A broadcast recipient with no visible delivery edge is the one state where the projection is
@@ -2271,9 +2342,9 @@ class MailboxService extends Base {
             if (repairedEdge) {
                 const readAt = new Date().toISOString();
 
-                await setDeliveryEdgeReadAt(repairedEdge, readAt);
+                const durable = await setDeliveryEdgeReadAt(repairedEdge, readAt);
 
-                return { messageId, readAt, status: 'read' };
+                return receiptWithDurability({ messageId, readAt, status: 'read' }, durable, 'mark_read');
             }
         }
 
@@ -2352,9 +2423,9 @@ class MailboxService extends Base {
         if (deliveryEdge) {
             const archivedAt = new Date().toISOString();
 
-            await setDeliveryEdgeArchivedAt(deliveryEdge, archivedAt);
+            const durable = await setDeliveryEdgeArchivedAt(deliveryEdge, archivedAt);
 
-            return { messageId, archivedAt, status: 'archived' };
+            return receiptWithDurability({ messageId, archivedAt, status: 'archived' }, durable, 'archive_message');
         }
 
         if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
