@@ -389,7 +389,9 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false,
+            operation            : null
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -399,7 +401,9 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false,
+            operation            : null
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -409,10 +413,147 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false,
+            operation            : null
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
+    });
+
+    // Reads the REAL `ai:reseed` string out of package.json and feeds it through the real parser, so
+    // the alias is itself reachability-tested: break the script entry and this goes red. Asserting a
+    // hand-written copy of the alias would only prove the copy.
+    test('the ai:reseed npm alias resolves to the operational-re-seed policy', () => {
+        const
+            pkg   = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')),
+            alias = pkg.scripts['ai:reseed'];
+
+        expect(alias).toBeTruthy();
+
+        // npm places the script's own args first and appends everything after `--`, so this is exactly
+        // the argv an operator running `npm run ai:reseed -- <bundle> --force` produces.
+        const
+            aliasArgs = alias.split(/\s+/).slice(2),
+            args      = parseArgs([...aliasArgs, '/tmp/bundle-x', '--force']);
+
+        expect(args.operation).toBe('reseed');
+        expect(args.mode).toBe('replace');
+        expect(args.preserveReadState).toBe(true);
+        // GRAPH-ONLY. `DELIVERED_TO` read-state lives in the graph, which is the entire reason
+        // preservation matters — so a name advertising a safe live operation must not also replace
+        // kb/mc/concepts/trajectories/mailbox. Before this was an operation, the alias inherited
+        // `onlySubstrate: null` and would have replaced all six.
+        expect(args.onlySubstrate).toEqual(['graph']);
+        expect(args.bundleRoot).toBe('/tmp/bundle-x');
+        expect(args.force).toBe(true);
+        // `--force` must NOT be baked into the alias — a destructive acknowledgment may never ride
+        // along inside a convenience name. It is present above only because the operator typed it.
+        expect(alias).not.toMatch(/--force/);
+    });
+
+    test('parseArgs: --preserve-read-state is a boolean flag, off by default', () => {
+        expect(parseArgs(['/some/bundle']).preserveReadState).toBe(false);
+        expect(parseArgs(['/some/bundle', '--preserve-read-state']).preserveReadState).toBe(true);
+        // Order-independent, and it does not swallow the following argument the way a value flag would.
+        const args = parseArgs(['/some/bundle', '--preserve-read-state', '--mode', 'replace']);
+
+        expect(args.preserveReadState).toBe(true);
+        expect(args.mode).toBe('replace');
+    });
+
+    // REACHABILITY, not mechanism. `DatabaseService.graphReplaceReadAtPreserved.spec` already proves the
+    // preservation works when asked for; it cannot prove that anyone asks. A mechanism whose only `true`
+    // lives in its own spec is green and unreachable, so these two assert that the operator's intent
+    // survives the trip from argv to the SDK call. They go red the moment the orchestrator stops
+    // forwarding: the graph import then carries no `preserveDeliveryReadState` key and reads `undefined`.
+    // A named operation must PIN its defining arguments, not pre-set overridable defaults. @neo-gpt-emmy's
+    // falsifier on the first shape: `--operation`-less alias defaults left `onlySubstrate: null` and an
+    // appended `--mode merge` WON — so the name promised a replace and could silently perform a merge
+    // across all six substrates. A name that an argument can redefine is a suggestion, not an operation.
+    test('a named operation REFUSES contradictory arguments instead of being silently redefined', () => {
+        expect(() => parseArgs(['--operation', 'reseed', '/tmp/b', '--mode', 'merge']))
+            .toThrow(/pins mode="replace", but "merge" was requested/);
+        expect(() => parseArgs(['--operation', 'reseed', '/tmp/b', '--only-substrate=kb']))
+            .toThrow(/pins onlySubstrate=\["graph"\], but \["kb"\] was requested/);
+        // An AGREEING argument is not a contradiction — refusing it would be strictness for its own sake.
+        expect(parseArgs(['--operation', 'reseed', '/tmp/b', '--mode', 'replace']).mode).toBe('replace');
+        // Unknown operations fail closed rather than degrading to a plain restore.
+        expect(() => parseArgs(['--operation', 'wipe', '/tmp/b'])).toThrow(/Unknown operation: wipe/);
+        // The plain surface is untouched — disaster recovery keeps its exact-replacement default.
+        const plain = parseArgs(['/tmp/b']);
+
+        expect(plain.operation).toBe(null);
+        expect(plain.preserveReadState).toBe(false);
+        expect(plain.onlySubstrate).toBe(null);
+    });
+
+    test('operational re-seed: preserveReadState reaches the graph SDK import as preserveDeliveryReadState', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'reseed-preserve', shared_topology: true});
+
+        await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            mode             : 'replace',
+            force            : true,
+            preserveReadState: true,
+            // Flat targets MUST be scoped to workRoot. Omitting them falls back to DEFAULT_CONCEPTS_DIR
+            // etc. — the live `.neo-ai-data/` this repo tracks — and `mode:'replace'` with `force:true`
+            // then overwrites another agent's working state from a synthetic fixture. Same shared-resource
+            // class as an orphaned Chroma port wedging every seat's suite.
+            conceptsTargetDir     : path.join(workRoot, 'reseed-preserve-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'reseed-preserve-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'reseed-preserve-targets', 'sent-to-cull.jsonl'),
+            logger                : silentLogger
+        });
+
+        const graphImport = calls.mc.find(c => c.action === 'import' && /graph/.test(String(c.file)));
+
+        expect(graphImport).toBeTruthy();
+        expect(graphImport.preserveDeliveryReadState).toBe(true);
+    });
+
+    test('disaster recovery: the default leaves the graph import exact, never preserving live read state', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'recovery-exact', shared_topology: true});
+
+        await runRestore({
+            expectedDimension     : 1,
+            bundleRoot,
+            mode                  : 'replace',
+            force                 : true,
+            conceptsTargetDir     : path.join(workRoot, 'recovery-exact-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'recovery-exact-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'recovery-exact-targets', 'sent-to-cull.jsonl'),
+            logger                : silentLogger
+        });
+
+        const graphImport = calls.mc.find(c => c.action === 'import' && /graph/.test(String(c.file)));
+
+        expect(graphImport).toBeTruthy();
+        // Explicitly `false`, not absent: `mode:'replace'` means the bundle IS the new state, so a recovery
+        // run must reproduce it exactly rather than silently merging live reads back in. Asserting the
+        // value pins that default as a contract rather than an accident of omission.
+        expect(graphImport.preserveDeliveryReadState).toBe(false);
+    });
+
+    test('merge mode warns that --preserve-read-state has no effect rather than accepting it silently', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'merge-warn', shared_topology: true});
+        const warnings   = [];
+        const logger     = {log: () => {}, warn: msg => warnings.push(String(msg)), error: () => {}};
+
+        await runRestore({
+            expectedDimension     : 1,
+            bundleRoot,
+            mode                  : 'merge',
+            preserveReadState     : true,
+            conceptsTargetDir     : path.join(workRoot, 'merge-warn-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'merge-warn-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'merge-warn-targets', 'sent-to-cull.jsonl'),
+            logger
+        });
+
+        expect(warnings.some(w => /--preserve-read-state has no effect/.test(w))).toBe(true);
+        expect(warnings.some(w => /merge never truncates/.test(w))).toBe(true);
     });
 
     test('validateBundle: standalone validation call returns parsed meta', async () => {
