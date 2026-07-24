@@ -1,10 +1,13 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
 import path           from 'node:path';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import {
     PLANE_DEFAULTS,
     PLANE_ENV,
+    assertPlaneCoherence,
     isOpaquePlaneId,
     parsePlaneIdEnv,
     resolvePlaneDataRoot,
@@ -175,6 +178,68 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
 
         expect(KbConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'));
         expect(NlConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'))
+    });
+});
+
+test.describe('assertPlaneCoherence — the F-invariant, both branches', () => {
+    const canonical = '/durable/checkout/.neo-ai-data';
+
+    test('standard boot: canonical identity passes and returns the frozen observed identity', () => {
+        const observed = assertPlaneCoherence({planeId: PLANE_DEFAULTS.planeId, dataRoot: canonical, canonicalDataRoot: canonical});
+
+        expect(observed).toEqual({planeId: PLANE_DEFAULTS.planeId, dataRoot: canonical});
+        expect(Object.isFrozen(observed)).toBe(true)
+    });
+
+    test('isolated overlay with its OWN root boots', () => {
+        expect(assertPlaneCoherence({
+            planeId          : 'overlay-plane-a',
+            dataRoot         : '/tmp/overlay-a/.neo-ai-data',
+            canonicalDataRoot: canonical
+        }).planeId).toBe('overlay-plane-a')
+    });
+
+    test('overlay that resolves the durable root fails closed', () => {
+        expect(() => assertPlaneCoherence({
+            planeId          : 'overlay-plane-a',
+            dataRoot         : canonical,
+            canonicalDataRoot: canonical
+        })).toThrow('durable root')
+    });
+
+    test('overlay reaching the durable root THROUGH A SYMLINK fails closed — the symlink-escape class', () => {
+        const base    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-plane-f-'));
+        const durable = path.join(base, 'durable-root');
+        const link    = path.join(base, 'overlay-link');
+
+        fs.mkdirSync(durable);
+        fs.symlinkSync(durable, link);
+
+        try {
+            expect(() => assertPlaneCoherence({
+                planeId          : 'overlay-plane-a',
+                dataRoot         : link,
+                canonicalDataRoot: durable
+            })).toThrow('durable root')
+        } finally {
+            fs.rmSync(base, {recursive: true, force: true})
+        }
+    });
+
+    test('a relative dataRoot fails the internal-consistency clause', () => {
+        expect(() => assertPlaneCoherence({
+            planeId          : PLANE_DEFAULTS.planeId,
+            dataRoot         : '.neo-ai-data',
+            canonicalDataRoot: canonical
+        })).toThrow('absolute')
+    });
+
+    test('a path-shaped planeId fails at boot — closes the custom-config route the env parser cannot see', () => {
+        expect(() => assertPlaneCoherence({
+            planeId          : '../worktrees/seat-a',
+            dataRoot         : canonical,
+            canonicalDataRoot: canonical
+        })).toThrow('opaque')
     });
 });
 

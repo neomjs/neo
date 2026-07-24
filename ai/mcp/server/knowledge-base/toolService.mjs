@@ -58,7 +58,12 @@ const serviceMapping = {
     get_class_hierarchy          : QueryService            .getClassHierarchy  .bind(QueryService),
     get_document_by_id           : DocumentService         .getDocumentById    .bind(DocumentService),
     get_mcp_tool_handbook        : toolId => toolService.getToolHandbook(toolId),
-    healthcheck                  : HealthService           .healthcheck        .bind(HealthService),
+    // Health payload + the OBSERVED plane identity (per-process emission for the deployment
+    // manifest's observed column). Read at the use site per the Provider SSOT.
+    healthcheck                  : async () => ({
+        ...await HealthService.healthcheck(),
+        plane: {id: AiConfig.plane.id, dataRoot: AiConfig.plane.dataRoot}
+    }),
     get_deployment_state_snapshot: readDeploymentInspection,
     inspect_deployment           : readDeploymentInspection,
     get_ingestion_progress       : IngestionService        .getIngestionProgress.bind(IngestionService),

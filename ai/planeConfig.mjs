@@ -1,3 +1,4 @@
+import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -117,6 +118,68 @@ export function resolvePlaneDataRoot({env = process.env, rootDir} = {}) {
     }
 
     return path.resolve(rootDir, PLANE_DEFAULTS.dataRootRelative)
+}
+
+/**
+ * @summary Symlink-transparent path identity: real path when the target exists, plain
+ * resolution when it does not (a not-yet-created root cannot be the durable root).
+ * @param {String} p
+ * @returns {String}
+ */
+function realpathOrResolve(p) {
+    try {
+        return fs.realpathSync(p)
+    } catch {
+        return path.resolve(p)
+    }
+}
+
+/**
+ * @summary The F-invariant boot assertion — a declared plane's resolved values must be
+ * internally consistent, and an isolated overlay must FAIL CLOSED if it can resolve the
+ * durable root (including through a symlink layer — the reconcile probe's escape class).
+ *
+ * Three clauses, in order:
+ * 1. `planeId` must be opaque — this closes the custom-config-file route the leaf's
+ *    env parser never sees.
+ * 2. `dataRoot` must be absolute — a relative root re-imports ambient-cwd resolution.
+ * 3. A NON-canonical `planeId` (a declared overlay) must not resolve — symlink-transparently —
+ *    to the canonical durable root: identity-without-isolation would mutate the durable plane.
+ *
+ * Pure and injectable (no Neo import): entrypoints assert provider-resolved values;
+ * non-entrypoints may assert twin-resolved values.
+ * @param {Object} options
+ * @param {String} options.planeId Resolved plane identity.
+ * @param {String} options.dataRoot Resolved plane data root.
+ * @param {String} [options.canonicalDataRoot] The durable root reference; clause 3 only runs when provided.
+ * @param {String} [options.canonicalPlaneId] Canonical identity; defaults to the twin literal.
+ * @param {Function} [options.realpathFn] Path-identity resolver, injectable for tests.
+ * @returns {Object} Frozen observed identity `{planeId, dataRoot}` for emission consumers.
+ */
+export function assertPlaneCoherence({planeId, dataRoot, canonicalDataRoot, canonicalPlaneId = PLANE_DEFAULTS.planeId, realpathFn = realpathOrResolve}) {
+    if (!isOpaquePlaneId(planeId)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: planeId "${planeId}" is not opaque — ` +
+            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
+        );
+    }
+
+    if (typeof dataRoot !== 'string' || !path.isAbsolute(dataRoot)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: dataRoot "${dataRoot}" must be absolute — ` +
+            'a relative plane root re-imports the ambient-cwd resolution this contract retires.'
+        );
+    }
+
+    if (planeId !== canonicalPlaneId && canonicalDataRoot &&
+        realpathFn(dataRoot) === realpathFn(canonicalDataRoot)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: plane "${planeId}" resolves the durable root "${canonicalDataRoot}" — ` +
+            'an isolated overlay must fail closed rather than mutate the durable plane (identity without isolation).'
+        );
+    }
+
+    return Object.freeze({planeId, dataRoot})
 }
 
 // Module-load invariant: the twin is literals + env NAMES only — the frozen default must

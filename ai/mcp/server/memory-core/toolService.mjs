@@ -167,7 +167,13 @@ const serviceMapping = {
     get_neighbors               : GraphService           .getNeighbors            .bind(GraphService),
     get_node                    : GraphService           .getNode                 .bind(GraphService),
     get_session_memories        : MemoryService          .listMemories            .bind(MemoryService),
-    healthcheck                 : HealthService          .healthcheck             .bind(HealthService),
+    // Health payload + the OBSERVED plane identity: a deployment manifest's desired-vs-observed
+    // comparison needs each process to REPORT what it resolved — host-side re-derivation cannot
+    // populate an observed column. Read at the use site per the Provider SSOT.
+    healthcheck                 : async args => ({
+        ...await HealthService.healthcheck(args),
+        plane: {id: AiConfig.plane.id, dataRoot: AiConfig.plane.dataRoot}
+    }),
     mutate_frontier             : MemoryService          .mutateFrontier          .bind(MemoryService),
     pre_brief_session           : MemoryService          .preBriefSession         .bind(MemoryService),
     query_hybrid_graph          : GraphService           .queryNodeTopology       .bind(GraphService),

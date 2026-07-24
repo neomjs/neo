@@ -1,6 +1,17 @@
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import path                                            from 'node:path';
+import {fileURLToPath}                                 from 'node:url';
 import Base                                            from '../../../src/core/Base.mjs';
+import {assertPlaneCoherence, resolvePlaneDataRoot}    from '../../planeConfig.mjs';
+
+// The durable-root reference for the plane fail-closed check: THIS checkout's default plane
+// root (env-free twin resolution). A declared overlay resolving it — via env leakage or a
+// symlink layer — is the breach the boot assertion exists to stop.
+const canonicalDataRoot = resolvePlaneDataRoot({
+    env    : {},
+    rootDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../')
+});
 
 /**
  * @summary Common base class for all Neo MCP servers.
@@ -507,12 +518,36 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Runs the per-server healthcheck (if any) and emits a startup-status log line.
+     * @summary Fail-closed plane-identity assertion on the RESOLVED config values. Placed on
+     * this shared building block because every boot order — the default `boot()` and the
+     * custom overrides — calls `runHealthcheckAndLogStatus()` after `loadCustomConfig()`,
+     * so the assertion also closes the custom-config-file route the leaf's env parser
+     * never sees. Config-less servers (null `aiConfig`) carry no plane by contract.
+     * @returns {Object|null} Frozen observed identity `{planeId, dataRoot}`, or `null`.
+     * @protected
+     */
+    assertPlaneIdentity() {
+        if (!this.aiConfig) return null;
+
+        const {plane} = this.aiConfig;
+
+        return assertPlaneCoherence({
+            planeId : plane.id,
+            dataRoot: plane.dataRoot,
+            canonicalDataRoot
+        });
+    }
+
+    /**
+     * @summary Asserts plane-identity coherence (fail closed before serving), then runs the
+     * per-server healthcheck (if any) and emits a startup-status log line.
      * Returns the health result for use by `afterHealthcheck` hooks.
      * @returns {Promise<Object|null>} The healthcheck result, or `null` if no health service.
      * @protected
      */
     async runHealthcheckAndLogStatus() {
+        this.assertPlaneIdentity();
+
         const healthService = this.getHealthService();
         if (!healthService?.healthcheck) {
             this.logStartupStatus(null);
