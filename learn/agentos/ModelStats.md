@@ -11,6 +11,29 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
+**Who performs these steps: a human or agent who noticed.** Every rule above is discharged by a
+person, not by the system. Read step 2 as *"whoever records a sunset transition records date +
+reason + successor link"* — nothing detects one.
+
+**`sunsetTriggers` is advisory and has fired silently twice.** The field on each row reads like a
+rule that fires. Code **writes** it — `identityRootsMigration.mjs` carries the values into era
+capabilities, `generateRosterOnboarding.mjs` emits a row for it — but **nothing evaluates it**:
+no watcher, no consumer that branches on the condition. Both firings to date produced no action
+until a human noticed:
+
+| Firing | Outcome |
+|---|---|
+| Claude Opus 4.8 release | Unactioned. Recorded in ADR 0018 §30. |
+| Claude Opus 5 release, 2026-07-24 | Unactioned until an operator asked for the update (#15855). |
+
+The cost is not the silence — a human caught both — but the **false belief** the field creates.
+While rotating to Opus 5, a maintainer who had just read ADR 0012 wrote an Acceptance Criterion
+asserting `§sunset_history` owed a new entry, reasoning *"the trigger fired, so a transition is
+recorded."* It was wrong (§2.3 makes an in-place rotation a **rename**, which deprecates nothing)
+and was retracted before it produced a false record. A trap that catches an attentive reader is a
+substrate defect, not a discipline failure — so the affordance is labelled rather than trusted.
+Full context: #15866.
+
 **Last updated:** 2026-07-24
 
 ---

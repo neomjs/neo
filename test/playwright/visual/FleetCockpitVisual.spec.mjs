@@ -28,7 +28,8 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
 
     /**
      * Boots the agentos shell and waits for the SETTLED fleet cockpit: shell visible, fonts
-     * loaded, at least one card rendered from the seed, and no dock motion in flight.
+     * loaded, at least one card rendered from the seed, every card image settled, and no dock
+     * motion in flight.
      * @param {Object} page
      */
     const bootSettledCockpit = async page => {
@@ -37,6 +38,25 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 30000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
         await page.evaluate(() => document.fonts.ready);
+        // The one non-deterministic layer of the fixture render: card avatars are LIVE GitHub
+        // image fetches, and a capture that races them locks placeholder circles into the pixels.
+        // Wait for every present image to settle (load OR error), bounded so a dead fetch can
+        // never wedge the suite.
+        await page.evaluate(() => Promise.all(
+            [...document.images]
+                .filter(img => !img.complete)
+                .map(img => new Promise(resolve => {
+                    img.addEventListener('load',  resolve, {once: true});
+                    img.addEventListener('error', resolve, {once: true});
+                    setTimeout(() => {
+                        // A dead fetch resolves identically to a load — without this line the gate
+                        // emits nothing and the placeholder-circle capture it exists to prevent
+                        // lands silently. The bound must be observable to be a bound.
+                        console.warn(`[visual-fixture] image did not settle within 10s: ${img.currentSrc || img.src || '(no src)'} — capturing with whatever is rendered`);
+                        resolve()
+                    }, 10000)
+                }))
+        ));
         await expect(page.locator('.neo-dashboard-dock-animating')).toHaveCount(0);
     };
 
@@ -90,6 +110,52 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         expect(geometry.startRect.left, 'the Start fleet button is not clipped at the left edge either').toBeGreaterThanOrEqual(0);
 
         await expect(page).toHaveScreenshot('cockpit-vessel-314.png')
+    });
+
+    test('the 720 intermediate band — shrink-only regime: no wrap, no overflow, banner truncation-capable (viewport capture, geometry asserted)', async ({page}) => {
+        // The lattice's third point, between the 314 fit witness and the desktop baselines:
+        // above the 570px vessel-narrow threshold (the @container block must stay
+        // silent — no bar wrap, no split stacking) but narrow enough that the unconditionally
+        // shrinkable spine banner is the only pressure valve. This receipt pins the shrink-only
+        // regime: zero document overflow, the bar keeps ONE row (proven via computed flex-wrap,
+        // never child-top arithmetic — siblings differ in height), and the banner is permitted to
+        // shrink — visibly truncating when the fixture text exceeds its compressed box.
+        await page.setViewportSize({width: 720, height: 900});
+        await bootSettledCockpit(page);
+
+        const geometry = await page.evaluate(() => {
+            const bar    = document.querySelector('.fm-cockpit-bar'),
+                  banner = document.querySelector('.fm-spine-banner'),
+                  start  = document.querySelector('.fm-fleet-start');
+
+            return {
+                viewport      : window.innerWidth,
+                docScrollWidth: Math.round(document.documentElement.scrollWidth),
+                barWrap       : getComputedStyle(bar).flexWrap,
+                banner        : banner ? {
+                    clientWidth : Math.round(banner.clientWidth),
+                    scrollWidth : Math.round(banner.scrollWidth),
+                    flexShrink  : getComputedStyle(banner).flexShrink,
+                    textOverflow: getComputedStyle(banner).textOverflow
+                } : null,
+                startRight    : start ? Math.round(start.getBoundingClientRect().right) : null
+            }
+        });
+
+        expect(geometry.viewport, 'the viewport is the 720px intermediate band').toBe(720);
+        expect(geometry.docScrollWidth, 'no horizontal document overflow in the shrink-only regime').toBeLessThanOrEqual(geometry.viewport);
+        expect(geometry.barWrap, 'the vessel-narrow wrap rule stays silent above the 570px threshold').toBe('nowrap');
+        expect(geometry.banner, 'the spine banner is rendered').not.toBeNull();
+        expect(geometry.banner.flexShrink, 'the banner is permitted to shrink — the unconditional-shrink contract').toBe('1');
+        // The truncation witness is UNCONDITIONAL: at this width the banner must be under
+        // compression, or the shrink-only regime is not the one being witnessed. A conditional
+        // assert could silently no-op into a green run that witnesses nothing — the day the
+        // fixture text shortens or a design fix widens the box, this receipt must go red, not quiet.
+        expect(geometry.banner.scrollWidth, 'the banner text must exceed its compressed box at 720 — the regime under witness requires live pressure').toBeGreaterThan(geometry.banner.clientWidth);
+        expect(geometry.banner.textOverflow, 'the pressure resolves as visible truncation').toBe('ellipsis');
+        expect(geometry.startRight, 'Start fleet stays inside the band').toBeLessThanOrEqual(geometry.viewport);
+
+        await expect(page).toHaveScreenshot('cockpit-intermediate-720.png')
     });
 
     test('the Accounts surface — the inherited design-gate golden, under harness refresh semantics', async ({page}) => {
