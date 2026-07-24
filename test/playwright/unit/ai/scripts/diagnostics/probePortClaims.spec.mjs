@@ -1,5 +1,6 @@
 import {expect, test}                                from '@playwright/test';
-import {groupByServedCheckout, parseListenerRecords} from '../../../../../../ai/scripts/diagnostics/probePortClaims.mjs';
+import {groupByServedCheckout, parseListenerRecords,
+        servedCheckouts}                             from '../../../../../../ai/scripts/diagnostics/probePortClaims.mjs';
 
 /**
  * The probe answers the fourth axis of a per-seat data-root reconcile: which checkout SERVES each
@@ -79,7 +80,18 @@ test.describe('ai/scripts/diagnostics/probePortClaims', () => {
         expect(grouped['/canonical/neo']).toEqual([8080]);
 
         // The finding this exists to surface: more than one checkout serving one host's namespace.
-        expect(Object.keys(grouped).filter(key => key !== 'unknown').length).toBeGreaterThan(1);
+        expect(servedCheckouts(grouped).length).toBeGreaterThan(1);
+    });
+
+    test('a root-owned daemon is NOT counted as a checkout', () => {
+        // A stock macOS host always has something rooted at `/` (ControlCenter, etc). Counting raw
+        // group keys would report a checkout that does not exist, inflating the very finding this
+        // probe is meant to establish — an over-count is as wrong as a miss.
+        const grouped = groupByServedCheckout(parseListenerRecords(fixture, resolver));
+
+        expect(grouped['/']).toEqual([5000]);
+        expect(servedCheckouts(grouped)).not.toContain('/');
+        expect(servedCheckouts(grouped)).not.toContain('unknown');
     });
 
     test('empty lsof output is a valid observation, not an error', () => {

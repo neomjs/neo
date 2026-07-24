@@ -38,20 +38,30 @@ import {execFileSync} from 'child_process';
 const UNKNOWN = 'unknown';
 
 /**
- * @summary Runs lsof, returning '' rather than throwing when it is absent or finds nothing.
+ * @summary Runs lsof, separating "looked and saw nothing" from "could not look".
  *
  * lsof exits non-zero on "no matching processes", which is a legitimate empty result rather than
  * a failure — a host with no listeners is a valid observation, not an error.
  *
+ * **"Could not observe" is never reported as "observed nothing."** `lsof` absent, a permission
+ * refusal and a genuinely quiet host are three different facts; collapsing them into `[]` would
+ * make the probe unable to fail, and an instrument that cannot fail cannot be evidence.
+ *
  * @param {String[]} args
- * @returns {String} Raw stdout, or '' when lsof is unavailable or matched nothing.
+ * @returns {{ok: Boolean, stdout: String, reason: String|null}} `ok:false` carries why.
  */
 function lsof(args) {
     try {
-        return execFileSync('lsof', args, {encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore']});
+        return {ok: true, stdout: execFileSync('lsof', args, {encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore']}), reason: null};
     } catch (e) {
-        // Non-zero with output still carries the matches; only a truly empty result is empty.
-        return e?.stdout || '';
+        // lsof exits non-zero on "no matching processes" while still emitting the matches it found,
+        // so stdout presence — not exit code — is what distinguishes a real result from a failure.
+        if (e?.stdout) return {ok: true, stdout: e.stdout, reason: null};
+
+        if (e?.code === 'ENOENT') return {ok: false, stdout: '', reason: 'lsof-unavailable'};
+        if (e?.status === 1)      return {ok: true,  stdout: '', reason: null};
+
+        return {ok: false, stdout: '', reason: `lsof-failed: ${e?.code ?? e?.status ?? 'unknown'}`};
     }
 }
 
@@ -61,9 +71,11 @@ function lsof(args) {
  * @returns {String} Absolute cwd, or `'unknown'` when the process is not inspectable (foreign uid).
  */
 export function resolveProcessCwd(pid) {
-    const raw = lsof(['-a', '-p', pid, '-d', 'cwd', '-F', 'n']);
+    const {ok, stdout} = lsof(['-a', '-p', pid, '-d', 'cwd', '-F', 'n']);
 
-    for (const line of raw.split('\n')) {
+    if (!ok) return UNKNOWN;
+
+    for (const line of stdout.split('\n')) {
         if (line.startsWith('n')) return line.slice(1);
     }
 
@@ -77,11 +89,16 @@ export function resolveProcessCwd(pid) {
  * names it, and each following `n<name>` is one of that process's sockets. State is carried across
  * lines by design of the format, which is why this is a fold rather than a per-line map.
  *
- * @returns {Array<{port: Number, pid: String, command: String, cwd: String}>} One row per listening
- *          socket, sorted by port. `cwd` is `'unknown'` when the owning process is not inspectable.
+ * @returns {{observed: Boolean, reason: String|null, rows: Array<{port: Number, pid: String, command: String, cwd: String}>}}
+ *          `observed:false` means the probe could not look — never that it looked and found nothing.
+ *          `rows` is sorted by port; `cwd` is `'unknown'` when the owning process is not inspectable.
  */
 export function probePortClaims() {
-    return parseListenerRecords(lsof(['-nP', '-iTCP', '-sTCP:LISTEN', '-F', 'pcn']), resolveProcessCwd);
+    const {ok, stdout, reason} = lsof(['-nP', '-iTCP', '-sTCP:LISTEN', '-F', 'pcn']);
+
+    if (!ok) return {observed: false, reason, rows: []};
+
+    return {observed: true, reason: null, rows: parseListenerRecords(stdout, resolveProcessCwd)};
 }
 
 /**
@@ -128,11 +145,16 @@ export function parseListenerRecords(raw, cwdResolver) {
 }
 
 /**
- * @summary Groups listeners by the checkout they serve, so one host's plane split is readable at a glance.
- * @param {Array<Object>} [rows=probePortClaims()]
+ * @summary Groups listeners by the checkout they serve, so one host's plane split is readable.
+ *
+ * `/` and `unknown` are grouped like any other key but are NOT checkouts — a daemon rooted at `/`
+ * says nothing about a plane. Callers counting distinct checkouts must use {@link servedCheckouts},
+ * which excludes them; counting raw keys over-reports, since a stock macOS host always carries `/`.
+ *
+ * @param {Array<Object>} rows Listener rows from {@link probePortClaims}`.rows`.
  * @returns {Object<String, Number[]>} cwd → ascending ports served from it.
  */
-export function groupByServedCheckout(rows = probePortClaims()) {
+export function groupByServedCheckout(rows) {
     const grouped = {};
 
     for (const {cwd, port} of rows) {
@@ -144,16 +166,30 @@ export function groupByServedCheckout(rows = probePortClaims()) {
     return grouped;
 }
 
+/**
+ * @summary The keys of {@link groupByServedCheckout} that actually denote a checkout.
+ * @param {Object<String, Number[]>} grouped
+ * @returns {String[]} Paths excluding `/` and `unknown`.
+ */
+export function servedCheckouts(grouped) {
+    return Object.keys(grouped).filter(key => key !== UNKNOWN && key !== '/');
+}
+
 function main() {
-    const rows = probePortClaims();
+    const {observed, reason, rows} = probePortClaims();
 
     if (process.argv.includes('--json')) {
-        console.log(JSON.stringify({rows, byCheckout: groupByServedCheckout(rows)}, null, 4));
+        console.log(JSON.stringify({observed, reason, rows, byCheckout: groupByServedCheckout(rows)}, null, 4));
+        return;
+    }
+
+    if (!observed) {
+        console.log(`Could not observe port claims (${reason}). This is NOT "no listeners".`);
         return;
     }
 
     if (!rows.length) {
-        console.log('No TCP listeners observed (or lsof unavailable).');
+        console.log('Observed successfully: this host has no TCP listeners.');
         return;
     }
 
@@ -163,7 +199,7 @@ function main() {
     }
 
     const byCheckout = groupByServedCheckout(rows),
-          checkouts  = Object.keys(byCheckout).filter(key => key !== UNKNOWN);
+          checkouts  = servedCheckouts(byCheckout);
 
     if (checkouts.length > 1) {
         console.log(`\n${checkouts.length} distinct checkouts are serving ports on this host:`);
