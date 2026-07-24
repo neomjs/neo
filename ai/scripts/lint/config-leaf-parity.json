@@ -242,6 +242,7 @@
         "orchestrator.tenantRepoMirrorRoot",
         "orchestrator.tenantRepoSync",
         "orchestrator.tenantRepoSync.jitterRatio",
+        "orchestrator.tenantRepoSync.leaseStaleAfterMs",
         "orchestrator.tenantRepoSync.sweepCadenceMs",
         "orchestrator.wakeDispatch",
         "orchestrator.wakeDispatch.attemptTimeoutSeconds",

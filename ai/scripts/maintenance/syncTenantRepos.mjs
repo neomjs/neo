@@ -14,8 +14,11 @@
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>  # scoped full replay
  *
  * Exit code: 0 on `completed`, 1 on `failed` or `skipped`
- * (no-tenant-repos-configured), 2 on argument error, and 3 when a selected
- * repo slug is not configured.
+ * (no-tenant-repos-configured), 2 on argument error, 3 when a selected
+ * repo slug is not configured, and 4 when another process (the orchestrator's
+ * periodic sweep or a second CLI run) holds the cross-process tenant-repo-sync
+ * lease. The lease serializes both entry paths over the shared revisions
+ * manifest; a held lease is a bounded busy result, never a silent race.
  *
  * Mirrors the operator-side pattern of `ai/scripts/maintenance/backup.mjs` and the
  * other `./maintenance/*` scripts — bootstrap Neo namespace then invoke a service.
@@ -29,6 +32,10 @@ import * as core       from '../../../src/core/_export.mjs';
 import {pathToFileURL} from 'url';
 
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import {
+    KB_TENANT_REPO_SYNC_LEASE_HELD,
+    KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED
+} from '../../daemons/orchestrator/services/TenantRepoSyncErrors.mjs';
 
 /**
  * @summary Parses manual tenant-repo-sync selectors and scoped replay intent.
@@ -75,10 +82,16 @@ tenantRepo. Pass --repo-slug to scope to a specific repo (repeatable).
 Pass --full only with one or more --repo-slug selectors to rebuild those repos
 from a null revision base. Stored checkpoints advance only after an error-free replay.
 
+Runs are serialized against the orchestrator's periodic sweep through a
+cross-process lease next to the revisions manifest: if another sync is active,
+this CLI exits immediately with code 4 instead of racing it. Crashed lease
+owners recover automatically; simply re-run.
+
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
   1  failed (all repos failed) or skipped (no configured tenantRepos)
   3  --repo-slug requested but the named repo is not configured (KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)
+  4  another process holds the tenant-repo-sync lease (KB_TENANT_REPO_SYNC_LEASE_HELD) — retry after it finishes
   2  argument-parse error`);
 }
 
@@ -152,13 +165,37 @@ async function main() {
 
     console.log(JSON.stringify(result, null, 2));
 
+    if (result.details?.reasonCode === KB_TENANT_REPO_SYNC_LEASE_HELD) {
+        console.error(
+            `Another tenant-repo sync holds the cross-process lease (owner: ${result.details.leaseOwner}, ` +
+            `expires: ${result.details.leaseExpiresAt}). Retry after it finishes.`
+        );
+    }
+
+    process.exit(resolveExitCode(result));
+}
+
+/**
+ * @summary Maps a `TenantRepoSyncService.runTask` result to the CLI's documented exit code.
+ *
+ * Kept pure and exported so the exit-code contract is unit-testable without
+ * spawning the CLI. The mapping is part of the operator interface: runbooks and
+ * pipelines branch on these codes, so changes here are contract changes.
+ *
+ * @param {Object} result `{status, details}` shape returned by `runTask`.
+ * @returns {Number} 0 completed · 4 cross-process lease held · 3 requested repo not configured · 1 failed/skipped otherwise.
+ */
+function resolveExitCode(result) {
     if (result.status === 'completed') {
-        process.exit(0);
+        return 0;
     }
-    if (result.status === 'failed' && result.details?.reasonCode === 'KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED') {
-        process.exit(3);
+    if (result.details?.reasonCode === KB_TENANT_REPO_SYNC_LEASE_HELD) {
+        return 4;
     }
-    process.exit(1);
+    if (result.status === 'failed' && result.details?.reasonCode === KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED) {
+        return 3;
+    }
+    return 1;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
@@ -169,4 +206,4 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     })
 }
 
-export {buildRunTaskOptions, parseArgs};
+export {buildRunTaskOptions, parseArgs, resolveExitCode};

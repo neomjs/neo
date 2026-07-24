@@ -229,6 +229,350 @@ function writeLeaseFileSync(leasePath, lease, fsModule) {
     fsModule.writeFileSync(leasePath, JSON.stringify(lease, null, 2), {encoding: 'utf8', flag: 'wx'});
 }
 
+export const LIFECYCLE_GUARD_SUFFIX = '.lifecycle-guard';
+
+const
+    DEFAULT_GUARD_STALE_AFTER_MS = 10000,
+    GUARD_MAX_ATTEMPTS           = 100,
+    GUARD_OWNER_FILE_PREFIX      = 'owner-',
+    GUARD_RETRY_DELAY_MS         = 10;
+
+function lifecycleGuardPath(leasePath) {
+    return `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+}
+
+/**
+ * @summary Serializes every read-verify-mutate lease transition through one identity-carrying directory mutex.
+ *
+ * Entry is atomic-with-identity: the entrant stages a directory containing its
+ * unique `owner-<token>` file and `rename()`s it onto the canonical guard name.
+ * POSIX rename refuses a non-empty target, so a LIVE guard can never be
+ * replaced; exactly one entrant wins a vacant name. Recovery, release, and
+ * renewal all mutate the canonical lease name based on a fresh read taken
+ * INSIDE the guard — never on a pre-guard observation.
+ *
+ * Plain acquisition deliberately stays OUTSIDE the guard: an exclusive `wx`
+ * create is already atomic, and a guarded recoverer's unlink→create window
+ * admitting an outside `wx` winner is safe — the recoverer's own exclusive
+ * create then fails `EEXIST` and defers.
+ *
+ * Abandoned-guard recovery is identity-safe: staleness is judged on the mtime
+ * of the owner token the CURRENT guard carries, and the steal consumes exactly
+ * the OBSERVED artifacts — `unlink` of the specific observed owner filename
+ * (`ENOENT` ⇒ the observed guard is already gone or replaced ⇒ abort) followed
+ * by `rmdir`, which the filesystem itself fails with `ENOTEMPTY` when any
+ * OTHER entrant's token is present. Removing a replacement guard by pathname —
+ * the cycle-3 reviewer-reproduced double-entry — is therefore structurally
+ * impossible: no step of the steal can consume artifacts it did not observe.
+ *
+ * Residual bound (stated precisely): a holder stalled past `guardStaleAfterMs`
+ * (default 10s vs µs-scale guarded sections) can be evicted by a legitimate
+ * steal. Every lease mutation inside the critical section re-verifies live
+ * ownership via {@link verifyLifecycleGuardOwnership} immediately before
+ * acting, so a resumed evicted holder DEFERS instead of mutating — the
+ * remaining exposure is the single stat→syscall gap of that probe, reachable
+ * only by a holder that both stalled past the threshold and resumed inside
+ * that gap. Live transitions cannot be evicted or replaced.
+ *
+ * Guard aging deliberately uses the physical clock (not the injectable `now`
+ * lease seam): lease TTL math is logical time for deterministic tests, guard
+ * aging is crash detection — tests steer it via `fs.utimes` on the owner file
+ * (or the empty legacy dir) + the `guardStaleAfterMs` option instead.
+ *
+ * @param {Object} options
+ * @param {String} options.leasePath Canonical lease file path.
+ * @param {Object} options.fsModule File-system implementation seam.
+ * @param {Number} [options.guardStaleAfterMs=10000] Age after which an abandoned guard is reclaimable.
+ * @returns {Promise<Object|null>} `{ownerFilePath}` when entered; `null` when attempts were exhausted (contention).
+ */
+async function enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
+    const guardPath = lifecycleGuardPath(leasePath);
+
+    for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, GUARD_RETRY_DELAY_MS));
+        }
+
+        const token         = crypto.randomUUID(),
+              stagingPath   = `${guardPath}.enter-${token}`,
+              ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
+
+        try {
+            await fsModule.mkdir(stagingPath);
+            await fsModule.writeFile(path.join(stagingPath, ownerFileName), '', 'utf8');
+            await fsModule.rename(stagingPath, guardPath);
+            return {ownerFilePath: path.join(guardPath, ownerFileName)};
+        } catch (e) {
+            await fsModule.remove(stagingPath).catch(() => {});
+
+            if (e.code === 'ENOENT') {
+                await fsModule.ensureDir(path.dirname(guardPath));
+                continue;
+            }
+            if (e.code !== 'EEXIST' && e.code !== 'ENOTEMPTY' && e.code !== 'ENOTDIR') {
+                throw e;
+            }
+        }
+
+        // Guard held by someone. Observe its CURRENT identity artifacts; only a
+        // fully stale observation may be consumed, and only artifact-by-artifact.
+        let observedNames;
+        try {
+            observedNames = await fsModule.readdir(guardPath);
+        } catch (e) {
+            if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                continue; // vacated between rename-failure and observation — retry
+            }
+            throw e;
+        }
+
+        let newestMtimeMs = null,
+            unobservable  = false;
+
+        if (observedNames.length === 0) {
+            // Interrupted-entry / legacy artifact: an empty guard dir. Judge by dir mtime.
+            try {
+                newestMtimeMs = (await fsModule.stat(guardPath)).mtimeMs;
+            } catch (e) {
+                if (e.code === 'ENOENT') continue;
+                throw e;
+            }
+        } else {
+            for (const name of observedNames) {
+                try {
+                    const {mtimeMs} = await fsModule.stat(path.join(guardPath, name));
+                    newestMtimeMs   = newestMtimeMs === null ? mtimeMs : Math.max(newestMtimeMs, mtimeMs);
+                } catch (e) {
+                    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                        unobservable = true; // contents changed under observation — not ours to judge
+                        break;
+                    }
+                    throw e;
+                }
+            }
+        }
+
+        if (unobservable || Date.now() - newestMtimeMs < guardStaleAfterMs) {
+            continue; // live (or unjudgeable) guard — wait
+        }
+
+        // Identity-safe steal: consume exactly what was observed. Any ENOENT means
+        // the observed guard no longer exists as observed — abort, never escalate
+        // to pathname-based removal.
+        let stealAborted = false;
+        for (const name of observedNames) {
+            try {
+                await fsModule.unlink(path.join(guardPath, name));
+            } catch (e) {
+                if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                    stealAborted = true;
+                    break;
+                }
+                throw e;
+            }
+        }
+        if (stealAborted) continue;
+
+        try {
+            await fsModule.rmdir(guardPath);
+        } catch (e) {
+            // ENOTEMPTY: another entrant claimed the vacancy mid-steal — theirs now.
+            if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+                throw e;
+            }
+        }
+        // Next attempt's staged rename competes for the vacant name.
+    }
+
+    return null;
+}
+
+/**
+ * @summary Proves this entrant still owns the lifecycle guard — called immediately before every
+ * lease mutation inside the critical section, so an evicted stalled holder defers instead of
+ * mutating a successor's state.
+ *
+ * @param {Object} options
+ * @param {String} options.ownerFilePath Owner-token path returned by {@link enterLifecycleGuard}.
+ * @param {Object} options.fsModule File-system implementation seam.
+ * @returns {Promise<Boolean>}
+ */
+async function verifyLifecycleGuardOwnership({ownerFilePath, fsModule}) {
+    try {
+        await fsModule.stat(ownerFilePath);
+        return true;
+    } catch (e) {
+        if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+            return false;
+        }
+        throw e;
+    }
+}
+
+async function exitLifecycleGuard({ownerFilePath, fsModule}) {
+    try {
+        await fsModule.unlink(ownerFilePath);
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') {
+            throw e;
+        }
+    }
+
+    try {
+        await fsModule.rmdir(path.dirname(ownerFilePath));
+    } catch (e) {
+        // ENOTEMPTY: a new entrant renamed onto the name during our µs exit window — theirs now.
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+            throw e;
+        }
+    }
+}
+
+/**
+ * @summary Synchronous mirror of {@link enterLifecycleGuard} for orchestrator-poll callers.
+ *
+ * The retry delay is a bounded synchronous spin: the guard protects
+ * microsecond-scale fs transitions, so a contended entry resolves within a few
+ * quanta; the spin budget is capped by `GUARD_MAX_ATTEMPTS`.
+ *
+ * @param {Object} options See {@link enterLifecycleGuard}.
+ * @returns {Object|null}
+ */
+function enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
+    const guardPath = lifecycleGuardPath(leasePath);
+
+    for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            const spinUntil = Date.now() + GUARD_RETRY_DELAY_MS;
+            while (Date.now() < spinUntil) {
+                // bounded sync spin — see @summary
+            }
+        }
+
+        const token         = crypto.randomUUID(),
+              stagingPath   = `${guardPath}.enter-${token}`,
+              ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
+
+        try {
+            fsModule.mkdirSync(stagingPath);
+            fsModule.writeFileSync(path.join(stagingPath, ownerFileName), '', 'utf8');
+            fsModule.renameSync(stagingPath, guardPath);
+            return {ownerFilePath: path.join(guardPath, ownerFileName)};
+        } catch (e) {
+            try {
+                fsModule.removeSync(stagingPath);
+            } catch (cleanupError) {}
+
+            if (e.code === 'ENOENT') {
+                fsModule.ensureDirSync(path.dirname(guardPath));
+                continue;
+            }
+            if (e.code !== 'EEXIST' && e.code !== 'ENOTEMPTY' && e.code !== 'ENOTDIR') {
+                throw e;
+            }
+        }
+
+        let observedNames;
+        try {
+            observedNames = fsModule.readdirSync(guardPath);
+        } catch (e) {
+            if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                continue;
+            }
+            throw e;
+        }
+
+        let newestMtimeMs = null,
+            unobservable  = false;
+
+        if (observedNames.length === 0) {
+            try {
+                newestMtimeMs = fsModule.statSync(guardPath).mtimeMs;
+            } catch (e) {
+                if (e.code === 'ENOENT') continue;
+                throw e;
+            }
+        } else {
+            for (const name of observedNames) {
+                try {
+                    const {mtimeMs} = fsModule.statSync(path.join(guardPath, name));
+                    newestMtimeMs   = newestMtimeMs === null ? mtimeMs : Math.max(newestMtimeMs, mtimeMs);
+                } catch (e) {
+                    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                        unobservable = true;
+                        break;
+                    }
+                    throw e;
+                }
+            }
+        }
+
+        if (unobservable || Date.now() - newestMtimeMs < guardStaleAfterMs) {
+            continue;
+        }
+
+        let stealAborted = false;
+        for (const name of observedNames) {
+            try {
+                fsModule.unlinkSync(path.join(guardPath, name));
+            } catch (e) {
+                if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                    stealAborted = true;
+                    break;
+                }
+                throw e;
+            }
+        }
+        if (stealAborted) continue;
+
+        try {
+            fsModule.rmdirSync(guardPath);
+        } catch (e) {
+            if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+                throw e;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @summary Synchronous mirror of {@link verifyLifecycleGuardOwnership}.
+ *
+ * @param {Object} options See {@link verifyLifecycleGuardOwnership}.
+ * @returns {Boolean}
+ */
+function verifyLifecycleGuardOwnershipSync({ownerFilePath, fsModule}) {
+    try {
+        fsModule.statSync(ownerFilePath);
+        return true;
+    } catch (e) {
+        if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+            return false;
+        }
+        throw e;
+    }
+}
+
+function exitLifecycleGuardSync({ownerFilePath, fsModule}) {
+    try {
+        fsModule.unlinkSync(ownerFilePath);
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') {
+            throw e;
+        }
+    }
+
+    try {
+        fsModule.rmdirSync(path.dirname(ownerFilePath));
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+            throw e;
+        }
+    }
+}
+
 /**
  * @summary Synchronous overload of {@link inspectHeavyMaintenanceLease}.
  *
@@ -294,6 +638,7 @@ export function acquireHeavyMaintenanceLeaseSync({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs,
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
@@ -318,23 +663,58 @@ export function acquireHeavyMaintenanceLeaseSync({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    fsModule.removeSync(leasePath);
+    // Guarded recovery — sync mirror of the async contract above: mutate only on
+    // a fresh re-inspection taken INSIDE the lifecycle guard.
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
+        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
+    }
 
     try {
-        writeLeaseFileSync(leasePath, lease, fsModule);
-        return {
-            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired      : true,
-            previousStatus: current.status,
-            lease
-        };
-    } catch (e) {
-        if (e.code !== 'EEXIST') {
-            throw e;
+        const reinspect = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (reinspect.active) {
+            return {status: 'held', acquired: false, lease: reinspect.lease};
         }
 
-        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
+        if (reinspect.status !== 'missing') {
+            if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+                const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+                return {status: 'held', acquired: false, guardEvicted: true, lease: raced.lease};
+            }
+
+            try {
+                fsModule.unlinkSync(leasePath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
+        }
+
+        try {
+            writeLeaseFileSync(leasePath, lease, fsModule);
+        } catch (e) {
+            if (e.code !== 'EEXIST') {
+                throw e;
+            }
+
+            const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+            return {status: 'held', acquired: false, lease: raced.lease};
+        }
+
+        return reinspect.status === 'missing'
+            ? {status: 'acquired', acquired: true, lease}
+            : {
+                status        : reinspect.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+                acquired      : true,
+                previousStatus: reinspect.status,
+                lease
+            };
+    } finally {
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -349,25 +729,115 @@ export function releaseHeavyMaintenanceLeaseSync({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
     now       = new Date(),
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
 
-    if (current.status === 'missing') {
-        return {status: 'missing', released: false};
+    if (!guardEntry) {
+        throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
-    if (!current.lease || current.lease.token !== token) {
-        return {status: 'not-owner', released: false, lease: current.lease};
+    try {
+        const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', released: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', released: false, lease: current.lease};
+        }
+
+        if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', released: false, guardEvicted: true, lease: current.lease};
+        }
+
+        fsModule.removeSync(leasePath);
+
+        return {status: 'released', released: true, lease: current.lease};
+    } finally {
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
+    }
+}
+
+/**
+ * @summary Synchronous overload of {@link renewHeavyMaintenanceLease}.
+ *
+ * @param {Object} options See {@link renewHeavyMaintenanceLease}.
+ * @returns {Object}
+ */
+export function renewHeavyMaintenanceLeaseSync({
+    token,
+    staleAfterMs,
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date(),
+    guardStaleAfterMs,
+    isPidAlive: isPidAliveFn = isPidAlive
+} = {}) {
+    if (!token) {
+        throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
 
-    fsModule.removeSync(leasePath);
+    if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+        throw new TypeError('renewHeavyMaintenanceLeaseSync: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
+    }
 
-    return {status: 'released', released: true, lease: current.lease};
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
+        throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
+    }
+
+    try {
+        const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', renewed: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', renewed: false, guardEvicted: true, lease: current.lease};
+        }
+
+        const nowMs   = toTimestamp(now);
+        const renewed = {
+            ...current.lease,
+            staleAfterMs,
+            renewedAt: new Date(nowMs).toISOString(),
+            expiresAt: new Date(nowMs + staleAfterMs).toISOString()
+        };
+
+        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
+        try {
+            fsModule.writeFileSync(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
+            const fd = fsModule.openSync(tmpPath, 'r+');
+            try {
+                fsModule.fsyncSync(fd);
+            } finally {
+                fsModule.closeSync(fd);
+            }
+            fsModule.renameSync(tmpPath, leasePath);
+        } catch (e) {
+            try {
+                fsModule.removeSync(tmpPath);
+            } catch (cleanupError) {}
+            throw e;
+        }
+
+        return {status: 'renewed', renewed: true, lease: renewed};
+    } finally {
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
+    }
 }
 
 /**
@@ -385,6 +855,7 @@ export function releaseHeavyMaintenanceLeaseSync({
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.pid=process.pid] Owning process ID.
  * @param {Number} options.staleAfterMs Stale TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override (stale/malformed recovery only).
  * @param {String} [options.token] Owner release token.
  * @returns {Promise<Object>}
  */
@@ -397,6 +868,7 @@ export async function acquireHeavyMaintenanceLease({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs,
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
@@ -421,23 +893,63 @@ export async function acquireHeavyMaintenanceLease({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    await fsModule.remove(leasePath);
+    // Guarded recovery. The pre-guard stale observation above is only an
+    // admission ticket: a peer may legitimately replace, renew, or release the
+    // lease at any moment after it. Every mutation therefore acts exclusively
+    // on the fresh re-inspection taken INSIDE the lifecycle guard, re-proves
+    // live guard ownership immediately before mutating, and the guard
+    // serializes recovery against release and renewal. An outside plain
+    // acquirer winning the unlink→create window is deferred to via EEXIST.
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
+        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
+    }
 
     try {
-        await writeLeaseFile(leasePath, lease, fsModule);
-        return {
-            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired      : true,
-            previousStatus: current.status,
-            lease
-        };
-    } catch (e) {
-        if (e.code !== 'EEXIST') {
-            throw e;
+        const reinspect = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (reinspect.active) {
+            return {status: 'held', acquired: false, lease: reinspect.lease};
         }
 
-        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
+        if (reinspect.status !== 'missing') {
+            if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+                const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+                return {status: 'held', acquired: false, guardEvicted: true, lease: raced.lease};
+            }
+
+            try {
+                await fsModule.unlink(leasePath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
+        }
+
+        try {
+            await writeLeaseFile(leasePath, lease, fsModule);
+        } catch (e) {
+            if (e.code !== 'EEXIST') {
+                throw e;
+            }
+
+            const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+            return {status: 'held', acquired: false, lease: raced.lease};
+        }
+
+        return reinspect.status === 'missing'
+            ? {status: 'acquired', acquired: true, lease}
+            : {
+                status        : reinspect.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+                acquired      : true,
+                previousStatus: reinspect.status,
+                lease
+            };
+    } finally {
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -449,6 +961,7 @@ export async function acquireHeavyMaintenanceLease({
  * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
  * @returns {Promise<Object>}
  */
 export async function releaseHeavyMaintenanceLease({
@@ -456,25 +969,136 @@ export async function releaseHeavyMaintenanceLease({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
     now       = new Date(),
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+    // Token validation and removal execute inside ONE guarded section: a
+    // replacement owner appearing between an unguarded check and the unlink can
+    // no longer be removed by the outgoing owner's release.
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
 
-    if (current.status === 'missing') {
-        return {status: 'missing', released: false};
+    if (!guardEntry) {
+        throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
-    if (!current.lease || current.lease.token !== token) {
-        return {status: 'not-owner', released: false, lease: current.lease};
+    try {
+        const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', released: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', released: false, lease: current.lease};
+        }
+
+        if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', released: false, guardEvicted: true, lease: current.lease};
+        }
+
+        await fsModule.remove(leasePath);
+
+        return {status: 'released', released: true, lease: current.lease};
+    } finally {
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
+    }
+}
+
+/**
+ * @summary Extends the current owner's lease deadline without changing ownership.
+ *
+ * The work-level half of the exclusivity contract: `isLeaseStale` classifies a
+ * live process as expired the moment its deadline passes, so any owner whose
+ * work can outlive `staleAfterMs` MUST renew periodically while working. A
+ * renewing live owner never reaches its deadline, which is what makes
+ * "live expiry starts overlapping work" structurally impossible instead of
+ * merely unlikely. Renewal failure (`renewed: false` or a thrown IO error)
+ * means ownership is no longer provable — the caller must stop starting new
+ * protected work and abort at its next fence.
+ *
+ * Runs inside the lifecycle guard: verification and rewrite cannot interleave
+ * with a recovery or release. The rewrite is full-write + fsync + atomic
+ * rename, so readers outside the guard never observe a partial payload and the
+ * canonical name never goes absent mid-renewal.
+ *
+ * @param {Object} options
+ * @param {String} options.token Owner token returned by acquire.
+ * @param {Number} options.staleAfterMs Renewed TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
+ * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {Object} [options.fsModule=fs] File-system implementation seam.
+ * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
+ * @returns {Promise<Object>} `{status: 'renewed', renewed: true, lease}` on success; `{status: 'missing'|'not-owner', renewed: false}` when ownership is not provable.
+ */
+export async function renewHeavyMaintenanceLease({
+    token,
+    staleAfterMs,
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date(),
+    guardStaleAfterMs,
+    isPidAlive: isPidAliveFn = isPidAlive
+} = {}) {
+    if (!token) {
+        throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
 
-    await fsModule.remove(leasePath);
+    if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+        throw new TypeError('renewHeavyMaintenanceLease: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
+    }
 
-    return {status: 'released', released: true, lease: current.lease};
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
+        throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
+    }
+
+    try {
+        const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', renewed: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', renewed: false, guardEvicted: true, lease: current.lease};
+        }
+
+        const nowMs   = toTimestamp(now);
+        const renewed = {
+            ...current.lease,
+            staleAfterMs,
+            renewedAt: new Date(nowMs).toISOString(),
+            expiresAt: new Date(nowMs + staleAfterMs).toISOString()
+        };
+
+        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
+        try {
+            await fsModule.writeFile(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
+            const fd = await fsModule.open(tmpPath, 'r+');
+            try {
+                await fsModule.fsync(fd);
+            } finally {
+                await fsModule.close(fd);
+            }
+            await fsModule.rename(tmpPath, leasePath);
+        } catch (e) {
+            await fsModule.remove(tmpPath).catch(() => {});
+            throw e;
+        }
+
+        return {status: 'renewed', renewed: true, lease: renewed};
+    } finally {
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
+    }
 }
 
 /**
