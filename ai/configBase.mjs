@@ -1,7 +1,8 @@
-import os                     from 'os';
-import path                   from 'path';
-import {fileURLToPath}        from 'url';
-import ConfigProvider, {leaf} from './ConfigProvider.mjs';
+import os                          from 'os';
+import path                        from 'path';
+import {fileURLToPath}             from 'url';
+import ConfigProvider, {leaf}      from './ConfigProvider.mjs';
+import {PLANE_DEFAULTS, PLANE_ENV} from './planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -46,6 +47,34 @@ class ConfigBase extends ConfigProvider {
         data: {
             neoRootDir : leaf(neoRootDir),
             projectRoot: leaf(projectRoot),
+            /**
+             * The declared plane-identity subtree — the first-class object the data-root
+             * placement election decides placement FOR. Declaration source is the pure-defaults
+             * twin `ai/planeConfig.mjs` (ticket-ref-ok: ADR 0019 §5.5 names that module shape):
+             * the leaf imports the twin's frozen literals + env names, so leaf↔twin drift is
+             * impossible by construction.
+             * Three concepts, never conflated: `id` is opaque identity (no path/checkout content);
+             * `dataRoot` is the resolved evidence every plane-member leaf derives from;
+             * `NEO_AI_CANONICAL_ROOT` (provisioning-time, `bootstrapWorktree.mjs`) names a
+             * checkout and is deliberately NOT part of this subtree.
+             * @member {Object} data.plane
+             */
+            plane: {
+                /**
+                 * Stable opaque plane identity. Overlays, cloud deployments, and ephemeral
+                 * isolation planes (Option F overlays) override via env; equality of `planeId`
+                 * is the ONLY sanctioned "same plane?" predicate — never path comparison.
+                 * @type {string}
+                 */
+                id: leaf(PLANE_DEFAULTS.planeId, PLANE_ENV.planeId, 'string'),
+                /**
+                 * The durable data root this process resolved for the declared plane — the single
+                 * anchor plane-member leaves derive from via `path.join`-style derivations, each
+                 * member keeping its own env escape.
+                 * @type {string}
+                 */
+                dataRoot: leaf(path.resolve(neoRootDir, PLANE_DEFAULTS.dataRootRelative), PLANE_ENV.dataRoot, 'string')
+            },
             /**
              * The current in-flight release version whose milestone / epic work counts as "current
              * release focus" for the Golden Path emitter. Set at cut-prep, advanced by
