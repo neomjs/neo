@@ -25,6 +25,27 @@ Before initiating any restoration, ensure that all AI MCP servers and daemon pro
 | `--mode replace` | Gated + destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` before truncating + restoring; refuses if any target is non-empty without `--force`. |
 | `--force` | Required when `--mode replace` AND any target is populated (acknowledges overwrite). Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
 | `--force-topology-mismatch` | Bypasses the topology-compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment (collection IDs may diverge across topologies). |
+| `--preserve-read-state` | **Replace mode only.** Keeps committed mailbox read receipts (`DELIVERED_TO` `readAt`/`archivedAt`) across the truncate, re-applying them wherever the bundle left them null. Off by default, because `--mode replace` means *the bundle IS the new state* and a disaster-recovery restore must reproduce it exactly. No-op under `--mode merge`, which never truncates — the run warns rather than accepting a safety-intent flag silently. |
+| `--operation <name>` | Selects a **named operation** whose defining arguments are *pinned*, not defaulted. Currently `reseed` (see below). A contradicting argument is refused, never silently honoured. |
+
+### Which operation is this? — `ai:restore` vs `ai:reseed`
+
+Two operations share this CLI and need **opposite** read-state policies. Read-state is runtime-only: no synced bundle can carry it, so getting this wrong destroys `mark_read` writes the tool already acknowledged as `read`, which a seat experiences as its mailbox rolling backwards.
+
+| | `npm run ai:restore -- <bundle> --mode replace --force` | `npm run ai:reseed -- <bundle> --force` |
+|---|---|---|
+| **Operation** | Disaster recovery | Live operational re-seed |
+| **Meaning** | The bundle IS the new state; reproduce it exactly | The graph is rebuilt from a lagged snapshot **while seats keep working** |
+| **Scope** | Whatever you ask for (all six substrates by default) | **Graph only** — pinned |
+| **Read receipts** | Discarded with everything else | **Preserved** — pinned |
+| **Mode** | Yours to state | `replace` — pinned |
+| **`--force`** | Yours | Yours — deliberately *not* pinned; the destructive acknowledgment never rides inside a convenience name |
+
+`ai:reseed` pins its three defining values and **refuses** an argument that contradicts any of them: `ai:reseed -- <bundle> --mode merge` aborts rather than performing a merge under a name that promises a replace. Graph-only is not tidiness — `DELIVERED_TO` lives in the graph, which is the entire reason preservation matters here, so a name advertising a safe live operation must not also replace `kb`/`mc`/`concepts`/`trajectories`/`mailbox`.
+
+**How to tell it worked:** a successful re-seed logs `[importDatabase] Re-applied N committed DELIVERED_TO read-receipt(s)`. `N = 0` on a run where seats were active means the preservation did not engage — check that you used `ai:reseed` rather than `ai:restore`.
+
+**Adding a flag later:** a pass-through flag reaches both entrypoints automatically (argument order is irrelevant). A flag that interacts with a pinned value must be added to that operation's `pins` in `restore.mjs`, or the operation will refuse it as a contradiction.
 
 ### Pre-flight validation
 
@@ -36,7 +57,7 @@ When `--mode replace` targets canonical `.neo-ai-data/` paths, the destructive-o
 
 ### Programmatic use
 
-The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
+The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch, preserveReadState })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
 
 ## Restoration Procedures
 
