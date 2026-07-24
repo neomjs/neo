@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {execFileSync} from 'node:child_process';
+import {execFileSync, spawnSync} from 'node:child_process';
 import fs             from 'node:fs/promises';
 import os             from 'node:os';
 import path           from 'node:path';
@@ -104,30 +104,34 @@ async function createFakeBin(plainLines, peelLine = '') {
  * @returns {Object} `{code, output}`.
  */
 function runPipelineWithProbe(fake, selector, {fetchFails = false, peelTo = ''} = {}) {
-    try {
-        // `2>&1` is load-bearing: the peel note is a WARNING on stderr, and execFileSync discards
-        // stderr on the success path — so without merging, an assertion about it could never pass
-        // even when the script emits it correctly. Same wrong-channel mistake as observing argv
-        // when the payload travels as env; the failure paths read `error.stderr` and are unaffected.
-        const output = execFileSync('bash', ['-c', '"$0" 2>&1', scriptPath], {
-            cwd     : repoRoot,
-            encoding: 'utf8',
-            env     : {
-                ...process.env,
-                FAKE_FETCH_FAILS: fetchFails ? '1' : '',
-                FAKE_LS_PEEL    : '',
-                FAKE_LS_PLAIN   : '',
-                FAKE_PEEL_TO    : peelTo,
-                NEO_REF         : selector,
-                PATH            : `${fake.bin}:${process.env.PATH}`
-            },
-            stdio: ['ignore', 'pipe', 'pipe']
-        });
+    // `spawnSync` rather than `execFileSync`, and NO shell. Both streams are needed on the SUCCESS
+    // path too — the peel note is a stderr WARNING, and `execFileSync` discards stderr when the
+    // command succeeds, so an assertion about it could never pass even when the script emits it
+    // correctly (the same wrong-channel mistake as observing argv when the payload travels as env).
+    // The obvious fix, `bash -c '"$0" 2>&1'`, builds a shell command out of `scriptPath` — which is
+    // derived from `process.cwd()` — and CodeQL correctly flagged that as a shell command built from
+    // an uncontrolled absolute path. `spawnSync` returns `{status, stdout, stderr}` on both paths, so
+    // it removes the shell AND the try/catch instead of sanitising an interpolation.
+    const result = spawnSync('bash', [scriptPath], {
+        cwd     : repoRoot,
+        encoding: 'utf8',
+        env     : {
+            ...process.env,
+            FAKE_FETCH_FAILS: fetchFails ? '1' : '',
+            FAKE_LS_PEEL    : '',
+            FAKE_LS_PLAIN   : '',
+            FAKE_PEEL_TO    : peelTo,
+            NEO_REF         : selector,
+            PATH            : `${fake.bin}:${process.env.PATH}`
+        },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
 
-        return {code: 0, output}
-    } catch (error) {
-        return {code: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}`}
+    if (result.error) {
+        throw result.error
     }
+
+    return {code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}`}
 }
 
 /**
