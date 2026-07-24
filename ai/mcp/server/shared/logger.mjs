@@ -359,11 +359,28 @@ const getConfiguredLogLevel = (aiConfig, loggerConfig) => {
 export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
     let currentStreamKey = null;
     let currentStream    = null;
+    let sinkFailureKey   = null;
+
+    const resolveLogDir = loggerConfig => {
+        const logDir = loggerConfig.logPath || getConfigData(aiConfig).logPath;
+
+        if (!logDir) {
+            // No silent canonical-path fallback: a file-sink logger whose config resolves no
+            // log path is a boot defect. The declared logPath leaf (or loggerConfig.logPath)
+            // is the only sanctioned source; deriving `.neo-ai-data/logs` here bypassed every
+            // env-bound plane binding and wrote into the canonical plane.
+            throw new Error(
+                '[logger] file sink requested but no log path resolves — declare the ' +
+                'server\'s logPath leaf (or pass loggerConfig.logPath). The rootDir-derived ' +
+                'canonical fallback was removed deliberately; refusing to guess a plane path.'
+            );
+        }
+
+        return logDir;
+    };
 
     const getStream = loggerConfig => {
-        const data   = getConfigData(aiConfig);
-        const logDir = loggerConfig.logPath || data.logPath ||
-            path.resolve(data.neoRootDir || data.projectRoot || process.cwd(), '.neo-ai-data/logs');
+        const logDir = resolveLogDir(loggerConfig);
         const today  = new Date().toISOString().slice(0, 10);
         const key    = `${logDir}::${loggerConfig.filePrefix}::${today}`;
 
@@ -389,7 +406,21 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
     const writeFile = (level, args, loggerConfig) => {
         if (!loggerConfig.fileSink) return;
 
-        getStream(loggerConfig).write(formatLogLine(level, args, loggerConfig));
+        try {
+            getStream(loggerConfig).write(formatLogLine(level, args, loggerConfig));
+        } catch (e) {
+            // A broken sink (unwritable dir, dangling symlink, full disk) must never kill a
+            // serving process — path validity is the plane-coherence boot assertion's job.
+            // Degrade to stderr, announcing the sink failure once per stream key.
+            const key = `${loggerConfig.logPath || getConfigData(aiConfig).logPath || ''}::${loggerConfig.filePrefix}`;
+
+            if (sinkFailureKey !== key) {
+                sinkFailureKey = key;
+                process.stderr.write(formatLogLine('error', [`[logger] file sink unavailable, degrading to stderr: ${e.message}`], loggerConfig));
+            }
+
+            process.stderr.write(formatLogLine(level, args, loggerConfig));
+        }
     };
 
     const writeStderr = (level, args, loggerConfig) => {
@@ -459,6 +490,14 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
             currentStream.write('', resolve);
         });
     }
+
+    // Boot-time contract: a file-sink logger must resolve its log dir at construction, so an
+    // empty/partial config reaching a file sink throws HERE — the construction stack names the
+    // defective caller. Runtime sink failures degrade in writeFile instead; only the
+    // cannot-resolve-at-all case is a construction defect.
+    const bootConfig = getLoggerConfig(aiConfig, fallbackLoggerConfig);
+
+    bootConfig.fileSink && resolveLogDir(bootConfig);
 
     return logger;
 };
