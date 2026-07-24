@@ -226,17 +226,6 @@ Use role-routing, not naked multi-peer pings:
    `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`; reviewers hold as observers until
    human resolution.
 
-**Publish-time re-check (per #15780; ships #12621's AC2b, deferred in 2026-06 and
-never landed):** re-read the mailbox immediately **before posting** a review, not
-only at claim time — an assignment, acceptance, or handoff can land mid-review.
-Empirical: three collisions in one window (#12600 / #12616 / #12620), three
-different peer-pairs, each posting before the other's claim registered. Same
-obligation, both genres, and the general form lives in
-`peer-role-mode.md` §6.5: **a claim about a shared artifact's current state is
-yours to verify at the artifact regardless of who told you** — which is why
-`gh pr view <N> --json state,mergedAt` before asserting merge-readiness is
-already reflexive here, and why a Discussion gate deserves the same reflex.
-
 This applies to the canonical `neomjs/neo` core team; external contributors,
 forks, and `npx neo-app` workspaces are out of scope.
 
