@@ -78,7 +78,7 @@ class ConfigBase extends ConfigProvider {
                  * not only on the frozen default the load guard covers.
                  * @type {string}
                  */
-                id: {default: PLANE_DEFAULTS.planeId, env: PLANE_ENV.planeId, parse: parsePlaneIdEnv},
+                id: {default: PLANE_DEFAULTS.planeId, env: PLANE_ENV.planeId, type: 'string', parse: parsePlaneIdEnv},
                 /**
                  * The durable data root this process resolved for the declared plane — the single
                  * anchor plane-member leaves derive from via `path.join`-style derivations, each
