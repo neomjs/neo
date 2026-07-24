@@ -820,16 +820,57 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 classified        = [
                     ...result.linked,
                     ...result.alreadyLinked,
-                    ...result.clobbered,
                     ...result.skippedNoSource,
                     ...result.blocklisted,
+                    ...result.seatOnly,
                     ...result.divergent.map(entry => entry.name)
                 ];
 
             expect(classified.sort()).toEqual([...canonicalChildren].sort());
 
-            // Exactly one bucket each — a name in two buckets is as bad as a name in none.
+            // One OUTCOME bucket each. `clobbered` is deliberately excluded from the union: it is
+            // not an outcome but a note that a `linked` item displaced local data first, so a
+            // force-clobbered leaf legitimately appears in both arrays.
             expect(new Set(classified).size).toBe(classified.length);
+        });
+
+        test('#15791 dryRun sees a SEAT-ONLY leaf that canonical does not know about', async () => {
+            // Iterating canonical alone cannot observe residue that exists only seat-side, which
+            // would make "no unexplained residue" unprovable rather than merely unproven — the
+            // residue the falsifier hunts is exactly the kind canonical has no record of.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'orphan-from-a-retired-tool'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.seatOnly).toEqual(['orphan-from-a-retired-tool']);
+            expect(result.linked).toContain('sqlite');
+        });
+
+        test('#15791 force-clobber under dryRun reports the would-be clobber without losing the link', async () => {
+            await seedMainSubdirs(['sqlite']);
+            const local = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(local);
+            await fs.writeFile(path.join(local, 'local.txt'), 'seat-local\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                force       : true,
+                log         : () => {}
+            });
+
+            expect(result.clobbered).toContain('sqlite');
+            expect(result.linked).toContain('sqlite');
+
+            // Nothing was actually removed — a reconcile never destroys what it reports.
+            expect(await fs.readFile(path.join(local, 'local.txt'), 'utf-8')).toBe('seat-local\n');
         });
 
         test('NEVER touches concepts/ even when present in main checkout and force=true', async () => {
