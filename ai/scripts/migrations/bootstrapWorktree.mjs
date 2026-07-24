@@ -432,18 +432,39 @@ async function exists(p) {
  *                                        are always excluded from this generic pass and materialized
  *                                        separately, even when callers inject a narrower blocklist.
  * @param {boolean}  [options.force=false] If true, clobber an existing non-symlink dir/file at a non-blocklisted child (never touches blocklisted children).
+ * @param {boolean}  [options.dryRun=false] Reconcile mode: classify every child WITHOUT mutating —
+ *                                        no `mkdir`, no `rm`, no `symlink`. Divergences that would `throw` in the
+ *                                        mutating path are recorded in `divergent` instead, so one deviant seat
+ *                                        cannot abort a multi-seat sweep before the rest are classified. The
+ *                                        classification is byte-identical to what the mutating pass would decide;
+ *                                        only the writes are withheld.
  * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
- * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], mainCheckout: boolean}>} Per-item action map.
- * @throws {Error} When a non-blocklisted child's dst is a non-symlink dir/file and `force` is false. The error message names the offending child.
+ * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], blocklisted: string[], divergent: Array<{name: string, reason: string, found: string}>, resolved: Object<string,string>, mainCheckout: boolean}>}
+ *          Per-item action map. `blocklisted` + `divergent` + `resolved` make the map **exhaustive**: every child of
+ *          canonical's `.neo-ai-data/` lands in exactly one bucket, which is what lets a reconcile assert that a seat
+ *          carries no unexplained residue — residue means the blocklist is incomplete — rather than merely describe it.
+ * @throws {Error} When a non-blocklisted child's dst is a non-symlink dir/file and `force` is false, or when an
+ *                 existing symlink points outside the canonical checkout. **Never throws under `dryRun`** — both
+ *                 conditions are recorded in `divergent` instead. The error message names the offending child.
  */
 export async function symlinkDataDir({
     mainCheckout,
     projectRoot,
     blocklist = DATA_SUBDIRS_BLOCKLIST,
     force     = false,
+    dryRun    = false,
     log       = console.log
 }) {
-    const result = {linked: [], alreadyLinked: [], clobbered: [], skippedNoSource: [], mainCheckout: false};
+    const result = {
+        linked         : [],
+        alreadyLinked  : [],
+        clobbered      : [],
+        skippedNoSource: [],
+        blocklisted    : [],
+        divergent      : [],
+        resolved       : {},
+        mainCheckout   : false
+    };
 
     if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
         log(`symlink skip (main checkout): no per-item action`);
@@ -456,7 +477,7 @@ export async function symlinkDataDir({
     // Ensure the parent .neo-ai-data/ exists as a regular dir; we never symlink the parent.
     // This preserves the git-tracked concepts/ subdir already present in the worktree.
     const parentDst = path.join(projectRoot, '.neo-ai-data');
-    await fs.mkdir(parentDst, {recursive: true});
+    if (!dryRun) await fs.mkdir(parentDst, {recursive: true});
 
     // Blocklist, not allowlist: enumerate EVERY child of canonical's .neo-ai-data and link all
     // except the blocklist. A new substrate child is unified automatically, removing the
@@ -479,6 +500,7 @@ export async function symlinkDataDir({
 
         if (blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) {
             log(`symlink skip (blocklisted): ${name}`);
+            result.blocklisted.push(name);
             continue;
         }
 
@@ -494,6 +516,15 @@ export async function symlinkDataDir({
                 existingReal   = await fs.realpath(resolvedTarget).catch(() => resolvedTarget);
 
             if (existingReal !== canonicalReal) {
+                // Reconcile mode records the divergence and keeps classifying; the mutating path still
+                // refuses, because adopting another checkout's state is exactly what must never happen
+                // silently. Recording beats throwing here ONLY because nothing is being written.
+                if (dryRun) {
+                    log(`reconcile divergent (foreign symlink target): ${name} → ${existingReal}`);
+                    result.divergent.push({name, reason: 'foreign-symlink-target', found: existingReal});
+                    result.resolved[name] = existingReal;
+                    continue;
+                }
                 throw new Error(
                     `Refusing unexpected symlink target at ${dst}: expected ${src}, found ${resolvedTarget}. ` +
                     `Managed hydration never adopts another checkout's state implicitly.`
@@ -501,6 +532,7 @@ export async function symlinkDataDir({
             }
             log(`symlink skip (already linked): ${name}`);
             result.alreadyLinked.push(name);
+            result.resolved[name] = existingReal;
             continue;
         }
 
@@ -515,19 +547,27 @@ export async function symlinkDataDir({
         if (lstat) {
             // A real (non-symlink) dir or file already at dst would be shadowed by the link.
             if (!force) {
+                // Same rule as the foreign-target branch: reconcile records, hydration refuses.
+                if (dryRun) {
+                    log(`reconcile divergent (clone-local data, would need --force): ${name}`);
+                    result.divergent.push({name, reason: 'clone-local-non-symlink', found: dst});
+                    result.resolved[name] = await fs.realpath(dst).catch(() => dst);
+                    continue;
+                }
                 throw new Error(
                     `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
                     `This path contains local data that would be lost.`
                 );
             }
             log(`symlink clobber (force=true): removing ${name}`);
-            await fs.rm(dst, {recursive: true, force: true});
+            if (!dryRun) await fs.rm(dst, {recursive: true, force: true});
             result.clobbered.push(name);
         }
 
-        await fs.symlink(src, dst, entry.isDirectory() ? 'dir' : 'file');
-        log(`symlinked: ${name} → ${src}`);
+        if (!dryRun) await fs.symlink(src, dst, entry.isDirectory() ? 'dir' : 'file');
+        log(`${dryRun ? 'would symlink' : 'symlinked'}: ${name} → ${src}`);
         result.linked.push(name);
+        result.resolved[name] = await fs.realpath(src).catch(() => src);
     }
 
     return result;

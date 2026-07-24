@@ -725,6 +725,113 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(result.mainCheckout).toBe(false);
         });
 
+        test('#15791 dryRun classifies every child WITHOUT mutating anything', async () => {
+            await seedMainSubdirs();
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            // Classification is identical to what the mutating pass would decide...
+            expect(result.linked.sort()).toEqual([...fixtureSubdirs].sort());
+
+            // ...but nothing was written: no parent dir, no links.
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir))).toBe(false);
+
+            for (const subdir of fixtureSubdirs) {
+                expect(result.resolved[subdir]).toBe(
+                    await fs.realpath(path.join(fakeMainCheckout, dataDir, subdir))
+                );
+            }
+        });
+
+        test('#15791 dryRun records a foreign symlink target as divergent instead of throwing', async () => {
+            // The mutating path refuses (see the sibling test above) because adopting another
+            // checkout's state silently is the failure. A reconcile must RECORD it instead —
+            // one deviant seat cannot be allowed to abort a multi-seat sweep.
+            await seedMainSubdirs(['sqlite']);
+
+            const
+                foreign = path.join(path.dirname(fakeMainCheckout), 'foreign-checkout', dataDir, 'sqlite'),
+                dst     = path.join(fakeWorktree, dataDir, 'sqlite');
+
+            await fs.ensureDir(foreign);
+            await fs.ensureDir(path.dirname(dst));
+            await fs.symlink(foreign, dst, 'dir');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.divergent).toHaveLength(1);
+            expect(result.divergent[0].name).toBe('sqlite');
+            expect(result.divergent[0].reason).toBe('foreign-symlink-target');
+            expect(result.divergent[0].found).toBe(await fs.realpath(foreign));
+            expect(result.alreadyLinked).not.toContain('sqlite');
+
+            // The divergent link is untouched — reconcile observes, never repairs.
+            expect(path.resolve(path.dirname(dst), await fs.readlink(dst))).toBe(foreign);
+        });
+
+        test('#15791 dryRun records clone-local data as divergent instead of throwing', async () => {
+            await seedMainSubdirs();
+
+            const worktreeSubdir = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(worktreeSubdir);
+            await fs.writeFile(path.join(worktreeSubdir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.divergent.map(entry => entry.name)).toContain('sqlite');
+            expect(result.divergent.find(entry => entry.name === 'sqlite').reason).toBe('clone-local-non-symlink');
+
+            // The local data is still there — a reconcile never destroys what it reports.
+            expect(await fs.readFile(path.join(worktreeSubdir, 'local-only.txt'), 'utf-8'))
+                .toBe('worktree-specific\n');
+        });
+
+        test('#15791 dryRun leaves NO unexplained residue — every canonical child lands in exactly one bucket', async () => {
+            // This is @neo-opus-grace's falsifier made executable: the reconcile is only
+            // decision-grade for OQ10 if it can come back negative. Residue on any seat means
+            // DATA_SUBDIRS_BLOCKLIST is incomplete — regardless of whether the residue has a story.
+            await seedMainSubdirs();
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts'));         // blocklisted
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'orchestrator-daemon')); // blocklisted
+
+            const
+                canonicalChildren = await fs.readdir(path.join(fakeMainCheckout, dataDir)),
+                result            = await symlinkDataDir({
+                    mainCheckout: fakeMainCheckout,
+                    projectRoot : fakeWorktree,
+                    dryRun      : true,
+                    log         : () => {}
+                }),
+                classified        = [
+                    ...result.linked,
+                    ...result.alreadyLinked,
+                    ...result.clobbered,
+                    ...result.skippedNoSource,
+                    ...result.blocklisted,
+                    ...result.divergent.map(entry => entry.name)
+                ];
+
+            expect(classified.sort()).toEqual([...canonicalChildren].sort());
+
+            // Exactly one bucket each — a name in two buckets is as bad as a name in none.
+            expect(new Set(classified).size).toBe(classified.length);
+        });
+
         test('NEVER touches concepts/ even when present in main checkout and force=true', async () => {
             // Seed both the allowlisted subdirs AND a concepts/ in main and a regular
             // (tracked-style) concepts/ in the worktree with unique content.
