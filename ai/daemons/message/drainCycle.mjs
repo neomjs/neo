@@ -1,4 +1,5 @@
-import {readPendingMessageWalRecords} from '../../services/memory-core/helpers/messageWalStore.mjs';
+import {createDrainDispositionTracker} from '../shared/drainDisposition.mjs';
+import {readPendingMessageWalRecords}  from '../../services/memory-core/helpers/messageWalStore.mjs';
 
 /**
  * @module ai/daemons/message/drainCycle
@@ -144,10 +145,15 @@ export async function drainMessageWalOnce({
  * @param {Function} [options.log] Log sink.
  * @returns {{stop: Function}}
  */
-export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}}) {
+export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}, now = Date.now}) {
     let stopped        = false,
         timer          = null,
         inactiveLogged = false;
+
+    // Same receipt as the memory loop: the summary was computed and dropped. `inactive` is carried
+    // as its own state rather than folded into clean-or-dirty — a loop that is deliberately not
+    // draining has not drained cleanly, it simply has not drained.
+    const disposition = createDrainDispositionTracker({now});
 
     const tick = async () => {
         const {dir, batchSize, maxRetries, backoffBaseMs, pollIntervalMs} = getConfig();
@@ -172,10 +178,13 @@ export function startMessageDrainLoop({getConfig, getProcessor = () => null, log
                 inactiveLogged = false;
             }
 
+            disposition.recordCycle(summary);
+
             if (summary.drained > 0 || summary.failed > 0) {
                 log('INFO', `Message WAL drain cycle: ${JSON.stringify(summary)}`);
             }
         } catch (error) {
+            disposition.recordFailure(error);
             log('ERROR', `Message WAL drain cycle failed: ${error.message || error}`);
         }
 
@@ -190,6 +199,12 @@ export function startMessageDrainLoop({getConfig, getProcessor = () => null, log
         stop() {
             stopped = true;
             clearTimeout(timer);
-        }
+        },
+
+        /**
+         * @summary The drain receipt for this plane — see `createDrainDispositionTracker`.
+         * @returns {Object}
+         */
+        getDisposition: disposition.getDisposition
     };
 }

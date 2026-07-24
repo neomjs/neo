@@ -5,6 +5,7 @@ import {
     readPendingWalRecords
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
 import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -431,9 +432,14 @@ export async function drainWalOnce({
  * @param {Map}      [options.retryState]  Cross-cycle per-record cooldown state.
  * @returns {{stop: Function}} Handle whose `stop()` ends the loop (idempotent).
  */
-export function startDrainLoop({getCollection, getConfig, expectedDimension, log = () => {}, retryState = new Map()}) {
+export function startDrainLoop({getCollection, getConfig, expectedDimension, log = () => {}, retryState = new Map(), now = Date.now}) {
     let stopped = false;
     let timer   = null;
+
+    // The per-cycle summary was computed, logged conditionally, and discarded. Retained now as a
+    // receipt: the parity pilot consumes a plane's drain disposition, and "no cycle has run yet"
+    // must never read as "drained clean".
+    const disposition = createDrainDispositionTracker({now});
 
     const tick = async () => {
         const {dir, batchSize, maxRetries, backoffBaseMs, retentionLimit, pollIntervalMs} = getConfig();
@@ -444,10 +450,13 @@ export function startDrainLoop({getCollection, getConfig, expectedDimension, log
 
             // Idle cycles stay silent — at a multi-second poll interval, per-cycle no-op lines
             // would dominate the log without adding signal.
+            disposition.recordCycle(summary);
+
             if (summary.pending > 0 || summary.prunedSegments > 0) {
                 log('INFO', `WAL drain cycle: ${JSON.stringify(summary)}`);
             }
         } catch (error) {
+            disposition.recordFailure(error);
             log('ERROR', `WAL drain cycle failed: ${error.message || error}`);
         }
 
@@ -463,6 +472,12 @@ export function startDrainLoop({getCollection, getConfig, expectedDimension, log
         stop() {
             stopped = true;
             clearTimeout(timer);
-        }
+        },
+
+        /**
+         * @summary The drain receipt for this plane — see `createDrainDispositionTracker`.
+         * @returns {Object}
+         */
+        getDisposition: disposition.getDisposition
     };
 }
