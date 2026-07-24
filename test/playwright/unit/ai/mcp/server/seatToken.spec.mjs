@@ -2,6 +2,9 @@ import {test, expect} from '@playwright/test';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
+import '../../../../../../src/Neo.mjs';
+import '../../../../../../src/core/_export.mjs';
+import AuthService from '../../../../../../ai/mcp/server/shared/services/AuthService.mjs';
 import {
     buildSeatTokenRegistry,
     hashSeatToken,
@@ -83,6 +86,81 @@ test.describe('seatToken — the window-identity spine transfer, pure layer (#15
 
             fs.writeFileSync(filePath, '{"planeId": "x"}', 'utf8');
             expect(() => readSeatTokenRegistry(filePath)).toThrow('not a valid seat-token registry')
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
+    });
+});
+
+test.describe('AuthService seat-token mode — the verifier over a real registry (#15801)', () => {
+    class FakeInvalidTokenError extends Error {}
+
+    const silentLogger = {info: () => {}};
+
+    function writtenRegistry(dir, {planeId = 'overlay-auth-spec', generation = 1, previousRegistry = null} = {}) {
+        const {token, row} = mintSeatToken({agentIdentityNodeId: SUBJECT});
+        const registry     = buildSeatTokenRegistry({planeId, generation, rows: [row], previousRegistry});
+        const filePath     = path.join(dir, 'registry.json');
+
+        writeSeatTokenRegistry(filePath, registry);
+        return {token, registry, filePath}
+    }
+
+    function makeVerifier(filePath, planeId) {
+        return AuthService.createSeatTokenVerifier({
+            aiConfig         : {auth: {seatTokenRegistryPath: filePath}, plane: {id: planeId}},
+            logger           : silentLogger,
+            InvalidTokenError: FakeInvalidTokenError
+        })
+    }
+
+    test('setup fails loud when the registry is unreadable — a required registry is a boot gate, not a 401', () => {
+        expect(() => makeVerifier('/nonexistent/seat-tokens/registry.json', 'overlay-auth-spec')).toThrow()
+    });
+
+    test('a verified token resolves its minted subject: login-shaped userId + the graph node id', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-seat-auth-spec-'));
+
+        try {
+            const {token, filePath} = writtenRegistry(dir);
+            const info              = await makeVerifier(filePath, 'overlay-auth-spec').verifyAccessToken(token);
+
+            expect(info.userId).toBe('neo-test-seat');
+            expect(info.agentIdentityNodeId).toBe(SUBJECT);
+            expect(info.source).toBe('seat-token')
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
+    });
+
+    test('rejections carry their named classification, plane scoping included', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-seat-auth-spec-'));
+
+        try {
+            const {token, filePath} = writtenRegistry(dir);
+            const verifier          = makeVerifier(filePath, 'neo-local-canonical');
+
+            await expect(verifier.verifyAccessToken(token)).rejects.toThrow('wrong-plane')
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true})
+        }
+    });
+
+    test('LIVE regeneration invalidates without a restart: the mtime reload serves the new generation', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-seat-auth-spec-'));
+
+        try {
+            const gen1     = writtenRegistry(dir);
+            const verifier = makeVerifier(gen1.filePath, 'overlay-auth-spec');
+
+            expect((await verifier.verifyAccessToken(gen1.token)).userId).toBe('neo-test-seat');
+
+            const gen2 = writtenRegistry(dir, {generation: 2, previousRegistry: gen1.registry});
+            const bump = new Date(Date.now() + 2000);
+            fs.utimesSync(gen2.filePath, bump, bump);
+
+            await expect(verifier.verifyAccessToken(gen1.token)).rejects.toThrow('stale-generation');
+            expect((await verifier.verifyAccessToken(gen2.token)).userId).toBe('neo-test-seat')
         } finally {
             fs.rmSync(dir, {recursive: true, force: true})
         }
