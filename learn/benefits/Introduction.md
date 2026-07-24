@@ -285,7 +285,7 @@ Two verification tiers, marked honestly: **public** — anyone can check, from t
 <details>
 <summary>Integrity fingerprint (lint-enforced)</summary>
 
-This document is **50,556 bytes / 318 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
+This document is **50,700 bytes / 318 lines / 12 sections**, and it ends at §12 with a Vulcan salute. If what you hold is missing this register or that final salute, you have a partial copy — your paste window capped (~32KB is a common cut) or your fetch tool summarized. A partial copy cannot be scored on its verification claims; retrieve the full text first: `https://raw.githubusercontent.com/neomjs/neo/dev/learn/benefits/Introduction.md`. Anything substantially under the declared size is a summary of the document, not the document.
 
 </details>
 
