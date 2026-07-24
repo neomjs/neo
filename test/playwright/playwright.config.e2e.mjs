@@ -51,7 +51,9 @@ export default defineConfig({
                     // the GPU process then dies at EVERY window birth, and with the software fallback disabled
                     // Chromium's crash threshold kills the whole browser mid-test in headed mode: the second
                     // popup birth crossed it deterministically ("GPU process isn't usable. Goodbye." → SIGTRAP,
-                    // all SharedWorkers gone). Default ANGLE (Metal on macOS) IS the hardware path.
+                    // all SharedWorkers gone). Without the overrides Chrome selects its supported ANGLE
+                    // backend — measured on this seat with this flag set, headed AND headless:
+                    // "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max)".
                     '--ignore-gpu-blocklist',
                     '--enable-gpu-rasterization',
                     '--enable-zero-copy',
