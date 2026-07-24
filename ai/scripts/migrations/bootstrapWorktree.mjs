@@ -1360,7 +1360,10 @@ if (isMain) {
             console.error('Failed to resolve main checkout. Provide --canonical-root <path> (or NEO_AI_CANONICAL_ROOT env var) when running outside a git worktree, or ensure this is a git repository.');
             process.exit(1);
         }
-        if (explicitRoot) console.log(`✓ Canonical checkout (explicit): ${mainCheckout}`);
+        // stderr, not stdout: this is a progress banner, and `--json` makes stdout a payload stream.
+        // Printed to stdout it lands AHEAD of the JSON and `JSON.parse` dies at line 1 column 1 —
+        // a failure that reads like a bad file rather than a polluted stream.
+        if (explicitRoot) console.error(`✓ Canonical checkout (explicit): ${mainCheckout}`);
 
         // --reconcile: the read-only per-seat report. Combines both axes in one artifact — the
         // symlink/root classification derived from the hydration declaration, and the host port
@@ -1421,11 +1424,21 @@ if (isMain) {
                         residue    = plane.divergent.length + plane.seatOnly.length,
                         unobserved = Object.entries(plane.observed).filter(([, state]) => !state.ok);
 
+                    // A THIRD reading of residue 0, and it is not cleanliness: a seat that was never
+                    // hydrated has nothing conflicting AT those paths, so there is no divergence to
+                    // record. `wouldLink 11 · alreadyLinked 0 · divergent 0 · residue 0` is a seat
+                    // sharing NOTHING, and calling it `(clean)` invites a placement election to read
+                    // it as "already sharing" — the exact inversion this artifact exists to prevent.
+                    // Residue 0 means "no conflicting local data", never "hydrated".
+                    const unhydrated = plane.alreadyLinked.length === 0 && plane.linked.length > 0;
+
                     console.log(`  residue: ${residue}${
                         residue     ? ' — unreconciled against the declaration (incomplete blocklist OR unhydrated seat)' :
                         unobserved.length
                             ? ` — NOT CLEAN, NOT COMPARED (${unobserved.map(([side, state]) => `${side}: ${state.reason}`).join('; ')})`
-                            : ' (clean)'
+                            : unhydrated
+                                ? ` — no conflicting local data, but this seat shares NOTHING (${plane.linked.length} leaf/leaves would link, 0 already linked). NOT "clean", NOT hydrated.`
+                                : ' (clean — hydrated and consistent)'
                     }\n`);
                 }
 

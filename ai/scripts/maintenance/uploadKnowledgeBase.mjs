@@ -1,18 +1,18 @@
-import {execFile}       from 'child_process';
-import fs               from 'fs-extra';
-import os               from 'os';
-import path             from 'path';
-import readline         from 'readline';
-import {promisify}      from 'util';
-import {fileURLToPath}  from 'url';
+import {execFile}      from 'child_process';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import readline        from 'readline';
+import {promisify}     from 'util';
+import {fileURLToPath} from 'url';
 
 // Neo namespace bootstrap (entry-point invariant). `Neo` + `core/_export` populate
 // `globalThis.Neo` so that `ai/services.mjs` → Compare.mjs `Neo.gatekeep` resolves.
-import Neo              from '../../../src/Neo.mjs';
-import * as core        from '../../../src/core/_export.mjs';
+import Neo       from '../../../src/Neo.mjs';
+import * as core from '../../../src/core/_export.mjs';
 
-import AiConfig         from '../../config.mjs';
-import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
+import AiConfig from '../../config.mjs';
+import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
 
 import {
     KB_DatabaseService,
@@ -23,8 +23,11 @@ import {
     ARTIFACT_BASENAME,
     KB_BACKUP_FILE_PREFIX,
     ARTIFACT_META_FILENAME,
+    ARTIFACT_SCHEMA_VERSION,
+    ARTIFACT_VECTORS_FILENAME,
     MEMORY_CORE_COLLECTION_PREFIXES,
-    assertCollectionScopedArtifact
+    assertCollectionScopedArtifact,
+    packArtifactToV2
 } from './knowledgeBaseArtifact.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -44,12 +47,16 @@ const execFileAsync = promisify(execFile);
  * mailbox. A defense-in-depth assertion (`assertCollectionScopedArtifact`) fails the upload
  * if any Memory Core collection or a `sqlite/` payload leaks into the staged artifact.
  *
- * ## Artifact shape
+ * ## Artifact shape (schema v2)
  *
- * The artifact is a zip of a staging directory containing exactly two entries:
- * - `knowledge-base-backup-<ISO-timestamp>.jsonl` — the collection export (raw vectors round-trip).
+ * The artifact is a zip of a staging directory containing exactly three entries:
+ * - `knowledge-base-backup-<ISO-timestamp>.jsonl` — the collection export, **without** `embedding`.
+ * - `kb-vectors-fp16.bin` — the embeddings as a packed row-major `fp16` buffer, paired to the JSONL
+ *   rows by index. ~97% of a v1 artifact was embeddings serialized as decimal TEXT; the vectors
+ *   still ship in full, so the raw-vectors / no-re-embed guarantee is unchanged.
  * - `kb-artifact-meta.json` — `embeddingProvider` + `dimension` provenance so a download-side
- *   recall mismatch (model/dimension drift against the shipped raw vectors) is detectable.
+ *   recall mismatch (model/dimension drift against the shipped raw vectors) is detectable, plus the
+ *   `recordCount` + order digest the consumer needs to decode the sidecar safely.
  *
  * ## Pipeline position
  *
@@ -136,8 +143,8 @@ export async function uploadKnowledgeBase({
     const dimension         = embeddingConfig.vectorDimension;
     const artifactName      = ARTIFACT_BASENAME;
 
-    const stageDir    = path.join(stageRoot, `neo-kb-artifact-${process.pid}-${Date.now()}`);
-    const artifactDir = path.dirname(path.resolve(PROJECT_ROOT, artifactName));
+    const stageDir     = path.join(stageRoot, `neo-kb-artifact-${process.pid}-${Date.now()}`);
+    const artifactDir  = path.dirname(path.resolve(PROJECT_ROOT, artifactName));
     const artifactPath = path.resolve(PROJECT_ROOT, artifactName);
 
     await fs.ensureDir(stageDir);
@@ -168,35 +175,50 @@ export async function uploadKnowledgeBase({
             );
         }
 
-        const jsonlPath    = path.join(stageDir, stagedJsonl[0]);
-        const recordCount  = await countJsonlRecords(jsonlPath);
+        const jsonlPath   = path.join(stageDir, stagedJsonl[0]);
+        const recordCount = await countJsonlRecords(jsonlPath);
 
         if (recordCount === 0) {
             throw new Error(`Knowledge Base collection '${collectionName}' exported 0 records. Run 'npm run ai:sync-kb' before releasing.`);
         }
 
-        // 3. Stamp embedding provenance so a download-side model/dimension drift is detectable.
+        // 3. Move embeddings out of the JSONL into the packed fp16 sidecar (schema v2). ~97% of a v1
+        // artifact was embeddings as decimal TEXT; the vectors still ship in full, so the
+        // raw-vectors / no-re-embed guarantee is unchanged. fp16 over fp32 was decided on a
+        // corpus-wide recall measurement, not on arithmetic — see the originating ticket.
+        logger.log('🗜️  Packing embeddings into the fp16 sidecar (schema v2)...');
+        const packed = await packArtifactToV2({artifactDir: stageDir, jsonlPath, dimension});
+        logger.log(`✅ Packed ${packed.recordCount} × ${packed.dimension} vectors into ${(packed.vectorBytes / 1048576).toFixed(1)} MB.`);
+
+        // 4. Stamp embedding provenance so a download-side model/dimension drift is detectable.
+        // `vectorDigest` binds the JSONL's record ORDER: v2 re-attaches vectors positionally, so a
+        // reordered JSONL would pair every row with the wrong embedding at exactly the right size.
         const meta = {
-            artifactVersion  : 1,
-            collection       : collectionName,
+            artifactVersion: ARTIFACT_SCHEMA_VERSION,
+            collection     : collectionName,
             embeddingProvider,
             dimension,
             recordCount,
-            neoVersion       : resolvedTag,
-            createdAt        : new Date().toISOString()
+            vectorEncoding : 'fp16',
+            vectorDigest   : packed.vectorDigest,
+            // Stamped, not assumed: `Float16Array` writes in the agent's native order and Node ships a
+            // big-endian build, so the consumer must be told what order it is reading.
+            byteOrder : packed.byteOrder,
+            neoVersion: resolvedTag,
+            createdAt : new Date().toISOString()
         };
         await fs.writeJson(path.join(stageDir, ARTIFACT_META_FILENAME), meta, {spaces: 2});
 
-        // 4. Defense-in-depth: prove the staged artifact is collection-scoped (no MC, no sqlite/).
+        // 5. Defense-in-depth: prove the staged artifact is collection-scoped (no MC, no sqlite/).
         await assertCollectionScopedArtifact({artifactDir: stageDir});
         logger.log(`✅ Artifact is collection-scoped: ${recordCount} '${collectionName}' chunks, no Memory Core collections, no sqlite/.`);
 
-        // 5. Zip the staging dir CONTENTS (flat) into the canonical artifact, then upload.
+        // 6. Zip the staging dir CONTENTS (flat) into the canonical artifact, then upload.
         await fs.ensureDir(artifactDir);
         await fs.remove(artifactPath);
         logger.log(`📦 Packaging ${artifactName}...`);
         // `-j` flattens — the zip holds the JSONL + meta at its root, never a `.neo-ai-data` tree.
-        await execFileAsync('zip', ['-j', '-q', artifactPath, jsonlPath, path.join(stageDir, ARTIFACT_META_FILENAME)]);
+        await execFileAsync('zip', ['-j', '-q', artifactPath, jsonlPath, path.join(stageDir, ARTIFACT_META_FILENAME), path.join(stageDir, ARTIFACT_VECTORS_FILENAME)]);
 
         const stats = await fs.stat(artifactPath);
         logger.log(`✅ Packaged: ${artifactName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);

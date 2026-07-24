@@ -58,28 +58,36 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         await expect(page.locator('.fm-activity-stream')).toHaveScreenshot('activity-stream-chips.png')
     });
 
-    test('the ~314 vessel window — what the cockpit renders there TODAY (viewport capture, overflow measured)', async ({page}) => {
+    test('the ~314 vessel window — the cockpit fits and the interactive core is reachable (viewport capture, geometry asserted)', async ({page}) => {
         // The Retina evidence correction, honestly bounded: a 628-physical-px capture is ~314 CSS px.
-        // The current cockpit does NOT fit that window — the bar's spine banner + the zone layout
-        // push it to ~971px (see the assertion below; the layout repair is its own surface). This
-        // receipt therefore does two things: a PAGE screenshot (can only ever show the true 314
-        // viewport, never off-window overflow masquerading as the target width), and an explicit
-        // measurement of the overflow so the state is witnessed, not hidden.
+        // The vessel-narrow layout makes the cockpit fit this window: inline-size containment
+        // on the cockpit root (the own-width discipline) stops descendant min-content floors
+        // from escalating, the spine banner shrinks into its ellipsis rules, and the wrapped bar keeps
+        // Start fleet reachable. This receipt asserts the INVERSE of the pre-repair overflow witness:
+        // the cockpit spans exactly the vessel width, nothing scrolls off-window, and the primary
+        // action is inside the viewport.
         await page.setViewportSize({width: 314, height: 900});
         await bootSettledCockpit(page);
 
         const geometry = await page.evaluate(() => {
-            const cockpit = document.querySelector('.fm-fleet-cockpit');
+            const cockpit = document.querySelector('.fm-fleet-cockpit'),
+                  start   = document.querySelector('.fm-fleet-start');
 
             return {
-                viewport   : window.innerWidth,
-                clientWidth: Math.round(cockpit.clientWidth),
-                scrollWidth: Math.round(cockpit.scrollWidth)
+                viewport      : window.innerWidth,
+                clientWidth   : Math.round(cockpit.clientWidth),
+                scrollWidth   : Math.round(cockpit.scrollWidth),
+                startRect     : start ? start.getBoundingClientRect().toJSON() : null,
+                docScrollWidth: Math.round(document.documentElement.scrollWidth)
             }
         });
 
         expect(geometry.viewport, 'the viewport itself is the 314px vessel window').toBe(314);
-        expect(geometry.scrollWidth, 'the cockpit currently overflows the 314px vessel — the measured truth, tracked for the layout-repair ticket').toBeGreaterThan(geometry.viewport);
+        expect(geometry.scrollWidth, 'the repaired cockpit no longer overflows its vessel — scroll width stays inside the client box').toBeLessThanOrEqual(geometry.clientWidth);
+        expect(geometry.docScrollWidth, 'the document carries no horizontal overflow at vessel width').toBeLessThanOrEqual(geometry.viewport);
+        expect(geometry.startRect, 'the Start fleet button is rendered').not.toBeNull();
+        expect(geometry.startRect.right, 'the Start fleet button sits inside the vessel window — the interactive core is reachable').toBeLessThanOrEqual(geometry.viewport);
+        expect(geometry.startRect.left, 'the Start fleet button is not clipped at the left edge either').toBeGreaterThanOrEqual(0);
 
         await expect(page).toHaveScreenshot('cockpit-vessel-314.png')
     });

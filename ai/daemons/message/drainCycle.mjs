@@ -1,4 +1,5 @@
-import {readPendingMessageWalRecords} from '../../services/memory-core/helpers/messageWalStore.mjs';
+import {createDrainDispositionTracker} from '../shared/drainDisposition.mjs';
+import {readPendingMessageWalRecords}  from '../../services/memory-core/helpers/messageWalStore.mjs';
 
 /**
  * @module ai/daemons/message/drainCycle
@@ -108,7 +109,11 @@ export async function processMessageBatch({
  * @param {Function} [options.log] Log sink.
  * @param {Function} [options.sleep] Delay primitive.
  * @param {Function} [options.readMessages] Pending WAL reader injection for tests.
- * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number, inactive: Boolean}>}
+ * @returns {Promise<{observed: Number, drained: Number, failed: Number, deferred: Number, inactive: Boolean, outstanding: Number}>}
+ *     `outstanding` is the post-cycle residue (`observed - drained`) — the canonical field a
+ *     disposition receipt reads for cleanliness. It captures every record read but not drained:
+ *     batch-overflowed, failed, and deferred alike. `observed` is a pre-drain count and must never
+ *     be read as work-left.
  */
 export async function drainMessageWalOnce({
     dir,
@@ -121,7 +126,7 @@ export async function drainMessageWalOnce({
     readMessages = readPendingMessageWalRecords
 } = {}) {
     if (!processRecords) {
-        return {observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true};
+        return {observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true, outstanding: 0};
     }
 
     const records = await readMessages({dir});
@@ -129,9 +134,12 @@ export async function drainMessageWalOnce({
     const batch   = records.slice(0, bounded);
     const result  = await processMessageBatch({records: batch, processRecords, maxRetries, backoffBaseMs, sleep, log});
 
+    // `outstanding` is everything read but not drained: batch-overflow (records beyond `bounded`)
+    // plus the batch's own failed + deferred. Symmetric to the embed loop's residue.
     return {
-        observed: records.length,
-        inactive: false,
+        observed   : records.length,
+        inactive   : false,
+        outstanding: records.length - (result.drained ?? 0),
         ...result
     };
 }
@@ -142,15 +150,25 @@ export async function drainMessageWalOnce({
  * @param {Function} options.getConfig Returns the `messageWal` config slice.
  * @param {Function} [options.getProcessor] Optional resolver for the replay processor.
  * @param {Function} [options.log] Log sink.
- * @returns {{stop: Function}}
+ * @param {Function} [options.now] Clock source (epoch ms), injected into the disposition receipt so
+ *     its `at` timestamp is testable without a real clock. Defaults to `Date.now`.
+ * @returns {{stop: Function, getDisposition: Function}} Loop handle. `stop()` ends the loop
+ *     (idempotent); `getDisposition()` returns this plane's drain receipt
+ *     (`{state, drainedClean, reason, counts, at}` — see {@link createDrainDispositionTracker}).
  */
-export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}}) {
+export function startMessageDrainLoop({getConfig, getProcessor = () => null, log = () => {}, now = Date.now}) {
     let stopped        = false,
         timer          = null,
         inactiveLogged = false;
 
+    // Same receipt as the memory loop: the summary was computed and dropped. `inactive` is carried
+    // as its own state rather than folded into clean-or-dirty — a loop that is deliberately not
+    // draining has not drained cleanly, it simply has not drained.
+    const disposition = createDrainDispositionTracker({now});
+
     const tick = async () => {
         const {dir, batchSize, maxRetries, backoffBaseMs, pollIntervalMs} = getConfig();
+
         const processRecords = getProcessor();
 
         try {
@@ -172,10 +190,13 @@ export function startMessageDrainLoop({getConfig, getProcessor = () => null, log
                 inactiveLogged = false;
             }
 
+            disposition.recordCycle(summary);
+
             if (summary.drained > 0 || summary.failed > 0) {
                 log('INFO', `Message WAL drain cycle: ${JSON.stringify(summary)}`);
             }
         } catch (error) {
+            disposition.recordFailure(error);
             log('ERROR', `Message WAL drain cycle failed: ${error.message || error}`);
         }
 
@@ -190,6 +211,12 @@ export function startMessageDrainLoop({getConfig, getProcessor = () => null, log
         stop() {
             stopped = true;
             clearTimeout(timer);
-        }
+        },
+
+        /**
+         * @summary The drain receipt for this plane — see `createDrainDispositionTracker`.
+         * @returns {Object}
+         */
+        getDisposition: disposition.getDisposition
     };
 }

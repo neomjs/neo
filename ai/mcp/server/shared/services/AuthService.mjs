@@ -1,6 +1,8 @@
 import Base                                          from '../../../../../src/core/Base.mjs';
 import {createHash}                                  from 'crypto';
+import {statSync}                                    from 'fs';
 import {isLocalBearerToken, matchesLocalBearerToken} from '../helpers/localBearer.mjs';
+import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.mjs';
 
 /**
  * @summary Orchestrates OIDC, GitLab-PAT, and disposable local-bearer authorization.
@@ -66,6 +68,13 @@ class AuthService extends Base {
         // Local-bearer mode is possession-only: no PRM, discovery, identity lookup, or provisioning.
         if (aiConfig.auth.mode === 'local-bearer') {
             this.setupLocalBearer({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+            return
+        }
+
+        // Seat-token mode: request-time SUBJECT binding — a registry-verified token resolves to
+        // its minted AgentIdentity, plane-scoped and generation-invalidated (never possession-only).
+        if (aiConfig.auth.mode === 'seat-token') {
+            this.setupSeatToken({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
             return
         }
 
@@ -277,6 +286,101 @@ class AuthService extends Base {
                     scopes   : [],
                     expiresAt: Number.MAX_SAFE_INTEGER,
                     source   : 'local-bearer'
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Installs the seat-token bearer middleware — the request-time subject-binding mode.
+     *
+     * Same naked-401 contract as the PAT modes (no metadata router, no `resource_metadata`
+     * breadcrumb). The verifier fails loud at SETUP when the registry is unreadable: a server
+     * that requires seat tokens without a provisioned registry is a boot defect, not a 401.
+     * @param {Object}   options
+     * @param {Object}   options.app Express application instance
+     * @param {Object}   options.aiConfig Server configuration object
+     * @param {Object}   options.logger Logger instance
+     * @param {Object}   deps
+     * @param {Function} deps.requireBearerAuth SDK bearer-auth middleware factory
+     * @param {Function} deps.InvalidTokenError SDK error class for rejected tokens
+     * @returns {void}
+     */
+    setupSeatToken({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
+        const verifier = this.createSeatTokenVerifier({aiConfig, logger, InvalidTokenError});
+
+        app.use(requireBearerAuth({verifier, requiredScopes: []}));
+
+        logger.info(`[AuthService] Authorization enabled (mode: seat-token, plane: ${aiConfig.plane.id})`)
+    }
+
+    /**
+     * @summary Builds the `{verifyAccessToken}` verifier for seat-token mode.
+     *
+     * The registry (mint-side artifact of the seat-config generator) is read at setup and
+     * re-read on mtime change, so regenerating seat configs invalidates prior generations on a
+     * LIVE server — the identity-spine reload analog, no restart required. Verification is
+     * plane-scoped against the server's RESOLVED `plane.id`; every rejection carries its named
+     * classification (`wrong-plane` / `stale-generation` / `unknown-token` / `malformed-token`)
+     * so a seat admitted to an overlay presenting against the durable plane fails closed and
+     * honestly. A verified token resolves to its minted `AgentIdentity` subject: `userId` is
+     * the identity login (the same shape the stdio env-var path resolves), and
+     * `agentIdentityNodeId` rides the auth info for graph-edge consumers.
+     * @param {Object}   options
+     * @param {Object}   options.aiConfig
+     * @param {Object}   options.logger
+     * @param {Function} options.InvalidTokenError
+     * @returns {{verifyAccessToken: Function}}
+     */
+    createSeatTokenVerifier({aiConfig, logger, InvalidTokenError}) {
+        const
+            registryPath = aiConfig.auth.seatTokenRegistryPath,
+            planeId      = aiConfig.plane.id;
+
+        let cachedRegistry = readSeatTokenRegistry(registryPath),
+            cachedMtimeMs  = statSync(registryPath).mtimeMs;
+
+        const loadRegistry = () => {
+            const mtimeMs = statSync(registryPath).mtimeMs;
+
+            if (mtimeMs !== cachedMtimeMs) {
+                cachedRegistry = readSeatTokenRegistry(registryPath);
+                cachedMtimeMs  = mtimeMs;
+            }
+            return cachedRegistry
+        };
+
+        logger.info(`[AuthService] Seat-token registry loaded (generation ${cachedRegistry.generation}, ${cachedRegistry.rows.length} seat(s))`);
+
+        return {
+            verifyAccessToken: async token => {
+                const outcome = verifySeatToken({token, registry: loadRegistry(), planeId});
+
+                if (!outcome.ok) {
+                    throw new InvalidTokenError(`Seat token rejected (${outcome.reason})`)
+                }
+
+                // The registry mint validates canonical `AGENT_IDENTITY:@handle` node ids; the
+                // login strip mirrors the stdio env-var resolution shape consumed by
+                // `RequestContextService.getUserId()` tenant tagging.
+                const login = outcome.row.agentIdentityNodeId.replace(/^AGENT_IDENTITY:/, '').replace(/^@/, '');
+
+                return {
+                    token,
+                    clientId : 'neo-seat-token',
+                    // Authorization stays a NAMED extension point: seat tokens authenticate a
+                    // subject; per-subject capability scoping (auth ≠ admission ≠ authorization)
+                    // is a later contract that would populate these scopes — deliberately not
+                    // invented here.
+                    scopes   : [],
+                    expiresAt: Number.MAX_SAFE_INTEGER,
+                    userId   : login,
+                    username : login,
+                    // Provenance tag read by RequestContextService.getSource().
+                    source   : 'seat-token',
+                    // Graph-edge consumers terminate AUTHORED_BY/OWNED_BY on the minted subject
+                    // directly — no re-derivation from the login.
+                    agentIdentityNodeId: outcome.row.agentIdentityNodeId
                 }
             }
         }

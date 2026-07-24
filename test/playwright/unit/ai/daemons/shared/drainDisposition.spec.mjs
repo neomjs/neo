@@ -1,0 +1,120 @@
+import {expect, test}                  from '@playwright/test';
+import {createDrainDispositionTracker} from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
+
+/**
+ * @summary Coverage for the drain receipt's state machine.
+ *
+ * The tracker exists because both WAL drain loops computed a per-cycle summary, logged it
+ * conditionally, and discarded it — so nothing downstream could answer "did this plane drain, and
+ * is it clean?". The parity pilot consumes that answer as a receipt field.
+ *
+ * Cleanliness is read from ONE producer-declared field, `summary.outstanding` — the post-cycle
+ * residue each loop computes in its own vocabulary. These tests use that contract; the proof that
+ * the REAL producers actually emit it (and that a fully-drained cycle whose `pending` is non-zero
+ * still reads `clean`) lives in the boundary-crossing integration test in
+ * `test/.../ai/daemons/embed/drainCycle.spec.mjs`, because a summary fabricated here could assert a
+ * shape the source never emits.
+ *
+ * The tests that matter are the ones proving `drainedClean` cannot be reached by an absence: no
+ * cycle yet, a cycle that threw, a deliberately-inactive loop, and — the fix's core — a summary that
+ * does not declare its residue are four different not-clean facts, none of them cleanliness.
+ */
+test.describe('ai/daemons/shared drainDisposition', () => {
+    const tracker = () => createDrainDispositionTracker({now: () => 1000});
+
+    test('#15802 before any cycle the state is UNOBSERVED, never clean', async () => {
+        const d = tracker().getDisposition();
+
+        expect(d.state).toBe('unobserved');
+        expect(d.drainedClean).toBe(false);
+        expect(d.reason).toBe('no-drain-cycle-completed-yet');
+        expect(d.counts).toBeNull();
+        expect(d.at).toBeNull();
+    });
+
+    test('#15802 a completed cycle with zero residue is CLEAN even when pending was non-zero', async () => {
+        // The load-bearing semantic: `pending` is the PRE-drain observation. A cycle that read one
+        // record and embedded it emits `{pending: 1, embedded: 1, outstanding: 0}`. Reading `pending`
+        // as work-left would call this `dirty` and never let steady traffic go clean — the exact
+        // defect this fix removed. Cleanliness reads `outstanding`, which is zero here.
+        const t = tracker();
+        t.recordCycle({pending: 1, embedded: 1, compensated: 0, failed: 0, prunedSegments: 1, outstanding: 0});
+
+        const d = t.getDisposition();
+        expect(d.state).toBe('clean');
+        expect(d.drainedClean).toBe(true);
+        expect(d.counts.embedded).toBe(1);
+        expect(d.at).toBe(1000);
+    });
+
+    test('#15802 residue left after the cycle is DIRTY', async () => {
+        // A cycle that embedded 100 records and left 2 behind (batch-overflow / cooling / failed)
+        // reports the producer's residue, not its progress.
+        const t = tracker();
+        t.recordCycle({pending: 102, embedded: 100, compensated: 0, outstanding: 2});
+
+        const d = t.getDisposition();
+        expect(d.state).toBe('dirty');
+        expect(d.drainedClean).toBe(false);
+        expect(d.reason).toContain('outstanding=2');
+    });
+
+    test('#15802 the message loop reports its own residue vocabulary', async () => {
+        // `observed - drained`: five read, four drained, one still outstanding.
+        const t = tracker();
+        t.recordCycle({observed: 5, drained: 4, failed: 0, deferred: 1, inactive: false, outstanding: 1});
+
+        expect(t.getDisposition().state).toBe('dirty');
+    });
+
+    test('#15802 a summary that does not DECLARE its residue is UNOBSERVED, never clean', async () => {
+        // The fail-closed invariant. A producer that forgets `outstanding` (or a future third loop
+        // wired before it reports one) must not be graded `clean` by default — cleanliness has to be
+        // asserted, never assumed. This is the guard that makes "read one field" safe.
+        const t = tracker();
+        t.recordCycle({pending: 0, embedded: 3, failed: 0});   // no `outstanding` key
+
+        const d = t.getDisposition();
+        expect(d.state).toBe('unobserved');
+        expect(d.drainedClean).toBe(false);
+        expect(d.reason).toBe('summary-missing-outstanding');
+    });
+
+    test('#15802 an INACTIVE loop is its own state — not clean, not failing', async () => {
+        // The message drain runs with no replay processor wired. It is deliberately not draining,
+        // which is neither a clean plane nor a broken one; folding it into either would misreport.
+        const t = tracker();
+        t.recordCycle({observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true, outstanding: 0});
+
+        const d = t.getDisposition();
+        expect(d.state).toBe('inactive');
+        expect(d.drainedClean).toBe(false);
+        expect(d.reason).toBe('no-replay-processor-wired');
+    });
+
+    test('#15802 a failed cycle REVOKES a previous clean result — no stale success', async () => {
+        // The load-bearing case. Without this, a plane that drained cleanly at 10:00 and has been
+        // throwing ever since still reports `drainedClean: true` — a receipt that cannot go
+        // negative once it has gone positive, which is the defect class this whole receipt guards.
+        const t = tracker();
+        t.recordCycle({pending: 0, embedded: 0, compensated: 0, outstanding: 0});
+        expect(t.getDisposition().drainedClean).toBe(true);
+
+        t.recordFailure(new Error('collection unavailable'));
+
+        const d = t.getDisposition();
+        expect(d.state).toBe('unobserved');
+        expect(d.drainedClean).toBe(false);
+        expect(d.reason).toContain('collection unavailable');
+        expect(d.counts).toBeNull();   // the stale counts must not survive either
+    });
+
+    test('#15802 the receipt is a copy — a consumer cannot mutate the tracker through it', async () => {
+        const t = tracker();
+        t.recordCycle({pending: 1, embedded: 1, compensated: 0, outstanding: 0});
+
+        t.getDisposition().counts.embedded = 999;
+
+        expect(t.getDisposition().counts.embedded).toBe(1);
+    });
+});

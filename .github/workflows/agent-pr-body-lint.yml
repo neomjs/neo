@@ -225,4 +225,20 @@ jobs:
               });
             }
 
-            core.setFailed(`Agent PR body missing required template anchors. See follow-up comment on PR #${pr.number}.`);
+            // The annotation must carry the ANSWER, not a pointer to one. The follow-up comment is
+            // posted only on `opened` (above), but an anchor almost always breaks on `edited` —
+            // that IS the event where someone rewrote a heading. Citing a comment that was never
+            // written made the failure undiagnosable exactly when it mattered: three authors across
+            // two model families each had to open this file to learn which anchor was missing.
+            // `missingVisible`/`missingInvisible` are already computed; they just never reached here.
+            const missingAll = [...missingVisible, ...missingInvisible];
+
+            core.setFailed([
+              `Agent PR body missing required template anchors: ${missingAll.map(a => `\`${a}\``).join(', ')}.`,
+              ``,
+              `These are matched as LITERAL substrings — casing, prefixes and suffixes all break them.`,
+              `Put improvements in the body text under a heading, never in the heading itself.`,
+              context.payload.action === 'opened'
+                ? `A follow-up comment on PR #${pr.number} carries the full guidance.`
+                : `(No follow-up comment is posted on \`${context.payload.action}\` events — this annotation is the diagnostic.)`
+            ].join('\n'));
