@@ -237,8 +237,26 @@ class ConfigBase extends ConfigProvider {
                 clientId          : leaf(null, 'NEO_OAUTH_CLIENT_ID', 'string'),
                 clientSecret      : leaf('', 'NEO_OAUTH_CLIENT_SECRET', 'string'),
                 trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean'),
-                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat' | 'github-pat' | 'local-bearer'.
+                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat' | 'github-pat' | 'local-bearer' | 'seat-token'.
                 mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
+                /**
+                 * @summary Seat-token registry path for 'seat-token' mode — the mint-side artifact
+                 * the auth verifier reads (hash-only rows binding tokens to `AgentIdentity`
+                 * subjects, plane-scoped, generation-invalidated by regeneration).
+                 *
+                 * A PLANE MEMBER: the default derives from the plane anchor and the path is
+                 * claimed in `PLANE_MEMBER_PATHS`, so a relocated plane without an explicitly
+                 * placed registry fails the boot-time member-coherence clause.
+                 * @type {String}
+                 */
+                seatTokenRegistryPath: leaf(path.resolve(planeDataRootDefault, 'seat-tokens/registry.json'), 'NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH', 'string', {
+                    requiredFor: [{
+                        entrypoints   : '*',
+                        modes         : ['seat-token'],
+                        consumerClaims: ['readiness'],
+                        reason        : 'Seat-token verification cannot certify readiness without a registry path.'
+                    }]
+                }),
                 /**
                  * @summary Disposable process-lifetime possession credential for local-bearer mode.
                  *
@@ -1494,6 +1512,7 @@ class ConfigBase extends ConfigProvider {
  * per-profile placement election owns profile-pinned members).
  */
 export const PLANE_MEMBER_PATHS = Object.freeze([
+    'auth.seatTokenRegistryPath',
     'backupPath',
     'wakeDaemonHeartbeatAlivePath',
     'fleet.instanceRoot',
