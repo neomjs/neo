@@ -1,6 +1,6 @@
-import {test, expect}   from '@playwright/test';
-import {spawnSync}      from 'node:child_process';
-import path             from 'node:path';
+import {test, expect} from '@playwright/test';
+import {spawnSync}    from 'node:child_process';
+import path           from 'node:path';
 
 import {
     folderPrefix,
@@ -238,8 +238,8 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         };
 
         expect(lintGeneratedSeoRoutes(treeData, {
-            expectedLlmsIds   : new Set(['agentos/OwnAgentTeam']),
-            expectedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary']),
+            expectedLlmsIds    : new Set(['agentos/OwnAgentTeam']),
+            expectedSitemapIds : new Set(['agentos/OwnAgentTeam', 'Glossary']),
             generatedLlmsIds   : new Set(['agentos/OwnAgentTeam']),
             generatedSitemapIds: new Set(['agentos/OwnAgentTeam', 'Glossary'])
         })).toEqual([]);
@@ -268,7 +268,22 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         }).map(v => v.code)).toEqual(['SEO_GENERATED_EXTRA', 'SEO_GENERATED_EXTRA']);
     });
 
+    // The only test here that runs the lint against the REAL docs tree; every other test in this
+    // file is fixture-based and finishes in milliseconds, so the strict default still guards them.
+    //
+    // Measured 2026-07-24: `node ai/scripts/lint/lint-tree-json.mjs` takes **27.06s** wall-clock
+    // (25.71s user) walking `learn/` and cross-checking `learn/tree.json`. Against Playwright's
+    // 30s default that is ~3s — about 11% — of headroom, so the test timed out under any load at
+    // all, including a serial run on a busy machine. It was never hanging; it had no margin.
+    //
+    // 120s is ~4.4x the measured duration, chosen so ordinary variance cannot reach it while a
+    // genuine hang or a large regression in lint cost still fails rather than stalls the suite.
+    // This raises only the BUDGET — the assertions below are unchanged, so the test discriminates
+    // exactly what it always did. If the lint's cost is itself the concern, that is a performance
+    // ticket with its own measurement, not a timeout value.
     test('runLint: exported entry returns a numeric exit code on the real tree', async () => {
+        test.setTimeout(120000);
+
         const {exitCode, violations} = await runLint();
 
         expect(exitCode).toBe(0);
