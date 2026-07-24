@@ -33,9 +33,10 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
     test.beforeEach(() => {
         tmpRoot  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-wake-envelope-'));
         savedEnv = {
-            XDG_DATA_HOME           : process.env.XDG_DATA_HOME,
-            OPENCODE_SERVER_USERNAME: process.env.OPENCODE_SERVER_USERNAME,
-            OPENCODE_SERVER_PASSWORD: process.env.OPENCODE_SERVER_PASSWORD
+            XDG_DATA_HOME            : process.env.XDG_DATA_HOME,
+            OPENCODE_SERVER_USERNAME : process.env.OPENCODE_SERVER_USERNAME,
+            OPENCODE_SERVER_PASSWORD : process.env.OPENCODE_SERVER_PASSWORD,
+            NEO_WAKE_PROBE_TIMEOUT_MS: process.env.NEO_WAKE_PROBE_TIMEOUT_MS
         };
 
         process.env.OPENCODE_SERVER_USERNAME = 'opencode';
@@ -271,5 +272,35 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
         expect(failed.level).toBe('error');
         expect(failed.message).toContain('ECONNREFUSED');
         expect(fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json')).sessionId).toBe('ses_probe_down');
+    });
+
+    test('a hung probe is bounded in time — aborts loud instead of hanging the event hook', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+        process.env.NEO_WAKE_PROBE_TIMEOUT_MS = '50';
+
+        // A blackholed listener: accepts the connection, never answers. Without the abort budget
+        // this event would hang forever — the feature failing silently in the exact state it
+        // exists to detect. The stub rejects only when the signal fires, so the timeout is what
+        // settles the race.
+        globalThis.fetch = async (input, init) => {
+            fetchCalls.push({url: String(input)});
+
+            return new Promise((resolve, reject) => {
+                init.signal?.addEventListener('abort', () => {
+                    const err = new Error('The operation was aborted');
+                    err.name = 'AbortError';
+                    reject(err);
+                });
+            });
+        };
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41010] }));
+        await fireSessionCreated(hooks, { id: 'ses_probe_hung' });
+
+        const failed = logs.find(entry => entry.message?.startsWith('written-probe-failed'));
+        expect(failed).toBeTruthy();
+        expect(failed.level).toBe('error');
+        expect(failed.message).toContain('timed out after 50ms');
+        expect(fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json')).sessionId).toBe('ses_probe_hung');
     });
 });

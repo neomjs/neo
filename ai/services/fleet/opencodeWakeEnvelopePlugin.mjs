@@ -138,6 +138,12 @@ export const NeoWakeEnvelope = async (ctx) => {
      * the split-brain case: a server answering 200 with a payload whose id is not the asked id is
      * not the owner of this session.
      *
+     * The probe is bounded in time because it runs inside an event hook: a blackholed listener
+     * (a firewall drop, a filtered port) makes an unbounded fetch hang forever, which would let
+     * the feature fail silently in exactly the state it exists to detect. A loopback answer is
+     * milliseconds; anything past the budget is wrong coordinates, not a slow route. The budget
+     * defaults to 3000ms and is tunable per seat via `NEO_WAKE_PROBE_TIMEOUT_MS`.
+     *
      * @param {Object} options
      * @param {Number} options.port The resolved server port written into the envelope.
      * @param {String} options.sessionId The exact session id from the `session.created` event.
@@ -147,11 +153,28 @@ export const NeoWakeEnvelope = async (ctx) => {
         const username = process.env.OPENCODE_SERVER_USERNAME;
         const password = process.env.OPENCODE_SERVER_PASSWORD;
 
-        const response = await fetch(`http://127.0.0.1:${port}/session/${sessionId}`, {
-            headers: {
-                'Authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+        const timeoutMs  = Number(process.env.NEO_WAKE_PROBE_TIMEOUT_MS) || 3000,
+              controller = new AbortController(),
+              timer      = setTimeout(() => controller.abort(), timeoutMs);
+
+        let response;
+
+        try {
+            response = await fetch(`http://127.0.0.1:${port}/session/${sessionId}`, {
+                headers: {
+                    'Authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+                },
+                signal: controller.signal
+            });
+        } catch (err) {
+            if (err?.name === 'AbortError') {
+                throw new Error(`probe timed out after ${timeoutMs}ms — a loopback route that hangs is wrong coordinates or a blackholed listener, not a slow one`);
             }
-        });
+
+            throw err;
+        } finally {
+            clearTimeout(timer);
+        }
 
         if (response.status !== 200) {
             throw new Error(`probe GET /session/${sessionId} -> ${response.status}`);
