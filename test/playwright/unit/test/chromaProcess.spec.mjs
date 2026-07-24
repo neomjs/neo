@@ -18,7 +18,19 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(unitConfig.webServer).toBeUndefined();
         expect(brainTestMatch.test('/repo/test/playwright/unit/util/Array.spec.mjs')).toBe(false);
         expect(brainTestMatch.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs')).toBe(true);
-        expect(projects.unit.testIgnore).toBe(brainTestMatch);
+
+        // The guarded contract is BODY PURITY — the bulk `unit` project must never admit a Brain
+        // spec, because that would need a Chroma boot inside a pure-Node run. Assert that
+        // behaviour, not the container's shape: `testIgnore` legitimately holds more than one
+        // matcher (the `unit-profiling` split added the wall-clock specs), and an identity check
+        // against a single regex would fail every future exclusion while proving nothing extra.
+        const unitIgnore = [projects.unit.testIgnore].flat();
+
+        expect(unitIgnore).toContain(brainTestMatch);
+        // Behavioural, not structural: a Brain path IS excluded, an ordinary Body path is NOT.
+        // This still catches the real regression an over-broad ignore would cause.
+        expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs'))).toBe(true);
+        expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/util/Array.spec.mjs'))).toBe(false);
         expect(projects['unit-brain'].testMatch).toBe(brainTestMatch);
         expect(projects['unit-brain'].dependencies).toEqual(['chroma-setup']);
         expect(projects['chroma-setup'].teardown).toBe('chroma-teardown');
