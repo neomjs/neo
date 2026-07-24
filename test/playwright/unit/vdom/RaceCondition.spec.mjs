@@ -43,7 +43,7 @@ class RaceContainer extends Container {
 RaceContainer = Neo.setupClass(RaceContainer);
 
 /**
- * @summary Regression tests for VDOM Update Race Conditions (Ticket #8814).
+ * @summary Regression tests for VDOM update race conditions.
  *
  * These tests reproduce scenarios where concurrent updates between Parent and Child components
  * previously led to duplicate DOM nodes or state inconsistencies.
@@ -55,11 +55,19 @@ RaceContainer = Neo.setupClass(RaceContainer);
  * 4. Reverse Race: Parent starts update *after* child, risking overwrite.
  */
 test.describe('VdomLifecycle Race Condition', () => {
+    // Four tests below replace Neo.applyDeltas with closures over their OWN capturedDeltas array.
+    // Playwright reuses a worker across spec files, so an unrestored override runs this file's
+    // fixture against a later spec's components — the tell is a stack frame from here surfacing
+    // in an unrelated suite. Captured once here, restored after every test.
+    const realApplyDeltas = Neo.applyDeltas;
+
     let testIdCounter = 0;
     const getUniqueId = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
     let createdComponentIds = [];
 
     test.afterEach(() => {
+        Neo.applyDeltas = realApplyDeltas;
+
         createdComponentIds.forEach(id => {
             const cmp = Neo.getComponent(id);
             if (cmp) {
@@ -249,10 +257,10 @@ test.describe('VdomLifecycle Race Condition', () => {
         // Ensure visible
         child1.hidden = false;
         await container.promiseUpdate();
-        
+
         // Wait for any potential late-arriving deltas or queued updates to clear
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         capturedDeltas.length = 0;
 
         // Parent updates its own property (e.g. style) - Depth 1

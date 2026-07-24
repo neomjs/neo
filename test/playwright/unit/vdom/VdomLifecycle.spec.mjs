@@ -21,7 +21,16 @@ import VdomHelper     from '../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 
 // Mock applyDeltas to prevent errors during mount
+// Captured before the patch below, which lands at IMPORT time — there is no hook boundary early
+// enough to capture from. Playwright reuses a worker across spec files, so an unrestored no-op does
+// not crash a later spec; it silences the delta channel and lets that spec's assertions pass empty.
+const realApplyDeltas = Neo.applyDeltas;
+
 Neo.applyDeltas = async () => {};
+
+test.afterAll(() => {
+    Neo.applyDeltas = realApplyDeltas;
+});
 
 class MockComponent extends Component {
     static config = {
@@ -35,7 +44,7 @@ MockComponent = Neo.setupClass(MockComponent);
 
 /**
  * @summary Verifies the state consistency of the VdomLifecycle mixin.
- * 
+ *
  * Focuses on critical state flags like `mounted` and properties like `vnode`
  * during lifecycle events such as initialization, mounting, and hiding (removeDom).
  * Ensuring these states are correct is essential for the reliability of the
@@ -46,7 +55,7 @@ test.describe('VdomLifecycle State', () => {
     /**
      * Verifies that `initVnode` correctly initializes the component state even if
      * the component is configured to be hidden (`removeDom`) initially.
-     * 
+     *
      * Expected behavior:
      * 1. `mounted` should be true because `initVnode(true)` was called.
      * 2. `vnode` should be populated (not null) because `initVnode` forces creation by clearing `removeDom`.
@@ -70,7 +79,7 @@ test.describe('VdomLifecycle State', () => {
     /**
      * Verifies that the `vnode` property persists when a visible component is hidden
      * using `hideMode: 'removeDom'`.
-     * 
+     *
      * This persistence is critical for race condition handling: logic that checks
      * `component.vnode` relies on it being truthy even if the component is temporarily unmounted.
      */
@@ -81,19 +90,19 @@ test.describe('VdomLifecycle State', () => {
         });
 
         await comp.initVnode(true);
-        
+
         expect(comp.mounted).toBe(true);
         expect(comp.vnode).not.toBeNull();
 
         // Hide the component (triggers removeDom logic)
         comp.hidden = true;
-        
+
         // Wait for update cycle to complete
         await new Promise(resolve => setTimeout(resolve, 50));
 
         // Ensure vnode reference is not cleared upon unmounting
-        expect(comp.mounted).toBe(false); 
-        expect(comp.vnode).not.toBeNull(); 
+        expect(comp.mounted).toBe(false);
+        expect(comp.vnode).not.toBeNull();
 
         comp.destroy();
     });
