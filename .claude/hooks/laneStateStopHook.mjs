@@ -248,7 +248,7 @@ Declaring a lane is NOT driving it. Do the next concrete action NOW:
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
-Stop key: ship ONE material artifact — a PR opened, a formal review submitted, or an own-PR RC-response cycle — since your last accepted stop; artifact-less autonomous turns do not stop (transcript-verified, never prose).
+Stop key: ship ONE material artifact since your last accepted stop — a PR opened (a STANDALONE \`gh pr create\`; piped/chained/compound invocations never mint the key) or a formal review submitted (\`manage_pr_review\` create). Artifact-less autonomous turns do not stop (transcript-verified, never prose); an own-PR RC-response cycle is real work but not yet a key class.
 ${STOP_HOOK_TURN_OPTIONS_HINT}
 
 ${LANE_STATE_SCHEMA_HINT}`;
