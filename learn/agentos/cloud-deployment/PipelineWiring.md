@@ -35,6 +35,15 @@ Do not redeploy on every commit. The Agent OS deployment is a stateful service; 
 
 Avoid "deploy on every push to `dev`": it couples MCP availability to ordinary development cadence.
 
+**Pass the gating signal to the deploy script — it does not infer it.** Checking out a release tag in the CI job is not enough: [`deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) resolves `NEO_REF` (default `dev`), **not** the job's checked-out ref, so a tag-triggered job that omits it deploys `dev` while its workspace sits on the tag. Hand the selector over explicitly:
+
+```bash
+# tag-triggered job: deploy the tag that fired it, not the default channel
+NEO_REF="$CI_COMMIT_TAG" ai/examples/cloud-deployment/deploy-pipeline.sh
+```
+
+The script resolves that selector to a full commit id before Docker runs, and **peels annotated tags** — the tag object is never attested as the deployed revision. Substitute your CI's tag variable (`GITHUB_REF_NAME`, `CI_COMMIT_TAG`, …); for a protected-branch or manual-dispatch trigger, pass the branch or an operator-supplied SHA the same way.
+
 ## Deployed-revision provenance
 
 Release-gating chooses *which* revision to deploy. This section is how the deployment **proves** which revision it actually runs — a separate problem, and the one that lets a stale stack look healthy.

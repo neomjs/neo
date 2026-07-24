@@ -56,13 +56,28 @@ if [[ "$NEO_SELECTOR" =~ ^[0-9a-f]{40}$ ]]; then
     resolved_revision="$NEO_SELECTOR"
 else
     # A channel/tag, or an abbreviated SHA (which `git fetch` would reject anyway
-    # — see PipelineWiring.md). Resolve it to exactly one full SHA or abort.
-    matches="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" 2>/dev/null | awk '{print $1}' || true)"
+    # — see PipelineWiring.md). Resolve it to exactly one full COMMIT id or abort.
+    #
+    # An ANNOTATED tag advertises two lines: the tag object at `refs/tags/X` and the
+    # peeled commit at `refs/tags/X^{}`. Docker checks out the peeled commit, so the
+    # tag-object id would make NEO_REVISION disagree with /app/.neo-revision — the
+    # label attesting an object that is not the deployed source. A 40-char git object
+    # id is not necessarily a COMMIT id. Prefer the peel; never the tag object.
+    ls_remote="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" 2>/dev/null || true)"
+    peeled="$(printf '%s\n' "$ls_remote" | awk '$2 ~ /\^\{\}$/ {print $1}')"
+
+    if [ -n "$peeled" ]; then
+        # Annotated tag: the peel IS the deployed commit.
+        matches="$peeled"
+    else
+        # Branch, lightweight tag, or full ref — these point at commits directly.
+        matches="$(printf '%s\n' "$ls_remote" | awk '$2 !~ /\^\{\}$/ {print $1}')"
+    fi
     match_count="$(printf '%s' "$matches" | grep -c . || true)"
 
     if [ "$match_count" -ne 1 ]; then
-        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' resolved to ${match_count} refs at ${NEO_REPO_URL}; expected exactly 1." >&2
-        echo "[deploy] Pass a full 40-character SHA, or a selector that names exactly one ref. Docker was NOT invoked." >&2
+        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' resolved to ${match_count} commits at ${NEO_REPO_URL}; expected exactly 1." >&2
+        echo "[deploy] Pass a full 40-character commit SHA, or a selector naming exactly one ref. Docker was NOT invoked." >&2
         exit 1
     fi
     resolved_revision="$matches"

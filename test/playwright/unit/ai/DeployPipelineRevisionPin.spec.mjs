@@ -51,9 +51,12 @@ async function createFakeBin(lsRemote) {
         'exit 0'
     ].join('\n'), {mode: 0o755});
 
+    // Record the ENVIRONMENT, not only argv. NEO_REF / NEO_REVISION reach Compose as exported
+    // env, never as arguments — so a docker stub logging `$*` alone can never falsify
+    // "both variables reach Compose", which is the claim the pinning contract rests on.
     await fs.writeFile(path.join(bin, 'docker'), [
         '#!/usr/bin/env bash',
-        `echo "invoked: $*" >> ${JSON.stringify(dockerLog)}`,
+        `echo "invoked: $* | NEO_REF=${'$'}{NEO_REF-<unset>} NEO_REVISION=${'$'}{NEO_REVISION-<unset>}" >> ${JSON.stringify(dockerLog)}`,
         'exit 0'
     ].join('\n'), {mode: 0o755});
 
@@ -106,7 +109,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
 
         expect(result.code).not.toBe(0);
         expect(result.output).toContain('no-such-branch');
-        expect(result.output).toContain('resolved to 0 refs');
+        expect(result.output).toContain('resolved to 0 commits');
         // The whole point: an unresolvable selector must never reach a build.
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
@@ -119,7 +122,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
             result   = runPipeline(fake, 'ambiguous');
 
         expect(result.code).not.toBe(0);
-        expect(result.output).toContain('resolved to 2 refs');
+        expect(result.output).toContain('resolved to 2 commits');
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
@@ -153,5 +156,54 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(result.output).toContain(FULL_SHA);
         expect(result.output).toContain('selector:');
         expect(await dockerInvocations(fake.dockerLog)).toBeGreaterThan(0)
+    });
+
+    test('BOTH NEO_REF and NEO_REVISION reach Compose as the resolved commit', async () => {
+        const
+            fake   = await createFakeBin(`${FULL_SHA}\trefs/heads/dev`),
+            result = runPipeline(fake, 'dev');
+
+        expect(result.code).toBe(0);
+
+        // The env, not argv: NEO_REVISION alone would label the image while the source stage
+        // still fetched ${NEO_REF} — a label attesting a commit the build never checked out.
+        const log = await fs.readFile(fake.dockerLog, 'utf8');
+
+        expect(log).toContain(`NEO_REF=${FULL_SHA}`);
+        expect(log).toContain(`NEO_REVISION=${FULL_SHA}`);
+        expect(log).not.toContain('NEO_REF=dev');
+        expect(log).not.toContain('NEO_REVISION=<unset>')
+    });
+
+    test('an annotated tag resolves to the PEELED COMMIT, never the tag object', async () => {
+        // An annotated tag advertises two lines. Docker checks out the peel, so stamping the
+        // tag object would make NEO_REVISION disagree with /app/.neo-revision — a 40-char git
+        // object id is not necessarily a commit id.
+        const
+            TAG_OBJECT    = '9c18ce0000000000000000000000000000000000',
+            PEELED_COMMIT = 'a312fc0000000000000000000000000000000000',
+            fake          = await createFakeBin(
+                `${TAG_OBJECT}\trefs/tags/v13.2.0\n${PEELED_COMMIT}\trefs/tags/v13.2.0^{}`
+            ),
+            result = runPipeline(fake, 'v13.2.0');
+
+        expect(result.code).toBe(0);
+
+        const log = await fs.readFile(fake.dockerLog, 'utf8');
+
+        expect(log).toContain(`NEO_REVISION=${PEELED_COMMIT}`);
+        expect(log).toContain(`NEO_REF=${PEELED_COMMIT}`);
+        // The tag object must never be attested as the deployed revision.
+        expect(log).not.toContain(TAG_OBJECT);
+        expect(result.output).not.toContain(TAG_OBJECT)
+    });
+
+    test('a lightweight tag (single line, no peel) still resolves', async () => {
+        const
+            fake   = await createFakeBin(`${FULL_SHA}\trefs/tags/lightweight`),
+            result = runPipeline(fake, 'lightweight');
+
+        expect(result.code).toBe(0);
+        expect(await fs.readFile(fake.dockerLog, 'utf8')).toContain(`NEO_REVISION=${FULL_SHA}`)
     })
 })
