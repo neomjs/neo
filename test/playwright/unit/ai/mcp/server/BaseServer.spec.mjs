@@ -15,6 +15,8 @@ setup({
 
 import {test, expect}                                  from '@playwright/test';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import os                                              from 'node:os';
+import path                                            from 'node:path';
 import Neo                                             from '../../../../../../src/Neo.mjs';
 import * as core                                       from '../../../../../../src/core/_export.mjs';
 import BaseServer                                      from '../../../../../../ai/mcp/server/BaseServer.mjs';
@@ -762,5 +764,56 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
 
         await server.loadCustomConfig();
         expect(loadedFrom).toBe('/tmp/custom-config.mjs');
+    });
+});
+
+/**
+ * @summary Local builder for the plane-member boundary tests — the `BareServer` isolation
+ * precedent (no-op `initAsync`, so creation never races the assertion under test).
+ */
+function makeBoundaryServerClass({member}) {
+    const id = ++_testClassCounter;
+    class BoundarySrv extends BaseServer {
+        static config = {className: `Neo.test.mcp.server.BoundarySrv${id}`}
+        // Isolated unit test — skip the boot lifecycle so each test drives the assertion directly.
+        async initAsync() { /* no-op */ }
+        getServerMetadata() { return {name: 'boundary-test'}; }
+        getToolService()    { return {listTools: () => ({tools: []}), callTool: async () => ({})}; }
+        isPlaneMember()     { return member; }
+    }
+    return Neo.setupClass(BoundarySrv);
+}
+
+test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)', () => {
+    test('membership defaults to false — API-bridge servers and fixtures carry no plane by contract', () => {
+        const server = Neo.create(makeTestServerClass());
+
+        // A truthy per-server config WITHOUT a plane subtree: the exact shape that must
+        // skip, never throw (the gitlab-workflow smoke-fixture regression class).
+        server.aiConfig = {transport: 'stdio'};
+
+        expect(server.isPlaneMember()).toBe(false);
+        expect(server.assertPlaneIdentity()).toBeNull();
+    });
+
+    test('a declared member without aiConfig fails loud', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+
+        expect(() => server.assertPlaneIdentity()).toThrow('without aiConfig');
+    });
+
+    test('a declared member whose config resolves no plane subtree fails loud', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+        server.aiConfig = {transport: 'stdio'};
+
+        expect(() => server.assertPlaneIdentity()).toThrow('plane');
+    });
+
+    test('a declared member with a coherent plane returns the observed identity', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: path.join(os.tmpdir(), 'neo-plane-boundary-spec')}};
+
+        const observed = server.assertPlaneIdentity();
+        expect(observed.planeId).toBe('overlay-boundary-spec');
     });
 });

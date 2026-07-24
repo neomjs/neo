@@ -518,19 +518,45 @@ class BaseServer extends Base {
     }
 
     /**
+     * @summary Declares whether this server is a data-plane MEMBER — a server that opens
+     * durable plane storage (WAL, SQLite, Chroma) and must therefore prove plane-identity
+     * coherence before serving. Membership is an explicit class declaration, never inferred
+     * from config shape: API-bridge servers (github-/gitlab-workflow) and isolated test
+     * fixtures carry no plane by contract and skip the assertion; member servers override
+     * to `true` and then fail LOUD on every unresolvable state (no config, no `plane`
+     * subtree) — a member can never silently skip its own invariant.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return false;
+    }
+
+    /**
      * @summary Fail-closed plane-identity assertion on the RESOLVED config values. Placed on
      * this shared building block because every boot order — the default `boot()` and the
      * custom overrides — calls `runHealthcheckAndLogStatus()` after `loadCustomConfig()`,
      * so the assertion also closes the custom-config-file route the leaf's env parser
-     * never sees. Config-less servers (null `aiConfig`) carry no plane by contract.
+     * never sees. Non-members (see `isPlaneMember()`) carry no plane by contract and
+     * return `null`; declared members fail loud on any unresolvable state.
      * @returns {Object|null} Frozen observed identity `{planeId, dataRoot}`, or `null`.
      * @protected
      */
     assertPlaneIdentity() {
-        if (!this.aiConfig) return null;
+        if (!this.isPlaneMember()) return null;
 
+        if (!this.aiConfig) {
+            throw new Error(
+                `[${this.constructor.name}] declared plane member booted without aiConfig — plane identity unresolvable.`
+            );
+        }
         const {plane} = this.aiConfig;
 
+        if (!plane) {
+            throw new Error(
+                `[${this.constructor.name}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
+            );
+        }
         return assertPlaneCoherence({
             planeId : plane.id,
             dataRoot: plane.dataRoot,
@@ -569,7 +595,7 @@ class BaseServer extends Base {
      */
     async connectTransport() {
         const metadata  = this.getServerMetadata();
-        const transport = this.aiConfig === null ? 'stdio' : this.aiConfig.transport;
+        const transport = !this.aiConfig ? 'stdio' : this.aiConfig.transport;
 
         if (transport === 'sse') {
             throw new Error(

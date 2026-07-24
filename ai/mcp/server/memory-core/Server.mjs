@@ -75,6 +75,17 @@ class Server extends BaseServer {
     stdioIdentity = null
 
     /**
+     * @summary Memory Core opens durable plane storage (memory/message WAL, the shared
+     * SQLite graph, Chroma collections) — a declared plane MEMBER: the boot-time
+     * plane-identity assertion fails loud rather than ever silently skipping.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return true;
+    }
+
+    /**
      * @summary MCP server identity for `createMcpServer()`. Includes the experimental
      * `neo-wake-substrate` capability that surfaces wake events for connected clients.
      * @returns {{name: String, version: String, capabilities: Object}}

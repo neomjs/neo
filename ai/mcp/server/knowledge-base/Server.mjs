@@ -31,6 +31,17 @@ class Server extends BaseServer {
     logger   = logger
 
     /**
+     * @summary The Knowledge Base opens durable plane storage (the unified Chroma persist
+     * dir, shared telemetry SQLite) — a declared plane MEMBER: the boot-time plane-identity
+     * assertion fails loud rather than ever silently skipping.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return true;
+    }
+
+    /**
      * @summary MCP server identity for `createMcpServer()`.
      * @returns {{name: String, version: String, capabilities: Object}}
      */
