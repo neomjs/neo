@@ -69,6 +69,18 @@ import {
  *       fire the guard against the target file/dir path before overwriting. Refuses if
  *       any target is non-empty without `--force`.
  *
+ * - **Which operation is this? (`--preserve-read-state`, replace mode only.)** Two different
+ *   operations share this one CLI, and they need opposite read-state policies:
+ *     - **Disaster recovery** (default) — the bundle IS the new state. Reproduce it exactly;
+ *       mailbox read receipts committed after the bundle was captured go with everything else.
+ *     - **Operational re-seed** (`--preserve-read-state`) — the graph is being rebuilt from a
+ *       lagged snapshot while seats keep working. `DELIVERED_TO` `readAt`/`archivedAt` is
+ *       runtime-only state that no synced bundle can carry, so without the flag an acknowledged
+ *       `mark_read` is wiped after the tool already returned `status: 'read'` — an acknowledged
+ *       write destroyed by a restore, which reads to the seat as its mailbox rolling backwards.
+ *   Nothing is guessed from context — the operator states the intent, because only the operator
+ *   knows which of the two runs this is.
+ *
  * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
  *       drops edges whose endpoint was filtered). Example: `FILE,DIRECTORY,KB_GAP,TOOLING_GAP`.
@@ -120,6 +132,7 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
  * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
+ * @param {Boolean} [options.preserveReadState=false]      Selects the read-state policy for a `'replace'` graph restore, because the two operations that share this CLI need opposite ones. `false` (default) is DISASTER RECOVERY: the bundle is reproduced exactly, and mailbox read receipts committed after the bundle was captured are discarded with everything else. `true` is an OPERATIONAL RE-SEED: committed `DELIVERED_TO` `readAt`/`archivedAt` are captured inside the truncate transaction and re-applied wherever the bundle left them null, so acknowledged `mark_read` writes survive rebuilding the graph from a lagged snapshot. Only null-in-bundle rows are touched, so a fresher bundle is never regressed. No-op under `'merge'`, which never truncates. Forwarded as `preserveDeliveryReadState`.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, mode: String, subsystems: Object, meta: Object|null, topology: Object, postRestoreHook: Object|null}>}
  */
@@ -136,6 +149,7 @@ export async function runRestore({
     filterEdgeTypes         = [],
     onlySubstrate           = null,
     postRestoreHook         = null,
+    preserveReadState       = false,
     expectedDimension       = AiConfig.vectorDimension,
     logger                  = console
 } = {}) {
@@ -144,6 +158,12 @@ export async function runRestore({
     }
     if (mode !== 'merge' && mode !== 'replace') {
         throw new Error(`Unknown mode: ${mode}. Must be 'merge' or 'replace'.`);
+    }
+    // Say so rather than ignoring it. The flag expresses an intent about data safety, and a caller who
+    // believes it is protecting read receipts should learn that merge never put them at risk — silently
+    // accepting a safety-intent flag that does nothing is how a caller ends up trusting the wrong run.
+    if (preserveReadState && mode === 'merge') {
+        logger.warn?.('[Restore] --preserve-read-state has no effect under `--mode merge`: merge never truncates the graph, so DELIVERED_TO read receipts were never at risk. The flag applies to `--mode replace`.');
     }
 
     const resolvedRoot = path.resolve(bundleRoot);
@@ -237,11 +257,16 @@ export async function runRestore({
             });
         }
 
+        // Forwarding this is the whole reason the SDK accepts a policy at all: a replace-mode import
+        // truncates the graph, and `DELIVERED_TO` `readAt` is runtime-only state no synced bundle can
+        // carry. Drop the forward and the SDK's preservation becomes unreachable from every real
+        // invocation — the default then silently wipes `mark_read` writes already acknowledged as read.
         subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
-            action: 'import',
-            file  : graphInputDir,
+            action                   : 'import',
+            file                     : graphInputDir,
             mode,
-            confirmation
+            confirmation,
+            preserveDeliveryReadState: preserveReadState
         });
 
         if (filterActive) {
@@ -984,6 +1009,7 @@ export function parseArgs(argv) {
     let   filterEdgeTypes       = [];
     let   onlySubstrate         = null;
     let   postRestoreHook       = null;
+    let   preserveReadState     = false;
 
     const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 
@@ -1011,6 +1037,8 @@ export function parseArgs(argv) {
             postRestoreHook = argv[++i];
         } else if (arg.startsWith('--post-restore-hook=')) {
             postRestoreHook = arg.slice('--post-restore-hook='.length);
+        } else if (arg === '--preserve-read-state') {
+            preserveReadState = true;
         } else if (arg.startsWith('--')) {
             throw new Error(`Unknown flag: ${arg}`);
         } else {
@@ -1025,7 +1053,7 @@ export function parseArgs(argv) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook}
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -1044,6 +1072,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error(error.message);
         console.error('Usage: node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]');
         console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>]');
+        console.error('       [--preserve-read-state]  replace mode: keep committed mailbox read receipts (operational re-seed);');
+        console.error('                                omit for disaster recovery, where the bundle is reproduced exactly.');
         console.error('Example (today\'s graph wipe restore):');
         console.error('  npm run ai:restore -- <bundle-path> --mode merge --only-substrate=graph \\');
         console.error('    --filter-labels=FILE,DIRECTORY,KB_GAP,TOOLING_GAP \\');

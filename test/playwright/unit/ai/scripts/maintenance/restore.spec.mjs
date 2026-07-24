@@ -389,7 +389,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -399,7 +400,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -409,10 +411,94 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            preserveReadState    : false
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
+    });
+
+    test('parseArgs: --preserve-read-state is a boolean flag, off by default', () => {
+        expect(parseArgs(['/some/bundle']).preserveReadState).toBe(false);
+        expect(parseArgs(['/some/bundle', '--preserve-read-state']).preserveReadState).toBe(true);
+        // Order-independent, and it does not swallow the following argument the way a value flag would.
+        const args = parseArgs(['/some/bundle', '--preserve-read-state', '--mode', 'replace']);
+
+        expect(args.preserveReadState).toBe(true);
+        expect(args.mode).toBe('replace');
+    });
+
+    // REACHABILITY, not mechanism. `DatabaseService.graphReplaceReadAtPreserved.spec` already proves the
+    // preservation works when asked for; it cannot prove that anyone asks. A mechanism whose only `true`
+    // lives in its own spec is green and unreachable, so these two assert that the operator's intent
+    // survives the trip from argv to the SDK call. They go red the moment the orchestrator stops
+    // forwarding: the graph import then carries no `preserveDeliveryReadState` key and reads `undefined`.
+    test('operational re-seed: preserveReadState reaches the graph SDK import as preserveDeliveryReadState', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'reseed-preserve', shared_topology: true});
+
+        await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            mode             : 'replace',
+            force            : true,
+            preserveReadState: true,
+            // Flat targets MUST be scoped to workRoot. Omitting them falls back to DEFAULT_CONCEPTS_DIR
+            // etc. — the live `.neo-ai-data/` this repo tracks — and `mode:'replace'` with `force:true`
+            // then overwrites another agent's working state from a synthetic fixture. Same shared-resource
+            // class as an orphaned Chroma port wedging every seat's suite.
+            conceptsTargetDir     : path.join(workRoot, 'reseed-preserve-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'reseed-preserve-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'reseed-preserve-targets', 'sent-to-cull.jsonl'),
+            logger                : silentLogger
+        });
+
+        const graphImport = calls.mc.find(c => c.action === 'import' && /graph/.test(String(c.file)));
+
+        expect(graphImport).toBeTruthy();
+        expect(graphImport.preserveDeliveryReadState).toBe(true);
+    });
+
+    test('disaster recovery: the default leaves the graph import exact, never preserving live read state', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'recovery-exact', shared_topology: true});
+
+        await runRestore({
+            expectedDimension     : 1,
+            bundleRoot,
+            mode                  : 'replace',
+            force                 : true,
+            conceptsTargetDir     : path.join(workRoot, 'recovery-exact-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'recovery-exact-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'recovery-exact-targets', 'sent-to-cull.jsonl'),
+            logger                : silentLogger
+        });
+
+        const graphImport = calls.mc.find(c => c.action === 'import' && /graph/.test(String(c.file)));
+
+        expect(graphImport).toBeTruthy();
+        // Explicitly `false`, not absent: `mode:'replace'` means the bundle IS the new state, so a recovery
+        // run must reproduce it exactly rather than silently merging live reads back in. Asserting the
+        // value pins that default as a contract rather than an accident of omission.
+        expect(graphImport.preserveDeliveryReadState).toBe(false);
+    });
+
+    test('merge mode warns that --preserve-read-state has no effect rather than accepting it silently', async () => {
+        const bundleRoot = buildSyntheticBundle({bundleName: 'merge-warn', shared_topology: true});
+        const warnings   = [];
+        const logger     = {log: () => {}, warn: msg => warnings.push(String(msg)), error: () => {}};
+
+        await runRestore({
+            expectedDimension     : 1,
+            bundleRoot,
+            mode                  : 'merge',
+            preserveReadState     : true,
+            conceptsTargetDir     : path.join(workRoot, 'merge-warn-targets', 'concepts'),
+            trajectoriesTargetFile: path.join(workRoot, 'merge-warn-targets', 'trajectories.jsonl'),
+            sentToCullTargetFile  : path.join(workRoot, 'merge-warn-targets', 'sent-to-cull.jsonl'),
+            logger
+        });
+
+        expect(warnings.some(w => /--preserve-read-state has no effect/.test(w))).toBe(true);
+        expect(warnings.some(w => /merge never truncates/.test(w))).toBe(true);
     });
 
     test('validateBundle: standalone validation call returns parsed meta', async () => {
