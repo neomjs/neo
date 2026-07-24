@@ -32,6 +32,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('planePlacementCensus — the classification rules the election is priced on', () => {
     let stripComments, auditSeatContainment, censusPlaneOpeners, PLANE_DIR_NAME;
     let attributeWalSegment, normalizeSeatIdentity, resolveLatestWalSegment, WAL_DIR_NAME;
+    let listCensusFiles, PLANE_PATH_SOURCE, CENSUS_SELF_PATH;
     let workRoot;
 
     test.beforeAll(async () => {
@@ -42,6 +43,9 @@ test.describe('planePlacementCensus — the classification rules the election is
             attributeWalSegment,
             normalizeSeatIdentity,
             resolveLatestWalSegment,
+            listCensusFiles,
+            PLANE_PATH_SOURCE,
+            CENSUS_SELF_PATH,
             PLANE_DIR_NAME,
             WAL_DIR_NAME
         } = await import('../../../../../../ai/scripts/diagnostics/planePlacementCensus.mjs'));
@@ -127,6 +131,59 @@ test.describe('planePlacementCensus — the classification rules the election is
 
         expect(audit.present).toBe(false);
         expect(audit.leaves).toBe(0);
+    });
+
+    // ───────── review fixes: the census must not count itself, must see all plane leaves, must split escape/dangle ─────────
+
+    test('the census EXCLUDES itself from its own domain (a verifier must not move its own baseline)', () => {
+        // Committed, this file matches its own opener rule, so counting it shifts the total by one on commit.
+        expect(listCensusFiles()).not.toContain(CENSUS_SELF_PATH);
+    });
+
+    test('PLANE_PATH_SOURCE recognises the whole *Path/*Dir config-leaf family, not just storagePaths', () => {
+        // The miss @neo-gpt-emmy found: SwarmHeartbeatService reads AiConfig.wakeDaemonHeartbeatAlivePath, a
+        // plane leaf that is not `storagePaths`, and was silently dropped.
+        expect(PLANE_PATH_SOURCE.test('AiConfig.wakeDaemonHeartbeatAlivePath')).toBe(true);
+        expect(PLANE_PATH_SOURCE.test('aiConfig.backupPath')).toBe(true);
+        expect(PLANE_PATH_SOURCE.test('AiConfig.hierarchyPath')).toBe(true);
+        expect(PLANE_PATH_SOURCE.test('aiConfig.socketDir')).toBe(true);
+        // Still matches the original shapes.
+        expect(PLANE_PATH_SOURCE.test('config.storagePaths.graph')).toBe(true);
+        expect(PLANE_PATH_SOURCE.test("'.neo-ai-data/sqlite'")).toBe(true);
+        // A non-path config read is NOT a plane reference.
+        expect(PLANE_PATH_SOURCE.test('AiConfig.vectorDimension')).toBe(false);
+    });
+
+    test('a symlink that is BOTH escaping AND dangling reports both, not just dangling', async () => {
+        // The fallthrough @neo-gpt-emmy found: the escape check used realpathSync, which throws on a dangling
+        // link, so a link pointing OUTSIDE the root to a NON-EXISTENT target counted as dangling only.
+        const seat  = path.join(workRoot, 'escape-and-dangle'),
+              plane = path.join(seat, PLANE_DIR_NAME);
+
+        await fsExtra.ensureDir(plane);
+        // Target is outside the plane root AND does not exist.
+        fs.symlinkSync(path.join(workRoot, 'nonexistent-external', 'sqlite'), path.join(plane, 'sqlite'), 'dir');
+
+        const audit = auditSeatContainment({seat});
+
+        expect(audit.symlinks).toBe(1);
+        expect(audit.dangling).toBe(1);
+        expect(audit.escapes).toBe(1);              // <- the fact the old fallthrough dropped
+        expect(audit.escaped[0].dangling).toBe(true);
+    });
+
+    test('a dangling symlink INSIDE the plane root is dangling but NOT escaping', async () => {
+        // The orthogonality must hold both ways: dangling does not imply escaping.
+        const seat  = path.join(workRoot, 'dangle-inside'),
+              plane = path.join(seat, PLANE_DIR_NAME);
+
+        await fsExtra.ensureDir(plane);
+        fs.symlinkSync(path.join(plane, 'gone'), path.join(plane, 'alias'), 'dir');
+
+        const audit = auditSeatContainment({seat});
+
+        expect(audit.dangling).toBe(1);
+        expect(audit.escapes).toBe(0);
     });
 
     // ───────── axis 3: per-seat WAL attribution (the falsified precision cap, mechanised) ─────────

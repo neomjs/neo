@@ -89,10 +89,24 @@ export const PLANE_DIR_NAME = '.neo-ai-data';
 export const OPENER_SEARCH_TREES = ['ai', 'buildScripts', 'src', 'apps'];
 
 /**
- * Matches an expression that resolves a plane path — either a config read or a literal plane reference.
+ * Matches an expression that resolves a plane path.
+ *
+ * Three shapes, because the plane is reached three ways and an earlier version saw only the first:
+ *   1. `storagePaths.<leaf>` — the DB-path subtree.
+ *   2. A `*Path` / `*Dir` leaf read off the config singleton (`AiConfig.backupPath`, `aiConfig.logPath`,
+ *      `…wakeDaemonHeartbeatAlivePath`, `…hierarchyPath`, …). `configBase.mjs` declares a whole family of
+ *      these and matching only `storagePaths` silently dropped every module that reached the plane through
+ *      another one — the miss @neo-gpt-emmy found on `SwarmHeartbeatService`.
+ *   3. A literal `.neo-ai-data` / `NEO_AI_DATA` / `aiDataRoot` reference.
+ *
+ * This is a SHAPE proxy for the config contract, not the contract itself: it recognises the *form* of a
+ * config plane-path read without importing the singleton into a diagnostic. A leaf whose name does not end
+ * in `Path`/`Dir` would still be missed — the durable fix is to reconcile against the config module's
+ * declared plane-member set rather than a name shape, and this JSDoc states that limit rather than
+ * implying completeness.
  * @type {RegExp}
  */
-export const PLANE_PATH_SOURCE = /storagePaths\.|\.neo-ai-data|NEO_AI_DATA|aiDataRoot/;
+export const PLANE_PATH_SOURCE = /storagePaths\.|\b[Aa]iConfig\.[A-Za-z]*(?:Path|Dir)\b|\.neo-ai-data|NEO_AI_DATA|aiDataRoot/;
 
 /**
  * Matches a filesystem operation. Deliberately broad: the axis is "does this module open the plane",
@@ -145,10 +159,22 @@ export function stripComments(source) {
 }
 
 /**
- * Lists git-tracked `.mjs` files under the census trees, excluding tests.
+ * This diagnostic's own repo-relative path, so the census can exclude itself from its own domain.
+ *
+ * A committed measurement instrument that counts itself changes the baseline it exists to reproduce: this
+ * file matches its own opener rule (it reads `.neo-ai-data` paths and calls `fs`), so before this exclusion
+ * the totals shifted by one the moment the script was committed. The observation domain has to be explicit,
+ * not silently one-off.
+ * @type {String}
+ */
+export const CENSUS_SELF_PATH = 'ai/scripts/diagnostics/planePlacementCensus.mjs';
+
+/**
+ * Lists git-tracked `.mjs` files under the census trees, excluding tests AND the census itself.
  *
  * Uses `git ls-files` rather than a directory walk so untracked scratch files and build output can never
- * enter a cost row.
+ * enter a cost row. The census excludes itself by construction — the instrument is not part of the
+ * deployment surface it measures, and counting it made the total move on commit.
  *
  * @param {Object} [options]
  * @param {String} [options.projectRoot=PROJECT_ROOT] Repo root.
@@ -158,12 +184,19 @@ export function listCensusFiles({projectRoot = PROJECT_ROOT} = {}) {
     const output = execFileSync('git', ['ls-files', ...OPENER_SEARCH_TREES], {cwd: projectRoot, encoding: 'utf8'});
 
     return output.split('\n').filter(file =>
-        file.endsWith('.mjs') && !file.includes('/test') && !file.endsWith('.spec.mjs')
+        file.endsWith('.mjs') && !file.includes('/test') && !file.endsWith('.spec.mjs') && file !== CENSUS_SELF_PATH
     );
 }
 
 /**
- * Counts modules whose executable code both resolves a plane path and performs a filesystem operation.
+ * Counts modules whose executable code CO-OCCURS a plane-path expression with a filesystem operation.
+ *
+ * **Co-occurrence, not data flow — and the distinction is deliberate.** This proves "this module names a
+ * plane path AND calls `fs` somewhere", not "this module calls `fs` ON that plane path". A line-regex
+ * cannot establish the latter (it would need to trace the path value to the `fs` call), so the claim is
+ * kept to what the evidence supports. The consequence is a small over-count — a module that reads an
+ * unrelated file and separately mentions a plane path in dead-ish code counts — which is the honest
+ * failure direction for a cost CEILING: it never under-reports the openers a branch must pay for.
  *
  * Three buckets, not two. Anything neither clearly host-invoked nor clearly server-loaded lands in
  * `unclassified` rather than being folded into whichever side makes the total tidy — a cost row is only as
@@ -214,14 +247,19 @@ export function censusPlaneOpeners({projectRoot = PROJECT_ROOT} = {}) {
 /**
  * Audits whether a seat's plane entries are containable by a bind-mount of that seat's plane root.
  *
- * `escapes` is the load-bearing number: an entry resolving outside its own plane root is not contained by
- * a bind-mount of that root, so inside a container it dangles unless the canonical root is also mounted at
- * the identical absolute host path. `dangling` is reported separately because an entry can escape and still
- * resolve perfectly **on the host** — which is exactly why the class stays invisible until containerisation.
+ * `escapes` and `dangling` are INDEPENDENT flags, not a fallthrough. An entry resolving outside its own
+ * plane root is not contained by a bind-mount of that root; an entry whose target does not exist is
+ * dangling. A single symlink can be BOTH — a dangling link that points outside the root — and an earlier
+ * version reported only the dangling half, because it derived the escape target from `realpathSync`, which
+ * throws on a dangling link and skipped the escape check. Escape is now decided from the LITERAL target
+ * (`readlinkSync`), which exists whether or not the target resolves, so the two facts are orthogonal.
+ *
+ * That escapes is the load-bearing number for containerisation is unchanged: a link resolving perfectly on
+ * the host still escapes a bind-mount, which is why the class stays invisible until a container.
  *
  * @param {Object} options
  * @param {String} options.seat Absolute path to a checkout.
- * @returns {{seat: String, present: Boolean, leaves: Number, symlinks: Number, escapes: Number, dangling: Number, escaped: Array<{name: String, target: String}>}}
+ * @returns {{seat: String, present: Boolean, leaves: Number, symlinks: Number, escapes: Number, dangling: Number, escaped: Array<{name: String, target: String, dangling: Boolean}>}}
  */
 export function auditSeatContainment({seat}) {
     const planeRoot = path.join(seat, PLANE_DIR_NAME),
@@ -246,21 +284,20 @@ export function auditSeatContainment({seat}) {
 
         result.symlinks++;
 
-        if (!fs.existsSync(entry)) {
+        const isDangling = !fs.existsSync(entry);
+
+        if (isDangling) {
             result.dangling++;
         }
 
-        let target;
+        // Escape is decided from the LITERAL target, resolved against the link's own directory, so a
+        // dangling link is still tested for escape rather than skipped. `realpathSync` would throw here.
+        const literalTarget  = fs.readlinkSync(entry),
+              resolvedTarget = path.resolve(planeRoot, literalTarget);
 
-        try {
-            target = fs.realpathSync(entry);
-        } catch {
-            continue
-        }
-
-        if (!(target + path.sep).startsWith(realRoot)) {
+        if (!(resolvedTarget + path.sep).startsWith(realRoot)) {
             result.escapes++;
-            result.escaped.push({name, target});
+            result.escaped.push({name, target: resolvedTarget, dangling: isDangling});
         }
     }
 
