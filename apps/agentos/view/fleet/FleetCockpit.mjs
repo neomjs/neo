@@ -1410,7 +1410,18 @@ class FleetCockpit extends Container {
             return
         }
 
-        live && ((me.returningTearOutPanes ??= {})[itemId] = pane);
+        // Park the live pane OUT of the dead vessel's tree before the re-projection, then arm the
+        // return slot. A pane still parented in the vessel's `mainView` is a tree-live occupant the
+        // dock reconciler PREFERS over {@link #resolveDockComponentRef}'s re-adoption — so the item
+        // re-trees in the document while the live instance stays mounted in the dead vessel window
+        // (its `windowId` never leaves the closed vessel: the strand this fixes). Parking first makes the
+        // instance parentless, forcing the reconciler to re-materialize it through the resolver, which
+        // re-parents it into the live cockpit window. Symmetric inverse of {@link #reparentTearOutPane}'s
+        // `app.mainView.add(pane)` adoption; mirrors {@link #reattachAgentDetail}'s parked-pane discipline.
+        if (live) {
+            pane.parent?.remove(pane, false);
+            (me.returningTearOutPanes ??= {})[itemId] = pane
+        }
 
         if (DockZoneModel.findContainingTabsId(doc, itemId)) {
             // already re-treed by another flow (preset restore, NL addTab): the model is
