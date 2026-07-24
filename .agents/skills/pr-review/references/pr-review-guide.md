@@ -118,6 +118,8 @@ Audit every magic close target in the PR body and commit messages: `Closes #N`, 
 3. Required fix: isolate one delivered leaf as `Resolves #M`; move broad/epic refs to `Related:`; split broad work into leaf subs.
 4. While an AC is open, any named expiry blocks close — future, due or lapsed alike; satisfy or restate it. Deferred *authoring* (text not yet written) blocks with no expiry too: the close destroys the only pointer. Open-ended *verification* closes normally.
 
+**Restatement RAs on author-foreign text (this audit + §5.4):** when the close-target text needing restatement was authored by someone other than the PR author, prescribe the outcome, never the method — word the RA as *"propose the restated text on the ticket and obtain the author's application or confirmation,"* not as a direct edit of another author's body/AC prose (`ticket-create-workflow.md §11`; author-side path: `review-response-protocol.md §6`). Claimer-authored in-body sections (e.g. an intake-derived Contract Ledger) are the claimer's own artifact, editable in place. Provenance: PR `#15832` review cycle → `#15852`.
+
 Out of scope: valid leaf targets, non-closing `Related:` / `Refs:` / `Part of`. Provenance: `#9999` auto-close, `#10323` duplicate chain.
 
 ### 5.3 MCP-Tool-Description Budget Audit

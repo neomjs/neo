@@ -57,6 +57,8 @@ Use the template at `.agents/skills/pull-request/assets/review-response-template
 
 Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation), and do NOT edit your own prior PR body to address review items — commit history plus this new comment are the canonical record. Aligned with the authorship-respect rule that applies across all surfaces (tickets, PR bodies, review comments).
 
+**Restatement RAs on foreign ticket text:** when an RA requires restating close-target text you did not author (AC list, body prose), the default path is a ticket comment carrying the full restated text for the author to apply or confirm. Apply the edit directly ONLY when the RA explicitly prescribes it — then leave a full edit-trail comment, offer the author explicit revert-authority, and treat the author's confirmation as the RA-closure evidence. Claimer-authored in-body sections (e.g. your own intake-derived Contract Ledger) are your artifact — update in place. Reviewer-side wording rule: `pr-review-guide.md §5.2`; ticket-side rule: `ticket-create-workflow.md §11`.
+
 ## 7. Commit Message Convention
 
 Follow-up commits addressing review feedback use the standard Conventional Commits format with the ticket ID. The commit message does NOT need to cite the reviewer or specific Required Action number — the Addressed comment on the PR thread carries the link:
