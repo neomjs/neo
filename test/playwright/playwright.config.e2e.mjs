@@ -46,12 +46,18 @@ export default defineConfig({
             channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
             launchOptions: {
                 args: [
-                    '--use-gl=desktop',
+                    // NEVER pass '--use-gl=desktop' or '--disable-software-rasterizer' here: modern Chrome's
+                    // GL allowlist is ANGLE-only (metal/opengl/swiftshader), so 'desktop' resolves to gl=none —
+                    // the GPU process then dies at EVERY window birth, and with the software fallback disabled
+                    // Chromium's crash threshold kills the whole browser mid-test in headed mode: the second
+                    // popup birth crossed it deterministically ("GPU process isn't usable. Goodbye." → SIGTRAP,
+                    // all SharedWorkers gone). Without the overrides Chrome selects its supported ANGLE
+                    // backend — measured on this seat with this flag set, headed AND headless:
+                    // "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max)".
                     '--ignore-gpu-blocklist',
                     '--enable-gpu-rasterization',
                     '--enable-zero-copy',
                     '--enable-accelerated-2d-canvas',
-                    '--disable-software-rasterizer',
                     '--disable-frame-rate-limit',
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
