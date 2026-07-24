@@ -25,32 +25,50 @@
  *
  * Pure and fully injectable (clock only) so the state machine is testable without timers or a WAL.
  *
- * ## Taking a per-seat `memory-wal` volume baseline
+ * ## Taking a `memory-wal` volume baseline
  *
  * The phase-5 pilot decides its write disposition — fork-then-replay versus dual-journal — on how
- * much a seat actually writes over a period. That is a **measurement, not new instrumentation**:
+ * much is actually written over a period. That is a **measurement, not new instrumentation**:
  * everything needed is already durable on disk, and this receipt supplies the missing half.
  *
- * **What to measure.** `memoryWal.dir` holds one segment per day, `wal-YYYY-MM-DD.jsonl`, alongside
- * `wal-YYYY-MM-DD.embedded.jsonl` embed markers (`SEGMENT_RE` in
- * `ai/services/memory-core/helpers/memoryWalStore.mjs`). Segment size and line count over a week
- * give per-seat write volume directly — no counter to add, no sampling to design. The message WAL
- * follows at `${memoryWal.dir}/messages` by formula.
+ * **The directory is shared, so its size is a PLANE number and never a seat number.** `memory-wal`
+ * is absent from `DATA_SUBDIRS_BLOCKLIST` in `ai/scripts/migrations/bootstrapWorktree.mjs`, which
+ * means hydration symlinks it: every hydrated seat's `memoryWal.dir` resolves to the **one**
+ * canonical directory, deliberately, so records, embed markers and `.drain-lock` are shared for
+ * cross-clone sole-drainer enforcement. Two seats sampling `du` therefore read **identical bytes**,
+ * and neither reading is "that seat's volume". Nor can the files be split by seat: segments are
+ * keyed by **day** (`wal-YYYY-MM-DD.jsonl`, plus `.embedded.jsonl` / `.graph.jsonl` marker
+ * siblings — `SEGMENT_RE` in `ai/services/memory-core/helpers/memoryWalStore.mjs`), and every seat
+ * appends into the same day file. **Directory size answers "what did the plane write"; it cannot be
+ * disaggregated into seats at all.** The message WAL follows at `${memoryWal.dir}/messages`.
  *
- * **Why the receipt is required to read that volume correctly.** Segment bytes alone measure what
- * was *written*, not what remains to be *replayed*. A seat writing heavily whose drain reports
- * `clean` every cycle carries no backlog — its volume is throughput, and replay is cheap. A seat
- * writing the same volume while reporting `dirty` is accumulating, and the same byte count then
- * means something entirely different for the replay decision. **Reading volume without the
- * disposition is the same category error this receipt exists to prevent**, one level up: a number
- * that answers "how much was written" when the question is "how much is outstanding".
+ * **Per-seat volume comes from the records, not the files.** Each line carries
+ * `metadata.agent`, so grouping a segment's JSONL by that field yields per-seat records and bytes.
+ * Two properties of that grouping must be reported rather than smoothed:
+ *
+ *   1. **A large share of records carry no `metadata.agent` at all** — measured on
+ *      `wal-2026-07-24.jsonl`: 143 of 360 records, 29.7% of segment bytes, a bucket larger than
+ *      every individual seat but one. Attributing it to nobody understates every seat; spreading it
+ *      evenly fabricates a distribution. It is its own row, and a baseline that hides it is
+ *      reporting a share of a total it did not measure.
+ *   2. **Identity spellings alias.** `@neo-gpt` and `neo-gpt` both occur; normalise the leading `@`
+ *      or one seat splits into two rows that each look small.
+ *
+ * **Why the receipt is required to read any of it correctly.** Bytes measure what was *written*,
+ * not what remains to be *replayed*. A plane writing heavily whose drain reports `clean` every
+ * cycle carries no backlog — its volume is throughput, and replay is cheap. The same volume while
+ * reporting `dirty` is accumulating, and the identical byte count then means something entirely
+ * different for the replay decision. **Reading volume without the disposition is the same category
+ * error this receipt exists to prevent**, one level up: a number that answers "how much was
+ * written" when the question is "how much is outstanding".
  *
  * A `retentionLimit`-driven prune also removes drained segments, so a raw directory size understates
  * cumulative volume — count across the window rather than sampling the directory once at the end.
  *
- * **The three readings, and none of them is optional:** segment volume over the window · the
- * disposition `state` sampled across it (a plane that is ever `unobserved` has an unmeasured gap,
- * not a quiet one) · and `counts.pending` at the window's close.
+ * **The four readings, and none of them is optional:** plane volume over the window · the per-seat
+ * split by `metadata.agent` **with its unattributed bucket stated** · the disposition `state`
+ * sampled across the window (a plane that is ever `unobserved` has an unmeasured gap, not a quiet
+ * one) · and `counts.pending` at the window's close.
  *
  * @see ai/daemons/embed/drainCycle.mjs                          memory WAL loop
  * @see ai/daemons/message/drainCycle.mjs                        message WAL loop
