@@ -269,9 +269,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             'neo-gpt-emmy'   : 'gpt-5.6-sol',
             'neo-kimi-iris'  : 'kimi-k3',
             'neo-kimi-phoebe': 'kimi-k3',
-            'neo-opus-ada'   : 'opus-4.8',
-            'neo-opus-grace' : 'opus-4.8',
-            'neo-opus-vega'  : 'opus-4.8'
+            'neo-opus-ada'   : 'opus-5',
+            'neo-opus-grace' : 'opus-5',
+            // rotating seat (weekly Fable/Opus) -> honest absence, never a half-week-stale literal
+            'neo-opus-vega'  : null
         });
 
         // seed rows hydrate as records exposing the model fields — incl the B4/C2 control seam defaults
