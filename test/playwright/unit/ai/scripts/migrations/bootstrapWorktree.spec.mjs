@@ -18,7 +18,9 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
+import os              from 'os';
 import path            from 'path';
+import {execFile}      from 'child_process';
 
 /**
  * @summary Coverage for the worktree bootstrap script.
@@ -725,6 +727,283 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(result.mainCheckout).toBe(false);
         });
 
+        test('#15791 dryRun classifies every child WITHOUT mutating anything', async () => {
+            await seedMainSubdirs();
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            // Classification is identical to what the mutating pass would decide...
+            expect(result.linked.sort()).toEqual([...fixtureSubdirs].sort());
+
+            // ...but nothing was written: no parent dir, no links.
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir))).toBe(false);
+
+            for (const subdir of fixtureSubdirs) {
+                expect(result.resolved[subdir]).toBe(
+                    await fs.realpath(path.join(fakeMainCheckout, dataDir, subdir))
+                );
+            }
+        });
+
+        test('#15791 dryRun records a foreign symlink target as divergent instead of throwing', async () => {
+            // The mutating path refuses (see the sibling test above) because adopting another
+            // checkout's state silently is the failure. A reconcile must RECORD it instead —
+            // one deviant seat cannot be allowed to abort a multi-seat sweep.
+            await seedMainSubdirs(['sqlite']);
+
+            const
+                foreign = path.join(path.dirname(fakeMainCheckout), 'foreign-checkout', dataDir, 'sqlite'),
+                dst     = path.join(fakeWorktree, dataDir, 'sqlite');
+
+            await fs.ensureDir(foreign);
+            await fs.ensureDir(path.dirname(dst));
+            await fs.symlink(foreign, dst, 'dir');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.divergent).toHaveLength(1);
+            expect(result.divergent[0].name).toBe('sqlite');
+            expect(result.divergent[0].reason).toBe('foreign-symlink-target');
+            expect(result.divergent[0].found).toBe(await fs.realpath(foreign));
+            expect(result.alreadyLinked).not.toContain('sqlite');
+
+            // The divergent link is untouched — reconcile observes, never repairs.
+            expect(path.resolve(path.dirname(dst), await fs.readlink(dst))).toBe(foreign);
+        });
+
+        test('#15791 dryRun records clone-local data as divergent instead of throwing', async () => {
+            await seedMainSubdirs();
+
+            const worktreeSubdir = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(worktreeSubdir);
+            await fs.writeFile(path.join(worktreeSubdir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.divergent.map(entry => entry.name)).toContain('sqlite');
+            expect(result.divergent.find(entry => entry.name === 'sqlite').reason).toBe('clone-local-non-symlink');
+
+            // The local data is still there — a reconcile never destroys what it reports.
+            expect(await fs.readFile(path.join(worktreeSubdir, 'local-only.txt'), 'utf-8'))
+                .toBe('worktree-specific\n');
+        });
+
+        test('#15791 dryRun leaves NO unexplained residue — every canonical child lands in exactly one bucket', async () => {
+            // The reconcile is only decision-grade if it can come back negative. Residue on any
+            // seat means DATA_SUBDIRS_BLOCKLIST is incomplete — regardless of whether the residue
+            // has a story a reader finds reassuring.
+            await seedMainSubdirs();
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts'));         // blocklisted
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'orchestrator-daemon')); // blocklisted
+
+            const
+                canonicalChildren = await fs.readdir(path.join(fakeMainCheckout, dataDir)),
+                result            = await symlinkDataDir({
+                    mainCheckout: fakeMainCheckout,
+                    projectRoot : fakeWorktree,
+                    dryRun      : true,
+                    log         : () => {}
+                }),
+                classified        = [
+                    ...result.linked,
+                    ...result.alreadyLinked,
+                    ...result.skippedNoSource,
+                    ...result.blocklisted,
+                    ...result.seatOnly,
+                    ...result.divergent.map(entry => entry.name)
+                ];
+
+            expect(classified.sort()).toEqual([...canonicalChildren].sort());
+
+            // One bucket each, with no exceptions to state: `clobbered` is a mutating-path bucket
+            // and is always empty under dryRun, so the union above is the whole classification.
+            expect(new Set(classified).size).toBe(classified.length);
+        });
+
+        test('#15791 dryRun sees a SEAT-ONLY leaf that canonical does not know about', async () => {
+            // Iterating canonical alone cannot observe residue that exists only seat-side, which
+            // would make "no unexplained residue" unprovable rather than merely unproven — the
+            // residue the falsifier hunts is exactly the kind canonical has no record of.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'orphan-from-a-retired-tool'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.seatOnly).toEqual(['orphan-from-a-retired-tool']);
+            expect(result.linked).toContain('sqlite');
+        });
+
+        test('#15791 dryRun classification is FORCE-INVARIANT — --force cannot silence the residue', async () => {
+            // The defect this pins: `force` moved a clone-local leaf out of `divergent` into
+            // clobbered+linked, so the same seat with the same untouched file reported residue 1
+            // without --force and residue 0 with it. A falsifier a flag can switch off is not one.
+            // `force` describes what a later hydration may destroy; it observes nothing.
+            await seedMainSubdirs(['sqlite']);
+            const local = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(local);
+            await fs.writeFile(path.join(local, 'local.txt'), 'seat-local\n', 'utf-8');
+
+            const runs = [];
+            for (const force of [false, true]) {
+                runs.push(await symlinkDataDir({
+                    mainCheckout: fakeMainCheckout,
+                    projectRoot : fakeWorktree,
+                    dryRun      : true,
+                    force,
+                    log         : () => {}
+                }));
+            }
+
+            for (const result of runs) {
+                expect(result.divergent.map(entry => entry.name)).toContain('sqlite');
+                expect(result.divergent.find(entry => entry.name === 'sqlite').reason).toBe('clone-local-non-symlink');
+                expect(result.clobbered).toEqual([]); // mutating-path bucket, never populated here
+                expect(result.linked).not.toContain('sqlite');
+            }
+
+            const residue = runs.map(result => result.divergent.length + result.seatOnly.length);
+            expect(residue[0]).toBe(residue[1]);
+
+            // Nothing was actually removed — a reconcile never destroys what it reports.
+            expect(await fs.readFile(path.join(local, 'local.txt'), 'utf-8')).toBe('seat-local\n');
+        });
+
+        test('#15791 an ABSENT canonical does not read as a clean seat', async () => {
+            // The false-negative: canonical without .neo-ai-data returned every bucket empty, so a
+            // seat carrying real residue reported zero. Empty-because-unhydrated and
+            // empty-because-uncomparable are different facts and only one of them is "clean".
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'seat-only-residue'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout, // no .neo-ai-data seeded
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.observed.canonical).toEqual({ok: false, reason: 'canonical-data-dir-absent'});
+            expect(result.seatOnly).toEqual(['seat-only-residue']); // seat enumeration is independent
+            expect(result.resolved['seat-only-residue']).toBeTruthy();
+        });
+
+        test('#15791 an UNREADABLE seat is not observed; an absent one is', async () => {
+            // Permissions hide exactly the leaves the falsifier exists to find, so an unreadable
+            // seat must not present as an empty one. An absent seat dir is genuinely empty, and
+            // collapsing those two into one flag would re-import the bug from the other side.
+            await seedMainSubdirs(['sqlite']);
+
+            const absent = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree, // .neo-ai-data never created on this seat
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(absent.observed.seat).toEqual({ok: true, reason: 'seat-data-dir-absent'});
+
+            const seatData = path.join(fakeWorktree, dataDir);
+            await fs.ensureDir(seatData);
+            await fs.chmod(seatData, 0o000);
+
+            try {
+                const unreadable = await symlinkDataDir({
+                    mainCheckout: fakeMainCheckout,
+                    projectRoot : fakeWorktree,
+                    dryRun      : true,
+                    log         : () => {}
+                });
+
+                expect(unreadable.observed.seat.ok).toBe(false);
+                expect(unreadable.observed.seat.reason).toContain('seat-data-dir-unreadable');
+            } finally {
+                await fs.chmod(seatData, 0o755);
+            }
+        });
+
+        test('#15791 a BLOCKLISTED leaf that exists only on the seat is still classified', async () => {
+            // The worst version of the family, because nothing looked wrong: both sides read as
+            // `observed: ok`, residue read 0, and the leaf was simply absent from every bucket.
+            // Only canonical's children could populate `blocklisted`, yet a blocklisted child living
+            // only on the seat is not an edge case — it is what the blocklist exists to produce.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'concepts'));           // declared-local, seat-only
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'orchestrator-daemon')); // ditto
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'stray'));               // undeclared, seat-only
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.blocklisted.sort()).toEqual(['concepts', 'orchestrator-daemon']);
+            expect(result.seatOnly).toEqual(['stray']);
+            expect(result.resolved.concepts).toBeTruthy();
+
+            // Declared-local leaves are accounted for, not residue — only `stray` is unexplained.
+            expect(result.divergent.length + result.seatOnly.length).toBe(1);
+        });
+
+        test('#15791 a blocklisted leaf on BOTH sides is classified exactly once', async () => {
+            // The seat pass and the canonical pass can both see a shared blocklisted name; the
+            // seat pass must yield to canonical's, or fixing the disappearance would trade it for
+            // a double-count and the one-bucket property would break on the way past.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts'));
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'concepts'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.blocklisted).toEqual(['concepts']);
+            expect(result.seatOnly).toEqual([]);
+        });
+
+        test('#15791 every observed leaf carries a resolved path, blocklisted ones included', async () => {
+            // "We skipped it" is not an observation. A blocklisted child is deliberately seat-local,
+            // which makes WHERE it lives the one fact worth recording about it — and the seat path
+            // is the subject, since the blocklist exists precisely because the two sides differ.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts')); // blocklisted
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'concepts'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.blocklisted).toContain('concepts');
+            expect(result.resolved.concepts).toBe(await fs.realpath(path.join(fakeWorktree, dataDir, 'concepts')));
+            expect(result.resolved.sqlite).toBe(await fs.realpath(path.join(fakeMainCheckout, dataDir, 'sqlite')));
+        });
+
         test('NEVER touches concepts/ even when present in main checkout and force=true', async () => {
             // Seed both the allowlisted subdirs AND a concepts/ in main and a regular
             // (tracked-style) concepts/ in the worktree with unique content.
@@ -1416,6 +1695,117 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
             const settings = JSON.parse(await fs.readFile(path.join(fakeWorktree, '.claude', 'settings.json'), 'utf-8'));
             expect(settings.hooks.Stop[0].hooks[0].command).toContain('laneStateStopHook.mjs');
+        });
+    });
+    test.describe('#15791 CLI reconcile dispatch', () => {
+        // The other tests call symlinkDataDir() directly, which cannot answer the question that
+        // actually matters to an operator: does the COMMAND write? A read-only parameter reachable
+        // only from a spec is not a read-only mode — the CLI has to route to it before every
+        // mutating bootstrap stage and exit after reporting. That boundary is only observable by
+        // running the real script as a real process, so this block does exactly that.
+        const
+            script  = path.resolve(process.cwd(), 'ai/scripts/migrations/bootstrapWorktree.mjs'),
+            dataDir = '.neo-ai-data';
+
+        let cliMain, cliSeat;
+
+        const listTree = async root => {
+            const out = [];
+
+            const walk = async dir => {
+                for (const entry of await fs.readdir(dir, {withFileTypes: true})) {
+                    const full = path.join(dir, entry.name);
+                    out.push(`${path.relative(root, full)}|${entry.isSymbolicLink() ? 'link' : entry.isDirectory() ? 'dir' : 'file'}`);
+                    if (entry.isDirectory() && !entry.isSymbolicLink()) await walk(full);
+                }
+            };
+
+            await walk(root);
+            return out.sort();
+        };
+
+        const runCli = args => new Promise(resolve => {
+            execFile(process.execPath, [script, ...args], {cwd: cliSeat}, (error, stdout, stderr) => {
+                resolve({error, stdout, stderr});
+            });
+        });
+
+        test.beforeEach(async () => {
+            cliMain = await fs.mkdtemp(path.join(os.tmpdir(), 'reconcile-cli-main-'));
+            cliSeat = await fs.mkdtemp(path.join(os.tmpdir(), 'reconcile-cli-seat-'));
+
+            await fs.ensureDir(path.join(cliMain, dataDir, 'sqlite'));
+
+            // Clone-local data the mutating path would refuse (or clobber under --force), plus a
+            // leaf canonical has never heard of. Both must survive the run untouched.
+            await fs.ensureDir(path.join(cliSeat, dataDir, 'sqlite'));
+            await fs.writeFile(path.join(cliSeat, dataDir, 'sqlite', 'local.db'), 'seat-local\n', 'utf-8');
+            await fs.ensureDir(path.join(cliSeat, dataDir, 'seat-only-residue'));
+        });
+
+        test.afterEach(async () => {
+            await fs.remove(cliMain);
+            await fs.remove(cliSeat);
+        });
+
+        test('`--link-data --dry-run` writes NOTHING to the seat', async () => {
+            // The obvious spelling had been the dangerous one: --dry-run was parsed for prune mode
+            // only, so --link-data --dry-run ran the full mutating bootstrap. An operator reaching
+            // for the safe-looking flag pair got writes.
+            const before = await listTree(cliSeat);
+
+            const {error, stdout} = await runCli([
+                '--link-data', '--dry-run', '--canonical-root', cliMain, '--seat', cliSeat, '--json'
+            ]);
+
+            expect(error).toBeNull();
+            expect(await listTree(cliSeat)).toEqual(before);
+            expect(await fs.readFile(path.join(cliSeat, dataDir, 'sqlite', 'local.db'), 'utf-8')).toBe('seat-local\n');
+            expect((await fs.lstat(path.join(cliSeat, dataDir, 'sqlite'))).isSymbolicLink()).toBe(false);
+
+            const report = JSON.parse(stdout.slice(stdout.indexOf('{')));
+            expect(report.seats).toHaveLength(1);
+            expect(report.seats[0].plane.divergent.map(entry => entry.name)).toContain('sqlite');
+            expect(report.seats[0].plane.seatOnly).toContain('seat-only-residue');
+        });
+
+        test('`--seat` classifies a seat this process is not running in', async () => {
+            // Without it the reconcile can only ever describe its own checkout: projectRoot comes
+            // from resolveCliProjectRoot(__dirname), so not even changing cwd retargets it. The
+            // multi-seat question — do two seats resolve the same plane? — needs both in one run.
+            const otherSeat = await fs.mkdtemp(path.join(os.tmpdir(), 'reconcile-cli-seat-b-'));
+            await fs.ensureDir(path.join(otherSeat, dataDir, 'only-here'));
+
+            try {
+                const {error, stdout} = await runCli([
+                    '--reconcile', '--canonical-root', cliMain, '--seat', cliSeat, '--seat', otherSeat, '--json'
+                ]);
+
+                expect(error).toBeNull();
+
+                const report = JSON.parse(stdout.slice(stdout.indexOf('{')));
+                expect(report.seats.map(entry => entry.seat)).toEqual([cliSeat, otherSeat]);
+                expect(report.seats[1].plane.seatOnly).toContain('only-here');
+                expect(report.seats[0].plane.seatOnly).not.toContain('only-here');
+            } finally {
+                await fs.remove(otherSeat);
+            }
+        });
+
+        test('port claims sit once at the top, not once per seat', async () => {
+            // Listeners are a property of the HOST. Repeating them under each seat would imply a
+            // seat owns the ports it is printed next to, which is the exact confusion the probe
+            // exists to remove.
+            const {error, stdout} = await runCli([
+                '--reconcile', '--canonical-root', cliMain, '--seat', cliSeat, '--json'
+            ]);
+
+            expect(error).toBeNull();
+
+            const report = JSON.parse(stdout.slice(stdout.indexOf('{')));
+            expect(report.portClaims).toBeTruthy();
+            expect(typeof report.portClaims.observed).toBe('boolean');
+            expect(report.seats[0].portClaims).toBeUndefined();
         });
     });
 });
