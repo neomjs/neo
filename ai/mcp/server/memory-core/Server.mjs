@@ -28,10 +28,11 @@ import {
     createMessageGraphProjectionProcessor,
     startMessageDrainLoop
 } from '../../../daemons/message/drainCycle.mjs';
-import {acquireMessageDrainLock}      from '../../../daemons/message/drainLock.mjs';
-import {getMissingMessageWalLeaves}   from '../../../services/memory-core/helpers/messageWalStore.mjs';
-import {TRUST_TIERS}                  from '../../../graph/identityRoots.mjs';
-import {normalizeAgentIdentityNodeId} from '../../../graph/normalizeAgentIdentityNodeId.mjs';
+import {acquireMessageDrainLock}        from '../../../daemons/message/drainLock.mjs';
+import {getMissingMessageWalLeaves}     from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {TRUST_TIERS}                    from '../../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId}   from '../../../graph/normalizeAgentIdentityNodeId.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
 
 // Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
 const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -73,6 +74,31 @@ class Server extends BaseServer {
      * @protected
      */
     stdioIdentity = null
+
+    /**
+     * @summary Memory Core opens durable plane storage (memory/message WAL, the shared
+     * SQLite graph, Chroma collections) — a declared plane MEMBER: the boot-time
+     * plane-identity assertion fails loud rather than ever silently skipping.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return true;
+    }
+
+    /**
+     * @summary The COMPLETE plane this server opens: its local claimed member paths PLUS the
+     * inherited Tier-1 claims, composed by `BaseServer.collectMemberEntries` — the boot-time
+     * input for the F-invariant's member-coherence clause.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return this.collectMemberEntries({
+            localPaths         : PLANE_MEMBER_PATHS,
+            localDescriptorData: ConfigBase.config.data
+        });
+    }
 
     /**
      * @summary MCP server identity for `createMcpServer()`. Includes the experimental

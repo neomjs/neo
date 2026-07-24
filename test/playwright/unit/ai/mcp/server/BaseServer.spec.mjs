@@ -15,8 +15,12 @@ setup({
 
 import {test, expect}                                  from '@playwright/test';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import os                                              from 'node:os';
+import path                                            from 'node:path';
 import Neo                                             from '../../../../../../src/Neo.mjs';
 import * as core                                       from '../../../../../../src/core/_export.mjs';
+import ConfigProvider, {createConfigProxy}             from '../../../../../../ai/ConfigProvider.mjs';
+import Tier1ConfigBase                                 from '../../../../../../ai/configBase.mjs';
 import BaseServer                                      from '../../../../../../ai/mcp/server/BaseServer.mjs';
 
 /**
@@ -762,5 +766,130 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
 
         await server.loadCustomConfig();
         expect(loadedFrom).toBe('/tmp/custom-config.mjs');
+    });
+});
+
+/**
+ * @summary Local builder for the plane-member boundary tests — the `BareServer` isolation
+ * precedent (no-op `initAsync`, so creation never races the assertion under test).
+ */
+function makeBoundaryServerClass({member, members = [], composed = false}) {
+    const id = ++_testClassCounter;
+    class BoundarySrv extends BaseServer {
+        static config = {className: `Neo.test.mcp.server.BoundarySrv${id}`}
+        // Isolated unit test — skip the boot lifecycle so each test drives the assertion directly.
+        async initAsync() { /* no-op */ }
+        getServerMetadata() { return {name: 'boundary-test'}; }
+        getToolService()    { return {listTools: () => ({tools: []}), callTool: async () => ({})}; }
+        isPlaneMember()     { return member; }
+
+        getPlaneMembers() {
+            return composed ? this.collectMemberEntries({localPaths: [], localDescriptorData: {}}) : members;
+        }
+    }
+    return Neo.setupClass(BoundarySrv);
+}
+
+test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)', () => {
+    test('membership defaults to false — API-bridge servers and fixtures carry no plane by contract', () => {
+        const server = Neo.create(makeTestServerClass());
+
+        // A truthy per-server config WITHOUT a plane subtree: the exact shape that must
+        // skip, never throw (the gitlab-workflow smoke-fixture regression class).
+        server.aiConfig = {transport: 'stdio'};
+
+        expect(server.isPlaneMember()).toBe(false);
+        expect(server.assertPlaneIdentity()).toBeNull();
+    });
+
+    test('a declared member without aiConfig fails loud', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+
+        expect(() => server.assertPlaneIdentity()).toThrow('without aiConfig');
+    });
+
+    test('a declared member whose config resolves no plane subtree fails loud', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+        server.aiConfig = {transport: 'stdio'};
+
+        expect(() => server.assertPlaneIdentity()).toThrow('plane');
+    });
+
+    test('a declared member with a coherent plane returns the observed identity', () => {
+        const server = Neo.create(makeBoundaryServerClass({member: true}));
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: path.join(os.tmpdir(), 'neo-plane-boundary-spec')}};
+
+        const observed = server.assertPlaneIdentity();
+        expect(observed.planeId).toBe('overlay-boundary-spec');
+    });
+
+    test('member-coherence clause: a relocated root with anchor-default members fails boot', () => {
+        const relocatedRoot = path.join(os.tmpdir(), 'neo-plane-relocated-spec');
+        const anchorPath    = path.join(os.tmpdir(), 'neo-plane-old-anchor', 'logs');
+        const server        = Neo.create(makeBoundaryServerClass({
+            member : true,
+            members: [{path: 'logPath', resolved: anchorPath, default: anchorPath}]
+        }));
+
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: relocatedRoot}};
+
+        expect(() => server.assertPlaneIdentity()).toThrow('fails closed');
+    });
+
+    test('member-coherence clause: explicitly placed members boot clean', () => {
+        const relocatedRoot = path.join(os.tmpdir(), 'neo-plane-relocated-spec');
+        const server        = Neo.create(makeBoundaryServerClass({
+            member : true,
+            members: [{path: 'logPath', resolved: '/vol/logs', default: path.join(os.tmpdir(), 'neo-plane-old-anchor', 'logs')}]
+        }));
+
+        server.aiConfig = {plane: {id: 'overlay-boundary-spec', dataRoot: relocatedRoot}};
+
+        const observed = server.assertPlaneIdentity();
+        expect(observed.planeId).toBe('overlay-boundary-spec');
+    });
+
+    test('the COMPLETE plane: composed Tier-1 claims fail a relocated boot, naming the strays', () => {
+        // The re-review falsifier: a member server asserting only its LOCAL list would pass
+        // while the inherited Tier-1 members it consumes stay on the old anchor. The
+        // composition makes that bypass impossible.
+        process.env.NEO_PLANE_DATA_ROOT = path.join(os.tmpdir(), 'neo-relocated-composed-spec');
+
+        try {
+            const isolated = createConfigProxy(Neo.create(ConfigProvider, {
+                data    : Tier1ConfigBase.config.data,
+                formulas: Tier1ConfigBase.config.formulas
+            }));
+
+            try {
+                const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
+                server.aiConfig = isolated;
+
+                expect(() => server.assertPlaneIdentity()).toThrow('backupPath');
+            } finally {
+                isolated.destroy()
+            }
+        } finally {
+            delete process.env.NEO_PLANE_DATA_ROOT
+        }
+    });
+
+    test('the COMPLETE plane: composition passes on an un-relocated Tier-1 provider', () => {
+        const isolated = createConfigProxy(Neo.create(ConfigProvider, {
+            data    : Tier1ConfigBase.config.data,
+            formulas: Tier1ConfigBase.config.formulas
+        }));
+
+        try {
+            const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
+            server.aiConfig = isolated;
+
+            expect(server.getPlaneMembers().length).toBe(9);
+
+            const observed = server.assertPlaneIdentity();
+            expect(observed.planeId).toBe('neo-local-canonical');
+        } finally {
+            isolated.destroy()
+        }
     });
 });

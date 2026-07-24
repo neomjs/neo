@@ -1,10 +1,11 @@
-import BaseServer            from '../BaseServer.mjs';
-import aiConfig              from './config.mjs';
-import logger                from './logger.mjs';
-import DatabaseService       from '../../../services/knowledge-base/DatabaseService.mjs';
-import HealthService         from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService     from '../../../services/knowledge-base/KBRecorderService.mjs';
-import {listTools, callTool} from './toolService.mjs';
+import BaseServer                       from '../BaseServer.mjs';
+import aiConfig                         from './config.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
+import logger                           from './logger.mjs';
+import DatabaseService                  from '../../../services/knowledge-base/DatabaseService.mjs';
+import HealthService                    from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService                from '../../../services/knowledge-base/KBRecorderService.mjs';
+import {listTools, callTool}            from './toolService.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.
@@ -29,6 +30,31 @@ class Server extends BaseServer {
 
     aiConfig = aiConfig
     logger   = logger
+
+    /**
+     * @summary The Knowledge Base opens durable plane storage (the unified Chroma persist
+     * dir, shared telemetry SQLite) — a declared plane MEMBER: the boot-time plane-identity
+     * assertion fails loud rather than ever silently skipping.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return true;
+    }
+
+    /**
+     * @summary The COMPLETE plane this server opens: its local claimed member paths PLUS the
+     * inherited Tier-1 claims, composed by `BaseServer.collectMemberEntries` — the boot-time
+     * input for the F-invariant's member-coherence clause.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return this.collectMemberEntries({
+            localPaths         : PLANE_MEMBER_PATHS,
+            localDescriptorData: ConfigBase.config.data
+        });
+    }
 
     /**
      * @summary MCP server identity for `createMcpServer()`.

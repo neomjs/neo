@@ -2719,6 +2719,18 @@ components:
           format: date-time
           description: The ISO 8601 timestamp of when the health check was performed.
           example: "2025-10-24T10:00:00.000Z"
+        plane:
+          type: object
+          description: "OBSERVED plane identity — the id/dataRoot THIS process resolved, read from the same per-server config the boot assertion verified (the deployment manifest's observed column). Always present."
+          properties:
+            id:
+              type: string
+              description: "Opaque plane identity (never a path)."
+              example: "neo-local-canonical"
+            dataRoot:
+              type: string
+              description: "Absolute durable data root this process resolved."
+          required: [id, dataRoot]
         runtimeFreshness:
           type: object
           description: "Compact boot-vs-current Memory Core MCP runtime freshness diagnostic. Stale is diagnostic metadata, not a service outage."

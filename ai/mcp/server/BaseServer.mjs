@@ -1,6 +1,23 @@
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import path                                            from 'node:path';
+import {fileURLToPath}                                 from 'node:url';
 import Base                                            from '../../../src/core/Base.mjs';
+import {
+    assertPlaneCoherence,
+    assertPlaneMemberCoherence,
+    collectPlaneMembers,
+    resolvePlaneDataRoot
+} from '../../planeConfig.mjs';
+import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
+
+// The durable-root reference for the plane fail-closed check: THIS checkout's default plane
+// root (env-free twin resolution). A declared overlay resolving it — via env leakage or a
+// symlink layer — is the breach the boot assertion exists to stop.
+const canonicalDataRoot = resolvePlaneDataRoot({
+    env    : {},
+    rootDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../')
+});
 
 /**
  * @summary Common base class for all Neo MCP servers.
@@ -507,12 +524,112 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Runs the per-server healthcheck (if any) and emits a startup-status log line.
+     * @summary Declares whether this server is a data-plane MEMBER — a server that opens
+     * durable plane storage (WAL, SQLite, Chroma) and must therefore prove plane-identity
+     * coherence before serving. Membership is an explicit class declaration, never inferred
+     * from config shape: API-bridge servers (github-/gitlab-workflow) and isolated test
+     * fixtures carry no plane by contract and skip the assertion; member servers override
+     * to `true` and then fail LOUD on every unresolvable state (no config, no `plane`
+     * subtree) — a member can never silently skip its own invariant.
+     * @returns {Boolean}
+     * @protected
+     */
+    isPlaneMember() {
+        return false;
+    }
+
+    /**
+     * @summary The claimed plane-member entries for this server's config — `{path, resolved,
+     * default}` per member (see `collectPlaneMembers`). Member servers override to return
+     * `collectMemberEntries(...)`; the default empty list keeps non-members and the base
+     * class free of member claims.
+     * @returns {Object[]}
+     * @protected
+     */
+    getPlaneMembers() {
+        return [];
+    }
+
+    /**
+     * @summary Composes the COMPLETE claimed member set a member server opens: its
+     * server-local claims PLUS the inherited Tier-1 claims — both resolved through the
+     * SAME per-server config (`this.aiConfig`; Tier-1 leaves resolve via the Provider
+     * parent chain). A member server that asserted only its local list would leave the
+     * Tier-1 members it consumes (e.g. the Chroma persist dir) boot-orphaned — a local
+     * explicit placement must never mask stale Tier-1 members after a root relocation.
+     * @param {Object} options
+     * @param {String[]} options.localPaths The server's own claimed member paths.
+     * @param {Object} options.localDescriptorData The server config base's static `config.data`.
+     * @returns {Object[]}
+     * @protected
+     */
+    collectMemberEntries({localPaths, localDescriptorData}) {
+        return [
+            ...collectPlaneMembers({
+                memberPaths   : localPaths,
+                resolvedConfig: this.aiConfig,
+                descriptorData: localDescriptorData
+            }),
+            ...collectPlaneMembers({
+                memberPaths   : TIER1_PLANE_MEMBER_PATHS,
+                resolvedConfig: this.aiConfig,
+                descriptorData: Tier1ConfigBase.config.data
+            })
+        ];
+    }
+
+    /**
+     * @summary Fail-closed plane-identity assertion on the RESOLVED config values. Placed on
+     * this shared building block because every boot order — the default `boot()` and the
+     * custom overrides — calls `runHealthcheckAndLogStatus()` after `loadCustomConfig()`,
+     * so the assertion also closes the custom-config-file route the leaf's env parser
+     * never sees. Non-members (see `isPlaneMember()`) carry no plane by contract and
+     * return `null`; declared members fail loud on any unresolvable state.
+     * @returns {Object|null} Frozen observed identity `{planeId, dataRoot}`, or `null`.
+     * @protected
+     */
+    assertPlaneIdentity() {
+        if (!this.isPlaneMember()) return null;
+
+        if (!this.aiConfig) {
+            throw new Error(
+                `[${this.constructor.name}] declared plane member booted without aiConfig — plane identity unresolvable.`
+            );
+        }
+        const {plane} = this.aiConfig;
+
+        if (!plane) {
+            throw new Error(
+                `[${this.constructor.name}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
+            );
+        }
+        const observed = assertPlaneCoherence({
+            planeId : plane.id,
+            dataRoot: plane.dataRoot,
+            canonicalDataRoot
+        });
+
+        // Member-coherence clause: a relocated plane root with members still on their
+        // build-time anchor defaults is a partially-moved plane — fail closed, never split
+        // storage across two roots.
+        const members = this.getPlaneMembers();
+
+        if (members.length > 0) {
+            assertPlaneMemberCoherence({dataRoot: plane.dataRoot, members});
+        }
+        return observed;
+    }
+
+    /**
+     * @summary Asserts plane-identity coherence (fail closed before serving), then runs the
+     * per-server healthcheck (if any) and emits a startup-status log line.
      * Returns the health result for use by `afterHealthcheck` hooks.
      * @returns {Promise<Object|null>} The healthcheck result, or `null` if no health service.
      * @protected
      */
     async runHealthcheckAndLogStatus() {
+        this.assertPlaneIdentity();
+
         const healthService = this.getHealthService();
         if (!healthService?.healthcheck) {
             this.logStartupStatus(null);
@@ -534,7 +651,7 @@ class BaseServer extends Base {
      */
     async connectTransport() {
         const metadata  = this.getServerMetadata();
-        const transport = this.aiConfig === null ? 'stdio' : this.aiConfig.transport;
+        const transport = !this.aiConfig ? 'stdio' : this.aiConfig.transport;
 
         if (transport === 'sse') {
             throw new Error(

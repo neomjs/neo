@@ -2,12 +2,22 @@ import os                     from 'os';
 import path                   from 'path';
 import {fileURLToPath}        from 'url';
 import ConfigProvider, {leaf} from './ConfigProvider.mjs';
+import {
+    PLANE_DEFAULTS,
+    PLANE_ENV,
+    parsePlaneIdEnv,
+    resolvePlaneDataRoot
+} from './planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
-const projectRoot           = process.cwd() === '/' ? neoRootDir : process.cwd();
+const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
+// The single plane-member anchor: every durable data-plane default below derives from this
+// const (env-free twin resolution — the leaf machinery owns all env binding), so no member
+// re-derives its own root and no member resolves against ambient cwd.
+const planeDataRootDefault  = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
 const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -47,6 +57,37 @@ class ConfigBase extends ConfigProvider {
             neoRootDir : leaf(neoRootDir),
             projectRoot: leaf(projectRoot),
             /**
+             * The declared plane-identity subtree — the first-class object the data-root
+             * placement election decides placement FOR. Declaration source is the pure-defaults
+             * twin `ai/planeConfig.mjs` (ticket-ref-ok: ADR 0019 §5.5 names that module shape):
+             * the leaf imports the twin's frozen literals + env names, so leaf↔twin drift is
+             * impossible by construction.
+             * Three concepts, never conflated: `id` is opaque identity (no path/checkout content);
+             * `dataRoot` is the resolved evidence every plane-member leaf derives from;
+             * `NEO_AI_CANONICAL_ROOT` (provisioning-time, `bootstrapWorktree.mjs`) names a
+             * checkout and is deliberately NOT part of this subtree.
+             * @member {Object} data.plane
+             */
+            plane: {
+                /**
+                 * Stable opaque plane identity. Overlays, cloud deployments, and ephemeral
+                 * isolation planes (Option F overlays) override via env; equality of `planeId`
+                 * is the ONLY sanctioned "same plane?" predicate — never path comparison.
+                 * The env layer routes through the twin's `parsePlaneIdEnv`, so a path-shaped
+                 * override fails loud at boot — the opacity invariant holds on RESOLVED values,
+                 * not only on the frozen default the load guard covers.
+                 * @type {string}
+                 */
+                id: {default: PLANE_DEFAULTS.planeId, env: PLANE_ENV.planeId, type: 'string', parse: parsePlaneIdEnv},
+                /**
+                 * The durable data root this process resolved for the declared plane — the single
+                 * anchor plane-member leaves derive from via `path.join`-style derivations, each
+                 * member keeping its own env escape.
+                 * @type {string}
+                 */
+                dataRoot: leaf(planeDataRootDefault, PLANE_ENV.dataRoot, 'string')
+            },
+            /**
              * The current in-flight release version whose milestone / epic work counts as "current
              * release focus" for the Golden Path emitter. Set at cut-prep, advanced by
              * `buildScripts/release/publish.mjs` at release — so a shipped release never lingers as
@@ -59,13 +100,13 @@ class ConfigBase extends ConfigProvider {
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
-            backupPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/backups'), 'NEO_BACKUP_PATH', 'string'),
+            backupPath: leaf(path.resolve(planeDataRootDefault, 'backups'), 'NEO_BACKUP_PATH', 'string'),
             /**
              * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
              * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
              * @type {string}
              */
-            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(neoRootDir, '.neo-ai-data/wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
+            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(planeDataRootDefault, 'wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
             /**
              * Fleet Manager supervision leaves: where per-agent harness instance homes live and
              * which binary each harness family launches. The lifecycle service reads these at the
@@ -79,7 +120,7 @@ class ConfigBase extends ConfigProvider {
                  * checkouts root.
                  * @type {string}
                  */
-                instanceRoot   : leaf(path.resolve(neoRootDir, '.neo-ai-data/fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string'),
+                instanceRoot   : leaf(path.resolve(planeDataRootDefault, 'fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string'),
                 harnessBinaries: {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly
@@ -506,7 +547,7 @@ class ConfigBase extends ConfigProvider {
                 chroma: {
                     // Env-bindable like its host/port siblings: a packaged harness ships the organism in a
                     // read-only(ish) resources dir and must move the persist dir to a per-user data root.
-                    dataDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/chroma/unified'), 'NEO_CHROMA_DATA_DIR', 'string'),
+                    dataDirProd: leaf(path.resolve(planeDataRootDefault, 'chroma/unified'), 'NEO_CHROMA_DATA_DIR', 'string'),
                     dataDirTest: leaf(chromaUnitTestDataDir, 'NEO_CHROMA_DATA_DIR_TEST', 'string'),
                     hostProd   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     hostTest   : leaf('localhost', 'NEO_CHROMA_HOST_TEST', 'string'),
@@ -582,25 +623,28 @@ class ConfigBase extends ConfigProvider {
                 /**
                  * Directory owning ALL orchestrator-daemon runtime state: the daemon + child-task
                  * PID files, `orchestrator.log`, `orchestrator-state.json`, and the heavy-maintenance
-                 * lease + tenant-repo-sync revision files stored beside them. Kept relative on
-                 * purpose — it resolves against the daemon's cwd (repo root under the standard
-                 * launch). Owning the default AND the `NEO_AI_ORCHESTRATOR_DIR` env binding here
+                 * lease + tenant-repo-sync revision files stored beside them. Derives from the
+                 * declared plane anchor (absolute) — the prior relative default resolved against
+                 * the daemon's ambient cwd, which is exactly the per-process root ambiguity the
+                 * plane subtree removes; cloud deployments keep overriding via env. Owning the
+                 * default AND the `NEO_AI_ORCHESTRATOR_DIR` env binding here (instead of a
+                 * module-level `process.env` read at the consumer) keeps the config-is-SSOT
+                 * contract: no consumer re-derives from env, no consumer holds a hidden default.
+                 * @type {String}
+                 */
+                dataDir: leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon'), 'NEO_AI_ORCHESTRATOR_DIR', 'string'),
+                /**
+                 * SQLite Memory Core graph database file the orchestrator opens for graph-backed
+                 * health checks and maintenance decisions. Derives from the declared plane anchor
+                 * (absolute) — the prior relative default resolved against the daemon's ambient
+                 * cwd, the per-process root ambiguity the plane subtree removes; deployments keep
+                 * overriding via env. Owning the default AND the `NEO_AI_DB_PATH` env binding here
                  * (instead of a module-level `process.env` read at the consumer) keeps the
                  * config-is-SSOT contract: no consumer re-derives from env, no consumer holds a
                  * hidden default.
                  * @type {String}
                  */
-                dataDir: leaf('.neo-ai-data/orchestrator-daemon', 'NEO_AI_ORCHESTRATOR_DIR', 'string'),
-                /**
-                 * SQLite Memory Core graph database file the orchestrator opens for graph-backed
-                 * health checks and maintenance decisions. Kept relative on purpose — it resolves
-                 * against the daemon's cwd (repo root under the standard launch). Owning the
-                 * default AND the `NEO_AI_DB_PATH` env binding here (instead of a module-level
-                 * `process.env` read at the consumer) keeps the config-is-SSOT contract: no
-                 * consumer re-derives from env, no consumer holds a hidden default.
-                 * @type {String}
-                 */
-                dbPath: leaf('.neo-ai-data/sqlite/memory-core-graph.sqlite', 'NEO_AI_DB_PATH', 'string'),
+                dbPath: leaf(path.resolve(planeDataRootDefault, 'sqlite/memory-core-graph.sqlite'), 'NEO_AI_DB_PATH', 'string'),
                 /**
                  * Deployment profile for Agent OS maintenance ownership.
                  * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
@@ -616,6 +660,10 @@ class ConfigBase extends ConfigProvider {
                  * `tenantRepos[].mirrorRoot` overrides this value when present; absent
                  * per-repo overrides fall back through this Tier-1 default. Env override:
                  * `NEO_TENANT_REPO_MIRROR_ROOT`.
+                 * Deliberately NOT derived from the local plane anchor: this default names the
+                 * CLOUD profile's plane root (the lane is cloud-only), and re-anchoring it
+                 * locally would silently break containerized defaults. The per-profile
+                 * plane-placement election owns unifying profile-pinned members.
                  * @type {String}
                  */
                 tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string'),
@@ -727,7 +775,7 @@ class ConfigBase extends ConfigProvider {
                  */
                 deploymentStateBridge: {
                     enabled                     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
-                    snapshotPath                : leaf(path.resolve(neoRootDir, '.neo-ai-data/deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
+                    snapshotPath                : leaf(path.resolve(planeDataRootDefault, 'deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
                     writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
                     staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
                     maxSnapshotBytes            : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
@@ -1089,8 +1137,8 @@ class ConfigBase extends ConfigProvider {
                     blockedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_SUPERVISED_TASKS', 'csv'),
                     blockedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_COMPOSE_SERVICES', 'csv'),
                     blockedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_DEPLOY_TARGETS', 'csv'),
-                    healAttemptsPath           : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
-                    recoveryRunStateDir        : leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
+                    healAttemptsPath           : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
+                    recoveryRunStateDir        : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
                     recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),
                     maxAttemptsPerWindow       : leaf(3, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_PER_WINDOW', 'number'),
                     maxAttemptsWindowMs        : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_WINDOW_MS', 'number'),
@@ -1437,5 +1485,24 @@ class ConfigBase extends ConfigProvider {
         }
     }
 }
+
+/**
+ * @summary The plane-member paths this Tier-1 base claims — the enumerable input for the
+ * F-invariant's member-coherence clause (`assertPlaneMemberCoherence`): each entry must
+ * resolve beneath the resolved `plane.dataRoot` or be explicitly placed per profile.
+ * Deliberately excludes `orchestrator.tenantRepoMirrorRoot` (cloud-profile-pinned; the
+ * per-profile placement election owns profile-pinned members).
+ */
+export const PLANE_MEMBER_PATHS = Object.freeze([
+    'backupPath',
+    'wakeDaemonHeartbeatAlivePath',
+    'fleet.instanceRoot',
+    'engines.chroma.dataDirProd',
+    'orchestrator.dataDir',
+    'orchestrator.dbPath',
+    'orchestrator.deploymentStateBridge.snapshotPath',
+    'orchestrator.recoveryActuator.healAttemptsPath',
+    'orchestrator.recoveryActuator.recoveryRunStateDir'
+]);
 
 export default Neo.setupClass(ConfigBase);

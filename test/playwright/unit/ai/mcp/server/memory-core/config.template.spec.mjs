@@ -178,7 +178,10 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_BRIDGE_LAST_SYNC_ID_PATH = '/tmp/neo-bridge-last-sync-id';
         process.env.NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE = '/tmp/neo-wake-live-cursor';
 
-        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+        // The watermark paths consumers read are FORMULAS deriving from the resolved
+        // `wakeDaemon.dataDir` (explicit `*Override` leaves carry these env bindings), so the
+        // isolated instance needs the formulas too — the Tier-1 `createIsolatedConfig` shape.
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {data: config._data, formulas: config._formulas}));
 
         try {
             expect(freshCfg.wakeDaemon.bridgeLastSyncIdPath).toBe('/tmp/neo-bridge-last-sync-id');

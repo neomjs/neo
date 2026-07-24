@@ -1,0 +1,260 @@
+import fs   from 'node:fs';
+import path from 'node:path';
+
+/**
+ * @summary The plane-identity pure-defaults twin — the sanctioned non-entrypoint companion
+ * (ticket-ref-ok: ADR 0019 §5.5 names this exact module shape) to the `plane` leaf subtree
+ * in `ai/configBase.mjs`.
+ *
+ * Non-entrypoints (host CLI scripts, per-harness-family hook writers, host daemons) must not
+ * import Neo singletons. This module carries the SAME env-var names and default literals the leaf
+ * subtree declares — and the leaf subtree imports THESE constants as its declaration source, so
+ * leaf↔twin drift is impossible by construction. The resolver semantics are equivalent to the
+ * leaf's env layer by construction too (for strings, truthiness and the provider's emptiness
+ * partition identically — `''` is the only falsy string), so the pairing test pins that
+ * equivalence rather than guarding a live drift channel.
+ *
+ * The three concepts this plane API never conflates:
+ * - **identity** — the opaque `planeId` (never a path, never checkout-shaped: a checkout-shaped
+ *   identity would silently pre-decide the data-root placement election);
+ * - **resolved evidence** — the `dataRoot` a process actually resolved at runtime;
+ * - **checkout root** — `NEO_AI_CANONICAL_ROOT`, which names a checkout for provisioning-time
+ *   hydration (`bootstrapWorktree.mjs`) and is explicitly NOT the plane identity.
+ */
+export const PLANE_ENV = Object.freeze({
+    dataRoot: 'NEO_PLANE_DATA_ROOT',
+    planeId : 'NEO_PLANE_ID'
+});
+
+export const PLANE_DEFAULTS = Object.freeze({
+    /**
+     * Relative to the injected root; the leaf side resolves it against `neoRootDir`,
+     * non-entrypoint consumers inject their own discovered root.
+     */
+    dataRootRelative: '.neo-ai-data',
+    /**
+     * The institution's canonical local plane. Overlays, cloud deployments, and ephemeral
+     * isolation planes override via env — a stable literal, deliberately carrying no
+     * path or checkout content.
+     */
+    planeId: 'neo-local-canonical'
+});
+
+/**
+ * @summary The opacity predicate for plane identities — ONE rule covering the frozen default
+ * (module-load guard below) and every RESOLVED value, env overrides included. A path- or
+ * checkout-shaped planeId silently pre-decides the data-root placement election, so opacity
+ * must hold on the values that vary, not only on the literal that cannot.
+ * @param {*} value
+ * @returns {Boolean}
+ */
+export function isOpaquePlaneId(value) {
+    return typeof value === 'string' && value.length > 0 &&
+        !value.includes('/') && !value.includes('\\') &&
+        !value.includes(PLANE_DEFAULTS.dataRootRelative)
+}
+
+/**
+ * @summary Env-layer parser for the `plane.id` leaf — the leaf reaches the SAME opacity
+ * predicate the twin's resolver enforces (mirrors the `parseMemorySharingPolicy` descriptor
+ * precedent: absent/empty env → `undefined`, so the declared default applies).
+ * @param {String} envVarName
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {String|undefined}
+ */
+export function parsePlaneIdEnv(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+    if (!isOpaquePlaneId(rawValue)) {
+        throw new Error(
+            `planeConfig: ${envVarName}="${rawValue}" is not an opaque planeId — ` +
+            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
+        );
+    }
+    return rawValue
+}
+
+/**
+ * @summary Resolves the plane identity without importing Neo singletons. The RESOLVED value
+ * (override or default) must satisfy the opacity invariant — fail loud, never propagate a
+ * path-shaped identity.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {String}
+ */
+export function resolvePlaneId({env = process.env} = {}) {
+    const override = env[PLANE_ENV.planeId];
+    const resolved = override ? override : PLANE_DEFAULTS.planeId;
+
+    if (!isOpaquePlaneId(resolved)) {
+        throw new Error(
+            `planeConfig.resolvePlaneId: "${resolved}" is not an opaque planeId — ` +
+            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
+        );
+    }
+    return resolved
+}
+
+/**
+ * @summary Resolves the plane data root without importing Neo singletons.
+ * @param {Object} options
+ * @param {Object} [options.env=process.env] Environment source.
+ * @param {String} options.rootDir Discovered repository / deployment root the relative default anchors on.
+ * @returns {String}
+ */
+export function resolvePlaneDataRoot({env = process.env, rootDir} = {}) {
+    const override = env[PLANE_ENV.dataRoot];
+
+    if (override) {
+        return override
+    }
+
+    if (!rootDir) {
+        throw new Error(
+            `planeConfig.resolvePlaneDataRoot: rootDir is required when ${PLANE_ENV.dataRoot} is unset — ` +
+            'a non-entrypoint consumer must inject its discovered root rather than trusting ambient cwd.'
+        );
+    }
+
+    return path.resolve(rootDir, PLANE_DEFAULTS.dataRootRelative)
+}
+
+/**
+ * @summary Symlink-transparent path identity: real path when the target exists, plain
+ * resolution when it does not (a not-yet-created root cannot be the durable root).
+ * @param {String} p
+ * @returns {String}
+ */
+function realpathOrResolve(p) {
+    try {
+        return fs.realpathSync(p)
+    } catch {
+        return path.resolve(p)
+    }
+}
+
+/**
+ * @summary The F-invariant boot assertion — a declared plane's resolved values must be
+ * internally consistent, and an isolated overlay must FAIL CLOSED if it can resolve the
+ * durable root (including through a symlink layer — the reconcile probe's escape class).
+ *
+ * Three clauses, in order:
+ * 1. `planeId` must be opaque — this closes the custom-config-file route the leaf's
+ *    env parser never sees.
+ * 2. `dataRoot` must be absolute — a relative root re-imports ambient-cwd resolution.
+ * 3. A NON-canonical `planeId` (a declared overlay) must not resolve — symlink-transparently —
+ *    to the canonical durable root: identity-without-isolation would mutate the durable plane.
+ *
+ * Pure and injectable (no Neo import): entrypoints assert provider-resolved values;
+ * non-entrypoints may assert twin-resolved values.
+ * @param {Object} options
+ * @param {String} options.planeId Resolved plane identity.
+ * @param {String} options.dataRoot Resolved plane data root.
+ * @param {String} [options.canonicalDataRoot] The durable root reference; clause 3 only runs when provided.
+ * @param {String} [options.canonicalPlaneId] Canonical identity; defaults to the twin literal.
+ * @param {Function} [options.realpathFn] Path-identity resolver, injectable for tests.
+ * @returns {Object} Frozen observed identity `{planeId, dataRoot}` for emission consumers.
+ */
+export function assertPlaneCoherence({planeId, dataRoot, canonicalDataRoot, canonicalPlaneId = PLANE_DEFAULTS.planeId, realpathFn = realpathOrResolve}) {
+    if (!isOpaquePlaneId(planeId)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: planeId "${planeId}" is not opaque — ` +
+            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
+        );
+    }
+
+    if (typeof dataRoot !== 'string' || !path.isAbsolute(dataRoot)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: dataRoot "${dataRoot}" must be absolute — ` +
+            'a relative plane root re-imports the ambient-cwd resolution this contract retires.'
+        );
+    }
+
+    if (planeId !== canonicalPlaneId && canonicalDataRoot &&
+        realpathFn(dataRoot) === realpathFn(canonicalDataRoot)) {
+        throw new Error(
+            `planeConfig.assertPlaneCoherence: plane "${planeId}" resolves the durable root "${canonicalDataRoot}" — ` +
+            'an isolated overlay must fail closed rather than mutate the durable plane (identity without isolation).'
+        );
+    }
+
+    return Object.freeze({planeId, dataRoot})
+}
+
+/**
+ * @summary Walks a claimed plane-member path list against a RESOLVED config plus the
+ * declaring class's static descriptor data, producing `{path, resolved, default}` entries
+ * for `assertPlaneMemberCoherence`. Fails loud on any unresolvable listed path — a claimed
+ * member that cannot be walked is a contract breach, never a skip.
+ * @param {Object} options
+ * @param {String[]} options.memberPaths Dotted member paths the config base claims.
+ * @param {Object} options.resolvedConfig The resolved config (Provider proxy) to read values from.
+ * @param {Object} options.descriptorData The declaring class's static `config.data` tree.
+ * @returns {Object[]} `{path, resolved, default}` entries.
+ */
+export function collectPlaneMembers({memberPaths, resolvedConfig, descriptorData}) {
+    // Read-then-check (never the `in` operator): resolved configs are Provider PROXIES whose
+    // reads delegate to the reactive data tree without implementing a `has` trap. An
+    // undefined terminal fails loud — a claimed member that cannot be walked is a contract
+    // breach, never a skip.
+    const dig = (obj, dotted, what) => {
+        const value = dotted.split('.').reduce((node, key) => node == null ? undefined : node[key], obj);
+
+        if (value === undefined) {
+            throw new Error(`planeConfig.collectPlaneMembers: claimed member "${dotted}" is not resolvable in the ${what} tree.`);
+        }
+        return value;
+    };
+
+    return memberPaths.map(memberPath => ({
+        path    : memberPath,
+        resolved: dig(resolvedConfig, memberPath, 'resolved'),
+        default : dig(descriptorData, memberPath, 'descriptor').default
+    }))
+}
+
+/**
+ * @summary Member-coherence clause of the F-invariant: when `plane.dataRoot` resolves away
+ * from the build-time anchor (an env/profile relocation), every claimed member must either
+ * sit beneath the RESOLVED root or be EXPLICITLY placed (resolved ≠ its declared default).
+ * A partially-moved plane — root relocated, members still on their anchor defaults — is the
+ * alternate-realities defect this epic exists to remove, so it FAILS BOOT rather than
+ * silently splitting storage across two roots.
+ * Comparison is LITERAL-prefix (`path.resolve` normalization, injectable): member coherence
+ * asks whether a member's resolved string derives from the resolved root — symlink
+ * forensics (a member reaching the root through a link layer) belong to the reconcile
+ * probe, not this boot clause; mixing realpath into one side of a string-derivation
+ * comparison flags every not-yet-created member on a symlinked seat.
+ * @param {Object} options
+ * @param {String} options.dataRoot Resolved `plane.dataRoot`.
+ * @param {Object[]} options.members `{path, resolved, default}` entries from `collectPlaneMembers`.
+ * @param {Function} [options.realpathFn] Path normalizer, injectable for tests.
+ * @returns {void}
+ */
+export function assertPlaneMemberCoherence({dataRoot, members, realpathFn = path.resolve}) {
+    const rootReal = realpathFn(dataRoot);
+
+    const strays = members.filter(member => {
+        if (member.resolved !== member.default) return false;
+
+        const resolvedReal = realpathFn(member.resolved);
+        return resolvedReal !== rootReal && !resolvedReal.startsWith(rootReal + path.sep);
+    });
+
+    if (strays.length > 0) {
+        throw new Error(
+            `planeConfig.assertPlaneMemberCoherence: plane.dataRoot resolves to "${dataRoot}" but ` +
+            `${strays.length} claimed member(s) still derive from the build-time anchor ` +
+            `(${strays.map(stray => stray.path).join(', ')}) — relocating the plane requires per-member ` +
+            'placement (member env bindings / the per-profile election); a partially-moved plane fails closed.'
+        );
+    }
+}
+
+// Module-load invariant: the twin is literals + env NAMES only — the frozen default must
+// satisfy the same opacity predicate every resolved value passes through. Fail at load,
+// not at review.
+if (!isOpaquePlaneId(PLANE_DEFAULTS.planeId)) {
+    throw new Error('planeConfig: PLANE_DEFAULTS.planeId must stay opaque — no path content.');
+}
