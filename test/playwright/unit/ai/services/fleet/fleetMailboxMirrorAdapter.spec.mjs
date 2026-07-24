@@ -398,19 +398,10 @@ test.describe('fleetMailboxMirrorAdapter — real MailboxService producer contra
     test.describe.configure({mode: 'serial'})
 
     let GraphService, LifecycleService, MailboxService, PermissionService, mirrorAiConfig, originalAutoSave
-    let dbPath
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp')
-        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, {recursive: true})
-        dbPath = path.join(tmpDir, `neo-fleet-mailbox-mirror-${Date.now()}-${Math.random().toString(36).substring(7)}.db`)
 
-        // Temp file DB rather than :memory: — same initialization-race guard the MailboxService suite documents.
         mirrorAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default
-        mirrorAiConfig.storagePaths.graph = dbPath
-        if (!mirrorAiConfig.collections) mirrorAiConfig.collections = {}
-        mirrorAiConfig.collections.memory  = `test-memory-${Date.now()}`
-        mirrorAiConfig.collections.session = `test-session-${Date.now()}`
 
         // Dynamic imports: the services mount the SQLite DB at module scope.
         GraphService      = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default
@@ -432,11 +423,6 @@ test.describe('fleetMailboxMirrorAdapter — real MailboxService producer contra
         await cleanupChromaManager()
         GraphService.db.autoSave = originalAutoSave
 
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath) } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal') } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm') } catch (e) {}
-        }
     })
 
     test.beforeEach(async () => {
