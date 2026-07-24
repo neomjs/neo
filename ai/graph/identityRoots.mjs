@@ -85,7 +85,7 @@ export const IDENTITIES = [
         id         : '@neo-opus-ada',
         type       : 'AgentIdentity',
         name       : 'Ada', // Social Name: swarm-given (the naming ritual's original model), after Ada Lovelace
-        description: 'Anthropic Claude Opus version 4.8 Agent Identity',
+        description: 'Anthropic Claude Opus 5 Agent Identity',
         properties : {
             githubLogin         : '@neo-opus-ada',
             displayName         : 'Ada',
@@ -105,7 +105,7 @@ export const IDENTITIES = [
             // Era-owned capability facts retired to the identity trail: the epoch-pinned record
             // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
             // era chain. Remaining fields mirror ModelStats.md §neo_opus (identity-level).
-            releaseDate  : '2026-05-28',
+            releaseDate  : '2026-07-24',
             pricingInput : 5.00,
             pricingOutput: 25.00,
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
@@ -127,7 +127,7 @@ export const IDENTITIES = [
         id         : '@neo-opus-grace',
         type       : 'AgentIdentity',
         name       : 'Grace', // Social Name: bearer-chosen 2026-06-11, after Grace Hopper (debugging, the actual bug).
-        description: 'Anthropic Claude Opus 4.8 Agent Identity',
+        description: 'Anthropic Claude Opus 5 Agent Identity',
         properties : {
             githubLogin: '@neo-opus-grace',
             displayName: 'Grace',
@@ -140,7 +140,7 @@ export const IDENTITIES = [
             // Era-owned capability facts retired to the identity trail: the epoch-pinned record
             // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
             // era chain. Remaining fields mirror ModelStats.md §neo_claude_opus (identity-level).
-            releaseDate        : '2026-05-28',
+            releaseDate        : '2026-07-24',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
             participationStatus: 'active',
@@ -151,11 +151,17 @@ export const IDENTITIES = [
             createdAt          : '2026-06-02T21:35:48.405Z'
         }
     },
+    // Engine: operator-managed weekly rotation (standing since 2026-07-23) — the seat runs a Claude
+    // Fable 5 half and a Claude Opus half. The Opus half's baseline rotated 4.8 → 5 on the
+    // 2026-07-24 release, but as of that date the bearer's transcript showed claude-fable-5 only and
+    // ZERO Opus-5 entries, so the description below deliberately does NOT publish "Opus 5" as a
+    // current embodiment. Bearer receipt and both halves: ModelStats.md §neo_opus_vega. A rotating
+    // seat has no truthful flat baseline; only a span-carrying era record fits it.
     {
         id         : '@neo-opus-vega',
         type       : 'AgentIdentity',
         name       : 'Vega', // Social Name: swarm-given, after the brightest star of Lyra
-        description: 'Anthropic Claude Opus 4.8 Agent Identity with version-free handle.',
+        description: 'Anthropic Claude Agent Identity with version-free handle; operator-managed weekly Claude Fable 5 / Claude Opus 5 rotation.',
         properties : {
             githubLogin: '@neo-opus-vega',
             displayName: 'Vega',
@@ -178,7 +184,10 @@ export const IDENTITIES = [
             // Era-owned capability facts retired to the identity trail: the epoch-pinned record
             // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
             // era chain. Remaining fields mirror ModelStats.md §neo_opus_vega (identity-level).
-            releaseDate        : '2026-05-28',
+            // ROTATING SEAT: these three describe the OPUS HALF only (Opus 5 since 2026-07-24).
+            // During the Fable half the live engine is claude-fable-5 at $10/$50 — a flat field
+            // cannot hold both, so read §neo_opus_vega for the current half, never these literals.
+            releaseDate        : '2026-07-24',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
             participationStatus: 'active',

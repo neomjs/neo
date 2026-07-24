@@ -34,12 +34,19 @@ const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
 /**
  * Observation-owned engine tags, mirrored from learn/agentos/ModelStats.md (§ anchor per entry).
  * An identity missing here emits `engineTag: null` — honest absence, never an invented tag.
+ *
+ * **`neo-opus-vega` is deliberately absent.** That seat runs an operator-managed weekly
+ * Fable/Opus rotation, so no static literal stays true for more than a few days, and
+ * `apps/agentos/CARD-CONTRACT.md` names exactly this failure: a durable identity literal
+ * publishes baseline as current and goes stale on any unmanaged engine boost, with the
+ * July-2026 Fable-week rotations as the reflexive falsifier. A tag that is wrong half the
+ * week is worse than no tag — the model renders no badge for `null` by design. Restore a
+ * literal for that seat only once an era record can carry a time span instead of a point value.
  * @type {Object<String,String>}
  */
 const ENGINE_TAG_BY_ID = {
-    'neo-opus-ada'   : 'opus-4.8',    // §neo_opus
-    'neo-opus-grace' : 'opus-4.8',    // §neo_claude_opus
-    'neo-opus-vega'  : 'opus-4.8',    // §neo_opus_vega
+    'neo-opus-ada'   : 'opus-5',      // §neo_opus
+    'neo-opus-grace' : 'opus-5',      // §neo_claude_opus
     'neo-fable'      : 'fable-5',     // §neo_fable
     'neo-fable-clio' : 'fable-5',     // §neo_fable_clio (mirrors §neo_fable)
     'neo-gemini-pro' : '3.1-pro',     // §neo_gemini_pro
