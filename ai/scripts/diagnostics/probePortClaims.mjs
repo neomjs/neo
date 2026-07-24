@@ -1,16 +1,19 @@
 /**
- * @summary Read-only probe: which TCP listeners this host is running, and which checkout each SERVES.
+ * @summary Read-only probe: which TCP listeners this host is running, and which directory each RESOLVES PATHS AGAINST.
  *
  * The fourth axis of a per-seat data-root reconcile. The other three (leaves, symlink targets,
  * resolved roots) are derived from the hydration contract by `symlinkDataDir({dryRun: true})`;
  * host port claims have no declaration to derive from, so they must be observed.
  *
- * **Why served identity rather than occupancy.** "Port 8080 is busy" is not the useful fact.
+ * **Why serving directory rather than occupancy.** "Port 8080 is busy" is not the useful fact.
  * A test runner that trusted *any* listener on a port once executed a different checkout's tree
  * and produced false greens as well as false reds — two victims in one day. The question a
- * multi-seat host has to answer is *whose* process is on the port, and the honest answer is the
- * serving process's working directory: on a host where several checkouts run side by side, the
- * cwd is what says which one you would actually be talking to.
+ * multi-seat host has to answer is *whose* process is on the port, and the honest answer this
+ * probe can actually evidence is the serving process's working directory.
+ *
+ * That is deliberately a weaker claim than "which checkout". The probe never validates a cwd as a
+ * repository root, so it reports cwds and says so; asserting checkout identity would put a claim
+ * on the output that nothing in the measurement supports.
  *
  * That also makes this probe a direct read of the same property the data-root election turns on.
  * Path leaves resolve relative to the invoking process's cwd, so a listener's cwd is the plane
@@ -83,7 +86,7 @@ export function resolveProcessCwd(pid) {
 }
 
 /**
- * @summary Enumerates TCP listeners with the checkout each one serves.
+ * @summary Enumerates TCP listeners with the working directory each one serves from.
  *
  * Parses `lsof -F pcn`, whose records are line-oriented: `p<pid>` opens a process block, `c<cmd>`
  * names it, and each following `n<name>` is one of that process's sockets. State is carried across
@@ -145,16 +148,21 @@ export function parseListenerRecords(raw, cwdResolver) {
 }
 
 /**
- * @summary Groups listeners by the checkout they serve, so one host's plane split is readable.
+ * @summary Groups listeners by the cwd they serve from, so one host's plane split is readable.
  *
- * `/` and `unknown` are grouped like any other key but are NOT checkouts — a daemon rooted at `/`
- * says nothing about a plane. Callers counting distinct checkouts must use {@link servedCheckouts},
- * which excludes them; counting raw keys over-reports, since a stock macOS host always carries `/`.
+ * **These keys are working directories, not verified checkouts.** The probe never confirms that a
+ * cwd is a repository root — it reports what `lsof` says the process resolves paths against, which
+ * is the property the data-plane election actually turns on. Naming the key `cwd` keeps the claim
+ * the size of the evidence; calling it a checkout would assert an identity nothing here checked.
+ *
+ * `/` and `unknown` group like any other key but are never *serving* cwds — a daemon rooted at `/`
+ * says nothing about a plane. Callers counting distinct planes must use {@link servedCwds}, which
+ * excludes them; counting raw keys over-reports, since a stock macOS host always carries `/`.
  *
  * @param {Array<Object>} rows Listener rows from {@link probePortClaims}`.rows`.
  * @returns {Object<String, Number[]>} cwd → ascending ports served from it.
  */
-export function groupByServedCheckout(rows) {
+export function groupByCwd(rows) {
     const grouped = {};
 
     for (const {cwd, port} of rows) {
@@ -167,11 +175,11 @@ export function groupByServedCheckout(rows) {
 }
 
 /**
- * @summary The keys of {@link groupByServedCheckout} that actually denote a checkout.
+ * @summary The keys of {@link groupByCwd} that denote a real serving directory.
  * @param {Object<String, Number[]>} grouped
- * @returns {String[]} Paths excluding `/` and `unknown`.
+ * @returns {String[]} Paths excluding `/` and `unknown` — still cwds, still unvalidated as roots.
  */
-export function servedCheckouts(grouped) {
+export function servedCwds(grouped) {
     return Object.keys(grouped).filter(key => key !== UNKNOWN && key !== '/');
 }
 
@@ -179,7 +187,7 @@ function main() {
     const {observed, reason, rows} = probePortClaims();
 
     if (process.argv.includes('--json')) {
-        console.log(JSON.stringify({observed, reason, rows, byCheckout: groupByServedCheckout(rows)}, null, 4));
+        console.log(JSON.stringify({observed, reason, rows, byCwd: groupByCwd(rows)}, null, 4));
         return;
     }
 
@@ -198,13 +206,13 @@ function main() {
         console.log(`  ${String(port).padStart(5)}  ${command.padEnd(16)} pid ${pid.padEnd(8)} ${cwd}`);
     }
 
-    const byCheckout = groupByServedCheckout(rows),
-          checkouts  = servedCheckouts(byCheckout);
+    const byCwd = groupByCwd(rows),
+          cwds  = servedCwds(byCwd);
 
-    if (checkouts.length > 1) {
-        console.log(`\n${checkouts.length} distinct checkouts are serving ports on this host:`);
-        for (const checkout of checkouts) console.log(`  ${checkout} → ${byCheckout[checkout].join(', ')}`);
-        console.log('\nPorts alone do not identify a seat here — the same port number means a different plane per checkout.');
+    if (cwds.length > 1) {
+        console.log(`\n${cwds.length} distinct working directories are serving ports on this host:`);
+        for (const cwd of cwds) console.log(`  ${cwd} → ${byCwd[cwd].join(', ')}`);
+        console.log('\nPorts alone do not identify a seat here — the same port number resolves paths against a different directory per listener.');
     }
 }
 

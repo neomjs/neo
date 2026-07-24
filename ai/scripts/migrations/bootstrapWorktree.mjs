@@ -84,7 +84,9 @@
  *                                                    # remove clean non-current .claude/worktrees
  *                                                    # checkouts via git, then hydrate current
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run
- * node ai/scripts/migrations/bootstrapWorktree.mjs --reconcile [--json]  # read-only per-seat plane + port report
+ * node ai/scripts/migrations/bootstrapWorktree.mjs --reconcile [--json]  # read-only plane + port report for THIS seat
+ * node ai/scripts/migrations/bootstrapWorktree.mjs --reconcile --seat <path> --seat <path>  # ...for named seats
+ * node ai/scripts/migrations/bootstrapWorktree.mjs --link-data --dry-run  # same read-only path, obvious spelling
  *                                                    # report the same keep/remove plan
  *                                                    # without mutating disk
  * node ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --include-dirty
@@ -436,17 +438,23 @@ async function exists(p) {
  * @param {boolean}  [options.dryRun=false] Reconcile mode: classify every child WITHOUT mutating —
  *                                        no `mkdir`, no `rm`, no `symlink`. Divergences that would `throw` in the
  *                                        mutating path are recorded in `divergent` instead, so one deviant seat
- *                                        cannot abort a multi-seat sweep before the rest are classified. The
- *                                        classification is byte-identical to what the mutating pass would decide;
- *                                        only the writes are withheld.
+ *                                        cannot abort a multi-seat sweep before the rest are classified.
+ *                                        **Classification under `dryRun` is force-invariant**: `force` describes what
+ *                                        a later hydration may destroy, not what the seat holds now, so it cannot move
+ *                                        a leaf out of `divergent` and cannot change the residue count.
  * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
- * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], blocklisted: string[], divergent: Array<{name: string, reason: string, found: string}>, seatOnly: string[], resolved: Object<string,string>, mainCheckout: boolean}>}
+ * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], blocklisted: string[], divergent: Array<{name: string, reason: string, found: string}>, seatOnly: string[], resolved: Object<string,string>, mainCheckout: boolean, observed: {canonical: {ok: boolean, reason: string|null}, seat: {ok: boolean, reason: string|null}}}>}
  *          Per-item action map. Under `dryRun` it is **exhaustive over the union of canonical and seat children**:
- *          every name lands in an outcome bucket, including `seatOnly` leaves canonical does not know about, which is
- *          what lets a reconcile assert a seat carries no unexplained residue rather than merely describe it.
- *          `clobbered` is not a separate outcome — it records that a `linked` item had to displace local data first,
- *          so a force-clobbered leaf legitimately appears in both. Uniqueness holds over the outcome buckets, not
- *          over every array.
+ *          every name lands in exactly one bucket — including `seatOnly` leaves canonical does not know about — which
+ *          is what lets a reconcile assert a seat carries no unexplained residue rather than merely describe it.
+ *          `clobbered` is a mutating-path-only bucket and is always empty under `dryRun`, so the one-bucket property
+ *          holds there without exception. On the mutating path a force-clobbered leaf appears in both `clobbered` and
+ *          `linked`, because displacing local data and linking are two actions that both happened.
+ *          `resolved[name]` carries each observed leaf's realpath — canonical's for a link, the seat's for a
+ *          blocklisted or seat-only leaf — and is `null` only when the path could not be resolved at all.
+ *          `observed` reports whether each side was enumerable at all. **Zero residue is only meaningful when
+ *          both sides are `ok`**; an absent canonical or an unreadable seat produces empty buckets that mean
+ *          "could not compare", never "nothing to report". Callers must gate any clean verdict on it.
  * @throws {Error} When a non-blocklisted child's dst is a non-symlink dir/file and `force` is false, or when an
  *                 existing symlink points outside the canonical checkout. **Never throws under `dryRun`** — both
  *                 conditions are recorded in `divergent` instead. The error message names the offending child.
@@ -468,7 +476,11 @@ export async function symlinkDataDir({
         divergent      : [],
         seatOnly       : [],
         resolved       : {},
-        mainCheckout   : false
+        mainCheckout   : false,
+        // Whether each side was actually enumerable. A reconcile that cannot read a side has not
+        // found zero residue there — it has found nothing, and the consumer must be able to tell
+        // those apart without inferring it from empty arrays.
+        observed       : {canonical: {ok: true, reason: null}, seat: {ok: true, reason: null}}
     };
 
     if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
@@ -491,13 +503,20 @@ export async function symlinkDataDir({
         blocklistSet       = new Set(blocklist),
         readAliasSet       = new Set(CANONICAL_DATA_READ_ALIASES.map(entry => entry.alias)),
         readAliasSourceSet = new Set(CANONICAL_DATA_READ_ALIASES.map(entry => entry.source));
-    let entries;
+    let entries = [];
     try {
         entries = await fs.readdir(canonicalDataDir, {withFileTypes: true});
     } catch (e) {
-        // Fresh canonical with no .neo-ai-data yet — nothing to link.
-        if (e?.code === 'ENOENT') return result;
-        throw e;
+        if (e?.code !== 'ENOENT') throw e;
+
+        // A canonical with no `.neo-ai-data` is "nothing to link" for hydration and "could not
+        // compare" for a reconcile — the same filesystem fact, two different verdicts. Returning
+        // the empty result to both made a seat full of residue report zero: clean by absence of
+        // evidence. The reconcile therefore records the unavailability and keeps enumerating the
+        // seat, which does not depend on canonical to be readable.
+        result.observed.canonical = {ok: false, reason: 'canonical-data-dir-absent'};
+        log(`reconcile canonical unavailable: ${canonicalDataDir} does not exist`);
+        if (!dryRun) return result;
     }
 
     // Reconcile enumerates the UNION of canonical and seat children. Iterating canonical alone
@@ -507,7 +526,22 @@ export async function symlinkDataDir({
     if (dryRun) {
         const canonicalNames = new Set(entries.map(entry => entry.name));
 
-        for (const name of await fs.readdir(parentDst).catch(() => [])) {
+        let seatNames = [];
+        try {
+            seatNames = await fs.readdir(parentDst);
+        } catch (e) {
+            // An ABSENT seat dir is a real observation: an unhydrated seat holds nothing, so zero
+            // residue is the truth. An UNREADABLE one is not — permissions hide exactly the leaves
+            // the falsifier exists to find, so it must not be allowed to look like emptiness.
+            if (e?.code === 'ENOENT') {
+                result.observed.seat = {ok: true, reason: 'seat-data-dir-absent'};
+            } else {
+                result.observed.seat = {ok: false, reason: `seat-data-dir-unreadable: ${e?.code ?? 'unknown'}`};
+                log(`reconcile seat unreadable: ${parentDst} (${e?.code ?? 'unknown'})`);
+            }
+        }
+
+        for (const name of seatNames) {
             if (canonicalNames.has(name) || blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) continue;
 
             const seatPath = path.join(parentDst, name);
@@ -523,6 +557,11 @@ export async function symlinkDataDir({
         if (blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) {
             log(`symlink skip (blocklisted): ${name}`);
             result.blocklisted.push(name);
+            // A blocklisted child is deliberately seat-local, which makes WHERE it lives the one
+            // fact a reconcile actually needs about it — "we skipped it" is not an observation.
+            // The seat path is the subject here, not canonical's: the whole point of the blocklist
+            // is that these two are supposed to differ.
+            result.resolved[name] = await fs.realpath(path.join(parentDst, name)).catch(() => null);
             continue;
         }
 
@@ -568,21 +607,28 @@ export async function symlinkDataDir({
 
         if (lstat) {
             // A real (non-symlink) dir or file already at dst would be shadowed by the link.
+
+            // Reconcile classification is FORCE-INVARIANT, and that is the load-bearing property.
+            // `force` states what a later hydration would be permitted to destroy; it says nothing
+            // about what is on the seat right now. Letting it move this leaf out of `divergent`
+            // made `--force --reconcile` report residue: 0 on the exact seat where `--reconcile`
+            // alone reported residue: 1 — same filesystem, same untouched file, opposite verdict.
+            // A diagnostic whose falsifier can be silenced by a mutation-intent flag is not one.
+            if (dryRun) {
+                log(`reconcile divergent (clone-local data, would need --force): ${name}`);
+                result.divergent.push({name, reason: 'clone-local-non-symlink', found: dst});
+                result.resolved[name] = await fs.realpath(dst).catch(() => dst);
+                continue;
+            }
+
             if (!force) {
-                // Same rule as the foreign-target branch: reconcile records, hydration refuses.
-                if (dryRun) {
-                    log(`reconcile divergent (clone-local data, would need --force): ${name}`);
-                    result.divergent.push({name, reason: 'clone-local-non-symlink', found: dst});
-                    result.resolved[name] = await fs.realpath(dst).catch(() => dst);
-                    continue;
-                }
                 throw new Error(
                     `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
                     `This path contains local data that would be lost.`
                 );
             }
             log(`symlink clobber (force=true): removing ${name}`);
-            if (!dryRun) await fs.rm(dst, {recursive: true, force: true});
+            await fs.rm(dst, {recursive: true, force: true}); // dryRun already returned above
             result.clobbered.push(name);
         }
 
@@ -1270,8 +1316,18 @@ if (isMain) {
     const pruneStale = args.has('--prune-stale') || argv.includes('--mode=prune-stale') ||
         (argv.includes('--mode') && argv[argv.indexOf('--mode') + 1] === 'prune-stale');
     const dryRun        = args.has('--dry-run');
-    const reconcile     = args.has('--reconcile');
     const jsonOut       = args.has('--json');
+
+    // `--link-data --dry-run` is the spelling an operator reaches for first, so it MUST be the
+    // read-only path rather than a flag the link stage quietly ignores while it writes.
+    const reconcile = args.has('--reconcile') || (linkData && dryRun);
+
+    // Repeatable `--seat <path>`: classify seats other than the one this script lives in.
+    // Without it the reconcile can only ever describe its own checkout, which makes the
+    // multi-seat question — do two seats resolve the same plane? — unaskable from one process.
+    const seats = argv.reduce((acc, arg, i) => (
+        arg === '--seat' && argv[i + 1] ? [...acc, path.resolve(argv[i + 1])] : acc
+    ), []);
     const includeDirty  = args.has('--include-dirty');
     const scheduleLocal = args.has('--schedule-local');
     const intervalMs    = getNumberFlag(argv, '--interval-ms', 6 * 60 * 60 * 1000);
@@ -1299,46 +1355,71 @@ if (isMain) {
         // claims observed by the sibling probe — because a caller that has to run two commands and
         // staple the output together is not a report, it is a suggestion.
         if (reconcile) {
-            const {probePortClaims, groupByServedCheckout, servedCheckouts} =
+            const {probePortClaims, groupByCwd, servedCwds} =
                 await import('../diagnostics/probePortClaims.mjs');
 
             const
-                plane  = await symlinkDataDir({mainCheckout, projectRoot, dryRun: true, log: () => {}}),
-                ports  = probePortClaims(),
-                report = {
-                    seat      : projectRoot,
-                    canonical : mainCheckout,
-                    plane,
+                targets = seats.length ? seats : [projectRoot],
+                ports   = probePortClaims(),
+                grouped = groupByCwd(ports.rows),
+                report  = {
+                    canonical: mainCheckout,
+                    // Port claims are a property of the HOST, not of any one seat, so they sit
+                    // once at the top. Repeating them per seat would imply each seat owns the
+                    // listeners it happens to be reported next to.
                     portClaims: {
-                        observed  : ports.observed,
-                        reason    : ports.reason,
-                        rows      : ports.rows,
-                        byCheckout: groupByServedCheckout(ports.rows),
-                        checkouts : servedCheckouts(groupByServedCheckout(ports.rows))
-                    }
+                        observed: ports.observed,
+                        reason  : ports.reason,
+                        rows    : ports.rows,
+                        byCwd   : grouped,
+                        cwds    : servedCwds(grouped)
+                    },
+                    seats: []
                 };
+
+            for (const seat of targets) {
+                report.seats.push({
+                    seat,
+                    plane: await symlinkDataDir({mainCheckout, projectRoot: seat, dryRun: true, log: () => {}})
+                });
+            }
 
             if (jsonOut) {
                 console.log(JSON.stringify(report, null, 4));
             } else {
-                console.log(`Seat:      ${report.seat}`);
                 console.log(`Canonical: ${report.canonical}\n`);
-                for (const bucket of ['linked', 'alreadyLinked', 'blocklisted', 'skippedNoSource', 'seatOnly']) {
-                    console.log(`  ${bucket.padEnd(16)} ${plane[bucket].length}`);
-                }
-                console.log(`  ${'divergent'.padEnd(16)} ${plane.divergent.length}`);
-                for (const {name, reason} of plane.divergent) console.log(`      ! ${name} — ${reason}`);
 
-                // Residue is the falsifier's input, not its verdict. Non-zero residue has at least
-                // two readings — the blocklist is incomplete, or this seat was never hydrated with
-                // --link-data — and the report must not pick one. Naming the observation and
-                // leaving the interpretation to the reader is the whole point of a ground-truth
-                // artifact; a diagnostic that concludes is a diagnostic you have to re-derive.
-                const residue = plane.divergent.length + plane.seatOnly.length;
-                console.log(`\n  residue: ${residue}${residue ? ' — unreconciled against the declaration (incomplete blocklist OR unhydrated seat)' : ' (clean)'}`);
+                for (const {seat, plane} of report.seats) {
+                    console.log(`Seat: ${seat}`);
+                    for (const bucket of ['linked', 'alreadyLinked', 'blocklisted', 'skippedNoSource', 'seatOnly']) {
+                        console.log(`  ${bucket.padEnd(16)} ${plane[bucket].length}`);
+                    }
+                    console.log(`  ${'divergent'.padEnd(16)} ${plane.divergent.length}`);
+                    for (const {name, reason} of plane.divergent) console.log(`      ! ${name} — ${reason}`);
+
+                    // Residue is the falsifier's input, not its verdict. Non-zero residue has at least
+                    // two readings — the blocklist is incomplete, or this seat was never hydrated with
+                    // --link-data — and the report must not pick one. Naming the observation and
+                    // leaving the interpretation to the reader is the whole point of a ground-truth
+                    // artifact; a diagnostic that concludes is a diagnostic you have to re-derive.
+                    //
+                    // `(clean)` is spoken ONLY when both sides were enumerable. Zero residue off an
+                    // unreadable side is the absence of evidence wearing the words of evidence.
+                    const
+                        residue    = plane.divergent.length + plane.seatOnly.length,
+                        unobserved = Object.entries(plane.observed).filter(([, state]) => !state.ok);
+
+                    console.log(`  residue: ${residue}${
+                        residue     ? ' — unreconciled against the declaration (incomplete blocklist OR unhydrated seat)' :
+                        unobserved.length
+                            ? ` — NOT CLEAN, NOT COMPARED (${unobserved.map(([side, state]) => `${side}: ${state.reason}`).join('; ')})`
+                            : ' (clean)'
+                    }\n`);
+                }
+
                 console.log(report.portClaims.observed
-                    ? `  ports:   ${report.portClaims.rows.length} listener(s), ${report.portClaims.checkouts.length} checkout(s)`
-                    : `  ports:   NOT OBSERVED (${report.portClaims.reason}) — this is not "no listeners"`);
+                    ? `Ports: ${report.portClaims.rows.length} listener(s) across ${report.portClaims.cwds.length} serving cwd(s)`
+                    : `Ports: NOT OBSERVED (${report.portClaims.reason}) — this is not "no listeners"`);
             }
             process.exit(0);
         }
