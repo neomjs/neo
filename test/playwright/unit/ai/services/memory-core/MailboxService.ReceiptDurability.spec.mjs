@@ -20,6 +20,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {snapshotAiConfig}    from './util.mjs';
 
 /**
  * A read receipt must not out-claim its durable write.
@@ -37,7 +38,7 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('MailboxService — receipt durability cannot outrun the durable write (#15821)', () => {
     let MailboxService, GraphService, LifecycleService, mailboxAiConfig;
-    let dbPath, originalAutoSave, originalPolicy;
+    let dbPath, originalAutoSave, originalPolicy, restoreAiConfig;
 
     const SENDER    = '@neo-opus-ada',
           RECIPIENT = '@neo-opus-grace';
@@ -51,12 +52,13 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
 
         dbPath = path.join(tmpDir, `neo-receipt-durability-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        // A file-backed DB, not `:memory:` — the whole point is what storage holds.
+        // A file-backed DB, not `:memory:` — the whole point is what storage holds. `storagePaths.graph`
+        // is the shared AiConfig singleton, so it is snapshot BEFORE the write and restored in afterAll;
+        // a `mark_read` that persists to a file-backed store is exactly what this suite proves, so the
+        // mutation is genuinely unavoidable — but it must not leak into the next spec's config.
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
-        mailboxAiConfig.collections      ??= {};
-        mailboxAiConfig.collections.memory  = `test-memory-${Date.now()}`;
-        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
+        restoreAiConfig = snapshotAiConfig(mailboxAiConfig, ['storagePaths.graph']);
+        mailboxAiConfig.storagePaths.graph = dbPath; // aiconfig-mutation-ok: file-backed durability fixture; restored via snapshotAiConfig in afterAll
 
         GraphService     = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService   = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
@@ -75,7 +77,10 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
     });
 
     test.afterAll(async () => {
-        // Symmetric restore: `autoSave` is singleton state and Playwright interleaves files.
+        // Symmetric restore: `autoSave` and `storagePaths.graph` are singleton state and Playwright
+        // interleaves files. The snapshot closure restores the config path this suite mutated, so a
+        // later spec never reads this suite's test DB — the B4 orphan-bleed the gate exists to prevent.
+        restoreAiConfig?.();
         if (GraphService?.db) {
             GraphService.db.autoSave = originalAutoSave;
         }
