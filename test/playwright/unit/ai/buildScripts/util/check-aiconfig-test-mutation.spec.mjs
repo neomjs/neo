@@ -32,6 +32,51 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations('aiConfig.storagePaths["graph"] = testPath;').map(h => h.line)).toEqual([1])
     });
 
+    // ───────── the root is matched by SHAPE, not by two literal names ─────────
+
+    test('flags the PascalCase root — the approved rename must not silently retire this gate', () => {
+        // The reason this exists: the anchor was `(?:aiConfig|Memory_Config)`, case-sensitive, while an
+        // approved sweep normalizes 1,526 occurrences across 198 files to `AiConfig`. After that sweep the
+        // old pattern matched NOTHING, and the sweep's own AC read "this lint must stay green" — green
+        // because inert. A fail-build B4 guard retired by a refactor that certified it as success.
+        expect(findDbPathMutations('AiConfig.storagePaths.graph = dbPath;').map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations("AiConfig['storagePaths'].graph = dbPath;").map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations("AiConfig.collections.memory = 'x';").map(hit => hit.line)).toEqual([1])
+    });
+
+    test('flags an ALIASED config root — a rename of the binding is not an escape hatch', () => {
+        // Measured before the fix: three spec files (14 occurrences) mutated Class-A leaves through
+        // aliases like these and were invisible to a fail-build guard.
+        expect(findDbPathMutations('mailboxAiConfig.storagePaths.graph = dbPath;').map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations("mirrorAiConfig.collections.memory = 'x';").map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations("MC_Config.data.collections.memory = 'test-x';").map(hit => hit.line)).toEqual([1])
+    });
+
+    test('does NOT flag `aiConfigDefaults` — the trailing boundary preserves prior behaviour', () => {
+        // The separate TIER1 defaults module is a distinct identifier: `Config` does not END the name, so
+        // the root boundary refuses it exactly as the narrower pattern did.
+        expect(findDbPathMutations('aiConfigDefaults.storagePaths.graph = x;')).toEqual([]);
+        expect(findDbPathMutations('aiConfigDefaults.collections.memory = x;')).toEqual([])
+    });
+
+    test('a `$`-leading config root is flagged — the grammar advertises `$` and the boundary must honour it', () => {
+        // @neo-gpt-emmy's exact-head finding: the root grammar allows a leading `$`, but a `\\b` boundary
+        // cannot sit before `$` (a non-word char), so `$Config.storagePaths.graph = x` evaded a pattern that
+        // claimed to match it. The lookbehind/lookahead boundary closes that divergence — these are all VALID
+        // JavaScript, unlike the reverted optional-chaining specimen.
+        expect(findDbPathMutations('$Config.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations('$aiConfig.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
+        // The boundary still refuses a `...ConfigX` identifier (Config not at the end) and the defaults module.
+        expect(findDbPathMutations('mailboxAiConfigX.storagePaths.graph = x;')).toEqual([]);
+        expect(findDbPathMutations('aiConfigDefaults.storagePaths.graph = x;')).toEqual([])
+    });
+
+    test('a bare `Config` identifier is not a config root', () => {
+        // The shape requires at least one character before `Config`, so the word alone cannot anchor a match
+        // and a stray `Config.database = x` in unrelated code stays out of the gate.
+        expect(findDbPathMutations('Config.database = x;')).toEqual([])
+    });
+
     test('does NOT flag a computed (non-literal) key — out of a static lint reach, by design', () => {
         expect(findDbPathMutations('aiConfig[dbKey] = fakeDb;')).toEqual([]);
         expect(findDbPathMutations('aiConfig[leafName].graph = p;')).toEqual([]);
