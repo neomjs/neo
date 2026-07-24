@@ -42,6 +42,33 @@
  * stamp whichever one happened to be wrong, which is the drift, not the cure (same reasoning as
  * `lint-config-template-ssot.mjs`). This reports and exits non-zero; a human picks the true value.
  *
+ * ## Scope — what a GREEN run does not mean
+ *
+ * The name says `identity-engine-coherence`, which is broader than what this checks. Green means
+ * **these three FILES agree with each other**, and nothing more. Three known engine-fact surfaces
+ * sit outside it, and a reader must not read a pass as covering them:
+ *
+ * 1. **The seeded graph node (runtime).** This is file↔file by construction. The live
+ *    `AgentIdentity` node is seeded separately and does not track the file: at the time of writing,
+ *    `@neo-opus-grace`'s node serves `"Anthropic Claude Opus 4.8 generalist maintainer identity."`
+ *    while the file says `'Anthropic Claude Opus 4.8 Agent Identity'` — same version, different
+ *    sentence, so no re-seed has run across at least one edit. Its `createdAt` also diverges from
+ *    the file's hardcoded value, which is the import-time-clock corruption this registry's own
+ *    header warns about. Consequence worth stating plainly: when a rotation merges, the files agree
+ *    and this lint goes green **while the runtime still serves the old engine** until a re-seed
+ *    runs. The green light and the onset of runtime drift are simultaneous. That is a mechanism gap
+ *    in the seed→graph path, not something a file comparison can ever see.
+ * 2. **First-person prose.** Maintainer-authored lived-voice sections name their own engine in
+ *    sentences, not fields. Prose is unparseable by this shape and is also authorship-owned — only
+ *    the bearer may edit their own account.
+ * 3. **Thin rows.** The absence-passes rule is backstopped by the other two dimensions: a forgotten
+ *    tag normally still trips the `description` or `releaseDate` check. That backstop needs
+ *    something to bite on — for a resident whose row carries no `releaseDate` and no dotted version
+ *    in its description, a forgotten tag is genuinely invisible here. Bounded, not fixed.
+ *
+ * Honestly narrow beats falsely total: the failure this whole guard exists to prevent is a surface
+ * asserting more confidence than it earned.
+ *
  * ## Sunset condition
  *
  * This guard exists because the engine is a session-scoped fact stored in identity-scoped records.
