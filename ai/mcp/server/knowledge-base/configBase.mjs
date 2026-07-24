@@ -2,6 +2,7 @@ import os                                        from 'os';
 import path                                      from 'path';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}                           from 'url';
+import {resolvePlaneDataRoot}                    from '../../../planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -10,6 +11,8 @@ const __dirname  = path.dirname(__filename);
 // here: a runtime operator overlay and the tracked template must never both compete for `Neo.ai.Config`.
 const AiConfig   = createConfigProxy(Neo.ai.Config);
 const neoRootDir = path.resolve(__dirname, '../../../../');
+// The single plane-member anchor (env-free twin resolution — the leaf machinery owns env binding).
+const planeDataRoot = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
 
 /**
  * @summary Extendable defaults and formulas for the Knowledge Base MCP server.
@@ -261,7 +264,7 @@ class ConfigBase extends ConfigProvider {
              * trail observable from the host shell. Default: `<neoRootDir>/.neo-ai-data/logs/`.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs'), 'NEO_KB_LOG_PATH', 'string'),
+            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_KB_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Knowledge Base MCP diagnostic log files.
              *

@@ -2,6 +2,7 @@ import os                     from 'os';
 import path                   from 'path';
 import ConfigProvider, {leaf} from '../../../ConfigProvider.mjs';
 import {fileURLToPath}        from 'url';
+import {resolvePlaneDataRoot} from '../../../planeConfig.mjs';
 import {
     MEMORY_CORE_GRAPH_DB_ENV,
     TURN_PRESENCE_DEFAULTS,
@@ -21,10 +22,14 @@ function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-const neoRootDir        = path.resolve(__dirname, '../../../../');
-const cwd               = neoRootDir;
-const wakeDaemonDataDir = path.resolve(process.env.NEO_AI_DAEMON_DIR || path.resolve(cwd, '.neo-ai-data/wake-daemon'));
-const DAY_MS            = 24 * 60 * 60 * 1000;
+const neoRootDir = path.resolve(__dirname, '../../../../');
+const cwd        = neoRootDir;
+// The single plane-member anchor (env-free twin resolution — the leaf machinery owns all env
+// binding): every durable data-plane default below derives from it, replacing the per-leaf
+// `path.resolve(cwd, '.neo-ai-data/…')` re-derivations and the prior module-scope
+// `process.env.NEO_AI_DAEMON_DIR` inline read.
+const planeDataRoot = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
+const DAY_MS        = 24 * 60 * 60 * 1000;
 
 // Per-worker-unique test collection names, generated at config-load. Each playwright worker is a
 // separate process that re-evaluates this module → its own unique names, so fullyParallel workers
@@ -214,12 +219,18 @@ class ConfigBase extends ConfigProvider {
                 useTestHarness : leaf(false, 'NEO_TEST_CONFIG_TEMPLATES', 'boolean')
             },
             /**
-             * Durable wake-daemon watermarks consumed by GraphLog maintenance.
+             * Durable wake-daemon watermarks consumed by GraphLog maintenance. `dataDir` derives
+             * from the declared plane anchor; the two watermark paths consumers read
+             * (`bridgeLastSyncIdPath` / `wakeSubscriptionLiveCursorPath`) are formulas (below)
+             * deriving from the RESOLVED `dataDir` — relocating the daemon dir via
+             * `NEO_AI_DAEMON_DIR` moves the watermarks with it (children of a relocatable parent
+             * are genuinely computed values, so formulas, not static joins), while each watermark
+             * keeps its explicit override leaf.
              */
             wakeDaemon: {
-                dataDir                       : leaf(wakeDaemonDataDir, 'NEO_AI_DAEMON_DIR', 'string'),
-                bridgeLastSyncIdPath          : leaf(path.join(wakeDaemonDataDir, 'lastSyncId'), 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
-                wakeSubscriptionLiveCursorPath: leaf(path.join(wakeDaemonDataDir, 'wakeSubscriptionLiveCursor'), 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
+                dataDir                               : leaf(path.resolve(planeDataRoot, 'wake-daemon'), 'NEO_AI_DAEMON_DIR', 'string'),
+                bridgeLastSyncIdPathOverride          : leaf(null, 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
+                wakeSubscriptionLiveCursorPathOverride: leaf(null, 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
             },
             /**
              * Turn-presence interval writer configuration.
@@ -274,14 +285,14 @@ class ConfigBase extends ConfigProvider {
              */
             datasets: {
                 rlaif: {
-                    trajectories: leaf(path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
+                    trajectories: leaf(path.resolve(planeDataRoot, 'datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
                 }
             },
             /**
              * Directory for per-cycle REM run/stage JSONL state artifacts.
              * @type {string}
              */
-            remRunStateDir: leaf(path.resolve(cwd, '.neo-ai-data/rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
+            remRunStateDir: leaf(path.resolve(planeDataRoot, 'rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
             /**
              * Stall threshold for the REM consolidation-liveness watchdog: max age (ms) since the last
              * successful REM cycle before the watchdog records/raises a consolidation stall. Default 6h
@@ -343,7 +354,7 @@ class ConfigBase extends ConfigProvider {
                  * Production WAL segment directory. Declarative leaf; env override via `NEO_MEMORY_WAL_DIR`.
                  * @type {string}
                  */
-                dirProd        : leaf(path.resolve(cwd, '.neo-ai-data/memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string'),
+                dirProd        : leaf(path.resolve(planeDataRoot, 'memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string'),
                 /**
                  * Unit-test WAL directory: per-worker-unique under the OS temp root (module const above).
                  * @type {string}
@@ -378,7 +389,7 @@ class ConfigBase extends ConfigProvider {
                  * env override via `NEO_MEMORY_EMBED_DAEMON_DIR`.
                  * @type {string}
                  */
-                daemonDataDir  : leaf(path.resolve(cwd, '.neo-ai-data/embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string'),
+                daemonDataDir  : leaf(path.resolve(planeDataRoot, 'embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string'),
                 /**
                  * Embed-daemon drain cadence. Per-turn saves arrive minutes apart; 5s keeps
                  * semantic recall near-realtime without hot-looping the store. This cadence is
@@ -463,7 +474,7 @@ class ConfigBase extends ConfigProvider {
                  * Data directory (PID file, rotating log) for the local message WAL drain daemon.
                  * @type {string}
                  */
-                daemonDataDir : leaf(path.resolve(cwd, '.neo-ai-data/message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string'),
+                daemonDataDir : leaf(path.resolve(planeDataRoot, 'message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string'),
                 /**
                  * Message WAL drain cadence. Mirrors memory WAL cadence; the replay semantics are
                  * owned by the message drain processor, while this leaf owns host scheduling.
@@ -542,7 +553,7 @@ class ConfigBase extends ConfigProvider {
              * admitted target and never supplies a filesystem path.
              * @type {string}
              */
-            hookProjectionRoot: leaf(path.resolve(cwd, '.neo-ai-data/hook-projections'), 'NEO_HOOK_PROJECTION_ROOT', 'string'),
+            hookProjectionRoot: leaf(path.resolve(planeDataRoot, 'hook-projections'), 'NEO_HOOK_PROJECTION_ROOT', 'string'),
             /**
              * Minimum `daysIdle * max(structuralWeight, 1)` score required for Silent Threads.
              * @type {number}
@@ -621,7 +632,7 @@ class ConfigBase extends ConfigProvider {
              * synthesizer runs in that daemon).
              * @type {string}
              */
-            goldenPathRouteAttributionLedgerDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
+            goldenPathRouteAttributionLedgerDirProd: leaf(path.resolve(planeDataRoot, 'orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
             /**
              * Unit-test ledger directory — under the OS temp root so test-mode emits stay off the production
              * `.neo-ai-data` path. Declarative leaf; test-mode resolved by construction via the formula below.
@@ -722,7 +733,7 @@ class ConfigBase extends ConfigProvider {
              * `nl-server-`). Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(cwd, '.neo-ai-data/logs'), 'NEO_MEMORY_LOG_PATH', 'string'),
+            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_MEMORY_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Memory Core MCP diagnostic log files.
              *
@@ -828,7 +839,7 @@ class ConfigBase extends ConfigProvider {
              * Target file path for the lazy backfill queue of unresolved provenance edges.
              * @type {string}
              */
-            lazyEdgesQueuePath: leaf(path.resolve(cwd, '.neo-ai-data/memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+            lazyEdgesQueuePath: leaf(path.resolve(planeDataRoot, 'memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
         },
         /**
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
@@ -856,7 +867,12 @@ class ConfigBase extends ConfigProvider {
             // The active handoff path follows the effective unit-or-Playwright storage selector.
             'handoffFilePath': data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest : data.handoffFilePathProd,
             // The active route-attribution ledger dir follows the same test-storage selector.
-            'goldenPathRouteAttributionLedgerDir': data => data.storagePaths.useTestDatabase ? data.goldenPathRouteAttributionLedgerDirTest : data.goldenPathRouteAttributionLedgerDirProd
+            'goldenPathRouteAttributionLedgerDir': data => data.storagePaths.useTestDatabase ? data.goldenPathRouteAttributionLedgerDirTest : data.goldenPathRouteAttributionLedgerDirProd,
+            // Wake-daemon watermark paths: explicit override leaf when set, else derived from the
+            // RESOLVED daemon dataDir — the cascade the prior module-scope env read provided at
+            // load time, now reactive (relocating `wakeDaemon.dataDir` moves both watermarks).
+            'wakeDaemon.bridgeLastSyncIdPath'          : data => data.wakeDaemon.bridgeLastSyncIdPathOverride ?? path.join(data.wakeDaemon.dataDir, 'lastSyncId'),
+            'wakeDaemon.wakeSubscriptionLiveCursorPath': data => data.wakeDaemon.wakeSubscriptionLiveCursorPathOverride ?? path.join(data.wakeDaemon.dataDir, 'wakeSubscriptionLiveCursor')
         }
     }
 }

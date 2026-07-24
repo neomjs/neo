@@ -2,10 +2,13 @@ import os                     from 'os';
 import path                   from 'path';
 import {fileURLToPath}        from 'url';
 import ConfigProvider, {leaf} from '../../../ConfigProvider.mjs';
+import {resolvePlaneDataRoot} from '../../../planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
+// The single plane-member anchor (env-free twin resolution — the leaf machinery owns env binding).
+const planeDataRoot = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
 
 /**
  * @summary Extendable defaults and formulas for the Neural Link MCP server.
@@ -89,7 +92,7 @@ class ConfigBase extends ConfigProvider {
              * Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(neoRootDir, '.neo-ai-data/logs'), 'NEO_NL_LOG_PATH', 'string'),
+            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_NL_LOG_PATH', 'string'),
             /**
              * @summary Retention policy for Neural Link MCP diagnostic log files.
              *
