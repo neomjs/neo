@@ -660,6 +660,39 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         expect(packed.byteOrder).toBe(ARTIFACT_VECTOR_BYTE_ORDER);
     });
 
+    test('the sidecar holds CANONICAL little-endian bytes for known fp16 values', async () => {
+        // A same-host round-trip cannot see a byte-order defect: producer and consumer are wrong together
+        // and agree. Only a known-value byte assertion pins the wire. 1 = 0x3C00, -2 = 0xC000,
+        // 0.5 = 0x3800; little-endian puts the low byte first, so the file must read 00 3c 00 c0 00 38.
+        const dir   = path.join(workRoot, 'canonical-bytes'),
+              jsonl = path.join(dir, `${KB_BACKUP_FILE_PREFIX}bytes.jsonl`);
+
+        await fsExtra.ensureDir(dir);
+        fs.writeFileSync(jsonl, JSON.stringify({id: 'kb-1', embedding: [1, -2, 0.5], metadata: {}}) + '\n');
+
+        await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: 3});
+
+        expect(fs.readFileSync(path.join(dir, ARTIFACT_VECTORS_FILENAME)).toString('hex')).toBe('003c00c00038');
+    });
+
+    test('a v2 artifact with NO byteOrder stamp is refused, not assumed to match this host', async () => {
+        // Defaulting an absent stamp re-creates the exact failure the gate exists to prevent — the consumer
+        // assumes the order it happens to run on. The Contract Ledger says required; so must the code.
+        const {dir} = await stageV2({label: 'absent-order', metaOverrides: {byteOrder: undefined}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/without a 'byteOrder'/);
+    });
+
+    test('a STRING dimension is refused — truthiness is not a geometry check', async () => {
+        // `dimension: "3"` is truthy and coerces through the multiplication, so the byte-length check would
+        // pass on a JSON-typed field slip. Strict integers close it.
+        const {dir} = await stageV2({label: 'string-dim', metaOverrides: {dimension: `${FIXTURE_DIMENSION}`}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/'dimension' must be a positive integer, got "4" \(string\)/);
+    });
+
     test('pack streams: peak RSS stays bounded well below the JSONL it rewrites', async () => {
         // The defect this closes could not be seen by any small fixture: the old implementation read the
         // whole JSONL into ONE utf-8 string, and the real 2.81 GiB export is 5.62x Node's

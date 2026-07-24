@@ -391,8 +391,15 @@ export async function rehydrateArtifactFromV2({artifactDir, fsModule = fs}) {
         throw new Error(`Artifact declares vectorEncoding '${vectorEncoding}'; this consumer decodes 'fp16' only.`);
     }
 
-    if (!dimension || !recordCount) {
-        throw new Error(`Artifact metadata is missing 'dimension' or 'recordCount'; cannot decode '${ARTIFACT_VECTORS_FILENAME}'.`);
+    // Strict numerics, not truthiness: `dimension: "3"` is truthy and would multiply into a correct-looking
+    // byte length via string coercion, so a JSON-typed field slip would pass the geometry check it exists to fail.
+    for (const [field, value] of [['dimension', dimension], ['recordCount', recordCount]]) {
+        if (!Number.isInteger(value) || value <= 0) {
+            throw new Error(
+                `Artifact metadata field '${field}' must be a positive integer, got ${JSON.stringify(value)} ` +
+                `(${typeof value}). Refusing to derive the sidecar geometry from a coerced value.`
+            );
+        }
     }
 
     if (!vectorDigest) {
@@ -402,10 +409,19 @@ export async function rehydrateArtifactFromV2({artifactDir, fsModule = fs}) {
         );
     }
 
-    const declaredOrder = byteOrder ?? ARTIFACT_VECTOR_BYTE_ORDER;
+    // Required, never defaulted. Defaulting an absent stamp re-creates the failure this whole gate exists to
+    // prevent: it lets the consumer ASSUME the order it happens to run on, which is exactly what a
+    // producer on a differently-ordered host would violate silently. The Contract Ledger says required,
+    // so the code must too — a ledger the implementation contradicts is worse than no ledger.
+    if (!byteOrder) {
+        throw new Error(
+            `Artifact declares schema version ${declaredVersion} without a 'byteOrder'. ` +
+            `The wire order is mandatory for v2 — an absent stamp cannot be assumed to match this host.`
+        );
+    }
 
-    if (declaredOrder !== ARTIFACT_VECTOR_BYTE_ORDER) {
-        throw new Error(`Artifact declares byteOrder '${declaredOrder}'; the wire contract is '${ARTIFACT_VECTOR_BYTE_ORDER}'.`);
+    if (byteOrder !== ARTIFACT_VECTOR_BYTE_ORDER) {
+        throw new Error(`Artifact declares byteOrder '${byteOrder}'; the wire contract is '${ARTIFACT_VECTOR_BYTE_ORDER}'.`);
     }
 
     const jsonlPath   = await resolveSingleArtifactJsonl({artifactDir, fsModule}),
