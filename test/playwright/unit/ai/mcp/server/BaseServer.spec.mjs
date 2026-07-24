@@ -884,6 +884,9 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
             const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
             server.aiConfig = isolated;
 
+            // census, not coherence: a silent PLANE_MEMBER_PATHS deletion must fail this line.
+            // Changing plane membership = bumping this literal consciously in the same commit.
+            expect(TIER1_MEMBER_PATHS.length).toBe(10);
             expect(server.getPlaneMembers().length).toBe(TIER1_MEMBER_PATHS.length);
 
             const observed = server.assertPlaneIdentity();
