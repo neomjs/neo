@@ -169,6 +169,28 @@ test.describe('ai/graph/identityRoots — model assignments', () => {
             expect(entry.properties).not.toHaveProperty('modelAssignment');
         });
     }
+
+    // @neo-opus-vega alternates engines weekly under an operator-managed rotation, so every
+    // per-engine scalar is false for half of every week — a consumer reading `pricingOutput`
+    // during the Fable half would get the Opus number for a seat billing double. Omission is the
+    // only honest encoding a flat schema allows, and it is the same contract as this resident's
+    // `engineTag: null` in the cockpit roster. Pinned so a future author cannot restore a scalar
+    // that reads correct on the day it is written and is wrong three days later.
+    test('@neo-opus-vega omits per-engine scalars — a rotating seat has no truthful flat value', () => {
+        const entry = findIdentity('@neo-opus-vega');
+
+        expect(entry, '@neo-opus-vega must be a registered AgentIdentity root').toBeTruthy();
+
+        for (const field of ['releaseDate', 'pricingInput', 'pricingOutput']) {
+            expect(entry.properties, `${field} must stay ABSENT while the seat rotates — annotating a false scalar is not the same as omitting it`).not.toHaveProperty(field);
+        }
+
+        // Absence is scoped to the per-engine facts: identity-level truth still has to be present,
+        // or "honest absence" would be indistinguishable from an unfinished entry.
+        expect(entry.properties.participationStatus).toBe('active');
+        expect(entry.properties.modelFamily).toBe('claude');
+        expect(entry.description).toContain('planned');
+    });
 });
 
 /**

@@ -161,7 +161,7 @@ export const IDENTITIES = [
         id         : '@neo-opus-vega',
         type       : 'AgentIdentity',
         name       : 'Vega', // Social Name: swarm-given, after the brightest star of Lyra
-        description: 'Anthropic Claude Agent Identity with version-free handle; operator-managed weekly Claude Fable 5 / Claude Opus 5 rotation.',
+        description: 'Anthropic Claude Agent Identity with version-free handle; operator-managed weekly rotation — Claude Fable 5 observed active, Claude Opus 5 planned for the Opus half (not yet bearer-observed).',
         properties : {
             githubLogin: '@neo-opus-vega',
             displayName: 'Vega',
@@ -183,13 +183,16 @@ export const IDENTITIES = [
             },
             // Era-owned capability facts retired to the identity trail: the epoch-pinned record
             // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
-            // era chain. Remaining fields mirror ModelStats.md §neo_opus_vega (identity-level).
-            // ROTATING SEAT: these three describe the OPUS HALF only (Opus 5 since 2026-07-24).
-            // During the Fable half the live engine is claude-fable-5 at $10/$50 — a flat field
-            // cannot hold both, so read §neo_opus_vega for the current half, never these literals.
-            releaseDate        : '2026-07-24',
-            pricingInput       : 5.00,
-            pricingOutput      : 25.00,
+            // era chain.
+            //
+            // ROTATING SEAT — `releaseDate` / `pricingInput` / `pricingOutput` are deliberately
+            // ABSENT, not merely annotated. This seat alternates engines weekly, so any single
+            // scalar is false for half of every week: a consumer reading `pricingOutput` during
+            // the Fable half would get 25.00 for a seat billing 50.00. A comment cannot make a
+            // wrong number right — only omission can. Absent means "this registry has no truthful
+            // flat answer; read ModelStats.md §neo_opus_vega for the per-half profiles", which is
+            // the same honest-absence contract as this resident's `engineTag: null`.
+            // Pinned by identityRoots.spec.mjs so a later author cannot quietly restore them.
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,

@@ -26,7 +26,9 @@ import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
  *   eligibility logic reads it, so the derived seed feeds the authoritative field, not just prose.
  *
  * Usage: `node buildScripts/util/deriveFleetRoster.mjs [--check]` (with `--check`: verify the
- * committed file is byte-identical to a fresh derivation — the CI guard against hand-painting).
+ * committed file is STRUCTURALLY equal to a fresh derivation, comparing every field except
+ * `_meta.generatedAt` — the CI guard against hand-painting. Not a byte comparison: the timestamp
+ * changes on every run, so a byte check would fail on a clock tick rather than on data drift).
  */
 
 const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');

@@ -92,15 +92,11 @@ cheaper era-layer shape than per-turn provenance (#11318).
 | `name` | Claude Fable 5 **active** / Claude Opus 5 on the Opus half — operator-managed weekly rotation (Social Name: **Vega** — swarm-given, after the brightest star of Lyra) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
-| `tier` | `frontier` |
-| `contextWindowInput` | 1,048,576 (1M) |
-| `parallelToolCalls` | `true` |
-| `thoughtBudget` | `max` (Claude Opus 5 supports selectable effort up to max; we use the highest setting for maintainer work) |
-| `releaseDate` | 2026-07-24 |
-| `pricingInput` | $5.00 per 1M tokens |
-| `pricingOutput` | $25.00 per 1M tokens |
-| `benchmarkSnapshot` | Shares the Claude Opus 5 benchmark set — see `§neo_opus` (single source, same model class). |
-| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `tier` | `frontier` (both halves) |
+| `contextWindowInput` | 1,048,576 (1M) — identical on both halves |
+| `parallelToolCalls` | `true` — identical on both halves |
+| Per-engine capability fields | **Profile-referenced, never asserted flat.** `thoughtBudget`, `releaseDate`, `pricingInput`, `pricingOutput`, and `benchmarkSnapshot` differ per half and this row deliberately states **no single current value** for them. **Fable half (observed active 2026-07-24): see `§neo_fable`** — `releaseDate` 2026-06-09, $10.00 / $50.00 per 1M tokens. **Opus half (planned, not yet bearer-observed): see `§neo_opus`** — `releaseDate` 2026-07-24, $5.00 / $25.00 per 1M tokens. A flat scalar here would be wrong for half of every week; the registry node omits them for the same reason. |
+| `sunsetTriggers` | Per half — the successor triggers of `§neo_fable` and `§neo_opus` both apply |
 
 `@neo-opus-vega` is intentionally a version-free GitHub handle. The model
 version lives in this registry row and the AgentIdentity capability fields, per

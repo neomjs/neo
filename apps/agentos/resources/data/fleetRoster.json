@@ -1,6 +1,6 @@
 {
     "_meta": {
-        "generatedAt": "2026-07-24T21:16:40.034Z",
+        "generatedAt": "2026-07-24T21:49:28.860Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
         "generator": "buildScripts/util/deriveFleetRoster.mjs",
