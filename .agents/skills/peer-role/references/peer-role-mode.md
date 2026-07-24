@@ -58,7 +58,7 @@ The substrate operates **two distinct primitives** for pre-write coordination:
 
 **`[lane-claim]` AC2 timing rule (per #11537):** broadcast happens AFTER the source-of-authority collision check (§6.6) AND V-B-A scope-validation AND immediately before the write-operation. Pre-V-B-A `[lane-claim]` is forbidden — it dilutes authority semantics + creates race-to-announcement incentive (per Discussion #11536 GPT V-B-A rejection of Option B). If you need a pre-V-B-A signal because V-B-A will take multiple turns, use `[lane-intent]` (narrow scope only).
 
-**Publish-time re-check (#15780, restores #12621 AC2b):** when the write does not directly follow the claim, re-run `list_messages` and re-verify shared-artifact state at source immediately before publishing — a verification carries a timestamp.
+**Publish-time re-check (#15780):** when the write does not directly follow the claim, re-run `list_messages` and re-verify artifact state at source before publishing.
 
 **Trigger scope — write-operations only**:
 - **REQUIRED**: file a ticket, open a PR, branch from `origin/dev`, assign an issue, push a commit that creates a new artifact
