@@ -599,8 +599,12 @@ class DockLayoutAdapter extends Base {
             rows         = [],
             centerConfig;
 
+        // Band pushes are null-guarded: an all-railed zone projects rail-only (projectEdgeBand
+        // returns null for an empty tab flow — see its constraint comment).
+        let band;
+
         if (railsByEdge.left)  middleItems.push(this.createEdgeRail(railsByEdge.left, 'left', context));
-        if (zones.left)        middleItems.push(this.projectEdgeBand(zones.left, 'left', childContext));
+        if (zones.left)        (band = this.projectEdgeBand(zones.left, 'left', childContext)) && middleItems.push(band);
 
         if (zones.center) {
             centerConfig      = this.projectNode(zones.center, childContext);
@@ -608,7 +612,7 @@ class DockLayoutAdapter extends Base {
             middleItems.push(centerConfig)
         }
 
-        if (zones.right)       middleItems.push(this.projectEdgeBand(zones.right, 'right', childContext));
+        if (zones.right)       (band = this.projectEdgeBand(zones.right, 'right', childContext)) && middleItems.push(band);
         if (railsByEdge.right) middleItems.push(this.createEdgeRail(railsByEdge.right, 'right', context));
 
         if (railsByEdge.top) {
@@ -616,7 +620,7 @@ class DockLayoutAdapter extends Base {
         }
 
         if (zones.top) {
-            rows.push(this.projectEdgeBand(zones.top, 'top', childContext))
+            (band = this.projectEdgeBand(zones.top, 'top', childContext)) && rows.push(band)
         }
 
         if (middleItems.length === 1) {
@@ -632,7 +636,7 @@ class DockLayoutAdapter extends Base {
         }
 
         if (zones.bottom) {
-            rows.push(this.projectEdgeBand(zones.bottom, 'bottom', childContext))
+            (band = this.projectEdgeBand(zones.bottom, 'bottom', childContext)) && rows.push(band)
         }
 
         if (railsByEdge.bottom) {
@@ -662,6 +666,18 @@ class DockLayoutAdapter extends Base {
      */
     static projectEdgeBand(zoneId, edge, context) {
         let config = this.projectNode(zoneId, context);
+
+        // An edge band whose tab flow is EMPTY (every item railed away as autoHidden) must not
+        // hold layout. The fixed cross-extent below exists to protect the CENTER from an unsized
+        // band — an empty band inverts that purpose and eats the geometry itself: a dead gutter
+        // at desktop, and in narrow vessel windows the center split starves toward zero width
+        // (band + rail can exceed the whole row). Reveals ride the absolute overlay, never the
+        // band, so an empty band serves nothing; any pin / un-autohide operation re-runs the
+        // projection and the band returns with its first live item. Split-node bands and
+        // populated tab flows project unchanged.
+        if (config.dockNodeType === 'tabs' && !(config.items?.length > 0)) {
+            return null
+        }
 
         config.cls  = [...(config.cls || []), 'neo-dashboard-dock-edge-band', `neo-dashboard-dock-edge-band-${edge}`];
         config.flex = 'none';
