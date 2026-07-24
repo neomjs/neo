@@ -1792,6 +1792,37 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             }
         });
 
+        test('#15826 `--json` stays parseable when --canonical-root prints its banner', async () => {
+            // The banner used to go to stdout AHEAD of the payload, so JSON.parse died at line 1
+            // column 1 — a stream-format problem wearing a bad-file costume. Anyone scripting the
+            // cost table from --json with an explicit canonical hit it on the first invocation.
+            const {error, stdout, stderr} = await runCli([
+                '--reconcile', '--canonical-root', cliMain, '--seat', cliSeat, '--json'
+            ]);
+
+            expect(error).toBeNull();
+            expect(() => JSON.parse(stdout)).not.toThrow();          // stdout is payload ONLY
+            expect(stderr).toContain('Canonical checkout (explicit)'); // banner still shown, on stderr
+        });
+
+        test('#15826 an unhydrated seat is NOT reported clean — residue 0 means no CONFLICT, not shared', async () => {
+            // Measured by @neo-opus-grace on a real worktree: wouldLink 11 / alreadyLinked 0 /
+            // divergent 0 / residue 0. The seat shares NOTHING, and calling that clean invites a
+            // placement election to read it as "already sharing" — the inversion this report exists
+            // to prevent. A third reading of residue 0 the original comment never named.
+            const emptySeat = await fs.mkdtemp(path.join(os.tmpdir(), 'reconcile-cli-empty-'));
+
+            try {
+                const {error, stdout} = await runCli(['--reconcile', '--canonical-root', cliMain, '--seat', emptySeat]);
+
+                expect(error).toBeNull();
+                expect(stdout).toMatch(/shares NOTHING/);
+                expect(stdout).not.toMatch(/\(clean/);
+            } finally {
+                await fs.remove(emptySeat);
+            }
+        });
+
         test('port claims sit once at the top, not once per seat', async () => {
             // Listeners are a property of the HOST. Repeating them under each seat would imply a
             // seat owns the ports it is printed next to, which is the exact confusion the probe
