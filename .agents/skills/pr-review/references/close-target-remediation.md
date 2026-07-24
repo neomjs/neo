@@ -24,3 +24,9 @@ text.
 When close-target lint fails around an over-claim, resolve the ticket/PR body
 shape first. Do not prescribe "rerun CI" as the fix unless the current PR body
 and branch commit bodies are already close-target clean.
+
+## Stale Commit-Body Keywords
+
+Squash merge can carry stale branch-commit keywords into `dev`, closing a ticket nobody targeted.
+Detect from exact-head source, not `closingIssuesReferences`; remediate with a superseding branch.
+A history rewrite needs explicit operator authorization.
