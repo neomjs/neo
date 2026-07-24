@@ -214,9 +214,15 @@ class FleetCockpit extends Container {
          * contract — an admission may fail, it may never hang. Non-reactive class-config default:
          * `Neo.overwrites`-eligible and instance-configurable (witnesses pass a short window at
          * creation).
-         * @member {Number} detailVesselConnectWindowMs=10000
+         *
+         * Calibration: a healthy heap-join measures ~1.3s born→windowed, but a loaded/cold seat
+         * legitimately exceeds 10s — twice-observed live: a 10s window flapped the same pop-out
+         * a 20s window let survive, minutes apart on one seat. 20s ≈ 15x healthy headroom — the
+         * cold-provider-beats-default class, the same widening shape as the Memory Core
+         * embed-write canary. A genuinely dead connect still rolls back at the bound.
+         * @member {Number} detailVesselConnectWindowMs=20000
          */
-        detailVesselConnectWindowMs: 10000,
+        detailVesselConnectWindowMs: 20000,
         /**
          * The cockpit-level roster host — ONE provider-owned {@link AgentOS.store.FleetRoster}
          * instance (autoLoaded from the JSON sample seed) that the grid + health bar bind; the
@@ -1588,6 +1594,8 @@ class FleetCockpit extends Container {
             me.detailVesselState       = 'failed-blocked';
             me.lastDetailVesselFailure = 'blocked';
 
+            me.warnVesselAdmissionFailure('blocked', {windowName});
+
             await me.reattachAgentDetail({windowAlreadyClosed: true});
 
             return {detached: false, errors: ['popup blocked: the vessel window did not open']}
@@ -1598,6 +1606,7 @@ class FleetCockpit extends Container {
             if (generation === me.detailVesselGeneration && me.detailVesselState === 'opening') {
                 me.detailVesselState       = 'failed-timeout';
                 me.lastDetailVesselFailure = 'timeout';
+                me.warnVesselAdmissionFailure('timeout', {boundMs: me.detailVesselConnectWindowMs, windowName});
                 me.reattachAgentDetail()
             }
         }, me.detailVesselConnectWindowMs);
@@ -1701,6 +1710,22 @@ class FleetCockpit extends Container {
         }
 
         return {errors: [], reattached: true}
+    }
+
+    /**
+     * @summary One self-describing line per silent-rollback admission edge — the flap witness.
+     *
+     * Both failure edges (`failed-blocked`, `failed-timeout`) roll the dock back so cleanly that
+     * a flap is visually identical to a user-initiated reattach. {@link #lastDetailVesselFailure}
+     * carries the state half of the observability contract; this warn carries the log half — the
+     * App-Worker console bridges into the Neural Link console stream, so harnesses and agents can
+     * distinguish an admission failure from a deliberate return without polling cockpit state.
+     * @param {String} kind The failure edge: 'blocked' or 'timeout'.
+     * @param {Object} meta Window name + bound context, so the line stands alone in a log.
+     * @protected
+     */
+    warnVesselAdmissionFailure(kind, meta) {
+        console.warn(`[FleetCockpit] detail-vessel admission failed (${kind}):`, meta)
     }
 
     /**
