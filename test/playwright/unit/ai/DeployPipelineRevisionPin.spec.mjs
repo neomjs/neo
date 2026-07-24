@@ -62,6 +62,19 @@ async function createFakeBin(plainLines, peelLine = '') {
         '    exit 0',
         'fi',
         'if [ "$1" = "-C" ] && [ "$3" = "describe" ]; then echo "fake-describe"; exit 0; fi',
+        // The 40-hex PROBE. Previously the fast path never called git at all, so this stub was
+        // bypassed and the spec could not falsify anything about it — which is exactly how a
+        // tag-object id and a nonexistent id both reached Docker through the branch that calls
+        // itself the reproducible full-commit path. Modelled on real semantics:
+        //   fetch  fails when the id is absent    -> FAKE_FETCH_FAILS
+        //   ^{commit} yields '' for a non-commit  -> FAKE_PEEL_TO empty
+        //   ^{commit} peels a tag object          -> FAKE_PEEL_TO = the commit
+        'if [ "$1" = "-C" ] && [ "$3" = "init" ]; then exit 0; fi',
+        'if [ "$1" = "-C" ] && [ "$3" = "fetch" ]; then [ -n "$FAKE_FETCH_FAILS" ] && exit 128; exit 0; fi',
+        'if [ "$1" = "-C" ] && [ "$3" = "rev-parse" ]; then',
+        '    [ -z "$FAKE_PEEL_TO" ] && exit 1',
+        '    printf \'%s\\n\' "$FAKE_PEEL_TO"; exit 0',
+        'fi',
         'exit 0'
     ].join('\n'), {mode: 0o755});
 
@@ -77,6 +90,41 @@ async function createFakeBin(plainLines, peelLine = '') {
     await fs.writeFile(dockerLog, '');
 
     return {bin, dockerLog, plainLines, peelLine}
+}
+
+/**
+ * Runs the pipeline with the 40-hex probe stubbed. Separate from `runPipeline` because the probe
+ * env is meaningless on the ls-remote path and passing it there would blur which branch is under test.
+ * @param {Object} fake The `createFakeBin` result.
+ * @param {String} selector 40-char id under test.
+ * @param {Object} probe `{fetchFails, peelTo}` — the remote's answers.
+ * @returns {Object} `{code, output}`.
+ */
+function runPipelineWithProbe(fake, selector, {fetchFails = false, peelTo = ''} = {}) {
+    try {
+        // `2>&1` is load-bearing: the peel note is a WARNING on stderr, and execFileSync discards
+        // stderr on the success path — so without merging, an assertion about it could never pass
+        // even when the script emits it correctly. Same wrong-channel mistake as observing argv
+        // when the payload travels as env; the failure paths read `error.stderr` and are unaffected.
+        const output = execFileSync('bash', ['-c', '"$0" 2>&1', scriptPath], {
+            cwd     : repoRoot,
+            encoding: 'utf8',
+            env     : {
+                ...process.env,
+                FAKE_FETCH_FAILS: fetchFails ? '1' : '',
+                FAKE_LS_PEEL    : '',
+                FAKE_LS_PLAIN   : '',
+                FAKE_PEEL_TO    : peelTo,
+                NEO_REF         : selector,
+                PATH            : `${fake.bin}:${process.env.PATH}`
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        return {code: 0, output}
+    } catch (error) {
+        return {code: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}`}
+    }
 }
 
 /**
@@ -149,9 +197,11 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
-    test('a full 40-char SHA passes through and is reported as the deployed revision', async () => {
+    test('a full 40-char SHA is VERIFIED against the remote, not trusted for its shape', async () => {
+        // The old version of this test asserted the selector "passes through" — which asserted the
+        // defect. A 40-hex id is only the deployed revision once the remote confirms it is a commit.
         const fake   = await createFakeBin(''),
-              result = runPipeline(fake, FULL_SHA);
+              result = runPipelineWithProbe(fake, FULL_SHA, {peelTo: FULL_SHA});
 
         expect(result.code).toBe(0);
         expect(result.output).toContain(FULL_SHA);
@@ -159,6 +209,49 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(result.output).toContain('host-checkout:');
         expect(result.output).toContain('NOT what is deployed');
         expect(await dockerInvocations(fake.dockerLog)).toBeGreaterThan(0)
+    });
+
+    test('a nonexistent 40-hex id fails closed without invoking Docker', async () => {
+        // Shape is not existence. The fail-before-Docker contract binds here too, and this was the
+        // one branch that skipped it entirely.
+        const fake   = await createFakeBin(''),
+              result = runPipelineWithProbe(fake, 'dead' + 'b'.repeat(36), {fetchFails: true});
+
+        expect(result.code).not.toBe(0);
+        expect(result.output).toContain('could not be fetched');
+        expect(await dockerInvocations(fake.dockerLog)).toBe(0)
+    });
+
+    test('a 40-hex ANNOTATED-TAG OBJECT id exports the PEELED COMMIT, never the tag object', async () => {
+        // The original wrong-attestation defect's last hiding place: a tag object id is also 40 hex,
+        // and the Dockerfile's `checkout --detach FETCH_HEAD; rev-parse HEAD` peels it — so trusting
+        // the shape stamps a label that /app/.neo-revision truthfully contradicts.
+        const
+            TAG_OBJECT_ID = '231f84c368e0351933e95dc51e7bd73b1e15bdff',
+            PEELED_COMMIT = '4a972d07e6eb08975b15eaf3499f16c742ad70bb',
+            fake          = await createFakeBin(''),
+            result        = runPipelineWithProbe(fake, TAG_OBJECT_ID, {peelTo: PEELED_COMMIT});
+
+        expect(result.code).toBe(0);
+
+        const log = await fs.readFile(fake.dockerLog, 'utf8');
+
+        expect(log).toContain(`NEO_REVISION=${PEELED_COMMIT}`);
+        expect(log).toContain(`NEO_REF=${PEELED_COMMIT}`);
+        // The tag object must never be attested, and the substitution must be stated out loud.
+        expect(log).not.toContain(TAG_OBJECT_ID);
+        expect(result.output).toContain('peeled to commit')
+    });
+
+    test('a 40-hex id that is not a commit (tree/blob) fails closed without invoking Docker', async () => {
+        // `^{commit}` yields nothing for a tree or blob. Reaching Docker with a non-commit would
+        // produce an image whose revision label names an object that is not source history.
+        const fake   = await createFakeBin(''),
+              result = runPipelineWithProbe(fake, 'c'.repeat(40), {peelTo: ''});
+
+        expect(result.code).not.toBe(0);
+        expect(result.output).toContain('is not a commit');
+        expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
     test('a resolvable channel resolves to its single SHA rather than staying mutable', async () => {

@@ -53,7 +53,42 @@ NEO_SELECTOR="${NEO_REF:-dev}"
 NEO_REPO_URL="${NEO_REPO_URL:-https://github.com/neomjs/neo.git}"
 
 if [[ "$NEO_SELECTOR" =~ ^[0-9a-f]{40}$ ]]; then
-    resolved_revision="$NEO_SELECTOR"
+    # A 40-hex string is an OBJECT id — NOT necessarily a commit, and not necessarily
+    # present on the remote at all. Trusting its shape was the last hiding place of the
+    # original defect: an annotated-TAG object id is 40 hex, and the Dockerfile's
+    # `git fetch …; git checkout --detach FETCH_HEAD; git rev-parse HEAD` peels it to the
+    # commit — so the label would attest the tag object while /app/.neo-revision records
+    # the commit. A nonexistent 40-hex id would likewise sail past the fail-before-Docker
+    # contract and only break inside the build.
+    #
+    # So prove it against the remote with the SAME sequence the Dockerfile runs, and export
+    # what that sequence resolves to. `^{commit}` both asserts commit-ness and performs the
+    # peel; a tag object resolves to its commit, a tree or blob fails, and an absent id fails
+    # at fetch. Shallow + a throwaway dir keeps it cheap; the pipeline already hits the network.
+    probe_dir="$(mktemp -d)"
+    trap 'rm -rf "$probe_dir"' EXIT INT TERM
+
+    if ! git -C "$probe_dir" init --quiet >/dev/null 2>&1 \
+       || ! git -C "$probe_dir" fetch --quiet --depth=1 "$NEO_REPO_URL" "$NEO_SELECTOR" >/dev/null 2>&1; then
+        echo "[deploy] FATAL: 40-char id '${NEO_SELECTOR}' could not be fetched from ${NEO_REPO_URL}." >&2
+        echo "[deploy] It is absent, unreachable, or the remote refuses by-id fetches. Docker was NOT invoked." >&2
+        exit 1
+    fi
+
+    resolved_revision="$(git -C "$probe_dir" rev-parse --verify --quiet 'FETCH_HEAD^{commit}' 2>/dev/null || true)"
+
+    if [ -z "$resolved_revision" ]; then
+        echo "[deploy] FATAL: 40-char id '${NEO_SELECTOR}' is not a commit and has no commit to peel to." >&2
+        echo "[deploy] Pass a commit id or an annotated tag name. Docker was NOT invoked." >&2
+        exit 1
+    fi
+
+    if [ "$resolved_revision" != "$NEO_SELECTOR" ]; then
+        # The selector was a tag object (or otherwise peelable). Say so: the operator asked for
+        # one id and the images will carry another, and a silent substitution here is the exact
+        # provenance lie this ticket exists to remove.
+        echo "[deploy] note: '${NEO_SELECTOR}' peeled to commit ${resolved_revision} — the commit is what gets built and attested." >&2
+    fi
 else
     # A channel/tag, or an abbreviated SHA (which `git fetch` would reject anyway
     # — see PipelineWiring.md). Resolve it to exactly one full COMMIT id or abort.
