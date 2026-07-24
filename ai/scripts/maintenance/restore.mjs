@@ -82,20 +82,28 @@ import {
  *   knows which of the two runs this is.
  *
  * - **TWO npm FACES, and read this before adding a flag.** Because those are two operations rather
- *   than two settings, each has its own entry point, and the name is what binds the intent:
- *     - `npm run ai:restore -- <bundle> --mode replace --force` — disaster recovery.
- *     - `npm run ai:reseed  -- <bundle> --force` — operational re-seed. Pre-sets `--mode replace
- *       --preserve-read-state`, so the safe policy is what you get by *not thinking*, which is the
- *       only durable form of a safety default. `--force` deliberately stays OUTSIDE the alias: the
- *       destructive acknowledgment must never ride along inside a convenience name.
- *   A safety property governs only where its consumer loads it — and mid-incident an operator's
- *   load path is muscle memory and shell completion, never flag documentation. Hence a name, not
- *   a note. **The drift this invites, and where to defend it:** a flag added later reaches both
- *   faces automatically if it is pass-through (argument order does not matter; the alias's own args
- *   come first and the operator's are appended). But a flag that interacts with the pre-set pair
- *   above will NOT be reflected in `ai:reseed` unless you update it here too. That warning lives in
- *   this header rather than in `package.json` because JSON cannot carry a comment, and because this
- *   file is what you are reading when you add the flag.
+ *   than two settings, each has its own entry point, and the name **binds** the intent — it does not
+ *   merely suggest it:
+ *     - `npm run ai:restore -- <bundle> --mode replace --force` — disaster recovery. Every argument
+ *       is the operator's; nothing is pinned.
+ *     - `npm run ai:reseed  -- <bundle> --force` — the live operational re-seed. A **named operation**
+ *       (`--operation reseed`, see `NAMED_OPERATIONS`) that PINS `mode: 'replace'`,
+ *       `onlySubstrate: ['graph']` and `preserveReadState: true`, and **refuses** any argument that
+ *       contradicts them. `--force` deliberately stays OUTSIDE it: the destructive acknowledgment
+ *       must never ride along inside a convenience name.
+ *   **Why pinned rather than pre-set, which is what this started as:** pre-set defaults lose to a
+ *   later argument, so `ai:reseed -- <b> --mode merge` would have performed a MERGE under a name
+ *   promising a replace, and the un-pinned `onlySubstrate` would have replaced **all six** substrates
+ *   under a name advertising a safe live operation. A name an argument can redefine is a suggestion.
+ *   Graph-only is not a narrowing for tidiness: `DELIVERED_TO` read-state lives in the graph, which
+ *   is the whole reason preservation matters here.
+ *   A safety property governs only where its consumer loads it — and mid-incident an operator's load
+ *   path is muscle memory and shell completion, never flag documentation. Hence a name, not a note.
+ *   **The drift this invites, and where to defend it:** a pass-through flag added later reaches both
+ *   faces automatically (argument order is irrelevant). But a flag that interacts with a PINNED value
+ *   must be added to that operation's `pins` here, or the operation will refuse it as a contradiction.
+ *   This warning lives in the header rather than `package.json` because JSON cannot carry a comment,
+ *   and because this file is what you are reading when you add the flag.
  *
  * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
@@ -1009,6 +1017,23 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
 }
 
 /**
+ * Named operations: an operator-facing intent with its defining arguments PINNED, not defaulted.
+ *
+ * `reseed` is the live operational re-seed — the graph rebuilt from a lagged snapshot while seats
+ * keep working. It is graph-ONLY on purpose: `DELIVERED_TO` read-state lives in the graph, and that
+ * is the entire reason preservation matters, so replacing the other five substrates under a name
+ * that advertises a safe live operation would be a far larger destructive footprint than the name
+ * implies. Disaster recovery keeps the plain `ai:restore` surface with its exact-replacement default.
+ * @type {Object}
+ */
+const NAMED_OPERATIONS = {
+    reseed: {
+        pins        : {mode: 'replace', onlySubstrate: ['graph'], preserveReadState: true},
+        conflictHint: 'Use `npm run ai:restore` for a different mode or a wider substrate set.'
+    }
+};
+
+/**
  * Parses CLI arguments for direct-invocation mode.
  *
  * Shape: `node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]`
@@ -1017,7 +1042,13 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
  * @returns {Object}
  */
 export function parseArgs(argv) {
-    const positional            = [];
+    const positional = [];
+    // Track what the CALLER stated, separately from what an operation pins. Without this the
+    // operation cannot tell "the operator asked for merge" from "nobody said anything", and a
+    // named operation whose defining flags a later argument silently overrides is not an
+    // operation — it is a suggestion. This started life as that suggestion.
+    const stated                = {};
+    let   operation             = null;
     let   mode                  = 'merge';
     let   force                 = false;
     let   forceTopologyMismatch = false;
@@ -1031,8 +1062,12 @@ export function parseArgs(argv) {
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
-        if (arg === '--mode') {
-            mode = argv[++i];
+        if (arg === '--operation') {
+            operation = argv[++i];
+        } else if (arg.startsWith('--operation=')) {
+            operation = arg.slice('--operation='.length);
+        } else if (arg === '--mode') {
+            mode = argv[++i]; stated.mode = mode;
         } else if (arg === '--force') {
             force = true;
         } else if (arg === '--force-topology-mismatch') {
@@ -1046,9 +1081,9 @@ export function parseArgs(argv) {
         } else if (arg.startsWith('--filter-edge-types=')) {
             filterEdgeTypes = splitCsv(arg.slice('--filter-edge-types='.length));
         } else if (arg === '--only-substrate') {
-            onlySubstrate = splitCsv(argv[++i]);
+            onlySubstrate = splitCsv(argv[++i]); stated.onlySubstrate = onlySubstrate;
         } else if (arg.startsWith('--only-substrate=')) {
-            onlySubstrate = splitCsv(arg.slice('--only-substrate='.length));
+            onlySubstrate = splitCsv(arg.slice('--only-substrate='.length)); stated.onlySubstrate = onlySubstrate;
         } else if (arg === '--post-restore-hook') {
             postRestoreHook = argv[++i];
         } else if (arg.startsWith('--post-restore-hook=')) {
@@ -1069,7 +1104,33 @@ export function parseArgs(argv) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState}
+    // A named operation PINS its defining arguments and refuses contradiction. It does not merely
+    // pre-set defaults a later argument can overwrite: `npm run ai:reseed -- <b> --mode merge`
+    // would otherwise perform a MERGE under a name that promises a replace, which is a worse lie
+    // than having no name at all. `--force` is deliberately NOT pinned — the destructive
+    // acknowledgment stays the operator's explicit act and never rides inside a convenience name.
+    if (operation !== null) {
+        const op = NAMED_OPERATIONS[operation];
+
+        if (!op) {
+            throw new Error(`Unknown operation: ${operation}. Valid: ${Object.keys(NAMED_OPERATIONS).join(', ')}.`);
+        }
+
+        for (const [key, pinned] of Object.entries(op.pins)) {
+            const asked = stated[key];
+
+            if (asked !== undefined && JSON.stringify(asked) !== JSON.stringify(pinned)) {
+                throw new Error(
+                    `--operation ${operation} pins ${key}=${JSON.stringify(pinned)}, but ${JSON.stringify(asked)} was requested. ` +
+                    `${op.conflictHint} Refusing rather than silently redefining the operation.`
+                );
+            }
+        }
+
+        ({mode = mode, onlySubstrate = onlySubstrate, preserveReadState = preserveReadState} = {...op.pins});
+    }
+
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState, operation}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
