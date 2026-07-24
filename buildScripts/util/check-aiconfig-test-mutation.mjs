@@ -91,18 +91,6 @@ export const ALLOWLIST = new Set([
     'test/playwright/unit/ai/services/memory-core/PermissionService.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/SessionService.ResumeValidation.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs',
-    // Newly VISIBLE once the root was matched by shape rather than by two literal names. Both
-    // mutate Class-A leaves through an aliased binding (`mailboxAiConfig`, `mirrorAiConfig`) and were
-    // therefore invisible to this gate, not exempted from it. Grandfathered explicitly — with the reason
-    // stated — rather than left silently passing; they migrate with the same by-construction cleanup as
-    // the entries above.
-    //
-    // Deliberately NOT added: `MailboxService.ReceiptDurability.spec.mjs` from the open PR that discloses
-    // its own B4 mutation. Pre-emptively exempting it here would quietly grant an exemption its reviewer
-    // was explicitly asked to rule on. Once that PR merges this gate fails on it, which is what makes the
-    // ruling load-bearing instead of optional.
-    'test/playwright/unit/ai/services/fleet/fleetMailboxMirrorAdapter.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/MailboxService.spec.mjs'
 ]);
 
 /**
