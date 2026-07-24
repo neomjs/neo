@@ -66,7 +66,15 @@ docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revisi
 docker compose -f ai/deploy/docker-compose.yml exec mc-server cat /app/.neo-revision
 ```
 
-Read them together. When you pinned a SHA they agree, and either one is the deployed identity. When you requested a channel they diverge, and only the resolved commit answers "what is running" — the label merely records that no pin was given. A `local-build` marker means the image came from `NEO_SOURCE=local` (the dev-iteration escape hatch) and carries no upstream provenance at all.
+Read them together — the *direction* of any disagreement is what carries the diagnosis:
+
+| Requested (label) | Resolved (file) | Reading |
+|---|---|---|
+| a channel, e.g. `dev` | some commit | Expected. The label only records that no pin was given; the resolved commit is the sole identity. |
+| a pinned SHA | the same SHA | The pin held. Either fact is the deployed identity. |
+| a pinned SHA | a **different** SHA | **Build-integrity failure.** Not an oddity — the build did not produce what was asked for. Do not promote this image; rebuild and investigate. |
+
+A `local-build` marker means the image came from `NEO_SOURCE=local` (the dev-iteration escape hatch) and carries no upstream provenance at all — never promote one.
 
 Two honest bounds. First, a missing label or missing `/app/.neo-revision` means the image predates this contract — treat it as unknown-revision, not as current. Second, these are container-local reads: they answer "which revision" but they are served from inside the deployed set, so they cannot by themselves distinguish *a failed rollout* from *a succeeded rollout whose reporter died*. Durable out-of-cohort receipts are open design work, tracked on [Discussion #15758](https://github.com/orgs/neomjs/discussions/15758).
 
