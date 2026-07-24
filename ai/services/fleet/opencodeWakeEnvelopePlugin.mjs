@@ -45,6 +45,11 @@
  * - Only OPERATOR-seat sessions refresh the envelope: `session.created` events whose
  *   session carries a parent id (child/subagent sessions) are ignored, so a spawned
  *   subagent can never retarget the seat's wake route to its own session.
+ * - Every write is followed by a mandatory probe of the envelope's OWN coordinates
+ *   (resolved port + env credentials + the event-supplied exact session id): the outcome
+ *   is `written-probed` only when the route verifies end-to-end, otherwise a loud
+ *   `written-probe-failed`. The envelope stays written either way, but an unverified
+ *   envelope is a degraded result, never a silent success.
  *
  * NOTE: the envelope is written on `session.created`; a session already open when the
  * plugin is first planted re-writes it at the next session start (or immediately on
@@ -92,9 +97,7 @@ export const NeoWakeEnvelope = async (ctx) => {
         return port;
     };
 
-    const writeEnvelope = async (sessionId) => {
-        const port = await resolvePort();
-
+    const writeEnvelope = async (sessionId, port) => {
         const envelope = {
             hostname : '127.0.0.1',
             port,
@@ -120,6 +123,47 @@ export const NeoWakeEnvelope = async (ctx) => {
         await log('info', `wake envelope written for session ${sessionId} (port ${port})`);
     };
 
+    /**
+     * Verifies the just-written envelope end-to-end against its OWN coordinates: a GET on the
+     * exact session resource at the resolved port, authenticated with the same env credentials
+     * the envelope carries. This exercises precisely what the wake daemon will later consume —
+     * address, credentials, and the owner-supplied session identity — including the lsof-fallback
+     * port risk that the plugin's own bound `client` could never catch (it is bound correctly by
+     * construction, so probing through it would test the client, not the envelope).
+     *
+     * Deliberately a GET, not the salvaged prompt self-injection: a prompt is steer-class, and on
+     * `session.created` it would start a user-visible probe turn (and burn tokens) on every fresh
+     * session. Server-wide Basic auth makes a 200 on the exact session resource sufficient proof
+     * that the credentials and address are valid for the delivery route too. The id check guards
+     * the split-brain case: a server answering 200 with a payload whose id is not the asked id is
+     * not the owner of this session.
+     *
+     * @param {Object} options
+     * @param {Number} options.port The resolved server port written into the envelope.
+     * @param {String} options.sessionId The exact session id from the `session.created` event.
+     * @returns {Promise<void>} Resolves when the route verifies; throws (with the cause) otherwise.
+     */
+    const probeEnvelopeRoute = async ({port, sessionId}) => {
+        const username = process.env.OPENCODE_SERVER_USERNAME;
+        const password = process.env.OPENCODE_SERVER_PASSWORD;
+
+        const response = await fetch(`http://127.0.0.1:${port}/session/${sessionId}`, {
+            headers: {
+                'Authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+            }
+        });
+
+        if (response.status !== 200) {
+            throw new Error(`probe GET /session/${sessionId} -> ${response.status}`);
+        }
+
+        const session = await response.json();
+
+        if (session?.id !== sessionId) {
+            throw new Error(`probe id mismatch: asked ${sessionId}, got ${session?.id}`);
+        }
+    };
+
     return {
         event: async ({ event }) => {
             if (event?.type !== 'session.created') {
@@ -136,7 +180,18 @@ export const NeoWakeEnvelope = async (ctx) => {
             }
 
             try {
-                await writeEnvelope(sessionId);
+                const port = await resolvePort();
+
+                await writeEnvelope(sessionId, port);
+
+                try {
+                    await probeEnvelopeRoute({port, sessionId});
+                    await log('info', `wake envelope written-probed for session ${sessionId} (port ${port})`);
+                } catch (probeErr) {
+                    // Degraded, loud, never fatal: the envelope stays written — an unverified
+                    // envelope is still better than none, but it must not report success.
+                    await log('error', `written-probe-failed for session ${sessionId} (port ${port}): ${probeErr.message}`);
+                }
             } catch (err) {
                 await log('error', `envelope write failed: ${err.message}`);
             }
