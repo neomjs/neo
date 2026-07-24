@@ -31,6 +31,7 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('planePlacementCensus — the classification rules the election is priced on', () => {
     let stripComments, auditSeatContainment, censusPlaneOpeners, PLANE_DIR_NAME;
+    let attributeWalSegment, normalizeSeatIdentity, resolveLatestWalSegment, WAL_DIR_NAME;
     let workRoot;
 
     test.beforeAll(async () => {
@@ -38,7 +39,11 @@ test.describe('planePlacementCensus — the classification rules the election is
             stripComments,
             auditSeatContainment,
             censusPlaneOpeners,
-            PLANE_DIR_NAME
+            attributeWalSegment,
+            normalizeSeatIdentity,
+            resolveLatestWalSegment,
+            PLANE_DIR_NAME,
+            WAL_DIR_NAME
         } = await import('../../../../../../ai/scripts/diagnostics/planePlacementCensus.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `plane-census-${process.pid}-${Date.now()}`);
@@ -122,6 +127,92 @@ test.describe('planePlacementCensus — the classification rules the election is
 
         expect(audit.present).toBe(false);
         expect(audit.leaves).toBe(0);
+    });
+
+    // ───────── axis 3: per-seat WAL attribution (the falsified precision cap, mechanised) ─────────
+
+    test('attribution reads agentIdentity and NEVER metadata.agent (the field that erased two seats)', async () => {
+        // The load-bearing distinction. `agent` is caller-supplied and optional; a record that carries
+        // only `agent` must count as unattributed, not be silently attributed to the caller label.
+        const wal = path.join(workRoot, 'wal-field.jsonl');
+
+        fs.writeFileSync(wal, [
+            JSON.stringify({metadata: {agentIdentity: '@neo-opus-grace', agent: '@wrong'}}),
+            JSON.stringify({metadata: {agent: '@neo-opus-ada'}}),               // agent-only -> unattributed
+            JSON.stringify({metadata: {agentIdentity: '@neo-opus-grace'}})
+        ].join('\n') + '\n');
+
+        const result = await attributeWalSegment({walPath: wal});
+
+        expect(result.records).toBe(3);
+        expect(result.seats).toHaveLength(1);
+        expect(result.seats[0].seat).toBe('@neo-opus-grace');
+        expect(result.seats[0].records).toBe(2);
+        // The agent-only record is unattributed, proving `agent` is never consulted.
+        expect(result.unattributed.records).toBe(1);
+    });
+
+    test('the unattributed bucket is reported even when it is ZERO', async () => {
+        // A fully-attributed segment must still expose the bucket. Omitting it at zero quotes shares of a
+        // total the table did not measure — and the whole point of this axis is that the bucket reads 0.
+        const wal = path.join(workRoot, 'wal-full.jsonl');
+
+        fs.writeFileSync(wal, JSON.stringify({metadata: {agentIdentity: '@neo-opus-grace'}}) + '\n');
+
+        const result = await attributeWalSegment({walPath: wal});
+
+        expect(result.unattributed).toEqual({records: 0, bytes: 0});
+    });
+
+    test('a seat cannot split into two rows over the leading @', async () => {
+        // `@neo-gpt` and `neo-gpt` are one seat; a table that treats them as two makes each look small.
+        expect(normalizeSeatIdentity('neo-gpt')).toBe('@neo-gpt');
+        expect(normalizeSeatIdentity('@neo-gpt')).toBe('@neo-gpt');
+        expect(normalizeSeatIdentity('@@neo-gpt')).toBe('@neo-gpt');
+
+        const wal = path.join(workRoot, 'wal-alias.jsonl');
+
+        fs.writeFileSync(wal, [
+            JSON.stringify({metadata: {agentIdentity: '@neo-gpt'}}),
+            JSON.stringify({metadata: {agentIdentity: 'neo-gpt'}})
+        ].join('\n') + '\n');
+
+        const result = await attributeWalSegment({walPath: wal});
+
+        expect(result.seats).toHaveLength(1);
+        expect(result.seats[0].records).toBe(2);
+    });
+
+    test('shares sum to 1 across seats plus the unattributed bucket', async () => {
+        const wal = path.join(workRoot, 'wal-shares.jsonl');
+
+        fs.writeFileSync(wal, [
+            JSON.stringify({metadata: {agentIdentity: '@a'}, pad: 'x'.repeat(50)}),
+            JSON.stringify({metadata: {agentIdentity: '@b'}}),
+            JSON.stringify({metadata: {}})
+        ].join('\n') + '\n');
+
+        const result    = await attributeWalSegment({walPath: wal});
+        const seatShare = result.seats.reduce((sum, seat) => sum + seat.share, 0),
+              absShare  = result.bytes ? result.unattributed.bytes / result.bytes : 0;
+
+        expect(seatShare + absShare).toBeCloseTo(1, 10);
+    });
+
+    test('the latest WAL segment excludes derived .graph / .embedded projections', () => {
+        // Counting a projection double-counts the same write under a different shape.
+        const seat   = path.join(workRoot, 'wal-latest'),
+              walDir = path.join(seat, PLANE_DIR_NAME, WAL_DIR_NAME);
+
+        fsExtra.ensureDirSync(walDir);
+        fs.writeFileSync(path.join(walDir, 'wal-2026-07-23.jsonl'), '{}\n');
+        fs.writeFileSync(path.join(walDir, 'wal-2026-07-24.jsonl'), '{}\n');
+        fs.writeFileSync(path.join(walDir, 'wal-2026-07-24.graph.jsonl'), '{}\n');
+        fs.writeFileSync(path.join(walDir, 'wal-2026-07-24.embedded.jsonl'), '{}\n');
+
+        const latest = resolveLatestWalSegment({planeRoot: path.join(seat, PLANE_DIR_NAME)});
+
+        expect(path.basename(latest)).toBe('wal-2026-07-24.jsonl');
     });
 
     test('openers are bucketed three ways, and the buckets sum to the total', () => {

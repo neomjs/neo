@@ -1,14 +1,15 @@
 import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
+import readline        from 'node:readline';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import * as acorn      from 'acorn';
 
 /**
  * @module ai/scripts/diagnostics/planePlacementCensus
- * @summary Read-only census of the two cost axes the data-plane placement election is decided on:
- * **who opens the plane from the host**, and **whether a seat's plane leaves are containable by a
- * bind-mount of that seat**.
+ * @summary Read-only census of the three cost axes the data-plane placement election is decided on:
+ * **who opens the plane from the host**, **whether a seat's plane leaves are containable by a
+ * bind-mount of that seat**, and **which seat actually wrote the shared WAL volume**.
  *
  * ## Why this is a committed script rather than a one-off measurement
  *
@@ -18,7 +19,7 @@ import * as acorn      from 'acorn';
  * figure this prints is reproducible by anyone with the repo, which is the only form in which a cost row
  * survives its author.
  *
- * ## The two axes
+ * ## The three axes
  *
  * **1. Plane-opener census.** A module counts as an opener when its *executable code* both resolves a
  * plane path and performs a filesystem operation on it. **Comments are stripped before matching**, via
@@ -39,6 +40,19 @@ import * as acorn      from 'acorn';
  * that directory: inside a container it dangles unless the canonical root is also mounted at the identical
  * absolute host path. This is the measurement that turns the escape class from a residual risk into a
  * mount-time precondition.
+ *
+ * **3. Per-seat WAL attribution.** The `memory-wal` leaf is absent from the hydration blocklist, so every
+ * hydrated seat's WAL directory resolves to the SAME canonical directory — deliberately, for cross-clone
+ * sole-drainer enforcement — and segments are keyed by day, so all seats append to one file. Directory
+ * size therefore answers *"what did the plane write"* and **cannot be disaggregated into seats at all**;
+ * per-seat volume must come from the records.
+ *
+ * It is read from `metadata.agentIdentity`, which the memory service stamps from the **server-resolved
+ * bound identity**, never from `metadata.agent`, which is **caller-supplied and optional**. That
+ * distinction is not stylistic: measured on a live day-segment, `agent` was absent on 144 of 362 records
+ * (29.8% of bytes) while `agentIdentity` was absent on **zero** — and the loss was not uniform, erasing
+ * two seats outright and halving a third. A cost row built on the optional field would have priced the
+ * plane as though two agents never wrote to it.
  *
  * ## What this deliberately does NOT do
  *
@@ -254,20 +268,142 @@ export function auditSeatContainment({seat}) {
 }
 
 /**
- * Runs both axes and returns the census report.
+ * Directory name of the shared memory WAL inside the plane.
+ * @type {String}
+ */
+export const WAL_DIR_NAME = 'memory-wal';
+
+/**
+ * Metadata field carrying authoritative write attribution.
  *
+ * The service stamps this from the server-resolved bound identity. Its sibling `metadata.agent` is
+ * caller-supplied and optional, so a seat whose writes omitted it disappears from the table entirely
+ * rather than merely losing precision.
+ * @type {String}
+ */
+export const WAL_IDENTITY_FIELD = 'agentIdentity';
+
+/**
+ * Normalises a seat identity so one seat cannot split into two rows.
+ *
+ * Both `@neo-x` and `neo-x` occur in the wild; a table that treats them as distinct makes one seat look
+ * small twice instead of correct once.
+ * @param {String} identity Raw identity string.
+ * @returns {String} Identity with a single leading `@`.
+ */
+export function normalizeSeatIdentity(identity) {
+    return `@${String(identity).replace(/^@+/, '')}`
+}
+
+/**
+ * Attributes WAL bytes to seats by streaming a day-segment and reading the authoritative identity field.
+ *
+ * Streams rather than reading the file whole: a day segment is already megabytes and grows, and a
+ * whole-file read is the failure mode that only appears once the corpus is large enough to matter.
+ *
+ * `unattributed` is always reported as its own row, even at zero. Attributing those bytes to nobody
+ * understates every seat and spreading them evenly fabricates a distribution — and a table that silently
+ * omits the bucket is quoting shares of a total it did not measure.
+ * @param {Object} options
+ * @param {String} options.walPath Absolute path to a `.jsonl` day segment.
+ * @returns {Promise<{records: Number, bytes: Number, unattributed: {records: Number, bytes: Number}, seats: Array<{seat: String, records: Number, bytes: Number, share: Number}>}>}
+ */
+export async function attributeWalSegment({walPath}) {
+    const seats  = new Map(),
+          reader = readline.createInterface({input: fs.createReadStream(walPath), crlfDelay: Infinity}),
+          absent = {records: 0, bytes: 0};
+
+    let records = 0,
+        bytes   = 0;
+
+    for await (const line of reader) {
+        if (!line.trim()) {
+            continue
+        }
+
+        let record;
+
+        try {
+            record = JSON.parse(line);
+        } catch {
+            continue
+        }
+
+        const size = Buffer.byteLength(line) + 1;
+
+        records++;
+        bytes += size;
+
+        const identity = record?.metadata?.[WAL_IDENTITY_FIELD];
+
+        if (!identity) {
+            absent.records++;
+            absent.bytes += size;
+            continue
+        }
+
+        const seat    = normalizeSeatIdentity(identity),
+              current = seats.get(seat) || {records: 0, bytes: 0};
+
+        current.records++;
+        current.bytes += size;
+        seats.set(seat, current);
+    }
+
+    return {
+        records,
+        bytes,
+        unattributed: absent,
+        seats       : [...seats.entries()]
+            .map(([seat, value]) => ({seat, ...value, share: bytes ? value.bytes / bytes : 0}))
+            .sort((a, b) => b.bytes - a.bytes)
+    }
+}
+
+/**
+ * Resolves the newest `.jsonl` day segment in a plane's WAL directory.
+ *
+ * Sibling `*.graph.jsonl` / `*.embedded.jsonl` projections are excluded — they are derived streams, and
+ * counting them would double-count the same write under a different shape.
+ * @param {Object} options
+ * @param {String} options.planeRoot Absolute path to a `.neo-ai-data` directory.
+ * @returns {String|null} Absolute path, or null when no segment exists.
+ */
+export function resolveLatestWalSegment({planeRoot}) {
+    const walDir = path.join(planeRoot, WAL_DIR_NAME);
+
+    if (!fs.existsSync(walDir)) {
+        return null
+    }
+
+    const segments = fs.readdirSync(walDir)
+        .filter(name => name.endsWith('.jsonl') && !name.includes('.graph.') && !name.includes('.embedded.'))
+        .sort();
+
+    return segments.length ? path.join(walDir, segments.at(-1)) : null
+}
+
+/**
+ * Runs all three axes and returns the census report.
+ *
+ * WAL attribution is optional because it reads host state that may not exist (a fresh checkout has no
+ * segments); its absence is reported rather than thrown, so the two repo-derived axes still produce rows.
  * @param {Object} [options]
  * @param {String[]} [options.seats] Seats to audit; defaults to the current checkout.
  * @param {String} [options.projectRoot=PROJECT_ROOT] Repo root.
- * @returns {{projectRoot: String, openers: Object, seats: Object[]}}
+ * @param {String} [options.walPath] Explicit WAL segment; defaults to the newest in the canonical plane.
+ * @returns {Promise<{projectRoot: String, openers: Object, seats: Object[], wal: Object|null}>}
  */
-export function runPlanePlacementCensus({seats, projectRoot = PROJECT_ROOT} = {}) {
-    const targets = seats?.length ? seats : [projectRoot];
+export async function runPlanePlacementCensus({seats, projectRoot = PROJECT_ROOT, walPath} = {}) {
+    const targets  = seats?.length ? seats : [projectRoot],
+          audits   = targets.map(seat => auditSeatContainment({seat})),
+          resolved = walPath ?? resolveLatestWalSegment({planeRoot: path.join(targets[0], PLANE_DIR_NAME)});
 
     return {
         projectRoot,
         openers: censusPlaneOpeners({projectRoot}),
-        seats  : targets.map(seat => auditSeatContainment({seat}))
+        seats  : audits,
+        wal    : resolved ? {segment: resolved, ...await attributeWalSegment({walPath: resolved})} : null
     };
 }
 
@@ -319,6 +455,21 @@ export function formatCensus(report) {
         }
     }
 
+    if (report.wal) {
+        const {records, bytes, unattributed, seats, segment} = report.wal,
+              kib                                            = value => (value / 1024).toFixed(1);
+
+        lines.push('', `PER-SEAT WAL ATTRIBUTION (${path.basename(segment)} — from metadata.agentIdentity)`);
+        lines.push(`  ${records} records, ${kib(bytes)} KiB`);
+
+        for (const seat of seats) {
+            lines.push(`  ${seat.seat.padEnd(24)} ${String(seat.records).padStart(4)} rec  ${kib(seat.bytes).padStart(9)} KiB  ${(100 * seat.share).toFixed(1)}%`);
+        }
+
+        // Always shown, even at zero — omitting it quotes shares of an unmeasured total.
+        lines.push(`  ${'(unattributed)'.padEnd(24)} ${String(unattributed.records).padStart(4)} rec  ${kib(unattributed.bytes).padStart(9)} KiB  ${(100 * (bytes ? unattributed.bytes / bytes : 0)).toFixed(1)}%`);
+    }
+
     return lines.join('\n')
 }
 
@@ -327,7 +478,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           jsonOut = argv.includes('--json'),
           seats   = argv.reduce((acc, arg, index) => argv[index - 1] === '--seat' ? [...acc, path.resolve(arg)] : acc, []);
 
-    const report = runPlanePlacementCensus({seats});
-
-    console.log(jsonOut ? JSON.stringify(report, null, 4) : formatCensus(report));
+    runPlanePlacementCensus({seats}).then(report => {
+        console.log(jsonOut ? JSON.stringify(report, null, 4) : formatCensus(report));
+    });
 }
