@@ -1,13 +1,16 @@
-import Field    from './Base.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Field           from './Base.mjs';
+import Transport       from './fileUpload/Transport.mjs';
+import XhrTransport    from './fileUpload/Xhr.mjs';
+import NeoArray        from '../../util/Array.mjs';
+import ClassSystemUtil from '../../util/ClassSystem.mjs';
 
 const
-    sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
-    sizeMultiplier   = {
-        unit : 1,
-        kb   : 1000,
-        mb   : 1000000,
-        gb   : 1000000000
+    sizeRE         = /^(\d+)(kb|mb|gb)?$/i,
+    sizeMultiplier = {
+        unit: 1,
+        kb  : 1000,
+        mb  : 1000000,
+        gb  : 1000000000
     },
     httpSuccessCodes = {
         2 : 1,
@@ -18,8 +21,9 @@ const
  * An accessible file uploading widget which automatically commences an upload as soon as
  * a file is selected using the UI.
  *
- * The URL to which the file must be uploaded is specified in the {@link config#uploadUrl} property.
- * This service must return a JSON status response in the following form for successful uploads:
+ * Byte movement is delegated to {@link config#uploadTransport}. The default
+ * {@link Neo.form.field.fileUpload.Xhr} transport uses the URL specified in
+ * {@link config#uploadUrl} and expects a JSON response in the following form for successful uploads:
  *
  * ```json
  * {
@@ -84,6 +88,14 @@ const
  * @extends Neo.form.field.Base
  */
 class FileUpload extends Field {
+    /**
+     * Whether the current upload transport was created from this field's class/config value.
+     * Passed-in instances remain externally owned.
+     * @member {Boolean} #ownsUploadTransport=false
+     * @private
+     */
+    #ownsUploadTransport = false
+
     static config = {
         /**
          * @member {String} className='Neo.form.field.FileUpload'
@@ -183,6 +195,18 @@ class FileUpload extends Field {
          * @member {String|null} uploadUrl=null
          */
         uploadUrl: null,
+
+        /**
+         * Transport class, config, or instance responsible for upload, abort, delete, and status
+         * request mechanics.
+         *
+         * Class/config values are instantiated, hosted, and destroyed by this field. A passed-in
+         * {@link Neo.form.field.fileUpload.Transport} instance remains caller-owned and is detached
+         * when replaced or when the field is destroyed.
+         * @member {Neo.form.field.fileUpload.Transport|Object|Function} uploadTransport_=Neo.form.field.fileUpload.Xhr
+         * @reactive
+         */
+        uploadTransport_: XhrTransport,
 
         /**
          * The name of the JSON property in which the document id is returned in the upload response
@@ -313,24 +337,32 @@ class FileUpload extends Field {
         error_ : null,
 
         // UI strings which can be overridden for other languages
-        chooseFile           : 'Choose file',
-        documentText         : 'Document',
-        invalidFileFormat    : 'invalid file format',
-        pleaseUseTheseTypes  : 'Please use these file types {allowedFileTypes}',
-        fileSizeMoreThan     : 'File size exceeds {allowedFileSize}',
-        uploadError          : 'Please try again',
-        documentDeleteError  : 'Document delete service error',
-        isNoLongerAvailable  : 'is no longer available',
-        documentStatusError  : 'Document status service error',
-        uploadFailed         : 'Upload failed',
-        scanning             : 'Scanning',
-        uploading            : 'Uploading...',
-        malwareFoundInFile   : 'Malware found in file',
-        pleaseCheck          : 'Please check the file and try again',
-        successfullyUploaded : 'Successfully uploaded',
-        fileWasDeleted       : 'File was deleted',
-        fileIsInAnErrorState : 'File is in an error state'
+        chooseFile          : 'Choose file',
+        documentText        : 'Document',
+        invalidFileFormat   : 'invalid file format',
+        pleaseUseTheseTypes : 'Please use these file types {allowedFileTypes}',
+        fileSizeMoreThan    : 'File size exceeds {allowedFileSize}',
+        uploadError         : 'Please try again',
+        documentDeleteError : 'Document delete service error',
+        isNoLongerAvailable : 'is no longer available',
+        documentStatusError : 'Document status service error',
+        uploadFailed        : 'Upload failed',
+        scanning            : 'Scanning',
+        uploading           : 'Uploading...',
+        malwareFoundInFile  : 'Malware found in file',
+        pleaseCheck         : 'Please check the file and try again',
+        successfullyUploaded: 'Successfully uploaded',
+        fileWasDeleted      : 'File was deleted',
+        fileIsInAnErrorState: 'File is in an error state'
     }
+
+    /**
+     * Fires before the default HTTP transport sends any configured request. Listeners may add or
+     * replace entries on the request-local headers object.
+     * @event beforeRequest
+     * @param {Object} event
+     * @param {Object} event.headers A copy of {@link #property-headers} for this request.
+     */
 
     /**
      * @param {Object} config
@@ -379,11 +411,11 @@ class FileUpload extends Field {
         me.cls = cls;
 
         me.vdom.cn[3] = {
-            id    : `${me.id}-input`,
-            cls   : 'neo-file-upload-input',
-            tag   : 'input',
-            type  : 'file',
-            value : ''
+            id   : `${me.id}-input`,
+            cls  : 'neo-file-upload-input',
+            tag  : 'input',
+            type : 'file',
+            value: ''
         };
         me.state = 'ready';
         me.error = '';
@@ -438,11 +470,7 @@ class FileUpload extends Field {
 
     async upload(file) {
         const
-            me         = this,
-            xhr        = me.xhr = new XMLHttpRequest(),
-            { upload } = xhr,
-            fileData   = new FormData(),
-            headers    = { ...me.headers };
+            me = this;
 
         // Show the action button
         me.file  = file;
@@ -460,33 +488,24 @@ class FileUpload extends Field {
         // When it is NaN, the error display does not attempt to show progress.
         me.progress = NaN;
 
-        fileData.append("file", file);
+        let response;
 
-        // React to upload state changes
-        upload.addEventListener('progress', me.onUploadProgress.bind(me));
-        upload.addEventListener('error',    me.onUploadError.bind(me));
-        upload.addEventListener('abort',    me.onUploadAbort.bind(me));
-        xhr.addEventListener('loadend',     me.onUploadDone.bind(me));
+        try {
+            response = await me.uploadTransport.upload({
+                file,
+                onProgress: event => me.onUploadProgress(event)
+            })
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                me.onUploadAbort(error)
+            } else {
+                me.onUploadError(error)
+            }
 
-        xhr.open("POST", me.uploadUrl, true);
-
-        /**
-         * This event fires before every HTTP request is sent to the server via any of the configured URLs.
-         *
-         * @event beforeRequest
-         * @param {Object} event The event
-         * @param {Object} event.headers An object containing the configured {@link #property-headers}
-         * for this widget, into which new headers may be injected.
-         * @returns {Object}
-         */
-        me.fire('beforeRequest', {
-            headers
-        });
-        for (const header in headers) {
-            xhr.setRequestHeader(header, headers[header]);
+            return
         }
 
-        xhr.send(fileData);
+        me.onUploadDone(response)
     }
 
     /**
@@ -494,7 +513,10 @@ class FileUpload extends Field {
      * @param {Boolean} [silent=false]
      */
     destroy(updateParentVdom, silent) {
-        this.abortUpload();
+        const me = this;
+
+        me.releaseUploadTransport(me.uploadTransport);
+
         super.destroy(updateParentVdom, silent)
     }
 
@@ -520,7 +542,6 @@ class FileUpload extends Field {
             return
         }
 
-        this.xhr = null;
         this.clear()
     }
 
@@ -529,49 +550,42 @@ class FileUpload extends Field {
             return
         }
 
-        this.xhr = null;
         this.state = 'upload-failed';
         this.error = `${this.uploadError}`
     }
 
-    onUploadDone({ loaded, target : xhr }) {
+    /**
+     * Maps a transport-normalized upload response onto the field state.
+     * @param {Object|null} response
+     */
+    onUploadDone(response) {
         if (this.isDestroyed) {
             return
         }
 
         const me = this;
 
-        me.xhr = null;
+        if (response) {
+            if (response.success) {
+                me.documentId = response[me.documentIdParameter];
 
-        // Successful network request.
-        // Check the resulting JSON packet for details and any error.
-        if (httpSuccessCodes[String(xhr.status)[0]]) {
-            if (loaded !== 0) {
-                const response = JSON.parse(xhr.response);
+                // The status check phase is optional.
+                // If no URL specified, the file is taken to be downloadable.
+                if (me.documentStatusUrl) {
+                    me.state = 'processing';
 
-                if (response.success) {
-                    me.documentId = response[me.documentIdParameter];
-
-                    // The status check phase is optional.
-                    // If no URL specified, the file is taken to be downloadable.
-                    if (me.documentStatusUrl) {
-                        me.state = 'processing';
-
-                        // Start polling the server to see when the scan has a result;
-                        me.checkDocumentStatus();
-                    }
-                    else {
-                        me.state = 'downloadable';
-                    }
+                    // Start polling the server to see when the scan has a result;
+                    me.checkDocumentStatus();
                 }
                 else {
-                    me.error = response.message;
-                    me.state = 'upload-failed';
+                    me.state = 'downloadable';
                 }
             }
+            else {
+                me.error = response.message;
+                me.state = 'upload-failed';
+            }
         }
-        // Failed network requests are handled in onUploadError
-        // so no else condition necessary here
     }
 
     onActionButtonClick() {
@@ -617,23 +631,14 @@ class FileUpload extends Field {
     }
 
     abortUpload() {
-        this.xhr?.abort();
+        this.uploadTransport?.abort();
     }
 
     async deleteDocument() {
-        const
-            me          = this,
-            { headers } = me;
-
-        me.fire('beforeRequest', {
-            headers
-        });
+        const me = this;
 
         // We ask the server to delete using our this.documentId
-        const statusResponse = await me.trap(fetch(me.documentDeleteUrl, {
-            method : me.documentDeleteMethod,
-            headers
-        }));
+        const statusResponse = await me.trap(me.uploadTransport.deleteDocument(me.documentId));
 
         // Success
         if (httpSuccessCodes[String(statusResponse.status)[0]]) {
@@ -646,18 +651,10 @@ class FileUpload extends Field {
     }
 
     async checkDocumentStatus() {
-        const
-            me          = this,
-            { headers } = me;
+        const me = this;
 
         if (me.state === 'processing') {
-            me.fire('beforeRequest', {
-                headers
-            });
-
-            const statusResponse = await me.trap(fetch(me.documentStatusUrl, {
-                headers
-            }));
+            const statusResponse = await me.trap(me.uploadTransport.checkDocumentStatus(me.documentId));
 
             // Success
             if (httpSuccessCodes[String(statusResponse.status)[0]]) {
@@ -816,6 +813,67 @@ class FileUpload extends Field {
 
     beforeGetHeaders(headers) {
         return { ...(headers || {}) }
+    }
+
+    /**
+     * Normalizes a transport class/config/instance and reconciles ownership on replacement.
+     * @param {Neo.form.field.fileUpload.Transport|Object|Function|null} value
+     * @param {Neo.form.field.fileUpload.Transport|null} oldValue
+     * @returns {Neo.form.field.fileUpload.Transport}
+     * @protected
+     */
+    beforeSetUploadTransport(value, oldValue) {
+        const me = this;
+
+        if (value === oldValue) {
+            return value
+        }
+
+        const
+            isExternalInstance = Neo.typeOf(value) === 'NeoInstance',
+            transport          = ClassSystemUtil.beforeSetInstance(value, XhrTransport, {
+                field: me
+            });
+
+        if (!(transport instanceof Transport)) {
+            !isExternalInstance && transport?.destroy?.();
+
+            throw new TypeError('FileUpload uploadTransport must extend Neo.form.field.fileUpload.Transport.')
+        }
+
+        if (isExternalInstance && transport.field && transport.field !== me) {
+            throw new Error('FileUpload uploadTransport instance is already attached to another field.')
+        }
+
+        oldValue && me.releaseUploadTransport(oldValue);
+
+        transport.field = me;
+        me.#ownsUploadTransport = !isExternalInstance;
+
+        return transport
+    }
+
+    /**
+     * Releases one hosted transport according to its ownership provenance.
+     * @param {Neo.form.field.fileUpload.Transport|null} transport
+     * @private
+     */
+    releaseUploadTransport(transport) {
+        if (!transport) {
+            return
+        }
+
+        if (this.#ownsUploadTransport) {
+            transport.destroy()
+        } else {
+            transport.abort();
+
+            if (transport.field === this) {
+                transport.field = null
+            }
+        }
+
+        this.#ownsUploadTransport = false
     }
 
     beforeGetDocumentStatusUrl(documentStatusUrl) {
