@@ -1,17 +1,17 @@
-import {execFile}       from 'child_process';
-import fs               from 'fs-extra';
-import os               from 'os';
-import path             from 'path';
-import {promisify}      from 'util';
-import {fileURLToPath}  from 'url';
+import {execFile}      from 'child_process';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {promisify}     from 'util';
+import {fileURLToPath} from 'url';
 
 // Neo namespace bootstrap (entry-point invariant). `Neo` + `core/_export` populate
 // `globalThis.Neo` so that `ai/services.mjs` → Compare.mjs `Neo.gatekeep` resolves.
-import Neo              from '../../../src/Neo.mjs';
-import * as core        from '../../../src/core/_export.mjs';
+import Neo       from '../../../src/Neo.mjs';
+import * as core from '../../../src/core/_export.mjs';
 
-import AiConfig         from '../../config.mjs';
-import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
+import AiConfig from '../../config.mjs';
+import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
 
 import {
     KB_ChromaManager,
@@ -22,7 +22,8 @@ import {
 import {
     ARTIFACT_BASENAME,
     ARTIFACT_META_FILENAME,
-    assertCollectionScopedArtifact
+    assertCollectionScopedArtifact,
+    rehydrateArtifactFromV2
 } from './knowledgeBaseArtifact.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -42,6 +43,12 @@ const execFileAsync = promisify(execFile);
  *   The data directory is never directory-restored; Memory Core collections are never touched.
  * - **Defense-in-depth:** `assertCollectionScopedArtifact` runs on the unzipped contents before
  *   import, so a malformed artifact carrying Memory Core data or a `sqlite/` payload is rejected.
+ * - **Schema v1 + v2:** a v2 artifact carries its embeddings in a packed `fp16` sidecar rather than
+ *   as decimal text inside the JSONL; `rehydrateArtifactFromV2` re-attaches them before the import,
+ *   so the SDK boundary keeps consuming one JSONL shape. A v1 artifact has no sidecar and the step
+ *   is a no-op — older release assets stay importable. Vectors are re-attached **by index**, which
+ *   is only safe while the record order is proven, so the metadata's order digest is verified first
+ *   and a mismatch aborts instead of ingesting misaligned embeddings.
  * - **Embedding-provenance check:** the artifact's `embeddingProvider`/`dimension` metadata is
  *   compared to the consumer's config; a mismatch warns (recall would silently degrade against
  *   the shipped raw vectors) without aborting npm install.
@@ -173,6 +180,17 @@ export async function downloadKnowledgeBase({
 
         await warnOnEmbeddingMismatch({extractDir, embeddingConfig, logger});
 
+        // Schema v2 ships embeddings as a packed fp16 sidecar instead of decimal text in the JSONL.
+        // Re-attach them before the import so the SDK still consumes a v1-shaped JSONL — a v1
+        // artifact carries no sidecar and this is a no-op, which is what keeps older release assets
+        // importable. A digest/shape mismatch throws, so the catch below skips the import entirely
+        // rather than ingesting vectors paired to the wrong records.
+        const rehydration = await rehydrateArtifactFromV2({artifactDir: extractDir});
+
+        if (rehydration.rehydrated) {
+            logger.log(`🗜️  Re-attached ${rehydration.recordCount} packed fp16 embeddings (artifact schema v2).`);
+        }
+
         // Collection-scoped, merge-only import. Never directory-restores .neo-ai-data;
         // never touches a Memory Core collection.
         logger.log('📥 Importing Knowledge Base collection (merge mode)...');
@@ -211,9 +229,9 @@ async function warnOnEmbeddingMismatch({extractDir, embeddingConfig, logger}) {
         return;
     }
 
-    const meta              = await fs.readJson(metaPath);
-    const localProvider     = embeddingConfig.embeddingProvider;
-    const localDimension    = embeddingConfig.vectorDimension;
+    const meta           = await fs.readJson(metaPath);
+    const localProvider  = embeddingConfig.embeddingProvider;
+    const localDimension = embeddingConfig.vectorDimension;
 
     if (meta.embeddingProvider !== localProvider || meta.dimension !== localDimension) {
         logger.warn(
