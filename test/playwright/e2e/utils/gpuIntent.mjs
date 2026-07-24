@@ -33,6 +33,15 @@ export const GPU_INTENT_ARGS = [
 
 /**
  * @summary Everything else the E2E browser launches with — isolation, memory, throttling, sandbox.
+ *
+ * NEVER add `--use-gl=desktop` or `--disable-software-rasterizer` here. Modern Chrome's GL allowlist
+ * is ANGLE-only (metal/opengl/swiftshader), so `desktop` resolves to gl=none — the GPU process then
+ * dies at EVERY window birth, and with the software fallback disabled Chromium's crash threshold kills
+ * the whole browser mid-test in headed mode (the second popup birth crossed it deterministically:
+ * "GPU process isn't usable. Goodbye." → SIGTRAP, all SharedWorkers gone). Default ANGLE (Metal on
+ * macOS) IS the hardware path — measured on this seat, headed and headless: "ANGLE (Apple, ANGLE Metal
+ * Renderer: Apple M5 Max)". This warning is the source authority for that removal; the boot gate in
+ * `gl.setup.mjs` enforces it at runtime, but the two together are cheaper than either alone.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
