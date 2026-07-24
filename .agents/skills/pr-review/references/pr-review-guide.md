@@ -116,7 +116,7 @@ Audit every magic close target in the PR body and commit messages: `Closes #N`, 
 1. Parse PR body + commit messages with an exact-head source such as `git log origin/dev..HEAD --format='%h%x09%s%n%b'`; do not trust `closingIssuesReferences` alone.
 2. Flag missing PR-body `Resolves #N`, any `Closes` / `Fixes`, prose-embedded/comma-separated targets, stale branch-body magic keywords for non-closing refs, or any target carrying `epic`.
 3. Required fix: isolate one delivered leaf as `Resolves #M`; move broad/epic refs to `Related:`; split broad work into leaf subs.
-4. Refuse a target whose open AC carries a still-future named expiry — the date is the commitment — or defers *authoring* (text not yet written) with no expiry, since the close destroys the only pointer. Open-ended deferred *verification* closes normally.
+4. While an AC is open, any named expiry blocks close — future, due or lapsed alike; satisfy or restate it. Deferred *authoring* (text not yet written) blocks with no expiry too: the close destroys the only pointer. Open-ended *verification* closes normally.
 
 Out of scope: valid leaf targets, non-closing `Related:` / `Refs:` / `Part of`. Provenance: `#9999` auto-close, `#10323` duplicate chain.
 
