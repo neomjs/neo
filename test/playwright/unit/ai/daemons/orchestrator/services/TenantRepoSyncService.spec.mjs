@@ -30,8 +30,14 @@ import {
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {
+    LIFECYCLE_GUARD_SUFFIX,
+    acquireHeavyMaintenanceLease,
+    buildLeasePayload
+} from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
+import {
     buildRunTaskOptions,
-    parseArgs
+    parseArgs,
+    resolveExitCode
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -544,6 +550,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const result = await TenantRepoSyncService.runTask({
             reason           : 'periodic',
             taskStateService,
+            revisionsFilePath: revisionsFile,
             tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://github.com/neomjs/seeded.git'}]},
             gitMirror        : envelopeWatchingGitMirror,
             // For the persistence test, use a real-shape envelope-builder fake that
@@ -1506,33 +1513,32 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const logLines         = [];
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
 
-        const readOnlyParent = path.join(tmpDir, 'ro-parent');
-        await fs.ensureDir(readOnlyParent);
-        await fs.chmod(readOnlyParent, 0o500);
+        // Force a deep TenantRepoSyncError at the final manifest commit: a directory
+        // squats on the exact temporary-sibling path, so the atomic tmp-write fails
+        // while the strict read (no manifest yet) and the sibling lease file work.
+        const manifestDir       = path.join(tmpDir, 'manifest-dir');
+        const directoryAsTarget = path.join(manifestDir, 'revisions.json');
+        await fs.ensureDir(`${directoryAsTarget}.tmp-${process.pid}`);
 
-        try {
-            const result = await TenantRepoSyncService.runTask({
-                reason           : 'periodic-sweep:60000',
-                taskStateService,
-                writeLog         : (level, msg) => logLines.push({level, msg}),
-                tenantReposConfig: {tenantRepos: [
-                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
-                ]},
-                gitMirror                    : makeFakeGitMirror(),
-                envelopeBuilder              : makeFakeEnvelopeBuilder(),
-                knowledgeBaseIngestionService: makeFakeIngestionService(),
-                revisionsFilePath            : path.join(readOnlyParent, 'subdir', 'revisions.json')
-            });
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            writeLog         : (level, msg) => logLines.push({level, msg}),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : directoryAsTarget
+        });
 
-            expect(result.status).toBe('failed');
-            expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
-            expect(result.details.meta?.phase).toBe('manifest-update');
-            expect(result.details.meta?.filePath).toContain('revisions.json');
-            const errLine = logLines.find(l => l.level === 'ERROR' && l.msg.includes('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'));
-            expect(errLine).toBeDefined();
-        } finally {
-            await fs.chmod(readOnlyParent, 0o700);
-        }
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
+        expect(result.details.meta?.phase).toBe('manifest-update');
+        expect(result.details.meta?.filePath).toContain('revisions.json');
+        const errLine = logLines.find(l => l.level === 'ERROR' && l.msg.includes('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'));
+        expect(errLine).toBeDefined();
     });
 
     test('concurrency-gate: concurrencyLimit=1 serializes per-repo work (#11942 AC2)', async () => {
@@ -2160,6 +2166,362 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(defaultCall, 'envelope builder called for repo-default').toBeDefined();
         expect(defaultCall.args.newHead).toBe('HEAD');
     });
+
+    // --- Cross-process serialization + atomic manifest commit ---
+
+    function leaseFilePath() {
+        return path.join(tmpDir, 'tenant-repo-sync-lease.json');
+    }
+
+    /**
+     * Base runTask options for the lease suite: one configured repo, tmp-dir
+     * manifest (which also derives the tmp-dir sibling lease path), immediate cadence.
+     */
+    function baseLeaseRunOptions({taskStateService, ...overrides}) {
+        return {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            revisionsFilePath: revisionsFile,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug: 'org/lease-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/lease-repo.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            globalCadenceMs              : 0,
+            jitterRatio                  : 0,
+            seedBootstrap                : false,
+            ...overrides
+        };
+    }
+
+    test('cross-process lease: a held lease defers the sweep without repo work or manifest mutation (#15763)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            mirrorCalls      = [];
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 1,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+        const originalManifest = await fs.readFile(revisionsFile, 'utf8');
+
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'tenant-repo-sync:manual',
+            reason      : 'tenant-repo-sync',
+            pid         : process.pid,
+            staleAfterMs: 60_000,
+            token       : 'foreign-owner-token'
+        }));
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            gitMirror: makeFakeGitMirror({captureCalls: mirrorCalls})
+        }));
+
+        expect(result.status).toBe('skipped');
+        expect(result.details).toMatchObject({
+            reasonCode: 'KB_TENANT_REPO_SYNC_LEASE_HELD',
+            leaseOwner: 'tenant-repo-sync:manual'
+        });
+        expect(mirrorCalls).toHaveLength(0);
+        expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
+        expect(taskStateService.getTaskState('tenant-repo-sync')?.running).toBeFalsy();
+
+        // Bounded diagnostics: owner class + timestamps only — no pid, no host paths.
+        const serialized = JSON.stringify(result);
+        expect(serialized).not.toContain('"pid"');
+        expect(serialized).not.toContain(tmpDir);
+    });
+
+    test('cross-process lease: two concurrent invocations serialize — one completes, one defers (#15763)', async () => {
+        const
+            taskStateServiceA = createInMemoryTaskStateService(),
+            taskStateServiceB = createInMemoryTaskStateService();
+
+        let releaseGate;
+        const gate = new Promise(resolve => releaseGate = resolve);
+
+        const invocationA = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService             : taskStateServiceA,
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                async summaryFactory() {
+                    await gate;
+                    return {ingested: 1, deleted: 0, errors: []};
+                }
+            })
+        }));
+
+        // Deterministic interleave: wait until invocation A provably holds the lease.
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        const resultB = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService: taskStateServiceB,
+            reason          : 'manual'
+        }));
+
+        expect(resultB.status).toBe('skipped');
+        expect(resultB.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_HELD');
+        expect(resultB.details.leaseOwner).toBe('tenant-repo-sync:scheduler');
+
+        releaseGate();
+        const resultA = await invocationA;
+
+        expect(resultA.status).toBe('completed');
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/org/lease-repo'].lastIngestedRev).toBe('sha-head-org/lease-repo');
+        expect(await fs.pathExists(leaseFilePath())).toBe(false);
+    });
+
+    test('cross-process lease: a dead-owner lease is reclaimed and released after the run (#15763)', async () => {
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'tenant-repo-sync:manual',
+            reason      : 'tenant-repo-sync',
+            pid         : 2147483647,
+            staleAfterMs: 60_000,
+            token       : 'dead-owner-token'
+        }));
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService: createInMemoryTaskStateService()
+        }));
+
+        expect(result.status).toBe('completed');
+        expect(await fs.pathExists(leaseFilePath())).toBe(false);
+    });
+
+    test('cross-process lease: released after a failing sweep so the next run can acquire (#15763)', async () => {
+        const failing = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService             : createInMemoryTaskStateService(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    return {ingested: 0, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]};
+                }
+            })
+        }));
+
+        expect(failing.status).toBe('failed');
+        expect(await fs.pathExists(leaseFilePath())).toBe(false);
+
+        const recovered = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService: createInMemoryTaskStateService()
+        }));
+
+        expect(recovered.status).toBe('completed');
+    });
+
+    test('lease renewal keeps a live long-running owner past its base TTL — no mid-work reclaim (#15763)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        let releaseIngestion;
+        const ingestionGate = new Promise(resolve => releaseIngestion = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs            : 300,
+            leaseRenewalIntervalMs       : 50,
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                async summaryFactory() {
+                    await ingestionGate;
+                    return {ingested: 1, deleted: 0, errors: []};
+                }
+            })
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // Hold the run well past its base TTL. Without renewal the lease would
+        // be reclaimable at +300ms; the renewal loop must keep the live owner's
+        // deadline moving so the contender still observes an active hold.
+        await new Promise(resolve => setTimeout(resolve, 450));
+
+        const contender = await acquireHeavyMaintenanceLease({
+            leasePath   : leaseFilePath(),
+            owner       : 'contender',
+            staleAfterMs: 300
+        });
+        expect(contender).toMatchObject({acquired: false, status: 'held'});
+
+        releaseIngestion();
+        const result = await invocation;
+
+        expect(result.status).toBe('completed');
+        expect((await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'].lastIngestedRev).toBe('sha-head-org/lease-repo');
+        expect(await fs.pathExists(leaseFilePath())).toBe(false);
+    });
+
+    test('renewal failure aborts before protected work: failed run, no manifest, untouched backoff, replacement intact (#15763)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        let releaseEnvelope;
+        const envelopeGate = new Promise(resolve => releaseEnvelope = resolve);
+        const baseEnvelope = makeFakeEnvelopeBuilder();
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs     : 60_000,
+            leaseRenewalIntervalMs: 25,
+            envelopeBuilder       : async (...args) => {
+                await envelopeGate;
+                return baseEnvelope(...args);
+            }
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // A reclaimer replaces the lease while the run is paused mid-work.
+        // The replacement happens INSIDE the lifecycle guard so an in-flight
+        // renewal tick cannot interleave with this test write.
+        const guardPath = `${leaseFilePath()}${LIFECYCLE_GUARD_SUFFIX}`;
+        await fs.ensureDir(guardPath);
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'replacement-owner',
+            reason      : 'tenant-repo-sync',
+            pid         : process.pid,
+            staleAfterMs: 60_000,
+            token       : 'replacement-token'
+        }));
+        await fs.rmdir(guardPath);
+
+        // Let renewal ticks observe the loss; even under full renewal
+        // starvation the pre-ingest fence re-inspects the live file and
+        // reaches the same abort.
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        releaseEnvelope();
+        const result = await invocation;
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+
+        // Fail-closed: no manifest was ever committed and per-repo backoff
+        // state was not manufactured for the aborted sweep.
+        expect(await fs.pathExists(revisionsFile)).toBe(false);
+
+        // The loser's token-guarded release could not remove the replacement.
+        expect((await fs.readJson(leaseFilePath())).token).toBe('replacement-token');
+    });
+
+    test('atomic manifest write: a failed write leaves the previous complete document readable (#15763)', async () => {
+        const
+            roDir  = path.join(tmpDir, 'ro-manifest'),
+            target = path.join(roDir, 'revisions.json');
+
+        await fs.ensureDir(roDir);
+        await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
+        const original = await fs.readFile(target, 'utf8');
+
+        await fs.chmod(roDir, 0o555);
+        try {
+            await expect(TenantRepoSyncService.writePersistedRevisions({
+                filePath : target,
+                revisions: {'t1/org/keep': {lastIngestedRev: 'sha-new'}}
+            })).rejects.toMatchObject({code: 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'});
+        } finally {
+            await fs.chmod(roDir, 0o755);
+        }
+
+        expect(await fs.readFile(target, 'utf8')).toBe(original);
+        expect((await fs.readdir(roDir)).filter(name => name.includes('.tmp-'))).toEqual([]);
+    });
+
+    test('commit-point fence: an evicted writer aborts without writing (#15763)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            foreignLease     = buildLeasePayload({
+                owner       : 'tenant-repo-sync:scheduler',
+                reason      : 'tenant-repo-sync',
+                pid         : process.pid,
+                staleAfterMs: 60_000,
+                token       : 'foreign-takeover-token'
+            });
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+        const originalManifest = await fs.readFile(revisionsFile, 'utf8');
+
+        // Simulate a TTL eviction: a new owner replaces the lease mid-sweep.
+        const takeoverMirror = {
+            ...makeFakeGitMirror(),
+            async fetch() {
+                await fs.writeJson(leaseFilePath(), foreignLease);
+            }
+        };
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            gitMirror: takeoverMirror
+        }));
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+        expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
+        // Token-guarded release must not clobber the new owner's lease.
+        expect((await fs.readJson(leaseFilePath())).token).toBe('foreign-takeover-token');
+    });
+
+    test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
+        const target = path.join(tmpDir, 'fault-injected.json');
+        await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
+        const original = await fs.readFile(target, 'utf8');
+
+        const shortWriteFs = {
+            ...fs,
+            async writeFile(filePath, payload, ...rest) {
+                await fs.writeFile(filePath, String(payload).slice(0, 10), ...rest);
+                const error = new Error('interrupted after a partial write');
+                error.code  = 'EIO';
+                throw error;
+            }
+        };
+
+        await expect(TenantRepoSyncService.writePersistedRevisions({
+            filePath : target,
+            revisions: {'t1/org/keep': {lastIngestedRev: 'sha-new'}},
+            fsModule : shortWriteFs
+        })).rejects.toMatchObject({code: 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'});
+
+        expect(await fs.readFile(target, 'utf8')).toBe(original);
+        expect((await fs.readdir(tmpDir)).filter(name => name.includes('.tmp-'))).toEqual([]);
+    });
+
+    test('atomic manifest write: a multi-chunk payload lands complete and parseable (#15763)', async () => {
+        const target    = path.join(tmpDir, 'large-manifest.json');
+        const revisions = {};
+
+        for (let i = 0; i < 2000; i++) {
+            revisions[`t1/org/repo-${i}`] = {
+                lastIngestedRev                   : 'f'.repeat(512) + i,
+                lastRunAttemptAt                  : i,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            };
+        }
+
+        await TenantRepoSyncService.writePersistedRevisions({filePath: target, revisions});
+
+        const persisted = await fs.readJson(target);
+        expect(Object.keys(persisted.revisions)).toHaveLength(2000);
+        expect(persisted.revisions['t1/org/repo-1999'].lastIngestedRev.endsWith('1999')).toBe(true);
+    });
 });
 
 test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {
@@ -2373,5 +2735,13 @@ test.describe('syncTenantRepos manual CLI (#15748)', () => {
             onlyRepoSlugs: ['org/a', 'org/b'],
             fullReplay   : true
         });
+    });
+
+    test('resolveExitCode maps runTask results onto the documented exit-code contract (#15763)', () => {
+        expect(resolveExitCode({status: 'completed', details: {}})).toBe(0);
+        expect(resolveExitCode({status: 'skipped', details: {reasonCode: 'KB_TENANT_REPO_SYNC_LEASE_HELD'}})).toBe(4);
+        expect(resolveExitCode({status: 'failed', details: {reasonCode: 'KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED'}})).toBe(3);
+        expect(resolveExitCode({status: 'failed', details: {reasonCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'}})).toBe(1);
+        expect(resolveExitCode({status: 'skipped', details: {reason: 'no-tenant-repos-configured'}})).toBe(1);
     });
 });

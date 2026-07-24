@@ -17,6 +17,14 @@ export const KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED    = 'KB_TENANT_REPO_SYNC_R
 export const KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND       = 'KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND';
 export const KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
 export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT';
+// Non-failure defer reason: another process holds the cross-process tenant-repo-sync
+// lease. Surfaced as a `skipped` reasonCode (never thrown) so the periodic lane and
+// the manual CLI can branch on it without treating operator ownership as an error.
+export const KB_TENANT_REPO_SYNC_LEASE_HELD = 'KB_TENANT_REPO_SYNC_LEASE_HELD';
+// Commit-point fence: lease ownership was lost (TTL eviction or takeover) between
+// acquisition and a manifest write. The sweep aborts WITHOUT writing, so an evicted
+// writer can never overlap the new owner's manifest commits.
+export const KB_TENANT_REPO_SYNC_LEASE_LOST = 'KB_TENANT_REPO_SYNC_LEASE_LOST';
 
 /**
  * @summary Frozen enumeration of all valid tenant-repo-sync error codes.
@@ -35,7 +43,9 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
-    KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT
+    KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_LEASE_HELD,
+    KB_TENANT_REPO_SYNC_LEASE_LOST
 ]);
 
 const TENANT_REPO_SYNC_ERROR_CODE_SET = new Set(TENANT_REPO_SYNC_ERROR_CODES);

@@ -1165,12 +1165,22 @@ class ConfigBase extends ConfigProvider {
                  *   the jitter window. A short sweep cadence + a long per-repo cadence means
                  *   each sweep checks all repos against their individual due-times; repos
                  *   become due at different sweeps based on their deterministic jitter offset.
+                 * - `leaseStaleAfterMs` bounds the cross-process tenant-repo-sync lease that
+                 *   serializes the daemon's periodic sweep against the manual CLI over the
+                 *   shared revisions manifest. Crashed owners are reclaimed immediately via
+                 *   pid-liveness; this TTL is only the backstop for a live-but-wedged owner
+                 *   and MUST comfortably exceed the longest legitimate sweep (clone + ingest
+                 *   across every configured repo) — the six-hour default mirrors the
+                 *   heavy-maintenance lease authority. Ownership is additionally re-verified
+                 *   at every manifest commit point, so an evicted writer aborts instead of
+                 *   overlapping the new owner.
                  *
                  * @type {Object}
                  */
                 tenantRepoSync: {
-                    jitterRatio   : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
-                    sweepCadenceMs: leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
+                    jitterRatio      : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
+                    leaseStaleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS', 'number'),
+                    sweepCadenceMs   : leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
                 },
                 /**
                  * Orchestrator-owned MLX inference server config. Operators tune via gitignored

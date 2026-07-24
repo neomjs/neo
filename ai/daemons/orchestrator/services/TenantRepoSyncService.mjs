@@ -14,12 +14,20 @@ import {
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
+    KB_TENANT_REPO_SYNC_LEASE_HELD,
+    KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
+import {
+    acquireHeavyMaintenanceLease,
+    inspectHeavyMaintenanceLease,
+    releaseHeavyMaintenanceLease,
+    renewHeavyMaintenanceLease
+} from './heavyMaintenanceLeasePrimitives.mjs';
 import {
     classifyTenantRepoCheckpoint,
     normalizeTenantRepoCheckpointState,
@@ -29,10 +37,11 @@ import {
 } from './tenantRepoCheckpointValidity.mjs';
 
 const
-    ACCESS_CONFIG_FINGERPRINT_KEY = randomBytes(32),
-    ACCESS_READINESS_MIN_TTL_MS   = 15 * 60 * 1000,
-    BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/,
-    PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
+    ACCESS_CONFIG_FINGERPRINT_KEY    = randomBytes(32),
+    ACCESS_READINESS_MIN_TTL_MS      = 15 * 60 * 1000,
+    BOUNDED_KB_ERROR_CODE_PATTERN    = /^KB_[A-Z0-9_]{1,120}$/,
+    PERSISTED_REVISIONS_FILE_NAME    = 'tenant-repo-sync-revisions.json',
+    TENANT_REPO_SYNC_LEASE_FILE_NAME = 'tenant-repo-sync-lease.json';
 
 /**
  * @summary In-memory async semaphore with optional slot-acquisition timeout.
@@ -605,6 +614,8 @@ class TenantRepoSyncService extends Base {
      * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
      * @param {Boolean} [options.fullReplay=false] Build selected-repo envelopes from a null revision base. Requires non-empty `onlyRepoSlugs`; persisted checkpoints remain unchanged until each replay completes without summary errors.
      * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<orchestrator dataDir leaf>/tenant-repo-sync-revisions.json`.
+     * @param {Number} [options.leaseStaleAfterMs] Override the cross-process lease TTL (test seam). Defaults to the `orchestrator.tenantRepoSync.leaseStaleAfterMs` leaf. Crashed owners recover immediately via pid-liveness; the TTL only bounds a live-but-wedged owner.
+     * @param {Number} [options.leaseRenewalIntervalMs] Override the lease renewal cadence (test seam). Defaults to `max(5000, floor(leaseStaleAfterMs / 3))` — a live, renewing run never reaches its TTL deadline, so a replacement owner cannot start repo work while this one is still making progress.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
      */
@@ -620,10 +631,12 @@ class TenantRepoSyncService extends Base {
         onlyRepoSlugs,
         fullReplay = false,
         revisionsFilePath,
-        envelopeBuilder = buildIngestEnvelope,
-        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
-        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
-        seedBootstrap   = true
+        envelopeBuilder   = buildIngestEnvelope,
+        globalCadenceMs   = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio       = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        leaseStaleAfterMs = AiConfig.data.orchestrator.tenantRepoSync.leaseStaleAfterMs,
+        leaseRenewalIntervalMs,
+        seedBootstrap     = true
     } = {}) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -634,12 +647,131 @@ class TenantRepoSyncService extends Base {
             return {status: 'skipped', details};
         }
 
+        // Cross-process serialization: the daemon's periodic sweep and the manual CLI are
+        // separate processes sharing one revisions manifest, and the injected task-state
+        // guard above is process-local only. One dedicated tokenized lease — a sibling
+        // file of the manifest, so lock and data share a persistence/recovery boundary —
+        // makes them mutually exclusive. Contention is a non-failure deferral that never
+        // mutates any repo's checkpoint, attempt timestamp, or backoff state. Crashed
+        // owners recover instantly via pid-liveness; the TTL bounds wedged-but-alive ones.
+        const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
+        const resolvedLeasePath     = path.join(path.dirname(resolvedRevisionsPath), TENANT_REPO_SYNC_LEASE_FILE_NAME);
+
+        let acquisition;
+        try {
+            acquisition = await acquireHeavyMaintenanceLease({
+                owner       : `tenant-repo-sync:${reason === 'manual' ? 'manual' : 'scheduler'}`,
+                reason      : 'tenant-repo-sync',
+                leasePath   : resolvedLeasePath,
+                staleAfterMs: leaseStaleAfterMs
+            });
+        } catch (e) {
+            // An IO failure while creating the lease (unwritable state dir, broken volume)
+            // is a lane failure, not a crash: keep the structured-result contract.
+            const details = {
+                reason,
+                phase     : 'lease-acquire',
+                error     : e.message,
+                reasonCode: KB_TENANT_REPO_SYNC_SYNC_FAILED
+            };
+            taskStateService.markFailed(taskName, null, {status: 'failed', ...details});
+            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${KB_TENANT_REPO_SYNC_SYNC_FAILED} (lease-acquire: ${e.message})`);
+            healthService?.recordTaskOutcome?.(taskName, 'failed', details);
+            return {status: 'failed', details};
+        }
+
+        if (!acquisition.acquired) {
+            const heldLease = acquisition.lease;
+            const details   = {
+                reason,
+                skippedAt      : new Date().toISOString(),
+                reasonCode     : KB_TENANT_REPO_SYNC_LEASE_HELD,
+                leaseOwner     : heldLease?.owner || 'unknown',
+                leaseAcquiredAt: heldLease?.acquiredAt || null,
+                leaseExpiresAt : heldLease?.expiresAt || null
+            };
+            writeLog?.('INFO', `[TenantRepoSync] Deferring; cross-process lease held by ${details.leaseOwner}.`);
+            taskStateService.markSkipped(taskName, {status: 'skipped', ...details});
+            healthService?.recordTaskOutcome?.(taskName, 'skipped', details);
+            return {status: 'skipped', details};
+        }
+
         taskStateService.markStarted(taskName, reason);
+
+        // Work-level exclusivity is three cooperating parts:
+        //
+        // 1. RENEWAL — a live run extends its own deadline every
+        //    `renewalIntervalMs` (default TTL/3, floor 5s), so a run that is
+        //    still making progress never becomes TTL-stale and can never be
+        //    reclaimed mid-work. Losing a renewal (replaced lease, missing
+        //    file, IO failure) latches `leaseLost`.
+        // 2. WORK FENCES — `leaseGuard` runs before each repo's git phase,
+        //    before each KB ingest, and before every manifest commit. A run
+        //    whose ownership is no longer provable stops STARTING protected
+        //    work at the next fence instead of overlapping the successor;
+        //    in-flight work is bounded to at most one fenced step.
+        // 3. TTL BACKSTOP — pid-liveness + the (renewal-refreshed) deadline
+        //    still bound a crashed or fully wedged owner for successors.
+        let leaseLost      = false,
+            renewalStopped = false,
+            renewalTimer   = null;
+
+        const renewalIntervalMsResolved = leaseRenewalIntervalMs ?? Math.max(5000, Math.floor(leaseStaleAfterMs / 3));
+
+        const scheduleRenewal = () => {
+            renewalTimer = setTimeout(async () => {
+                try {
+                    const renewal = await renewHeavyMaintenanceLease({
+                        token       : acquisition.lease.token,
+                        leasePath   : resolvedLeasePath,
+                        staleAfterMs: leaseStaleAfterMs
+                    });
+
+                    if (!renewal.renewed) {
+                        leaseLost = true;
+                        writeLog?.('WARN', `[TenantRepoSync] Lease renewal lost ownership (${renewal.status}); aborting at the next fence.`);
+                        return;
+                    }
+                } catch (e) {
+                    leaseLost = true;
+                    writeLog?.('WARN', `[TenantRepoSync] Lease renewal failed (${e.message}); aborting at the next fence.`);
+                    return;
+                }
+
+                if (!renewalStopped) {
+                    scheduleRenewal();
+                }
+            }, renewalIntervalMsResolved);
+            renewalTimer.unref?.();
+        };
+        scheduleRenewal();
+
+        const leaseGuard = async () => {
+            if (leaseLost) {
+                throw new TenantRepoSyncError(
+                    KB_TENANT_REPO_SYNC_LEASE_LOST,
+                    'Tenant-repo-sync lease ownership was lost (renewal failure); aborting before further protected work.',
+                    {phase: 'lease-fence'}
+                );
+            }
+
+            const currentLease = await inspectHeavyMaintenanceLease({leasePath: resolvedLeasePath});
+
+            if (!currentLease.active || currentLease.lease?.token !== acquisition.lease.token) {
+                leaseLost = true;
+                throw new TenantRepoSyncError(
+                    KB_TENANT_REPO_SYNC_LEASE_LOST,
+                    'Tenant-repo-sync lease ownership was lost; aborting before further protected work.',
+                    {phase: 'lease-fence'}
+                );
+            }
+        };
 
         try {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-                fullReplay, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
+                fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
+                revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status         = result.status;
@@ -677,6 +809,15 @@ class TenantRepoSyncService extends Base {
             writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
+        } finally {
+            // Token-guarded release on every settled path (success, returned-error result,
+            // throw). A hard process crash skips this block by definition — the next
+            // acquirer then reclaims via the pid-liveness stale check instead.
+            renewalStopped = true;
+            if (renewalTimer) {
+                clearTimeout(renewalTimer);
+            }
+            await releaseHeavyMaintenanceLease({token: acquisition.lease.token, leasePath: resolvedLeasePath});
         }
     }
 
@@ -689,6 +830,7 @@ class TenantRepoSyncService extends Base {
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
+        leaseGuard      = async () => {},
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         seedBootstrap   = true
@@ -758,6 +900,7 @@ class TenantRepoSyncService extends Base {
         const repoStates     = [];
         let   completedCount = 0;
         let   failedCount    = 0;
+        let   abortedCount   = 0;
 
         // Per-runTask concurrency gate caps simultaneous git/ingest work.
         // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
@@ -802,6 +945,7 @@ class TenantRepoSyncService extends Base {
                 }
             }
             if (seededAny) {
+                await leaseGuard();
                 await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
             }
         }
@@ -907,6 +1051,12 @@ class TenantRepoSyncService extends Base {
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
+
+                // Work fence: do not START this repo's git phase without provable
+                // lease ownership. A run that lost its lease (renewal failure or
+                // reclamation) stops here instead of running git work concurrently
+                // with its successor.
+                await leaseGuard();
                 writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
 
                 await gitMirror.cloneIfMissing({
@@ -942,6 +1092,10 @@ class TenantRepoSyncService extends Base {
                 if (typeof envelope?.headRevision !== 'string' || !envelope.headRevision.trim()) {
                     throw new Error('Tenant-repo ingestion envelope did not prove a head revision.');
                 }
+
+                // Work fence: the KB write is the second substrate mutation this
+                // lane protects (the manifest commit being the first).
+                await leaseGuard();
 
                 const ingestResult = assertErrorFreeIngestionSummary(await ingestionService.ingestSourceFiles({
                     ...envelope,
@@ -988,6 +1142,26 @@ class TenantRepoSyncService extends Base {
                     checkpointStatus: TenantRepoCheckpointStatus.COMPLETE
                 });
             } catch (e) {
+                // Lease loss is a RUN-level abort, not a repo failure: leave the
+                // repo's checkpoint, attempt timestamp, and backoff state untouched
+                // (the successor owns forward progress now), record an 'aborted'
+                // repo state, and let the post-sweep check raise the structural
+                // LEASE_LOST for the whole run.
+                if (e.code === KB_TENANT_REPO_SYNC_LEASE_LOST) {
+                    abortedCount++;
+                    writeLog?.('WARN', `[TenantRepoSync] ${repoLabel} aborted: lease ownership lost before protected work.`);
+                    repoStates.push({
+                        tenantId           : repo.tenantId,
+                        repoSlug           : repo.repoSlug,
+                        lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
+                        lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
+                        status             : 'aborted-lease-lost',
+                        checkpointStatus,
+                        consecutiveFailures: priorState?.consecutiveFailures ?? 0
+                    });
+                    return;
+                }
+
                 const code            = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
                 const sourceErrorCode = getSourceErrorCode(e, code);
                 const sourceSuffix    = sourceErrorCode ? ` source=${sourceErrorCode}` : '';
@@ -1059,6 +1233,19 @@ class TenantRepoSyncService extends Base {
         await Promise.all(admittedRevalidationRepos.map(syncRepo));
         await Promise.all(remainingRepos.map(syncRepo));
 
+        // Any lease-lost abort makes the whole run structurally failed: partial
+        // per-repo results must not be committed (the successor's run is the
+        // authoritative one), and per-repo backoff state was deliberately left
+        // untouched above.
+        if (abortedCount > 0) {
+            throw new TenantRepoSyncError(
+                KB_TENANT_REPO_SYNC_LEASE_LOST,
+                `Tenant-repo-sync lease ownership was lost mid-sweep; ${abortedCount} repo(s) aborted before protected work and no manifest was committed.`,
+                {phase: 'lease-fence', abortedCount}
+            );
+        }
+
+        await leaseGuard();
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
         // Status logic: not-due repos don't change the success/failure tally — a cycle
@@ -1232,20 +1419,45 @@ class TenantRepoSyncService extends Base {
      * directory on first write so a fresh deployment doesn't need explicit dir
      * provisioning.
      *
+     * Atomic whole-file replacement: the document is written to a temporary
+     * sibling, fsynced, then renamed over the target. A process crash at any
+     * point therefore leaves either the previous complete manifest or the new
+     * complete manifest on disk — never a truncated JSON document (which the
+     * strict reader would otherwise fail-close the whole lane on).
+     *
      * Throws `TenantRepoSyncError(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED)` on
      * write failure so the next cycle re-detects the same diff and retries
-     * idempotently (per-repo failure isolation contract).
+     * idempotently (per-repo failure isolation contract). The temporary sibling
+     * is best-effort removed on failure.
      *
      * @param {Object} options
      * @param {String} options.filePath
      * @param {Object<String, String>} options.revisions
+     * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
      * @returns {Promise<void>}
      */
-    async writePersistedRevisions({filePath, revisions}) {
+    async writePersistedRevisions({filePath, revisions, fsModule = fs}) {
+        const tmpPath = `${filePath}.tmp-${process.pid}`;
+
         try {
-            await fs.ensureDir(path.dirname(filePath));
-            await fs.writeJson(filePath, {revisions}, {spaces: 2});
+            await fsModule.ensureDir(path.dirname(filePath));
+
+            // writeFile carries Node's full-write contract (it retries partial
+            // writes internally), unlike a single unchecked fs.write() whose
+            // bytesWritten may be short. Only after the COMPLETE payload exists
+            // is it fsynced and atomically renamed over the target.
+            await fsModule.writeFile(tmpPath, JSON.stringify({revisions}, null, 2) + '\n');
+
+            const fd = await fsModule.open(tmpPath, 'r+');
+            try {
+                await fsModule.fsync(fd);
+            } finally {
+                await fsModule.close(fd);
+            }
+
+            await fsModule.rename(tmpPath, filePath);
         } catch (e) {
+            await fsModule.remove(tmpPath).catch(() => {});
             throw new TenantRepoSyncError(
                 KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
                 `Failed to persist tenant-repo-sync revisions at ${filePath}: ${e.message}`,

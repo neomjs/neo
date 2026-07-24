@@ -1,6 +1,8 @@
 import {test, expect} from '@playwright/test';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
+    KB_TENANT_REPO_SYNC_LEASE_HELD,
+    KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -14,6 +16,8 @@ test.describe('TenantRepoSyncErrors taxonomy (#11942 AC3+AC4)', () => {
     test('all exported codes carry the canonical KB_TENANT_REPO_SYNC_ prefix', () => {
         const codes = [
             KB_TENANT_REPO_SYNC_SYNC_FAILED,
+            KB_TENANT_REPO_SYNC_LEASE_HELD,
+            KB_TENANT_REPO_SYNC_LEASE_LOST,
             KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
             KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
             KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -27,8 +31,10 @@ test.describe('TenantRepoSyncErrors taxonomy (#11942 AC3+AC4)', () => {
 
     test('TENANT_REPO_SYNC_ERROR_CODES array contains exactly the exported codes', () => {
         expect(Array.isArray(TENANT_REPO_SYNC_ERROR_CODES)).toBe(true);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(5);
+        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(7);
         expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_SYNC_FAILED);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_LEASE_HELD);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_LEASE_LOST);
         expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED);
         expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND);
         expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED);
@@ -42,9 +48,9 @@ test.describe('TenantRepoSyncErrors taxonomy (#11942 AC3+AC4)', () => {
         // in strict mode. ES modules are strict by default, so these throw.
         expect(Object.isFrozen(TENANT_REPO_SYNC_ERROR_CODES)).toBe(true);
         expect(() => TENANT_REPO_SYNC_ERROR_CODES.push('KB_TENANT_REPO_SYNC_MUTATED')).toThrow(TypeError);
-        expect(() => { TENANT_REPO_SYNC_ERROR_CODES[5] = 'KB_TENANT_REPO_SYNC_MUTATED'; }).toThrow(TypeError);
+        expect(() => { TENANT_REPO_SYNC_ERROR_CODES[TENANT_REPO_SYNC_ERROR_CODES.length] = 'KB_TENANT_REPO_SYNC_MUTATED'; }).toThrow(TypeError);
         expect(() => { TENANT_REPO_SYNC_ERROR_CODES.length = 0; }).toThrow(TypeError);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(5);
+        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(7);
         expect(TENANT_REPO_SYNC_ERROR_CODES).not.toContain('KB_TENANT_REPO_SYNC_MUTATED');
         expect(isTenantRepoSyncErrorCode('KB_TENANT_REPO_SYNC_MUTATED')).toBe(false);
     });
