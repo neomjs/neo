@@ -1,0 +1,109 @@
+import {expect, test}                           from '@playwright/test';
+import {claimsGpuAcceleration, GPU_INTENT_ARGS} from '../../e2e/utils/gpuIntent.mjs';
+import {readGlState, SOFTWARE_RENDERER_MARKERS} from '../../e2e/utils/glState.mjs';
+
+/**
+ * @summary Coverage for the E2E boot probe's decision core.
+ *
+ * `readGlState` takes a Playwright page and calls one `evaluate`, so the browser is an injected seam
+ * and every branch is reachable with a fake. That matters more than usual here: the `unobserved`
+ * branch cannot be produced by any launch flag — `WEBGL_debug_renderer_info` is available on every
+ * seat we run on — so without a fake it would be a branch that only exists in the source. A guard
+ * whose third state has never once been observed firing is indistinguishable from one that has two.
+ *
+ * The `accelerated` and `degraded` states are additionally proven end-to-end against a real Chrome
+ * in the PR's red/green evidence; these tests pin the classification, not the browser.
+ */
+test.describe('e2e/utils/glState', () => {
+    const fakePage = value => ({
+        evaluate: async () => {
+            if (value instanceof Error) throw value;
+            return value
+        }
+    });
+
+    test('#15813 no WebGL context at all is DEGRADED — the #15664 signature', async () => {
+        // Measured, not imagined: launching Chrome with --use-gl=desktop + --disable-software-rasterizer
+        // returns exactly {context: false}. That is the state the suite shipped in for five months.
+        const result = await readGlState(fakePage({context: false}));
+
+        expect(result.state).toBe('degraded');
+        expect(result.reason).toBe('no-webgl-context');
+        expect(result.renderer).toBeNull();
+    });
+
+    test('#15813 a hardware renderer is ACCELERATED', async () => {
+        const result = await readGlState(fakePage({
+            context : true,
+            renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max, Unspecified Version)',
+            vendor  : 'Google Inc. (Apple)',
+            generic : 'WebKit WebGL'
+        }));
+
+        expect(result.state).toBe('accelerated');
+        expect(result.reason).toBeNull();
+        expect(result.renderer).toContain('Metal');
+    });
+
+    test('#15813 every software marker classifies as DEGRADED, not accelerated', async () => {
+        for (const marker of SOFTWARE_RENDERER_MARKERS) {
+            const result = await readGlState(fakePage({
+                context : true,
+                renderer: `ANGLE (Google, Vulkan 1.3 (${marker} Device))`,
+                vendor  : 'Google Inc.',
+                generic : 'WebKit WebGL'
+            }));
+
+            expect(result.state, `marker "${marker}" must classify as degraded`).toBe('degraded');
+            expect(result.reason).toContain(marker);
+        }
+    });
+
+    test('#15813 marker matching is case-insensitive — renderer strings are vendor-formatted', async () => {
+        // Renderer strings are whatever the driver prints; "SwiftShader" ships capitalised, and a
+        // case-sensitive match would have let the real-world spelling through.
+        const result = await readGlState(fakePage({
+            context : true,
+            renderer: 'ANGLE (Google, Vulkan 1.3 (SwiftShader Device))',
+            vendor  : 'Google Inc.',
+            generic : 'WebKit WebGL'
+        }));
+
+        expect(result.state).toBe('degraded');
+    });
+
+    test('#15813 a context WITHOUT a usable renderer string is UNOBSERVED, never accelerated', async () => {
+        // The branch this whole module exists for. A context exists, so the naive read is "GL works";
+        // but the renderer is unidentifiable, so software rendering cannot be ruled out. Reporting
+        // accelerated here would be the absence of evidence spoken as evidence.
+        const result = await readGlState(fakePage({
+            context : true,
+            renderer: null,
+            vendor  : null,
+            generic : 'WebKit WebGL'
+        }));
+
+        expect(result.state).toBe('unobserved');
+        expect(result.reason).toBe('webgl-debug-renderer-info-unavailable');
+        expect(result.generic).toBe('WebKit WebGL'); // still reported — the reader may want it
+    });
+
+    test('#15813 the probe FAILING is not the browser being healthy', async () => {
+        const result = await readGlState(fakePage(new Error('Target page, context or browser has been closed')));
+
+        expect(result.state).toBe('unobserved');
+        expect(result.reason).toContain('probe-evaluation-failed');
+        expect(result.reason).toContain('browser has been closed');
+    });
+
+    test('#15813 the demand is armed by the declaration, not hardcoded', async () => {
+        // A config that claims nothing must be able to demand nothing, or the gate becomes something
+        // a headless lane has to switch off — and a gate people switch off is worse than no gate.
+        expect(claimsGpuAcceleration(GPU_INTENT_ARGS)).toBe(true);
+        expect(claimsGpuAcceleration(['--no-sandbox', '--disable-dev-shm-usage'])).toBe(false);
+        expect(claimsGpuAcceleration([])).toBe(false);
+
+        // Tuning flags do not by themselves claim acceleration and must not arm the demand.
+        expect(claimsGpuAcceleration(['--disable-frame-rate-limit', '--force-gpu-mem-available-mb=4096'])).toBe(false);
+    });
+});

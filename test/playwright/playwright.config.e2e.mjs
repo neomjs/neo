@@ -2,6 +2,7 @@ import './configTemplateResolver.mjs';
 
 import {defineConfig, devices} from '@playwright/test';
 import {resolveFreePortSync}   from './resolveFreePort.mjs';
+import {E2E_LAUNCH_ARGS}       from './e2e/utils/gpuIntent.mjs';
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -41,36 +42,21 @@ export default defineConfig({
     },
 
     projects: [{
-        name: 'chromium',
-        use : {
+        // Boot gate: observes that the GPU-intent flags below actually resolve to hardware
+        // GL before a single benchmark attributes a number to acceleration it may not have. Launches
+        // with the SAME args as the suite — probing a different browser would prove nothing.
+        name     : 'gl-probe',
+        testMatch: /gl\.setup\.mjs$/,
+        use      : {channel: 'chrome', launchOptions: {args: E2E_LAUNCH_ARGS}}
+    }, {
+        name        : 'chromium',
+        dependencies: ['gl-probe'],
+        use         : {
             channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
-            launchOptions: {
-                args: [
-                    // NEVER pass '--use-gl=desktop' or '--disable-software-rasterizer' here: modern Chrome's
-                    // GL allowlist is ANGLE-only (metal/opengl/swiftshader), so 'desktop' resolves to gl=none —
-                    // the GPU process then dies at EVERY window birth, and with the software fallback disabled
-                    // Chromium's crash threshold kills the whole browser mid-test in headed mode: the second
-                    // popup birth crossed it deterministically ("GPU process isn't usable. Goodbye." → SIGTRAP,
-                    // all SharedWorkers gone). Without the overrides Chrome selects its supported ANGLE
-                    // backend — measured on this seat with this flag set, headed AND headless:
-                    // "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max)".
-                    '--ignore-gpu-blocklist',
-                    '--enable-gpu-rasterization',
-                    '--enable-zero-copy',
-                    '--enable-accelerated-2d-canvas',
-                    '--disable-frame-rate-limit',
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--js-flags=--max_old_space_size=8192',
-                    '--disable-background-timer-throttling',
-                    '--disable-backgrounding-occluded-windows',
-                    '--disable-renderer-backgrounding',
-                    '--disable-dev-shm-usage',
-                    '--disable-ipc-flooding-protection',
-                    '--force-gpu-mem-available-mb=4096',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ]
-            }
+            // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
+            // launches with. A second copy here would drift, and drift between two statements of one
+            // fact is how a dead GL flag stayed invisible for five months.
+            launchOptions: {args: E2E_LAUNCH_ARGS}
         }
     }]
 });
