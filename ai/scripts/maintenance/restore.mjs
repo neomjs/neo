@@ -69,6 +69,57 @@ import {
  *       fire the guard against the target file/dir path before overwriting. Refuses if
  *       any target is non-empty without `--force`.
  *
+ * - **Which operation is this? (`--preserve-read-state`, replace mode only.)** Two different
+ *   operations share this one CLI, and they need opposite read-state policies:
+ *     - **Disaster recovery** (default) — the bundle IS the new state. Reproduce it exactly;
+ *       mailbox read receipts committed after the bundle was captured go with everything else.
+ *     - **Operational re-seed** (`--preserve-read-state`) — the graph is being rebuilt from a
+ *       lagged snapshot, **with writers quiesced first** (see the quiescence precondition below;
+ *       this deliberately no longer claims "while seats keep working"). `DELIVERED_TO`
+ *       `readAt`/`archivedAt` is
+ *       runtime-only state that no synced bundle can carry, so without the flag an acknowledged
+ *       `mark_read` is wiped after the tool already returned `status: 'read'` — an acknowledged
+ *       write destroyed by a restore, which reads to the seat as its mailbox rolling backwards.
+ *   Nothing is guessed from context — the operator states the intent, because only the operator
+ *   knows which of the two runs this is.
+ *
+ * - **TWO npm FACES, and read this before adding a flag.** Because those are two operations rather
+ *   than two settings, each has its own entry point, and the name **binds** the intent — it does not
+ *   merely suggest it:
+ *     - `npm run ai:restore -- <bundle> --mode replace --force` — disaster recovery. Every argument
+ *       is the operator's; nothing is pinned.
+ *     - `npm run ai:reseed  -- <bundle> --force` — the live operational re-seed. A **named operation**
+ *       (`--operation reseed`, see `NAMED_OPERATIONS`) that PINS `mode: 'replace'`,
+ *       `onlySubstrate: ['graph']` and `preserveReadState: true`, and **refuses** any argument that
+ *       contradicts them. `--force` deliberately stays OUTSIDE it: the destructive acknowledgment
+ *       must never ride along inside a convenience name.
+ *   **Why pinned rather than pre-set, which is what this started as:** pre-set defaults lose to a
+ *   later argument, so `ai:reseed -- <b> --mode merge` would have performed a MERGE under a name
+ *   promising a replace, and the un-pinned `onlySubstrate` would have replaced **all six** substrates
+ *   under a name advertising a safe live operation. A name an argument can redefine is a suggestion.
+ *   Graph-only is not a narrowing for tidiness: `DELIVERED_TO` read-state lives in the graph, which
+ *   is the whole reason preservation matters here.
+ *   A safety property governs only where its consumer loads it — and mid-incident an operator's load
+ *   path is muscle memory and shell completion, never flag documentation. Hence a name, not a note.
+ *   **The drift this invites, and where to defend it:** a pass-through flag added later reaches both
+ *   faces automatically (argument order is irrelevant). But a flag that interacts with a PINNED value
+ *   must be added to that operation's `pins` here, or the operation will refuse it as a contradiction.
+ *   This warning lives in the header rather than `package.json` because JSON cannot carry a comment,
+ *   and because this file is what you are reading when you add the flag.
+ *
+ * - **QUIESCENCE PRECONDITION for `reseed` — a stated requirement, not an unhandled race.**
+ *   `truncateDatabase()` captures the committed read receipts **inside** its truncate transaction,
+ *   which closes the lost-acknowledged-write window that a separate SELECT-then-DELETE would open.
+ *   But that transaction **ends before the import and re-apply run.** A `mark_read` acknowledged
+ *   after the capture and before the re-apply completes is therefore **lost**, and nothing detects
+ *   it. So: **stop the writers before re-seeding.** Preservation still matters under quiescence —
+ *   the bundle is lagged, so receipts committed since it was captured must survive the rebuild;
+ *   quiescing only removes the *concurrent* writer, not the stale-snapshot problem.
+ *   A live-writer-safe variant needs a **writer fence** held across truncate→import→re-apply, which
+ *   in SQLite means an exclusive lock for the whole import — i.e. enforced quiescence rather than
+ *   avoided quiescence — plus a concurrent falsifier proving an ack inside the window survives.
+ *   That is a separate design question and is deliberately NOT claimed here.
+ *
  * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
  *       drops edges whose endpoint was filtered). Example: `FILE,DIRECTORY,KB_GAP,TOOLING_GAP`.
@@ -120,6 +171,7 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
  * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
+ * @param {Boolean} [options.preserveReadState=false]      Selects the read-state policy for a `'replace'` graph restore, because the two operations that share this CLI need opposite ones. `false` (default) is DISASTER RECOVERY: the bundle is reproduced exactly, and mailbox read receipts committed after the bundle was captured are discarded with everything else. `true` is an OPERATIONAL RE-SEED: committed `DELIVERED_TO` `readAt`/`archivedAt` are captured inside the truncate transaction and re-applied wherever the bundle left them null, so acknowledged `mark_read` writes survive rebuilding the graph from a lagged snapshot. Only null-in-bundle rows are touched, so a fresher bundle is never regressed. No-op under `'merge'`, which never truncates. Forwarded as `preserveDeliveryReadState`.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, mode: String, subsystems: Object, meta: Object|null, topology: Object, postRestoreHook: Object|null}>}
  */
@@ -136,6 +188,7 @@ export async function runRestore({
     filterEdgeTypes         = [],
     onlySubstrate           = null,
     postRestoreHook         = null,
+    preserveReadState       = false,
     expectedDimension       = AiConfig.vectorDimension,
     logger                  = console
 } = {}) {
@@ -144,6 +197,12 @@ export async function runRestore({
     }
     if (mode !== 'merge' && mode !== 'replace') {
         throw new Error(`Unknown mode: ${mode}. Must be 'merge' or 'replace'.`);
+    }
+    // Say so rather than ignoring it. The flag expresses an intent about data safety, and a caller who
+    // believes it is protecting read receipts should learn that merge never put them at risk — silently
+    // accepting a safety-intent flag that does nothing is how a caller ends up trusting the wrong run.
+    if (preserveReadState && mode === 'merge') {
+        logger.warn?.('[Restore] --preserve-read-state has no effect under `--mode merge`: merge never truncates the graph, so DELIVERED_TO read receipts were never at risk. The flag applies to `--mode replace`.');
     }
 
     const resolvedRoot = path.resolve(bundleRoot);
@@ -237,11 +296,16 @@ export async function runRestore({
             });
         }
 
+        // Forwarding this is the whole reason the SDK accepts a policy at all: a replace-mode import
+        // truncates the graph, and `DELIVERED_TO` `readAt` is runtime-only state no synced bundle can
+        // carry. Drop the forward and the SDK's preservation becomes unreachable from every real
+        // invocation — the default then silently wipes `mark_read` writes already acknowledged as read.
         subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
-            action: 'import',
-            file  : graphInputDir,
+            action                   : 'import',
+            file                     : graphInputDir,
             mode,
-            confirmation
+            confirmation,
+            preserveDeliveryReadState: preserveReadState
         });
 
         if (filterActive) {
@@ -968,6 +1032,25 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
 }
 
 /**
+ * Named operations: an operator-facing intent with its defining arguments PINNED, not defaulted.
+ *
+ * `reseed` is the operational re-seed — the graph rebuilt from a lagged snapshot, **with writers
+ * quiesced first** (see the quiescence precondition in the module header; the capture transaction
+ * closes before the re-apply, so a concurrently-acked `mark_read` would be lost). It is graph-ONLY
+ * on purpose: `DELIVERED_TO` read-state lives in the graph, and that is the entire reason
+ * preservation matters, so replacing the other five substrates under this name would be a far larger
+ * destructive footprint than the name implies.
+ * Disaster recovery keeps the plain `ai:restore` surface with its exact-replacement default.
+ * @type {Object}
+ */
+const NAMED_OPERATIONS = {
+    reseed: {
+        pins        : {mode: 'replace', onlySubstrate: ['graph'], preserveReadState: true},
+        conflictHint: 'Use `npm run ai:restore` for a different mode or a wider substrate set.'
+    }
+};
+
+/**
  * Parses CLI arguments for direct-invocation mode.
  *
  * Shape: `node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]`
@@ -976,7 +1059,13 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
  * @returns {Object}
  */
 export function parseArgs(argv) {
-    const positional            = [];
+    const positional = [];
+    // Track what the CALLER stated, separately from what an operation pins. Without this the
+    // operation cannot tell "the operator asked for merge" from "nobody said anything", and a
+    // named operation whose defining flags a later argument silently overrides is not an
+    // operation — it is a suggestion. This started life as that suggestion.
+    const stated                = {};
+    let   operation             = null;
     let   mode                  = 'merge';
     let   force                 = false;
     let   forceTopologyMismatch = false;
@@ -984,13 +1073,18 @@ export function parseArgs(argv) {
     let   filterEdgeTypes       = [];
     let   onlySubstrate         = null;
     let   postRestoreHook       = null;
+    let   preserveReadState     = false;
 
     const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
-        if (arg === '--mode') {
-            mode = argv[++i];
+        if (arg === '--operation') {
+            operation = argv[++i];
+        } else if (arg.startsWith('--operation=')) {
+            operation = arg.slice('--operation='.length);
+        } else if (arg === '--mode') {
+            mode = argv[++i]; stated.mode = mode;
         } else if (arg === '--force') {
             force = true;
         } else if (arg === '--force-topology-mismatch') {
@@ -1004,13 +1098,15 @@ export function parseArgs(argv) {
         } else if (arg.startsWith('--filter-edge-types=')) {
             filterEdgeTypes = splitCsv(arg.slice('--filter-edge-types='.length));
         } else if (arg === '--only-substrate') {
-            onlySubstrate = splitCsv(argv[++i]);
+            onlySubstrate = splitCsv(argv[++i]); stated.onlySubstrate = onlySubstrate;
         } else if (arg.startsWith('--only-substrate=')) {
-            onlySubstrate = splitCsv(arg.slice('--only-substrate='.length));
+            onlySubstrate = splitCsv(arg.slice('--only-substrate='.length)); stated.onlySubstrate = onlySubstrate;
         } else if (arg === '--post-restore-hook') {
             postRestoreHook = argv[++i];
         } else if (arg.startsWith('--post-restore-hook=')) {
             postRestoreHook = arg.slice('--post-restore-hook='.length);
+        } else if (arg === '--preserve-read-state') {
+            preserveReadState = true;
         } else if (arg.startsWith('--')) {
             throw new Error(`Unknown flag: ${arg}`);
         } else {
@@ -1025,7 +1121,33 @@ export function parseArgs(argv) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook}
+    // A named operation PINS its defining arguments and refuses contradiction. It does not merely
+    // pre-set defaults a later argument can overwrite: `npm run ai:reseed -- <b> --mode merge`
+    // would otherwise perform a MERGE under a name that promises a replace, which is a worse lie
+    // than having no name at all. `--force` is deliberately NOT pinned — the destructive
+    // acknowledgment stays the operator's explicit act and never rides inside a convenience name.
+    if (operation !== null) {
+        const op = NAMED_OPERATIONS[operation];
+
+        if (!op) {
+            throw new Error(`Unknown operation: ${operation}. Valid: ${Object.keys(NAMED_OPERATIONS).join(', ')}.`);
+        }
+
+        for (const [key, pinned] of Object.entries(op.pins)) {
+            const asked = stated[key];
+
+            if (asked !== undefined && JSON.stringify(asked) !== JSON.stringify(pinned)) {
+                throw new Error(
+                    `--operation ${operation} pins ${key}=${JSON.stringify(pinned)}, but ${JSON.stringify(asked)} was requested. ` +
+                    `${op.conflictHint} Refusing rather than silently redefining the operation.`
+                );
+            }
+        }
+
+        ({mode = mode, onlySubstrate = onlySubstrate, preserveReadState = preserveReadState} = {...op.pins});
+    }
+
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState, operation}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -1044,6 +1166,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error(error.message);
         console.error('Usage: node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]');
         console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>]');
+        console.error('       [--preserve-read-state]  replace mode: keep committed mailbox read receipts (operational re-seed);');
+        console.error('                                omit for disaster recovery, where the bundle is reproduced exactly.');
+        console.error('       [--operation reseed]     graph-only re-seed. PINS --mode replace, --only-substrate=graph and');
+        console.error('                                --preserve-read-state, and REFUSES an argument that contradicts them.');
+        console.error('                                QUIESCE WRITERS FIRST: the read-receipt capture closes before the');
+        console.error('                                re-apply, so an ack landing in that window is lost. `npm run ai:reseed`.');
         console.error('Example (today\'s graph wipe restore):');
         console.error('  npm run ai:restore -- <bundle-path> --mode merge --only-substrate=graph \\');
         console.error('    --filter-labels=FILE,DIRECTORY,KB_GAP,TOOLING_GAP \\');

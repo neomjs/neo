@@ -646,7 +646,12 @@ class DatabaseService extends Base {
                             if (row.archivedAt != null) reapplyArchivedAt.run(row.archivedAt, row.source, row.target);
                         }
                     })(preservedDeliveryState);
-                    if (reapplied) logger.log(`[importDatabase] Re-applied ${reapplied} committed DELIVERED_TO read-receipt(s) preserved across the replace (#15448).`);
+                    // ALWAYS log, including zero. A receipt emitted only when non-zero cannot
+                    // distinguish "preservation ran and had nothing to re-apply" (a fresh bundle)
+                    // from "preservation never engaged" (the caller used the recovery path by
+                    // mistake) — and that is the exact ambiguity an operator reads this line to
+                    // resolve. Suppressing the zero makes the absence of output mean two things.
+                    logger.log(`[importDatabase] Re-applied ${reapplied} committed DELIVERED_TO read-receipt(s) preserved across the replace.`);
                 }
             }
 

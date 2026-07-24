@@ -25,6 +25,35 @@ Before initiating any restoration, ensure that all AI MCP servers and daemon pro
 | `--mode replace` | Gated + destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` before truncating + restoring; refuses if any target is non-empty without `--force`. |
 | `--force` | Required when `--mode replace` AND any target is populated (acknowledges overwrite). Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
 | `--force-topology-mismatch` | Bypasses the topology-compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment (collection IDs may diverge across topologies). |
+| `--preserve-read-state` | **Replace mode only.** Keeps committed mailbox read receipts (`DELIVERED_TO` `readAt`/`archivedAt`) across the truncate, re-applying them wherever the bundle left them null. Off by default, because `--mode replace` means *the bundle IS the new state* and a disaster-recovery restore must reproduce it exactly. No-op under `--mode merge`, which never truncates — the run warns rather than accepting a safety-intent flag silently. |
+| `--operation <name>` | Selects a **named operation** whose defining arguments are *pinned*, not defaulted. Currently `reseed` (see below). A contradicting argument is refused, never silently honoured. |
+
+### Which operation is this? — `ai:restore` vs `ai:reseed`
+
+Two operations share this CLI and need **opposite** read-state policies. Read-state is runtime-only: no synced bundle can carry it, so getting this wrong destroys `mark_read` writes the tool already acknowledged as `read`, which a seat experiences as its mailbox rolling backwards.
+
+| | `npm run ai:restore -- <bundle> --mode replace --force` | `npm run ai:reseed -- <bundle> --force` |
+|---|---|---|
+| **Operation** | Disaster recovery | Live operational re-seed |
+| **Meaning** | The bundle IS the new state; reproduce it exactly | The graph is rebuilt from a lagged snapshot, **with writers quiesced first** |
+| **Scope** | Whatever you ask for (all six substrates by default) | **Graph only** — pinned |
+| **Read receipts** | Discarded with everything else | **Preserved** — pinned |
+| **Mode** | Yours to state | `replace` — pinned |
+| **`--force`** | Yours | Yours — deliberately *not* pinned; the destructive acknowledgment never rides inside a convenience name |
+
+`ai:reseed` pins its three defining values and **refuses** an argument that contradicts any of them: `ai:reseed -- <bundle> --mode merge` aborts rather than performing a merge under a name that promises a replace. Graph-only is not tidiness — `DELIVERED_TO` lives in the graph, which is the entire reason preservation matters here, so a name advertising a safe live operation must not also replace `kb`/`mc`/`concepts`/`trajectories`/`mailbox`.
+
+> **⚠ Quiesce writers before `ai:reseed`. This is a precondition, not a nicety.**
+>
+> The read-receipt capture runs **inside** the truncate transaction, which closes the lost-write window a separate SELECT-then-DELETE would open. But that transaction **ends before the import and re-apply run** — so a `mark_read` acknowledged *after* the capture and *before* the re-apply completes is **lost, and nothing detects it.** Stop the seats (or the MC server) first, re-seed, then bring them back.
+>
+> Preservation still matters under quiescence: the bundle is *lagged*, so receipts committed since it was captured must survive the rebuild. Quiescing removes the concurrent writer, not the stale-snapshot problem — which is what the preservation is for.
+>
+> A live-writer-safe variant would need a **writer fence** held across truncate → import → re-apply. In SQLite that means an exclusive lock for the whole import, i.e. *enforced* quiescence rather than avoided quiescence, plus a concurrent falsifier proving an ack inside the window survives. Not implemented, and deliberately not claimed.
+
+**How to tell it worked:** a successful re-seed logs `[importDatabase] Re-applied N committed DELIVERED_TO read-receipt(s)`. **What `N` means, precisely:** it counts `DELIVERED_TO` edges whose receipt was captured before the truncate **and** which the restored bundle left null — i.e. receipts the bundle would have destroyed. So `N = 0` legitimately means *the bundle already carried every receipt* (a fresh bundle, or no reads since it was captured); it is **not** a success metric to maximise. The tell that something is wrong is `N = 0` on a re-seed from a **lagged** bundle where reads are known to have happened since — that means preservation did not engage, so check you used `ai:reseed` rather than `ai:restore`.
+
+**Adding a flag later:** a pass-through flag reaches both entrypoints automatically (argument order is irrelevant). A flag that interacts with a pinned value must be added to that operation's `pins` in `restore.mjs`, or the operation will refuse it as a contradiction.
 
 ### Pre-flight validation
 
@@ -36,7 +65,7 @@ When `--mode replace` targets canonical `.neo-ai-data/` paths, the destructive-o
 
 ### Programmatic use
 
-The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
+The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch, preserveReadState })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
 
 ## Restoration Procedures
 
