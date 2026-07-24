@@ -135,6 +135,27 @@ const createEdgeZoneModel = () => ({
 
 const getProjectedChildren = splitConfig => splitConfig.items.filter(item => item.dockNodeType !== 'splitter');
 
+/**
+ * Edge-zone model whose right zone is a TABS node directly (the FM cockpit's secondary-rail
+ * shape): both band items start auto-hidden, so the band's projected tab flow is empty and
+ * only the rail carries them.
+ * @returns {Object}
+ */
+const createTabsBandModel = () => ({
+    schema: 'neo.harness.dockZone.v1',
+    root  : 'root',
+    items : {
+        strategy: {componentRef: 'strategy', title: 'Strategy', kind: 'panel'},
+        detail  : {componentRef: 'detail',   title: 'Detail',   kind: 'inspector', autoHidden: true},
+        operator: {componentRef: 'operator', title: 'Operator', kind: 'tool',      autoHidden: true}
+    },
+    nodes: {
+        root       : {type: 'edge-zone', zones: {center: 'main-tabs', right: 'tool-tabs'}},
+        'main-tabs': {type: 'tabs', items: ['strategy'], activeItemId: 'strategy'},
+        'tool-tabs': {type: 'tabs', items: ['detail', 'operator'], activeItemId: 'detail'}
+    }
+});
+
 const getProjectedSplitters = splitConfig => splitConfig.items.filter(item => item.dockNodeType === 'splitter');
 
 test.describe('Neo.dashboard.DockLayoutAdapter', () => {
@@ -541,6 +562,70 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         // Center never auto-hides to a rail; the item stays visible rather than vanishing.
         expect(row.items.find(item => item.dockNodeType === 'edge-rail')).toBeUndefined();
         expect(center.items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('an edge band whose every item is railed projects rail-only — no empty in-flow band box', () => {
+        let model  = createTabsBandModel(),
+            result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        // Every band item is auto-hidden: the tabs would project an EMPTY flow, and an empty
+        // band still holding its fixed cross-extent starves the center (a dead gutter at
+        // desktop; band + rail can exceed a narrow vessel's whole row). Rail-only is the
+        // truthful projection.
+        expect(band).toBeUndefined();
+        expect(rail).toBeTruthy();
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['detail', 'operator']);
+
+        // the row keeps exactly the flexing center + the rail
+        expect(row.items.filter(item => item.dockNodeType !== 'splitter').length).toBe(2);
+        expect(row.items[0].flex).toBe(1);
+    });
+
+    test('a partially-railed edge band keeps projecting: live items still own their band', () => {
+        let model = createTabsBandModel();
+
+        model.items.operator.autoHidden = false;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band')),
+            rail = row.items.find(item => item.dockNodeType === 'edge-rail');
+
+        expect(band).toBeTruthy();
+        expect(band.flex).toBe('none');
+        expect(band.cls).toEqual(expect.arrayContaining(['neo-dashboard-dock-edge-band', 'neo-dashboard-dock-edge-band-right']));
+        expect(band.items.map(item => item.data.dockItemId)).toEqual(['operator']);
+
+        // the railed sibling still reaches the rail
+        expect(rail.railItems.map(item => item.dockItemId)).toEqual(['detail']);
+    });
+
+    test('a split-node edge band is exempt from the empty-band skip, even fully railed', () => {
+        let model = createEdgeZoneModel();
+
+        model.items.terminal.autoHidden  = true;
+        model.items.inspector.autoHidden = true;
+
+        let result = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            row  = result.items[0],
+            band = row.items.find(item => (item.cls || []).includes('neo-dashboard-dock-edge-band'));
+
+        // The skip discriminates on the band's own node type: a SPLIT band represents committed
+        // geometry (child extents, splitters) beyond a tab flow, so it projects even when its
+        // leaf tab flows are emptied — collapsing it is a layout decision the split's owner
+        // makes through operations, never a projection-side inference.
+        expect(band).toBeTruthy();
+        expect(band.dockNodeId).toBe('side-split');
+        expect(band.flex).toBe('none');
     });
 
     test('threads reducer callbacks from projection context into the rail affordance', () => {
