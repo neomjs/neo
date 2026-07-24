@@ -69,19 +69,27 @@ else
     # returns `refs/tags/v9.9.9^{}` (the commit). A `refs/tags/<sel>*` glob would work too
     # but can over-match (`v9.9.9-rc1`), turning one tag into a false ambiguity abort.
     ls_remote="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" "${NEO_SELECTOR}^{}" 2>/dev/null || true)"
-    peeled="$(printf '%s\n' "$ls_remote" | awk '$2 ~ /\^\{\}$/ {print $1}')"
+    # Ambiguity is decided on the NON-PEEL refs, never after peeling. A selector can match
+    # BOTH a branch and an annotated tag (`refs/heads/X` + `refs/tags/X` + `refs/tags/X^{}`)
+    # — git itself treats that as ambiguous. Preferring the peel first would collapse three
+    # lines to one and silently deploy the tag while ignoring the branch, bypassing this abort.
+    plain_refs="$(printf '%s\n' "$ls_remote" | awk '$2 != "" && $2 !~ /\^\{\}$/ {print $2}')"
+    match_count="$(printf '%s' "$plain_refs" | grep -c . || true)"
 
-    if [ -n "$peeled" ]; then
-        # Annotated tag: the peel IS the deployed commit.
-        matches="$peeled"
-    else
-        # Branch, lightweight tag, or full ref — these point at commits directly.
-        matches="$(printf '%s\n' "$ls_remote" | awk '$2 !~ /\^\{\}$/ {print $1}')"
+    if [ "$match_count" -eq 1 ]; then
+        # Exactly one ref matched. Resolve it to a COMMIT: an annotated tag contributes a
+        # `^{}` peel, everything else already points at a commit.
+        peeled="$(printf '%s\n' "$ls_remote" | awk -v r="$plain_refs" '$2 == r "^{}" {print $1}')"
+
+        if [ -n "$peeled" ]; then
+            matches="$peeled"
+        else
+            matches="$(printf '%s\n' "$ls_remote" | awk -v r="$plain_refs" '$2 == r {print $1}')"
+        fi
     fi
-    match_count="$(printf '%s' "$matches" | grep -c . || true)"
 
     if [ "$match_count" -ne 1 ]; then
-        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' resolved to ${match_count} commits at ${NEO_REPO_URL}; expected exactly 1." >&2
+        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' matched ${match_count} refs at ${NEO_REPO_URL}; expected exactly 1." >&2
         echo "[deploy] Pass a full 40-character commit SHA, or a selector naming exactly one ref. Docker was NOT invoked." >&2
         exit 1
     fi

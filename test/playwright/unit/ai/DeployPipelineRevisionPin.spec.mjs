@@ -124,7 +124,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
 
         expect(result.code).not.toBe(0);
         expect(result.output).toContain('no-such-branch');
-        expect(result.output).toContain('resolved to 0 commits');
+        expect(result.output).toContain('matched 0 refs');
         // The whole point: an unresolvable selector must never reach a build.
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
@@ -137,7 +137,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
             result   = runPipeline(fake, 'ambiguous');
 
         expect(result.code).not.toBe(0);
-        expect(result.output).toContain('resolved to 2 commits');
+        expect(result.output).toContain('matched 2 refs');
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
@@ -215,6 +215,26 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         // The tag object must never be attested as the deployed revision.
         expect(log).not.toContain(TAG_OBJECT);
         expect(result.output).not.toContain(TAG_OBJECT)
+    });
+
+    test('a branch + annotated-tag collision ABORTS instead of silently picking the tag', async () => {
+        // git itself treats `refs/heads/X` + `refs/tags/X` as ambiguous. Deciding ambiguity AFTER
+        // peeling would collapse three advertised lines to one and deploy the tag while ignoring
+        // the branch — an abort bypass created by the peel preference itself.
+        const
+            BRANCH_COMMIT = 'b1b1b10000000000000000000000000000000000',
+            TAG_OBJECT    = 'c2c2c20000000000000000000000000000000000',
+            TAG_COMMIT    = 'd3d3d30000000000000000000000000000000000',
+            fake          = await createFakeBin(
+                `${BRANCH_COMMIT}\trefs/heads/collide\n${TAG_OBJECT}\trefs/tags/collide`,
+                `${TAG_COMMIT}\trefs/tags/collide^{}`
+            ),
+            result = runPipeline(fake, 'collide');
+
+        expect(result.code).not.toBe(0);
+        expect(result.output).toContain('matched 2 refs');
+        // Nothing may be deployed, and no candidate may be attested.
+        expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
     test('a lightweight tag (single line, no peel) still resolves', async () => {
