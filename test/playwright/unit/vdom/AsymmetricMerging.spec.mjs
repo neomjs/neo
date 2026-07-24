@@ -22,7 +22,13 @@ import VdomHelper     from '../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 
 // Mock applyDeltas to prevent errors during mount
+const realApplyDeltas = Neo.applyDeltas; // patched at import; restored in afterAll below
+
 Neo.applyDeltas = async () => {};
+
+test.afterAll(() => {
+    Neo.applyDeltas = realApplyDeltas;
+});
 
 class MockComponent extends Component {
     static config = {
@@ -68,8 +74,8 @@ class MockContainer extends Container {
 MockContainer = Neo.setupClass(MockContainer);
 
 /**
- * @summary Verification of Asymmetric VDOM Merging logic (Ticket #8827).
- * 
+ * @summary Verification of Asymmetric VDOM Merging logic.
+ *
  * Verifies that:
  * 1. Parent updates only aggregate dirty children (Selective Merging).
  * 2. Merged children's update promises are correctly resolved.
@@ -116,14 +122,14 @@ test.describe('Asymmetric VDOM Merging', () => {
         container.setSilent({style: {color: 'blue'}});
         c1.setSilent({text: 'C1 Updated'});
         c3.setSilent({text: 'C3 Updated'});
-        
+
         // Trigger update via Parent
         const {deltas} = await container.promiseUpdate();
 
         // Verify Deltas
         // Expect: Parent, C1, C3. C2 should be missing or clean.
         // Deltas structure depends on VdomHelper/mock. Assuming array of objects with id.
-        
+
         const parentDelta = deltas.find(d => d.id === container.id);
         const c1Delta     = deltas.find(d => d.id === c1.id);
         const c2Delta     = deltas.find(d => d.id === c2.id);
@@ -132,7 +138,7 @@ test.describe('Asymmetric VDOM Merging', () => {
         expect(parentDelta).toBeTruthy();
         expect(c1Delta).toBeTruthy();
         expect(c3Delta).toBeTruthy();
-        
+
         // C2 should NOT be in the deltas if selective merging works
         expect(c2Delta).toBeUndefined();
     });
@@ -158,12 +164,12 @@ test.describe('Asymmetric VDOM Merging', () => {
         container.style = {color: 'red'};
 
         let resolved = false;
-        
+
         // Child update
         const p = child.promiseUpdate().then(() => {
             resolved = true;
         });
-        
+
         child.text = 'Child Updated';
 
         // Should not be resolved yet
@@ -256,17 +262,17 @@ test.describe('Asymmetric VDOM Merging', () => {
 
     /**
      * Scenario 5: Leapfrog Merging (Grandparent -> Clean Parent -> Dirty Grandchild)
-     * 
+     *
      * Tests the ability of the framework to merge a deep descendant's update into an ancestor
      * even if the intermediate components are clean (skipped).
-     * 
+     *
      * Critical for TreeBuilder: If the intermediate Parent is clean and we are at Depth 1,
-     * standard logic might prune the Parent branch (`neoIgnore: true`), causing the 
+     * standard logic might prune the Parent branch (`neoIgnore: true`), causing the
      * Grandchild update to be lost.
-     * 
+     *
      * This test validates if `VDomUpdate`/`TreeBuilder` correctly handles this "gap"
      * by identifying the "Bridge Path" and expanding the clean Parent.
-     * 
+     *
      * It also verifies "Sparse Tree Generation": A clean sibling of the Parent ("Uncle")
      * should be pruned (ignored) if it is not on the bridge path.
      */
@@ -306,7 +312,7 @@ test.describe('Asymmetric VDOM Merging', () => {
         // - Parent (Distance 1) is a Bridge -> Must be expanded.
         // - Uncle (Distance 1) is NOT a Bridge -> Should be pruned.
         container.updateDepth = 2;
-        
+
         grandChild.setSilent({text: 'Leapfrog Update'});
 
         // 3. Trigger Grandparent
@@ -315,7 +321,7 @@ test.describe('Asymmetric VDOM Merging', () => {
         // 4. Verify Grandchild Update (Positive Case)
         // The Grandchild update MUST be present. This proves the Bridge Parent was expanded.
         const gcDelta = deltas.find(d => d.id === grandChild.id);
-        
+
         expect(gcDelta).toBeTruthy();
         expect(gcDelta.textContent).toBe('Leapfrog Update');
 
@@ -358,7 +364,7 @@ test.describe('Asymmetric VDOM Merging', () => {
         // 4. Verify
         // Should have an 'insertNode' action
         const insertDelta = deltas.find(d => d.action === 'insertNode');
-        
+
         expect(insertDelta).toBeTruthy();
         expect(insertDelta.vnode.id).toBe(newChild.vdom.id);
     });

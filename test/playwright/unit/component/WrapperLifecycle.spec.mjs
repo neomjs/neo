@@ -26,7 +26,13 @@ import VdomHelper     from '../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 
 // Mock applyDeltas to prevent errors during mount
+const realApplyDeltas = Neo.applyDeltas; // patched at import; restored in afterAll below
+
 Neo.applyDeltas = async () => {};
+
+test.afterAll(() => {
+    Neo.applyDeltas = realApplyDeltas;
+});
 
 class WrapperComponent extends Component {
     static config = {
@@ -60,10 +66,10 @@ test.describe('Wrapper Node & Reverse Map Lifecycle', () => {
         await child.initVnode();
 
         const wrapperId = child.id + '__wrapper';
-        
+
         // Check Wrapper Node Registration
         expect(ComponentManager.wrapperNodes.get(wrapperId)).toBe(child);
-        
+
         // Check Child Map
         const siblings = ComponentManager.getDirectChildren(parent.id);
         expect(siblings.length).toBe(1);
@@ -85,7 +91,7 @@ test.describe('Wrapper Node & Reverse Map Lifecycle', () => {
 
         const oldWrapperId = 'old-id__wrapper';
         expect(ComponentManager.wrapperNodes.get(oldWrapperId)).toBe(child);
-        
+
         const childrenBefore = ComponentManager.getDirectChildren(parent.id).map(c => c.id);
         expect(childrenBefore).toContain('old-id');
 
@@ -95,7 +101,7 @@ test.describe('Wrapper Node & Reverse Map Lifecycle', () => {
 
         // Verify Child Map Cleanup
         const childrenAfter = ComponentManager.getDirectChildren(parent.id).map(c => c.id);
-        
+
         expect(childrenAfter).toContain('new-id');
         expect(childrenAfter).not.toContain('old-id');
 
@@ -105,7 +111,7 @@ test.describe('Wrapper Node & Reverse Map Lifecycle', () => {
         // unregister('old-id') also checks component.vdom.id.
         // If component.vdom.id is still 'old-id__wrapper', it should be deleted.
         // However, we need to ensure unregister logic uses the correct ID.
-        
+
         expect(ComponentManager.wrapperNodes.has(oldWrapperId)).toBe(false);
 
         parent.destroy();

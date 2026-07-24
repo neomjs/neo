@@ -17,7 +17,7 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
  * @summary Tests for Neo.draggable.dashboard.SortZone directional thresholds
  */
 test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () => {
-    let DashboardContainer, DashboardSortZone, Rectangle, realDragCoordinatorOnDragEnd,
+    let DashboardContainer, DashboardSortZone, Rectangle, realApplyDeltas, realDragCoordinatorOnDragEnd,
         realDragCoordinatorOnWindowPositionChange, sortZone;
 
     test.beforeAll(async () => {
@@ -32,6 +32,12 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         realDragCoordinatorOnDragEnd = Object.getPrototypeOf(Neo.manager.DragCoordinator).onDragEnd;
         realDragCoordinatorOnWindowPositionChange = Object.getPrototypeOf(Neo.manager.DragCoordinator).onWindowPositionChange;
+
+        // Captured once, before any test overrides it — two tests below replace `Neo.applyDeltas`
+        // with closures over their own `appliedDeltas`. Playwright reuses a worker across spec
+        // files, so an unrestored override runs THIS file's fixture against a later spec's
+        // components — the tell is a SortZone stack frame surfacing inside an unrelated spec.
+        realApplyDeltas = Neo.applyDeltas;
     });
 
     test.beforeEach(() => {
@@ -81,6 +87,11 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             Neo.manager.Window.items = [];
             Neo.manager.Window.map   = new Map()
         }
+
+        // Same principle as the DragCoordinator stubs above: an override that survives its suite
+        // is indistinguishable from the method simply not working — except this one is worse,
+        // because it does not no-op, it runs dead fixture state against whoever comes next.
+        Neo.applyDeltas = realApplyDeltas;
 
         sortZone?.destroy();
     });
