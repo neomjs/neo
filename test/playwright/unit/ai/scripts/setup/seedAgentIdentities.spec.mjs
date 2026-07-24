@@ -38,9 +38,20 @@ function graphServiceDouble(storedById = {}) {
 
     return {
         upserts,
-        ready     : async () => {},
-        getNode   : ({id}) => storedById[id] ? {id, properties: storedById[id]} : null,
-        upsertNode: identity => { upserts.push(identity) },
+        stored : storedById,
+        ready  : async () => {},
+        getNode: ({id}) => storedById[id] ? {id, properties: storedById[id]} : null,
+
+        // Mirrors GraphService.upsertNode's property semantics deliberately: it seeds from the
+        // EXISTING bag (`Object.assign({}, currentProperties)`) and layers the incoming keys on
+        // top, so a key the payload omits survives rather than being blanked. Modelling it as a
+        // plain recorder would make the runtime-field assertion below vacuous — it would pass on
+        // a double that never merges anything, which is the specimen trap, not a witness.
+        upsertNode: identity => {
+            upserts.push(identity);
+            // eslint-disable-next-line no-param-reassign
+            storedById[identity.id] = Object.assign({}, storedById[identity.id] || {}, identity.properties)
+        },
         db        : {
             storage: {
                 db: {
@@ -138,5 +149,28 @@ test.describe('seedAgentIdentities — createdAt authority (#15868)', () => {
         const missing = IDENTITIES.filter(identity => !identity.properties?.createdAt).map(identity => identity.id);
 
         expect(missing).toEqual([])
+    });
+
+    test('a runtime-only property the registry never declares survives the projection', async () => {
+        // Raised by a bearer whose entry carries a static wake route while others deliberately
+        // carry none because theirs self-register at runtime. If a registry-silent field could be
+        // blanked by this projection, a re-seed would de-arm a live wake route — invisible until a
+        // wake failed to arrive. The upsert is additive (existing bag first, payload layered on
+        // top), so omission cannot blank; pinned here because that is a silent, high-blast
+        // regression if the merge semantics ever flip to replace.
+        const svc = graphServiceDouble({
+            '@probe': {createdAt: '2026-06-23T06:39:18.915Z', subscriptionTemplate: {harness: 'tmux', target: 'seat-a'}}
+        });
+
+        await seedAgentIdentities({
+            graphService: svc,
+            identities  : [registryEntry({createdAt: '2026-06-02T21:35:48.405Z'})],
+            log         : () => {}
+        });
+
+        // The reconciliation still happens...
+        expect(svc.stored['@probe'].createdAt).toBe('2026-06-02T21:35:48.405Z');
+        // ...and the registry-silent runtime field survives it on the merged node.
+        expect(svc.stored['@probe'].subscriptionTemplate).toEqual({harness: 'tmux', target: 'seat-a'})
     })
 });
