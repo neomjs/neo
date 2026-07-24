@@ -20,11 +20,17 @@ WORKDIR /neo
 # branch, a tag, OR a full commit SHA (the reproducible pin). GitHub serves reachable SHAs.
 RUN git init -q && git remote add origin "${NEO_REPO_URL}" \
     && git fetch --depth 1 origin "${NEO_REF}" \
-    && git checkout -q --detach FETCH_HEAD
+    && git checkout -q --detach FETCH_HEAD \
+    && git rev-parse HEAD > /neo/.neo-revision
 
 FROM node:24-alpine AS source-local
 WORKDIR /neo
 COPY . .
+# `local` mode is a dev-iteration escape hatch: this stage has no `git` binary, and
+# inferring a revision from a working tree would fabricate provenance. Stamp an
+# explicit non-SHA marker so /app/.neo-revision is never absent and never mistaken
+# for a real commit.
+RUN echo 'local-build' > /neo/.neo-revision
 
 # Select the source stage from the NEO_SOURCE build arg. In 'git' mode the source-local
 # stage is never built, so no local build context is required (the portability fix).
@@ -71,5 +77,20 @@ ENV NEO_TRANSPORT=streamable-http
 ARG TARGET_SERVER
 ARG SERVICE_ENTRYPOINT=ai/mcp/server/${TARGET_SERVER}/mcp-server.mjs
 ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}
+
+# Deployment provenance (#15774). Two facts, deliberately kept separate:
+#   `org.opencontainers.image.revision` records the REQUESTED ref — exact whenever the
+#   caller pins a tag/SHA, which is what a reproducible rollout requires. A mutable
+#   channel (the `dev` default) must never be treated as a deployed identity, so the
+#   RESOLVED commit is stamped independently into /app/.neo-revision by the source
+#   stage. Requested-vs-resolved is the desired-vs-observed pair; they diverge exactly
+#   when a channel was requested instead of a pin.
+# These ARGs are re-declared here because pre-`FROM` ARGs do not reach build stages;
+# they sit after the expensive COPY/apk layers so a changed ref does not invalidate
+# them. Both inherit the global defaults declared at the top of this file.
+ARG NEO_REF
+ARG NEO_REPO_URL
+LABEL org.opencontainers.image.revision="${NEO_REF}"
+LABEL org.opencontainers.image.source="${NEO_REPO_URL}"
 
 CMD ["sh", "-c", "node ${SERVER_ENTRYPOINT}"]
