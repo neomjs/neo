@@ -21,11 +21,14 @@ import * as MIGRATION        from '../../../../../ai/graph/identityRootsMigratio
 import {seedAgentIdentities} from '../../../../../ai/scripts/setup/seedAgentIdentities.mjs';
 
 /**
- * @summary The explicit identity projection path owns intentional canonical updates, while
- * preserving graph-owned creation provenance and runtime-added properties.
+ * @summary The explicit identity projection path owns intentional canonical updates. The registry
+ * is authoritative for `createdAt` — a declared value is projected over a divergent persisted
+ * stamp, because a rename is identity *continuation* and the node's stamp otherwise records when a
+ * seeding run happened rather than when the resident was introduced. Runtime-added properties the
+ * registry never declares still survive, because the upsert layers over the existing bag.
  */
 test.describe('ai/graph/identityRoots — explicit seed authority (#15431)', () => {
-    test('canonical facts update while persisted createdAt and runtime properties survive', async () => {
+    test('canonical facts update, the registry createdAt wins, and runtime properties survive', async () => {
         let record = {
             id        : '@seed-witness',
             type      : 'AgentIdentity',
@@ -76,9 +79,14 @@ test.describe('ai/graph/identityRoots — explicit seed authority (#15431)', () 
         expect(record).toMatchObject({
             name      : 'Iris',
             properties: {
-                createdAt          : '2026-07-19T09:40:49.000Z',
+                // The registry's declared stamp, NOT the persisted `09:40:49` — the projection
+                // reconciles a divergent node value rather than deferring to it. Deferring is what
+                // made a wrong identity age permanently unfixable, since no other writer touches
+                // the field.
+                createdAt          : '2026-07-19T20:00:00.000Z',
                 displayName        : 'Iris',
                 participationStatus: 'active',
+                // Untouched: the registry never declares it, and omission cannot blank.
                 runtimeWitness     : 'must-survive'
             }
         });
