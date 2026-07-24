@@ -74,7 +74,9 @@ import {
  *     - **Disaster recovery** (default) — the bundle IS the new state. Reproduce it exactly;
  *       mailbox read receipts committed after the bundle was captured go with everything else.
  *     - **Operational re-seed** (`--preserve-read-state`) — the graph is being rebuilt from a
- *       lagged snapshot while seats keep working. `DELIVERED_TO` `readAt`/`archivedAt` is
+ *       lagged snapshot, **with writers quiesced first** (see the quiescence precondition below;
+ *       this deliberately no longer claims "while seats keep working"). `DELIVERED_TO`
+ *       `readAt`/`archivedAt` is
  *       runtime-only state that no synced bundle can carry, so without the flag an acknowledged
  *       `mark_read` is wiped after the tool already returned `status: 'read'` — an acknowledged
  *       write destroyed by a restore, which reads to the seat as its mailbox rolling backwards.
@@ -104,6 +106,19 @@ import {
  *   must be added to that operation's `pins` here, or the operation will refuse it as a contradiction.
  *   This warning lives in the header rather than `package.json` because JSON cannot carry a comment,
  *   and because this file is what you are reading when you add the flag.
+ *
+ * - **QUIESCENCE PRECONDITION for `reseed` — a stated requirement, not an unhandled race.**
+ *   `truncateDatabase()` captures the committed read receipts **inside** its truncate transaction,
+ *   which closes the lost-acknowledged-write window that a separate SELECT-then-DELETE would open.
+ *   But that transaction **ends before the import and re-apply run.** A `mark_read` acknowledged
+ *   after the capture and before the re-apply completes is therefore **lost**, and nothing detects
+ *   it. So: **stop the writers before re-seeding.** Preservation still matters under quiescence —
+ *   the bundle is lagged, so receipts committed since it was captured must survive the rebuild;
+ *   quiescing only removes the *concurrent* writer, not the stale-snapshot problem.
+ *   A live-writer-safe variant needs a **writer fence** held across truncate→import→re-apply, which
+ *   in SQLite means an exclusive lock for the whole import — i.e. enforced quiescence rather than
+ *   avoided quiescence — plus a concurrent falsifier proving an ack inside the window survives.
+ *   That is a separate design question and is deliberately NOT claimed here.
  *
  * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
@@ -1019,11 +1034,13 @@ export async function dispatchPostRestoreHook({hook, logger = console}) {
 /**
  * Named operations: an operator-facing intent with its defining arguments PINNED, not defaulted.
  *
- * `reseed` is the live operational re-seed — the graph rebuilt from a lagged snapshot while seats
- * keep working. It is graph-ONLY on purpose: `DELIVERED_TO` read-state lives in the graph, and that
- * is the entire reason preservation matters, so replacing the other five substrates under a name
- * that advertises a safe live operation would be a far larger destructive footprint than the name
- * implies. Disaster recovery keeps the plain `ai:restore` surface with its exact-replacement default.
+ * `reseed` is the operational re-seed — the graph rebuilt from a lagged snapshot, **with writers
+ * quiesced first** (see the quiescence precondition in the module header; the capture transaction
+ * closes before the re-apply, so a concurrently-acked `mark_read` would be lost). It is graph-ONLY
+ * on purpose: `DELIVERED_TO` read-state lives in the graph, and that is the entire reason
+ * preservation matters, so replacing the other five substrates under this name would be a far larger
+ * destructive footprint than the name implies.
+ * Disaster recovery keeps the plain `ai:restore` surface with its exact-replacement default.
  * @type {Object}
  */
 const NAMED_OPERATIONS = {
@@ -1151,6 +1168,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>]');
         console.error('       [--preserve-read-state]  replace mode: keep committed mailbox read receipts (operational re-seed);');
         console.error('                                omit for disaster recovery, where the bundle is reproduced exactly.');
+        console.error('       [--operation reseed]     graph-only re-seed. PINS --mode replace, --only-substrate=graph and');
+        console.error('                                --preserve-read-state, and REFUSES an argument that contradicts them.');
+        console.error('                                QUIESCE WRITERS FIRST: the read-receipt capture closes before the');
+        console.error('                                re-apply, so an ack landing in that window is lost. `npm run ai:reseed`.');
         console.error('Example (today\'s graph wipe restore):');
         console.error('  npm run ai:restore -- <bundle-path> --mode merge --only-substrate=graph \\');
         console.error('    --filter-labels=FILE,DIRECTORY,KB_GAP,TOOLING_GAP \\');

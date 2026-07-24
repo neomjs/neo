@@ -35,7 +35,7 @@ Two operations share this CLI and need **opposite** read-state policies. Read-st
 | | `npm run ai:restore -- <bundle> --mode replace --force` | `npm run ai:reseed -- <bundle> --force` |
 |---|---|---|
 | **Operation** | Disaster recovery | Live operational re-seed |
-| **Meaning** | The bundle IS the new state; reproduce it exactly | The graph is rebuilt from a lagged snapshot **while seats keep working** |
+| **Meaning** | The bundle IS the new state; reproduce it exactly | The graph is rebuilt from a lagged snapshot, **with writers quiesced first** |
 | **Scope** | Whatever you ask for (all six substrates by default) | **Graph only** — pinned |
 | **Read receipts** | Discarded with everything else | **Preserved** — pinned |
 | **Mode** | Yours to state | `replace` — pinned |
@@ -43,7 +43,15 @@ Two operations share this CLI and need **opposite** read-state policies. Read-st
 
 `ai:reseed` pins its three defining values and **refuses** an argument that contradicts any of them: `ai:reseed -- <bundle> --mode merge` aborts rather than performing a merge under a name that promises a replace. Graph-only is not tidiness — `DELIVERED_TO` lives in the graph, which is the entire reason preservation matters here, so a name advertising a safe live operation must not also replace `kb`/`mc`/`concepts`/`trajectories`/`mailbox`.
 
-**How to tell it worked:** a successful re-seed logs `[importDatabase] Re-applied N committed DELIVERED_TO read-receipt(s)`. `N = 0` on a run where seats were active means the preservation did not engage — check that you used `ai:reseed` rather than `ai:restore`.
+> **⚠ Quiesce writers before `ai:reseed`. This is a precondition, not a nicety.**
+>
+> The read-receipt capture runs **inside** the truncate transaction, which closes the lost-write window a separate SELECT-then-DELETE would open. But that transaction **ends before the import and re-apply run** — so a `mark_read` acknowledged *after* the capture and *before* the re-apply completes is **lost, and nothing detects it.** Stop the seats (or the MC server) first, re-seed, then bring them back.
+>
+> Preservation still matters under quiescence: the bundle is *lagged*, so receipts committed since it was captured must survive the rebuild. Quiescing removes the concurrent writer, not the stale-snapshot problem — which is what the preservation is for.
+>
+> A live-writer-safe variant would need a **writer fence** held across truncate → import → re-apply. In SQLite that means an exclusive lock for the whole import, i.e. *enforced* quiescence rather than avoided quiescence, plus a concurrent falsifier proving an ack inside the window survives. Not implemented, and deliberately not claimed.
+
+**How to tell it worked:** a successful re-seed logs `[importDatabase] Re-applied N committed DELIVERED_TO read-receipt(s)`. **What `N` means, precisely:** it counts `DELIVERED_TO` edges whose receipt was captured before the truncate **and** which the restored bundle left null — i.e. receipts the bundle would have destroyed. So `N = 0` legitimately means *the bundle already carried every receipt* (a fresh bundle, or no reads since it was captured); it is **not** a success metric to maximise. The tell that something is wrong is `N = 0` on a re-seed from a **lagged** bundle where reads are known to have happened since — that means preservation did not engage, so check you used `ai:reseed` rather than `ai:restore`.
 
 **Adding a flag later:** a pass-through flag reaches both entrypoints automatically (argument order is irrelevant). A flag that interacts with a pinned value must be added to that operation's `pins` in `restore.mjs`, or the operation will refuse it as a contradiction.
 
