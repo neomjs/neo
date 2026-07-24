@@ -59,7 +59,7 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 | B1 | exporting config values/subtrees (`export const X = AiConfig.Y`) | `[live: TaskDefinitions.mjs]` | consumers import `AiConfig` and read at use site |
 | B2 | `const X = AiConfig.Y` pointers | review-only | read inline — alias only if used 3+ times in one scope |
 | B3 | defensive `?.` on `AiConfig` reads | `[live-on-dev]` | the SSOT guarantees the tree; let it fail loud |
-| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[live-on-dev: check-aiconfig-test-mutation]` — the gate is the live count; it scans `test/**` only, so `ai/**` is unenforced | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
+| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[live-on-dev: check-aiconfig-test-mutation]` — the gate is the enforcement anchor; it scans `test/**` only, so `ai/**` is unenforced (§4) | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
 | B5 | passing `AiConfig` values into other consumers' configs (`Orchestrator → buildTaskDefinitions({chromaPort, …})`, 14 threaded args) | `[live: daemons]` | the consumer imports `AiConfig` and reads it (see §5 for the C1×B5 resolution) |
 
 ### Group C — boundary / duplication
@@ -84,7 +84,12 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 ```
 — is **how test data bleeds into live DBs.** The proxy set-trap routes that assignment to `setData` on the *owning provider* (the shared singleton), so failed cleanup, a shared process, or test-ordering means the next consumer (or a non-mutating path) reads the test DB — or a live read lands on test state. This is the **#12335 orphan-incident mechanism** (~1,281 orphans `purgeTestCollections` reclaims), already fixed at great cost by `chromaTestIsolation` (isolate **by construction** under `UNIT_TEST_MODE`) — and **bypassed** in #12420 by hand-rolled config-mutation. The lesson did not stick because nothing mechanical enforced it.
 
-**Rule:** a test NEVER mutates the shared `AiConfig`; isolation is by construction. **Lint (sub #2, fail-build):** flag any `aiConfig.<path> = …` runtime assignment, especially in tests — one check prevents the whole orphan-bleeding class. (V-B-A: ~21 test files currently do this; ticket #12435.)
+**Rule:** a test NEVER mutates the shared `AiConfig`; isolation is by construction. **Lint (sub #2, fail-build):** flag any `aiConfig.<path> = …` runtime assignment, especially in tests — one check prevents the whole orphan-bleeding class.
+
+**Live status — `check-aiconfig-test-mutation` is the enforcement anchor.** Run it for the current disposition rather than trusting any number written here; two distinct figures it reports must not be conflated:
+
+- **Enforcement reach** — the files the gate actually scans. It walks `test/` only (`find test -type f -name '*.mjs'`, filtered to `test/`), so **`ai/**` is outside the scan set by construction** and no rule-tightening inside the checker reaches it.
+- **Legacy census** — `ALLOWLIST.size`, a point-in-time count of pre-existing exempted files, shrinking as they are repaired. It measures remaining debt, not enforcement strength, and a green gate says nothing about the unscanned region.
 
 ## 5. Sanctioned patterns (the fix, in one place)
 
