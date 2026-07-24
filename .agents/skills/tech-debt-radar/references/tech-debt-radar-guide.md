@@ -1,41 +1,42 @@
 # Tech Debt Radar Guide
 
-This document outlines the authoritative protocol for proactive architectural sweeping and technical debt discovery natively within the Agent OS. This capability mitigates ambient architectural rot that accumulates outside the active scope of feature development.
+The radar is a **sensor, not a judge**: it measures ambient architectural debt against the repo's LIVING canon and routes findings to the lanes that own them. Its unduplicated substance is the sweep method below — the debt taxonomy itself is never stored here.
 
-## 1. Execution Strictures (Model Tiering)
+## 1. Execution Posture
 
-This meta-analysis MUST be executed strictly by **Frontier Models** (e.g., Gemini 3.1 Pro / Claude Opus 4.6). The cognitive load required to synthesize historical documentation, graph topology, episodic memory, and active codebase layout exceeds the capacities of tactical open-weight Swarm SMLs. If you are an SML sub-agent, you must halt execution and escalate.
+Run this meta-analysis with frontier-tier capability — it synthesizes documentation, graph topology, episodic memory, and code layout at once. Tactical SML sub-agents halt and escalate. Capability class, not model names: pinned rosters decay by construction.
 
-## 2. Pre-Flight: Eradicating "Unknown Unknowns"
+## 2. Pre-Flight: Derive the Canon (never copy it)
 
-A fresh Agent instance possesses zero intuition about the high-level framework topology. Before diving into semantic sweeps, you MUST establish a mental map to prevent hallucinated debt.
+A copied canon decays by construction and eventually inverts — the radar then flags sanctioned shapes as debt. At sweep time, load the debt taxonomy FROM the living authorities, and keep three classes separate: **authority** (what the canon prescribes), **observation** (what the tree currently is), and **hypothesis** (candidate findings awaiting an owning lane):
 
-**Mandatory Action:** You MUST use the `view_file` tool to read `learn/benefits/ArchitectureOverview.md`. This establishes the structural baseline (Runtime Engine vs. Agent OS, VDOM physics, etc.) required to accurately classify architectural deviations. 
+1. `learn/benefits/ArchitectureOverview.md` — the structural baseline (Body/Brain topology). *Authority.*
+2. `learn/agentos/decisions/` — the ADR index IS the pattern canon. Minimum reads: ADR 0019 (the `ai/`-config antipattern catalog) for config debt; ADR 0008 for skill-shape debt. *Authority.*
+3. `npm run --silent ai:structure-map -- --files --loc` — current-tree measurement: where things ARE and how large. *Observation only — no intended-placement policy; observed placement is never its own authority.*
+4. The `pr-review` guide's anti-pattern tables and `AGENTS.md` §edge_case_triggers (the `apps/**` data-path/style gate, `core.Base` as the quality bar). *Authority.*
+
+A conflict between this guide and those authorities is a bug in THIS guide — the authorities win. Freshness trigger: a pattern-canon ADR graduation invalidates this pointer list; revalidate it then.
 
 ## 3. The Multi-Vectored Sweep
 
-Debt discovery requires traversing semantic artifacts that `grep` cannot understand. Execute the following vectors:
-
 ### A. Ambient Artifact Traversal
-The framework stores historical context in decentralized markdown files. You MUST use the `ask_knowledge_base` tool to query against the backlog, focusing on abandoned concepts, incomplete migrations, or trailing architectural directives.
-- Your target domain encompasses `resources/content/issues/` (active backlog + historical tickets and epics).
-- Example strategies: "Identify partially completed feature migrations," "List architectural patterns mentioned in closed tickets that conflict with current Engine logic."
+Use `ask_knowledge_base` against the backlog (`resources/content/issues/`): abandoned concepts, incomplete migrations, trailing architectural directives.
 
 ### B. Episodic Memory Mining
-Code and markdown only tell half the story. The *why* is stored in Agent episodic memory.
-- You MUST heavily utilize `query_raw_memories` and `query_summaries` against the Memory Core.
-- Focus on finding "abandoned loops" (e.g., "Find instances where an agent attempted to refactor X but rolled back," "Locate failed Playwright hypotheses regarding Y").
-- Scanning past agent internal thought processes provides the rich monologue detailing why specific debt accrued.
+Heavily use `query_raw_memories` and `query_summaries` for "abandoned loops" (an agent attempted X and rolled back; failed test hypotheses) — past thought-logs carry the *why* behind accrued debt.
 
 ### C. Codebase Vertical Slicing
-Based on the clues surfaced from artifacts and memory, actively dive into the codebase. 
-- Target explicit topological layers (e.g., `.agents/skills`, `ai/mcp/`, `src/vdom/`).
-- Seek structural anomalies: orphan test directories, legacy Configuration objects (e.g., deeply nested daemon configs instead of top-level paths), deprecated JSDoc tags, or `&&` logic that should be optional chaining `?.`.
+Dive where A/B point. Classify anomalies strictly against the §2 catalogs, never against this guide's own taste — the previous inline examples were canon-inverted by later ADRs; that is why §2 derives instead of stating.
 
-## 4. Proactive Remediation
+### D. Brain-Structural Debt (measure → report → route; never prescribe)
+Across the two executable roots — `ai/` (Brain) vs `src/` (Body) — the Brain currently outweighs the Body in modules and LOC without its structural discipline: re-measure each sweep, never treat as frozen fact. Probes (*observation* producing *hypotheses*):
 
-Once you have cataloged depreciated logic clusters, you MUST generate highly actionable, granular cleanup tickets for the swarm backlog. 
+- structure-map LOC outliers, using the Body's densest exemplary files as the comparison scale;
+- folder-shape consistency across `ai/daemons/*` (factored vs monolith vs ad-hoc flat);
+- concept↔code-home coherence: a `learn/agentos/*.md` concept guide with no legible code home is a reportable CANDIDATE, calibrated against the Dream Pipeline specimen (a first-class guide smeared across 25+ files in five technical-layer buckets) — not a universal one-guide-one-home rule.
 
-1. **Ticket Intake Bypass:** Because you are generating the initiative (not responding to one), you are bypassing the standard `ticket-intake` constraint, but you MUST still use the "Fat Ticket" protocol. 
-2. **Contextual Rigor:** The generated GitHub Issues MUST document the history of why the debt exists (citing the Memory Core or historical PRs) so the tactical SML agent dispatched to fix it understands the exact architectural ROI.
-3. **Use the `create_issue` tool** to submit these directly to the repository queue, properly labeling them with `enhancement` or `refactor(ai)`.
+**Two-layer rule:** findings in this class are REPORTS routed to the #14304 / D#14302 canon lane — a canon-hole is itself a reportable finding. Prescribing target module shapes or file moves pre-SSOT is out of scope by #14304's own deferred gates.
+
+## 4. Remediation Routing
+
+Findings become tickets through `/ticket-create` — duplicate sweep, Fat Ticket, six-stage challenge chain, and its live label rules (that skill owns the label taxonomy); no bypass. Cite provenance (Memory Core sessions, historical PRs) so the fixing agent understands the exact architectural ROI. Brain-structural findings route per §3.D, never to unilateral restructure tickets.
