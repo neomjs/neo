@@ -6,9 +6,16 @@
  * before invoking this script; otherwise the operator would intentionally project stale registry
  * data. Ordinary GraphService boot is additive-only and never rewrites an existing identity.
  *
- * Re-seeding is idempotent and preserves the persisted `createdAt`. If identities disappeared
- * without an intentional registry change, investigate the upstream wipe (the historical hazard is
- * test-pollution via the :memory: override leak described in learn/agentos/IdentitySchema.md).
+ * Re-seeding is idempotent. **The registry is authoritative for `createdAt`** — `identityRoots.mjs`
+ * declares it "an immutable, hardcoded resident/root-introduction fact", so a registry entry that
+ * carries one is projected over a divergent node value. Only when the registry is silent is the
+ * node's existing stamp carried forward. This direction is load-bearing: while the projection ran
+ * the other way, a wrong identity age was permanently unfixable — the registry called the field
+ * immutable and the only writer that could enforce that was built to refuse it.
+ *
+ * If identities disappeared without an intentional registry change, investigate the upstream wipe
+ * (the historical hazard is test-pollution via the :memory: override leak described in
+ * learn/agentos/IdentitySchema.md).
  *
  * @summary Seeds initial system, AgentIdentity, and BroadcastSentinel nodes into the Neo.mjs Memory Core Native Graph.
  *
@@ -30,8 +37,9 @@
  * graph growth, but `AgentIdentity` and `BroadcastSentinel` are explicitly exempted in `GraphService.getOrphanedNodes`
  * to prevent silent wipes during idle or fresh Memory Core states prior to their first activity edges.
  *
- * Idempotent re-run is safe: existing nodes preserve their original `createdAt` via the defensive
- * SQLite peek below; canonical properties update and runtime-added properties remain merged.
+ * Idempotent re-run is safe: canonical properties update, runtime-added properties remain merged,
+ * and `createdAt` resolves to the registry's declared value — falling back to the node's persisted
+ * stamp only for entries the registry does not describe.
  *
  * Usage: node ai/scripts/setup/seedAgentIdentities.mjs
  */
@@ -41,6 +49,38 @@ import {fileURLToPath} from 'node:url';
 import {IDENTITIES}    from '../../graph/identityRoots.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
+
+/**
+ * @summary Read one node's persisted `properties.createdAt` straight from the raw SQLite `Nodes`
+ * row, bypassing the in-memory projection.
+ *
+ * Reads storage rather than `getNode()` because the caller needs the *stored* stamp specifically:
+ * it is deciding whether the registry's declared value differs from what is durably on disk, and a
+ * projected read would answer a subtly different question. Returns `null` whenever storage is
+ * absent, the row is missing, or the payload does not parse — every one of which means "no stored
+ * stamp to fall back on", never "blank the field".
+ *
+ * @param {Object} graphService The GraphService whose storage to peek.
+ * @param {String} id The node id.
+ * @returns {String|null} The persisted ISO timestamp, or null when none is readable.
+ */
+function readStoredCreatedAt(graphService, id) {
+    if (!graphService.db?.storage) {
+        return null
+    }
+
+    const row = graphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
+
+    if (!row?.data) {
+        return null
+    }
+
+    try {
+        return JSON.parse(row.data)?.properties?.createdAt || null
+    } catch (e) {
+        return null
+    }
+}
 
 /**
  * @summary Intentionally project the current canonical identity registry into one Memory Core
@@ -70,33 +110,37 @@ export async function seedAgentIdentities({graphService, identities = IDENTITIES
             graphService.upsertNode(identity);
             log(`Created AgentIdentity: ${identity.id}`);
         } else {
-            // Defensive `createdAt` retention logic:
-            // We peek directly at the raw SQLite `Nodes` table to check if the existing node has a `createdAt` timestamp.
-            // This ensures an idempotent upsert without clobbering the creation-time provenance.
-            // If `upsertNode` semantics ever change to 'preserve existing properties if not in update payload',
-            // this manual peek could be refactored or removed.
-            let hasCreatedAt = false;
-            if (graphService.db?.storage) {
-                const stmt = graphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?');
-                const row  = stmt.get(identity.id);
-                if (row && row.data) {
-                    try {
-                        const parsed = JSON.parse(row.data);
-                        if (parsed.properties && parsed.properties.createdAt) {
-                            hasCreatedAt = true;
-                        }
-                    } catch (e) {}
+            // `createdAt` authority: the REGISTRY wins. `identityRoots.mjs` declares the
+            // field "an immutable, hardcoded resident/root-introduction fact", so an entry that
+            // carries one is projected over whatever the node holds — that reconciliation is this
+            // script's entire purpose, and refusing it is what made a wrong identity age permanent.
+            // The raw-SQLite peek survives, inverted: it now supplies a fallback for entries the
+            // registry does NOT describe, so a silent registry never blanks a persisted stamp.
+            const propertiesToUpdate = {...identity.properties};
+
+            let reconciled = null;
+
+            if (propertiesToUpdate.createdAt) {
+                const stored = readStoredCreatedAt(graphService, identity.id);
+
+                if (stored && stored !== propertiesToUpdate.createdAt) {
+                    reconciled = stored;
+                }
+            } else {
+                const stored = readStoredCreatedAt(graphService, identity.id);
+
+                if (stored) {
+                    propertiesToUpdate.createdAt = stored;
                 }
             }
 
-            const propertiesToUpdate = { ...identity.properties };
-            if (hasCreatedAt) {
-                delete propertiesToUpdate.createdAt;
-            }
-
-            const updatedIdentity = { ...identity, properties: propertiesToUpdate };
+            const updatedIdentity = {...identity, properties: propertiesToUpdate};
             graphService.upsertNode(updatedIdentity);
-            log(`Updated AgentIdentity (${hasCreatedAt ? 'retained original' : 'added new'} createdAt): ${identity.id}`);
+            log(
+                reconciled
+                    ? `Updated AgentIdentity (createdAt RECONCILED ${reconciled} -> ${propertiesToUpdate.createdAt}): ${identity.id}`
+                    : `Updated AgentIdentity (createdAt ${propertiesToUpdate.createdAt ? 'from registry' : 'absent'}): ${identity.id}`
+            );
         }
         seededCount++;
     }
