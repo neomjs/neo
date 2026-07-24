@@ -249,10 +249,18 @@ export function censusPlaneOpeners({projectRoot = PROJECT_ROOT} = {}) {
  *
  * `escapes` and `dangling` are INDEPENDENT flags, not a fallthrough. An entry resolving outside its own
  * plane root is not contained by a bind-mount of that root; an entry whose target does not exist is
- * dangling. A single symlink can be BOTH — a dangling link that points outside the root — and an earlier
- * version reported only the dangling half, because it derived the escape target from `realpathSync`, which
- * throws on a dangling link and skipped the escape check. Escape is now decided from the LITERAL target
- * (`readlinkSync`), which exists whether or not the target resolves, so the two facts are orthogonal.
+ * dangling. A single symlink can be BOTH.
+ *
+ * Escape resolution is chosen PER CONDITION, because lexical and canonical target identity answer
+ * different questions and neither substitutes for the other:
+ * - a **resolvable** target uses CANONICAL resolution (`realpathSync`) — a link whose text reads inside
+ *   the plane still escapes when an intermediate component is itself a symlink pointing out, and only
+ *   canonical resolution follows that chain.
+ * - a **dangling** target has no canonical form (`realpathSync` throws), so it falls back to LEXICAL
+ *   resolution of the link text — which still answers whether the text points outside the root.
+ *
+ * An earlier repair used lexical resolution for both and therefore missed chained escapes on existing
+ * links; the one before that used canonical for both and missed dangling escapes entirely.
  *
  * That escapes is the load-bearing number for containerisation is unchanged: a link resolving perfectly on
  * the host still escapes a bind-mount, which is why the class stays invisible until a container.
@@ -290,10 +298,19 @@ export function auditSeatContainment({seat}) {
             result.dangling++;
         }
 
-        // Escape is decided from the LITERAL target, resolved against the link's own directory, so a
-        // dangling link is still tested for escape rather than skipped. `realpathSync` would throw here.
-        const literalTarget  = fs.readlinkSync(entry),
-              resolvedTarget = path.resolve(planeRoot, literalTarget);
+        // Escape needs BOTH resolutions, chosen per condition — @neo-gpt-emmy's chained-escape falsifier.
+        // A resolvable target must use CANONICAL resolution (`realpathSync`), because a link whose text
+        // reads inside the plane (`sub/x`) escapes anyway when an intermediate component (`sub`) is itself
+        // a symlink pointing out — a purely lexical `path.resolve` cannot see that and would call it
+        // contained. A dangling target has no canonical form (`realpathSync` throws), so it falls back to
+        // LEXICAL resolution of the link text, which still answers "does the text point outside".
+        let resolvedTarget;
+
+        if (isDangling) {
+            resolvedTarget = path.resolve(planeRoot, fs.readlinkSync(entry));
+        } else {
+            resolvedTarget = fs.realpathSync(entry);
+        }
 
         if (!(resolvedTarget + path.sep).startsWith(realRoot)) {
             result.escapes++;

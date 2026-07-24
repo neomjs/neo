@@ -172,6 +172,28 @@ test.describe('planePlacementCensus — the classification rules the election is
         expect(audit.escaped[0].dangling).toBe(true);
     });
 
+    test('a CHAINED escape is caught — link text reads inside but an intermediate symlink carries it out', async () => {
+        // @neo-gpt-emmy's cycle-2 falsifier. A lexical-only resolver reads the link text `sub/x`, sees it
+        // stay under the plane, and calls it contained — but `sub` is itself a symlink pointing OUTSIDE, so
+        // the real target escapes. Only canonical resolution of an existing link follows that chain.
+        const seat     = path.join(workRoot, 'chained-escape'),
+              plane    = path.join(seat, PLANE_DIR_NAME),
+              external = path.join(workRoot, 'chained-external');
+
+        await fsExtra.ensureDir(path.join(external, 'x'));
+        await fsExtra.ensureDir(plane);
+        // `sub` -> outside the plane; then `entry` -> `sub/x`, whose TEXT stays under the plane.
+        fs.symlinkSync(external, path.join(plane, 'sub'), 'dir');
+        fs.symlinkSync(path.join(plane, 'sub', 'x'), path.join(plane, 'entry'), 'dir');
+
+        const audit   = auditSeatContainment({seat}),
+              escaped = audit.escaped.map(item => item.name);
+
+        // Both the intermediate `sub` and the chained `entry` resolve outside the plane.
+        expect(escaped).toContain('sub');
+        expect(escaped).toContain('entry');   // <- the fact a lexical-only resolver dropped
+    });
+
     test('a dangling symlink INSIDE the plane root is dangling but NOT escaping', async () => {
         // The orthogonality must hold both ways: dangling does not imply escaping.
         const seat  = path.join(workRoot, 'dangle-inside'),
