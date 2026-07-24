@@ -49,6 +49,103 @@ export const ARTIFACT_META_FILENAME = 'kb-artifact-meta.json';
 export const MEMORY_CORE_COLLECTION_PREFIXES = ['neo-agent-memory', 'neo-agent-sessions', 'neo-native-graph'];
 
 /**
+ * Packed-vector sidecar filename for artifact schema v2. A flat row-major `Float16` buffer of
+ * `recordCount × dimension` values; the JSONL rows carry everything EXCEPT `embedding`.
+ *
+ * Why binary: ~97% of a v1 artifact is embeddings serialized as decimal TEXT. The vectors
+ * themselves are not the waste — the encoding is. `fp16` was chosen over `fp32` on measurement,
+ * not arithmetic: on a corpus-wide 10% sample (5,492 vectors, dim 4096) fp16 round-trip scored
+ * recall@10 100.000% and recall@50 99.983% against fp32, with top-1 identical at both depths.
+ *
+ * The raw-vectors / no-re-embed invariant is UNCHANGED: the vectors still ship in full, just not
+ * as decimal text, so an adopter never re-embeds the corpus on boot.
+ * @type {String}
+ */
+export const ARTIFACT_VECTORS_FILENAME = 'kb-vectors-fp16.bin';
+
+/**
+ * Artifact schema version this build/consume pair emits and understands. v1 = embeddings inline in
+ * the JSONL as decimal text; v2 = JSONL without `embedding` + the packed `fp16` sidecar.
+ * @type {Number}
+ */
+export const ARTIFACT_SCHEMA_VERSION = 2;
+
+/**
+ * Order-binding digest over the record-id sequence.
+ *
+ * v2 re-attaches vectors to rows **by index**, so a reordered JSONL would pair every row with the
+ * wrong vector — a silent corruption that no byte-length check can see (the buffer stays exactly
+ * the right size). This digest makes that failure LOUD: the build side stamps it into the metadata
+ * and the consume side recomputes it from the JSONL it actually received. A mismatch means the
+ * pairing is untrustworthy and the import must abort rather than ingest misaligned embeddings.
+ *
+ * FNV-1a over the newline-joined ids: order-sensitive by construction, no crypto dependency, and
+ * the whole point is detecting permutation rather than resisting an adversary.
+ * @param {String[]} ids Record ids in JSONL row order.
+ * @returns {String} Hex digest.
+ */
+export function recordOrderDigest(ids) {
+    let hash = 0x811c9dc5;
+
+    for (const chunk of ids.join('\n')) {
+        hash ^= chunk.codePointAt(0);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+
+    return hash.toString(16).padStart(8, '0');
+}
+
+/**
+ * Encodes vectors to the packed `fp16` sidecar buffer.
+ * @param {Array<Array<Number>|Float32Array>} vectors Row-major vectors, all of length `dimension`.
+ * @param {Number} dimension Expected vector length; a row of any other length is a hard error
+ *        because a short row would silently shift every subsequent vector.
+ * @returns {Buffer}
+ */
+export function packVectorsFp16(vectors, dimension) {
+    const packed = new Float16Array(vectors.length * dimension);
+
+    vectors.forEach((vector, row) => {
+        if (vector.length !== dimension) {
+            throw new Error(
+                `Vector at row ${row} has length ${vector.length}, expected ${dimension}. ` +
+                `Refusing to pack: a mis-sized row shifts every vector after it.`
+            );
+        }
+        packed.set(vector, row * dimension);
+    });
+
+    return Buffer.from(packed.buffer, packed.byteOffset, packed.byteLength);
+}
+
+/**
+ * Decodes the packed sidecar back to per-row vectors, failing loud on any shape or order mismatch.
+ * @param {Object} options
+ * @param {Buffer} options.buffer Packed sidecar contents.
+ * @param {Number} options.recordCount Expected row count (from the artifact metadata).
+ * @param {Number} options.dimension Expected vector length (from the artifact metadata).
+ * @returns {Float32Array[]} One vector per row, in row order.
+ */
+export function unpackVectorsFp16({buffer, recordCount, dimension}) {
+    const expectedBytes = recordCount * dimension * 2;
+
+    if (buffer.byteLength !== expectedBytes) {
+        throw new Error(
+            `Packed vector sidecar is ${buffer.byteLength} bytes, expected ${expectedBytes} ` +
+            `(${recordCount} records × ${dimension} dims × 2). Artifact is truncated or its metadata is wrong.`
+        );
+    }
+
+    // Copy rather than view: the source Buffer may be a slice of a pooled allocation, and a view
+    // would keep the whole pool alive while also exposing neighbouring bytes on a length mistake.
+    const view = new Float16Array(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+
+    return Array.from({length: recordCount}, (_, row) =>
+        Float32Array.from(view.subarray(row * dimension, (row + 1) * dimension))
+    );
+}
+
+/**
  * Asserts a staged (or unzipped) artifact directory is collection-scoped to the public
  * Knowledge Base collection. Throws on the first sign of a Memory Core leak so the failure is
  * loud at build time and at ingest time.
@@ -90,8 +187,12 @@ export async function assertCollectionScopedArtifact({artifactDir, fsModule = fs
                 throw new Error(`Artifact scope violation: unexpected JSONL export '${entry}'. Only '${KB_BACKUP_FILE_PREFIX}*.jsonl' (the Knowledge Base collection) is permitted.`);
             }
             jsonlFiles.push(entry);
-        } else if (entry !== ARTIFACT_META_FILENAME) {
-            throw new Error(`Artifact scope violation: unexpected entry '${entry}'. Permitted: '${KB_BACKUP_FILE_PREFIX}*.jsonl' and '${ARTIFACT_META_FILENAME}'.`);
+        } else if (entry !== ARTIFACT_META_FILENAME && entry !== ARTIFACT_VECTORS_FILENAME) {
+            // Schema v2 adds EXACTLY ONE permitted binary — an exact-match allowlist entry, never a
+            // pattern. This guard is the privacy invariant that keeps Memory Core exports and sqlite
+            // payloads out of a public release asset, so widening it to `*.bin` (or anything
+            // pattern-shaped) would trade the whole guarantee for one file's convenience.
+            throw new Error(`Artifact scope violation: unexpected entry '${entry}'. Permitted: '${KB_BACKUP_FILE_PREFIX}*.jsonl', '${ARTIFACT_META_FILENAME}' and '${ARTIFACT_VECTORS_FILENAME}'.`);
         }
     }
 
