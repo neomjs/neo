@@ -359,7 +359,18 @@ const getConfiguredLogLevel = (aiConfig, loggerConfig) => {
 export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
     let currentStreamKey = null;
     let currentStream    = null;
-    let sinkFailureKey   = null;
+
+    const deadSinkKeys  = new Set();
+    const announcedKeys = new Set();
+
+    const announceSinkFailure = (key, error, loggerConfig) => {
+        deadSinkKeys.add(key);
+
+        if (!announcedKeys.has(key)) {
+            announcedKeys.add(key);
+            process.stderr.write(formatLogLine('error', [`[logger] file sink unavailable, degrading to stderr: ${error.message}`], loggerConfig));
+        }
+    };
 
     const resolveLogDir = loggerConfig => {
         const logDir = loggerConfig.logPath || getConfigData(aiConfig).logPath;
@@ -384,6 +395,8 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
         const today  = new Date().toISOString().slice(0, 10);
         const key    = `${logDir}::${loggerConfig.filePrefix}::${today}`;
 
+        if (deadSinkKeys.has(key)) return null;
+
         if (currentStreamKey !== key) {
             if (currentStream) currentStream.end();
 
@@ -398,6 +411,19 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
 
             currentStreamKey = key;
             currentStream    = fs.createWriteStream(path.join(logDir, `${loggerConfig.filePrefix}-${today}.log`), {flags: 'a'});
+
+            // Asynchronous containment: open/write failures on a WriteStream (EISDIR on a
+            // directory-shaped filename, ENOSPC mid-stream) surface as a later 'error' EVENT,
+            // not a throw — without a listener the event escapes as uncaughtException and
+            // kills the serving process. Mark the sink dead; writeFile degrades from here on.
+            currentStream.on('error', e => {
+                announceSinkFailure(key, e, loggerConfig);
+
+                if (currentStreamKey === key) {
+                    currentStreamKey = null;
+                    currentStream    = null;
+                }
+            });
         }
 
         return currentStream;
@@ -406,19 +432,30 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
     const writeFile = (level, args, loggerConfig) => {
         if (!loggerConfig.fileSink) return;
 
+        // One-reality guard: while a Neo config provider is still booting (`isReady` false),
+        // its leaves expose ANCHOR DEFAULTS — on an env-relocated deployment the first write
+        // would land in the canonical plane. Pre-ready lines route to stderr; the file sink
+        // starts with the resolved overlay. Plain-object configs carry no `isReady` and are
+        // file-eligible immediately.
+        if (aiConfig?.isReady === false) {
+            process.stderr.write(formatLogLine(level, args, loggerConfig));
+            return;
+        }
+
+        let stream = null;
+
         try {
-            getStream(loggerConfig).write(formatLogLine(level, args, loggerConfig));
+            stream = getStream(loggerConfig);
         } catch (e) {
-            // A broken sink (unwritable dir, dangling symlink, full disk) must never kill a
-            // serving process — path validity is the plane-coherence boot assertion's job.
-            // Degrade to stderr, announcing the sink failure once per stream key.
-            const key = `${loggerConfig.logPath || getConfigData(aiConfig).logPath || ''}::${loggerConfig.filePrefix}`;
+            // Synchronous sink failure (unwritable dir, dangling symlink, unresolvable path
+            // at runtime) must never kill a serving process — path validity is the
+            // plane-coherence boot assertion's job.
+            announceSinkFailure(`${loggerConfig.logPath || getConfigData(aiConfig).logPath || ''}::${loggerConfig.filePrefix}`, e, loggerConfig);
+        }
 
-            if (sinkFailureKey !== key) {
-                sinkFailureKey = key;
-                process.stderr.write(formatLogLine('error', [`[logger] file sink unavailable, degrading to stderr: ${e.message}`], loggerConfig));
-            }
-
+        if (stream) {
+            stream.write(formatLogLine(level, args, loggerConfig));
+        } else {
             process.stderr.write(formatLogLine(level, args, loggerConfig));
         }
     };
