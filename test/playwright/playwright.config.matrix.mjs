@@ -17,11 +17,10 @@ process.env.NEO_E2E_PORT = String(PORT);
  * The tear-out portability-matrix runner (see
  * `learn/guides/specificfeatures/TearOutPortabilityMatrix.md` — the evidence ledger).
  *
- * Deliberately SEPARATE from `playwright.config.e2e.mjs`: the e2e config's benchmark launch
- * flags (`--use-gl=desktop`, GPU rasterization overrides) are headless-calibrated — in HEADED
- * mode on macOS they crash Chrome's GPU process ("GPU process isn't usable"), and the matrix
- * contract requires headed real-browser runs. Beyond the crash, GL/GPU overrides would distort
- * exactly the native placement semantics this suite measures.
+ * Deliberately SEPARATE from `playwright.config.e2e.mjs`: the e2e config carries benchmark
+ * launch flags (GPU rasterization overrides) calibrated for throughput benchmarks, and any
+ * GL/GPU override would distort exactly the native placement semantics this suite measures —
+ * the matrix contract requires headed real-browser runs on platform defaults.
  *
  * Measurement-fidelity choices, stated honestly:
  * - **Headed by default** (`headless: false`): headed IS this runner's identity — headless proves
