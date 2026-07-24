@@ -940,6 +940,50 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             }
         });
 
+        test('#15791 a BLOCKLISTED leaf that exists only on the seat is still classified', async () => {
+            // The worst version of the family, because nothing looked wrong: both sides read as
+            // `observed: ok`, residue read 0, and the leaf was simply absent from every bucket.
+            // Only canonical's children could populate `blocklisted`, yet a blocklisted child living
+            // only on the seat is not an edge case — it is what the blocklist exists to produce.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'concepts'));           // declared-local, seat-only
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'orchestrator-daemon')); // ditto
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'stray'));               // undeclared, seat-only
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.blocklisted.sort()).toEqual(['concepts', 'orchestrator-daemon']);
+            expect(result.seatOnly).toEqual(['stray']);
+            expect(result.resolved.concepts).toBeTruthy();
+
+            // Declared-local leaves are accounted for, not residue — only `stray` is unexplained.
+            expect(result.divergent.length + result.seatOnly.length).toBe(1);
+        });
+
+        test('#15791 a blocklisted leaf on BOTH sides is classified exactly once', async () => {
+            // The seat pass and the canonical pass can both see a shared blocklisted name; the
+            // seat pass must yield to canonical's, or fixing the disappearance would trade it for
+            // a double-count and the one-bucket property would break on the way past.
+            await seedMainSubdirs(['sqlite']);
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts'));
+            await fs.ensureDir(path.join(fakeWorktree, dataDir, 'concepts'));
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun      : true,
+                log         : () => {}
+            });
+
+            expect(result.blocklisted).toEqual(['concepts']);
+            expect(result.seatOnly).toEqual([]);
+        });
+
         test('#15791 every observed leaf carries a resolved path, blocklisted ones included', async () => {
             // "We skipped it" is not an observation. A blocklisted child is deliberately seat-local,
             // which makes WHERE it lives the one fact worth recording about it — and the seat path

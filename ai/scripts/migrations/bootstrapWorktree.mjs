@@ -542,12 +542,24 @@ export async function symlinkDataDir({
         }
 
         for (const name of seatNames) {
-            if (canonicalNames.has(name) || blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) continue;
+            if (canonicalNames.has(name)) continue; // the canonical loop below owns every shared name
 
-            const seatPath = path.join(parentDst, name);
-            log(`reconcile seat-only (absent from canonical): ${name}`);
-            result.seatOnly.push(name);
-            result.resolved[name] = await fs.realpath(seatPath).catch(() => seatPath);
+            // A declared-local leaf is classified here too, not skipped. Skipping it meant only
+            // canonical's children could ever populate `blocklisted` — and a blocklisted child
+            // existing ONLY on the seat is not an edge case, it is the whole point of the blocklist.
+            // Such a leaf vanished from an "exhaustive" report while both sides read as observed,
+            // which is the worst version of this: nothing looked wrong.
+            const declaredLocal = blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name);
+
+            if (declaredLocal) {
+                log(`reconcile seat-local (declared, absent from canonical): ${name}`);
+                result.blocklisted.push(name);
+            } else {
+                log(`reconcile seat-only (absent from canonical): ${name}`);
+                result.seatOnly.push(name);
+            }
+
+            result.resolved[name] = await fs.realpath(path.join(parentDst, name)).catch(() => null);
         }
     }
 
