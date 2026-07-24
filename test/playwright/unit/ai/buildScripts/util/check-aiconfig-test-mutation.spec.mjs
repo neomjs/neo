@@ -59,14 +59,16 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations('aiConfigDefaults.collections.memory = x;')).toEqual([])
     });
 
-    test('an OPTIONAL-CHAINING mutation is flagged — a `?.` between root and leaf is not an escape', () => {
-        // The literal-anchored predecessor missed this too, so it is not a regression of the shape fix — but
-        // it is one character to close, so it is closed rather than left as a known gap.
-        expect(findDbPathMutations('AiConfig?.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
-        expect(findDbPathMutations('aiConfig.storagePaths?.graph = x;').map(hit => hit.line)).toEqual([1]);
-        // The negatives still hold through a `?.`: a read is not a write, and the defaults module is exempt.
-        expect(findDbPathMutations('const g = AiConfig?.storagePaths.graph;')).toEqual([]);
-        expect(findDbPathMutations('aiConfigDefaults?.storagePaths.graph = x;')).toEqual([])
+    test('a `$`-leading config root is flagged — the grammar advertises `$` and the boundary must honour it', () => {
+        // @neo-gpt-emmy's exact-head finding: the root grammar allows a leading `$`, but a `\\b` boundary
+        // cannot sit before `$` (a non-word char), so `$Config.storagePaths.graph = x` evaded a pattern that
+        // claimed to match it. The lookbehind/lookahead boundary closes that divergence — these are all VALID
+        // JavaScript, unlike the reverted optional-chaining specimen.
+        expect(findDbPathMutations('$Config.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations('$aiConfig.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
+        // The boundary still refuses a `...ConfigX` identifier (Config not at the end) and the defaults module.
+        expect(findDbPathMutations('mailboxAiConfigX.storagePaths.graph = x;')).toEqual([]);
+        expect(findDbPathMutations('aiConfigDefaults.storagePaths.graph = x;')).toEqual([])
     });
 
     test('a bare `Config` identifier is not a config root', () => {

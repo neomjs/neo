@@ -38,16 +38,18 @@ const DB_PATH_LEAVES = '(?:storagePaths|database|collections|logPath)';
  * measured against this file's own exported pattern rather than reasoned about:
  *
  *   1. An ALIASED binding walked straight through. `mailboxAiConfig.storagePaths.graph = dbPath` was not
- *      flagged, and three spec files (14 occurrences) mutate Class-A leaves that way today.
- *   2. Far worse: the approved `aiConfig` -> `AiConfig` PascalCase normalization (1,526 occurrences across
- *      198 files) would have made this lint match NOTHING in the repo — while the sweep's own acceptance
- *      criterion read "check-aiconfig-test-mutation must stay green." Green because inert. A fail-build
- *      B4 guard would have been retired by a refactor that certified the retirement as success.
+ *      flagged, and files bound this way (`mailboxAiConfig`, `mirrorAiConfig`) mutate Class-A leaves today.
+ *   2. Far worse: a repo-wide `aiConfig` -> `AiConfig` PascalCase normalization (1,526 occurrences across
+ *      198 files) would have made a case-sensitive literal anchor match NOTHING — while the rename's own
+ *      "the mutation lint must stay green" criterion certified that inert gate as success. A fail-build
+ *      B4 guard retired by a refactor whose acceptance criteria prove the retirement.
  *
  * So any identifier ENDING in `Config` counts as a config root: `aiConfig`, `AiConfig`, `mailboxAiConfig`,
- * `Memory_Config`, and whatever the next rename produces. `aiConfigDefaults` still does not match — the
- * trailing `\b` requires `Config` to end the identifier — which preserves prior behaviour for the separate
- * TIER1 defaults module.
+ * `Memory_Config`, `$Config`, and whatever the next rename produces. The root boundary is a
+ * lookbehind/lookahead pair rather than `\b`, because `\b` cannot sit before a `$`-leading identifier and
+ * would let `$Config.…` evade a grammar that admits a leading `$`. `aiConfigDefaults` still does not match —
+ * the trailing boundary requires `Config` to END the identifier — preserving prior behaviour for the
+ * separate TIER1 defaults module.
  *
  * This deliberately accepts FALSE POSITIVES on unrelated `*Config` objects that assign a Class-A leaf.
  * That is the correct trade for a safety-critical gate: a false positive costs one escape marker plus a
@@ -57,13 +59,15 @@ const DB_PATH_LEAVES = '(?:storagePaths|database|collections|logPath)';
 const CONFIG_ROOT = '[A-Za-z_$][\\w$]*Config';
 
 export const DB_PATH_MUTATION = new RegExp(
-    `\\b${CONFIG_ROOT}\\b[\\w.$?[\\]'"\`-]*` +                                  // a config-shaped root, then any path chars (incl. `?.`)
+    // Root boundary is a lookbehind/lookahead pair, NOT `\\b`: `\\b` fails before a `$`-leading identifier
+    // (`$` is a non-word char), so `$Config.storagePaths.graph = x` evaded a grammar that advertises `$` as a
+    // valid leading char. `(?<![\\w$])` / `(?![\\w$])` anchor on "not inside another identifier", which is the
+    // real intent and closes that divergence in the fail-SAFE direction (catch it; a false positive costs one
+    // escape marker, a false negative is the orphan incident).
+    `(?<![\\w$])${CONFIG_ROOT}(?![\\w$])[\\w.$[\\]'"\`-]*` +                     // a config-shaped root, then any path chars
     `(?:\\.${DB_PATH_LEAVES}\\b|\\[\\s*['"\`]${DB_PATH_LEAVES}['"\`]\\s*\\])` + // a dangerous leaf: dot OR string-literal bracket
-    `[\\w.$?[\\]'"\`]*\\s*=(?![=>])`                                            // optional trailing path, then assignment (not == / =>)
+    `[\\w.$[\\]'"\`]*\\s*=(?![=>])`                                             // optional trailing path, then assignment (not == / =>)
 );
-// The `?` in both interior classes closes an OPTIONAL-CHAINING evasion — `AiConfig?.storagePaths.graph = x`
-// — that the previous literal-anchored pattern also missed. Not part of the identifier-anchor fix this
-// change is about, but the same one-character reach, so it is closed here rather than left as a known gap.
 
 /*
  * Files that already mutate Class-A DB paths, grandfathered while the cleanup migrates them to
