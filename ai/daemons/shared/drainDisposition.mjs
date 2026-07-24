@@ -42,17 +42,17 @@
  * appends into the same day file. **Directory size answers "what did the plane write"; it cannot be
  * disaggregated into seats at all.** The message WAL follows at `${memoryWal.dir}/messages`.
  *
- * **Per-seat volume comes from the records, not the files.** Each line carries
- * `metadata.agent`, so grouping a segment's JSONL by that field yields per-seat records and bytes.
- * Two properties of that grouping must be reported rather than smoothed:
+ * **Per-seat volume comes from the records, not the files** — and from exactly one field.
+ * Group a segment's JSONL by **`metadata.agentIdentity`**. Measured on `wal-2026-07-24.jsonl`:
+ * present on **363 of 363 records**, every identity `@`-prefixed, no unattributed remainder.
  *
- *   1. **A large share of records carry no `metadata.agent` at all** — measured on
- *      `wal-2026-07-24.jsonl`: 143 of 360 records, 29.7% of segment bytes, a bucket larger than
- *      every individual seat but one. Attributing it to nobody understates every seat; spreading it
- *      evenly fabricates a distribution. It is its own row, and a baseline that hides it is
- *      reporting a share of a total it did not measure.
- *   2. **Identity spellings alias.** `@neo-gpt` and `neo-gpt` both occur; normalise the leading `@`
- *      or one seat splits into two rows that each look small.
+ * **Do NOT group by `metadata.agent`.** It is a partial duplicate — present on only 219 of those
+ * 363 records, never disagreeing where both exist, so it looks authoritative on inspection while
+ * being silently incomplete. Grouping by it **erases whole seats**: `@neo-fable` (81 records,
+ * 14.8% of bytes) and `@neo-opus-vega` (24 records, 5.9%) vanish entirely, `@neo-fable-clio` reads
+ * 32 records instead of 70, and the missing 29.7% presents as an "unattributed" bucket that does
+ * not exist. A field that is *sometimes* populated produces a plausible table with named rows and
+ * believable percentages — the failure mode is a confident answer, not an obvious gap.
  *
  * **Why the receipt is required to read any of it correctly.** Bytes measure what was *written*,
  * not what remains to be *replayed*. A plane writing heavily whose drain reports `clean` every
@@ -66,9 +66,9 @@
  * cumulative volume — count across the window rather than sampling the directory once at the end.
  *
  * **The four readings, and none of them is optional:** plane volume over the window · the per-seat
- * split by `metadata.agent` **with its unattributed bucket stated** · the disposition `state`
- * sampled across the window (a plane that is ever `unobserved` has an unmeasured gap, not a quiet
- * one) · and `counts.pending` at the window's close.
+ * split by `metadata.agentIdentity` · the disposition `state` sampled across the window (a plane
+ * that is ever `unobserved` has an unmeasured gap, not a quiet one) · and `counts.pending` at the
+ * window's close.
  *
  * @see ai/daemons/embed/drainCycle.mjs                          memory WAL loop
  * @see ai/daemons/message/drainCycle.mjs                        message WAL loop
