@@ -35,6 +35,54 @@ Do not redeploy on every commit. The Agent OS deployment is a stateful service; 
 
 Avoid "deploy on every push to `dev`": it couples MCP availability to ordinary development cadence.
 
+## Deployed-revision provenance
+
+Release-gating chooses *which* revision to deploy. This section is how the deployment **proves** which revision it actually runs — a separate problem, and the one that lets a stale stack look healthy.
+
+**Resolve the channel, then pin.** Every Neo service in [`ai/deploy/docker-compose.yml`](../../../ai/deploy/docker-compose.yml) forwards two build arguments: `NEO_REF` (what you are *asking for*) and `NEO_REVISION` (the *resolved* commit). Resolve once, pass both, build once:
+
+```bash
+export NEO_REF=$(git ls-remote https://github.com/neomjs/neo.git dev | cut -f1)
+export NEO_REVISION="$NEO_REF"
+docker compose -f ai/deploy/docker-compose.yml [--profile …] build
+```
+
+Left unset, `NEO_REF` defaults to `dev` and `NEO_REVISION` stays empty — the pre-existing behaviour, with no revision asserted.
+
+Prefer a resolved SHA over a branch name for two independent reasons. Docker does **not** automatically invalidate a `RUN` layer when remote content changes, so re-running `build` against a mutable branch does not mechanically prove the branch was re-fetched — a changing build argument gives the cache a changing input. And a mutable channel is *policy input*, never a build identity: resolving it yourself, once, before the build is the only way the image can honestly state what it contains.
+
+Confirm what compose will pass before building — the whole cohort must agree:
+
+```bash
+docker compose -f ai/deploy/docker-compose.yml --profile cloud config | grep -E 'NEO_REF|NEO_REVISION'
+```
+
+**Verify what the images report.** Provenance lives on three surfaces, each of which can only state a fact it actually holds. They are not interchangeable:
+
+| Fact | Surface | Contract |
+|---|---|---|
+| Requested selector | `org.neomjs.image.requested-ref` label | Policy input — what the build was *asked* for. Legitimately a mutable channel. Vendor-namespaced because no OCI standard key means "what was asked for". |
+| Packaged revision | `org.opencontainers.image.revision` label | The OCI-specified source-control revision of the packaged software. Caller-supplied via `NEO_REVISION`; **empty when not supplied**, which reads as *not asserted*. It must never contain a channel name. |
+| Resolved commit | `/app/.neo-revision` | The commit the build actually checked out, written at build time. Always populated, always true — so this is the **primary** provenance fact; the label above is its machine-readable echo when the caller resolved properly. |
+
+```bash
+docker inspect --format '{{index .Config.Labels "org.neomjs.image.requested-ref"}}' <image>
+docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' <image>
+docker compose -f ai/deploy/docker-compose.yml exec mc-server cat /app/.neo-revision
+```
+
+Read the requested selector against the resolved commit — the *direction* of any disagreement carries the diagnosis:
+
+| Requested | Resolved (file) | Reading |
+|---|---|---|
+| a channel, e.g. `dev` | some commit | Expected. No pin was given, so the resolved commit is the sole identity — and `org.opencontainers.image.revision` will be empty, correctly asserting nothing. |
+| a pinned SHA | the same SHA | The pin held. Promote this image. |
+| a pinned SHA | a **different** SHA | **Build-integrity failure.** Not an oddity — the build did not produce what was asked for. Do not promote; rebuild and investigate. |
+
+Two rules that follow from the table. A **non-empty** `org.opencontainers.image.revision` that disagrees with `/app/.neo-revision` is the same build-integrity failure, detectable without the requested selector at all. And a **`local-build`** marker means the image came from `NEO_SOURCE=local` (the dev-iteration escape hatch): nothing upstream was packaged, so `NEO_REVISION` must not be passed for such a build and the image must never be promoted.
+
+Two honest bounds. First, a missing label or missing `/app/.neo-revision` means the image predates this contract — treat it as unknown-revision, not as current. Second, these are container-local reads: they answer "which revision" but they are served from inside the deployed set, so they cannot by themselves distinguish *a failed rollout* from *a succeeded rollout whose reporter died*. Durable out-of-cohort receipts are open design work, tracked on [Discussion #15758](https://github.com/orgs/neomjs/discussions/15758).
+
 ## Redeploy-safe persistence
 
 This is the load-bearing rule. A pipeline-driven redeploy **recreates containers**; it must **not destroy persistent state**. Sub C ([#11724](https://github.com/neomjs/neo/issues/11724)) already made the deployment redeploy-safe — the pipeline's job is to not undo it.
