@@ -368,6 +368,10 @@ class AuthService extends Base {
                 return {
                     token,
                     clientId : 'neo-seat-token',
+                    // Authorization stays a NAMED extension point: seat tokens authenticate a
+                    // subject; per-subject capability scoping (auth ≠ admission ≠ authorization)
+                    // is a later contract that would populate these scopes — deliberately not
+                    // invented here.
                     scopes   : [],
                     expiresAt: Number.MAX_SAFE_INTEGER,
                     userId   : login,
