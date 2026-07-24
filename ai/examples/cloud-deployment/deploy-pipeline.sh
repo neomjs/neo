@@ -63,7 +63,12 @@ else
     # tag-object id would make NEO_REVISION disagree with /app/.neo-revision — the
     # label attesting an object that is not the deployed source. A 40-char git object
     # id is not necessarily a COMMIT id. Prefer the peel; never the tag object.
-    ls_remote="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" 2>/dev/null || true)"
+    # BOTH patterns, and this is load-bearing: an EXACT pattern never elicits the peel.
+    # Verified against a disposable annotated-tag repo — `ls-remote <url> v9.9.9` returns
+    # only `refs/tags/v9.9.9` (the tag object); `ls-remote <url> v9.9.9 'v9.9.9^{}'` also
+    # returns `refs/tags/v9.9.9^{}` (the commit). A `refs/tags/<sel>*` glob would work too
+    # but can over-match (`v9.9.9-rc1`), turning one tag into a false ambiguity abort.
+    ls_remote="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" "${NEO_SELECTOR}^{}" 2>/dev/null || true)"
     peeled="$(printf '%s\n' "$ls_remote" | awk '$2 ~ /\^\{\}$/ {print $1}')"
 
     if [ -n "$peeled" ]; then

@@ -32,13 +32,22 @@ const
 
 /**
  * Builds a throwaway bin dir whose `git` and `docker` shadow the real ones on `PATH`.
- * `fake-git ls-remote` echoes `lsRemote` verbatim so a spec can stage zero, one, or many refs.
- * `fake-docker` records every invocation, so "Docker was never called" is an assertable fact
- * rather than an inference from the exit code.
- * @param {String} lsRemote Raw `git ls-remote` stdout to stage (empty string = zero matches).
+ *
+ * `fake-git ls-remote` deliberately MODELS REAL PATTERN SEMANTICS rather than echoing a fixture:
+ * an exact pattern (`v9.9.9`) advertises only the tag object, and the peeled commit
+ * (`refs/tags/v9.9.9^{}`) appears ONLY when the caller also passes the `^{}` pattern. Verified
+ * against a disposable annotated-tag repository. A fixture that hands back both lines regardless
+ * cannot fail when the script stops asking for the peel — which is precisely the defect that
+ * slipped through cycle 1: the earlier stub proved the code against input git never produces.
+ *
+ * `fake-docker` records every invocation plus the environment, so "Docker was never called" and
+ * "both variables reached Compose" are assertable facts rather than inferences.
+ *
+ * @param {String} peelLine  Peel line to advertise, or '' for none (branch / lightweight tag).
+ * @param {String} plainLines Non-peel lines always advertised (tag object, branches, or '').
  * @returns {Promise<Object>} `{bin, dockerLog}` paths.
  */
-async function createFakeBin(lsRemote) {
+async function createFakeBin(plainLines, peelLine = '') {
     const
         bin       = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-deploy-pin-')),
         dockerLog = path.join(bin, 'docker-invocations.log');
@@ -46,7 +55,12 @@ async function createFakeBin(lsRemote) {
     await fs.writeFile(path.join(bin, 'git'), [
         '#!/usr/bin/env bash',
         // Only ls-remote is contract-relevant; `describe` keeps the host-checkout log line working.
-        'if [ "$1" = "ls-remote" ]; then printf \'%s\' "$FAKE_LS_REMOTE"; exit 0; fi',
+        'if [ "$1" = "ls-remote" ]; then',
+        '    printf \'%s\' "$FAKE_LS_PLAIN"',
+        // The peel is advertised ONLY if some argument carries the ^{} pattern — real git behaviour.
+        '    for a in "$@"; do case "$a" in *"^{}") [ -n "$FAKE_LS_PEEL" ] && printf \'\\n%s\' "$FAKE_LS_PEEL";; esac; done',
+        '    exit 0',
+        'fi',
         'if [ "$1" = "-C" ] && [ "$3" = "describe" ]; then echo "fake-describe"; exit 0; fi',
         'exit 0'
     ].join('\n'), {mode: 0o755});
@@ -62,7 +76,7 @@ async function createFakeBin(lsRemote) {
 
     await fs.writeFile(dockerLog, '');
 
-    return {bin, dockerLog, lsRemote}
+    return {bin, dockerLog, plainLines, peelLine}
 }
 
 /**
@@ -79,9 +93,10 @@ function runPipeline(fake, selector) {
             encoding: 'utf8',
             env     : {
                 ...process.env,
-                FAKE_LS_REMOTE: fake.lsRemote,
-                NEO_REF       : selector,
-                PATH          : `${fake.bin}:${process.env.PATH}`
+                FAKE_LS_PEEL : fake.peelLine,
+                FAKE_LS_PLAIN: fake.plainLines,
+                NEO_REF      : selector,
+                PATH         : `${fake.bin}:${process.env.PATH}`
             },
             stdio: ['ignore', 'pipe', 'pipe']
         });
@@ -182,8 +197,12 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         const
             TAG_OBJECT    = '9c18ce0000000000000000000000000000000000',
             PEELED_COMMIT = 'a312fc0000000000000000000000000000000000',
+            // The peel is the SECOND argument, so fake-git advertises it only when the script
+            // actually asks for the `^{}` pattern. Staging both as always-advertised would make
+            // this test unable to fail — which is how the cycle-1 fixture passed a broken script.
             fake          = await createFakeBin(
-                `${TAG_OBJECT}\trefs/tags/v13.2.0\n${PEELED_COMMIT}\trefs/tags/v13.2.0^{}`
+                `${TAG_OBJECT}\trefs/tags/v13.2.0`,
+                `${PEELED_COMMIT}\trefs/tags/v13.2.0^{}`
             ),
             result = runPipeline(fake, 'v13.2.0');
 
