@@ -49,6 +49,8 @@ docker compose -f ai/deploy/docker-compose.yml [--profile …] build
 
 Left unset, `NEO_REF` defaults to `dev` and `NEO_REVISION` stays empty — the pre-existing behaviour, with no revision asserted.
 
+**Pass the full 40-character SHA.** An abbreviated SHA fails closed at `git fetch`, before any checkout — correct behaviour, since an abbreviated ref is not a reproducible pin, but the error surfaces as a fetch failure rather than as anything mentioning provenance. Observed in a live rehearsal run against a 12-character SHA. The `git ls-remote` form above avoids this by construction, which is why it is the documented path rather than prose asking you to be careful.
+
 Prefer a resolved SHA over a branch name for two independent reasons. Docker does **not** automatically invalidate a `RUN` layer when remote content changes, so re-running `build` against a mutable branch does not mechanically prove the branch was re-fetched — a changing build argument gives the cache a changing input. And a mutable channel is *policy input*, never a build identity: resolving it yourself, once, before the build is the only way the image can honestly state what it contains.
 
 Confirm what compose will pass before building — the whole cohort must agree:
