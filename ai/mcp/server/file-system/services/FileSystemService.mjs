@@ -12,25 +12,63 @@ import util from 'util';
 const execFileAsync = util.promisify(execFile);
 
 /**
- * Validates that a requested path does not traverse outside the project root.
+ * Resolves a path to the filesystem object it actually names, following symlinks.
  *
- * **Containment only — this is not a shell-safety guard.** It answers "is this path inside the
- * root", and a path can be perfectly inside the root while containing shell metacharacters. Callers
- * must never treat its return value as safe to interpolate into a command string; use argv.
+ * `fs.realpath` requires the path to exist, but `writeFile` legitimately targets files that do not
+ * yet. So the deepest ancestor that DOES exist is canonicalized and the not-yet-created remainder is
+ * re-appended — which is the security-relevant part anyway: a create target can only escape through
+ * a parent that already exists and already points outside.
+ *
+ * @param {String} targetPath An absolute, lexically-resolved path.
+ * @returns {Promise<String>} The canonical path.
+ */
+async function canonicalize(targetPath) {
+    const tail    = [];
+    let   current = targetPath;
+
+    for (;;) {
+        try {
+            return path.join(await fs.realpath(current), ...tail.slice().reverse())
+        } catch (error) {
+            if (error?.code !== 'ENOENT') throw error;
+
+            const parent = path.dirname(current);
+
+            // Reached the filesystem root without finding anything that exists.
+            if (parent === current) throw error;
+
+            tail.push(path.basename(current));
+            current = parent
+        }
+    }
+}
+
+/**
+ * Validates that a requested path does not reach a filesystem object outside the project root.
+ *
+ * **Canonical containment, not lexical.** `path.resolve`/`path.relative` normalize *segments*; they
+ * do not dereference symlinks. An in-root alias pointing outside produces a perfectly in-root
+ * spelling, so a lexical check answers *"is this path spelled inside the root"* when the security
+ * contract is *"is the object this reaches inside the root"* — an adjacent question with a confident
+ * answer. Both sides are canonicalized before comparison so the alias cannot survive it.
+ *
+ * **Containment only — this is not a shell-safety guard.** A path can be perfectly inside the root
+ * and still contain shell metacharacters. Callers must never treat the return value as safe to
+ * interpolate into a command string; use argv.
  *
  * @param {String} absolutePath
- * @returns {String} The resolved path if safe.
- * @throws {Error} If path traversal occurs.
+ * @returns {Promise<String>} The canonical path if safe — callers operate on the verified object.
+ * @throws {Error} If the canonical target lies outside the root.
  */
-function ensureSandboxed(absolutePath) {
-    const rootPath   = path.resolve(process.cwd());
-    const targetPath = path.resolve(absolutePath);
-
-    // Compared on a path boundary, not a string prefix: `startsWith` admitted any sibling directory
-    // whose name merely begins with the root's, so `<root>-evil/x` passed a jail meant to exclude it.
-    // `path.relative` answers the containment question directly — an escaping path is either
-    // absolute or starts with a `..` segment.
-    const relative = path.relative(rootPath, targetPath);
+async function ensureSandboxed(absolutePath) {
+    const
+        rootPath   = await fs.realpath(path.resolve(process.cwd())),
+        targetPath = await canonicalize(path.resolve(absolutePath)),
+        // Compared on a path boundary, not a string prefix: `startsWith` admitted any sibling
+        // directory whose name merely begins with the root's, so `<root>-evil/x` passed a jail meant
+        // to exclude it. `path.relative` answers containment directly — an escaping path is either
+        // absolute or starts with a `..` segment.
+        relative   = path.relative(rootPath, targetPath);
 
     if (relative !== '' && (path.isAbsolute(relative) || relative.split(path.sep)[0] === '..')) {
         throw new Error(`403 Forbidden: Path traversal detected. Operation jailed to ${rootPath}`);
@@ -45,19 +83,19 @@ class FileSystemService {
     }
 
     static async readFile({absolutePath}) {
-        const safePath = ensureSandboxed(absolutePath);
+        const safePath = await ensureSandboxed(absolutePath);
         const buffer = await fs.readFile(safePath);
         return { content: buffer.toString('utf-8') };
     }
 
     static async writeFile({absolutePath, content}) {
-        const safePath = ensureSandboxed(absolutePath);
+        const safePath = await ensureSandboxed(absolutePath);
         await fs.writeFile(safePath, content, 'utf-8');
         return 'success';
     }
 
     static async listDirectory({absolutePath}) {
-        const safePath = ensureSandboxed(absolutePath);
+        const safePath = await ensureSandboxed(absolutePath);
         const entries = await fs.readdir(safePath, { withFileTypes: true });
 
         return entries.map(entry => ({
@@ -68,7 +106,7 @@ class FileSystemService {
     }
 
     static async checkSyntax({absolutePath}) {
-        const safePath = ensureSandboxed(absolutePath);
+        const safePath = await ensureSandboxed(absolutePath);
 
         try {
             // --check runs the syntax parser without executing
@@ -81,7 +119,7 @@ class FileSystemService {
     }
 
     static async runPlaywrightTest({absolutePath}) {
-        const safePath = ensureSandboxed(absolutePath);
+        const safePath = await ensureSandboxed(absolutePath);
 
         // Strict guard: ensure it's actually a test file in the playwright directory
         if (!safePath.includes('test/playwright/')) {

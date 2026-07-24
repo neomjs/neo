@@ -1,5 +1,6 @@
 import {test, expect}    from '@playwright/test';
 import fs                from 'fs-extra';
+import os                from 'os';
 import path              from 'path';
 import FileSystemService from '../../../../../../../ai/mcp/server/file-system/services/FileSystemService.mjs';
 
@@ -61,6 +62,75 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
 
         await expect(FileSystemService.listDirectory({absolutePath: root})).resolves.toBeTruthy();
         await expect(FileSystemService.listDirectory({absolutePath: tmpDir})).resolves.toBeTruthy();
+    });
+
+    test('#15818 an in-root SYMLINK to an outside directory is rejected — lexical containment is not canonical', async () => {
+        // The escape @neo-gpt-emmy executed against the prior head: `path.resolve`/`path.relative`
+        // normalize SEGMENTS, they do not dereference symlinks. An in-root alias pointing outside
+        // spells perfectly in-root, so the lexical check answered "is this path spelled inside the
+        // root" when the contract is "is the object this reaches inside the root".
+        const
+            outsideDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'fs-service-outside-')),
+            sentinel    = path.join(outsideDir, 'sentinel.txt'),
+            aliasInRoot = path.join(tmpDir, 'alias');
+
+        await fs.writeFile(sentinel, 'OUTSIDE-SECRET\n', 'utf-8');
+        await fs.symlink(outsideDir, aliasInRoot, 'dir');
+
+        try {
+            await expect(FileSystemService.readFile({absolutePath: path.join(aliasInRoot, 'sentinel.txt')}))
+                .rejects.toThrow(/403 Forbidden: Path traversal detected/);
+
+            // The sentinel must be untouched AND unread — the guard has to fire before any fs call.
+            expect(await fs.readFile(sentinel, 'utf-8')).toBe('OUTSIDE-SECRET\n');
+        } finally {
+            await fs.remove(aliasInRoot).catch(() => {});
+            await fs.remove(outsideDir).catch(() => {});
+        }
+    });
+
+    test('#15818 a NOT-YET-EXISTING write target under a symlinked-outside parent is rejected', async () => {
+        // The create case: `fs.realpath` cannot canonicalize a file that does not exist yet, so the
+        // guard canonicalizes the deepest EXISTING ancestor. That is the security-relevant part —
+        // a create target can only escape through a parent that already exists and already points out.
+        const
+            outsideDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'fs-service-outside-w-')),
+            aliasInRoot = path.join(tmpDir, 'alias-w');
+
+        await fs.symlink(outsideDir, aliasInRoot, 'dir');
+
+        try {
+            await expect(FileSystemService.writeFile({
+                absolutePath: path.join(aliasInRoot, 'implanted.txt'),
+                content     : 'should never land'
+            })).rejects.toThrow(/403 Forbidden: Path traversal detected/);
+
+            // Nothing was created outside the root.
+            expect(await fs.pathExists(path.join(outsideDir, 'implanted.txt'))).toBe(false);
+        } finally {
+            await fs.remove(aliasInRoot).catch(() => {});
+            await fs.remove(outsideDir).catch(() => {});
+        }
+    });
+
+    test('#15818 legitimate creates and in-root symlinks still work — the jail narrowed, it did not close', async () => {
+        // Canonicalization must not break the ordinary cases: creating a new file, and following a
+        // symlink that stays inside the root. A guard that rejects real work gets switched off.
+        const newFile = path.join(tmpDir, 'freshly-created.txt');
+
+        expect(await FileSystemService.writeFile({absolutePath: newFile, content: 'ok\n'})).toBe('success');
+        expect((await FileSystemService.readFile({absolutePath: newFile})).content).toBe('ok\n');
+
+        const innerAlias = path.join(tmpDir, 'inner-alias');
+        await fs.symlink(tmpDir, innerAlias, 'dir');
+
+        try {
+            // Reaches an in-root object through an in-root alias — canonically contained, so admitted.
+            expect((await FileSystemService.readFile({absolutePath: path.join(innerAlias, 'freshly-created.txt')})).content)
+                .toBe('ok\n');
+        } finally {
+            await fs.remove(innerAlias).catch(() => {});
+        }
     });
 
     test('#15818 runPlaywrightTest still refuses a sandboxed path outside test/playwright/', async () => {
