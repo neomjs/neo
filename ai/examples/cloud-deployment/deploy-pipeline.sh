@@ -40,7 +40,40 @@ fi
 
 compose() { docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"; }
 
-echo "[deploy] revision: $(git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null || echo unknown)"
+# Resolve the deployed revision BEFORE Docker runs (#15792). Every run pins:
+# there is deliberately no unpinned path, because this is the reference pipeline
+# and its default is what propagates to every downstream deployment.
+#
+# BOTH args are exported, not just NEO_REVISION. NEO_REVISION only feeds the OCI
+# revision LABEL; the source stage fetches ${NEO_REF}. Exporting only NEO_REVISION
+# would stamp a resolved SHA onto an image whose source stage fetched a mutable
+# channel — a label asserting a fact the artifact does not hold, and the cache
+# input would not change, so `--build` might not even re-fetch.
+NEO_SELECTOR="${NEO_REF:-dev}"
+NEO_REPO_URL="${NEO_REPO_URL:-https://github.com/neomjs/neo.git}"
+
+if [[ "$NEO_SELECTOR" =~ ^[0-9a-f]{40}$ ]]; then
+    resolved_revision="$NEO_SELECTOR"
+else
+    # A channel/tag, or an abbreviated SHA (which `git fetch` would reject anyway
+    # — see PipelineWiring.md). Resolve it to exactly one full SHA or abort.
+    matches="$(git ls-remote "$NEO_REPO_URL" "$NEO_SELECTOR" 2>/dev/null | awk '{print $1}' || true)"
+    match_count="$(printf '%s' "$matches" | grep -c . || true)"
+
+    if [ "$match_count" -ne 1 ]; then
+        echo "[deploy] FATAL: selector '${NEO_SELECTOR}' resolved to ${match_count} refs at ${NEO_REPO_URL}; expected exactly 1." >&2
+        echo "[deploy] Pass a full 40-character SHA, or a selector that names exactly one ref. Docker was NOT invoked." >&2
+        exit 1
+    fi
+    resolved_revision="$matches"
+fi
+
+export NEO_REF="$resolved_revision"
+export NEO_REVISION="$resolved_revision"
+
+echo "[deploy] selector:     $NEO_SELECTOR"
+echo "[deploy] revision:     $resolved_revision   <- built into the images"
+echo "[deploy] host-checkout: $(git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null || echo unknown)   (this host only; NOT what is deployed)"
 echo "[deploy] compose:  $COMPOSE_FILE"
 echo "[deploy] project:  $PROJECT_NAME"
 echo "[deploy] profiles: ${profile_args[*]}"
