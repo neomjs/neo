@@ -11,6 +11,17 @@
  * software rendering would be a guard nobody could satisfy, and guards nobody can satisfy get
  * disabled. Reading the intent from the declaration keeps the demand proportional to the claim.
  *
+ * **NEVER add `--use-gl=desktop` or `--disable-software-rasterizer` to ANY list in this module.**
+ * The prohibition is module-wide on purpose: `--use-gl=desktop` reads like a GPU selector and a
+ * maintainer's hand goes to `GPU_INTENT_ARGS`, so a ban scoped to one list guards the wrong surface.
+ * Modern Chrome's GL allowlist is ANGLE-only (metal/opengl/swiftshader), so `desktop` resolves to
+ * gl=none — the GPU process then dies at EVERY window birth, and with the software fallback disabled
+ * Chromium's crash threshold kills the whole browser mid-test in headed mode (the second popup birth
+ * crossed it deterministically: "GPU process isn't usable. Goodbye." → SIGTRAP, all SharedWorkers
+ * gone). Default ANGLE (Metal on macOS) IS the hardware path — measured on this seat, headed and
+ * headless: "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Max)". This is the source authority for
+ * that removal; `gl.setup.mjs` enforces it at runtime, but the two together are cheaper than either.
+ *
  * @see test/playwright/e2e/gl.setup.mjs  the boot probe that consumes GPU_INTENT_ARGS
  * @see https://github.com/neomjs/neo/issues/15664  the five-month-silent dead-flag incident
  */
@@ -33,15 +44,8 @@ export const GPU_INTENT_ARGS = [
 
 /**
  * @summary Everything else the E2E browser launches with — isolation, memory, throttling, sandbox.
- *
- * NEVER add `--use-gl=desktop` or `--disable-software-rasterizer` here. Modern Chrome's GL allowlist
- * is ANGLE-only (metal/opengl/swiftshader), so `desktop` resolves to gl=none — the GPU process then
- * dies at EVERY window birth, and with the software fallback disabled Chromium's crash threshold kills
- * the whole browser mid-test in headed mode (the second popup birth crossed it deterministically:
- * "GPU process isn't usable. Goodbye." → SIGTRAP, all SharedWorkers gone). Default ANGLE (Metal on
- * macOS) IS the hardware path — measured on this seat, headed and headless: "ANGLE (Apple, ANGLE Metal
- * Renderer: Apple M5 Max)". This warning is the source authority for that removal; the boot gate in
- * `gl.setup.mjs` enforces it at runtime, but the two together are cheaper than either alone.
+ * (The poison-flag prohibition is module-wide — see the file header — because it is not specific to
+ * this list.)
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
