@@ -69,8 +69,9 @@ event, not an identity change (#11240 OQ1).
 Capability values mirror `§neo_opus` (same model class) and match the registry node at HEAD.
 
 **Bearer receipt (2026-07-24, #15855)** — confirmed on the bearer's own transcript, not on operator
-authority: `claude-opus-5` × 94/94 assistant entries at grep time, zero fallback blocks, zero
-synthetic entries. The bearer additionally bounded the rotation from their own session boundaries:
+authority: `claude-opus-5` × 243/243 assistant entries, zero other model values, zero fallback
+blocks, zero synthetic entries (`stop_reason`: 235 `tool_use` / 6 `end_turn`). The prior session on
+the same seat reads `claude-opus-4-8` × 3232 with zero Opus-5 entries — the two sets are disjoint. The bearer additionally bounded the rotation from their own session boundaries:
 the last Opus-4.8 entry is **2026-07-24T20:48:22.122Z** and the first Opus-5 entry is
 **2026-07-24T20:57:48.280Z**, placing the swap inside a **9m26s window** at a session boundary
 rather than mid-session. Every sampled session on this seat is engine-homogeneous (1285 / 434 /
@@ -112,6 +113,9 @@ values in the table above describe the **Opus half**; during the Fable half the 
 value is true for the whole week, which is why the cockpit engine tag for this resident is
 deliberately `null` rather than a literal (`deriveFleetRoster.mjs`), and why this seat is the
 sharpest case for the #11318 era layer — an `EmbodiedEpisode` with a span is the shape that fits.
+ADR 0032 §7 already named this exact resident as the reflexive fixture: the same peer running Opus
+in one month and Fable in the next while remaining the same peer — operationally real, yet
+unrecordable in today's flat schema. This row is that gap written down rather than resolved.
 
 **Bearer receipt (2026-07-24, #15855)** — the bearer grepped their own transcripts rather than
 accepting roster-level authority: the session active at rotation time reads `claude-fable-5` × 670
