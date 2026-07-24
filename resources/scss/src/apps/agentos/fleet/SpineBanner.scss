@@ -19,14 +19,17 @@
 
     display      : inline-flex;
     align-items  : center;
-    flex         : none;
+    /* shrinkable on purpose: the honesty line must truncate through the ellipsis rules
+       below before it ever forces layout width — `flex: none` forbade the shrink, so its nowrap
+       min-content (~536px) became the whole cockpit's width floor in narrow vessel windows. */
+    flex         : 0 1 auto;
     min-width    : 0;
     max-width    : 100%;
     padding      : 2px 8px;
     border-left  : 3px solid var(--fm-spine-mark);
     border-radius: 2px;
-    background   : color-mix(in srgb, var(--fm-spine-mark) 10%, transparent);
-    color        : var(--fm-ink);
+    background: color-mix(in srgb, var(--fm-spine-mark) 10%, transparent);
+    color     : var(--fm-ink);
     font-family  : var(--fm-font-mono);
     font-size    : 11px;
     line-height  : 1.4;
