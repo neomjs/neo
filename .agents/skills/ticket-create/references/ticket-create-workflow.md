@@ -184,6 +184,7 @@ Minimize chained calls where possible — a well-formed `create_issue` call with
 When editing tickets:
 - **Ticket body:** Update your own in place. If it's someone else's ticket, respond via a NEW comment.
 - **Ticket AC list:** Extend your own list. If it's someone else's ticket, do NOT mutate their AC list; propose additions via comment.
+- **Reviewer-RA restatements:** read `../../pull-request/references/foreign-ticket-restatement.md` (comment-proposal default; claimer-authored in-body sections like intake-derived ledgers stay claimer-updatable).
 
 *Why:* Rewriting someone else's prose causes attribution collapse and breaks Native Edge Graph ingestion.
 
