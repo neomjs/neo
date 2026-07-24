@@ -34,9 +34,13 @@ const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
 /**
  * Observation-owned engine tags, mirrored from learn/agentos/ModelStats.md (§ anchor per entry).
  * An identity missing here emits `engineTag: null` — honest absence, never an invented tag.
+ *
+ * Exported so `ai/scripts/lint/lint-identity-engine-coherence.mjs` can read the map directly
+ * instead of re-parsing this file. The lint is the CI guard that these tags still agree with
+ * `ModelStats.md` and the registry — the three places drifted once and nothing noticed.
  * @type {Object<String,String>}
  */
-const ENGINE_TAG_BY_ID = {
+export const ENGINE_TAG_BY_ID = {
     'neo-opus-ada'   : 'opus-4.8',    // §neo_opus
     'neo-opus-grace' : 'opus-4.8',    // §neo_claude_opus
     'neo-opus-vega'  : 'opus-4.8',    // §neo_opus_vega
