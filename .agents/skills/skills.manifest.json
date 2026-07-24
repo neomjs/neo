@@ -422,6 +422,17 @@
         "learn/guides/fundamentals/CodebaseOverview.md"
       ]
     },
+    "video-create": {
+      "name": "video-create",
+      "description": "Evidence-first end-to-end video production workflow for narrated product films, demos, and campaign media. Triggers: planning, producing, revising, or delivering a video where claims, app choreography, voice, capture, composition, QA, publication, and artifact lineage must stay bound. ANTI-trigger: isolated image generation, standalone media conversion, or app testing with no film deliverable.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
     "whitebox-e2e": {
       "name": "whitebox-e2e",
       "description": "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright End-to-End tests, or if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.",
