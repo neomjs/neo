@@ -184,7 +184,7 @@ Minimize chained calls where possible — a well-formed `create_issue` call with
 When editing tickets:
 - **Ticket body:** Update your own in place. If it's someone else's ticket, respond via a NEW comment.
 - **Ticket AC list:** Extend your own list. If it's someone else's ticket, do NOT mutate their AC list; propose additions via comment.
-- **Reviewer-RA restatements:** a review Required Action may require restating another author's AC/ledger text ("satisfy or restate", `pr-review-guide.md §5.2`); the conforming path is comment-proposal + author application/confirmation. Direct application only on explicit RA prescription, with edit-trail comment + revert-authority per `review-response-protocol.md §6`. Carve-out: claimer-authored sections living inside another author's ticket body (e.g. an intake-derived Contract Ledger) are the claimer's own artifact, updatable in place.
+- **Reviewer-RA restatements:** read `../../pull-request/references/foreign-ticket-restatement.md` (comment-proposal default; claimer-authored in-body sections like intake-derived ledgers stay claimer-updatable).
 
 *Why:* Rewriting someone else's prose causes attribution collapse and breaks Native Edge Graph ingestion.
 
