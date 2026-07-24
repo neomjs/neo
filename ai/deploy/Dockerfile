@@ -78,19 +78,35 @@ ARG TARGET_SERVER
 ARG SERVICE_ENTRYPOINT=ai/mcp/server/${TARGET_SERVER}/mcp-server.mjs
 ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}
 
-# Deployment provenance (#15774). Two facts, deliberately kept separate:
-#   `org.opencontainers.image.revision` records the REQUESTED ref — exact whenever the
-#   caller pins a tag/SHA, which is what a reproducible rollout requires. A mutable
-#   channel (the `dev` default) must never be treated as a deployed identity, so the
-#   RESOLVED commit is stamped independently into /app/.neo-revision by the source
-#   stage. Requested-vs-resolved is the desired-vs-observed pair; they diverge exactly
-#   when a channel was requested instead of a pin.
+# Deployment provenance (#15774). THREE facts, each on a surface that cannot lie:
+#
+#   1. `org.neomjs.image.requested-ref` — the REQUESTED selector (policy input). May be
+#      a mutable channel; that is legitimate for a request and meaningless as identity.
+#      Vendor-namespaced on purpose: no OCI standard key means "what was asked for".
+#   2. `org.opencontainers.image.revision` — the PACKAGED source-control revision, per
+#      the OCI image-spec contract. Caller-supplied and EMPTY BY DEFAULT, because a
+#      LABEL can only read a build ARG and Docker cannot populate a later-stage ARG
+#      from a file written in an earlier stage. Empty means "not asserted"; it must
+#      never contain a channel name. To get a spec-correct value, resolve the channel
+#      to a full SHA first and pass NEO_REVISION — which is exactly the resolve-once
+#      contract the rollout-authority design calls for.
+#   3. /app/.neo-revision — the build-time RESOLVED commit, written by the source stage.
+#      The only surface that is always populated and always true, so it is the primary
+#      provenance fact; the label above is its machine-readable echo when the caller
+#      resolved properly.
+#
+# Do NOT pass NEO_REVISION for a `NEO_SOURCE=local` build: nothing upstream was
+# packaged, /app/.neo-revision says `local-build`, and an OCI revision claim there
+# would be a fabrication.
+#
 # These ARGs are re-declared here because pre-`FROM` ARGs do not reach build stages;
 # they sit after the expensive COPY/apk layers so a changed ref does not invalidate
-# them. Both inherit the global defaults declared at the top of this file.
+# them. NEO_REF and NEO_REPO_URL inherit the global defaults declared at the top.
 ARG NEO_REF
 ARG NEO_REPO_URL
-LABEL org.opencontainers.image.revision="${NEO_REF}"
+ARG NEO_REVISION=
+LABEL org.neomjs.image.requested-ref="${NEO_REF}"
+LABEL org.opencontainers.image.revision="${NEO_REVISION}"
 LABEL org.opencontainers.image.source="${NEO_REPO_URL}"
 
 CMD ["sh", "-c", "node ${SERVER_ENTRYPOINT}"]

@@ -57,6 +57,7 @@ services:
         # `${NEO_REF}` passes an EMPTY string when unset, which would override the
         # Dockerfile's `ARG NEO_REF=dev` and break `git fetch origin ""`.
         NEO_REF: ${NEO_REF:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
       - NEO_AUTO_SYNC=false
@@ -116,6 +117,7 @@ services:
         TARGET_SERVER: memory-core
         # Cohort invariant (#15774): every Neo service builds from the SAME ref.
         NEO_REF: ${NEO_REF:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
       - NEO_MC_PRIMARY=false
@@ -195,6 +197,7 @@ services:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
         # Cohort invariant (#15774): every Neo service builds from the SAME ref.
         NEO_REF: ${NEO_REF:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_AI_DEPLOYMENT_MODE=cloud
       - NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false
