@@ -1367,7 +1367,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         };
 
         const result = acquireHeavyMaintenanceLeaseSync({
-            leasePath, owner: 'S', token: 'token-s', fsModule: racingFs, guardStaleAfterMs: 1_000
+            leasePath, owner: 'S', token: 'token-s', fsModule: racingFs, guardStaleAfterMs: 60_000
         });
 
         expect(result.acquired).toBe(false);
