@@ -81,6 +81,8 @@ For each criterion from the source Discussion's Graduation Criteria section (the
 
 `EXPLICITLY DEFERRED` and `CONVERTED TO FOLLOW-UP` are acceptable closeout states with same tracked-elsewhere semantics as §3 `RESIDUAL_<X> [#<followup-ticket>]`.
 
+**Deferred authoring needs an expiry (#15785; any close, leaf or epic):** if the deferred item is *authoring* (text not yet written), `EXPLICITLY DEFERRED` needs a named expiry — satisfy or restate. Deferred *verification* closes on rationale.
+
 **Empirical anchor:** Discussion #11341 → ticket #11342 chain. The Discussion's `[RESOLVED_TO_AC]` Cycle 2 resolutions (≥30% demotion threshold + Markdown Form distinction + #11330-bound measurement + Pilot Shape: INV1 cascade detail with measurement contract) became #11342 ACs via `epic-review` Stage 2.5 mapping (#11349). At closeout this gate verifies each `[RESOLVED_TO_AC]` line and the Pilot Shape AC are delivered, explicitly deferred, or converted. Without this gate, the Pilot's "≥30% byte reduction" criterion could silently drift to "some byte reduction" if Epic ACs were diluted at creation time and never re-checked at closure.
 
 ## 4. Compute the verdict
