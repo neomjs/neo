@@ -129,6 +129,9 @@ services:
       NEO_KB_ASK_MAX_RPM: ${NEO_KB_ASK_MAX_RPM:-}
     volumes:
       - ../..:/app
+      # Anonymous volume: the image's linux-built node_modules must not be shadowed by the
+      # host bind (darwin/arm64 natives → exec format error; AC5 live-run defect 2, #15803).
+      - /app/node_modules
     depends_on:
       chroma:
         condition: service_healthy
@@ -171,6 +174,8 @@ services:
       NEO_MESSAGE_WAL_POLL_INTERVAL_MS: "250"
     volumes:
       - ../..:/app
+      # Anonymous volume: same node_modules shadowing guard as kb-server (AC5 defect 2).
+      - /app/node_modules
     depends_on:
       chroma:
         condition: service_healthy
