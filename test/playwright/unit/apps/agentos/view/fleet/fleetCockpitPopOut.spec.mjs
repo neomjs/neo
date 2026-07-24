@@ -237,20 +237,33 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
     test('blocked popup: windowOpen=false takes the failed-blocked edge and rolls back commit-or-neither', async () => {
         vessel = installWindowVessel({openResult: false, popupUrl: null});
 
-        const pane   = await revealDetail(),
-              result = await cockpit.popOutAgentDetail();
+        // the silent edge carries a log witness — captured with a PAIRED restore
+        const warns    = [],
+              origWarn = console.warn;
 
-        expect(result.detached).toBe(false);
-        expect(result.errors[0]).toContain('popup blocked');
+        console.warn = (...args) => warns.push(args);
 
-        // the rollback settled the machine home; the failure trace survives it
-        expect(cockpit.detailVesselState).toBe('docked');
-        expect(cockpit.lastDetailVesselFailure).toBe('blocked');
+        try {
+            const pane   = await revealDetail(),
+                  result = await cockpit.popOutAgentDetail();
 
-        // the SAME instance is docked again at its exact home; nothing was closed (nothing opened)
-        expect(cockpit.getReference('agent-detail')).toBe(pane);
-        expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'operator']);
-        expect(vessel.closeCalls).toHaveLength(0)
+            expect(result.detached).toBe(false);
+            expect(result.errors[0]).toContain('popup blocked');
+
+            // the rollback settled the machine home; the failure trace survives it
+            expect(cockpit.detailVesselState).toBe('docked');
+            expect(cockpit.lastDetailVesselFailure).toBe('blocked');
+
+            // the flap witness: the log half of the observability contract (state half above)
+            expect(warns.some(args => String(args[0]).includes('admission failed (blocked)'))).toBe(true);
+
+            // the SAME instance is docked again at its exact home; nothing was closed (nothing opened)
+            expect(cockpit.getReference('agent-detail')).toBe(pane);
+            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'operator']);
+            expect(vessel.closeCalls).toHaveLength(0)
+        } finally {
+            console.warn = origWarn
+        }
     });
 
     test('bounded connect window: a vessel that never joins takes the failed-timeout edge and rolls back', async () => {
@@ -269,18 +282,34 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 
         const pane = await revealDetail();
 
-        const result = await cockpit.popOutAgentDetail();
+        // the silent edge carries a log witness — captured with a PAIRED restore
+        const warns    = [],
+              origWarn = console.warn;
 
-        expect(result.detached).toBe(true);
-        expect(cockpit.detailVesselState).toBe('opening');
+        console.warn = (...args) => warns.push(args);
 
-        await expect.poll(() => cockpit.detailVesselState, {timeout: 2000}).toBe('docked');
+        try {
+            const result = await cockpit.popOutAgentDetail();
 
-        expect(cockpit.lastDetailVesselFailure).toBe('timeout');
-        expect(cockpit.getReference('agent-detail')).toBe(pane);
+            expect(result.detached).toBe(true);
+            expect(cockpit.detailVesselState).toBe('opening');
 
-        // the timeout rollback closes the maybe-open vessel by name
-        expect(vessel.closeCalls).toHaveLength(1)
+            await expect.poll(() => cockpit.detailVesselState, {timeout: 2000}).toBe('docked');
+
+            expect(cockpit.lastDetailVesselFailure).toBe('timeout');
+            expect(cockpit.getReference('agent-detail')).toBe(pane);
+
+            // the flap witness: self-describing, carries the bound that fired (log half; state half above)
+            const timeoutWarn = warns.find(args => String(args[0]).includes('admission failed (timeout)'));
+
+            expect(timeoutWarn, 'the timeout flap must log its witness line').toBeTruthy();
+            expect(timeoutWarn[1]).toMatchObject({boundMs: 20});
+
+            // the timeout rollback closes the maybe-open vessel by name
+            expect(vessel.closeCalls).toHaveLength(1)
+        } finally {
+            console.warn = origWarn
+        }
     });
 
     test('generation revalidation: a stale connect after reattach is inert', async () => {
