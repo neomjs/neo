@@ -26,7 +26,9 @@ import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
  *   eligibility logic reads it, so the derived seed feeds the authoritative field, not just prose.
  *
  * Usage: `node buildScripts/util/deriveFleetRoster.mjs [--check]` (with `--check`: verify the
- * committed file is byte-identical to a fresh derivation — the CI guard against hand-painting).
+ * committed file is STRUCTURALLY equal to a fresh derivation, comparing every field except
+ * `_meta.generatedAt` — the CI guard against hand-painting. Not a byte comparison: the timestamp
+ * changes on every run, so a byte check would fail on a clock tick rather than on data drift).
  */
 
 const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
@@ -35,15 +37,24 @@ const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
  * Observation-owned engine tags, mirrored from learn/agentos/ModelStats.md (§ anchor per entry).
  * An identity missing here emits `engineTag: null` — honest absence, never an invented tag.
  *
+ * **`neo-opus-vega` is deliberately absent.** That seat runs an operator-managed weekly
+ * Fable/Opus rotation, so no static literal stays true for more than a few days, and
+ * `apps/agentos/CARD-CONTRACT.md` names exactly this failure: a durable identity literal
+ * publishes baseline as current and goes stale on any unmanaged engine boost, with the
+ * July-2026 Fable-week rotations as the reflexive falsifier. A tag that is wrong half the
+ * week is worse than no tag — the model renders no badge for `null` by design. Restore a
+ * literal for that seat only once an era record can carry a time span instead of a point value.
+ *
  * Exported so `ai/scripts/lint/lint-identity-engine-coherence.mjs` can read the map directly
  * instead of re-parsing this file. The lint is the CI guard that these tags still agree with
- * `ModelStats.md` and the registry — the three places drifted once and nothing noticed.
+ * `ModelStats.md` and the registry — the three places drifted once and nothing noticed. That
+ * lint treats the absence above as VALID, never as drift: it fails only on contradiction, so a
+ * rotating seat can stay honestly silent without being pressured back into a false literal.
  * @type {Object<String,String>}
  */
 export const ENGINE_TAG_BY_ID = {
-    'neo-opus-ada'   : 'opus-4.8',    // §neo_opus
-    'neo-opus-grace' : 'opus-4.8',    // §neo_claude_opus
-    'neo-opus-vega'  : 'opus-4.8',    // §neo_opus_vega
+    'neo-opus-ada'   : 'opus-5',      // §neo_opus
+    'neo-opus-grace' : 'opus-5',      // §neo_claude_opus
     'neo-fable'      : 'fable-5',     // §neo_fable
     'neo-fable-clio' : 'fable-5',     // §neo_fable_clio (mirrors §neo_fable)
     'neo-gemini-pro' : '3.1-pro',     // §neo_gemini_pro

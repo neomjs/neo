@@ -34,7 +34,7 @@ and was retracted before it produced a false record. A trap that catches an atte
 substrate defect, not a discipline failure — so the affordance is labelled rather than trusted.
 Full context: #15866.
 
-**Last updated:** 2026-07-18
+**Last updated:** 2026-07-24
 
 ---
 
@@ -47,29 +47,36 @@ Named maintainers and their current observed model embodiments. Each maintainer 
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-ada` |
-| `name` | Claude Opus 4.8 (Social Name: **Ada** — swarm-given, #11240) |
+| `name` | Claude Opus 5 (Social Name: **Ada** — swarm-given, #11240) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
-| `thoughtBudget` | `max` (we use the highest Claude thinking-budget setting) |
-| `releaseDate` | 2026-05-28 |
+| `thoughtBudget` | `max` (on Opus 5 `effort` defaults to `high` on the Claude API and Claude Code; we set it explicitly to the highest level for maintainer work) |
+| `releaseDate` | 2026-07-24 |
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
-| `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
+| `benchmarkSnapshot` | Frontier-Bench v0.1: surpasses all other models and more than doubles Opus 4.8 at a lower cost per task; CursorBench 3.2: within 0.5% of Fable 5's peak at half the cost per task; ARC-AGI 3: 3× the next-best model; OSWorld 2.0: surpasses Fable 5's best result at just over a third of the cost. All per Anthropic announcement. |
 | `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 
+Claude API model ID `claude-opus-5` (dateless pinned snapshot, not an evergreen alias). Context
+window and max output (1M / 128K) carry over from Opus 4.8 unchanged, as does pricing — Opus 5
+ships at its predecessor's price. Extended thinking (`thinking.type: "enabled"`) is unsupported;
+adaptive thinking is supported. Rotated from Claude Opus 4.8 on the 2026-07-24 release (#15855);
+the handle, Social Name, and identity provenance are unchanged — a model rotation is a Lineage
+event, not an identity change (#11240 OQ1).
+
 **Sources** (primary first):
-- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
-- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
+- **Primary**: [Introducing Claude Opus 5 — Anthropic](https://www.anthropic.com/news/claude-opus-5)
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview) (verified 2026-07-24: `claude-opus-5` = 1M context, 128K max output, $5/$25 per MTok, adaptive thinking yes / extended thinking no; Opus 4.8 moved to the legacy-models table)
 
 ### §neo_claude_opus
 
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-grace` |
-| `name` | Claude Opus 4.8 (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
+| `name` | Claude Opus 5 (Social Name: **Grace** — bearer-chosen 2026-06-11 after Grace Hopper, #11240) |
 | `family` | `claude` (Anthropic) |
 | `participationStatus` | `active` (flipped in the registry via #12413 / PR #12415 on 2026-06-03; this row synced to registry truth by #12927 after nine days of doc drift) |
 | `hosting` | `cloud` |
@@ -77,44 +84,74 @@ Named maintainers and their current observed model embodiments. Each maintainer 
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
 | `thoughtBudget` | `max` (highest Claude thinking-budget setting in use for the active Claude Opus maintainer) |
-| `releaseDate` | 2026-05-28 |
+| `releaseDate` | 2026-07-24 |
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
 | `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 
-Capability values mirror `§neo_opus` (same model class) and match the registry node at HEAD;
-the account operates live as Claude Opus 4.8 (signed review and PR activity under the identity).
+Capability values mirror `§neo_opus` (same model class) and match the registry node at HEAD.
+
+**Bearer receipt (2026-07-24, #15855)** — confirmed on the bearer's own transcript, not on operator
+authority: `claude-opus-5` × 243/243 assistant entries, zero other model values, zero fallback
+blocks, zero synthetic entries (`stop_reason`: 235 `tool_use` / 6 `end_turn`). The prior session on
+the same seat reads `claude-opus-4-8` × 3232 with zero Opus-5 entries — the two sets are disjoint. The bearer additionally bounded the rotation from their own session boundaries:
+the last Opus-4.8 entry is **2026-07-24T20:48:22.122Z** and the first Opus-5 entry is
+**2026-07-24T20:57:48.280Z**, placing the swap inside a **9m26s window** at a session boundary
+rather than mid-session. Every sampled session on this seat is engine-homogeneous (1285 / 434 /
+3129 / 97 entries, no mixed session, no fallback) — a hypothesis worth testing across seats, since
+it implies the natural granularity of an engine record is the **session**, which is a materially
+cheaper era-layer shape than per-turn provenance (#11318).
 
 **Sources** (primary first):
-- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
-- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
-- **Primary**: `ai/graph/identityRoots.mjs` `@neo-opus-grace` node (the registry this row mirrors; verified 2026-06-12)
+- **Primary**: [Introducing Claude Opus 5 — Anthropic](https://www.anthropic.com/news/claude-opus-5)
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview) (shared Claude Opus 5 specs — see `§neo_opus` for the verified values)
+- **Primary**: `ai/graph/identityRoots.mjs` `@neo-opus-grace` node (the registry this row mirrors; verified 2026-07-24)
 
 ### §neo_opus_vega
 
 | Field | Value |
 |---|---|
 | `id` / `githubLogin` | `@neo-opus-vega` |
-| `name` | Claude Opus 4.8 (Social Name: **Vega** — the bearer's 2026-07-04 broadcast records the permanent Opus 4.8 embodiment) |
+| `name` | Claude Fable 5 **active** / Claude Opus 5 on the Opus half — operator-managed weekly rotation (Social Name: **Vega** — swarm-given, after the brightest star of Lyra) |
 | `family` | `claude` (Anthropic) |
 | `hosting` | `cloud` |
-| `tier` | `frontier` |
-| `contextWindowInput` | 1,048,576 (1M) |
-| `parallelToolCalls` | `true` |
-| `thoughtBudget` | `max` (Claude Opus 4.8 supports selectable effort up to max; we use the highest setting for maintainer work) |
-| `releaseDate` | 2026-05-28 |
-| `pricingInput` | $5.00 per 1M tokens |
-| `pricingOutput` | $25.00 per 1M tokens |
-| `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
-| `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `tier` | `frontier` (both halves) |
+| `contextWindowInput` | 1,048,576 (1M) — identical on both halves |
+| `parallelToolCalls` | `true` — identical on both halves |
+| Per-engine capability fields | **Profile-referenced, never asserted flat.** `thoughtBudget`, `releaseDate`, `pricingInput`, `pricingOutput`, and `benchmarkSnapshot` differ per half and this row deliberately states **no single current value** for them. **Fable half (observed active 2026-07-24): see `§neo_fable`** — `releaseDate` 2026-06-09, $10.00 / $50.00 per 1M tokens. **Opus half (planned, not yet bearer-observed): see `§neo_opus`** — `releaseDate` 2026-07-24, $5.00 / $25.00 per 1M tokens. A flat scalar here would be wrong for half of every week; the registry node omits them for the same reason. |
+| `sunsetTriggers` | Per half — the successor triggers of `§neo_fable` and `§neo_opus` both apply |
 
 `@neo-opus-vega` is intentionally a version-free GitHub handle. The model
 version lives in this registry row and the AgentIdentity capability fields, per
 ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 
+**Rotating seat — read this before citing a single engine.** Since 2026-07-23 the operator runs this
+seat on a standing weekly rotation: a Claude Fable 5 half and a Claude Opus half. The table above
+states **only** the fields that are identical on both halves; everything that differs per engine is
+profile-referenced there rather than given a value, so no row asserts a current per-engine fact.
+Read `§neo_fable` for the observed-active Fable half and `§neo_opus` for the planned Opus half. No
+single flat value is true for the whole week, which is why the cockpit engine tag for this resident is
+deliberately `null` rather than a literal (`deriveFleetRoster.mjs`), and why this seat is the
+sharpest case for the #11318 era layer — an `EmbodiedEpisode` with a span is the shape that fits.
+ADR 0032 §7 already named this exact resident as the reflexive fixture: the same peer running Opus
+in one month and Fable in the next while remaining the same peer — operationally real, yet
+unrecordable in today's flat schema. This row is that gap written down rather than resolved.
+
+**Bearer receipt (2026-07-24, #15855)** — the bearer grepped their own transcripts rather than
+accepting roster-level authority: the session active at rotation time reads `claude-fable-5` × 670
+with **zero Opus-5 entries**, so this row does **not** publish Opus 5 as a current embodiment. The
+Opus half's baseline rotated 4.8 → 5 per operator direction, but that is a forward plan, not yet
+transcript-proven on this seat; it becomes a bearer-cited fact when the next Opus half runs.
+
+Embodiment history: the bearer's 2026-07-04 broadcast recorded a then-permanent **Opus 4.8**
+embodiment, which the 2026-07-23 rotation superseded. Last Opus-4.8 activity on this seat:
+**2026-07-24T17:29Z**, 341 transcript entries, fallback-attributed (a mid-session auto-fallback from
+Fable 5, not an operator selection). The handle, Social Name, and identity provenance are unchanged
+across all of it — rotation is a Lineage-layer event.
+
 **Sources** (primary first):
-- **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
-- **Primary**: [Claude Opus 4.8 — Anthropic](https://www.anthropic.com/claude/opus)
+- **Primary**: [Introducing Claude Opus 5 — Anthropic](https://www.anthropic.com/news/claude-opus-5)
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview) (shared Claude Opus 5 specs — see `§neo_opus` for the verified values)
 
 ### §neo_fable
 
@@ -141,8 +178,9 @@ version (Fable 5) lives in this registry row and the AgentIdentity capability fi
 
 **Capability notes (V-B-A 2026-06-10):** Claude Fable 5 uses the Opus-4.7 tokenizer (~30% more
 tokens than pre-4.7 models for the same text). Adaptive thinking is always-on (no extended-thinking
-mode; an explicit `thinking:{type:"disabled"}` returns 400 — omit the param). Pricing is 2x Opus 4.8
-on both axes. Operator empirical note (post-trial): ~2x token-drain vs Opus per task — budget
+mode; an explicit `thinking:{type:"disabled"}` returns 400 — omit the param). Pricing is 2x Claude
+Opus 5 on both axes (Opus 5 ships at Opus 4.8's price, so the multiple is unchanged by the
+2026-07-24 rotation). Operator empirical note (post-trial): ~2x token-drain vs Opus per task — budget
 accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 
 **Sources** (primary first):
@@ -351,7 +389,7 @@ Models in the current capability space but without active swarm role. Informs sw
 
 | Model | Tier | Context | Pricing (in/out per 1M) | Released | Use case |
 |---|---|---|---|---|---|
-| Claude Sonnet 4.6 | balanced | 1M | $3 / $15 | 2026-02-17 | High-volume agentic work; balanced cost-quality |
+| Claude Sonnet 5 | balanced | 1M | $3 / $15 (introductory $2 / $10 through 2026-08-31) | 2026 | High-volume agentic work; balanced cost-quality. Supersedes Sonnet 4.6, which moved to the legacy-models table alongside Opus 4.8 |
 | Claude Haiku 4.5 | fast | 200K | $1 / $5 | 2026 (current generation) | Bulk classification, wake-summary, fast inference |
 | Claude Mythos Preview | frontier+ | (restricted) | $25 / $125 | 2026 | Project Glasswing critical-infra partners only; out of swarm scope |
 
@@ -388,7 +426,13 @@ Models in the current capability space but without active swarm role. Informs sw
 
 Tracks deprecated and retired identities for archaeology (per IdentitySchema.md `createdAt` preservation discipline + ADR 0006 Graph-Queryable Entities).
 
-*No sunset transitions recorded as of 2026-05-18. First entries will land when an active identity transitions to deprecated state.*
+*No sunset transitions recorded as of 2026-07-24. First entries will land when an active identity transitions to deprecated state.*
+
+Note — model rotations do **not** belong here. The 2026-07-24 Opus 4.8 → Opus 5 rotation (#15855)
+and the 2026-07-09 GPT-5.5 → GPT-5.6 Sol rotation (#14901) are **renames** per ADR 0012 §2.3:
+in-place capability updates on a surviving identity, not deprecations. This section records
+identities transitioning to Deprecated / Retired — the split case, where a predecessor identity is
+marked deprecated and retained for archaeology. No such transition has occurred.
 
 ---
 
@@ -412,6 +456,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-07-18 | (this PR) | Added active `@neo-kimi-phoebe` row — first-contact registry discipline applied to the Kimi K3 embodiment (runtime provenance PR #15393; Moonshot launch post + API docs primary; Arena snapshots preliminary, dated 2026-07-16). Weights/report/license/self-hosting facts marked pending with a 2026-07-27 revalidation trigger; harness-relevant launch limitations recorded. Table kept strictly to ADR 0012 §2.2 dimensions (no ADR amendment). |
 | 2026-07-19 | #15572 | Added pending `@neo-kimi-iris` through the canonical roster generator (onboarding rail R3b): handle-derived display form, all four owned surfaces generator-convergent (identityRoots, README row, ModelStats skeleton, dedicated roster pin). Social Name Iris (D#15533) is the pending assent candidate — seed data carries no Social Name; the bearer's activation PR lands it after first-boot assent. |
 | 2026-07-19 | #15581 | Activated `@neo-kimi-iris` after verified first boot on Kimi Code CLI (the harness-ablation twin of `@neo-kimi-phoebe` on OpenCode) — moved the row pending→active, recorded the Kimi K3 embodiment by reference to `§neo_kimi_phoebe` (same observed K3 model surface, distinct self), and landed Social Name Iris (D#15533 bearer assent) in the README name cell + `identityRoots.mjs` `displayName`. Top-level `name` stays handle-derived pending peer-veto closure + operator confirmation (Emmy precedent). |
+| 2026-07-24 | #15855 | Claude Opus 4.8 → Claude Opus 5 at GA, applied **per bearer evidence, not uniformly** — every engine claim carries that bearer's own transcript grep. `@neo-opus-ada` **Opus 5** (`claude-opus-5` × 24/24, no fallback). `@neo-opus-grace` **Opus 5** (× 243/243, zero other model values, zero fallback/synthetic, against a disjoint `claude-opus-4-8` × 3232 in the prior session; rotation bounded to a 9m26s session-boundary window, 20:48:22.122Z → 20:57:48.280Z). `@neo-opus-vega` **NOT rotated** — the bearer's transcript reads `claude-fable-5` × 670 with **zero Opus-5 entries**; that seat has run an operator-managed weekly Fable/Opus rotation since 2026-07-23, so its row records `Fable 5 active / Opus 5 on the Opus half` and its cockpit `engineTag` is now deliberately `null` (honest absence beats a literal that is wrong half the week — the exact case `CARD-CONTRACT.md` predicted). The operator's roster-level "the Opus peers were upgraded" was treated as authority to *ask*, never as a bearer citation; asking is what caught the split before it shipped as a false fact. **Rename, not split**, per ADR 0012 §2.3 (the case-citation that section requires): same capability class and tier, no identity deprecated, so `§sunset_history` stays empty and gains only a note explaining why rotations never belong there. ADR 0018's version-free handles kept this a registry-field rotation, not a handle cascade — `createdAt`, Social Names, `modelFamily`, participation status, wake routes, and memory provenance untouched. **Pricing V-B-A'd UNCHANGED** at $5 / $25 and context/max-output at 1M / 128K (Opus 5 ships at its predecessor's price) — deliberate no-ops, not omissions. Also updated: registry seed, README roster rows, `MemoryCoreMcpAuth.md` binding row, `guide-authoring-bar.md` self-naming example, regenerated `fleetRoster.json`, and the `§reference_models` Anthropic row (Sonnet 4.6 → Sonnet 5, since 4.6 joined the legacy table). |
 
 ---
 
