@@ -33,7 +33,6 @@ import {
     createProbeFailure,
     createProbeEnvironments,
     finalizeDisposableRoot,
-    findFreePort,
     getPhaseTimeout,
     hasChildExited,
     installProbeSignalHandlers,
@@ -54,6 +53,37 @@ import {
     attestDiagnosticPaths,
     createDiagnosticPathAttestation
 } from '../../../../../../ai/mcp/server/neural-link/diagnosticPathAttestation.mjs';
+
+/**
+ * Worker-isolated free-port allocator for the child-spawning tests.
+ *
+ * Production `findFreePort` binds an ephemeral port, closes it, and returns the number; the spawned
+ * child binds it a moment later. That allocate → close → hand-off gap is a real collision under
+ * `--workers=N`: two workers' ephemeral draws can land on the same just-freed port, and the second
+ * child to bind it exits `EADDRINUSE` "before opening port". Single-worker ordering masks it.
+ *
+ * Disjoint per-worker bands make the cross-worker collision UNREPRESENTABLE rather than merely rarer:
+ * each worker probes only within its own 1000-port band, so no two workers can ever hand the same
+ * number to a child. The same worker runs its child-spawning tests serially, so its own hand-off
+ * window never races itself. The probe-then-bind still skips a port a stale process happens to hold.
+ * @returns {Promise<Number>}
+ */
+async function findFreeWorkerPort() {
+    const bandStart = 20000 + test.info().workerIndex * 1000,
+          bandEnd   = bandStart + 1000;
+
+    for (let candidate = bandStart; candidate < bandEnd; candidate++) {
+        const free = await new Promise(resolve => {
+            const probe = net.createServer();
+            probe.once('error', () => resolve(false));
+            probe.listen(candidate, '127.0.0.1', () => probe.close(() => resolve(true)))
+        });
+
+        if (free) return candidate
+    }
+
+    throw new Error(`no free port in this worker's band [${bandStart}, ${bandEnd})`)
+}
 
 test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
     test('canonicalizes the blind oracle and reproduces the fixed commitment bytes', () => {
@@ -335,7 +365,7 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
                 label    : 'missing child',
                 logPath,
                 markers  : ['never-ready'],
-                port     : await findFreePort(),
+                port     : await findFreeWorkerPort(),
                 timeoutMs: 1000
             })).rejects.toMatchObject({code: 'ENOENT'});
             await expect(stopChild(child)).resolves.toMatchObject({
@@ -531,7 +561,7 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
     test('the standalone Bridge binds the AiConfig-owned non-default port', async () => {
         const
             root    = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-bridge-test-')),
-            port    = await findFreePort(),
+            port    = await findFreeWorkerPort(),
             logPath = path.join(root, 'bridge.log'),
             child   = spawnLoggedChild({
                 args: [path.resolve(process.cwd(), 'ai/mcp/server/neural-link/run-bridge.mjs')],
