@@ -94,7 +94,7 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 4. **Tests isolate by construction** (`UNIT_TEST_MODE` → the config resolves the test DB). Never mutate the shared singleton (B4).
 5. **The C1×B5 sanctioned shape** (V-B-A'd against `dev` — most "daemon C1" sites are actually A1):
    - **Entrypoints (incl. the `ai/` daemons) import `AiConfig` and read at the use site.** The daemons already `import Neo`/`_export`/`AiConfig` and work — so a daemon re-deriving a path is **A1, not C1**. Fix: read `AiConfig.X.Y` directly.
-   - **Genuine non-entrypoint helpers** (e.g. `TaskDefinitions.mjs` — imported by the orchestrator entrypoint, with no Neo import of its own): a **pure-defaults module** — literals + env-var *names* only, **no Neo import** — carrying the same defaults the leaves declare. This is the one true C1×B5 locus.
+   - **Genuine non-entrypoint helpers** (e.g. `TaskDefinitions.mjs` — imported by the orchestrator entrypoint, with no Neo import of its own): a **pure-defaults module** — literals + env-var *names* only, **no Neo import** — carrying the same defaults the leaves declare. This is the one true C1×B5 locus. *(Amended — see §10.1: the prescribed pairing is now INVERTED — the leaf declares FROM the twin, so the "same defaults" are one literal, not two synchronized copies.)*
    - An **entrypoint-injected value object** is acceptable *only* at a narrow, explicitly-named bootstrap boundary — not license for generic pass-along plumbing. Do **not** add a read-only accessor unless it stays pure / no-Neo-import.
    - *(Folds @neo-opus-4-7's bootstrap-weight reframe: the question was never "can it import?" — the daemons prove it can — but "should a frequent lightweight helper pay full-framework bootstrap weight to read a path?")*
 6. **Overlay = thin child of deltas** over the canonical template; never parse/splice config source to reconcile (deep-merge inheritance handles it).
@@ -126,6 +126,46 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 - **ADR 0005** (ADR-at-graduation), **ADR 0007** (compaction taxonomy).
 - `ai/ConfigProvider.mjs`, `src/state/Provider.mjs`, `src/state/createHierarchicalDataProxy.mjs` — the primitive.
 - `learn/agentos/AiConfigModel.md` — the **public configuration-model guide** (docs-reader audience). This ADR is the **maintainer-facing complement** (antipattern catalog + safety-critical danger + read-gate); the two cross-reference and neither replaces the other.
+
+## 10. Amendment — the plane-identity paired artifact (2026-07-24, #15799 / PR #15811)
+
+*Drafted by @neo-fable-clio under the ticket's amendment mandate (`Decision Record: amends ADR 0019`); falsification seat: the ADR author, whose PR-review `[RETROSPECTIVE]` endorsed the §10.1 inversion. Exemplar: `ai/planeConfig.mjs` (twin) + the `plane` subtree in `ai/configBase.mjs` (leaf).*
+
+### 10.1 Constructive pairing supersedes copy-pairing in §5.5
+
+§5.5 as originally written sanctions a pure-defaults twin *carrying the same defaults the leaves declare* — two synchronized copies with a test as the only drift guard. The prescribed shape is now the **inversion**: the twin is the leaf declarations' literal SOURCE — `leaf(PLANE_DEFAULTS.x, PLANE_ENV.x, 'string')` — so literal drift is impossible **by construction**, and the pairing test narrows to resolver semantics (themselves equivalent by construction for string leaves: truthiness and the provider's emptiness check partition identically — `''` is the only falsy string). Test-enforced consistency is the fallback shape, not the pattern.
+
+### 10.2 The twin's resolvers are not A3
+
+A3 bans resolution helpers that duplicate the leaf's env-binding *for consumers that have the Provider in scope*. The twin's pure resolvers serve **non-entrypoints** — consumers with no Provider to defer to (the §5.5 C1 locus) — and the LEAF consumes the twin, never the reverse. The A3 test is **direction + audience**: a helper the leaf declares FROM, serving no-Neo consumers, is sanctioned; a helper an entrypoint calls INSTEAD of reading the leaf is A3. Entrypoint-side code still reads `AiConfig.plane.*` at the use site. (Precedent: `resolveMemoryCoreGraphPath` — the same sanctioned twin shape, predating this amendment.)
+
+### 10.3 Plane identity: three concepts, never conflated
+
+- **Identity** — `plane.id`: a stable OPAQUE string; `planeId` equality is the only sanctioned "same plane?" predicate, never path comparison. Opacity is enforced on **resolved values** by one predicate (`isOpaquePlaneId`) behind three surfaces — the twin's module-load guard, `resolvePlaneId`, and the leaf's `parse` (env layer) — with the boot assertion (§10.4) closing the fourth route: a custom config file the env parser never sees. A guard that covers only the frozen default protects the one value that cannot vary.
+- **Resolved evidence** — `plane.dataRoot`: the durable root THIS process resolved; the single anchor every plane-member leaf default derives from (§10.5).
+- **Checkout root** — `NEO_AI_CANONICAL_ROOT` names a checkout for provisioning-time hydration (`bootstrapWorktree.mjs`) and is deliberately NOT plane identity: a checkout-shaped identity would silently pre-decide the data-root placement election.
+
+**Provisioning disposition:** the planeId is *declared by the deployment layer* (env → leaf, stable literal default). Both alternative branches are rejected: persisting it inside the plane is circular (the plane must be resolved to read the id whose purpose is making that resolution deterministic), and deriving it from path/checkout content re-imports the defect the opaque form exists to prevent.
+
+### 10.4 The F-invariant boot assertion
+
+`assertPlaneCoherence` (twin-side, pure, injectable): resolved `planeId` must be opaque; resolved `dataRoot` must be absolute (a relative root re-imports ambient-cwd resolution); and a NON-canonical `planeId` — a declared overlay — must not resolve, **symlink-transparently**, to the canonical durable root: identity-without-isolation would mutate the durable plane (the reconcile probe's symlink-escape class). The **member-coherence clause** (`assertPlaneMemberCoherence`, §10.5) extends the invariant to the member set: a declared member server walks its claimed `PLANE_MEMBER_PATHS` at the same boot point. Wired at the head of `BaseServer.runHealthcheckAndLogStatus()` — the building block every boot order calls after config load, so custom `boot()` overrides inherit it. ADR 0014's wake-lane file-freshness premise rides on plane-member paths being exactly where the declared plane says they are; this assertion is what makes that premise checkable per process.
+
+### 10.5 Member derivation: the A9/A2 decision rule + enforced coherence
+
+Plane-member leaf defaults derive from ONE module-scope anchor (`resolvePlaneDataRoot({env: {}, rootDir: neoRootDir})` — **env-free** twin resolution; the leaf machinery owns all env binding, so the anchor computation is not an inline env read). Because `plane.dataRoot` is itself env-relocatable while member DEFAULTS are anchor-static, the derivation rule alone cannot guarantee coherence on the relocation branch — so the contract is derivation **plus enforcement**:
+
+- **Member defaults → static derivation from the anchor** (A9): `leaf(path.resolve(planeDataRoot, 'sub'), ENV, 'string')` — one source, no per-leaf re-derivation.
+- **Enforced coherence at boot** (the member-coherence clause): each member config base exports its claimed `PLANE_MEMBER_PATHS`; at boot, every claimed member must resolve **beneath the RESOLVED `plane.dataRoot`** or be **explicitly placed** (resolved ≠ its declared default). Setting `NEO_PLANE_DATA_ROOT` alone — a relocated root with members still on their anchor defaults — is a partially-moved plane and **fails boot**: relocation is per-member placement work (member env bindings / the per-profile election), never an implicit cascade.
+- **Child of a RELOCATABLE parent leaf → formula** (the A2 remedy): a child *within* the plane whose parent leaf is itself relocatable is genuinely computed from the parent's RESOLVED value — an explicit `*Override` leaf wins, else derive from the resolved parent, so relocating the parent moves its children (the `wakeDaemon` watermark shape).
+
+Per-profile-pinned members (e.g. a cloud-only default naming the cloud plane root) stay explicit rather than force-anchored; the placement election owns per-profile unification and the member-set completeness audit.
+
+### 10.6 Observed identity — resolvable is not observable
+
+A deployment manifest compares desired vs OBSERVED per service, so each process REPORTS its resolved `{plane.id, plane.dataRoot}` on its healthcheck payload (a tool-layer spread reading the SSOT at the use site). Host-side re-derivation cannot populate an observed column — it degrades the comparison to desired-vs-desired, which passes trivially and detects nothing.
+
+---
 
 Origin Session ID: `3ecb40bf-bfef-40b1-8693-a8aae5afa1b7`
 

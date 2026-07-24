@@ -54,11 +54,18 @@ const listTransportVisibleTools = ({cursor=0, limit} = {}) => {
 };
 
 const serviceMapping = {
-    ask_knowledge_base           : SearchService           .ask                .bind(SearchService),
-    get_class_hierarchy          : QueryService            .getClassHierarchy  .bind(QueryService),
-    get_document_by_id           : DocumentService         .getDocumentById    .bind(DocumentService),
-    get_mcp_tool_handbook        : toolId => toolService.getToolHandbook(toolId),
-    healthcheck                  : HealthService           .healthcheck        .bind(HealthService),
+    ask_knowledge_base   : SearchService           .ask                .bind(SearchService),
+    get_class_hierarchy  : QueryService            .getClassHierarchy  .bind(QueryService),
+    get_document_by_id   : DocumentService         .getDocumentById    .bind(DocumentService),
+    get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
+    // Health payload + the OBSERVED plane identity (per-process emission for the deployment
+    // manifest's observed column). Read from the SAME per-server config the boot assertion
+    // verified (`Server.aiConfig` === this singleton) — never a second Provider, so a custom
+    // child overlay can never verify one identity and report another.
+    healthcheck                  : async () => ({
+        ...await HealthService.healthcheck(),
+        plane: {id: kbConfig.plane.id, dataRoot: kbConfig.plane.dataRoot}
+    }),
     get_deployment_state_snapshot: readDeploymentInspection,
     inspect_deployment           : readDeploymentInspection,
     get_ingestion_progress       : IngestionService        .getIngestionProgress.bind(IngestionService),
