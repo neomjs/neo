@@ -201,8 +201,11 @@ export async function uploadKnowledgeBase({
             recordCount,
             vectorEncoding : 'fp16',
             vectorDigest   : packed.vectorDigest,
-            neoVersion     : resolvedTag,
-            createdAt      : new Date().toISOString()
+            // Stamped, not assumed: `Float16Array` writes in the agent's native order and Node ships a
+            // big-endian build, so the consumer must be told what order it is reading.
+            byteOrder : packed.byteOrder,
+            neoVersion: resolvedTag,
+            createdAt : new Date().toISOString()
         };
         await fs.writeJson(path.join(stageDir, ARTIFACT_META_FILENAME), meta, {spaces: 2});
 

@@ -40,6 +40,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Knowledge Base release artifact — collection-scoped contract (#12157)', () => {
     let assertCollectionScopedArtifact, ARTIFACT_BASENAME, ARTIFACT_META_FILENAME, KB_BACKUP_FILE_PREFIX;
     let ARTIFACT_VECTORS_FILENAME, ARTIFACT_SCHEMA_VERSION, packVectorsFp16, unpackVectorsFp16, recordOrderDigest;
+    let packArtifactToV2, rehydrateArtifactFromV2, resolveSingleArtifactJsonl, ARTIFACT_VECTOR_BYTE_ORDER;
     let uploadKnowledgeBase, downloadKnowledgeBase;
     let workRoot;
 
@@ -156,7 +157,11 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             ARTIFACT_SCHEMA_VERSION,
             packVectorsFp16,
             unpackVectorsFp16,
-            recordOrderDigest
+            recordOrderDigest,
+            packArtifactToV2,
+            rehydrateArtifactFromV2,
+            resolveSingleArtifactJsonl,
+            ARTIFACT_VECTOR_BYTE_ORDER
         } = await import('../../../../../../ai/scripts/maintenance/knowledgeBaseArtifact.mjs'));
 
         ({uploadKnowledgeBase}   = await import('../../../../../../ai/scripts/maintenance/uploadKnowledgeBase.mjs'));
@@ -553,6 +558,131 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         expect(result.status).toBe('imported');
         // Untouched: the v1 embeddings reach the importer exactly as published.
         expect(observed[0].embedding).toEqual(fixtureVector(1));
+    });
+
+
+    // ───────── the v2 consume gate must fail CLOSED on the STAMPED contract ─────────
+
+    /**
+     * Stages a v2 artifact whose metadata can be overridden per test, so each guard is exercised
+     * against an otherwise-valid artifact rather than a differently-broken one.
+     */
+    const stageV2 = async ({label, metaOverrides = {}, dropSidecar = false, extraJsonl = false}) => {
+        const dir   = path.join(workRoot, `gate-${label}`),
+              jsonl = path.join(dir, `${KB_BACKUP_FILE_PREFIX}${label}.jsonl`);
+
+        await fsExtra.ensureDir(dir);
+        fs.writeFileSync(jsonl, jsonlFixture(['kb-1', 'kb-2']));
+
+        const packed = await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: FIXTURE_DIMENSION});
+
+        fs.writeFileSync(path.join(dir, ARTIFACT_META_FILENAME), JSON.stringify({
+            artifactVersion: ARTIFACT_SCHEMA_VERSION,
+            dimension      : FIXTURE_DIMENSION,
+            recordCount    : packed.recordCount,
+            vectorEncoding : 'fp16',
+            vectorDigest   : packed.vectorDigest,
+            byteOrder      : packed.byteOrder,
+            ...metaOverrides
+        }));
+
+        if (dropSidecar) {
+            fs.rmSync(path.join(dir, ARTIFACT_VECTORS_FILENAME), {force: true});
+        }
+        if (extraJsonl) {
+            fs.writeFileSync(path.join(dir, `${KB_BACKUP_FILE_PREFIX}${label}-second.jsonl`), jsonlFixture(['kb-9']));
+        }
+
+        return {dir, jsonl, packed}
+    };
+
+    test('a v2 artifact with a MISSING sidecar throws — it never imports as vectorless v1', async () => {
+        // The finding this closes: schema state was inferred from sidecar PRESENCE, so a v2 artifact
+        // that lost its sidecar returned {rehydrated:false} and the import proceeded with every record
+        // carrying NO embedding — silent, total vector loss reported as success.
+        const {dir} = await stageV2({label: 'missing-sidecar', dropSidecar: true});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/declares schema version 2 but .* is missing[\s\S]*NO embedding/);
+    });
+
+    test('a v1 stamp carrying a sidecar throws rather than choosing which half to believe', async () => {
+        const {dir} = await stageV2({label: 'contradiction', metaOverrides: {artifactVersion: 1}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/declares artifactVersion 1 but carries/);
+    });
+
+    test('an artifact from a NEWER producer throws instead of half-decoding', async () => {
+        const {dir} = await stageV2({label: 'future-version', metaOverrides: {artifactVersion: ARTIFACT_SCHEMA_VERSION + 1}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/declares schema version 3; this consumer understands 2/);
+    });
+
+    test('a foreign vectorEncoding is refused, not decoded as fp16 anyway', async () => {
+        const {dir} = await stageV2({label: 'encoding', metaOverrides: {vectorEncoding: 'fp32'}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/vectorEncoding 'fp32'/);
+    });
+
+    test('a v2 artifact WITHOUT a digest is refused — the digest is mandatory, not optional', async () => {
+        // Previously `if (vectorDigest && …)`, so omitting it skipped the order proof entirely: the one
+        // check that catches a permutation was disabled by leaving a field out.
+        const {dir} = await stageV2({label: 'no-digest', metaOverrides: {vectorDigest: undefined}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/without a 'vectorDigest'/);
+    });
+
+    test('a foreign wire byte order is refused rather than read as noise', async () => {
+        const {dir} = await stageV2({label: 'byte-order', metaOverrides: {byteOrder: 'big-endian'}});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/byteOrder 'big-endian'/);
+    });
+
+    test('TWO KB JSONLs are refused — the row-set the sidecar describes must be singular', async () => {
+        // Positional pairing against "whichever file matched first" is a silent choice, not a tie-break.
+        const {dir} = await stageV2({label: 'two-jsonl', extraJsonl: true});
+
+        await expect(rehydrateArtifactFromV2({artifactDir: dir}))
+            .rejects.toThrow(/Expected exactly one .* found 2/);
+        await expect(resolveSingleArtifactJsonl({artifactDir: dir}))
+            .rejects.toThrow(/Refusing to guess which row-set/);
+    });
+
+    test('the wire byte order is pinned little-endian and stamped by the packer', async () => {
+        const {packed} = await stageV2({label: 'order-stamp'});
+
+        expect(ARTIFACT_VECTOR_BYTE_ORDER).toBe('little-endian');
+        expect(packed.byteOrder).toBe(ARTIFACT_VECTOR_BYTE_ORDER);
+    });
+
+    test('pack streams: peak RSS stays bounded well below the JSONL it rewrites', async () => {
+        // The defect this closes could not be seen by any small fixture: the old implementation read the
+        // whole JSONL into ONE utf-8 string, and the real 2.81 GiB export is 5.62x Node's
+        // MAX_STRING_LENGTH (536,870,888) — so the shipped path threw ERR_STRING_TOO_LONG on the corpus
+        // it was written for while passing every 3-row test. This asserts the SHAPE (bounded retention)
+        // rather than re-running the corpus; the full-corpus receipt lives on the PR.
+        const dir   = path.join(workRoot, 'stream-bound'),
+              jsonl = path.join(dir, `${KB_BACKUP_FILE_PREFIX}stream.jsonl`),
+              ids   = Array.from({length: 4000}, (_, i) => `kb-${i}`);
+
+        await fsExtra.ensureDir(dir);
+        fs.writeFileSync(jsonl, jsonlFixture(ids));
+
+        const jsonlBytes = fs.statSync(jsonl).size,
+              before     = process.memoryUsage().rss;
+
+        const packed = await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: FIXTURE_DIMENSION});
+
+        expect(packed.recordCount).toBe(4000);
+        // Sidecar size is exact arithmetic, so a streaming bug that dropped or duplicated a row shows here.
+        expect(fs.statSync(path.join(dir, ARTIFACT_VECTORS_FILENAME)).size).toBe(4000 * FIXTURE_DIMENSION * 2);
+        // Growth must not scale with the file: a whole-file read would retain at least its own bytes.
+        expect(process.memoryUsage().rss - before).toBeLessThan(jsonlBytes * 4);
     });
 
     test('a REORDERED v2 JSONL aborts the real download BEFORE any import runs', async () => {
