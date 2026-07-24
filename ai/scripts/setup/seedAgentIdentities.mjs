@@ -116,22 +116,25 @@ export async function seedAgentIdentities({graphService, identities = IDENTITIES
             // script's entire purpose, and refusing it is what made a wrong identity age permanent.
             // The raw-SQLite peek survives, inverted: it now supplies a fallback for entries the
             // registry does NOT describe, so a silent registry never blanks a persisted stamp.
-            const propertiesToUpdate = {...identity.properties};
+            const propertiesToUpdate = {...identity.properties},
+                  stored             = readStoredCreatedAt(graphService, identity.id);
 
-            let reconciled = null;
+            // Provenance is tracked rather than inferred from the resulting value: after the
+            // fallback fires, a truthy `createdAt` no longer implies the registry supplied it, and
+            // a log that guessed from truthiness would report `from registry` for a stamp the
+            // registry never declared. An operator reading this line is auditing exactly that.
+            let reconciled = null,
+                source     = 'absent';
 
             if (propertiesToUpdate.createdAt) {
-                const stored = readStoredCreatedAt(graphService, identity.id);
+                source = 'from registry';
 
                 if (stored && stored !== propertiesToUpdate.createdAt) {
                     reconciled = stored;
                 }
-            } else {
-                const stored = readStoredCreatedAt(graphService, identity.id);
-
-                if (stored) {
-                    propertiesToUpdate.createdAt = stored;
-                }
+            } else if (stored) {
+                propertiesToUpdate.createdAt = stored;
+                source                       = 'from stored fallback (registry silent)';
             }
 
             const updatedIdentity = {...identity, properties: propertiesToUpdate};
@@ -139,7 +142,7 @@ export async function seedAgentIdentities({graphService, identities = IDENTITIES
             log(
                 reconciled
                     ? `Updated AgentIdentity (createdAt RECONCILED ${reconciled} -> ${propertiesToUpdate.createdAt}): ${identity.id}`
-                    : `Updated AgentIdentity (createdAt ${propertiesToUpdate.createdAt ? 'from registry' : 'absent'}): ${identity.id}`
+                    : `Updated AgentIdentity (createdAt ${source}): ${identity.id}`
             );
         }
         seededCount++;

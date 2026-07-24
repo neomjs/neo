@@ -82,7 +82,13 @@ Identity projection has two deliberately separate write authorities:
   registry snapshot. This prevents an MCP server running an older checkout from rewinding a newer
   activation/status projection.
 - `ai/scripts/setup/seedAgentIdentities.mjs` is the **explicit canonical update** path. It upserts the
-  merged registry facts while preserving the persisted `createdAt` and runtime-added properties.
+  merged registry facts, and **the registry is authoritative for `createdAt`**: a declared value is
+  projected over a divergent persisted stamp, because a rename is identity *continuation* and the
+  node's stamp otherwise records when a seeding run happened rather than when the resident was
+  introduced. The persisted stamp is the fallback **only** for entries the registry does not declare,
+  so a silent registry never blanks it. Runtime-added properties are preserved throughout — the
+  upsert layers the payload over the existing bag rather than replacing it, so a field the registry
+  never mentions (a static wake route, say) survives the projection untouched.
 
 After an intentional identity-root change merges, run the projection gate from the checkout that
 owns the target Memory Core deployment:

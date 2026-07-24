@@ -172,5 +172,25 @@ test.describe('seedAgentIdentities — createdAt authority (#15868)', () => {
         expect(svc.stored['@probe'].createdAt).toBe('2026-06-02T21:35:48.405Z');
         // ...and the registry-silent runtime field survives it on the merged node.
         expect(svc.stored['@probe'].subscriptionTemplate).toEqual({harness: 'tmux', target: 'seat-a'})
+    });
+
+    test('the log names the real provenance of createdAt, not one inferred from truthiness', async () => {
+        // Once the fallback can supply the value, a truthy `createdAt` no longer implies the
+        // registry declared it. A log that guessed from the resulting value would report
+        // `from registry` for a stamp the registry never mentioned — and this line is precisely
+        // what an operator reads to audit which side won.
+        const lines = [],
+              svc   = graphServiceDouble({'@probe': {createdAt: '2026-06-23T06:39:18.915Z'}});
+
+        await seedAgentIdentities({
+            graphService: svc,
+            identities  : [registryEntry({createdAt: null})],
+            log         : line => lines.push(line)
+        });
+
+        const entry = lines.find(line => line.includes('@probe'));
+
+        expect(entry).toContain('from stored fallback');
+        expect(entry).not.toContain('from registry')
     })
 });
