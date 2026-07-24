@@ -81,6 +81,22 @@ import {
  *   Nothing is guessed from context — the operator states the intent, because only the operator
  *   knows which of the two runs this is.
  *
+ * - **TWO npm FACES, and read this before adding a flag.** Because those are two operations rather
+ *   than two settings, each has its own entry point, and the name is what binds the intent:
+ *     - `npm run ai:restore -- <bundle> --mode replace --force` — disaster recovery.
+ *     - `npm run ai:reseed  -- <bundle> --force` — operational re-seed. Pre-sets `--mode replace
+ *       --preserve-read-state`, so the safe policy is what you get by *not thinking*, which is the
+ *       only durable form of a safety default. `--force` deliberately stays OUTSIDE the alias: the
+ *       destructive acknowledgment must never ride along inside a convenience name.
+ *   A safety property governs only where its consumer loads it — and mid-incident an operator's
+ *   load path is muscle memory and shell completion, never flag documentation. Hence a name, not
+ *   a note. **The drift this invites, and where to defend it:** a flag added later reaches both
+ *   faces automatically if it is pass-through (argument order does not matter; the alias's own args
+ *   come first and the operator's are appended). But a flag that interacts with the pre-set pair
+ *   above will NOT be reflected in `ai:reseed` unless you update it here too. That warning lives in
+ *   this header rather than in `package.json` because JSON cannot carry a comment, and because this
+ *   file is what you are reading when you add the flag.
+ *
  * - **Per-incident customization:**
  *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
  *       drops edges whose endpoint was filtered). Example: `FILE,DIRECTORY,KB_GAP,TOOLING_GAP`.

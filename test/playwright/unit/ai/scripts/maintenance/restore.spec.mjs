@@ -418,6 +418,31 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
     });
 
+    // Reads the REAL `ai:reseed` string out of package.json and feeds it through the real parser, so
+    // the alias is itself reachability-tested: drop `--preserve-read-state` from the script entry and
+    // this goes red. Asserting a hand-written copy of the alias would only prove the copy.
+    test('the ai:reseed npm alias resolves to the operational-re-seed policy', () => {
+        const
+            pkg   = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')),
+            alias = pkg.scripts['ai:reseed'];
+
+        expect(alias).toBeTruthy();
+
+        // npm places the script's own args first and appends everything after `--`, so this is exactly
+        // the argv an operator running `npm run ai:reseed -- <bundle> --force` produces.
+        const
+            aliasArgs = alias.split(/\s+/).filter(a => a.startsWith('--') || a === 'replace'),
+            args      = parseArgs([...aliasArgs, '/tmp/bundle-x', '--force']);
+
+        expect(args.mode).toBe('replace');
+        expect(args.preserveReadState).toBe(true);
+        expect(args.bundleRoot).toBe('/tmp/bundle-x');
+        expect(args.force).toBe(true);
+        // `--force` must NOT be baked into the alias — a destructive acknowledgment may never ride
+        // along inside a convenience name. It is present above only because the operator typed it.
+        expect(alias).not.toMatch(/--force/);
+    });
+
     test('parseArgs: --preserve-read-state is a boolean flag, off by default', () => {
         expect(parseArgs(['/some/bundle']).preserveReadState).toBe(false);
         expect(parseArgs(['/some/bundle', '--preserve-read-state']).preserveReadState).toBe(true);
