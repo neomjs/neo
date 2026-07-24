@@ -1,6 +1,5 @@
 import BaseServer                       from '../BaseServer.mjs';
 import aiConfig                         from './config.mjs';
-import {collectPlaneMembers}            from '../../../planeConfig.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
 import logger                           from './logger.mjs';
 import DatabaseService                  from '../../../services/knowledge-base/DatabaseService.mjs';
@@ -44,16 +43,16 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Walks this server's claimed plane-member paths against the resolved config —
-     * the boot-time input for the F-invariant's member-coherence clause.
+     * @summary The COMPLETE plane this server opens: its local claimed member paths PLUS the
+     * inherited Tier-1 claims, composed by `BaseServer.collectMemberEntries` — the boot-time
+     * input for the F-invariant's member-coherence clause.
      * @returns {Object[]}
      * @protected
      */
     getPlaneMembers() {
-        return collectPlaneMembers({
-            memberPaths   : PLANE_MEMBER_PATHS,
-            resolvedConfig: this.aiConfig,
-            descriptorData: ConfigBase.config.data
+        return this.collectMemberEntries({
+            localPaths         : PLANE_MEMBER_PATHS,
+            localDescriptorData: ConfigBase.config.data
         });
     }
 

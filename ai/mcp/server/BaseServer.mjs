@@ -6,8 +6,10 @@ import Base                                            from '../../../src/core/B
 import {
     assertPlaneCoherence,
     assertPlaneMemberCoherence,
+    collectPlaneMembers,
     resolvePlaneDataRoot
 } from '../../planeConfig.mjs';
+import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 
 // The durable-root reference for the plane fail-closed check: THIS checkout's default plane
 // root (env-free twin resolution). A declared overlay resolving it — via env leakage or a
@@ -538,14 +540,42 @@ class BaseServer extends Base {
 
     /**
      * @summary The claimed plane-member entries for this server's config — `{path, resolved,
-     * default}` per member (see `collectPlaneMembers`). Member servers override to walk their
-     * config base's `PLANE_MEMBER_PATHS`; the default empty list keeps non-members and the
-     * base class free of member claims.
+     * default}` per member (see `collectPlaneMembers`). Member servers override to return
+     * `collectMemberEntries(...)`; the default empty list keeps non-members and the base
+     * class free of member claims.
      * @returns {Object[]}
      * @protected
      */
     getPlaneMembers() {
         return [];
+    }
+
+    /**
+     * @summary Composes the COMPLETE claimed member set a member server opens: its
+     * server-local claims PLUS the inherited Tier-1 claims — both resolved through the
+     * SAME per-server config (`this.aiConfig`; Tier-1 leaves resolve via the Provider
+     * parent chain). A member server that asserted only its local list would leave the
+     * Tier-1 members it consumes (e.g. the Chroma persist dir) boot-orphaned — a local
+     * explicit placement must never mask stale Tier-1 members after a root relocation.
+     * @param {Object} options
+     * @param {String[]} options.localPaths The server's own claimed member paths.
+     * @param {Object} options.localDescriptorData The server config base's static `config.data`.
+     * @returns {Object[]}
+     * @protected
+     */
+    collectMemberEntries({localPaths, localDescriptorData}) {
+        return [
+            ...collectPlaneMembers({
+                memberPaths   : localPaths,
+                resolvedConfig: this.aiConfig,
+                descriptorData: localDescriptorData
+            }),
+            ...collectPlaneMembers({
+                memberPaths   : TIER1_PLANE_MEMBER_PATHS,
+                resolvedConfig: this.aiConfig,
+                descriptorData: Tier1ConfigBase.config.data
+            })
+        ];
     }
 
     /**

@@ -32,7 +32,6 @@ import {acquireMessageDrainLock}        from '../../../daemons/message/drainLock
 import {getMissingMessageWalLeaves}     from '../../../services/memory-core/helpers/messageWalStore.mjs';
 import {TRUST_TIERS}                    from '../../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId}   from '../../../graph/normalizeAgentIdentityNodeId.mjs';
-import {collectPlaneMembers}            from '../../../planeConfig.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
 
 // Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
@@ -88,16 +87,16 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Walks this server's claimed plane-member paths against the resolved config —
-     * the boot-time input for the F-invariant's member-coherence clause.
+     * @summary The COMPLETE plane this server opens: its local claimed member paths PLUS the
+     * inherited Tier-1 claims, composed by `BaseServer.collectMemberEntries` — the boot-time
+     * input for the F-invariant's member-coherence clause.
      * @returns {Object[]}
      * @protected
      */
     getPlaneMembers() {
-        return collectPlaneMembers({
-            memberPaths   : PLANE_MEMBER_PATHS,
-            resolvedConfig: this.aiConfig,
-            descriptorData: ConfigBase.config.data
+        return this.collectMemberEntries({
+            localPaths         : PLANE_MEMBER_PATHS,
+            localDescriptorData: ConfigBase.config.data
         });
     }
 
