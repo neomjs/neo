@@ -234,6 +234,7 @@ export const LIFECYCLE_GUARD_SUFFIX = '.lifecycle-guard';
 const
     DEFAULT_GUARD_STALE_AFTER_MS = 10000,
     GUARD_MAX_ATTEMPTS           = 100,
+    GUARD_OWNER_FILE_PREFIX      = 'owner-',
     GUARD_RETRY_DELAY_MS         = 10;
 
 function lifecycleGuardPath(leasePath) {
@@ -241,87 +242,187 @@ function lifecycleGuardPath(leasePath) {
 }
 
 /**
- * @summary Serializes every read-verify-mutate lease transition through one directory mutex.
+ * @summary Serializes every read-verify-mutate lease transition through one identity-carrying directory mutex.
  *
- * `mkdir` is the atomic entry point: exactly one participant creates the guard
- * directory; everyone else observes `EEXIST` and retries briefly. Recovery,
- * release, and renewal all mutate the canonical lease name based on a fresh
- * read taken INSIDE the guard, which removes the check-then-act windows the
- * unguarded rename-aside takeover had (a moved-aside fresh lease left the
- * canonical name claimable while its owner still believed it held it).
+ * Entry is atomic-with-identity: the entrant stages a directory containing its
+ * unique `owner-<token>` file and `rename()`s it onto the canonical guard name.
+ * POSIX rename refuses a non-empty target, so a LIVE guard can never be
+ * replaced; exactly one entrant wins a vacant name. Recovery, release, and
+ * renewal all mutate the canonical lease name based on a fresh read taken
+ * INSIDE the guard — never on a pre-guard observation.
  *
  * Plain acquisition deliberately stays OUTSIDE the guard: an exclusive `wx`
  * create is already atomic, and a guarded recoverer's unlink→create window
  * admitting an outside `wx` winner is safe — the recoverer's own exclusive
- * create then fails `EEXIST` and defers. At no point can two participants both
- * hold a success verdict for the same interval.
+ * create then fails `EEXIST` and defers.
  *
- * Crash recovery: a guard directory whose mtime is older than
- * `guardStaleAfterMs` (default 10s — several orders of magnitude above the
- * microsecond-scale hold time of the fs transitions it protects) is treated as
- * abandoned and removed. The residual double-entry window this leaves requires
- * a holder to stall longer than the threshold INSIDE a millisecond-scale
- * critical section; normal-operation transitions are fully serialized. Guard
- * aging deliberately uses the physical clock (not the injectable `now` lease
- * seam): lease TTL math is logical time for deterministic tests, guard aging
- * is crash detection — tests steer it via `fs.utimes` + the
- * `guardStaleAfterMs` option instead.
+ * Abandoned-guard recovery is identity-safe: staleness is judged on the mtime
+ * of the owner token the CURRENT guard carries, and the steal consumes exactly
+ * the OBSERVED artifacts — `unlink` of the specific observed owner filename
+ * (`ENOENT` ⇒ the observed guard is already gone or replaced ⇒ abort) followed
+ * by `rmdir`, which the filesystem itself fails with `ENOTEMPTY` when any
+ * OTHER entrant's token is present. Removing a replacement guard by pathname —
+ * the cycle-3 reviewer-reproduced double-entry — is therefore structurally
+ * impossible: no step of the steal can consume artifacts it did not observe.
+ *
+ * Residual bound (stated precisely): a holder stalled past `guardStaleAfterMs`
+ * (default 10s vs µs-scale guarded sections) can be evicted by a legitimate
+ * steal. Every lease mutation inside the critical section re-verifies live
+ * ownership via {@link verifyLifecycleGuardOwnership} immediately before
+ * acting, so a resumed evicted holder DEFERS instead of mutating — the
+ * remaining exposure is the single stat→syscall gap of that probe, reachable
+ * only by a holder that both stalled past the threshold and resumed inside
+ * that gap. Live transitions cannot be evicted or replaced.
+ *
+ * Guard aging deliberately uses the physical clock (not the injectable `now`
+ * lease seam): lease TTL math is logical time for deterministic tests, guard
+ * aging is crash detection — tests steer it via `fs.utimes` on the owner file
+ * (or the empty legacy dir) + the `guardStaleAfterMs` option instead.
  *
  * @param {Object} options
  * @param {String} options.leasePath Canonical lease file path.
  * @param {Object} options.fsModule File-system implementation seam.
- * @param {Number} [options.guardStaleAfterMs=10000] Age after which an abandoned guard is reclaimed.
- * @returns {Promise<Boolean>} `true` when entered; `false` when attempts were exhausted (contention).
+ * @param {Number} [options.guardStaleAfterMs=10000] Age after which an abandoned guard is reclaimable.
+ * @returns {Promise<Object|null>} `{ownerFilePath}` when entered; `null` when attempts were exhausted (contention).
  */
 async function enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
     const guardPath = lifecycleGuardPath(leasePath);
 
     for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, GUARD_RETRY_DELAY_MS));
+        }
+
+        const token         = crypto.randomUUID(),
+              stagingPath   = `${guardPath}.enter-${token}`,
+              ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
+
         try {
-            await fsModule.mkdir(guardPath);
-            return true;
+            await fsModule.mkdir(stagingPath);
+            await fsModule.writeFile(path.join(stagingPath, ownerFileName), '', 'utf8');
+            await fsModule.rename(stagingPath, guardPath);
+            return {ownerFilePath: path.join(guardPath, ownerFileName)};
         } catch (e) {
+            await fsModule.remove(stagingPath).catch(() => {});
+
             if (e.code === 'ENOENT') {
                 await fsModule.ensureDir(path.dirname(guardPath));
                 continue;
             }
-            if (e.code !== 'EEXIST') {
+            if (e.code !== 'EEXIST' && e.code !== 'ENOTEMPTY' && e.code !== 'ENOTDIR') {
                 throw e;
             }
         }
 
-        let mtimeMs;
+        // Guard held by someone. Observe its CURRENT identity artifacts; only a
+        // fully stale observation may be consumed, and only artifact-by-artifact.
+        let observedNames;
         try {
-            mtimeMs = (await fsModule.stat(guardPath)).mtimeMs;
+            observedNames = await fsModule.readdir(guardPath);
         } catch (e) {
-            if (e.code === 'ENOENT') {
-                continue; // holder exited between our mkdir and stat — retry immediately
+            if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                continue; // vacated between rename-failure and observation — retry
             }
             throw e;
         }
 
-        if (Date.now() - mtimeMs >= guardStaleAfterMs) {
+        let newestMtimeMs = null,
+            unobservable  = false;
+
+        if (observedNames.length === 0) {
+            // Interrupted-entry / legacy artifact: an empty guard dir. Judge by dir mtime.
             try {
-                await fsModule.rmdir(guardPath);
+                newestMtimeMs = (await fsModule.stat(guardPath)).mtimeMs;
             } catch (e) {
-                if (e.code !== 'ENOENT') {
+                if (e.code === 'ENOENT') continue;
+                throw e;
+            }
+        } else {
+            for (const name of observedNames) {
+                try {
+                    const {mtimeMs} = await fsModule.stat(path.join(guardPath, name));
+                    newestMtimeMs   = newestMtimeMs === null ? mtimeMs : Math.max(newestMtimeMs, mtimeMs);
+                } catch (e) {
+                    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                        unobservable = true; // contents changed under observation — not ours to judge
+                        break;
+                    }
                     throw e;
                 }
             }
-            continue;
         }
 
-        await new Promise(resolve => setTimeout(resolve, GUARD_RETRY_DELAY_MS));
+        if (unobservable || Date.now() - newestMtimeMs < guardStaleAfterMs) {
+            continue; // live (or unjudgeable) guard — wait
+        }
+
+        // Identity-safe steal: consume exactly what was observed. Any ENOENT means
+        // the observed guard no longer exists as observed — abort, never escalate
+        // to pathname-based removal.
+        let stealAborted = false;
+        for (const name of observedNames) {
+            try {
+                await fsModule.unlink(path.join(guardPath, name));
+            } catch (e) {
+                if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                    stealAborted = true;
+                    break;
+                }
+                throw e;
+            }
+        }
+        if (stealAborted) continue;
+
+        try {
+            await fsModule.rmdir(guardPath);
+        } catch (e) {
+            // ENOTEMPTY: another entrant claimed the vacancy mid-steal — theirs now.
+            if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+                throw e;
+            }
+        }
+        // Next attempt's staged rename competes for the vacant name.
     }
 
-    return false;
+    return null;
 }
 
-async function exitLifecycleGuard({leasePath, fsModule}) {
+/**
+ * @summary Proves this entrant still owns the lifecycle guard — called immediately before every
+ * lease mutation inside the critical section, so an evicted stalled holder defers instead of
+ * mutating a successor's state.
+ *
+ * @param {Object} options
+ * @param {String} options.ownerFilePath Owner-token path returned by {@link enterLifecycleGuard}.
+ * @param {Object} options.fsModule File-system implementation seam.
+ * @returns {Promise<Boolean>}
+ */
+async function verifyLifecycleGuardOwnership({ownerFilePath, fsModule}) {
     try {
-        await fsModule.rmdir(lifecycleGuardPath(leasePath));
+        await fsModule.stat(ownerFilePath);
+        return true;
     } catch (e) {
-        if (e.code !== 'ENOENT') {
+        if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+            return false;
+        }
+        throw e;
+    }
+}
+
+async function exitLifecycleGuard({ownerFilePath, fsModule}) {
+    try {
+        await fsModule.unlink(ownerFilePath);
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') {
+            throw e;
+        }
+    }
+
+    try {
+        await fsModule.rmdir(path.dirname(ownerFilePath));
+    } catch (e) {
+        // ENOTEMPTY: a new entrant renamed onto the name during our µs exit window — theirs now.
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
             throw e;
         }
     }
@@ -335,60 +436,138 @@ async function exitLifecycleGuard({leasePath, fsModule}) {
  * quanta; the spin budget is capped by `GUARD_MAX_ATTEMPTS`.
  *
  * @param {Object} options See {@link enterLifecycleGuard}.
- * @returns {Boolean}
+ * @returns {Object|null}
  */
 function enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
     const guardPath = lifecycleGuardPath(leasePath);
 
     for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            const spinUntil = Date.now() + GUARD_RETRY_DELAY_MS;
+            while (Date.now() < spinUntil) {
+                // bounded sync spin — see @summary
+            }
+        }
+
+        const token         = crypto.randomUUID(),
+              stagingPath   = `${guardPath}.enter-${token}`,
+              ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
+
         try {
-            fsModule.mkdirSync(guardPath);
-            return true;
+            fsModule.mkdirSync(stagingPath);
+            fsModule.writeFileSync(path.join(stagingPath, ownerFileName), '', 'utf8');
+            fsModule.renameSync(stagingPath, guardPath);
+            return {ownerFilePath: path.join(guardPath, ownerFileName)};
         } catch (e) {
+            try {
+                fsModule.removeSync(stagingPath);
+            } catch (cleanupError) {}
+
             if (e.code === 'ENOENT') {
                 fsModule.ensureDirSync(path.dirname(guardPath));
                 continue;
             }
-            if (e.code !== 'EEXIST') {
+            if (e.code !== 'EEXIST' && e.code !== 'ENOTEMPTY' && e.code !== 'ENOTDIR') {
                 throw e;
             }
         }
 
-        let mtimeMs;
+        let observedNames;
         try {
-            mtimeMs = fsModule.statSync(guardPath).mtimeMs;
+            observedNames = fsModule.readdirSync(guardPath);
         } catch (e) {
-            if (e.code === 'ENOENT') {
+            if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
                 continue;
             }
             throw e;
         }
 
-        if (Date.now() - mtimeMs >= guardStaleAfterMs) {
+        let newestMtimeMs = null,
+            unobservable  = false;
+
+        if (observedNames.length === 0) {
             try {
-                fsModule.rmdirSync(guardPath);
+                newestMtimeMs = fsModule.statSync(guardPath).mtimeMs;
             } catch (e) {
-                if (e.code !== 'ENOENT') {
+                if (e.code === 'ENOENT') continue;
+                throw e;
+            }
+        } else {
+            for (const name of observedNames) {
+                try {
+                    const {mtimeMs} = fsModule.statSync(path.join(guardPath, name));
+                    newestMtimeMs   = newestMtimeMs === null ? mtimeMs : Math.max(newestMtimeMs, mtimeMs);
+                } catch (e) {
+                    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                        unobservable = true;
+                        break;
+                    }
                     throw e;
                 }
             }
+        }
+
+        if (unobservable || Date.now() - newestMtimeMs < guardStaleAfterMs) {
             continue;
         }
 
-        const spinUntil = Date.now() + GUARD_RETRY_DELAY_MS;
-        while (Date.now() < spinUntil) {
-            // bounded sync spin — see @summary
+        let stealAborted = false;
+        for (const name of observedNames) {
+            try {
+                fsModule.unlinkSync(path.join(guardPath, name));
+            } catch (e) {
+                if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+                    stealAborted = true;
+                    break;
+                }
+                throw e;
+            }
+        }
+        if (stealAborted) continue;
+
+        try {
+            fsModule.rmdirSync(guardPath);
+        } catch (e) {
+            if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
+                throw e;
+            }
         }
     }
 
-    return false;
+    return null;
 }
 
-function exitLifecycleGuardSync({leasePath, fsModule}) {
+/**
+ * @summary Synchronous mirror of {@link verifyLifecycleGuardOwnership}.
+ *
+ * @param {Object} options See {@link verifyLifecycleGuardOwnership}.
+ * @returns {Boolean}
+ */
+function verifyLifecycleGuardOwnershipSync({ownerFilePath, fsModule}) {
     try {
-        fsModule.rmdirSync(lifecycleGuardPath(leasePath));
+        fsModule.statSync(ownerFilePath);
+        return true;
     } catch (e) {
-        if (e.code !== 'ENOENT') {
+        if (e.code === 'ENOENT' || e.code === 'ENOTDIR') {
+            return false;
+        }
+        throw e;
+    }
+}
+
+function exitLifecycleGuardSync({ownerFilePath, fsModule}) {
+    try {
+        fsModule.unlinkSync(ownerFilePath);
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') {
+            throw e;
+        }
+    }
+
+    try {
+        fsModule.rmdirSync(path.dirname(ownerFilePath));
+    } catch (e) {
+        if (e.code !== 'ENOENT' && e.code !== 'ENOTEMPTY') {
             throw e;
         }
     }
@@ -486,7 +665,9 @@ export function acquireHeavyMaintenanceLeaseSync({
 
     // Guarded recovery — sync mirror of the async contract above: mutate only on
     // a fresh re-inspection taken INSIDE the lifecycle guard.
-    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
         return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
     }
@@ -499,6 +680,11 @@ export function acquireHeavyMaintenanceLeaseSync({
         }
 
         if (reinspect.status !== 'missing') {
+            if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+                const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+                return {status: 'held', acquired: false, guardEvicted: true, lease: raced.lease};
+            }
+
             try {
                 fsModule.unlinkSync(leasePath);
             } catch (e) {
@@ -528,7 +714,7 @@ export function acquireHeavyMaintenanceLeaseSync({
                 lease
             };
     } finally {
-        exitLifecycleGuardSync({leasePath, fsModule});
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -550,7 +736,9 @@ export function releaseHeavyMaintenanceLeaseSync({
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
@@ -565,11 +753,15 @@ export function releaseHeavyMaintenanceLeaseSync({
             return {status: 'not-owner', released: false, lease: current.lease};
         }
 
+        if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', released: false, guardEvicted: true, lease: current.lease};
+        }
+
         fsModule.removeSync(leasePath);
 
         return {status: 'released', released: true, lease: current.lease};
     } finally {
-        exitLifecycleGuardSync({leasePath, fsModule});
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -596,7 +788,9 @@ export function renewHeavyMaintenanceLeaseSync({
         throw new TypeError('renewHeavyMaintenanceLeaseSync: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
     }
 
-    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
@@ -609,6 +803,10 @@ export function renewHeavyMaintenanceLeaseSync({
 
         if (!current.lease || current.lease.token !== token) {
             return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        if (!verifyLifecycleGuardOwnershipSync({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', renewed: false, guardEvicted: true, lease: current.lease};
         }
 
         const nowMs   = toTimestamp(now);
@@ -638,7 +836,7 @@ export function renewHeavyMaintenanceLeaseSync({
 
         return {status: 'renewed', renewed: true, lease: renewed};
     } finally {
-        exitLifecycleGuardSync({leasePath, fsModule});
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -698,11 +896,13 @@ export async function acquireHeavyMaintenanceLease({
     // Guarded recovery. The pre-guard stale observation above is only an
     // admission ticket: a peer may legitimately replace, renew, or release the
     // lease at any moment after it. Every mutation therefore acts exclusively
-    // on the fresh re-inspection taken INSIDE the lifecycle guard, and the
-    // guard serializes recovery against release and renewal. An outside plain
-    // acquirer winning the unlink→create window is deferred to via EEXIST —
-    // exactly one participant ever holds a success verdict.
-    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+    // on the fresh re-inspection taken INSIDE the lifecycle guard, re-proves
+    // live guard ownership immediately before mutating, and the guard
+    // serializes recovery against release and renewal. An outside plain
+    // acquirer winning the unlink→create window is deferred to via EEXIST.
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
         return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
     }
@@ -715,6 +915,11 @@ export async function acquireHeavyMaintenanceLease({
         }
 
         if (reinspect.status !== 'missing') {
+            if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+                const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+                return {status: 'held', acquired: false, guardEvicted: true, lease: raced.lease};
+            }
+
             try {
                 await fsModule.unlink(leasePath);
             } catch (e) {
@@ -744,7 +949,7 @@ export async function acquireHeavyMaintenanceLease({
                 lease
             };
     } finally {
-        await exitLifecycleGuard({leasePath, fsModule});
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -774,7 +979,9 @@ export async function releaseHeavyMaintenanceLease({
     // Token validation and removal execute inside ONE guarded section: a
     // replacement owner appearing between an unguarded check and the unlink can
     // no longer be removed by the outgoing owner's release.
-    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
@@ -789,11 +996,15 @@ export async function releaseHeavyMaintenanceLease({
             return {status: 'not-owner', released: false, lease: current.lease};
         }
 
+        if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', released: false, guardEvicted: true, lease: current.lease};
+        }
+
         await fsModule.remove(leasePath);
 
         return {status: 'released', released: true, lease: current.lease};
     } finally {
-        await exitLifecycleGuard({leasePath, fsModule});
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 
@@ -840,7 +1051,9 @@ export async function renewHeavyMaintenanceLease({
         throw new TypeError('renewHeavyMaintenanceLease: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
     }
 
-    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs});
+
+    if (!guardEntry) {
         throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
@@ -853,6 +1066,10 @@ export async function renewHeavyMaintenanceLease({
 
         if (!current.lease || current.lease.token !== token) {
             return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        if (!await verifyLifecycleGuardOwnership({ownerFilePath: guardEntry.ownerFilePath, fsModule})) {
+            return {status: 'not-owner', renewed: false, guardEvicted: true, lease: current.lease};
         }
 
         const nowMs   = toTimestamp(now);
@@ -880,7 +1097,7 @@ export async function renewHeavyMaintenanceLease({
 
         return {status: 'renewed', renewed: true, lease: renewed};
     } finally {
-        await exitLifecycleGuard({leasePath, fsModule});
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule});
     }
 }
 

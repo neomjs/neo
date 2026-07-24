@@ -1119,10 +1119,13 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         }));
 
         // A holder crashed inside the critical section: the guard directory
-        // survives with an old mtime and no live owner behind it.
+        // survives carrying its owner token with an old mtime and no live
+        // owner behind it — the identity-safe steal path must consume it.
+        const crashedOwnerFile = path.join(guardPath, 'owner-crashed');
         await fs.ensureDir(guardPath);
+        await fs.writeFile(crashedOwnerFile, '', 'utf8');
         const past = new Date(Date.now() - 60_000);
-        await fs.utimes(guardPath, past, past);
+        await fs.utimes(crashedOwnerFile, past, past);
 
         const result = await acquireHeavyMaintenanceLease({
             leasePath,
@@ -1130,6 +1133,28 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token            : 'token-r',
             guardStaleAfterMs: 1_000
         });
+
+        expect(result).toMatchObject({acquired: true, status: 'acquired-after-stale'});
+        expect(await fs.pathExists(guardPath)).toBe(false);
+    });
+
+    test('an interrupted-entry empty guard is recovered by atomic replacement (#15763)', async () => {
+        const leasePath = createLeasePath('empty-guard');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // An EMPTY guard dir is never a live entrant under the owner-token
+        // protocol (every real entry is born carrying its token via the staged
+        // rename), so the atomic rename may replace it without waiting.
+        await fs.ensureDir(guardPath);
+
+        const result = await acquireHeavyMaintenanceLease({leasePath, owner: 'recoverer', token: 'token-r'});
 
         expect(result).toMatchObject({acquired: true, status: 'acquired-after-stale'});
         expect(await fs.pathExists(guardPath)).toBe(false);
@@ -1146,17 +1171,211 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token       : 'stale-token'
         }));
 
-        // A FRESH guard held by a live peer for the whole retry budget: the
-        // contender must exhaust its attempts and defer — never bypass the
-        // guard to mutate the (stale) lease underneath the peer's transition.
+        // A live guard carries its holder's FRESH owner token for the whole
+        // retry budget: the contender can neither replace it (rename refuses a
+        // non-empty target) nor steal it (fresh mtime) — it must exhaust its
+        // attempts and defer, never mutating the (stale) lease underneath the
+        // peer's transition.
+        const liveOwnerFile = path.join(guardPath, 'owner-live-peer');
         await fs.ensureDir(guardPath);
+        await fs.writeFile(liveOwnerFile, '', 'utf8');
 
         const result = await acquireHeavyMaintenanceLease({leasePath, owner: 'contender', token: 'token-c'});
 
         expect(result).toMatchObject({acquired: false, status: 'held', guardContended: true});
         expect((await fs.readJson(leasePath)).token).toBe('stale-token');
+        expect(await fs.pathExists(liveOwnerFile)).toBe(true);
 
-        await fs.rmdir(guardPath);
+        await fs.remove(guardPath);
+    });
+
+    test('two contenders recovering one abandoned guard admit exactly one entrant (#15763)', async () => {
+        const leasePath = createLeasePath('two-contender-abandoned-guard');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // The cycle-3 reviewer interleave: both contenders observe the SAME
+        // abandoned guard; A consumes it, replaces it, and pauses inside its
+        // critical section (at the lease unlink); B then attempts its steal
+        // from the stale observation. Identity-safety requires B's steal to
+        // abort — B's unlink targets the OBSERVED owner token, which A already
+        // consumed (ENOENT), and A's replacement guard is non-empty for rmdir.
+        // Under the pathname-based rmdir this exact schedule admitted both.
+        // The crashed token is aged FAR past the threshold while both live
+        // contenders use a threshold no in-test stall can reach — only the
+        // abandoned artifact is ever legitimately stealable in this schedule.
+        const crashedOwnerFile = path.join(guardPath, 'owner-crashed');
+        await fs.ensureDir(guardPath);
+        await fs.writeFile(crashedOwnerFile, '', 'utf8');
+        const past = new Date(Date.now() - 300_000);
+        await fs.utimes(crashedOwnerFile, past, past);
+
+        // A pauses at its LEASE unlink (inside the guard, post-entry).
+        let aAtLeaseUnlink,
+            releaseA;
+        const aArrived = new Promise(resolve => aAtLeaseUnlink = resolve);
+        const aGate    = new Promise(resolve => releaseA = resolve);
+        const fsForA   = {
+            ...fs,
+            async unlink(target, ...rest) {
+                if (target === leasePath) {
+                    aAtLeaseUnlink();
+                    await aGate;
+                }
+                return fs.unlink(target, ...rest);
+            }
+        };
+
+        // B pauses at its GUARD owner-token unlink (the steal step), AFTER its
+        // stale observation — the exact reviewer schedule.
+        let bAtOwnerUnlink,
+            releaseB;
+        const bArrived = new Promise(resolve => bAtOwnerUnlink = resolve);
+        const bGate    = new Promise(resolve => releaseB = resolve);
+        const fsForB   = {
+            ...fs,
+            async unlink(target, ...rest) {
+                if (target === crashedOwnerFile) {
+                    bAtOwnerUnlink();
+                    await bGate;
+                }
+                return fs.unlink(target, ...rest);
+            }
+        };
+
+        const contenderB = acquireHeavyMaintenanceLease({
+            leasePath, owner: 'B', token: 'token-b', fsModule: fsForB, guardStaleAfterMs: 60_000
+        });
+        await bArrived; // B has observed the abandoned guard and sits pre-consumption
+
+        const contenderA = acquireHeavyMaintenanceLease({
+            leasePath, owner: 'A', token: 'token-a', fsModule: fsForA, guardStaleAfterMs: 60_000
+        });
+        await aArrived; // A consumed the abandoned guard, entered, and holds the section
+
+        releaseB();     // B's steal now fires against A's replacement guard
+        const resultB = await contenderB;
+
+        releaseA();     // A completes its takeover
+        const resultA = await contenderA;
+
+        expect(resultA).toMatchObject({acquired: true, status: 'acquired-after-stale'});
+        expect(resultB.acquired).toBe(false);
+        expect(resultB.status).toBe('held');
+        expect((await fs.readJson(leasePath)).token).toBe('token-a');
+    });
+
+    test('an evicted stalled holder defers instead of mutating the successor state (#15763)', async () => {
+        const leasePath = createLeasePath('evicted-holder');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // Holder H enters and stalls inside its critical section long enough
+        // to be judged abandoned; a successor legitimately evicts it and
+        // completes a full takeover. H resumes AT its pre-mutation ownership
+        // probe: the probe reads the post-eviction state, fails, and H defers —
+        // without the probe H's unlink would delete the successor's fresh
+        // lease. (A stall ending inside the probe→syscall gap itself is the
+        // documented single-syscall residual, deliberately not modeled here.)
+        let hAtProbe,
+            releaseH,
+            hPaused = false;
+        const hArrived = new Promise(resolve => hAtProbe = resolve);
+        const hGate    = new Promise(resolve => releaseH = resolve);
+        const fsForH   = {
+            ...fs,
+            async stat(target, ...rest) {
+                if (!hPaused && typeof target === 'string'
+                    && target.startsWith(guardPath) && path.basename(target).startsWith('owner-')) {
+                    hPaused = true;
+                    hAtProbe();
+                    await hGate;
+                }
+                return fs.stat(target, ...rest);
+            }
+        };
+
+        const holder = acquireHeavyMaintenanceLease({
+            leasePath, owner: 'H', token: 'token-h', fsModule: fsForH, guardStaleAfterMs: 200
+        });
+        await hArrived;
+
+        // Age H's owner token past the threshold, then let a successor evict + take over.
+        const [hOwnerName] = (await fs.readdir(guardPath)).filter(name => name.startsWith('owner-'));
+        const past         = new Date(Date.now() - 60_000);
+        await fs.utimes(path.join(guardPath, hOwnerName), past, past);
+
+        const successor = await acquireHeavyMaintenanceLease({
+            leasePath, owner: 'S', token: 'token-s', guardStaleAfterMs: 200
+        });
+        expect(successor).toMatchObject({acquired: true});
+
+        releaseH();
+        const resultH = await holder;
+
+        expect(resultH.acquired).toBe(false);
+        expect(resultH).toMatchObject({status: 'held', guardEvicted: true});
+        expect((await fs.readJson(leasePath)).token).toBe('token-s');
+    });
+
+    test('sync steal aborts when the observed abandoned guard was replaced (#15763)', () => {
+        const leasePath = createLeasePath('sync-identity-safe-steal');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        fs.writeJsonSync(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        const crashedOwnerFile = path.join(guardPath, 'owner-crashed');
+        fs.ensureDirSync(guardPath);
+        fs.writeFileSync(crashedOwnerFile, '', 'utf8');
+        const past = new Date(Date.now() - 60_000);
+        fs.utimesSync(crashedOwnerFile, past, past);
+
+        // Between S's stale observation and its consumption step, a peer
+        // completes the full recovery and now LIVES inside a replacement
+        // guard. S's unlink of the observed token hits ENOENT and the steal
+        // aborts; S must defer without touching the replacement.
+        let   swapped      = false;
+        const foreignOwner = path.join(guardPath, 'owner-foreign');
+        const racingFs     = {
+            ...fs,
+            unlinkSync(target, ...rest) {
+                if (!swapped && target === crashedOwnerFile) {
+                    swapped = true;
+                    fs.removeSync(guardPath);
+                    fs.ensureDirSync(guardPath);
+                    fs.writeFileSync(foreignOwner, '', 'utf8');
+                }
+                return fs.unlinkSync(target, ...rest);
+            }
+        };
+
+        const result = acquireHeavyMaintenanceLeaseSync({
+            leasePath, owner: 'S', token: 'token-s', fsModule: racingFs, guardStaleAfterMs: 1_000
+        });
+
+        expect(result.acquired).toBe(false);
+        expect(result.status).toBe('held');
+        expect(fs.pathExistsSync(foreignOwner)).toBe(true);
+        expect(fs.readJsonSync(leasePath).token).toBe('stale-token');
+
+        fs.removeSync(guardPath);
     });
 
     test('renewHeavyMaintenanceLease extends the owner deadline; non-owners cannot renew (#15763)', async () => {
