@@ -24,13 +24,32 @@ const execFileAsync = util.promisify(execFile);
  */
 async function canonicalize(targetPath) {
     const tail    = [];
-    let   current = targetPath;
+    let   current = targetPath,
+          hops    = 0;
 
     for (;;) {
         try {
             return path.join(await fs.realpath(current), ...tail.slice().reverse())
         } catch (error) {
             if (error?.code !== 'ENOENT') throw error;
+
+            // ENOENT from `realpath` has TWO causes and they are NOT the same security state: the
+            // entry is absent, or the entry EXISTS as a symlink whose target is missing. Collapsing
+            // them treats a dangling alias as "not yet created" — and a write FOLLOWS a dangling
+            // symlink, creating the file wherever it points. `lstat` is what tells them apart,
+            // because it reports on the link itself rather than on what it fails to reach.
+            const entry = await fs.lstat(current).catch(() => null);
+
+            if (entry?.isSymbolicLink()) {
+                // Follow the link's declared target and keep canonicalizing from there. `realpath`
+                // would have done this for us if the target existed; it does not, so we do it.
+                if (++hops > 40) {
+                    throw new Error(`ELOOP: symlink chain too long while canonicalizing ${targetPath}`)
+                }
+
+                current = path.resolve(path.dirname(current), await fs.readlink(current));
+                continue
+            }
 
             const parent = path.dirname(current);
 

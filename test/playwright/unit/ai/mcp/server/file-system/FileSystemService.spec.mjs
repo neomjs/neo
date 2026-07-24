@@ -137,6 +137,47 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
         }
     });
 
+    test('#15818 a DANGLING in-root alias is not "not yet created" — the write must not follow it out', async () => {
+        // @neo-gpt-emmy's cycle-3 falsifier, reproduced: `realpath` returns ENOENT for TWO states —
+        // the entry is absent, or the entry EXISTS as a symlink whose target is missing. Collapsing
+        // them treated a dangling alias as a create target, and `writeFile` FOLLOWED it: the file
+        // landed outside the root. `lstat` distinguishes them because it reports on the link itself.
+        const
+            outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fs-service-dangling-')),
+            dest       = path.join(outsideDir, 'implanted.txt'),   // deliberately does NOT exist
+            alias      = path.join(tmpDir, 'dangling.txt');
+
+        await fs.symlink(dest, alias);   // the link exists; its target does not
+
+        try {
+            await expect(FileSystemService.writeFile({absolutePath: alias, content: 'ESCAPED'}))
+                .rejects.toThrow(/403 Forbidden/);
+
+            expect(await fs.pathExists(dest)).toBe(false);   // nothing landed outside the root
+        } finally {
+            await fs.remove(alias).catch(() => {});
+            await fs.remove(outsideDir).catch(() => {});
+        }
+    });
+
+    test('#15818 a dangling alias pointing INSIDE the root is still a legitimate create target', async () => {
+        // The narrowing must not break real work: a dangling link whose target resolves in-root is
+        // an ordinary create. Rejecting it would make the guard reject writes it should allow.
+        const
+            inRootDest = path.join(tmpDir, 'not-yet-there.txt'),
+            alias      = path.join(tmpDir, 'inner-dangling.txt');
+
+        await fs.symlink(inRootDest, alias);
+
+        try {
+            expect(await FileSystemService.writeFile({absolutePath: alias, content: 'fine\n'})).toBe('success');
+            expect(await fs.readFile(inRootDest, 'utf-8')).toBe('fine\n');
+        } finally {
+            await fs.remove(alias).catch(() => {});
+            await fs.remove(inRootDest).catch(() => {});
+        }
+    });
+
     test('#15818 legitimate creates and in-root symlinks still work — the jail narrowed, it did not close', async () => {
         // Canonicalization must not break the ordinary cases: creating a new file, and following a
         // symlink that stays inside the root. A guard that rejects real work gets switched off.
