@@ -59,7 +59,7 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 | B1 | exporting config values/subtrees (`export const X = AiConfig.Y`) | `[live: TaskDefinitions.mjs]` | consumers import `AiConfig` and read at use site |
 | B2 | `const X = AiConfig.Y` pointers | review-only | read inline — alias only if used 3+ times in one scope |
 | B3 | defensive `?.` on `AiConfig` reads | `[live-on-dev]` | the SSOT guarantees the tree; let it fail loud |
-| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[live: ~21 test files; #12435]` | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
+| **B4 ⭐** | **SAFETY-CRITICAL — runtime writes to `AiConfig`** (see §4) | `[live-on-dev: check-aiconfig-test-mutation]` — the gate is the live count; it scans `test/**` only, so `ai/**` is unenforced | tests isolate by construction (`UNIT_TEST_MODE`); NEVER mutate the shared singleton |
 | B5 | passing `AiConfig` values into other consumers' configs (`Orchestrator → buildTaskDefinitions({chromaPort, …})`, 14 threaded args) | `[live: daemons]` | the consumer imports `AiConfig` and reads it (see §5 for the C1×B5 resolution) |
 
 ### Group C — boundary / duplication
