@@ -63,10 +63,12 @@ test.describe('VdomLifecycle update wedge (#12946)', () => {
 
     const originalUpdateBatch = VdomHelper.updateBatch;
     const originalCreate      = VdomHelper.create;
+    const realApplyDeltas     = Neo.applyDeltas;
 
     test.afterEach(() => {
         VdomHelper.updateBatch = originalUpdateBatch;
         VdomHelper.create      = originalCreate;
+        Neo.applyDeltas        = realApplyDeltas;
 
         createdComponentIds.forEach(id => {
             Neo.getComponent(id)?.destroy();

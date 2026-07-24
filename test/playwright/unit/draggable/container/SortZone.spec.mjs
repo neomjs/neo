@@ -22,6 +22,10 @@ import SortZone        from '../../../../../src/draggable/container/SortZone.mjs
 test.describe.serial('Neo.draggable.container.SortZone', () => {
     let container, sortZone;
 
+    const
+        realApplyDeltas = Neo.applyDeltas,
+        realGetDomRect  = Container.prototype.getDomRect;
+
     test.beforeEach(() => {
         // Mock Neo.main.addon.DragDrop
         Neo.ns('Neo.main.addon.DragDrop', true);
@@ -71,6 +75,11 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     test.afterEach(() => {
         sortZone?.destroy();
         container?.destroy();
+
+        // The prototype patch leaks exactly as far as the namespace one does: Playwright reuses the
+        // worker, so a later spec's real getDomRect would stay replaced by this file's dummy rects.
+        Neo.applyDeltas               = realApplyDeltas;
+        Container.prototype.getDomRect = realGetDomRect;
     });
 
     test('Initializes correctly with mixed content', async () => {
