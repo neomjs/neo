@@ -17,6 +17,7 @@ import {
     startDrainLoop,
     MAX_RECORD_COOLDOWN_MS
 } from '../../../../../../ai/daemons/embed/drainCycle.mjs';
+import {createDrainDispositionTracker} from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
 
 /**
  * Embed-daemon drain cycle (`ai/daemons/embed/drainCycle.mjs`) — falsifier coverage for the
@@ -424,6 +425,43 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
             // First cycle fails on collection resolution; a later cycle drains the record anyway.
             await expect.poll(() => collection.store.has('resilient'), {timeout: 5000}).toBe(true);
             loop.stop();
+        });
+    });
+
+    // The falsifier that the isolated receipt unit-spec structurally cannot provide: feed the receipt
+    // the summary the REAL drain emits, not a hand-built one. A tracker graded from fabricated
+    // summaries green-lit a semantic handoff the source could never produce — `pending` is a pre-drain
+    // observation, so a fully-drained one-record cycle's summary carries `pending: 1`, and reading
+    // that as work-left reported `dirty` forever under steady traffic.
+    test.describe('#15802 drainWalOnce → drain-disposition receipt (producer→consumer boundary)', () => {
+        test('a fully-drained cycle is CLEAN even though its pre-drain `pending` was non-zero', async () => {
+            await seed('only');
+
+            const summary = await drain(createFakeCollection());
+            // The real producer's shape for "read one, drained one": pending is the pre-drain count.
+            expect(summary).toMatchObject({pending: 1, embedded: 1, compensated: 0, outstanding: 0});
+
+            const disposition = createDrainDispositionTracker({now: () => 1000});
+            disposition.recordCycle(summary);
+
+            expect(disposition.getDisposition()).toMatchObject({state: 'clean', drainedClean: true});
+        });
+
+        test('a batch-overflowed cycle leaves real residue → DIRTY', async () => {
+            await seed('a');
+            await seed('b');
+            await seed('c');
+
+            const summary = await drain(createFakeCollection(), {batchSize: 1});
+            // Reads all three (the scan is not limit-bounded), embeds one, two overflow → residue 2.
+            expect(summary).toMatchObject({pending: 3, embedded: 1, outstanding: 2});
+
+            const disposition = createDrainDispositionTracker({now: () => 1000});
+            disposition.recordCycle(summary);
+
+            const receipt = disposition.getDisposition();
+            expect(receipt.state).toBe('dirty');
+            expect(receipt.reason).toContain('outstanding=2');
         });
     });
 });
