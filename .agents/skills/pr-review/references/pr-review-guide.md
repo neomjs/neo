@@ -105,9 +105,9 @@ When challenging a specific architectural pattern or complex implementation deta
 
 ### 5.2 Close-Target Audit
 
-10% AC/scope sanity layer: binding on real close-target overclaim; never a premise, placement, or diff verdict substitute.
+10% AC/scope layer: binding on close-target overclaim; never a premise, placement, or diff-verdict substitute.
 
-Audit every magic close target in the PR body and commit messages: `Closes #N`, `Resolves #N`, `Fixes #N` (case-insensitive). For Neo agent / `ai` PRs, only newline-isolated `Resolves #N` may close a delivered leaf ticket; `Refs` / `Related` are non-closing extras. Epics are invalid close-targets. Branch commit bodies also matter because squash merge can carry stale magic keywords into `dev` (`#11185` / PR `#11183`).
+Audit every magic close target in the PR body and commit messages: `Closes #N`, `Resolves #N`, `Fixes #N` (case-insensitive). For Neo agent / `ai` PRs, only newline-isolated `Resolves #N` may close a delivered leaf ticket; `Refs` / `Related` are non-closing extras. Epics are invalid close-targets.
 
 <!-- trigger: close-target over-claim or lint/body contradiction -> read ./close-target-remediation.md -->
 
@@ -115,9 +115,10 @@ Audit every magic close target in the PR body and commit messages: `Closes #N`, 
 
 1. Parse PR body + commit messages with an exact-head source such as `git log origin/dev..HEAD --format='%h%x09%s%n%b'`; do not trust `closingIssuesReferences` alone.
 2. Flag missing PR-body `Resolves #N`, any `Closes` / `Fixes`, prose-embedded/comma-separated targets, stale branch-body magic keywords for non-closing refs, or any target carrying `epic`.
-3. Required fix: isolate one delivered leaf as `Resolves #M`; move broad/epic refs to `Related:`; split broad work into leaf subs; use clean superseding branch for stale commit-body hazards unless the operator explicitly authorizes history cleanup.
+3. Required fix: isolate one delivered leaf as `Resolves #M`; move broad/epic refs to `Related:`; split broad work into leaf subs.
+4. While an AC is open, any named expiry blocks close — future, due or lapsed alike; satisfy or restate it. Deferred *authoring* (text not yet written) blocks with no expiry too: the close destroys the only pointer. Open-ended *verification* closes normally.
 
-Out of scope: valid leaf targets and non-closing `Related:` / `Refs:` / `Part of` references. Provenance: `#9999` auto-close and `#10323` duplicate chain.
+Out of scope: valid leaf targets, non-closing `Related:` / `Refs:` / `Part of`. Provenance: `#9999` auto-close, `#10323` duplicate chain.
 
 ### 5.3 MCP-Tool-Description Budget Audit
 
