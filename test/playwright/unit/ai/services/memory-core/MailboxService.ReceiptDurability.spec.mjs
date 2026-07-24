@@ -14,13 +14,10 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import fs             from 'fs-extra';
-import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
-import {snapshotAiConfig}    from './util.mjs';
 
 /**
  * A read receipt must not out-claim its durable write.
@@ -37,35 +34,23 @@ import {snapshotAiConfig}    from './util.mjs';
 test.describe.configure({mode: 'serial'});
 
 test.describe('MailboxService — receipt durability cannot outrun the durable write (#15821)', () => {
-    let MailboxService, GraphService, LifecycleService, mailboxAiConfig;
-    let dbPath, originalAutoSave, originalPolicy, restoreAiConfig;
+    let MailboxService, GraphService, LifecycleService;
+    let originalAutoSave;
 
     const SENDER    = '@neo-opus-ada',
           RECIPIENT = '@neo-opus-grace';
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-
-        dbPath = path.join(tmpDir, `neo-receipt-durability-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
-
-        // A file-backed DB, not `:memory:` — the whole point is what storage holds. `storagePaths.graph`
-        // is the shared AiConfig singleton, so it is snapshot BEFORE the write and restored in afterAll;
-        // a `mark_read` that persists to a file-backed store is exactly what this suite proves, so the
-        // mutation is genuinely unavoidable — but it must not leak into the next spec's config.
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        restoreAiConfig = snapshotAiConfig(mailboxAiConfig, ['storagePaths.graph']);
-        mailboxAiConfig.storagePaths.graph = dbPath; // aiconfig-mutation-ok: file-backed durability fixture; restored via snapshotAiConfig in afterAll
-
+        // No AiConfig mutation: what this suite discriminates is the SQLite storage boundary versus
+        // the in-memory graph cache, NOT a file path. `storagePaths.graph` is a formula resolving
+        // `graphTest` (`:memory:`) from `useUnitTestDatabase`/`UNIT_TEST_MODE` (configBase.mjs), so the
+        // unit harness already hands this suite an isolated SQLite store by construction — and an
+        // in-memory store is still storage, reached only via `loadNodeVicinitySync`. Writing the
+        // shared config singleton here would leak this suite's state into every spec that reads it
+        // afterwards — and would buy nothing the harness has not already provided.
         GraphService     = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService   = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-
-        mailboxAiConfig.data.mailbox ??= {};
-        originalPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
@@ -76,21 +61,12 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         originalAutoSave = GraphService.db.autoSave;
     });
 
-    test.afterAll(async () => {
-        // Symmetric restore: `autoSave` and `storagePaths.graph` are singleton state and Playwright
-        // interleaves files. The snapshot closure restores the config path this suite mutated, so a
-        // later spec never reads this suite's test DB — the B4 orphan-bleed the gate exists to prevent.
-        restoreAiConfig?.();
+    test.afterAll(() => {
+        // `autoSave` is `GraphService.db` instance state (not AiConfig) and the specs below toggle it,
+        // so it is restored symmetrically. Nothing else needs teardown: the store is process-local
+        // `:memory:`, so there is no file to unlink and no config path to hand back.
         if (GraphService?.db) {
             GraphService.db.autoSave = originalAutoSave;
-        }
-        if (mailboxAiConfig?.data?.mailbox) {
-            mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalPolicy;
-        }
-        if (dbPath) {
-            for (const suffix of ['', '-wal', '-shm']) {
-                await fs.remove(`${dbPath}${suffix}`);
-            }
         }
     });
 
