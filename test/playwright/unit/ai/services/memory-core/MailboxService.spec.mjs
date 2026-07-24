@@ -25,22 +25,11 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
-    let dbPath, messageWalDir;
+    let messageWalDir;
 
     test.beforeAll(async () => {
-        // Build an isolated tmp path for the database file tests
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        dbPath = path.join(tmpDir, `neo-mailbox-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        // Force temp file DB config instead of :memory: to prevent initialization race wipes
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
-        if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
-        mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
-        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
 
         // Load dynamically due to SQLite DB mount timing
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -83,11 +72,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // was before this suite ran.
         if (mailboxAiConfig?.data?.mailbox) {
             mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
-        }
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
         }
         fs.removeSync(messageWalDir);
     });
@@ -2989,14 +2973,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (#10252)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave, originalMailboxPolicy;
-    let dbPath;
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        dbPath = path.join(tmpDir, `neo-mailbox-open-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
@@ -3004,7 +2982,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         mailboxAiConfig.data.mailbox ??= {};
         originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
@@ -3025,11 +3002,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         GraphService.db.autoSave = originalAutoSave;
         if (mailboxAiConfig?.data?.mailbox) {
             mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
-        }
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
         }
     });
 
@@ -3383,14 +3355,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
 test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
-    let dbPath;
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        dbPath = path.join(tmpDir, `neo-mailbox-a2a-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
@@ -3398,7 +3364,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
@@ -3413,11 +3378,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
     });
 
     test.beforeEach(async () => {
@@ -4161,14 +4121,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
 test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#10339)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
-    let dbPath;
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        dbPath = path.join(tmpDir, `neo-mailbox-ttl-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         GraphService      = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService    = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
@@ -4176,7 +4130,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         LifecycleService  = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
@@ -4191,11 +4144,6 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         const { cleanupChromaManager } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
     });
 
     test.beforeEach(async () => {

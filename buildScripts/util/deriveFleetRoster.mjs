@@ -44,9 +44,15 @@ const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
  * July-2026 Fable-week rotations as the reflexive falsifier. A tag that is wrong half the
  * week is worse than no tag — the model renders no badge for `null` by design. Restore a
  * literal for that seat only once an era record can carry a time span instead of a point value.
+ *
+ * Exported so `ai/scripts/lint/lint-identity-engine-coherence.mjs` can read the map directly
+ * instead of re-parsing this file. The lint is the CI guard that these tags still agree with
+ * `ModelStats.md` and the registry — the three places drifted once and nothing noticed. That
+ * lint treats the absence above as VALID, never as drift: it fails only on contradiction, so a
+ * rotating seat can stay honestly silent without being pressured back into a false literal.
  * @type {Object<String,String>}
  */
-const ENGINE_TAG_BY_ID = {
+export const ENGINE_TAG_BY_ID = {
     'neo-opus-ada'   : 'opus-5',      // §neo_opus
     'neo-opus-grace' : 'opus-5',      // §neo_claude_opus
     'neo-fable'      : 'fable-5',     // §neo_fable
