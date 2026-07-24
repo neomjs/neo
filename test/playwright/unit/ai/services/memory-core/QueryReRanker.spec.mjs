@@ -600,18 +600,35 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
             metadatas: [{sessionId: ancientSessionId, timestamp: ancientTimestamp, type: 'agent-interaction'}]
         });
 
-        // Query with 30-day window — should NOT include the ancient memory
+        // Both queries are scoped to THIS fixture's sessionId. The collection is run-scoped and
+        // every Brain spec writes to it, so an unscoped read makes the assertion depend on the
+        // collection's total size rather than on the filter under test. That broke twice, in
+        // opposite directions:
+        //
+        //   - the unscoped `toContain` FALSE-FAILED once the collection outgrew a returned page
+        //     (the fixture's own row fell outside it);
+        //   - the unscoped `not.toContain` could FALSE-PASS for the same reason — a truncated page
+        //     is *less* likely to contain the row, so the assertion would stay green even if the
+        //     $gt filter were completely broken. That one never failed, which is worse: it was
+        //     unfalsifiable rather than wrong.
+        //
+        // Scoping by sessionId makes both size-independent and turns the negative assertion into a
+        // real one: with the filter working the scoped 30-day window returns NOTHING, and if the
+        // filter regressed it would return this row.
         const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
         const recentResults = await collection.get({
-            where  : {timestamp: {'$gt': thirtyDaysAgo}},
+            where  : {$and: [{sessionId: ancientSessionId}, {timestamp: {'$gt': thirtyDaysAgo}}]},
             include: ['metadatas']
         });
 
-        const recentSessionIds = recentResults.metadatas.map(m => m.sessionId);
-        expect(recentSessionIds).not.toContain(ancientSessionId);
+        expect(recentResults.metadatas.map(m => m.sessionId)).not.toContain(ancientSessionId);
+        // Explicit: the scoped window is EMPTY. Distinguishes "correctly filtered out" from
+        // "the page happened not to include it", which the unscoped form could not.
+        expect(recentResults.metadatas).toHaveLength(0);
 
-        // Query with ALL time — should include it
+        // Query with ALL time, same scope — should include it
         const allResults = await collection.get({
+            where  : {sessionId: ancientSessionId},
             include: ['metadatas']
         });
 
