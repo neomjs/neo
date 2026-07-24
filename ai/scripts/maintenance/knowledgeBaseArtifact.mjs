@@ -146,6 +146,122 @@ export function unpackVectorsFp16({buffer, recordCount, dimension}) {
 }
 
 /**
+ * Converts a staged v1 artifact directory in place to schema v2: embeddings move out of the JSONL
+ * into the packed sidecar, and the JSONL keeps everything else.
+ *
+ * Runs on the staging dir AFTER the SDK export, so the export path itself is untouched — the SDK
+ * keeps emitting its canonical v1 JSONL and this is a pure post-processing step.
+ * @param {Object} options
+ * @param {String} options.artifactDir Staged artifact directory.
+ * @param {String} options.jsonlPath Absolute path to the staged KB JSONL.
+ * @param {Number} options.dimension Expected vector length.
+ * @param {Object} [options.fsModule=fs] Filesystem seam (tests).
+ * @returns {Promise<{recordCount: Number, dimension: Number, vectorDigest: String, vectorBytes: Number}>}
+ */
+export async function packArtifactToV2({artifactDir, jsonlPath, dimension, fsModule = fs}) {
+    const lines    = (await fsModule.readFile(jsonlPath, 'utf8')).split('\n').filter(line => line.trim()),
+          vectors  = [],
+          ids      = [],
+          stripped = [];
+
+    for (const line of lines) {
+        const record = JSON.parse(line);
+
+        if (!Array.isArray(record.embedding)) {
+            throw new Error(`Record '${record.id}' has no embedding array — refusing to pack a partially-vectorised artifact.`);
+        }
+
+        ids.push(record.id);
+        vectors.push(record.embedding);
+
+        const {embedding, ...rest} = record;
+        stripped.push(JSON.stringify(rest));
+    }
+
+    const packed = packVectorsFp16(vectors, dimension);
+
+    await fsModule.writeFile(path.join(artifactDir, ARTIFACT_VECTORS_FILENAME), packed);
+    await fsModule.writeFile(jsonlPath, stripped.join('\n') + '\n');
+
+    return {
+        recordCount : ids.length,
+        dimension,
+        vectorDigest: recordOrderDigest(ids),
+        vectorBytes : packed.byteLength
+    };
+}
+
+/**
+ * Restores a v2 artifact directory to v1 shape (embeddings inline in the JSONL) so the KB import SDK
+ * consumes it unchanged. A v1 artifact is a no-op, which is what keeps older assets importable.
+ *
+ * Fails loud rather than importing misaligned vectors: the sidecar's byte length must match the
+ * metadata, and the JSONL's id ORDER must reproduce the stamped digest. Positional re-attachment is
+ * only safe while that order is proven — a permutation would pair every row with the wrong vector at
+ * exactly the right buffer size.
+ * @param {Object} options
+ * @param {String} options.artifactDir Unzipped artifact directory.
+ * @param {Object} [options.fsModule=fs] Filesystem seam (tests).
+ * @returns {Promise<{rehydrated: Boolean, recordCount: Number}>}
+ */
+export async function rehydrateArtifactFromV2({artifactDir, fsModule = fs}) {
+    const metaPath    = path.join(artifactDir, ARTIFACT_META_FILENAME),
+          vectorsPath = path.join(artifactDir, ARTIFACT_VECTORS_FILENAME);
+
+    if (!await fsModule.pathExists(vectorsPath)) {
+        return {rehydrated: false, recordCount: 0}
+    }
+
+    if (!await fsModule.pathExists(metaPath)) {
+        throw new Error(`Artifact carries '${ARTIFACT_VECTORS_FILENAME}' but no '${ARTIFACT_META_FILENAME}' — the sidecar is undecodable without its record count and dimension.`);
+    }
+
+    const meta                                   = JSON.parse(await fsModule.readFile(metaPath, 'utf8'));
+    const {dimension, recordCount, vectorDigest} = meta;
+
+    if (!dimension || !recordCount) {
+        throw new Error(`Artifact metadata is missing 'dimension' or 'recordCount'; cannot decode '${ARTIFACT_VECTORS_FILENAME}'.`);
+    }
+
+    const entries   = await fsModule.readdir(artifactDir),
+          jsonlName = entries.find(entry => entry.startsWith(KB_BACKUP_FILE_PREFIX) && entry.endsWith('.jsonl'));
+
+    if (!jsonlName) {
+        throw new Error(`Artifact carries '${ARTIFACT_VECTORS_FILENAME}' but no '${KB_BACKUP_FILE_PREFIX}*.jsonl' to re-attach the vectors to.`);
+    }
+
+    const jsonlPath = path.join(artifactDir, jsonlName),
+          records   = (await fsModule.readFile(jsonlPath, 'utf8')).split('\n').filter(line => line.trim()).map(line => JSON.parse(line)),
+          ids       = records.map(record => record.id);
+
+    if (records.length !== recordCount) {
+        throw new Error(`Artifact JSONL holds ${records.length} records but metadata claims ${recordCount}. Refusing to re-attach vectors positionally.`);
+    }
+
+    if (vectorDigest && recordOrderDigest(ids) !== vectorDigest) {
+        throw new Error(
+            `Artifact record order does not match the stamped vector digest (${vectorDigest}). ` +
+            `The JSONL was reordered or rewritten after packing — re-attaching by index would pair every record with the wrong embedding.`
+        );
+    }
+
+    const vectors = unpackVectorsFp16({
+        buffer: await fsModule.readFile(vectorsPath),
+        recordCount,
+        dimension
+    });
+
+    const rehydrated = records.map((record, row) => JSON.stringify({...record, embedding: Array.from(vectors[row])}));
+
+    await fsModule.writeFile(jsonlPath, rehydrated.join('\n') + '\n');
+    // The SDK import only reads `.jsonl`, but leaving the sidecar behind would let a re-run
+    // double-rehydrate an already-inline JSONL. Removing it makes the operation idempotent.
+    await fsModule.remove(vectorsPath);
+
+    return {rehydrated: true, recordCount};
+}
+
+/**
  * Asserts a staged (or unzipped) artifact directory is collection-scoped to the public
  * Knowledge Base collection. Throws on the first sign of a Memory Core leak so the failure is
  * loud at build time and at ingest time.
@@ -167,7 +283,7 @@ export async function assertCollectionScopedArtifact({artifactDir, fsModule = fs
         throw new Error(`Artifact directory not found: ${artifactDir}`);
     }
 
-    const entries = await fsModule.readdir(artifactDir);
+    const entries    = await fsModule.readdir(artifactDir);
     const jsonlFiles = [];
 
     for (const entry of entries) {

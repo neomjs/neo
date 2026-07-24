@@ -22,6 +22,16 @@ import fs             from 'fs';
 import fsExtra        from 'fs-extra';
 import os             from 'os';
 import path           from 'path';
+import {execFile}     from 'child_process';
+import {promisify}    from 'util';
+
+const execFileAsync = promisify(execFile);
+
+/** Extracts a real release zip so an assertion can read the bytes an adopter actually receives. */
+const unzipTo = (zipPath, targetDir) => execFileAsync('unzip', ['-o', '-q', zipPath, '-d', targetDir]);
+
+/** Rebuilds a flat release zip from explicit member paths (mirrors the upload script's `zip -j`). */
+const zipFlat = (zipPath, members) => execFileAsync('zip', ['-j', '-q', zipPath, ...members]);
 
 // Serial mode: upload/download specs swap real KB SDK singleton methods via seams indirectly;
 // keep file-local ordering deterministic for local multi-worker runs. CI uses workers:1.
@@ -36,7 +46,7 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
     const silentLogger = {log: () => {}, warn: () => {}, error: () => {}};
 
     /** A KB SDK seam that records its calls and returns a configurable shape. */
-    const makeDatabaseServiceSeam = ({onExport, importResult} = {}) => {
+    const makeDatabaseServiceSeam = ({onExport, onImport, importResult} = {}) => {
         const calls = [];
         return {
             calls,
@@ -47,6 +57,10 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
                     return {message: 'export ok'};
                 }
                 if (action === 'import') {
+                    // `onImport` observes the extract dir AS THE SDK SEES IT. The workflow deletes that
+                    // dir in its finally block, so this is the only point where the bytes the real
+                    // importer would consume can be asserted on.
+                    await onImport?.({action, ...rest});
                     return importResult ?? {message: 'import ok', imported: 0, mode: rest.mode};
                 }
                 throw new Error(`unexpected action ${action}`);
@@ -55,6 +69,82 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
     };
 
     const readyLifecycleSeam = () => ({ready: async () => {}});
+
+    /**
+     * Fixture vector width. Deliberately tiny — the real corpus is dim 4096, but the wiring under test
+     * is dimension-agnostic and a 4096-wide fixture would only make the spec slow and unreadable.
+     */
+    const FIXTURE_DIMENSION = 4;
+
+    /** fp16-exact values, so a round-trip assertion can be exact rather than tolerance-based. */
+    const fixtureVector = seed => [seed, seed + 0.5, -seed, 0.25];
+
+    /** A v1-shaped KB export: one record per line, embeddings inline as decimal text. */
+    const jsonlFixture = ids => ids
+        .map((id, index) => JSON.stringify({
+            id,
+            embedding: fixtureVector(index + 1),
+            metadata : {content: `content-${id}`},
+            document : null
+        }))
+        .join('\n') + '\n';
+
+    /** Reads the KB JSONL out of an artifact directory as parsed records. */
+    const readArtifactRecords = artifactDir => {
+        const name = fs.readdirSync(artifactDir).find(entry => entry.startsWith(KB_BACKUP_FILE_PREFIX) && entry.endsWith('.jsonl'));
+
+        return fs.readFileSync(path.join(artifactDir, name), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
+    };
+
+    /**
+     * Builds a REAL release zip through `uploadKnowledgeBase` and returns its bytes plus a fetch seam
+     * serving them. Exercising the actual build path means the download assertions cannot pass against
+     * a hand-stubbed extract dir that the shipped pipeline would never produce.
+     */
+    const buildServedArtifact = async ({label, ids, dimension = FIXTURE_DIMENSION, mutateStage}) => {
+        const stageRoot   = path.join(workRoot, `${label}-stage`),
+              releaseRoot = path.join(workRoot, `${label}-release`);
+
+        await fsExtra.ensureDir(stageRoot);
+        await fsExtra.ensureDir(releaseRoot);
+
+        const built = await uploadKnowledgeBase({
+            tagName        : '99.0.0',
+            databaseService: makeDatabaseServiceSeam({
+                onExport: async ({backupPath}) => {
+                    fs.writeFileSync(path.join(backupPath, `${KB_BACKUP_FILE_PREFIX}${label}.jsonl`), jsonlFixture(ids));
+                }
+            }),
+            lifecycleService   : readyLifecycleSeam(),
+            embeddingConfig    : {embeddingProvider: 'openAiCompatible', vectorDimension: dimension},
+            knowledgeBaseConfig: {collectionName: 'neo-knowledge-base'},
+            runGh              : async () => {},
+            skipReleaseCheck   : true,
+            skipUpload         : true,
+            stageRoot,
+            logger             : silentLogger
+        });
+
+        // `skipUpload` retains the artifact at the repo root (the upload path cleans itself), so move it
+        // to the test's own tree immediately — a spec must not leave an untracked release asset behind.
+        const servedZip = path.join(releaseRoot, ARTIFACT_BASENAME);
+        fs.copyFileSync(built.artifactPath, servedZip);
+        fs.rmSync(built.artifactPath, {force: true});
+
+        await mutateStage?.({servedZip, releaseRoot});
+
+        const zipBytes = fs.readFileSync(servedZip);
+
+        return {
+            built,
+            servedZip,
+            fetchImpl: async () => ({
+                ok         : true,
+                status     : 200,
+                arrayBuffer: async () => zipBytes.buffer.slice(zipBytes.byteOffset, zipBytes.byteOffset + zipBytes.byteLength)
+            })
+        }
+    };
 
     test.beforeAll(async () => {
         ({
@@ -226,10 +316,12 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         const stageRoot = path.join(workRoot, 'upload-stage-clean');
         await fsExtra.ensureDir(stageRoot);
 
-        // Export seam writes a single KB JSONL into the staging dir the SDK was handed.
+        // Export seam writes a single KB JSONL into the staging dir the SDK was handed. Records carry
+        // `dimension`-length embeddings because the v2 pack step refuses a partially-vectorised
+        // artifact — shipping rows whose vectors are missing is the failure it exists to catch.
         const databaseService = makeDatabaseServiceSeam({
             onExport: async ({backupPath}) => {
-                fs.writeFileSync(path.join(backupPath, `${KB_BACKUP_FILE_PREFIX}2026-05-29.jsonl`), '{"id":"kb-1"}\n{"id":"kb-2"}\n');
+                fs.writeFileSync(path.join(backupPath, `${KB_BACKUP_FILE_PREFIX}2026-05-29.jsonl`), jsonlFixture(['kb-1', 'kb-2']));
             }
         });
 
@@ -238,7 +330,7 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             tagName            : '99.0.0',
             databaseService,
             lifecycleService   : readyLifecycleSeam(),
-            embeddingConfig    : {embeddingProvider: 'openAiCompatible', vectorDimension: 4096},
+            embeddingConfig    : {embeddingProvider: 'openAiCompatible', vectorDimension: FIXTURE_DIMENSION},
             knowledgeBaseConfig: {collectionName: 'neo-knowledge-base'},
             runGh              : async (args) => { ghCalls.push(args); },
             stageRoot,
@@ -247,7 +339,7 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
 
         expect(result.recordCount).toBe(2);
         expect(result.embeddingProvider).toBe('openAiCompatible');
-        expect(result.dimension).toBe(4096);
+        expect(result.dimension).toBe(FIXTURE_DIMENSION);
         expect(result.artifactName).toBe('chroma-neo-knowledge-base.zip');
 
         // Export was requested; upload was attempted (release-check + upload gh calls).
@@ -325,37 +417,8 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
 
     test('download imports collection-scoped (merge) when the artifact round-trips a real zip', async () => {
         // Build a real artifact via uploadKnowledgeBase(skipUpload) so the download path exercises
-        // the REAL zip → unzip → assert → import chain, not a stubbed extract dir.
-        const stageRoot   = path.join(workRoot, 'roundtrip-stage');
-        const releaseRoot = path.join(workRoot, 'roundtrip-release');
-        await fsExtra.ensureDir(stageRoot);
-        await fsExtra.ensureDir(releaseRoot);
-
-        const uploadDbSeam = makeDatabaseServiceSeam({
-            onExport: async ({backupPath}) => {
-                fs.writeFileSync(path.join(backupPath, `${KB_BACKUP_FILE_PREFIX}rt.jsonl`), '{"id":"kb-1","embedding":[0.1],"metadata":{"content":"x"},"document":null}\n');
-            }
-        });
-
-        const built = await uploadKnowledgeBase({
-            tagName            : '99.0.0',
-            databaseService    : uploadDbSeam,
-            lifecycleService   : readyLifecycleSeam(),
-            embeddingConfig    : {embeddingProvider: 'openAiCompatible', vectorDimension: 4096},
-            knowledgeBaseConfig: {collectionName: 'neo-knowledge-base'},
-            runGh              : async () => {},
-            skipReleaseCheck   : true,
-            skipUpload         : true,
-            stageRoot,
-            logger             : silentLogger
-        });
-
-        // Move the built artifact to a stable path the fake fetch can serve as bytes, then
-        // clear the repo-root original (skipUpload retains it; the upload-only path cleans itself).
-        const servedZip = path.join(releaseRoot, ARTIFACT_BASENAME);
-        fs.copyFileSync(built.artifactPath, servedZip);
-        fs.rmSync(built.artifactPath, {force: true});
-        const zipBytes = fs.readFileSync(servedZip);
+        // the REAL zip → unzip → assert → rehydrate → import chain, not a stubbed extract dir.
+        const {fetchImpl} = await buildServedArtifact({label: 'roundtrip', ids: ['kb-1']});
 
         const downloadDbSeam = makeDatabaseServiceSeam({importResult: {message: 'ok', imported: 1, mode: 'merge'}});
 
@@ -364,8 +427,8 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             chromaManager   : {getKnowledgeBaseCollection: async () => ({count: async () => 0})},
             databaseService : downloadDbSeam,
             lifecycleService: readyLifecycleSeam(),
-            embeddingConfig : {embeddingProvider: 'openAiCompatible', vectorDimension: 4096},
-            fetchImpl       : async () => ({ok: true, status: 200, arrayBuffer: async () => zipBytes.buffer.slice(zipBytes.byteOffset, zipBytes.byteOffset + zipBytes.byteLength)}),
+            embeddingConfig : {embeddingProvider: 'openAiCompatible', vectorDimension: FIXTURE_DIMENSION},
+            fetchImpl,
             workRoot        : path.join(workRoot, 'dl-roundtrip'),
             logger          : silentLogger
         });
@@ -381,5 +444,158 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         expect(path.basename(importCall.file)).toBe('extract');
         expect(importCall.file.endsWith('.zip')).toBe(false);
         expect(importCall.file).not.toContain('.neo-ai-data');
+    });
+
+    // ───────── schema v2 wiring: the build side EMITS it, the consume side DECODES it ─────────
+
+    test('the shipped zip carries the fp16 sidecar and a JSONL stripped of embeddings', async () => {
+        const {servedZip} = await buildServedArtifact({label: 'emit-v2', ids: ['kb-1', 'kb-2', 'kb-3']});
+        const unpackDir   = path.join(workRoot, 'emit-v2-unpacked');
+
+        await fsExtra.ensureDir(unpackDir);
+        await unzipTo(servedZip, unpackDir);
+
+        // Three entries, and the vectors are the BINARY one — not decimal text inside the JSONL.
+        const entries = fs.readdirSync(unpackDir).sort();
+        expect(entries).toContain(ARTIFACT_VECTORS_FILENAME);
+        expect(entries).toContain(ARTIFACT_META_FILENAME);
+        expect(entries.filter(entry => entry.endsWith('.jsonl'))).toHaveLength(1);
+
+        const records = readArtifactRecords(unpackDir);
+        expect(records).toHaveLength(3);
+        // The whole point of v2: no row carries `embedding` as text any more…
+        records.forEach(record => expect(record).not.toHaveProperty('embedding'));
+        // …but nothing else was dropped, so the import still gets full records.
+        expect(records[0].metadata.content).toBe('content-kb-1');
+
+        // …and the sidecar is exactly rows × dims × 2 bytes, the size the consumer asserts against.
+        expect(fs.statSync(path.join(unpackDir, ARTIFACT_VECTORS_FILENAME)).size).toBe(3 * FIXTURE_DIMENSION * 2);
+
+        const meta = JSON.parse(fs.readFileSync(path.join(unpackDir, ARTIFACT_META_FILENAME), 'utf8'));
+        expect(meta.artifactVersion).toBe(ARTIFACT_SCHEMA_VERSION);
+        expect(meta.vectorEncoding).toBe('fp16');
+        expect(meta.recordCount).toBe(3);
+        // The order digest must be stamped, or the consumer cannot prove the positional pairing.
+        expect(meta.vectorDigest).toBe(recordOrderDigest(['kb-1', 'kb-2', 'kb-3']));
+    });
+
+    test('the consumer re-attaches the packed vectors BEFORE the import sees the JSONL', async () => {
+        const {fetchImpl} = await buildServedArtifact({label: 'decode-v2', ids: ['kb-1', 'kb-2']});
+
+        let observed;
+        const downloadDbSeam = makeDatabaseServiceSeam({
+            importResult: {message: 'ok', imported: 2, mode: 'merge'},
+            onImport    : async ({file}) => {
+                observed = {records: readArtifactRecords(file), entries: fs.readdirSync(file)};
+            }
+        });
+
+        const result = await downloadKnowledgeBase({
+            tagName         : '99.0.0',
+            chromaManager   : {getKnowledgeBaseCollection: async () => ({count: async () => 0})},
+            databaseService : downloadDbSeam,
+            lifecycleService: readyLifecycleSeam(),
+            embeddingConfig : {embeddingProvider: 'openAiCompatible', vectorDimension: FIXTURE_DIMENSION},
+            fetchImpl,
+            workRoot        : path.join(workRoot, 'dl-decode-v2'),
+            logger          : silentLogger
+        });
+
+        expect(result.status).toBe('imported');
+
+        // This is the load-bearing assertion of the whole wiring: the importer receives rows with
+        // embeddings INLINE, so the SDK boundary keeps consuming one JSONL shape and no adopter
+        // re-embeds the corpus on boot. The fixture values are fp16-exact, so this is exact.
+        expect(observed.records.map(record => record.embedding)).toEqual([fixtureVector(1), fixtureVector(2)]);
+        expect(observed.records[1].metadata.content).toBe('content-kb-2');
+
+        // The sidecar is consumed, not left behind — a retained sidecar would let a re-run
+        // double-rehydrate an already-inline JSONL.
+        expect(observed.entries).not.toContain(ARTIFACT_VECTORS_FILENAME);
+    });
+
+    test('a v1 artifact (embeddings inline, no sidecar) still imports unchanged', async () => {
+        // Backward compatibility is the reason the rehydrate step is a no-op rather than a hard v2
+        // requirement: releases published before schema v2 must keep installing.
+        const v1Dir = path.join(workRoot, 'v1-artifact');
+        const v1Zip = path.join(workRoot, 'v1-release', ARTIFACT_BASENAME);
+
+        await fsExtra.ensureDir(v1Dir);
+        await fsExtra.ensureDir(path.dirname(v1Zip));
+
+        fs.writeFileSync(path.join(v1Dir, `${KB_BACKUP_FILE_PREFIX}v1.jsonl`), jsonlFixture(['kb-1']));
+        fs.writeFileSync(path.join(v1Dir, ARTIFACT_META_FILENAME), JSON.stringify({
+            artifactVersion: 1, collection: 'neo-knowledge-base', embeddingProvider: 'openAiCompatible',
+            dimension      : FIXTURE_DIMENSION, recordCount: 1
+        }));
+
+        await zipFlat(v1Zip, [path.join(v1Dir, `${KB_BACKUP_FILE_PREFIX}v1.jsonl`), path.join(v1Dir, ARTIFACT_META_FILENAME)]);
+
+        const zipBytes = fs.readFileSync(v1Zip);
+
+        let observed;
+        const downloadDbSeam = makeDatabaseServiceSeam({
+            importResult: {message: 'ok', imported: 1, mode: 'merge'},
+            onImport    : async ({file}) => { observed = readArtifactRecords(file); }
+        });
+
+        const result = await downloadKnowledgeBase({
+            tagName         : '99.0.0',
+            chromaManager   : {getKnowledgeBaseCollection: async () => ({count: async () => 0})},
+            databaseService : downloadDbSeam,
+            lifecycleService: readyLifecycleSeam(),
+            embeddingConfig : {embeddingProvider: 'openAiCompatible', vectorDimension: FIXTURE_DIMENSION},
+            fetchImpl       : async () => ({ok: true, status: 200, arrayBuffer: async () => zipBytes.buffer.slice(zipBytes.byteOffset, zipBytes.byteOffset + zipBytes.byteLength)}),
+            workRoot        : path.join(workRoot, 'dl-v1'),
+            logger          : silentLogger
+        });
+
+        expect(result.status).toBe('imported');
+        // Untouched: the v1 embeddings reach the importer exactly as published.
+        expect(observed[0].embedding).toEqual(fixtureVector(1));
+    });
+
+    test('a REORDERED v2 JSONL aborts the real download BEFORE any import runs', async () => {
+        // The digest guard is only worth anything if it is reachable through the shipped path. This
+        // permutes the JSONL inside a real zip: same ids, same record count, and a sidecar of exactly
+        // the right byte length — the corruption no shape check can see.
+        const {fetchImpl} = await buildServedArtifact({
+            label      : 'reordered',
+            ids        : ['kb-1', 'kb-2', 'kb-3'],
+            mutateStage: async ({servedZip, releaseRoot}) => {
+                const tamperDir = path.join(releaseRoot, 'tamper');
+
+                await fsExtra.ensureDir(tamperDir);
+                await unzipTo(servedZip, tamperDir);
+
+                const jsonlName = fs.readdirSync(tamperDir).find(entry => entry.endsWith('.jsonl')),
+                      jsonlPath = path.join(tamperDir, jsonlName),
+                      lines     = fs.readFileSync(jsonlPath, 'utf8').split('\n').filter(Boolean);
+
+                fs.writeFileSync(jsonlPath, [lines[0], lines[2], lines[1]].join('\n') + '\n');
+                fs.rmSync(servedZip, {force: true});
+
+                await zipFlat(servedZip, [jsonlPath, path.join(tamperDir, ARTIFACT_META_FILENAME), path.join(tamperDir, ARTIFACT_VECTORS_FILENAME)]);
+            }
+        });
+
+        const downloadDbSeam = makeDatabaseServiceSeam({importResult: {message: 'ok', imported: 3, mode: 'merge'}});
+
+        const result = await downloadKnowledgeBase({
+            tagName         : '99.0.0',
+            chromaManager   : {getKnowledgeBaseCollection: async () => ({count: async () => 0})},
+            databaseService : downloadDbSeam,
+            lifecycleService: readyLifecycleSeam(),
+            embeddingConfig : {embeddingProvider: 'openAiCompatible', vectorDimension: FIXTURE_DIMENSION},
+            fetchImpl,
+            workRoot        : path.join(workRoot, 'dl-reordered'),
+            logger          : silentLogger
+        });
+
+        // Soft-fail (npm install must never break) but the import NEVER ran — the alternative is
+        // ingesting 3 records each paired with another record's embedding.
+        expect(result.status).toBe('error');
+        expect(result.reason).toMatch(/does not match the stamped vector digest/);
+        expect(downloadDbSeam.calls.filter(call => call.action === 'import')).toHaveLength(0);
     });
 });
