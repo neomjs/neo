@@ -29,7 +29,11 @@ import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
-import {buildLeasePayload}          from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
+import {
+    LIFECYCLE_GUARD_SUFFIX,
+    acquireHeavyMaintenanceLease,
+    buildLeasePayload
+} from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {
     buildRunTaskOptions,
     parseArgs,
@@ -2310,6 +2314,104 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }));
 
         expect(recovered.status).toBe('completed');
+    });
+
+    test('lease renewal keeps a live long-running owner past its base TTL — no mid-work reclaim (#15763)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        let releaseIngestion;
+        const ingestionGate = new Promise(resolve => releaseIngestion = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs            : 300,
+            leaseRenewalIntervalMs       : 50,
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                async summaryFactory() {
+                    await ingestionGate;
+                    return {ingested: 1, deleted: 0, errors: []};
+                }
+            })
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // Hold the run well past its base TTL. Without renewal the lease would
+        // be reclaimable at +300ms; the renewal loop must keep the live owner's
+        // deadline moving so the contender still observes an active hold.
+        await new Promise(resolve => setTimeout(resolve, 450));
+
+        const contender = await acquireHeavyMaintenanceLease({
+            leasePath   : leaseFilePath(),
+            owner       : 'contender',
+            staleAfterMs: 300
+        });
+        expect(contender).toMatchObject({acquired: false, status: 'held'});
+
+        releaseIngestion();
+        const result = await invocation;
+
+        expect(result.status).toBe('completed');
+        expect((await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'].lastIngestedRev).toBe('sha-head-org/lease-repo');
+        expect(await fs.pathExists(leaseFilePath())).toBe(false);
+    });
+
+    test('renewal failure aborts before protected work: failed run, no manifest, untouched backoff, replacement intact (#15763)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        let releaseEnvelope;
+        const envelopeGate = new Promise(resolve => releaseEnvelope = resolve);
+        const baseEnvelope = makeFakeEnvelopeBuilder();
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs     : 60_000,
+            leaseRenewalIntervalMs: 25,
+            envelopeBuilder       : async (...args) => {
+                await envelopeGate;
+                return baseEnvelope(...args);
+            }
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // A reclaimer replaces the lease while the run is paused mid-work.
+        // The replacement happens INSIDE the lifecycle guard so an in-flight
+        // renewal tick cannot interleave with this test write.
+        const guardPath = `${leaseFilePath()}${LIFECYCLE_GUARD_SUFFIX}`;
+        await fs.ensureDir(guardPath);
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'replacement-owner',
+            reason      : 'tenant-repo-sync',
+            pid         : process.pid,
+            staleAfterMs: 60_000,
+            token       : 'replacement-token'
+        }));
+        await fs.rmdir(guardPath);
+
+        // Let renewal ticks observe the loss; even under full renewal
+        // starvation the pre-ingest fence re-inspects the live file and
+        // reaches the same abort.
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        releaseEnvelope();
+        const result = await invocation;
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+
+        // Fail-closed: no manifest was ever committed and per-repo backoff
+        // state was not manufactured for the aborted sweep.
+        expect(await fs.pathExists(revisionsFile)).toBe(false);
+
+        // The loser's token-guarded release could not remove the replacement.
+        expect((await fs.readJson(leaseFilePath())).token).toBe('replacement-token');
     });
 
     test('atomic manifest write: a failed write leaves the previous complete document readable (#15763)', async () => {

@@ -5,6 +5,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     HeavyMaintenanceLeaseService,
+    LIFECYCLE_GUARD_SUFFIX,
     acquireHeavyMaintenanceLease as _rawAcquireHeavyMaintenanceLease,
     acquireHeavyMaintenanceLeaseSync as _rawAcquireHeavyMaintenanceLeaseSync,
     buildLeasePayload,
@@ -14,6 +15,8 @@ import {
     isLeaseStale,
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
+    renewHeavyMaintenanceLease,
+    renewHeavyMaintenanceLeaseSync,
     shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease as _rawWithHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
@@ -880,19 +883,19 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token       : 'stale-token'
         }));
 
-        // Contender B blocks at its takeover point (the atomic rename), which by
+        // Contender B blocks at its guard entry (the atomic mkdir), which by
         // construction is AFTER B's stale inspection — the exact interleave where
-        // the previous unconditional remove() let both contenders acquire.
+        // an unguarded takeover let both contenders act on the same stale verdict.
         let bAtTakeover,
             releaseB;
         const bArrived = new Promise(resolve => bAtTakeover = resolve);
         const bGate    = new Promise(resolve => releaseB = resolve);
         const gatedFs  = {
             ...fs,
-            async rename(...args) {
+            async mkdir(...args) {
                 bAtTakeover();
                 await bGate;
-                return fs.rename(...args);
+                return fs.mkdir(...args);
             }
         };
 
@@ -913,8 +916,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect((await fs.readJson(leasePath)).token).toBe('token-a');
     });
 
-    test('sync stale takeover restores a fresh lease it did not inspect (#15763)', () => {
-        const leasePath = createLeasePath('sync-takeover-restore');
+    test('sync recovery defers to a lease replaced after the stale observation (#15763)', () => {
+        const leasePath = createLeasePath('sync-replacement-after-observation');
 
         fs.writeJsonSync(leasePath, buildLeasePayload({
             owner       : 'crashed-owner',
@@ -923,14 +926,15 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token       : 'stale-token'
         }));
 
-        // Simulate the race at the atomic boundary: between this contender's stale
-        // inspection and its rename, another process replaces the lease with a
-        // FRESH one. The moved file then fails identity verification and must be
-        // restored intact instead of deleted.
+        // Replacement-after-observation: between this contender's stale
+        // inspection and its guard entry, another process replaces the lease
+        // with a FRESH one. The guarded re-inspection must see the replacement
+        // and defer — a recovery may only mutate state it re-observed INSIDE
+        // the guard, never state from the earlier unguarded observation.
         let   swapped  = false;
         const racingFs = {
             ...fs,
-            renameSync(...args) {
+            mkdirSync(...args) {
                 if (!swapped) {
                     swapped = true;
                     fs.writeJsonSync(leasePath, buildLeasePayload({
@@ -940,7 +944,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                         token       : 'fresh-token'
                     }));
                 }
-                return fs.renameSync(...args);
+                return fs.mkdirSync(...args);
             }
         };
 
@@ -949,6 +953,282 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(result.acquired).toBe(false);
         expect(result.status).toBe('held');
         expect(fs.readJsonSync(leasePath).token).toBe('fresh-token');
+    });
+
+    test('async recovery defers to a lease replaced after the stale observation (#15763)', async () => {
+        const leasePath = createLeasePath('async-replacement-after-observation');
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        let   swapped  = false;
+        const racingFs = {
+            ...fs,
+            async mkdir(...args) {
+                if (!swapped) {
+                    swapped = true;
+                    await fs.writeJson(leasePath, buildLeasePayload({
+                        owner       : 'fresh-owner',
+                        staleAfterMs: TEST_LEASE_STALE_MS,
+                        pid         : process.pid,
+                        token       : 'fresh-token'
+                    }));
+                }
+                return fs.mkdir(...args);
+            }
+        };
+
+        const result = await acquireHeavyMaintenanceLease({leasePath, owner: 'reclaimer', token: 'token-r', fsModule: racingFs});
+
+        expect(result.acquired).toBe(false);
+        expect(result.status).toBe('held');
+        expect((await fs.readJson(leasePath)).token).toBe('fresh-token');
+    });
+
+    test('release cannot remove a replacement owner installed after the release began (#15763)', async () => {
+        const leasePath = createLeasePath('release-replacement');
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'old-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : process.pid,
+            token       : 'old-token'
+        }));
+
+        // Replacement-during-release: between the release call and its guarded
+        // validation, a reclaimer replaces the lease (the TTL-expiry
+        // interleave). Validation and removal execute inside one guarded
+        // section, so the release observes the replacement and defers — an
+        // unguarded check-then-remove deleted the replacement owner's lease.
+        let   swapped  = false;
+        const racingFs = {
+            ...fs,
+            async mkdir(...args) {
+                if (!swapped) {
+                    swapped = true;
+                    await fs.writeJson(leasePath, buildLeasePayload({
+                        owner       : 'replacement-owner',
+                        staleAfterMs: TEST_LEASE_STALE_MS,
+                        pid         : process.pid,
+                        token       : 'replacement-token'
+                    }));
+                }
+                return fs.mkdir(...args);
+            }
+        };
+
+        const result = await releaseHeavyMaintenanceLease({leasePath, token: 'old-token', fsModule: racingFs});
+
+        expect(result).toMatchObject({status: 'not-owner', released: false});
+        expect((await fs.readJson(leasePath)).token).toBe('replacement-token');
+    });
+
+    test('sync release cannot remove a replacement owner installed after the release began (#15763)', () => {
+        const leasePath = createLeasePath('sync-release-replacement');
+
+        fs.writeJsonSync(leasePath, buildLeasePayload({
+            owner       : 'old-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : process.pid,
+            token       : 'old-token'
+        }));
+
+        let   swapped  = false;
+        const racingFs = {
+            ...fs,
+            mkdirSync(...args) {
+                if (!swapped) {
+                    swapped = true;
+                    fs.writeJsonSync(leasePath, buildLeasePayload({
+                        owner       : 'replacement-owner',
+                        staleAfterMs: TEST_LEASE_STALE_MS,
+                        pid         : process.pid,
+                        token       : 'replacement-token'
+                    }));
+                }
+                return fs.mkdirSync(...args);
+            }
+        };
+
+        const result = releaseHeavyMaintenanceLeaseSync({leasePath, token: 'old-token', fsModule: racingFs});
+
+        expect(result).toMatchObject({status: 'not-owner', released: false});
+        expect(fs.readJsonSync(leasePath).token).toBe('replacement-token');
+    });
+
+    test('lifecycle guard serializes recovery against release — the outgoing owner cannot delete the reclaimer\'s lease (#15763)', async () => {
+        const leasePath = createLeasePath('guard-serialization');
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'stale-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // Reclaimer R pauses INSIDE the guard (at its unlink), holding the
+        // critical section. The stale lease's owner then calls release: an
+        // unguarded release would read the still-present stale record, match
+        // its own token, and remove whatever file exists when the remove()
+        // lands — deleting R's fresh lease. Under the guard the release can
+        // only run after R exits, observes R's lease, and defers.
+        let rAtUnlink,
+            releaseR;
+        const rArrived = new Promise(resolve => rAtUnlink = resolve);
+        const rGate    = new Promise(resolve => releaseR = resolve);
+        const gatedFs  = {
+            ...fs,
+            async unlink(...args) {
+                rAtUnlink();
+                await rGate;
+                return fs.unlink(...args);
+            }
+        };
+
+        const reclaimer = acquireHeavyMaintenanceLease({leasePath, owner: 'R', token: 'token-r', fsModule: gatedFs});
+        await rArrived;
+
+        const releaseAttempt = releaseHeavyMaintenanceLease({leasePath, token: 'stale-token'});
+
+        // Give the release a real window to run before R resumes; the guard
+        // must hold it in its retry loop for this entire interval.
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        releaseR();
+
+        const [reclaimResult, releaseResult] = await Promise.all([reclaimer, releaseAttempt]);
+
+        expect(reclaimResult).toMatchObject({acquired: true, status: 'acquired-after-stale'});
+        expect(releaseResult).toMatchObject({status: 'not-owner', released: false});
+        expect((await fs.readJson(leasePath)).token).toBe('token-r');
+    });
+
+    test('an abandoned lifecycle guard is reclaimed after guardStaleAfterMs (#15763)', async () => {
+        const leasePath = createLeasePath('abandoned-guard');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'crashed-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // A holder crashed inside the critical section: the guard directory
+        // survives with an old mtime and no live owner behind it.
+        await fs.ensureDir(guardPath);
+        const past = new Date(Date.now() - 60_000);
+        await fs.utimes(guardPath, past, past);
+
+        const result = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner            : 'recoverer',
+            token            : 'token-r',
+            guardStaleAfterMs: 1_000
+        });
+
+        expect(result).toMatchObject({acquired: true, status: 'acquired-after-stale'});
+        expect(await fs.pathExists(guardPath)).toBe(false);
+    });
+
+    test('a live contended lifecycle guard defers acquisition without mutating the lease (#15763)', async () => {
+        const leasePath = createLeasePath('contended-guard');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await fs.writeJson(leasePath, buildLeasePayload({
+            owner       : 'stale-owner',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            pid         : 2147483647,
+            token       : 'stale-token'
+        }));
+
+        // A FRESH guard held by a live peer for the whole retry budget: the
+        // contender must exhaust its attempts and defer — never bypass the
+        // guard to mutate the (stale) lease underneath the peer's transition.
+        await fs.ensureDir(guardPath);
+
+        const result = await acquireHeavyMaintenanceLease({leasePath, owner: 'contender', token: 'token-c'});
+
+        expect(result).toMatchObject({acquired: false, status: 'held', guardContended: true});
+        expect((await fs.readJson(leasePath)).token).toBe('stale-token');
+
+        await fs.rmdir(guardPath);
+    });
+
+    test('renewHeavyMaintenanceLease extends the owner deadline; non-owners cannot renew (#15763)', async () => {
+        const leasePath = createLeasePath('renewal');
+        const t0        = new Date('2026-07-24T08:00:00.000Z');
+
+        await acquireHeavyMaintenanceLease({leasePath, owner: 'worker', token: 'owner-token', now: t0});
+
+        const t1      = new Date(t0.getTime() + TEST_LEASE_STALE_MS - 1_000);
+        const renewal = await renewHeavyMaintenanceLease({
+            leasePath,
+            token       : 'owner-token',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            now         : t1
+        });
+
+        expect(renewal).toMatchObject({status: 'renewed', renewed: true});
+        expect(renewal.lease.token).toBe('owner-token');
+        expect(renewal.lease.renewedAt).toBe(t1.toISOString());
+        expect(renewal.lease.expiresAt).toBe(new Date(t1.getTime() + TEST_LEASE_STALE_MS).toISOString());
+
+        // Past the ORIGINAL deadline the renewed lease still holds: live
+        // expiry has been pushed forward, so no contender can reclaim.
+        const t2        = new Date(t0.getTime() + TEST_LEASE_STALE_MS + 1_000);
+        const contender = await acquireHeavyMaintenanceLease({leasePath, owner: 'contender', now: t2});
+        expect(contender).toMatchObject({status: 'held', acquired: false});
+
+        // Non-owner renewal defers and mutates nothing.
+        const foreign = await renewHeavyMaintenanceLease({
+            leasePath,
+            token       : 'foreign-token',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            now         : t2
+        });
+        expect(foreign).toMatchObject({status: 'not-owner', renewed: false});
+        expect((await fs.readJson(leasePath)).token).toBe('owner-token');
+
+        await fs.remove(leasePath);
+        await expect(renewHeavyMaintenanceLease({
+            leasePath,
+            token       : 'owner-token',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            now         : t2
+        })).resolves.toMatchObject({status: 'missing', renewed: false});
+    });
+
+    test('sync renewal mirrors async renewal semantics (#15763)', () => {
+        const leasePath = createLeasePath('renewal-sync');
+        const t0        = new Date('2026-07-24T08:00:00.000Z');
+
+        acquireHeavyMaintenanceLeaseSync({leasePath, owner: 'worker', token: 'owner-token', now: t0});
+
+        const t1      = new Date(t0.getTime() + 30_000);
+        const renewal = renewHeavyMaintenanceLeaseSync({
+            leasePath,
+            token       : 'owner-token',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            now         : t1
+        });
+
+        expect(renewal).toMatchObject({status: 'renewed', renewed: true});
+        expect(renewal.lease.expiresAt).toBe(new Date(t1.getTime() + TEST_LEASE_STALE_MS).toISOString());
+
+        expect(renewHeavyMaintenanceLeaseSync({
+            leasePath,
+            token       : 'foreign-token',
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            now         : t1
+        })).toMatchObject({status: 'not-owner', renewed: false});
+
+        expect(() => renewHeavyMaintenanceLeaseSync({leasePath, token: 'owner-token', now: t1}))
+            .toThrow(/staleAfterMs.*required/);
     });
 
     test('a live owner inside its TTL cannot be reclaimed; the boundary is the documented backstop (#15763)', async () => {

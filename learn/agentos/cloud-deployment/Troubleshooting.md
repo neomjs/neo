@@ -267,7 +267,14 @@ The CLI and the daemon's periodic sweep serialize through a cross-process lease 
 revisions manifest. Exit code `4` (reason `KB_TENANT_REPO_SYNC_LEASE_HELD`) means another sync is
 active — retry after it finishes; a periodic sweep deferred the same way reports a `skipped`
 outcome with that reason and no backoff mutation. Crashed lease owners recover automatically on
-the next attempt (pid-liveness), and wedged-but-alive owners expire via `leaseStaleAfterMs`.
+the next attempt (pid-liveness). A live sweep renews its lease every `max(5s, TTL/3)`, so
+`leaseStaleAfterMs` only ever expires an owner that stopped renewing (fully wedged or gone); a run
+that loses its lease anyway fails with `KB_TENANT_REPO_SYNC_LEASE_LOST` at its next work fence —
+before further git, ingest, or manifest work — leaving checkpoints, backoff state, and the new
+owner's lease untouched, so the failure is safe to retry once the concurrent run finishes. Lease
+transitions themselves (recovery, release, renewal) serialize through a sibling
+`…lease.json.lifecycle-guard` directory; an abandoned guard from a hard crash self-heals after
+~10 seconds and needs no operator action.
 
 Manifest writes are atomic (temp sibling + fsync + rename), so upgrades from this release forward
 cannot produce a torn `tenant-repo-sync-revisions.json`. Should a manifest from an older release

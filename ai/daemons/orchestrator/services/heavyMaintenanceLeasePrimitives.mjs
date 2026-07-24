@@ -229,6 +229,171 @@ function writeLeaseFileSync(leasePath, lease, fsModule) {
     fsModule.writeFileSync(leasePath, JSON.stringify(lease, null, 2), {encoding: 'utf8', flag: 'wx'});
 }
 
+export const LIFECYCLE_GUARD_SUFFIX = '.lifecycle-guard';
+
+const
+    DEFAULT_GUARD_STALE_AFTER_MS = 10000,
+    GUARD_MAX_ATTEMPTS           = 100,
+    GUARD_RETRY_DELAY_MS         = 10;
+
+function lifecycleGuardPath(leasePath) {
+    return `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+}
+
+/**
+ * @summary Serializes every read-verify-mutate lease transition through one directory mutex.
+ *
+ * `mkdir` is the atomic entry point: exactly one participant creates the guard
+ * directory; everyone else observes `EEXIST` and retries briefly. Recovery,
+ * release, and renewal all mutate the canonical lease name based on a fresh
+ * read taken INSIDE the guard, which removes the check-then-act windows the
+ * unguarded rename-aside takeover had (a moved-aside fresh lease left the
+ * canonical name claimable while its owner still believed it held it).
+ *
+ * Plain acquisition deliberately stays OUTSIDE the guard: an exclusive `wx`
+ * create is already atomic, and a guarded recoverer's unlink→create window
+ * admitting an outside `wx` winner is safe — the recoverer's own exclusive
+ * create then fails `EEXIST` and defers. At no point can two participants both
+ * hold a success verdict for the same interval.
+ *
+ * Crash recovery: a guard directory whose mtime is older than
+ * `guardStaleAfterMs` (default 10s — several orders of magnitude above the
+ * microsecond-scale hold time of the fs transitions it protects) is treated as
+ * abandoned and removed. The residual double-entry window this leaves requires
+ * a holder to stall longer than the threshold INSIDE a millisecond-scale
+ * critical section; normal-operation transitions are fully serialized. Guard
+ * aging deliberately uses the physical clock (not the injectable `now` lease
+ * seam): lease TTL math is logical time for deterministic tests, guard aging
+ * is crash detection — tests steer it via `fs.utimes` + the
+ * `guardStaleAfterMs` option instead.
+ *
+ * @param {Object} options
+ * @param {String} options.leasePath Canonical lease file path.
+ * @param {Object} options.fsModule File-system implementation seam.
+ * @param {Number} [options.guardStaleAfterMs=10000] Age after which an abandoned guard is reclaimed.
+ * @returns {Promise<Boolean>} `true` when entered; `false` when attempts were exhausted (contention).
+ */
+async function enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
+    const guardPath = lifecycleGuardPath(leasePath);
+
+    for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        try {
+            await fsModule.mkdir(guardPath);
+            return true;
+        } catch (e) {
+            if (e.code === 'ENOENT') {
+                await fsModule.ensureDir(path.dirname(guardPath));
+                continue;
+            }
+            if (e.code !== 'EEXIST') {
+                throw e;
+            }
+        }
+
+        let mtimeMs;
+        try {
+            mtimeMs = (await fsModule.stat(guardPath)).mtimeMs;
+        } catch (e) {
+            if (e.code === 'ENOENT') {
+                continue; // holder exited between our mkdir and stat — retry immediately
+            }
+            throw e;
+        }
+
+        if (Date.now() - mtimeMs >= guardStaleAfterMs) {
+            try {
+                await fsModule.rmdir(guardPath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
+            continue;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, GUARD_RETRY_DELAY_MS));
+    }
+
+    return false;
+}
+
+async function exitLifecycleGuard({leasePath, fsModule}) {
+    try {
+        await fsModule.rmdir(lifecycleGuardPath(leasePath));
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            throw e;
+        }
+    }
+}
+
+/**
+ * @summary Synchronous mirror of {@link enterLifecycleGuard} for orchestrator-poll callers.
+ *
+ * The retry delay is a bounded synchronous spin: the guard protects
+ * microsecond-scale fs transitions, so a contended entry resolves within a few
+ * quanta; the spin budget is capped by `GUARD_MAX_ATTEMPTS`.
+ *
+ * @param {Object} options See {@link enterLifecycleGuard}.
+ * @returns {Boolean}
+ */
+function enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs = DEFAULT_GUARD_STALE_AFTER_MS}) {
+    const guardPath = lifecycleGuardPath(leasePath);
+
+    for (let attempt = 0; attempt < GUARD_MAX_ATTEMPTS; attempt++) {
+        try {
+            fsModule.mkdirSync(guardPath);
+            return true;
+        } catch (e) {
+            if (e.code === 'ENOENT') {
+                fsModule.ensureDirSync(path.dirname(guardPath));
+                continue;
+            }
+            if (e.code !== 'EEXIST') {
+                throw e;
+            }
+        }
+
+        let mtimeMs;
+        try {
+            mtimeMs = fsModule.statSync(guardPath).mtimeMs;
+        } catch (e) {
+            if (e.code === 'ENOENT') {
+                continue;
+            }
+            throw e;
+        }
+
+        if (Date.now() - mtimeMs >= guardStaleAfterMs) {
+            try {
+                fsModule.rmdirSync(guardPath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
+            continue;
+        }
+
+        const spinUntil = Date.now() + GUARD_RETRY_DELAY_MS;
+        while (Date.now() < spinUntil) {
+            // bounded sync spin — see @summary
+        }
+    }
+
+    return false;
+}
+
+function exitLifecycleGuardSync({leasePath, fsModule}) {
+    try {
+        fsModule.rmdirSync(lifecycleGuardPath(leasePath));
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            throw e;
+        }
+    }
+}
+
 /**
  * @summary Synchronous overload of {@link inspectHeavyMaintenanceLease}.
  *
@@ -294,6 +459,7 @@ export function acquireHeavyMaintenanceLeaseSync({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs,
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
@@ -318,75 +484,51 @@ export function acquireHeavyMaintenanceLeaseSync({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    // Identity-preserving takeover — sync mirror of the async contract above:
-    // atomic rename-aside, verify the moved lease is the inspected one, restore
-    // a mistakenly-moved fresh lease via non-clobbering link().
-    const claimPath = `${leasePath}.reclaim-${crypto.randomUUID()}`;
+    // Guarded recovery — sync mirror of the async contract above: mutate only on
+    // a fresh re-inspection taken INSIDE the lifecycle guard.
+    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
+    }
 
     try {
-        fsModule.renameSync(leasePath, claimPath);
-    } catch (e) {
-        if (e.code !== 'ENOENT') {
-            throw e;
+        const reinspect = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (reinspect.active) {
+            return {status: 'held', acquired: false, lease: reinspect.lease};
+        }
+
+        if (reinspect.status !== 'missing') {
+            try {
+                fsModule.unlinkSync(leasePath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
         }
 
         try {
             writeLeaseFileSync(leasePath, lease, fsModule);
-            return {status: 'acquired-after-stale', acquired: true, previousStatus: current.status, lease};
-        } catch (e2) {
-            if (e2.code !== 'EEXIST') {
-                throw e2;
+        } catch (e) {
+            if (e.code !== 'EEXIST') {
+                throw e;
             }
 
             const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
             return {status: 'held', acquired: false, lease: raced.lease};
         }
-    }
 
-    let movedToken  = null,
-        movedParsed = false;
-
-    try {
-        movedToken  = JSON.parse(fsModule.readFileSync(claimPath, 'utf8'))?.token ?? null;
-        movedParsed = true;
-    } catch (e) {}
-
-    const inspectedToken  = current.lease?.token ?? null;
-    const identityMatches = current.status === 'malformed'
-        ? !movedParsed
-        : movedParsed && movedToken === inspectedToken;
-
-    if (!identityMatches) {
-        try {
-            fsModule.linkSync(claimPath, leasePath);
-        } catch (e) {}
-        try {
-            fsModule.removeSync(claimPath);
-        } catch (e) {}
-
-        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
-    }
-
-    try {
-        fsModule.removeSync(claimPath);
-    } catch (e) {}
-
-    try {
-        writeLeaseFileSync(leasePath, lease, fsModule);
-        return {
-            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired      : true,
-            previousStatus: current.status,
-            lease
-        };
-    } catch (e) {
-        if (e.code !== 'EEXIST') {
-            throw e;
-        }
-
-        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
+        return reinspect.status === 'missing'
+            ? {status: 'acquired', acquired: true, lease}
+            : {
+                status        : reinspect.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+                acquired      : true,
+                previousStatus: reinspect.status,
+                lease
+            };
+    } finally {
+        exitLifecycleGuardSync({leasePath, fsModule});
     }
 }
 
@@ -401,25 +543,103 @@ export function releaseHeavyMaintenanceLeaseSync({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
     now       = new Date(),
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-
-    if (current.status === 'missing') {
-        return {status: 'missing', released: false};
+    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+        throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
-    if (!current.lease || current.lease.token !== token) {
-        return {status: 'not-owner', released: false, lease: current.lease};
+    try {
+        const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', released: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', released: false, lease: current.lease};
+        }
+
+        fsModule.removeSync(leasePath);
+
+        return {status: 'released', released: true, lease: current.lease};
+    } finally {
+        exitLifecycleGuardSync({leasePath, fsModule});
+    }
+}
+
+/**
+ * @summary Synchronous overload of {@link renewHeavyMaintenanceLease}.
+ *
+ * @param {Object} options See {@link renewHeavyMaintenanceLease}.
+ * @returns {Object}
+ */
+export function renewHeavyMaintenanceLeaseSync({
+    token,
+    staleAfterMs,
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date(),
+    guardStaleAfterMs,
+    isPidAlive: isPidAliveFn = isPidAlive
+} = {}) {
+    if (!token) {
+        throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
 
-    fsModule.removeSync(leasePath);
+    if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+        throw new TypeError('renewHeavyMaintenanceLeaseSync: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
+    }
 
-    return {status: 'released', released: true, lease: current.lease};
+    if (!enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs})) {
+        throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
+    }
+
+    try {
+        const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', renewed: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        const nowMs   = toTimestamp(now);
+        const renewed = {
+            ...current.lease,
+            staleAfterMs,
+            renewedAt: new Date(nowMs).toISOString(),
+            expiresAt: new Date(nowMs + staleAfterMs).toISOString()
+        };
+
+        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
+        try {
+            fsModule.writeFileSync(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
+            const fd = fsModule.openSync(tmpPath, 'r+');
+            try {
+                fsModule.fsyncSync(fd);
+            } finally {
+                fsModule.closeSync(fd);
+            }
+            fsModule.renameSync(tmpPath, leasePath);
+        } catch (e) {
+            try {
+                fsModule.removeSync(tmpPath);
+            } catch (cleanupError) {}
+            throw e;
+        }
+
+        return {status: 'renewed', renewed: true, lease: renewed};
+    } finally {
+        exitLifecycleGuardSync({leasePath, fsModule});
+    }
 }
 
 /**
@@ -437,6 +657,7 @@ export function releaseHeavyMaintenanceLeaseSync({
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.pid=process.pid] Owning process ID.
  * @param {Number} options.staleAfterMs Stale TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override (stale/malformed recovery only).
  * @param {String} [options.token] Owner release token.
  * @returns {Promise<Object>}
  */
@@ -449,6 +670,7 @@ export async function acquireHeavyMaintenanceLease({
     now          = new Date(),
     pid          = process.pid,
     staleAfterMs,
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive,
     token
 } = {}) {
@@ -473,83 +695,56 @@ export async function acquireHeavyMaintenanceLease({
         return {status: 'held', acquired: false, lease: current.lease};
     }
 
-    // Identity-preserving takeover. An unconditional remove() here is a TOCTOU
-    // hazard: contender B could delete contender A's FRESH lease using B's older
-    // stale verdict, letting both return `acquired`. rename() is the atomic
-    // exclusivity point — exactly one contender can move the path aside — and the
-    // moved file is then verified to BE the lease that was inspected. Moving a
-    // different (fresh) lease restores it via link(), which fails on EEXIST
-    // instead of overwriting a newer claim.
-    const claimPath = `${leasePath}.reclaim-${crypto.randomUUID()}`;
+    // Guarded recovery. The pre-guard stale observation above is only an
+    // admission ticket: a peer may legitimately replace, renew, or release the
+    // lease at any moment after it. Every mutation therefore acts exclusively
+    // on the fresh re-inspection taken INSIDE the lifecycle guard, and the
+    // guard serializes recovery against release and renewal. An outside plain
+    // acquirer winning the unlink→create window is deferred to via EEXIST —
+    // exactly one participant ever holds a success verdict.
+    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+        return {status: 'held', acquired: false, guardContended: true, lease: raced.lease};
+    }
 
     try {
-        await fsModule.rename(leasePath, claimPath);
-    } catch (e) {
-        if (e.code !== 'ENOENT') {
-            throw e;
+        const reinspect = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (reinspect.active) {
+            return {status: 'held', acquired: false, lease: reinspect.lease};
         }
 
-        // Another reclaimer moved it first (or the owner released). A plain
-        // exclusive create decides the winner; EEXIST defers to them.
+        if (reinspect.status !== 'missing') {
+            try {
+                await fsModule.unlink(leasePath);
+            } catch (e) {
+                if (e.code !== 'ENOENT') {
+                    throw e;
+                }
+            }
+        }
+
         try {
             await writeLeaseFile(leasePath, lease, fsModule);
-            return {status: 'acquired-after-stale', acquired: true, previousStatus: current.status, lease};
-        } catch (e2) {
-            if (e2.code !== 'EEXIST') {
-                throw e2;
+        } catch (e) {
+            if (e.code !== 'EEXIST') {
+                throw e;
             }
 
             const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
             return {status: 'held', acquired: false, lease: raced.lease};
         }
-    }
 
-    let movedToken  = null,
-        movedParsed = false;
-
-    try {
-        movedToken  = JSON.parse(await fsModule.readFile(claimPath, 'utf8'))?.token ?? null;
-        movedParsed = true;
-    } catch (e) {}
-
-    const inspectedToken  = current.lease?.token ?? null;
-    const identityMatches = current.status === 'malformed'
-        ? !movedParsed
-        : movedParsed && movedToken === inspectedToken;
-
-    if (!identityMatches) {
-        // We moved a lease that is NOT the one we inspected — someone acquired
-        // legitimately in between. Restore without clobbering and defer.
-        try {
-            await fsModule.link(claimPath, leasePath);
-        } catch (e) {}
-        try {
-            await fsModule.remove(claimPath);
-        } catch (e) {}
-
-        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
-    }
-
-    try {
-        await fsModule.remove(claimPath);
-    } catch (e) {}
-
-    try {
-        await writeLeaseFile(leasePath, lease, fsModule);
-        return {
-            status        : current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
-            acquired      : true,
-            previousStatus: current.status,
-            lease
-        };
-    } catch (e) {
-        if (e.code !== 'EEXIST') {
-            throw e;
-        }
-
-        const raced = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-        return {status: 'held', acquired: false, lease: raced.lease};
+        return reinspect.status === 'missing'
+            ? {status: 'acquired', acquired: true, lease}
+            : {
+                status        : reinspect.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+                acquired      : true,
+                previousStatus: reinspect.status,
+                lease
+            };
+    } finally {
+        await exitLifecycleGuard({leasePath, fsModule});
     }
 }
 
@@ -561,6 +756,7 @@ export async function acquireHeavyMaintenanceLease({
  * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
  * @returns {Promise<Object>}
  */
 export async function releaseHeavyMaintenanceLease({
@@ -568,25 +764,124 @@ export async function releaseHeavyMaintenanceLease({
     leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     fsModule  = fs,
     now       = new Date(),
+    guardStaleAfterMs,
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
 
-    const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
-
-    if (current.status === 'missing') {
-        return {status: 'missing', released: false};
+    // Token validation and removal execute inside ONE guarded section: a
+    // replacement owner appearing between an unguarded check and the unlink can
+    // no longer be removed by the outgoing owner's release.
+    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+        throw new Error(`Heavy-maintenance lease release could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
     }
 
-    if (!current.lease || current.lease.token !== token) {
-        return {status: 'not-owner', released: false, lease: current.lease};
+    try {
+        const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', released: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', released: false, lease: current.lease};
+        }
+
+        await fsModule.remove(leasePath);
+
+        return {status: 'released', released: true, lease: current.lease};
+    } finally {
+        await exitLifecycleGuard({leasePath, fsModule});
+    }
+}
+
+/**
+ * @summary Extends the current owner's lease deadline without changing ownership.
+ *
+ * The work-level half of the exclusivity contract: `isLeaseStale` classifies a
+ * live process as expired the moment its deadline passes, so any owner whose
+ * work can outlive `staleAfterMs` MUST renew periodically while working. A
+ * renewing live owner never reaches its deadline, which is what makes
+ * "live expiry starts overlapping work" structurally impossible instead of
+ * merely unlikely. Renewal failure (`renewed: false` or a thrown IO error)
+ * means ownership is no longer provable — the caller must stop starting new
+ * protected work and abort at its next fence.
+ *
+ * Runs inside the lifecycle guard: verification and rewrite cannot interleave
+ * with a recovery or release. The rewrite is full-write + fsync + atomic
+ * rename, so readers outside the guard never observe a partial payload and the
+ * canonical name never goes absent mid-renewal.
+ *
+ * @param {Object} options
+ * @param {String} options.token Owner token returned by acquire.
+ * @param {Number} options.staleAfterMs Renewed TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
+ * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {Object} [options.fsModule=fs] File-system implementation seam.
+ * @param {Date|Number|String} [options.now=new Date()] Current time.
+ * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
+ * @returns {Promise<Object>} `{status: 'renewed', renewed: true, lease}` on success; `{status: 'missing'|'not-owner', renewed: false}` when ownership is not provable.
+ */
+export async function renewHeavyMaintenanceLease({
+    token,
+    staleAfterMs,
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date(),
+    guardStaleAfterMs,
+    isPidAlive: isPidAliveFn = isPidAlive
+} = {}) {
+    if (!token) {
+        throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
 
-    await fsModule.remove(leasePath);
+    if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+        throw new TypeError('renewHeavyMaintenanceLease: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
+    }
 
-    return {status: 'released', released: true, lease: current.lease};
+    if (!await enterLifecycleGuard({leasePath, fsModule, guardStaleAfterMs})) {
+        throw new Error(`Heavy-maintenance lease renewal could not enter the lifecycle guard: ${lifecycleGuardPath(leasePath)}`);
+    }
+
+    try {
+        const current = await inspectHeavyMaintenanceLease({leasePath, fsModule, now, isPidAlive: isPidAliveFn});
+
+        if (current.status === 'missing') {
+            return {status: 'missing', renewed: false};
+        }
+
+        if (!current.lease || current.lease.token !== token) {
+            return {status: 'not-owner', renewed: false, lease: current.lease};
+        }
+
+        const nowMs   = toTimestamp(now);
+        const renewed = {
+            ...current.lease,
+            staleAfterMs,
+            renewedAt: new Date(nowMs).toISOString(),
+            expiresAt: new Date(nowMs + staleAfterMs).toISOString()
+        };
+
+        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
+        try {
+            await fsModule.writeFile(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
+            const fd = await fsModule.open(tmpPath, 'r+');
+            try {
+                await fsModule.fsync(fd);
+            } finally {
+                await fsModule.close(fd);
+            }
+            await fsModule.rename(tmpPath, leasePath);
+        } catch (e) {
+            await fsModule.remove(tmpPath).catch(() => {});
+            throw e;
+        }
+
+        return {status: 'renewed', renewed: true, lease: renewed};
+    } finally {
+        await exitLifecycleGuard({leasePath, fsModule});
+    }
 }
 
 /**

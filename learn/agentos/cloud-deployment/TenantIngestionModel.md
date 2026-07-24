@@ -234,7 +234,7 @@ Toggles:
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | `orchestrator.cloudOnly.tenantRepoSyncEnabled` | cloud profile: enabled; local: disabled | Master toggle for the periodic lane |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | `orchestrator.intervals.tenantRepoSyncMs` | 30 minutes | Base per-repo ingestion cadence before deterministic jitter and failure backoff |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS` | `orchestrator.tenantRepoSync.sweepCadenceMs` | 1 minute | Scheduler scan cadence for admitting repos whose individual cadence is due |
-| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS` | `orchestrator.tenantRepoSync.leaseStaleAfterMs` | 6 hours | TTL backstop on the cross-process sync lease for a live-but-wedged owner. Must comfortably exceed the longest legitimate sweep; crashed owners recover instantly via pid-liveness, and lease ownership is re-verified at every manifest commit, so an evicted writer aborts instead of overlapping |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS` | `orchestrator.tenantRepoSync.leaseStaleAfterMs` | 6 hours | TTL backstop on the cross-process sync lease for a fully wedged owner. A live sweep renews its lease every `max(5s, TTL/3)` so it never expires mid-work; crashed owners recover instantly via pid-liveness, and ownership is re-verified at work fences (per-repo git phase, KB ingest, manifest commit), so an evicted writer aborts instead of overlapping |
 
 The `cloudOnly` collection is the inverse-polarity sibling of `localOnly`. `null` means "use the deployment-profile default" (cloud enables, local disables); explicit `true`/`false` overrides. Local Neo-maintainer deployments default-off because most operator checkouts don't have `tenantRepos[]` configured.
 
@@ -276,11 +276,26 @@ one persistence boundary) before reading or writing it; exactly one writer can
 exist at a time, so a manual replay can never erase a periodic update or vice
 versa. A held lease defers the periodic sweep with the non-failure reason
 `KB_TENANT_REPO_SYNC_LEASE_HELD` and touches no repo's checkpoint, attempt
-timestamp, or backoff state; crashed lease owners recover immediately via
-pid-liveness and wedged owners via the `leaseStaleAfterMs` TTL. Second, manifest
-writes are atomic — a temporary sibling file is written, fsynced, and renamed
-over the target — so a crash mid-write leaves the previous complete document
-readable instead of a truncated JSON the strict reader would fail-close on.
+timestamp, or backoff state. Second, manifest writes are atomic — a temporary
+sibling file is written, fsynced, and renamed over the target — so a crash
+mid-write leaves the previous complete document readable instead of a truncated
+JSON the strict reader would fail-close on.
+
+The lease's exclusivity itself rests on three cooperating mechanisms. Every
+read-verify-mutate transition on an existing lease record — stale recovery,
+release, renewal — is serialized through a short-lived lifecycle guard
+(`tenant-repo-sync-lease.json.lifecycle-guard`), so a transition only ever acts
+on state it re-observed inside the guard; plain acquisition stays an atomic
+exclusive create. A running sweep renews its own lease every
+`max(5s, TTL/3)`, so a live owner never reaches its deadline and cannot be
+reclaimed mid-work; crashed owners recover immediately via pid-liveness and a
+fully wedged owner via the `leaseStaleAfterMs` TTL backstop. And ownership is
+re-verified at work fences — before each repo's git phase, before each
+Knowledge Base ingest, and before every manifest commit — so a run whose
+renewal failed (or whose lease was reclaimed) aborts with
+`KB_TENANT_REPO_SYNC_LEASE_LOST` before starting further protected work, leaves
+every repo's checkpoint and backoff state untouched, and never commits a
+partial sweep.
 
 Each checkpoint also carries `ingestContractVersion`, written together with the
 head only after the Knowledge Base returns an explicit error-free summary, and
