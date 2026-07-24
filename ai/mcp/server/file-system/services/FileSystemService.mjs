@@ -61,14 +61,29 @@ async function canonicalize(targetPath) {
  * @throws {Error} If the canonical target lies outside the root.
  */
 async function ensureSandboxed(absolutePath) {
-    const
-        rootPath   = await fs.realpath(path.resolve(process.cwd())),
-        targetPath = await canonicalize(path.resolve(absolutePath)),
-        // Compared on a path boundary, not a string prefix: `startsWith` admitted any sibling
-        // directory whose name merely begins with the root's, so `<root>-evil/x` passed a jail meant
-        // to exclude it. `path.relative` answers containment directly — an escaping path is either
-        // absolute or starts with a `..` segment.
-        relative   = path.relative(rootPath, targetPath);
+    let rootPath, targetPath;
+
+    // THREE states, not two: contained · outside · **could not establish**. A resolution failure —
+    // EACCES on an ancestor, ELOOP, a vanished parent — leaves containment UNPROVEN, and unproven
+    // must be refused, not surfaced as a raw fs error. A bare `EACCES` reads to a caller (and to an
+    // agent reading the tool result) as an I/O problem worth retrying, when the truth is that the
+    // jail could not answer. The guard therefore fails closed with its own classification rather
+    // than letting the ambiguity escape wearing a different error's name.
+    try {
+        rootPath   = await fs.realpath(path.resolve(process.cwd()));
+        targetPath = await canonicalize(path.resolve(absolutePath))
+    } catch (error) {
+        throw new Error(
+            `403 Forbidden: Canonical containment could not be established (${error?.code ?? 'unknown'}). ` +
+            `Refusing the operation — this is NOT a verdict that the path is safe.`
+        );
+    }
+
+    // Compared on a path boundary, not a string prefix: `startsWith` admitted any sibling directory
+    // whose name merely begins with the root's, so `<root>-evil/x` passed a jail meant to exclude it.
+    // `path.relative` answers containment directly — an escaping path is either absolute or starts
+    // with a `..` segment.
+    const relative = path.relative(rootPath, targetPath);
 
     if (relative !== '' && (path.isAbsolute(relative) || relative.split(path.sep)[0] === '..')) {
         throw new Error(`403 Forbidden: Path traversal detected. Operation jailed to ${rootPath}`);

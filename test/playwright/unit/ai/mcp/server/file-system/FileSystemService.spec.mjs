@@ -113,6 +113,30 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
         }
     });
 
+    test('#15818 an INDETERMINATE canonical resolution fails closed, classified as a refusal', async () => {
+        // The third state. Contained and outside are both verdicts; "could not establish" is not,
+        // and it must be refused rather than surfaced as a raw fs error. A bare EACCES reads to a
+        // caller — and to an agent reading the tool result — as an I/O problem worth retrying, when
+        // the truth is the jail could not answer. Unproven containment is not permission.
+        const
+            locked = path.join(tmpDir, 'locked'),
+            inner  = path.join(locked, 'inner');
+
+        await fs.ensureDir(inner);
+        await fs.writeFile(path.join(inner, 'f.txt'), 'x\n', 'utf-8');
+        await fs.chmod(locked, 0o000);   // canonical resolution cannot proceed past this ancestor
+
+        try {
+            const attempt = FileSystemService.readFile({absolutePath: path.join(inner, 'f.txt')});
+
+            // Classified as a containment refusal — NOT a bare EACCES escaping under its own name.
+            await expect(attempt).rejects.toThrow(/403 Forbidden: Canonical containment could not be established/);
+            await expect(attempt).rejects.toThrow(/NOT a verdict that the path is safe/);
+        } finally {
+            await fs.chmod(locked, 0o755).catch(() => {});
+        }
+    });
+
     test('#15818 legitimate creates and in-root symlinks still work — the jail narrowed, it did not close', async () => {
         // Canonicalization must not break the ordinary cases: creating a new file, and following a
         // symlink that stays inside the root. A guard that rejects real work gets switched off.
