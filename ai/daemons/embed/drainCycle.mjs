@@ -298,8 +298,10 @@ async function deleteMetadataOnlyRows({collection, metadataOnly, log}) {
  * @param {Function} [options.log]            `(level, message)` sink. Defaults to a no-op.
  * @param {Function} [options.sleep]          Delay primitive. Defaults to a real timer.
  * @param {Function} [options.now]            Clock source (epoch ms). Defaults to `Date.now`.
- * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, metadataOnly: Number, unverifiable: Number, cooling: Number, prunedSegments: Number}>}
- *     Cycle summary for the daemon's log line.
+ * @returns {Promise<{pending: Number, embedded: Number, compensated: Number, failed: Number, metadataOnly: Number, unverifiable: Number, cooling: Number, prunedSegments: Number, outstanding: Number}>}
+ *     Cycle summary for the daemon's log line. `outstanding` is the post-cycle residue
+ *     (`pending - embedded - compensated`) — the canonical field a disposition receipt reads for
+ *     cleanliness; `pending` is a pre-drain observation and must never be read as work-left.
  */
 export async function drainWalOnce({
     dir,
@@ -396,6 +398,15 @@ export async function drainWalOnce({
         activeSegmentKey: getWalSegmentKey(now())
     });
 
+    // Post-cycle residue — the ONE field a disposition consumer may read for cleanliness. `pending`
+    // is the PRE-drain observation (records read at the top of the cycle), so it is not a measure of
+    // work left; a consumer that treats it as such reports `dirty` after fully draining its only
+    // record, and continuous traffic never lets it go `clean`. Everything drained or removed this
+    // cycle is subtracted: `embedded` (reconciled) and `compensated` (tombstoned/undone). What
+    // remains is every record still pending — batch-overflowed, cooling, failed, metadata-only, and
+    // unverifiable alike, since each of those stayed in the pending set this cycle touched.
+    summary.outstanding = summary.pending - summary.embedded - summary.compensated;
+
     return summary;
 }
 
@@ -430,7 +441,12 @@ export async function drainWalOnce({
  *     (deploy-fixed; read once at wire-up). Absent → verify skipped (logged) — wire it in production.
  * @param {Function} [options.log]         `(level, message)` sink. Defaults to a no-op.
  * @param {Map}      [options.retryState]  Cross-cycle per-record cooldown state.
- * @returns {{stop: Function}} Handle whose `stop()` ends the loop (idempotent).
+ * @param {Function} [options.now]         Clock source (epoch ms), injected into the disposition
+ *     receipt so its `at` timestamp is testable without a real clock. Defaults to `Date.now`.
+ * @returns {{stop: Function, getDisposition: Function}} Loop handle. `stop()` ends the loop
+ *     (idempotent); `getDisposition()` returns this plane's drain receipt
+ *     (`{state, drainedClean, reason, counts, at}` — see {@link createDrainDispositionTracker}),
+ *     the field the parity pilot consumes to decide a seat's WAL write disposition.
  */
 export function startDrainLoop({getCollection, getConfig, expectedDimension, log = () => {}, retryState = new Map(), now = Date.now}) {
     let stopped = false;

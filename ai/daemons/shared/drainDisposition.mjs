@@ -43,16 +43,21 @@
  * disaggregated into seats at all.** The message WAL follows at `${memoryWal.dir}/messages`.
  *
  * **Per-seat volume comes from the records, not the files** — and from exactly one field.
- * Group a segment's JSONL by **`metadata.agentIdentity`**. Measured on `wal-2026-07-24.jsonl`:
- * present on **363 of 363 records**, every identity `@`-prefixed, no unattributed remainder.
+ * Group a segment's JSONL by **`metadata.agentIdentity`**: it is the canonical grouping key,
+ * `MemoryService.addMemory` deriving it from the request context's identity chain.
  *
- * **Do NOT group by `metadata.agent`.** It is a partial duplicate — present on only 219 of those
- * 363 records, never disagreeing where both exist, so it looks authoritative on inspection while
- * being silently incomplete. Grouping by it **erases whole seats**: `@neo-fable` (81 records,
- * 14.8% of bytes) and `@neo-opus-vega` (24 records, 5.9%) vanish entirely, `@neo-fable-clio` reads
- * 32 records instead of 70, and the missing 29.7% presents as an "unattributed" bucket that does
- * not exist. A field that is *sometimes* populated produces a plausible table with named rows and
+ * **Do NOT group by `metadata.agent`.** It is a partial duplicate that `addMemory` stamps only when
+ * the caller passes one — never disagreeing with `agentIdentity` where both exist, so it looks
+ * authoritative on inspection while being silently absent on a large share of records. Grouping by
+ * it erases whole seats and invents an "unattributed" remainder out of the records it simply never
+ * carried. A field that is *sometimes* populated produces a plausible table with named rows and
  * believable percentages — the failure mode is a confident answer, not an obvious gap.
+ *
+ * **Keep an explicit unattributed bucket even so.** `agentIdentity` is itself optional — `addMemory`
+ * stamps it only when a canonical identity resolves from the request context — so a robust grouping
+ * must bucket records that lack it rather than drop them. On a well-formed corpus that bucket is
+ * empty, but a consumer that assumes 100% attribution turns a future unstamped record into a silent
+ * omission. Absence must be *visible*, which is this whole receipt's thesis applied to attribution.
  *
  * **Why the receipt is required to read any of it correctly.** Bytes measure what was *written*,
  * not what remains to be *replayed*. A plane writing heavily whose drain reports `clean` every
@@ -65,10 +70,12 @@
  * A `retentionLimit`-driven prune also removes drained segments, so a raw directory size understates
  * cumulative volume — count across the window rather than sampling the directory once at the end.
  *
- * **The four readings, and none of them is optional:** plane volume over the window · the per-seat
- * split by `metadata.agentIdentity` · the disposition `state` sampled across the window (a plane
- * that is ever `unobserved` has an unmeasured gap, not a quiet one) · and `counts.pending` at the
- * window's close.
+ * **The three readings, and none of them is optional:** plane volume over the window · the per-seat
+ * split by `metadata.agentIdentity` (with its unattributed bucket) · and the disposition `state`
+ * sampled across the window — a plane ever `unobserved` has an unmeasured gap, not a quiet one, and
+ * a `dirty` sample at the window's close means `getDisposition().counts.outstanding` records had not
+ * drained. (Concrete per-seat counts for a given day live in this PR's evidence, not here — a dated
+ * corpus snapshot rots as durable module prose.)
  *
  * @see ai/daemons/embed/drainCycle.mjs                          memory WAL loop
  * @see ai/daemons/message/drainCycle.mjs                        message WAL loop
@@ -90,10 +97,18 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
 
     return {
         /**
-         * @summary Records a completed cycle. `pending`/`failed` absent are treated as 0 — the two
-         * loops report different count vocabularies, and a missing key means "this loop does not
-         * track that", not "there is some".
-         * @param {Object} summary The loop's per-cycle summary.
+         * @summary Records a completed cycle. Cleanliness is read from ONE producer-declared field,
+         * `summary.outstanding`, never re-derived here from producer-specific counts.
+         *
+         * The two loops name their fields differently and — the trap this replaced — both report a
+         * PRE-drain observation (`pending` / `observed`) that is NOT work-left: a cycle that reads one
+         * pending record and embeds it emits `{pending: 1, embedded: 1}`, whose residue is zero. Any
+         * arithmetic here that treated `pending` as outstanding reported that fully-drained cycle as
+         * `dirty`, and continuous traffic never let it go `clean`. So each drain cycle now computes
+         * its own post-cycle residue in its own vocabulary (embed: `pending - embedded - compensated`;
+         * message: `observed - drained`) and declares it as `outstanding`; the tracker only records
+         * the verdict, crossing the real producer→consumer boundary instead of guessing across it.
+         * @param {Object} summary The loop's per-cycle summary; `outstanding` is the residue field.
          */
         recordCycle(summary = {}) {
             counts = {...summary};
@@ -105,9 +120,16 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
                 return
             }
 
-            // `drained`/`embedded` are progress, not cleanliness. Cleanliness is the ABSENCE of
-            // outstanding work: nothing pending and nothing failed.
-            const outstanding = (summary.pending ?? 0) + (summary.failed ?? 0) + (summary.deferred ?? 0);
+            const {outstanding} = summary;
+
+            // Fail closed, never to `clean`: a summary that does not declare its residue cannot be
+            // graded, so it is `unobserved` (the "no readable verdict" class), not silently drained.
+            // This is the invariant — cleanliness must be asserted by the producer, never assumed.
+            if (!Number.isFinite(outstanding)) {
+                state  = 'unobserved';
+                reason = 'summary-missing-outstanding';
+                return
+            }
 
             state  = outstanding === 0 ? 'clean' : 'dirty';
             reason = outstanding === 0 ? null : `outstanding=${outstanding}`

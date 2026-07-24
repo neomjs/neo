@@ -59,7 +59,7 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
             }
         });
 
-        expect(summary).toEqual({observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true});
+        expect(summary).toEqual({observed: 0, drained: 0, failed: 0, deferred: 0, inactive: true, outstanding: 0});
         expect(readCalled).toBe(false);
     });
 
@@ -80,7 +80,8 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
             }
         });
 
-        expect(summary).toEqual({observed: 3, inactive: false, drained: 2, failed: 0, deferred: 0});
+        // Three observed, two batched-and-drained → the one batch-overflowed record is the residue.
+        expect(summary).toEqual({observed: 3, inactive: false, outstanding: 1, drained: 2, failed: 0, deferred: 0});
         expect(seen).toHaveLength(2);
     });
 
