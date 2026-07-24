@@ -48,7 +48,13 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
                 .map(img => new Promise(resolve => {
                     img.addEventListener('load',  resolve, {once: true});
                     img.addEventListener('error', resolve, {once: true});
-                    setTimeout(resolve, 10000)
+                    setTimeout(() => {
+                        // A dead fetch resolves identically to a load — without this line the gate
+                        // emits nothing and the placeholder-circle capture it exists to prevent
+                        // lands silently. The bound must be observable to be a bound.
+                        console.warn(`[visual-fixture] image did not settle within 10s: ${img.currentSrc || img.src || '(no src)'} — capturing with whatever is rendered`);
+                        resolve()
+                    }, 10000)
                 }))
         ));
         await expect(page.locator('.neo-dashboard-dock-animating')).toHaveCount(0);
@@ -120,14 +126,12 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         const geometry = await page.evaluate(() => {
             const bar    = document.querySelector('.fm-cockpit-bar'),
                   banner = document.querySelector('.fm-spine-banner'),
-                  start  = document.querySelector('.fm-fleet-start'),
-                  tops   = [...bar.children].map(el => Math.round(el.getBoundingClientRect().top));
+                  start  = document.querySelector('.fm-fleet-start');
 
             return {
                 viewport      : window.innerWidth,
                 docScrollWidth: Math.round(document.documentElement.scrollWidth),
                 barWrap       : getComputedStyle(bar).flexWrap,
-                rowSpan       : Math.max(...tops) - Math.min(...tops),
                 banner        : banner ? {
                     clientWidth : Math.round(banner.clientWidth),
                     scrollWidth : Math.round(banner.scrollWidth),
@@ -143,9 +147,12 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         expect(geometry.barWrap, 'the vessel-narrow wrap rule stays silent above the 570px threshold').toBe('nowrap');
         expect(geometry.banner, 'the spine banner is rendered').not.toBeNull();
         expect(geometry.banner.flexShrink, 'the banner is permitted to shrink — the unconditional-shrink contract').toBe('1');
-        if (geometry.banner.scrollWidth > geometry.banner.clientWidth) {
-            expect(geometry.banner.textOverflow, 'the banner text exceeds its compressed box — truncation must be visibly engaged').toBe('ellipsis');
-        }
+        // The truncation witness is UNCONDITIONAL: at this width the banner must be under
+        // compression, or the shrink-only regime is not the one being witnessed. A conditional
+        // assert could silently no-op into a green run that witnesses nothing — the day the
+        // fixture text shortens or a design fix widens the box, this receipt must go red, not quiet.
+        expect(geometry.banner.scrollWidth, 'the banner text must exceed its compressed box at 720 — the regime under witness requires live pressure').toBeGreaterThan(geometry.banner.clientWidth);
+        expect(geometry.banner.textOverflow, 'the pressure resolves as visible truncation').toBe('ellipsis');
         expect(geometry.startRight, 'Start fleet stays inside the band').toBeLessThanOrEqual(geometry.viewport);
 
         await expect(page).toHaveScreenshot('cockpit-intermediate-720.png')
