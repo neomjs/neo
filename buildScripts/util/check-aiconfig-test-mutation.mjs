@@ -20,8 +20,8 @@ export const ESCAPE_MARKER = 'aiconfig-mutation-ok';
  * test DB — or a live read lands on test state (the B4 safety-critical class). A test must isolate by
  * construction (`UNIT_TEST_MODE` resolves the test DB), never mutate the singleton.
  *
- * The pattern requires an `aiConfig` / `Memory_Config` root before a dangerous leaf, so a non-config
- * `x.database = y` does not trip it; the trailing `=(?![=>])` excludes comparisons (`==` / `===`) and
+ * The pattern requires a config-SHAPED root (any identifier ending in `Config`) before a dangerous leaf,
+ * so a non-config `x.database = y` does not trip it; the trailing `=(?![=>])` excludes comparisons (`==` / `===`) and
  * arrows (`=>`), and a capture-read (`const x = aiConfig.storagePaths.graph`) has no `=` after the
  * leaf, so only true assignments match. A dangerous leaf is caught whether dot-accessed
  * (`.storagePaths`) or string-literal-bracket-accessed (`['storagePaths']`); a computed key
@@ -30,8 +30,41 @@ export const ESCAPE_MARKER = 'aiconfig-mutation-ok';
  * scope here — that class has no by-construction story yet.
  */
 const DB_PATH_LEAVES = '(?:storagePaths|database|collections|logPath)';
+
+/*
+ * The config ROOT is matched by SHAPE, not by two literal names, and that is the whole point.
+ *
+ * The previous anchor was `(?:aiConfig|Memory_Config)` — case-sensitive, exact. Two consequences, both
+ * measured against this file's own exported pattern rather than reasoned about:
+ *
+ *   1. An ALIASED binding walked straight through. `mailboxAiConfig.storagePaths.graph = dbPath` was not
+ *      flagged, and files bound this way (`mailboxAiConfig`, `mirrorAiConfig`) mutate Class-A leaves today.
+ *   2. Far worse: a repo-wide `aiConfig` -> `AiConfig` PascalCase normalization (1,526 occurrences across
+ *      198 files) would have made a case-sensitive literal anchor match NOTHING — while the rename's own
+ *      "the mutation lint must stay green" criterion certified that inert gate as success. A fail-build
+ *      B4 guard retired by a refactor whose acceptance criteria prove the retirement.
+ *
+ * So any identifier ENDING in `Config` counts as a config root: `aiConfig`, `AiConfig`, `mailboxAiConfig`,
+ * `Memory_Config`, `$Config`, and whatever the next rename produces. The root boundary is a
+ * lookbehind/lookahead pair rather than `\b`, because `\b` cannot sit before a `$`-leading identifier and
+ * would let `$Config.…` evade a grammar that admits a leading `$`. `aiConfigDefaults` still does not match —
+ * the trailing boundary requires `Config` to END the identifier — preserving prior behaviour for the
+ * separate TIER1 defaults module.
+ *
+ * This deliberately accepts FALSE POSITIVES on unrelated `*Config` objects that assign a Class-A leaf.
+ * That is the correct trade for a safety-critical gate: a false positive costs one escape marker plus a
+ * stated reason, while a false negative is the orphan-bleed incident this lint exists to prevent. The
+ * ESCAPE_MARKER is the sanctioned relief valve for the judgement calls.
+ */
+const CONFIG_ROOT = '[A-Za-z_$][\\w$]*Config';
+
 export const DB_PATH_MUTATION = new RegExp(
-    `\\b(?:aiConfig|Memory_Config)\\b[\\w.$[\\]'"\`-]*` +                       // a config root, then any path chars
+    // Root boundary is a lookbehind/lookahead pair, NOT `\\b`: `\\b` fails before a `$`-leading identifier
+    // (`$` is a non-word char), so `$Config.storagePaths.graph = x` evaded a grammar that advertises `$` as a
+    // valid leading char. `(?<![\\w$])` / `(?![\\w$])` anchor on "not inside another identifier", which is the
+    // real intent and closes that divergence in the fail-SAFE direction (catch it; a false positive costs one
+    // escape marker, a false negative is the orphan incident).
+    `(?<![\\w$])${CONFIG_ROOT}(?![\\w$])[\\w.$[\\]'"\`-]*` +                     // a config-shaped root, then any path chars
     `(?:\\.${DB_PATH_LEAVES}\\b|\\[\\s*['"\`]${DB_PATH_LEAVES}['"\`]\\s*\\])` + // a dangerous leaf: dot OR string-literal bracket
     `[\\w.$[\\]'"\`]*\\s*=(?![=>])`                                             // optional trailing path, then assignment (not == / =>)
 );
@@ -57,7 +90,19 @@ export const ALLOWLIST = new Set([
     'test/playwright/unit/ai/services/memory-core/FileSystemIngestor.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/PermissionService.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/SessionService.ResumeValidation.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs'
+    'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs',
+    // Newly VISIBLE once the root was matched by shape rather than by two literal names. Both
+    // mutate Class-A leaves through an aliased binding (`mailboxAiConfig`, `mirrorAiConfig`) and were
+    // therefore invisible to this gate, not exempted from it. Grandfathered explicitly — with the reason
+    // stated — rather than left silently passing; they migrate with the same by-construction cleanup as
+    // the entries above.
+    //
+    // Deliberately NOT added: `MailboxService.ReceiptDurability.spec.mjs` from the open PR that discloses
+    // its own B4 mutation. Pre-emptively exempting it here would quietly grant an exemption its reviewer
+    // was explicitly asked to rule on. Once that PR merges this gate fails on it, which is what makes the
+    // ruling load-bearing instead of optional.
+    'test/playwright/unit/ai/services/fleet/fleetMailboxMirrorAdapter.spec.mjs',
+    'test/playwright/unit/ai/services/memory-core/MailboxService.spec.mjs'
 ]);
 
 /**
