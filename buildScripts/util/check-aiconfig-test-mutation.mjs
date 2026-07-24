@@ -57,10 +57,13 @@ const DB_PATH_LEAVES = '(?:storagePaths|database|collections|logPath)';
 const CONFIG_ROOT = '[A-Za-z_$][\\w$]*Config';
 
 export const DB_PATH_MUTATION = new RegExp(
-    `\\b${CONFIG_ROOT}\\b[\\w.$[\\]'"\`-]*` +                                   // a config-shaped root, then any path chars
+    `\\b${CONFIG_ROOT}\\b[\\w.$?[\\]'"\`-]*` +                                  // a config-shaped root, then any path chars (incl. `?.`)
     `(?:\\.${DB_PATH_LEAVES}\\b|\\[\\s*['"\`]${DB_PATH_LEAVES}['"\`]\\s*\\])` + // a dangerous leaf: dot OR string-literal bracket
-    `[\\w.$[\\]'"\`]*\\s*=(?![=>])`                                             // optional trailing path, then assignment (not == / =>)
+    `[\\w.$?[\\]'"\`]*\\s*=(?![=>])`                                            // optional trailing path, then assignment (not == / =>)
 );
+// The `?` in both interior classes closes an OPTIONAL-CHAINING evasion — `AiConfig?.storagePaths.graph = x`
+// — that the previous literal-anchored pattern also missed. Not part of the identifier-anchor fix this
+// change is about, but the same one-character reach, so it is closed here rather than left as a known gap.
 
 /*
  * Files that already mutate Class-A DB paths, grandfathered while the cleanup migrates them to

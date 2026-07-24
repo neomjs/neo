@@ -59,6 +59,16 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations('aiConfigDefaults.collections.memory = x;')).toEqual([])
     });
 
+    test('an OPTIONAL-CHAINING mutation is flagged — a `?.` between root and leaf is not an escape', () => {
+        // The literal-anchored predecessor missed this too, so it is not a regression of the shape fix — but
+        // it is one character to close, so it is closed rather than left as a known gap.
+        expect(findDbPathMutations('AiConfig?.storagePaths.graph = x;').map(hit => hit.line)).toEqual([1]);
+        expect(findDbPathMutations('aiConfig.storagePaths?.graph = x;').map(hit => hit.line)).toEqual([1]);
+        // The negatives still hold through a `?.`: a read is not a write, and the defaults module is exempt.
+        expect(findDbPathMutations('const g = AiConfig?.storagePaths.graph;')).toEqual([]);
+        expect(findDbPathMutations('aiConfigDefaults?.storagePaths.graph = x;')).toEqual([])
+    });
+
     test('a bare `Config` identifier is not a config root', () => {
         // The shape requires at least one character before `Config`, so the word alone cannot anchor a match
         // and a stray `Config.database = x` in unrelated code stays out of the gate.
