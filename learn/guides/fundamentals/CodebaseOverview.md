@@ -442,7 +442,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ---
 
-### Swarm Skills & Workflows (`/.agents/skills/` - 32 skills)
+### Swarm Skills & Workflows (`/.agents/skills/` - 38 skills)
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram. Canonical skill-anatomy authority: [ADR 0008: SKILL.md Anatomy and Authoring Contract](../../agentos/decisions/0008-skill-anatomy-and-authoring-contract.md).
 
@@ -477,6 +477,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 **Creative:**
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
+- `video-create`: Evidence-first end-to-end film production — binds claims, app-owned choreography, voice, capture evidence class, immutable media lineage, whole-artifact QA, delivery, and retention while leaving volatile provider/editor mechanics with their owners.
 
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
