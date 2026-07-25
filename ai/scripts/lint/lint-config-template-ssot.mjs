@@ -385,6 +385,101 @@ export function collectConfigPathKindsFromSource(source) {
 }
 
 /**
+ * @summary Collects declared config paths from a config class's OWN static `config.data` tree —
+ * the declaration-form-transparent collector.
+ *
+ * The line scanner above recognises exactly two declaration shapes (`name: leaf(` and `name: {`),
+ * so a subtree built by ANY other call — a descriptor factory, a shared builder — silently leaves
+ * the declared set while the resolved tree stays correct (green specs, blinded gate). This
+ * collector never parses text: it imports the module and walks the class's own static `config.data`,
+ * so every form that *evaluates* to a valid descriptor tree is collected identically — inline
+ * literal, descriptor factory, or anything a future author builds.
+ *
+ * Two shape decisions, both load-bearing:
+ *
+ * - **The class's OWN static config, not the template proxy.** `config.template.mjs` files export
+ *   `createConfigProxy(...)` (values, not descriptors) and carry no `data` of their own; the
+ *   sibling `configBase.mjs` classes hold the descriptor trees. Walking per-file own statics
+ *   reproduces the text union's decomposition exactly — Tier-1 inheritance never leaks in,
+ *   because the deep-merge happens at instance creation, not in the static config.
+ * - **Kind rule mirrors the text scanner's semantics.** A leaf descriptor (`default`+`env`+`type`
+ *   keys) classifies as `liveProxyPaths` only when its default is a PLAIN object (matching the
+ *   scanner's `leaf({` test — `leaf([...])` stays primitive, arrays never classify as proxies).
+ *
+ * Boot contract: `globalThis.Neo.config` must exist before `src/Neo.mjs` evaluates. A lint script
+ * is a thread entrypoint, so the import is C1-legal; the boot is the same 4-line shape the
+ * resolved-config print tool uses.
+ * @param {String} templatePath Absolute path to a `config.template.mjs` or `configBase.mjs`.
+ * @returns {Promise<{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>}
+ */
+export async function collectConfigPathKindsFromTemplate(templatePath) {
+    globalThis.Neo ??= {};
+    globalThis.Neo.config ??= {environment: 'development'};
+
+    // The template's import chain reaches `Neo.gatekeep` via ConfigProvider — src/Neo.mjs must
+    // evaluate FIRST (the same 4-line boot `ai:config-print` uses), or the chain dies on contact.
+    const neoRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+    await import(pathToFileURL(path.join(neoRootDir, 'src/Neo.mjs')).href);
+
+    const module_            = await import(pathToFileURL(templatePath).href),
+          ConfigClass        = module_.default,
+          data               = ConfigClass?.config?.data,
+          primitiveLeafPaths = new Set(),
+          liveProxyPaths     = new Set(),
+          isDescriptor       = v => v && typeof v === 'object' && !Array.isArray(v) &&
+                              'default' in v && 'env' in v && 'type' in v;
+
+    // A template shell (createConfigProxy export, no own data) contributes nothing — its sibling
+    // configBase carries the declarations, and the caller unions both.
+    if (!data || typeof data !== 'object') {
+        return {primitiveLeafPaths, liveProxyPaths}
+    }
+
+    (function walk(node, parts) {
+        for (const [prop, value] of Object.entries(node)) {
+            const key = [...parts, prop].join('.');
+
+            if (isDescriptor(value)) {
+                const isObjectDefault = value.default !== null &&
+                                        typeof value.default === 'object' &&
+                                        !Array.isArray(value.default);
+
+                (isObjectDefault ? liveProxyPaths : primitiveLeafPaths).add(key)
+            } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+                liveProxyPaths.add(key);
+                walk(value, [...parts, prop])
+            }
+        }
+    })(data, []);
+
+    return {primitiveLeafPaths, liveProxyPaths}
+}
+
+/**
+ * @summary The DECLARED config-path surface of one template, collector-swap edition: the union of
+ * its own and its sibling `configBase.mjs`'s RESOLVED declaration trees. Drop-in equivalent of
+ * `collectDeclaredConfigPaths` — see the zero-delta proof spec before any caller migrates.
+ * @param {String} templatePath Absolute path to a `config.template.mjs`.
+ * @returns {Promise<String[]>} Sorted, de-duplicated declared paths.
+ */
+export async function collectDeclaredConfigPathsFromTemplate(templatePath) {
+    const union    = new Set(),
+          basePath = path.join(path.dirname(templatePath), CONFIG_BASE_BASENAME);
+
+    for (const file of [basePath, templatePath]) {
+        if (!fs.existsSync(file)) continue;
+
+        const kinds = await collectConfigPathKindsFromTemplate(file);
+
+        kinds.primitiveLeafPaths.forEach(configPath => union.add(configPath));
+        kinds.liveProxyPaths.forEach(configPath => union.add(configPath))
+    }
+
+    return [...union].sort()
+}
+
+/**
  * @summary Counts single-character occurrences in a string.
  * @param {String} text Source text.
  * @param {String} ch Character to count.
@@ -973,15 +1068,15 @@ export function detectTestConfigProviderExports(
  * @param {String} templatePath Absolute template path.
  * @returns {{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}}
  */
-function getConfigPathKindsForTemplate(templatePath) {
+async function getConfigPathKindsForTemplate(templatePath) {
     const key = normalizeFile(templatePath);
 
     if (!CONFIG_TEMPLATE_KIND_CACHE.has(key)) {
-        const kinds    = collectConfigPathKindsFromSource(fs.readFileSync(templatePath, 'utf8')),
+        const kinds    = await collectConfigPathKindsFromTemplate(templatePath),
               basePath = path.join(path.dirname(templatePath), CONFIG_BASE_BASENAME);
 
         if (path.basename(templatePath) !== CONFIG_BASE_BASENAME && fs.existsSync(basePath)) {
-            const baseKinds  = collectConfigPathKindsFromSource(fs.readFileSync(basePath, 'utf8')),
+            const baseKinds  = await collectConfigPathKindsFromTemplate(basePath),
                   classified = p => kinds.primitiveLeafPaths.has(p) || kinds.liveProxyPaths.has(p);
 
             baseKinds.primitiveLeafPaths.forEach(p => {classified(p) || kinds.primitiveLeafPaths.add(p)});
@@ -1033,7 +1128,7 @@ export function collectDeclaredConfigPaths(templatePath) {
  * @param {String} [options.rootDir] Repo root.
  * @returns {Object} Repo-relative template path → sorted declared paths.
  */
-export function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
+export async function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
     const out = {};
 
     for (const file of walkConfigTemplates(path.join(rootDir, SCAN_ROOT_REL))) {
@@ -1041,7 +1136,17 @@ export function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
         // namespace, and listing it separately would double-count every path it contributes.
         if (path.basename(file) !== CONFIG_TEMPLATE_BASENAME) continue;
 
-        out[normalizeFile(path.relative(rootDir, file))] = collectDeclaredConfigPaths(file)
+        const rel = normalizeFile(path.relative(rootDir, file));
+
+        try {
+            out[rel] = await collectDeclaredConfigPathsFromTemplate(file)
+        } catch (error) {
+            // A template that cannot be evaluated is NOT a path deletion: the collector could not
+            // resolve the declaration form, and reporting its whole surface as GONE would be a
+            // false statement about the diff. The reporter names this separately and never offers
+            // --update-parity for it.
+            out[rel] = {error: error?.message || String(error)}
+        }
     }
 
     return out
@@ -1062,13 +1167,18 @@ export function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
  * @param {Object} [options.expectation] The committed snapshot; read from disk when omitted.
  * @returns {{added: Object, missing: Object, untracked: String[], vanished: String[]}}
  */
-export function detectConfigLeafParityViolations({rootDir = ROOT_DIR, expectation} = {}) {
+export async function detectConfigLeafParityViolations({rootDir = ROOT_DIR, expectation} = {}) {
     const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
           expected     = expectation ?? (fs.existsSync(snapshotPath) ? JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {}),
-          actual       = buildConfigLeafParitySnapshot({rootDir}),
-          result       = {added: {}, missing: {}, untracked: [], vanished: []};
+          actual       = await buildConfigLeafParitySnapshot({rootDir}),
+          result       = {added: {}, errors: {}, missing: {}, untracked: [], vanished: []};
 
     for (const [template, paths] of Object.entries(actual)) {
+        if (paths && typeof paths === 'object' && !Array.isArray(paths) && paths.error) {
+            result.errors[template] = paths.error;
+            continue
+        }
+
         if (!Object.hasOwn(expected, template)) {
             // A NEW template is not silently adopted: its whole surface would otherwise enter the
             // repo unreviewed, and the snapshot would bless it on first write.
@@ -1100,6 +1210,16 @@ export function detectConfigLeafParityViolations({rootDir = ROOT_DIR, expectatio
 function reportConfigLeafParity(parity) {
     console.error('[lint-config-template-ssot] config leaf parity FAILED');
 
+    const errorTemplates = Object.keys(parity.errors || {});
+
+    for (const template of errorTemplates) {
+        console.error(`  ${template}: the collector could not RESOLVE this template's declaration form`);
+        console.error(`    ${parity.errors[template]}`);
+        console.error('    This is not a path deletion: the gate cannot see through the form used, so no');
+        console.error('    diff verdict is possible. Declare the subtree inline (or via leaf()), never widen the');
+        console.error('    snapshot to hide it — --update-parity is deliberately not offered for this case.');
+    }
+
     for (const [template, paths] of Object.entries(parity.missing)) {
         console.error(`  ${template}: ${paths.length} declared path(s) GONE`);
         paths.forEach(configPath => console.error(`    - ${configPath}`))
@@ -1115,9 +1235,13 @@ function reportConfigLeafParity(parity) {
 
     console.error('');
     console.error('A config path reads `undefined` at runtime, in a peer\'s process, when it silently leaves');
-    console.error('this surface — no other gate can see it. If the change is deliberate, record it:');
-    console.error(`    node ${SELF_REL_FILE} --update-parity`);
-    console.error('and commit the snapshot in the SAME commit, so the removal is reviewable.')
+    console.error('this surface — no other gate can see it.');
+
+    if (errorTemplates.length === 0) {
+        console.error('If the change is deliberate, record it:');
+        console.error(`    node ${SELF_REL_FILE} --update-parity`);
+        console.error('and commit the snapshot in the SAME commit, so the removal is reviewable.')
+    }
 }
 
 /**
@@ -1128,7 +1252,7 @@ function reportConfigLeafParity(parity) {
  * @param {String} options.source File source.
  * @returns {Map<String,{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>}
  */
-export function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, source} = {}) {
+export async function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, source} = {}) {
     const out = new Map();
 
     if (!file || !source) return out;
@@ -1136,7 +1260,7 @@ export function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, sour
     for (const match of source.matchAll(/\bimport\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]*config\.mjs)['"]/g)) {
         const template = resolveConfigTemplatePath({rootDir, file, specifier: match[2]});
         if (template) {
-            out.set(match[1], getConfigPathKindsForTemplate(template));
+            out.set(match[1], await getConfigPathKindsForTemplate(template));
         }
     }
 
@@ -1149,7 +1273,7 @@ export function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, sour
                   rel               = SERVICE_EXPORT_CONFIG_TEMPLATE_REL[imported];
 
             if (rel) {
-                out.set(alias || imported, getConfigPathKindsForTemplate(path.join(rootDir, rel)));
+                out.set(alias || imported, await getConfigPathKindsForTemplate(path.join(rootDir, rel)));
             }
         }
     }
@@ -1157,7 +1281,7 @@ export function buildConfigPathKindsByIdentifier({rootDir = ROOT_DIR, file, sour
     if (!out.has('AiConfig')) {
         const rootTemplate = path.join(rootDir, 'ai/config.template.mjs');
         if (fs.existsSync(rootTemplate)) {
-            out.set('AiConfig', getConfigPathKindsForTemplate(rootTemplate));
+            out.set('AiConfig', await getConfigPathKindsForTemplate(rootTemplate));
         }
     }
 
@@ -1423,7 +1547,7 @@ export function lintAiConfigImplementationSsot({
  * @param {ReadonlyArray<Object>} [options.baseline] Baseline rows.
  * @returns {{violations: Object[], newViolations: Object[], staleBaseline: Object[]}}
  */
-export function lintAiConfigModuleScopeCaptures({
+export async function lintAiConfigModuleScopeCaptures({
     rootDir  = ROOT_DIR,
     files,
     baseline = AI_CONFIG_MODULE_SCOPE_BASELINE
@@ -1440,7 +1564,7 @@ export function lintAiConfigModuleScopeCaptures({
     for (const {file, source} of records) {
         if (!shouldScanAiConfigImplementation(file)) continue;
 
-        const configPathKindsByIdentifier = buildConfigPathKindsByIdentifier({rootDir, file, source});
+        const configPathKindsByIdentifier = await buildConfigPathKindsByIdentifier({rootDir, file, source});
 
         for (const hit of detectModuleScopeAiConfigCaptures(source, {configPathKindsByIdentifier})) {
             violations.push({file, ...hit});
@@ -1507,7 +1631,7 @@ const TEST_CONFIG_OVERLAY_FIX_HINT = 'Tests resolve committed config templates, 
  * @param {Object} [options] Forwarded to {@link lintConfigTemplateSsot}.
  * @returns {{exitCode: Number, violations: Object[], newViolations: Object[], staleBaseline: Object[], testConfig: Object}}
  */
-export function runLint(options = {}) {
+export async function runLint(options = {}) {
     const {
               rootDir                = ROOT_DIR,
               files,
@@ -1524,13 +1648,13 @@ export function runLint(options = {}) {
               files   : implementationFiles,
               baseline: implementationBaseline
           }),
-          moduleScopeResult = lintAiConfigModuleScopeCaptures({
+          moduleScopeResult = await lintAiConfigModuleScopeCaptures({
               rootDir,
               files   : moduleScopeFiles,
               baseline: moduleScopeBaseline
           }),
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
-          parityResult     = detectConfigLeafParityViolations({rootDir}),
+          parityResult     = await detectConfigLeafParityViolations({rootDir}),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
               implementationResult.staleBaseline.length > 0,
@@ -1539,6 +1663,7 @@ export function runLint(options = {}) {
           hasTestConfigFailures = testConfigResult.violations.length > 0,
           hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
               Object.keys(parityResult.added).length > 0 ||
+              Object.keys(parityResult.errors || {}).length > 0 ||
               parityResult.untracked.length > 0 || parityResult.vanished.length > 0;
 
     if (hasParityFailures) {
@@ -1641,7 +1766,7 @@ export function runLint(options = {}) {
     };
 }
 
-function main() {
+async function main() {
     const arg = process.argv[2];
 
     if (arg === '--help' || arg === '-h') {
@@ -1662,8 +1787,13 @@ function main() {
         // Deliberately NOT a --fix: this rewrites the record of what the repo declares, so it must be
         // an explicit act whose diff a reviewer reads. A flag that silently reconciled on every lint
         // run would turn the guard into a rubber stamp for the exact removal it exists to catch.
-        const snapshot = buildConfigLeafParitySnapshot(),
-              total    = Object.values(snapshot).reduce((sum, paths) => sum + paths.length, 0);
+        const snapshot = await buildConfigLeafParitySnapshot(),
+              total    = Object.values(snapshot).reduce((sum, paths) => sum + (Array.isArray(paths) ? paths.length : 0), 0);
+
+        if (Object.values(snapshot).some(paths => !Array.isArray(paths))) {
+            console.error('[lint-config-template-ssot] parity update REFUSED: at least one template could not be resolved (see errors above) — the snapshot would record an unverifiable surface. Resolve the declaration form first.');
+            process.exit(1);
+        }
 
         fs.writeFileSync(path.join(ROOT_DIR, CONFIG_LEAF_PARITY_REL), `${JSON.stringify(snapshot, null, 4)}\n`);
         console.log(`[lint-config-template-ssot] parity snapshot updated: ${Object.keys(snapshot).length} template(s), ${total} declared path(s).`);
@@ -1671,7 +1801,7 @@ function main() {
         process.exit(0);
     }
 
-    const {exitCode} = runLint();
+    const {exitCode} = await runLint();
     process.exit(exitCode);
 }
 

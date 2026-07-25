@@ -48,7 +48,10 @@ const typeValidators = {
  * @param {String|null} [type=null] One of `typeParsers` / `typeValidators` keys. Inferred from
  *        `defaultValue` via `Neo.typeOf` (lower-cased) when omitted and the default is non-null.
  * @param {Object|null} [metadata=null] Additional declarative leaf metadata. Used for readiness
- *        contracts such as mode/entrypoint requiredness; never for parallel env defaults.
+ *        contracts such as mode/entrypoint requiredness; never for parallel env defaults. A
+ *        `parse` key here overrides the type-derived parser (the one way a leaf declares a custom
+ *        env parser — without it, a custom parse forces a raw descriptor object the leaf grammar
+ *        cannot see).
  * @returns {{default:*, env:(String|null), type:(String|null), parse:(Function|null)}}
  */
 export function leaf(defaultValue, env = null, type = null, metadata = null) {
@@ -64,7 +67,7 @@ export function leaf(defaultValue, env = null, type = null, metadata = null) {
         env,
         ...(metadata || {}),
         type : resolvedType,
-        parse: env ? (typeParsers[resolvedType] ?? Env.parseString) : null
+        parse: env ? (metadata?.parse ?? typeParsers[resolvedType] ?? Env.parseString) : null
     }
 }
 

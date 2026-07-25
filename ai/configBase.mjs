@@ -1,7 +1,7 @@
-import os                     from 'os';
-import path                   from 'path';
-import {fileURLToPath}        from 'url';
-import ConfigProvider, {leaf} from './ConfigProvider.mjs';
+import os                                                          from 'os';
+import path                                                        from 'path';
+import {fileURLToPath}                                             from 'url';
+import ConfigProvider, {leaf}                                      from './ConfigProvider.mjs';
 import {CANONICAL_PLANE_ID, parsePlaneIdEnv, resolvePlaneDataRoot} from './planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -73,7 +73,7 @@ class ConfigBase extends ConfigProvider {
                  * not only on the frozen default the load guard covers.
                  * @type {string}
                  */
-                id: {default: CANONICAL_PLANE_ID, env: 'NEO_PLANE_ID', type: 'string', parse: parsePlaneIdEnv},
+                id: leaf(CANONICAL_PLANE_ID, 'NEO_PLANE_ID', 'string', {parse: parsePlaneIdEnv}),
                 /**
                  * The durable data root this process resolved for the declared plane — the single
                  * anchor plane-member leaves derive from via `path.join`-style derivations, each

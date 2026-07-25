@@ -163,8 +163,8 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         ]);
     });
 
-    test('maps config.mjs imports to templates for module-scope capture classification', () => {
-        const configPathKindsByIdentifier = buildConfigPathKindsByIdentifier({
+    test('maps config.mjs imports to templates for module-scope capture classification', async () => {
+        const configPathKindsByIdentifier = await buildConfigPathKindsByIdentifier({
             file  : 'ai/services/github-workflow/sync/IssueSyncer.mjs',
             source: `import aiConfig from '../../../mcp/server/github-workflow/config.mjs';`
         });
@@ -374,7 +374,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(newViolations).toHaveLength(0);
     });
 
-    test('a fresh (unbaselined) violation fails the lint', () => {
+    test('a fresh (unbaselined) violation fails the lint', async () => {
         const files = [fileOf(
             'ai/mcp/server/knowledge-base/config.template.mjs',
             `host: leaf(process.env.UNIT_TEST_MODE === 'true' ? 'a' : 'b', 'NEO_KB_HOST', 'string')`
@@ -384,20 +384,20 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
         expect(newViolations).toHaveLength(1);
         expect(newViolations[0].env).toBe('NEO_KB_HOST');
-        expect(runLint({files}).exitCode).toBe(1);
+        expect((await runLint({files})).exitCode).toBe(1);
     });
 
-    test('a stale baseline row (reshape landed, no live violation) fails the lint', () => {
+    test('a stale baseline row (reshape landed, no live violation) fails the lint', async () => {
         const baseline = [{file: 'ai/config.template.mjs', env: 'NEO_GONE', ticket: '#12451', reshape: 'done'}];
 
         const {staleBaseline, newViolations} = lintConfigTemplateSsot({files: [], baseline});
 
         expect(newViolations).toHaveLength(0);
         expect(staleBaseline).toHaveLength(1);
-        expect(runLint({files: [], baseline}).exitCode).toBe(1);
+        expect((await runLint({files: [], baseline})).exitCode).toBe(1);
     });
 
-    test('a baselined AiConfig implementation hit is suppressed (allowed boundary/burndown row)', () => {
+    test('a baselined AiConfig implementation hit is suppressed (allowed boundary/burndown row)', async () => {
         const baseline = [{
             file  : 'ai/fixture.mjs',
             kind  : 'config-pass-through',
@@ -416,20 +416,20 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(newViolations).toHaveLength(0);
     });
 
-    test('a fresh AiConfig implementation hit fails the combined lint', () => {
+    test('a fresh AiConfig implementation hit fails the combined lint', async () => {
         const implementationFiles = [fileOf(
             'ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs',
             `limit = Math.max(0, Number(AiConfig.orchestrator.deploymentStateBridge.recoveryRunLimit) || 0),`
         )];
 
-        const result = runLint({files: [], implementationFiles, implementationBaseline: []});
+        const result = await runLint({files: [], implementationFiles, implementationBaseline: []});
 
         expect(result.exitCode).toBe(1);
         expect(result.implementation.newViolations).toHaveLength(2);
         expect(result.implementation.newViolations.map(hit => hit.kind)).toEqual(['type-coercion', 'hidden-default']);
     });
 
-    test('a baselined module-scope AiConfig primitive leaf capture is suppressed (documented P1 debt)', () => {
+    test('a baselined module-scope AiConfig primitive leaf capture is suppressed (documented P1 debt)', async () => {
         const baseline = [{
             file  : 'ai/fixture.mjs',
             kind  : 'module-scope-leaf-capture',
@@ -442,13 +442,13 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             `const cwd = aiConfig.neoRootDir;`
         )];
 
-        const {violations, newViolations} = lintAiConfigModuleScopeCaptures({files, baseline});
+        const {violations, newViolations} = await lintAiConfigModuleScopeCaptures({files, baseline});
 
         expect(violations).toHaveLength(1);
         expect(newViolations).toHaveLength(0);
     });
 
-    test('a fresh module-scope AiConfig primitive leaf capture fails the combined lint', () => {
+    test('a fresh module-scope AiConfig primitive leaf capture fails the combined lint', async () => {
         const moduleScopeFiles = [fileOf(
             'ai/daemons/orchestrator/services/SelfHealFixture.mjs',
             [
@@ -457,7 +457,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             ].join('\n')
         )];
 
-        const result = runLint({
+        const result = await runLint({
             files                 : [],
             implementationFiles   : [],
             implementationBaseline: [],
@@ -472,7 +472,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         );
     });
 
-    test('a fresh module-scope namespace proxy capture passes the combined lint', () => {
+    test('a fresh module-scope namespace proxy capture passes the combined lint', async () => {
         const moduleScopeFiles = [fileOf(
             'ai/daemons/orchestrator/services/SelfHealFixture.mjs',
             [
@@ -481,7 +481,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             ].join('\n')
         )];
 
-        const result = runLint({
+        const result = await runLint({
             files                 : [],
             implementationFiles   : [],
             implementationBaseline: [],
@@ -493,14 +493,14 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(result.moduleScope.newViolations).toHaveLength(0);
     });
 
-    test('a test overlay import fails the combined lint without a baseline escape hatch', () => {
+    test('a test overlay import fails the combined lint without a baseline escape hatch', async () => {
         const testConfigFiles = [fileOf(
             'test/playwright/unit/fixture.spec.mjs',
             `import AiConfig from '../../../ai/config.mjs';`
         )];
 
         const direct = lintTestConfigAuthority({files: testConfigFiles});
-        const result = runLint({
+        const result = await runLint({
             files                 : [],
             implementationFiles   : [],
             implementationBaseline: [],
@@ -515,7 +515,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(result.testConfig.violations[0].template).toBe('ai/config.template.mjs');
     });
 
-    test('a test-side config Provider snapshot fails the combined lint without a baseline escape hatch', () => {
+    test('a test-side config Provider snapshot fails the combined lint without a baseline escape hatch', async () => {
         const testConfigFiles = [fileOf(
             'test/playwright/fixtures/probe.mjs',
             [
@@ -524,7 +524,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             ].join('\n')
         )];
 
-        const result = runLint({
+        const result = await runLint({
             files                 : [],
             implementationFiles   : [],
             implementationBaseline: [],
@@ -571,8 +571,8 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
     // ---- config leaf parity: a dropped leaf is silent at every other gate ----
 
-    test('parity: the shipped tree matches its snapshot — no false positive on what is merged', () => {
-        const parity = detectConfigLeafParityViolations();
+    test('parity: the shipped tree matches its snapshot — no false positive on what is merged', async () => {
+        const parity = await detectConfigLeafParityViolations();
 
         expect(parity.missing).toEqual({});
         expect(parity.added).toEqual({});
@@ -580,8 +580,8 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(parity.vanished).toEqual([])
     });
 
-    test('parity: the snapshot covers every server template plus the Tier-1 root', () => {
-        const snapshot = buildConfigLeafParitySnapshot();
+    test('parity: the snapshot covers every server template plus the Tier-1 root', async () => {
+        const snapshot = await buildConfigLeafParitySnapshot();
 
         expect(Object.keys(snapshot).sort()).toEqual([
             'ai/config.template.mjs',
@@ -610,22 +610,22 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(declared).toEqual([...new Set(declared)].sort())
     });
 
-    test('parity: a REMOVED path is named, not counted', () => {
-        const actual   = buildConfigLeafParitySnapshot(),
+    test('parity: a REMOVED path is named, not counted', async () => {
+        const actual   = await buildConfigLeafParitySnapshot(),
               template = 'ai/mcp/server/neural-link/config.template.mjs',
               expected = {...actual, [template]: [...actual[template], 'neural.link.ghostLeaf']};
 
-        const parity = detectConfigLeafParityViolations({expectation: expected});
+        const parity = await detectConfigLeafParityViolations({expectation: expected});
 
         // the exact path, because "17 → 16" tells nobody which leaf died
         expect(parity.missing[template]).toEqual(['neural.link.ghostLeaf'])
     });
 
-    test('parity: a RENAME fails — the count-only trap nets to zero and passes', () => {
-        const actual   = buildConfigLeafParitySnapshot(),
+    test('parity: a RENAME fails — the count-only trap nets to zero and passes', async () => {
+        const actual   = await buildConfigLeafParitySnapshot(),
               template = 'ai/mcp/server/neural-link/config.template.mjs',
               renamed  = [...actual[template].slice(1), 'neural.link.renamedLeaf'],
-              parity   = detectConfigLeafParityViolations({expectation: {...actual, [template]: renamed}});
+              parity   = await detectConfigLeafParityViolations({expectation: {...actual, [template]: renamed}});
 
         // same cardinality, different set: a count check sees nothing, which is precisely the refactor
         // that hides a loss
@@ -634,21 +634,21 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(parity.added[template]?.length).toBe(1)
     });
 
-    test('parity: a template absent from the snapshot is UNTRACKED, never silently adopted', () => {
-        const actual  = buildConfigLeafParitySnapshot(),
+    test('parity: a template absent from the snapshot is UNTRACKED, never silently adopted', async () => {
+        const actual  = await buildConfigLeafParitySnapshot(),
               partial = {...actual};
 
         delete partial['ai/mcp/server/neural-link/config.template.mjs'];
 
-        expect(detectConfigLeafParityViolations({expectation: partial}).untracked)
+        expect((await detectConfigLeafParityViolations({expectation: partial})).untracked)
             .toEqual(['ai/mcp/server/neural-link/config.template.mjs'])
     });
 
-    test('parity: a template that VANISHED is caught — the per-template diff cannot see it', () => {
-        const expectation = {...buildConfigLeafParitySnapshot(), 'ai/mcp/server/ghost/config.template.mjs': ['ghost.leaf']};
+    test('parity: a template that VANISHED is caught — the per-template diff cannot see it', async () => {
+        const expectation = {...await buildConfigLeafParitySnapshot(), 'ai/mcp/server/ghost/config.template.mjs': ['ghost.leaf']};
 
         // iterating what still exists can never notice what stopped existing
-        expect(detectConfigLeafParityViolations({expectation}).vanished)
+        expect((await detectConfigLeafParityViolations({expectation})).vanished)
             .toEqual(['ai/mcp/server/ghost/config.template.mjs'])
     });
 
