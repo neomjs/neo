@@ -115,7 +115,7 @@
     },
     "epic-review": {
       "name": "epic-review",
-      "description": "Authoritative protocol for pre-work review of epics. Six-stage gating chain — roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness — posted as a structured comment on the epic ticket. Per-agent-per-epic one-shot; subsequent sub pickups cite the prior review. Triggers: Use this skill when an agent is about to pick up its first sub from an unreviewed epic (per model-identity). Also use when a user explicitly requests an epic review, or when an epic is freshly filed and a reviewer pre-validates before any sub pickup begins.",
+      "description": "Authoritative protocol for pre-work review of epics. Six-stage gating chain — roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness — posted as a structured comment on the epic ticket. Per-agent-per-epic one-shot; subsequent sub pickups cite the prior review. Triggers: Use this skill when an agent is about to pick up its first sub from an unreviewed epic (per model-identity OTHER than the epic's author — you never review your own epic). Also use when a user explicitly requests an epic review, or when an epic is freshly filed and a reviewer pre-validates before any sub pickup begins. Participated in the source Discussion? The participant path narrows the chain; it never exempts it.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -370,7 +370,7 @@
     },
     "ticket-intake": {
       "name": "ticket-intake",
-      "description": "Authoritative protocol defining the \"Pre-Execution Reflection Gate\". Mandates architectural validation, negative ROI calculation, and duplicate sweeps before an agent is permitted to begin working on a GitHub Issue. Triggers: Use this skill immediately when assigned a new ticket, before checking out a branch or writing any codebase modifications.",
+      "description": "Authoritative protocol defining the \"Pre-Execution Reflection Gate\". Mandates architectural validation, negative ROI calculation, and duplicate sweeps before an agent is permitted to begin working on a GitHub Issue. Triggers: Use this skill immediately when assigned a ticket whose authoring you did NOT see, before checking out a branch or writing any codebase modifications. A ticket YOU authored this session is exempt; one you authored in an earlier session runs a cheap drift probe instead — never an exemption you judge for yourself.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
