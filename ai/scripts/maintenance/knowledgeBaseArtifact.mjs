@@ -156,6 +156,52 @@ export function packVectorsFp16(vectors, dimension) {
 }
 
 /**
+ * Scratch cell for the round-trip probe. Module-scoped so the hot rehydrate loop allocates nothing
+ * per value — it runs `recordCount × dimension` times (~225M for the shipped corpus).
+ * @type {Float16Array}
+ */
+const FP16_ROUND_TRIP_PROBE = new Float16Array(1);
+
+/**
+ * @summary The shortest decimal that re-quantizes to the SAME fp16 — not the shortest decimal that
+ * round-trips to the same double.
+ *
+ * Rehydrating widens each fp16 to a double, and `JSON.stringify` then emits the shortest decimal
+ * that round-trips *that double*: the fp16 value spelled out in full. An embedding stored as `0.1`
+ * comes back as `0.0999755859375` — the same number, 13 characters longer. Multiplied across the
+ * corpus that is the entire reason a v2 rehydrate materialises a working file LARGER than v1's,
+ * even though v2's download is 5× smaller.
+ *
+ * This is a spelling change, never a precision change. The returned value re-quantizes to the
+ * identical fp16 bit pattern, so the vectors an adopter imports are bit-identical either way and
+ * recall cannot move — a stronger property than recall-neutrality, and the reason no recall
+ * measurement can distinguish the two emits.
+ *
+ * Five significant digits is a proven ceiling, not a guess: fp16 carries 11 bits of significand
+ * (~3.3 decimal digits), so no finite fp16 needs more to be named uniquely. The loop returns the
+ * original on the (unreachable) miss rather than emitting a value that would re-quantize
+ * differently — fail-safe toward correctness, never toward size.
+ *
+ * `Object.is` rather than `===` because fp16 has a signed zero: `-0 === 0` is true, so `===` would
+ * accept `0` as a spelling of `-0` and silently flip a bit pattern the artifact digest covers.
+ * @param {Number} value A value already quantized to fp16.
+ * @returns {Number} The shortest-spelling number with the identical fp16 encoding.
+ */
+export function shortestFp16Decimal(value) {
+    if (!Number.isFinite(value)) return value;
+
+    for (let precision = 1; precision <= 5; precision++) {
+        const candidate = Number(value.toPrecision(precision));
+
+        FP16_ROUND_TRIP_PROBE[0] = candidate;
+
+        if (Object.is(FP16_ROUND_TRIP_PROBE[0], value)) return candidate
+    }
+
+    return value
+}
+
+/**
  * Decodes the packed sidecar back to per-row vectors, failing loud on any shape or order mismatch.
  * @param {Object} options
  * @param {Buffer} options.buffer Packed sidecar contents.
@@ -469,7 +515,13 @@ export async function rehydrateArtifactFromV2({artifactDir, fsModule = fs}) {
                 const wire   = toWireByteOrder(Buffer.from(rowBuffer)),
                       vector = new Float16Array(wire.buffer, wire.byteOffset, dimension);
 
-                await writeWithBackpressure(sink, JSON.stringify({...record, embedding: Array.from(vector)}) + '\n');
+                // `Array.from(vector)` alone would emit each fp16 spelled out as its exact double
+                // (`0.1` → `0.0999755859375`), which is what makes the rehydrated working file
+                // larger than the v1 it reconstructs. Re-spelling is lossless: every value below
+                // re-quantizes to the identical fp16.
+                await writeWithBackpressure(sink, JSON.stringify({
+                    ...record, embedding: Array.from(vector, shortestFp16Decimal)
+                }) + '\n');
             }
         });
     } finally {
