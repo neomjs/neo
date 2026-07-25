@@ -292,6 +292,33 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(paneIdAfter).toBe(paneIdBefore);
 
+        // …and the vessel must STYLE the pane it hosts, not merely own it. Every assertion above
+        // stayed green while the tear-out rendered as bare text on the ground colour, because the
+        // grid/tab token bridge was scoped to `.workstation-workspace` — a class this window
+        // deliberately never mounts. Note what this does NOT assert: the theme class was
+        // present throughout that bug, so a class check on the vessel document would have passed
+        // the whole time. Read the RESOLVED token instead, and compare it to the palette rather
+        // than to a hex literal, so a future palette edit moves both sides together.
+        const vesselTokens = await popup.evaluate(() => {
+            const viewport = document.querySelector('.workstation-viewport'),
+                  styles   = viewport && getComputedStyle(viewport);
+
+            return {
+                isVessel: !!document.querySelector('.workstation-popout-host'),
+                cellBg  : styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
+                stripBg : styles?.getPropertyValue('--tab-strip-background-color').trim(),
+                panel   : styles?.getPropertyValue('--workstation-panel').trim(),
+                panel2  : styles?.getPropertyValue('--workstation-panel-2').trim()
+            }
+        });
+
+        expect(vesselTokens.isVessel, 'the committed popup must be the pop-out vessel host').toBe(true);
+        expect(vesselTokens.panel, 'the vessel must inherit the Workstation palette').toBeTruthy();
+        expect(vesselTokens.cellBg, 'the vessel must bridge grid tokens onto the Workstation palette')
+            .toBe(vesselTokens.panel);
+        expect(vesselTokens.stripBg, 'the vessel must bridge tab tokens onto the Workstation palette')
+            .toBe(vesselTokens.panel2);
+
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])

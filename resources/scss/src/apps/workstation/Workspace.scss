@@ -3,34 +3,10 @@
 // reduced-motion collapse owned by Neo.dashboard.Container.
 
 .workstation-workspace {
-    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
-    // palette in both skins instead of leaking their default blue/purple values.
-    --grid-container-border-color              : var(--workstation-line);
-    --grid-container-cell-background-color     : var(--workstation-panel);
-    --grid-container-cell-background-color-even: var(--workstation-panel-2);
-    --grid-container-color                     : var(--workstation-ink-dim);
-    --grid-container-header-cell-border-bottom : 1px solid var(--workstation-line);
-    --grid-cell-background-color-hover          : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
-    --grid-cell-progress-active-color           : var(--workstation-signal);
-    --grid-cell-progress-track-color            : var(--workstation-line);
-    --grid-header-button-background-color       : var(--workstation-panel-2);
-    --grid-header-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-    --grid-header-button-color                  : var(--workstation-ink);
-    --grid-header-button-color-hover            : var(--workstation-ink);
-    --grid-header-button-glyph-color            : var(--workstation-ink-dim);
-    --grid-header-button-glyph-color-hover      : var(--workstation-signal);
-    // Header buttons use row-reverse to keep their sort glyph after the label. `flex-end`
-    // therefore means physical left/start alignment for the complete label + glyph group.
-    --grid-header-button-justify-content        : flex-end;
-    --grid-header-button-padding                : 0 10px;
-    --tab-button-background-color               : transparent;
-    --tab-button-background-color-active        : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
-    --tab-button-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
-    --tab-button-glyph-color                    : var(--workstation-ink-dim);
-    --tab-button-text-color                     : var(--workstation-ink-dim);
-    --tab-indicator-background-color-active     : var(--workstation-signal);
-    --tab-strip-background-color                : var(--workstation-panel-2);
-
+    // The grid/tab token bridge sits on `.workstation-viewport`, one level up: the `?popout=`
+    // vessel is a viewport WITHOUT a workspace, so a bridge scoped here never reached the pane it
+    // tears out. What remains below is workspace-only presentation the vessel must not inherit —
+    // the gradient backdrop belongs to the dense composition, not to a bare pane host.
     background:
         radial-gradient(circle at 22% 8%, color-mix(in srgb, var(--workstation-signal) 8%, transparent), transparent 32%),
         var(--workstation-ground);
