@@ -27,7 +27,16 @@
 # Project identity derives from the plane id (one plane ⇔ one compose project) so Docker
 # labels, networks, and volumes are namespaced per plane and cannot collide with the
 # native stack or other planes. ELECTION-SLOT: derivation rule confirmation.
-name: "${NEO_PARITY_PROJECT_NAME:-neo-local-parity}"
+#
+# ONE source, read twice. This previously read `${NEO_PARITY_PROJECT_NAME:-…}` while
+# `NEO_PLANE_ID` below was hardcoded — inverting the direction this very comment states.
+# Setting the override moved the compose storage namespace and left plane identity pinned,
+# so one identity claimed two namespaces. ADR 0019 §10.3 makes identity opaque and
+# independent of PLACEMENT; it does not permit placement to move while identity is nailed
+# down. Deleting the second variable is the fix — syncing two sources would only make them
+# agree by convention. The election still owns the derivation RULE; it does not own the
+# requirement that both consumers read one value.
+name: "${NEO_PLANE_ID:-neo-local-parity}"
 
 # The full plane-member binding for the RELOCATED parity plane — map form (not list) so
 # services compose it via YAML merge keys. One shared map binds the union of the three
@@ -35,8 +44,10 @@ name: "${NEO_PARITY_PROJECT_NAME:-neo-local-parity}"
 # not declare are simply unread env vars, which keeps the binding single-sourced here.
 # Paths mirror each leaf's anchor-derived default, re-rooted under the parity root.
 x-plane-env: &plane-env
-  # Identity + root (ADR 0019 §10.3: id is opaque; equality is the only same-plane test)
-  NEO_PLANE_ID: neo-local-parity
+  # Identity + root (ADR 0019 §10.3: id is opaque; equality is the only same-plane test).
+  # Same expression as the project `name` above, deliberately — the compose namespace and
+  # the plane identity are two readers of one value, never two values kept in step.
+  NEO_PLANE_ID: "${NEO_PLANE_ID:-neo-local-parity}"
   NEO_PLANE_DATA_ROOT: /app/.neo-ai-data-parity
   # Tier-1 members (ai/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH: /app/.neo-ai-data-parity/seat-tokens/registry.json
