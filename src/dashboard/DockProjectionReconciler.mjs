@@ -2,6 +2,8 @@ import Component from '../component/Base.mjs';
 import Base      from '../core/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
+const projectionNodeTypes = new Set(['edge-zone', 'split', 'tabs']);
+
 /**
  * @summary Preserves live tab-chrome identity across dock-layout projections.
  *
@@ -52,6 +54,138 @@ class DockProjectionReconciler extends Base {
         visit(root);
 
         return tabs
+    }
+
+    /**
+     * @summary Collects the dock-node topology below one projected shell.
+     *
+     * Pane descendants stop the traversal at tabs nodes: application content may itself contain
+     * `dockNodeId` metadata, but only the projected shell's structural nodes belong to this
+     * reconciliation boundary. Synthetic affordances and wrappers stay traversal-transparent.
+     * Duplicate or incomplete structural identities fail closed because they cannot prove a
+     * one-to-one live projection.
+     * @param {Neo.component.Base|Object|null} root
+     * @returns {Map<String, Object>|null}
+     * @static
+     */
+    static collectProjectionTopology(root) {
+        const nodes = new Map();
+        let   valid = true;
+
+        const visit = (node, parentNodeId=null) => {
+            if (!valid || !node || node.isDestroyed) return;
+
+            let ownerNodeId = parentNodeId;
+
+            const structural = projectionNodeTypes.has(node.dockNodeType);
+
+            if (structural) {
+                if (!node.dockNodeId || nodes.has(node.dockNodeId)
+                    || parentNodeId && !nodes.has(parentNodeId)) {
+                    valid = false;
+                    return
+                }
+
+                ownerNodeId = node.dockNodeId;
+                nodes.set(ownerNodeId, {
+                    childNodeIds: [],
+                    node,
+                    parentNodeId,
+                    type        : node.dockNodeType
+                });
+
+                if (parentNodeId) {
+                    nodes.get(parentNodeId)?.childNodeIds.push(ownerNodeId)
+                }
+
+                if (node.dockNodeType === 'tabs') return
+            }
+
+            node.items?.forEach(child => visit(child, ownerNodeId))
+        };
+
+        visit(root);
+
+        return valid ? nodes : null
+    }
+
+    /**
+     * @summary Reconciles a geometry-only projection without moving live dock chrome.
+     *
+     * The fast path is deliberately strict: dock-node ancestry/order, split orientation, tab item
+     * order, and active selection must all be unchanged. Only then may projected child `flex`
+     * values be applied to the retained shell in place. Any structural or ownership delta defers
+     * to the staged descendant → ancestor transaction in {@link #reconcileProjection}.
+     * @param {Neo.component.Base} oldShell
+     * @param {Object} nextConfig
+     * @param {Map<String,Neo.component.Base>} placeholders
+     * @returns {{currentTabs:Map,nextShell:Neo.component.Base,plans:Map}|null}
+     * @static
+     */
+    static reconcileStableTopology(oldShell, nextConfig, placeholders) {
+        const
+            currentNodes = this.collectProjectionTopology(oldShell),
+            nextNodes    = this.collectProjectionTopology(nextConfig);
+
+        if (!currentNodes || !nextNodes || !currentNodes.size || currentNodes.size !== nextNodes.size) return null;
+
+        for (const [nodeId, current] of currentNodes) {
+            const
+                next                 = nextNodes.get(nodeId),
+                currentLayoutNtype   = String(current.node.layout?.ntype || '').replace(/^layout-/, ''),
+                projectedLayoutNtype = String(next?.node.layout?.ntype || '').replace(/^layout-/, '');
+
+            if (!next
+                || current.type !== next.type
+                || current.parentNodeId !== next.parentNodeId
+                || current.type === 'split' && currentLayoutNtype !== projectedLayoutNtype
+                || current.childNodeIds.join('\0') !== next.childNodeIds.join('\0')) {
+                return null
+            }
+
+            if (current.type === 'tabs') {
+                const
+                    currentItems = current.node.getTabBar()?.sortZoneConfig?.dockItemIds || [],
+                    nextItems    = next.node.headerToolbar?.sortZoneConfig?.dockItemIds || [];
+
+                if (current.node.activeIndex !== next.node.activeIndex
+                    || currentItems.join('\0') !== nextItems.join('\0')) {
+                    return null
+                }
+            }
+        }
+
+        const
+            currentTabs = this.collectProjectedTabs(oldShell),
+            plans       = new Map();
+
+        nextNodes.forEach((next, nodeId) => {
+            const current = currentNodes.get(nodeId).node;
+
+            if (Object.hasOwn(next.node, 'flex')) {
+                current.setSilent({
+                    flex        : next.node.flex,
+                    wrapperStyle: {...current.wrapperStyle, flex: next.node.flex ?? null}
+                })
+            }
+
+            if (next.type === 'tabs') {
+                plans.set(nodeId, {
+                    activeIndex : next.node.activeIndex,
+                    config      : next.node,
+                    desiredItems: [...(next.node.headerToolbar?.sortZoneConfig?.dockItemIds || [])],
+                    placeholder : null,
+                    tab         : current
+                })
+            }
+        });
+
+        placeholders.forEach(placeholder => {
+            !placeholder.parent && !placeholder.isDestroyed && placeholder.destroy()
+        });
+        placeholders.clear();
+
+        return {currentTabs, nextShell: oldShell, plans}
     }
 
     /**
@@ -121,6 +255,7 @@ class DockProjectionReconciler extends Base {
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
      * @param {Object} options
      * @param {Neo.container.Base} options.host Dock host containing the current shell.
+     * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
      * @param {*} options.nextConfig Fresh {@link Neo.dashboard.DockLayoutAdapter} projection.
      * @param {Map<String,Neo.component.Base>} options.placeholders Item placeholders created by the caller.
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes which are absent
@@ -133,6 +268,7 @@ class DockProjectionReconciler extends Base {
      * @static
      */
     static async reconcileProjection({
+        geometryOnly=false,
         host,
         nextConfig,
         placeholders,
@@ -146,6 +282,28 @@ class DockProjectionReconciler extends Base {
 
         if (!oldShell) {
             throw new Error(`Dock projection could not find a current shell at index ${shellIndex}`)
+        }
+
+        const stableProjection = geometryOnly
+            ? this.reconcileStableTopology(oldShell, nextConfig, placeholders)
+            : null;
+
+        if (stableProjection) {
+            host.updateDepth = -1;
+            host.update();
+            await host.promiseUpdate();
+
+            const overflowPlugins = [...new Set([...stableProjection.plans.values()]
+                .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
+                .filter(Boolean))];
+
+            await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
+
+            if (waitForOverflowProjection) {
+                await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
+            }
+
+            return {...stableProjection, overflowPlugins}
         }
 
         const

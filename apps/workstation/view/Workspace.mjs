@@ -563,6 +563,8 @@ class Workspace extends Container {
      * Defers the instance-preserving re-projection after a successful reducer commit.
      * @param {Object} document
      * @param {Object} [options={}]
+     * @param {Boolean} [options.geometryOnly] Explicit stable-topology projection admission.
+     * @param {String} [options.operation] Committed reducer operation.
      * @param {String[]} [options.preserveItemIds] Owner-held panes the reconciler must park.
      */
     onDockZoneDocumentChange(document, options={}) {
@@ -770,11 +772,13 @@ class Workspace extends Container {
      * transaction shared with other docking workspaces. Workstation supplies its cached-pane resolver,
      * header text, FLIP motion, retained-indicator suppression, and the heavy Overflow menu witness.
      * @param {Object} [options={}]
+     * @param {Boolean} [options.geometryOnly=false] Explicit stable-topology projection admission.
+     * @param {String|null} [options.operation=null] Committed reducer operation.
      * @param {String[]} [options.preserveItemIds=[]] Owner-held panes the reconciler must park
      *     instead of destroy (a terminal-first tear-out vessel owns its pane before it connects).
      * @returns {Promise<void>}
      */
-    async refreshDockWorkspace({preserveItemIds=[]}={}) {
+    async refreshDockWorkspace({geometryOnly=false, operation=null, preserveItemIds=[]}={}) {
         const
             me           = this,
             host         = me.getReference('dock-host'),
@@ -782,6 +786,8 @@ class Workspace extends Container {
             placeholders = new Map();
 
         if (!host) return;
+
+        geometryOnly = geometryOnly || operation === 'resizeSplit';
 
         // Every re-projection retires the active gesture session — a stale geometry promise
         // must never survive a topology change (the controller's generation guards depend on it).
@@ -806,6 +812,7 @@ class Workspace extends Container {
         let animationSuppressedBars = [];
 
         const {nextShell} = await DockProjectionReconciler.reconcileProjection({
+            geometryOnly,
             host,
             nextConfig,
             placeholders,
@@ -991,7 +998,7 @@ class Workspace extends Container {
             });
 
         me.dockModel = DockZoneModel.clone(initialDocument);
-        await me.refreshDockWorkspace();
+        await me.refreshDockWorkspace({geometryOnly: true});
 
         try {
             const result = await runner.start();
@@ -1138,7 +1145,7 @@ class Workspace extends Container {
         me.dockModel       = DockZoneModel.clone(initialDocument);
         await me.setPipProgress(0);
 
-        await me.refreshDockWorkspace();
+        await me.refreshDockWorkspace({geometryOnly: true});
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),

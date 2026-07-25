@@ -188,7 +188,192 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         return (await app.getComponent(wsId, ['feedSequence'])).feedSequence
     }
 
-    test('scene 1 — the room is alive: two runs, identical beat logs, heartbeat never resets', async ({page, neuralLink}) => {
+    /**
+     * @summary Captures and measures every compositor frame presented while one workspace action runs.
+     *
+     * CDP screencast events are the browser's consecutive presented-frame stream, not sampled
+     * screenshots. Chromium does not promise an initial event for an unchanged page, so a tiny
+     * compositor animation outside the measured dock crop supplies a continuous presentation clock.
+     * The detached-canvas measurement crops the real dock-host rectangle and computes grayscale
+     * Shannon entropy in-page, avoiding a recorder/cut dependency and any optional image decoder
+     * package. A body-clear frame collapses the dense workspace's entropy while the outer shell
+     * remains painted.
+     * @param {Object} page Playwright page.
+     * @param {Function} action Awaited workspace mutation.
+     * @returns {Promise<Object>} Action result plus frame-count and entropy receipt.
+     */
+    async function captureWorkspaceContinuity(page, action) {
+        const
+            viewport = page.viewportSize(),
+            box      = await page.locator('.workstation-dock-host').boundingBox(),
+            session  = await page.context().newCDPSession(page),
+            frames   = [],
+            acks     = [];
+        let resolveFirstFrame;
+
+        expect(box, 'the dock host must expose a measurable compositor region').toBeTruthy();
+        expect(viewport, 'the page must expose a fixed film viewport').toBeTruthy();
+
+        const firstFrame = new Promise(resolve => {
+            resolveFirstFrame = resolve
+        });
+
+        session.on('Page.screencastFrame', frame => {
+            frames.push(frame.data);
+            resolveFirstFrame?.();
+            resolveFirstFrame = null;
+            acks.push(session.send('Page.screencastFrameAck', {sessionId: frame.sessionId})
+                .catch(error => error))
+        });
+
+        let baseline, frameTimer, result;
+
+        try {
+            await session.send('Page.enable');
+            await session.send('Page.startScreencast', {
+                everyNthFrame: 1,
+                format       : 'jpeg',
+                maxHeight    : 500,
+                maxWidth     : 800,
+                quality      : 70
+            });
+            await page.evaluate(() => {
+                const marker = document.createElement('div');
+
+                marker.id = 'workstation-compositor-frame-clock';
+                Object.assign(marker.style, {
+                    background   : '#fff',
+                    height       : '2px',
+                    left         : '0',
+                    pointerEvents: 'none',
+                    position     : 'fixed',
+                    top          : '0',
+                    width        : '2px',
+                    zIndex       : '2147483647'
+                });
+                document.body.append(marker);
+
+                let light = true;
+
+                const tick = () => {
+                    if (!marker.isConnected) return;
+
+                    light = !light;
+                    marker.style.background = light ? '#fff' : '#000';
+                    requestAnimationFrame(tick)
+                };
+
+                requestAnimationFrame(tick)
+            });
+            await Promise.race([
+                firstFrame,
+                new Promise((_, reject) => {
+                    frameTimer = setTimeout(() => reject(
+                        new Error('CDP screencast emitted no compositor frame within 5 seconds')
+                    ), 5000)
+                })
+            ]);
+            clearTimeout(frameTimer);
+
+            baseline = frames.at(-1);
+            frames.length = 0;
+
+            result = await action();
+
+            await page.evaluate(() => new Promise(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(resolve))
+            ))
+        } finally {
+            clearTimeout(frameTimer);
+            await session.send('Page.stopScreencast').catch(() => {});
+            await Promise.allSettled(acks);
+            await session.detach().catch(() => {});
+            await page.evaluate(() => {
+                document.getElementById('workstation-compositor-frame-clock')?.remove()
+            }).catch(() => {})
+        }
+
+        const
+            actionFrames = frames,
+            entropies    = await page.evaluate(async ({baseline, box, frames, viewport}) => {
+                const measure = async source => {
+                    const image = new Image();
+
+                    image.src = `data:image/jpeg;base64,${source}`;
+                    await image.decode();
+
+                    const
+                        scaleX = image.naturalWidth  / viewport.width,
+                        scaleY = image.naturalHeight / viewport.height,
+                        sx     = Math.max(0, Math.floor(box.x * scaleX)),
+                        sy     = Math.max(0, Math.floor(box.y * scaleY)),
+                        sw     = Math.min(image.naturalWidth - sx,  Math.ceil(box.width  * scaleX)),
+                        sh     = Math.min(image.naturalHeight - sy, Math.ceil(box.height * scaleY)),
+                        canvas = document.createElement('canvas'),
+                        width  = 160,
+                        height = Math.max(1, Math.round(width * sh / sw)),
+                        counts = new Uint32Array(256);
+
+                    canvas.width  = width;
+                    canvas.height = height;
+
+                    const context = canvas.getContext('2d', {willReadFrequently: true});
+
+                    context.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
+
+                    const pixels = context.getImageData(0, 0, width, height).data;
+
+                    for (let index = 0; index < pixels.length; index += 4) {
+                        counts[Math.round(
+                            pixels[index] * 0.2126
+                            + pixels[index + 1] * 0.7152
+                            + pixels[index + 2] * 0.0722
+                        )]++
+                    }
+
+                    let entropy = 0;
+
+                    counts.forEach(count => {
+                        if (!count) return;
+
+                        const probability = count / (width * height);
+
+                        entropy -= probability * Math.log2(probability)
+                    });
+
+                    return entropy
+                };
+
+                const values = [];
+
+                for (const frame of [baseline, ...frames]) {
+                    values.push(await measure(frame))
+                }
+
+                return values
+            }, {
+                baseline,
+                box,
+                frames: actionFrames,
+                viewport
+            });
+
+        const
+            baselineEntropy = entropies.shift(),
+            minEntropy      = Math.min(...entropies),
+            minFrameIndex   = entropies.indexOf(minEntropy);
+
+        return {
+            baselineEntropy,
+            frameCount: actionFrames.length,
+            frames    : actionFrames,
+            minEntropy,
+            minFrameIndex,
+            result
+        }
+    }
+
+    test('scene 1 — the room is alive: two runs, identical beat logs, heartbeat never resets', async ({page, neuralLink}, testInfo) => {
         const logs       = [],
               pageErrors = [];
 
@@ -223,23 +408,51 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             // commit lives on the adapter's documentChange path, and `runTourSpec` is the
             // workspace's own spec-mode front door: fresh document, reducer op, runner-owned
             // deterministic log — the same contract the film's recording pipeline replays. ──
-            const spec = await app.callMethod(wsId, 'runTourSpec', [{
-                schema: 'neo.tour.script.v1',
-                id    : 'five-beat-scene1',
-                title : 'scene 1 — the room answers',
-                scenes: [{
-                    id   : 's1',
-                    title: 'resize',
-                    steps: [{
-                        type      : 'op',
-                        descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
-                        expect    : [{path: 'nodes.split-main.sizes.0', equals: 0.52}]
-                    }, {
-                        type  : 'topology-assert',
-                        expect: [{path: 'nodes.split-main.sizes.1', equals: 0.48}]
+            const runSpec = () =>
+                app.callMethod(wsId, 'runTourSpec', [{
+                    schema: 'neo.tour.script.v1',
+                    id    : 'five-beat-scene1',
+                    title : 'scene 1 — the room answers',
+                    scenes: [{
+                        id   : 's1',
+                        title: 'resize',
+                        steps: [{
+                            type      : 'op',
+                            descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
+                            expect    : [{path: 'nodes.split-main.sizes.0', equals: 0.52}]
+                        }, {
+                            type  : 'topology-assert',
+                            expect: [{path: 'nodes.split-main.sizes.1', equals: 0.48}]
+                        }]
                     }]
-                }]
-            }]);
+                }]),
+                continuity = filmTake ? await captureWorkspaceContinuity(page, runSpec) : null,
+                spec       = continuity ? continuity.result : await runSpec();
+
+            if (continuity) {
+                console.log('[rendered-continuity]', JSON.stringify({
+                    baselineEntropy: continuity.baselineEntropy,
+                    frameCount     : continuity.frameCount,
+                    minEntropy     : continuity.minEntropy,
+                    minFrameIndex  : continuity.minFrameIndex,
+                    run            : run + 1
+                }));
+
+                expect(continuity.frameCount,
+                    'the resize/reset boundary must expose consecutive compositor frames').toBeGreaterThan(2);
+
+                const entropyFloor = continuity.baselineEntropy * 0.65;
+
+                if (continuity.minEntropy < entropyFloor) {
+                    await testInfo.attach(`scene-1-run-${run + 1}-minimum-entropy-frame`, {
+                        body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
+                        contentType: 'image/jpeg'
+                    })
+                }
+
+                expect(continuity.minEntropy,
+                    'no presented frame may clear the dense workspace body').toBeGreaterThanOrEqual(entropyFloor)
+            }
 
             expect(spec.completed, 'the spec-mode replay must complete cleanly').toBe(true);
             expect(spec.errors).toEqual([]);
