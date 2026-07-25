@@ -833,7 +833,7 @@ class ConfigBase extends ConfigProvider {
                  * override to `private` via `NEO_MEMORY_SHARING_DEFAULT_POLICY`.
                  * @type {'legacy'|'private'|'team'}
                  */
-                defaultPolicy: {env: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', default: 'team', parse: parseMemorySharingPolicy}
+                defaultPolicy: leaf('team', 'NEO_MEMORY_SHARING_DEFAULT_POLICY', 'string', {parse: parseMemorySharingPolicy})
             },
             /**
              * Target file path for the lazy backfill queue of unresolved provenance edges.

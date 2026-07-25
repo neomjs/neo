@@ -88,6 +88,24 @@ test.describe('Neo.ai.ConfigProvider (data + afterSetData seam + leaf() factory)
         expect(efLeaf.parse).toBe(null)
     });
 
+    test('leaf() metadata.parse overrides the type-derived parser (custom env parsers stay leaf-shaped)', () => {
+        const custom    = value => value,
+              withParse = leaf('x', 'NEO_X', 'string', {parse: custom});
+
+        // A custom parser rides metadata — the only way a leaf declares one. Without it the
+        // declaration falls back to a raw descriptor object, which reads as a namespace to
+        // static config collectors instead of as the leaf it is.
+        expect(withParse.parse).toBe(custom);
+        expect(withParse.type).toBe('string');
+        expect(withParse.default).toBe('x');
+        expect(withParse.env).toBe('NEO_X');
+
+        // The type-derived parser still wins when metadata carries no parse key…
+        expect(leaf('x', 'NEO_X', 'string', {requiredFor: []}).parse).toBe(Env.parseString);
+        // …and an env-free leaf still carries no parser, custom metadata or not.
+        expect(leaf('x', null, 'string', {parse: custom}).parse).toBe(null)
+    });
+
     test('afterSetData compiles reactive data from leaf defaults', () => {
         const config = Neo.create(ConfigProvider, {data: buildTree()});
 
@@ -183,7 +201,7 @@ test.describe('Neo.ai.ConfigProvider (data + afterSetData seam + leaf() factory)
     test('observeData fires on change and stops after cleanup', () => {
         const config = Neo.create(ConfigProvider, {data: buildTree()});
 
-        let calls     = 0;
+        let   calls   = 0;
         const cleanup = config.observeData('name', () => {calls++});
 
         config.setData('name', 'a');
@@ -280,7 +298,7 @@ test.describe('Neo.ai.ConfigProvider (data + afterSetData seam + leaf() factory)
         const config = Neo.create(ConfigProvider, {data: buildTree()});
 
         // core.Base#observeConfig(publisher, configName, fn) — Provider#createBinding depends on it.
-        let calls     = 0;
+        let   calls   = 0;
         const cleanup = config.observeConfig(config, 'data', () => {calls++});
         expect(typeof cleanup).toBe('function');
         cleanup();
