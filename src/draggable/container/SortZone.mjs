@@ -214,6 +214,18 @@ class SortZone extends DragZone {
      * @protected
      */
     reattachArmed = false
+    /**
+     * `{width, height}` of the proxy rect from the previous window-drag sample. The move stream
+     * swaps proxy IDENTITY mid-gesture — the in-window DOM proxy until the vessel grant lands,
+     * the future vessel's dimensions afterwards (see {@link Neo.main.addon.DragDrop#onDragMove}) —
+     * and an intersection ratio compared across that discontinuity manufactures "moving in" plus
+     * a threshold cross in a single sample: a false re-entry that retires a vessel which may not
+     * have connected yet. A dims change is therefore a geometry RESEED, not a movement:
+     * {@link #reattachArmed} must be re-earned in the new scale before any entry can fire.
+     * @member {Object|null} lastProxyDims=null
+     * @protected
+     */
+    lastProxyDims = null
 
     /**
      * Appends one event to the active drag trace. Events carry where the drag logic
@@ -317,6 +329,7 @@ class SortZone extends DragZone {
                     // arming test and the direction baseline both seed in that scale here.
                     me.reattachArmed         = coverageRatio < me.reattachThreshold;
                     me.lastIntersectionRatio = coverageRatio;
+                    me.lastProxyDims         = {height: proxyRect.height, width: proxyRect.width};
 
                     me.fire('dragBoundaryExit', {
                         draggedItem: me.dragComponent,
@@ -326,6 +339,21 @@ class SortZone extends DragZone {
                     return true // Stop further processing in onDragMove
                 }
             } else if (me.isWindowDragging) {
+                // A proxy-dims change mid-window-drag is the move stream swapping proxy IDENTITY
+                // (in-window DOM proxy → granted vessel dimensions): the ratio delta against the
+                // previous sample is a geometry artifact, not movement, and evaluating entry on it
+                // retires a vessel that may not have connected yet. Reseed, re-earn the arming in
+                // the new scale, and resume entry evaluation from the next sample. A null record
+                // (window-drag entered without a boundary exit, e.g. a mid-drag conversion) seeds
+                // silently.
+                if (!me.lastProxyDims) {
+                    me.lastProxyDims = {height: proxyRect.height, width: proxyRect.width}
+                } else if (me.lastProxyDims.width !== proxyRect.width || me.lastProxyDims.height !== proxyRect.height) {
+                    me.lastProxyDims = {height: proxyRect.height, width: proxyRect.width};
+                    me.reattachArmed = intersectionRatio < me.reattachThreshold;
+                    return true
+                }
+
                 // The exit fires just UNDER detachThreshold — inside the reattach zone — so the raw
                 // direction test alone would let one post-exit positive-delta sample (pointer jitter,
                 // exit-choreography geometry side effects) fire a false re-entry that closes the
@@ -414,6 +442,7 @@ class SortZone extends DragZone {
         me.currentIndex     = me.startIndex;
         me.isOverDragging   = false;
         me.isWindowDragging = false;
+        me.lastProxyDims    = null;
         me.reattachArmed    = false;
 
         me.fire('dragCancel', data);

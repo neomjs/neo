@@ -385,3 +385,99 @@ test.describe('checkWindowBoundary — the re-entry Schmitt trigger (the false-r
         expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
     })
 });
+
+test.describe('checkWindowBoundary — arming across the proxy-identity swap (the vessel stillbirth)', () => {
+    // The move stream swaps proxy IDENTITY mid-window-drag: the in-window DOM proxy until the
+    // vessel grant lands, the future vessel's dimensions afterwards. Arming earned in the small
+    // proxy's scale must NOT discharge in the vessel's scale — the ratio jump at the swap sample
+    // is a geometry artifact, not movement. Same 1000×1000 boundary; smallAt(f) is the 100×100
+    // pre-grant proxy, vesselAt(f) the 320×240 post-grant proxy — each placed so
+    // intersectionArea/proxyArea === f.
+    const BOUNDARY = {x: 0, y: 0, width: 1000, height: 1000, left: 0, top: 0, right: 1000, bottom: 1000};
+
+    const smallAt = f => {
+        const x = 1000 - 100 * f;
+        return {x, y: 450, width: 100, height: 100, left: x, top: 450, right: x + 100, bottom: 550}
+    };
+
+    const vesselAt = f => {
+        const x = 1000 - 320 * f;
+        return {x, y: 300, width: 320, height: 240, left: x, top: 300, right: x + 320, bottom: 540}
+    };
+
+    const zoneFor = () => {
+        const fired = [], continued = [];
+
+        const zone = {
+            boundaryContainerRect: BOUNDARY,
+            detachThreshold      : 0.8,
+            dragComponent        : {id: 'dragged'},
+            dragPlaceholder      : {wrapperStyle: {}},
+            indexMap             : [],
+            isWindowDragging     : false,
+            itemRects            : [],
+            lastIntersectionRatio: 1,
+            owner                : {items: []},
+            reattachArmed        : false,
+            reattachThreshold    : 0.6,
+            fire                 : name => fired.push(name),
+            onWindowDragContinue : () => continued.push(1)
+        };
+
+        const move = rect => SortZone.prototype.checkWindowBoundary.call(zone, {proxyRect: rect});
+
+        return {continued, fired, move, zone}
+    };
+
+    test('the stillbirth sequence: arming earned pre-swap must NOT discharge on the swap sample', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));                            // exit — window-drag begins, dims seeded
+        move(smallAt(0.5));                             // demonstrably left — arms in the SMALL scale
+        expect(zone.reattachArmed).toBe(true);
+
+        move(vesselAt(0.95));                           // the grant lands: vessel dims, ratio jumps
+        expect(fired, 'the swap sample must not fire an entry — the vessel has not connected yet')
+            .toEqual(['dragBoundaryExit']);
+        expect(zone.reattachArmed, 'arming is re-earned in the NEW scale').toBe(false);
+        expect(zone.lastProxyDims).toEqual({height: 240, width: 320});
+
+        move(vesselAt(0.9));                            // still high in the new scale, disarmed
+        expect(fired, 'no entry until re-entry is earned post-swap').toEqual(['dragBoundaryExit'])
+    });
+
+    test('genuine post-swap return still re-enters exactly once', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));
+        move(smallAt(0.5));                             // armed in the small scale
+        move(vesselAt(0.95));                           // swap — reseed + disarm
+        move(vesselAt(0.4));                            // leaves below reattachThreshold — re-earns
+        expect(zone.reattachArmed).toBe(true);
+
+        move(vesselAt(0.65));                           // rising back across the threshold
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    });
+
+    test('a swap landing already below reattachThreshold re-arms immediately and skips the continue hook', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(smallAt(0.79));
+        move(smallAt(0.3));                             // armed, one continue sample
+        expect(continued.length).toBe(1);
+
+        move(vesselAt(0.2));                            // swap sample far outside — reseed, stays armed
+        expect(zone.reattachArmed).toBe(true);
+        expect(continued.length, 'the swap sample is a reseed, not a movement — no continue call').toBe(1);
+        expect(fired).toEqual(['dragBoundaryExit']);
+
+        move(vesselAt(0.65));                           // genuine return in the vessel scale
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    })
+});
