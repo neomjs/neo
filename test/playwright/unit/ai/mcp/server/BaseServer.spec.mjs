@@ -105,6 +105,16 @@ test.describe('Neo.ai.mcp.server.BaseServer — required override hooks (#10965)
         const server = Neo.create(Cls);
 
         expect(() => server.getServerMetadata()).toThrow(/getServerMetadata/);
+
+        // The message must name its ORIGIN class, not the shared `constructor.name` — every MCP
+        // server class is literally named `Server`, so the latter cannot discriminate.
+        //
+        // ONE anchored positive, deliberately. The plane-identity test asserts both directions
+        // because there the symptom (`[Server]`) can co-occur with the fix. Here it cannot: this
+        // regex is `^`-anchored, so a `not.toThrow(/^BareServer: /)` companion could only fire in
+        // the same states this line already fails in. A second assertion that cannot fail
+        // independently reads as coverage without being any.
+        expect(() => server.getServerMetadata()).toThrow(new RegExp(`^${Cls.config.className}: `));
     });
 
     test('getToolService throws when not overridden', () => {
@@ -118,6 +128,8 @@ test.describe('Neo.ai.mcp.server.BaseServer — required override hooks (#10965)
         const server = Neo.create(Cls);
 
         expect(() => server.getToolService()).toThrow(/getToolService/);
+
+        expect(() => server.getToolService()).toThrow(new RegExp(`^${Cls.config.className}: `));
     });
 });
 

@@ -127,12 +127,19 @@ class BaseServer extends Base {
 
     // ===== Required override hooks =====
 
+    // The two required-override throws below use `className` for the same reason the
+    // plane-identity assertion does (see `assertPlaneIdentity()`): every MCP server class is
+    // literally named `Server`, so `constructor.name` renders the same string for all of them.
+    // These two fire synchronously with the caller's own stack, so the ambiguity is not
+    // load-bearing the way the queued-boot case was — but a file that discriminates at two
+    // sites and not two others leaves the next misdiagnosis to find the unconverted pair.
+
     /**
      * @summary Override: return the MCP server metadata.
      * @returns {{name: String, version: String|undefined, capabilities: Object|undefined}}
      */
     getServerMetadata() {
-        throw new Error(`${this.constructor.name}: must override getServerMetadata() to return {name, version?, capabilities?}`);
+        throw new Error(`${this.className}: must override getServerMetadata() to return {name, version?, capabilities?}`);
     }
 
     /**
@@ -140,7 +147,7 @@ class BaseServer extends Base {
      * @returns {{listTools: Function, callTool: Function}}
      */
     getToolService() {
-        throw new Error(`${this.constructor.name}: must override getToolService() to return {listTools, callTool}`);
+        throw new Error(`${this.className}: must override getToolService() to return {listTools, callTool}`);
     }
 
     // ===== Optional override hooks (defaults provided) =====
@@ -591,16 +598,23 @@ class BaseServer extends Base {
     assertPlaneIdentity() {
         if (!this.isPlaneMember()) return null;
 
+        // `className`, not `constructor.name`: EVERY MCP server class is named `Server`, so
+        // `constructor.name` renders `[Server]` for all of them and cannot identify its own
+        // thrower. That ambiguity is not cosmetic — this assertion can fire from a queued boot
+        // after the caller has moved on, so the surrounding stack and test context no longer
+        // point at the origin. The message is then the only evidence of which server failed.
+        // `className` is class-level and survives instance destruction (verified against a
+        // destroyed instance), so it still resolves in exactly that late-boot case.
         if (!this.aiConfig) {
             throw new Error(
-                `[${this.constructor.name}] declared plane member booted without aiConfig — plane identity unresolvable.`
+                `[${this.className}] declared plane member booted without aiConfig — plane identity unresolvable.`
             );
         }
         const {plane} = this.aiConfig;
 
         if (!plane) {
             throw new Error(
-                `[${this.constructor.name}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
+                `[${this.className}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
             );
         }
         const observed = assertPlaneCoherence({
