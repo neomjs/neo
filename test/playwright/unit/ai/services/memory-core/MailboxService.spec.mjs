@@ -1685,6 +1685,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 '[ticket-created][lane-claim][#15900] ai:config-print — dump resolved AiConfig leaves at a head',
                 '[ticket-created][lane-claim][#15886] the ESM-module-cache pollution class — split from #15874',
                 '[ticket-created][lane-claim][#15899] + [pr-opened][PR #15901] the morph beat found a SECOND defect',
+                '[ticket-created][lane-claim][#15875] the AC5 crash root-caused: logger.mjs carries a live A1 fallback',
+                '[ticket-created][lane-claim][#15873] ADR 0012 §2.2 alignment + firing-history correction',
+                '[ticket-created][lane-claim][#15868] Found it: the registry says createdAt is immutable, the reconciler deletes it',
+                '[ticket-created][lane-claim][#15863] The 4th+5th engine-fact sites are PROSE',
                 // Compound subject: the claim rides AFTER a `·` separator, not at the start.
                 '[pr-updated][PR #15840][95f859b706] workstation tear-out is spec-proven · [ticket-created][lane-claim][#15895] the morph beat exposed a real engine gap',
                 // A review SEAT is claimable — an observed collision had two families take the same seat.
