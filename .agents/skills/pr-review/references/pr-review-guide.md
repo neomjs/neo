@@ -242,7 +242,7 @@ Future-work suggestions, non-blocking observations, and follow-up ideas are revi
 
 Exact-head required CI is routine unit/integration evidence. Do not search for or rerun "related tests" to duplicate green CI. Run and record a targeted falsifier only for a concrete behavior CI does not establish.
 
-**Citation vs inference:** verify the citation; RUN the inference — anything downstream of "therefore / so / which means / hence" in your draft is an inference; grep the connective before submitting ([correction-culture](../../../../learn/agentos/process/correction-culture.md)).
+**Citation vs inference:** verify the citation; RUN the inference — anything downstream of "therefore / so / which means / hence" in your draft is an inference; grep the connective before submitting (correction-culture).
 
 Deployment proof gates only if it can deploy the exact unmerged head. Consumers limited to merged `dev` / `main` / release artifacts make it Post-Merge Validation; failure becomes a new ticket.
 
