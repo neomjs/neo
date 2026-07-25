@@ -142,6 +142,8 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 
 Measured on the exemplar before removal: the plane literals had **one** consumer (the config itself); **every** production caller of the data-root resolver passed `{env: {}}` to switch its env path off; and the identity resolver had **no production caller at all**. The second resolution path was exercised only by its own tests.
 
+**The sanction was actively propagating.** On 2026-07-25 a second instance was built — `ai/stopHookConfig.mjs`, authored explicitly *"via the ADR-0019 §5.5/§10.1 pure-defaults twin, leaf declares FROM it"* — and deleted the same day (`3a6d8bfafc`) once the shape was questioned. A sanctioned pattern that spawns a fresh instance within hours of being cited and then needs reverting is not a pattern being followed correctly; it is a trap the sanction sets. That is the strongest argument for retirement over re-justification, and it is why this subsection now records a removal rather than prescribing a shape.
+
 The shape now: **one exported constant** (`CANONICAL_PLANE_ID` — crossing the boundary because the `plane.id` leaf declares it *and* §10.4's coherence assertion compares against it, so drift between them would let an overlay pass as canonical), plus pure functions. The anchor computation takes `rootDir` and reads no environment. **Env binding belongs to the leaf, unconditionally and alone.**
 
 **Sharing a pure FUNCTION is not A3 and never needed an exception** — that is ordinary reuse. Only a LITERAL outside the leaf needs §5.5's anchor reason. The A3 test is **direction**: a helper the leaf declares FROM is sanctioned; one an entrypoint calls INSTEAD of reading the leaf is A3, whatever its audience.
