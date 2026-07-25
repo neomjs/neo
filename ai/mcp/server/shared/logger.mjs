@@ -436,8 +436,9 @@ export const createLogger = (aiConfig = {}, fallbackLoggerConfig = {}) => {
         // its leaves expose ANCHOR DEFAULTS — on an env-relocated deployment the first write
         // would land in the canonical plane. Pre-ready lines route to stderr; the file sink
         // starts with the resolved overlay. Plain-object configs carry no `isReady` and are
-        // file-eligible immediately.
-        if (aiConfig?.isReady === false) {
+        // file-eligible immediately; the read is deliberately direct — a non-object caller is
+        // a contract violation that fails loud here (no defensive `?.`).
+        if (aiConfig.isReady === false) {
             process.stderr.write(formatLogLine(level, args, loggerConfig));
             return;
         }

@@ -452,8 +452,14 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
 test.describe('Neo.ai.mcp.server.shared.Logger — log-path resolution contract', () => {
     let originalStderrWrite;
 
-    const makeTmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'neo-logger-contract-'));
-    const dayName    = prefix => `${prefix}-${new Date().toISOString().slice(0, 10)}.log`;
+    const tmpDirs    = [];
+    const makeTmpDir = () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-logger-contract-'));
+
+        tmpDirs.push(dir);
+        return dir;
+    };
+    const dayName = prefix => `${prefix}-${new Date().toISOString().slice(0, 10)}.log`;
 
     test.beforeEach(() => {
         originalStderrWrite = process.stderr.write;
@@ -461,6 +467,8 @@ test.describe('Neo.ai.mcp.server.shared.Logger — log-path resolution contract'
 
     test.afterEach(() => {
         process.stderr.write = originalStderrWrite;
+
+        tmpDirs.splice(0).forEach(dir => fs.rmSync(dir, {force: true, recursive: true}));
     });
 
     test('file sink with NO resolvable path throws a named error at construction', () => {
@@ -535,7 +543,7 @@ test.describe('Neo.ai.mcp.server.shared.Logger — log-path resolution contract'
         process.stderr.write = chunk => { written.push(String(chunk)); return true; };
 
         try {
-            const logger = createLogger({data: {logPath: dir}}, {fileSink: true, filePrefix: prefix});
+            const logger = createLogger({data: {logPath: dir}}, {fileSink: true, filePrefix: prefix, flush: true});
 
             logger.info('first-write-arms-the-stream');
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -545,6 +553,11 @@ test.describe('Neo.ai.mcp.server.shared.Logger — log-path resolution contract'
             expect(escaped).toHaveLength(0);
             expect(written.join('')).toContain('file sink unavailable');
             expect(written.join('')).toContain('post-failure-write');
+
+            // flush() must SETTLE on a dead sink — the error handler nulls currentStream, so
+            // the fast-resolve branch fires; a hang here is a shutdown-path regression (the
+            // test timeout is the falsifier).
+            await logger.flush();
         } finally {
             process.removeListener('uncaughtException', trap);
         }
