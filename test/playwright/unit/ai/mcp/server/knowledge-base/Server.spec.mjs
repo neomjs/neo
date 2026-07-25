@@ -62,6 +62,24 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
         Server = (await import('../../../../../../../ai/mcp/server/knowledge-base/Server.mjs')).default;
     });
 
+    test('#15886: the plane-identity assertion names its ORIGIN server, not the shared class name', async () => {
+        const serverInstance = await createServerWithoutBoot();
+
+        // Reproduce the exact state the queued-boot race produced: an instance whose `aiConfig`
+        // is gone. `destroy()` deletes it (a writable own property), which is what made the
+        // original defect throw from a server nobody could identify.
+        serverInstance.destroy();
+
+        // `className` survives destruction, so the diagnostic still resolves here — the one
+        // condition it has to work in.
+        expect(() => serverInstance.assertPlaneIdentity())
+            .toThrow(/\[Neo\.ai\.mcp\.server\.knowledge-base\.Server] declared plane member booted without aiConfig/);
+
+        // The regression guard: `constructor.name` is `Server` for EVERY MCP server class, so a
+        // bare `[Server]` prefix identifies nothing. This is what the message used to say.
+        expect(() => serverInstance.assertPlaneIdentity()).not.toThrow(/\[Server]/);
+    });
+
     test('#12752/#13464: health exemptions expose recovery tools but not retired database lifecycle tools', async () => {
         const serverInstance = await createServerWithoutBoot();
 

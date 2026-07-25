@@ -591,16 +591,23 @@ class BaseServer extends Base {
     assertPlaneIdentity() {
         if (!this.isPlaneMember()) return null;
 
+        // `className`, not `constructor.name`: EVERY MCP server class is named `Server`, so
+        // `constructor.name` renders `[Server]` for all of them and cannot identify its own
+        // thrower. That ambiguity is not cosmetic — this assertion can fire from a queued boot
+        // after the caller has moved on, so the surrounding stack and test context no longer
+        // point at the origin. The message is then the only evidence of which server failed.
+        // `className` is class-level and survives instance destruction (verified against a
+        // destroyed instance), so it still resolves in exactly that late-boot case.
         if (!this.aiConfig) {
             throw new Error(
-                `[${this.constructor.name}] declared plane member booted without aiConfig — plane identity unresolvable.`
+                `[${this.className}] declared plane member booted without aiConfig — plane identity unresolvable.`
             );
         }
         const {plane} = this.aiConfig;
 
         if (!plane) {
             throw new Error(
-                `[${this.constructor.name}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
+                `[${this.className}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
             );
         }
         const observed = assertPlaneCoherence({
