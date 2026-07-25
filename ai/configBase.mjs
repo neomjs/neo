@@ -85,7 +85,7 @@ class ConfigBase extends ConfigProvider {
                  * member keeping its own env escape.
                  * @type {string}
                  */
-                dataRoot: leaf(planeDataRootDefault, 'NEO_PLANE_DATA_ROOT', 'string')
+                dataRoot: leaf(planeDataRootDefault, 'NEO_PLANE_DATA_ROOT', 'string', {planeMember: false, planeMemberReason: 'the anchor itself — members derive from it; it is not its own member'})
             },
             /**
              * Turn-end stop-hook policy — two INDEPENDENT axes that were previously welded to one
@@ -134,13 +134,13 @@ class ConfigBase extends ConfigProvider {
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
-            backupPath: leaf(path.resolve(planeDataRootDefault, 'backups'), 'NEO_BACKUP_PATH', 'string'),
+            backupPath: leaf(path.resolve(planeDataRootDefault, 'backups'), 'NEO_BACKUP_PATH', 'string', {planeMember: true}),
             /**
              * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
              * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
              * @type {string}
              */
-            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(planeDataRootDefault, 'wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string'),
+            wakeDaemonHeartbeatAlivePath: leaf(path.resolve(planeDataRootDefault, 'wake-daemon/heartbeat.alive'), 'NEO_HEARTBEAT_ALIVE_PATH', 'string', {planeMember: true}),
             /**
              * Fleet Manager supervision leaves: where per-agent harness instance homes live and
              * which binary each harness family launches. The lifecycle service reads these at the
@@ -154,7 +154,7 @@ class ConfigBase extends ConfigProvider {
                  * checkouts root.
                  * @type {string}
                  */
-                instanceRoot   : leaf(path.resolve(planeDataRootDefault, 'fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string'),
+                instanceRoot   : leaf(path.resolve(planeDataRootDefault, 'fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string', {planeMember: true}),
                 harnessBinaries: {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly
@@ -283,7 +283,7 @@ class ConfigBase extends ConfigProvider {
                  * placed registry fails the boot-time member-coherence clause.
                  * @type {String}
                  */
-                seatTokenRegistryPath: leaf(path.resolve(planeDataRootDefault, 'seat-tokens/registry.json'), 'NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH', 'string', {
+                seatTokenRegistryPath: leaf(path.resolve(planeDataRootDefault, 'seat-tokens/registry.json'), 'NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH', 'string', {planeMember: true,
                     requiredFor: [{
                         entrypoints   : '*',
                         modes         : ['seat-token'],
@@ -599,7 +599,7 @@ class ConfigBase extends ConfigProvider {
                 chroma: {
                     // Env-bindable like its host/port siblings: a packaged harness ships the organism in a
                     // read-only(ish) resources dir and must move the persist dir to a per-user data root.
-                    dataDirProd: leaf(path.resolve(planeDataRootDefault, 'chroma/unified'), 'NEO_CHROMA_DATA_DIR', 'string'),
+                    dataDirProd: leaf(path.resolve(planeDataRootDefault, 'chroma/unified'), 'NEO_CHROMA_DATA_DIR', 'string', {planeMember: true}),
                     dataDirTest: leaf(chromaUnitTestDataDir, 'NEO_CHROMA_DATA_DIR_TEST', 'string'),
                     hostProd   : leaf('localhost', 'NEO_CHROMA_HOST', 'string'),
                     hostTest   : leaf('localhost', 'NEO_CHROMA_HOST_TEST', 'string'),
@@ -684,7 +684,7 @@ class ConfigBase extends ConfigProvider {
                  * contract: no consumer re-derives from env, no consumer holds a hidden default.
                  * @type {String}
                  */
-                dataDir: leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon'), 'NEO_AI_ORCHESTRATOR_DIR', 'string'),
+                dataDir: leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon'), 'NEO_AI_ORCHESTRATOR_DIR', 'string', {planeMember: true}),
                 /**
                  * SQLite Memory Core graph database file the orchestrator opens for graph-backed
                  * health checks and maintenance decisions. Derives from the declared plane anchor
@@ -696,7 +696,7 @@ class ConfigBase extends ConfigProvider {
                  * hidden default.
                  * @type {String}
                  */
-                dbPath: leaf(path.resolve(planeDataRootDefault, 'sqlite/memory-core-graph.sqlite'), 'NEO_AI_DB_PATH', 'string'),
+                dbPath: leaf(path.resolve(planeDataRootDefault, 'sqlite/memory-core-graph.sqlite'), 'NEO_AI_DB_PATH', 'string', {planeMember: true}),
                 /**
                  * Deployment profile for Agent OS maintenance ownership.
                  * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
@@ -718,7 +718,7 @@ class ConfigBase extends ConfigProvider {
                  * plane-placement election owns unifying profile-pinned members.
                  * @type {String}
                  */
-                tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string'),
+                tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string', {planeMember: false, planeMemberReason: 'cloud-profile-pinned — the per-profile placement election owns profile-pinned members (#15798 OQ10b)'}),
                 /**
                  * Provider-readiness probe parameters consumed by the orchestrator dream task
                  * and the standalone Sandman CLI runner. The probe issues an HTTP GET against
@@ -827,7 +827,7 @@ class ConfigBase extends ConfigProvider {
                  */
                 deploymentStateBridge: {
                     enabled                     : leaf(true, 'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', 'boolean'),
-                    snapshotPath                : leaf(path.resolve(planeDataRootDefault, 'deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string'),
+                    snapshotPath                : leaf(path.resolve(planeDataRootDefault, 'deployment-state/snapshot.json'), 'NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH', 'string', {planeMember: true}),
                     writeIntervalMs             : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS', 'number'),
                     staleAfterMs                : leaf(2 * 60 * 1000, 'NEO_DEPLOYMENT_STATE_BRIDGE_STALE_AFTER_MS', 'number'),
                     maxSnapshotBytes            : leaf(256 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_MAX_BYTES', 'number'),
@@ -1189,8 +1189,8 @@ class ConfigBase extends ConfigProvider {
                     blockedSupervisedTasks     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_SUPERVISED_TASKS', 'csv'),
                     blockedComposeServices     : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_COMPOSE_SERVICES', 'csv'),
                     blockedDeployTargets       : leaf([], 'NEO_RECOVERY_ACTUATOR_BLOCKED_DEPLOY_TARGETS', 'csv'),
-                    healAttemptsPath           : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string'),
-                    recoveryRunStateDir        : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string'),
+                    healAttemptsPath           : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/heal-attempts.json'), 'NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH', 'string', {planeMember: true}),
+                    recoveryRunStateDir        : leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon/recovery-runs'), 'NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR', 'string', {planeMember: true}),
                     recoveryRunRetentionLimit  : leaf(100, 'NEO_RECOVERY_ACTUATOR_RUN_RETENTION_LIMIT', 'number'),
                     maxAttemptsPerWindow       : leaf(3, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_PER_WINDOW', 'number'),
                     maxAttemptsWindowMs        : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_ATTEMPTS_WINDOW_MS', 'number'),

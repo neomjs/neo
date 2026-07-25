@@ -199,7 +199,7 @@ class ConfigBase extends ConfigProvider {
                  * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
                  * @type {string}
                  */
-                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string'),
+                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string', {planeMember: false, planeMemberReason: 'open membership decision — the graph SQLite is the plane core artifact with a plane-anchored default yet no declared membership; tracked by #15872 (membership + anchor alignment + the KB/NL memoryCoreDbPathProd sibling divergence). Explicit non-member until that ticket rules.'}),
                 /**
                  * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
                  * @type {string}
@@ -228,7 +228,7 @@ class ConfigBase extends ConfigProvider {
              * keeps its explicit override leaf.
              */
             wakeDaemon: {
-                dataDir                               : leaf(path.resolve(planeDataRoot, 'wake-daemon'), 'NEO_AI_DAEMON_DIR', 'string'),
+                dataDir                               : leaf(path.resolve(planeDataRoot, 'wake-daemon'), 'NEO_AI_DAEMON_DIR', 'string', {planeMember: true}),
                 bridgeLastSyncIdPathOverride          : leaf(null, 'NEO_BRIDGE_LAST_SYNC_ID_PATH', 'string'),
                 wakeSubscriptionLiveCursorPathOverride: leaf(null, 'NEO_AI_WAKE_SUBSCRIPTION_CURSOR_FILE', 'string')
             },
@@ -285,14 +285,14 @@ class ConfigBase extends ConfigProvider {
              */
             datasets: {
                 rlaif: {
-                    trajectories: leaf(path.resolve(planeDataRoot, 'datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string')
+                    trajectories: leaf(path.resolve(planeDataRoot, 'datasets/rlaif/trajectories.jsonl'), 'NEO_RLAIF_PATH', 'string', {planeMember: true})
                 }
             },
             /**
              * Directory for per-cycle REM run/stage JSONL state artifacts.
              * @type {string}
              */
-            remRunStateDir: leaf(path.resolve(planeDataRoot, 'rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string'),
+            remRunStateDir: leaf(path.resolve(planeDataRoot, 'rem-runs'), 'NEO_REM_RUN_STATE_DIR', 'string', {planeMember: true}),
             /**
              * Stall threshold for the REM consolidation-liveness watchdog: max age (ms) since the last
              * successful REM cycle before the watchdog records/raises a consolidation stall. Default 6h
@@ -354,7 +354,7 @@ class ConfigBase extends ConfigProvider {
                  * Production WAL segment directory. Declarative leaf; env override via `NEO_MEMORY_WAL_DIR`.
                  * @type {string}
                  */
-                dirProd        : leaf(path.resolve(planeDataRoot, 'memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string'),
+                dirProd        : leaf(path.resolve(planeDataRoot, 'memory-wal'), 'NEO_MEMORY_WAL_DIR', 'string', {planeMember: true}),
                 /**
                  * Unit-test WAL directory: per-worker-unique under the OS temp root (module const above).
                  * @type {string}
@@ -389,7 +389,7 @@ class ConfigBase extends ConfigProvider {
                  * env override via `NEO_MEMORY_EMBED_DAEMON_DIR`.
                  * @type {string}
                  */
-                daemonDataDir  : leaf(path.resolve(planeDataRoot, 'embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string'),
+                daemonDataDir  : leaf(path.resolve(planeDataRoot, 'embed-daemon'), 'NEO_MEMORY_EMBED_DAEMON_DIR', 'string', {planeMember: true}),
                 /**
                  * Embed-daemon drain cadence. Per-turn saves arrive minutes apart; 5s keeps
                  * semantic recall near-realtime without hot-looping the store. This cadence is
@@ -474,7 +474,7 @@ class ConfigBase extends ConfigProvider {
                  * Data directory (PID file, rotating log) for the local message WAL drain daemon.
                  * @type {string}
                  */
-                daemonDataDir : leaf(path.resolve(planeDataRoot, 'message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string'),
+                daemonDataDir : leaf(path.resolve(planeDataRoot, 'message-daemon'), 'NEO_MESSAGE_WAL_DAEMON_DIR', 'string', {planeMember: true}),
                 /**
                  * Message WAL drain cadence. Mirrors memory WAL cadence; the replay semantics are
                  * owned by the message drain processor, while this leaf owns host scheduling.
@@ -553,7 +553,7 @@ class ConfigBase extends ConfigProvider {
              * admitted target and never supplies a filesystem path.
              * @type {string}
              */
-            hookProjectionRoot: leaf(path.resolve(planeDataRoot, 'hook-projections'), 'NEO_HOOK_PROJECTION_ROOT', 'string'),
+            hookProjectionRoot: leaf(path.resolve(planeDataRoot, 'hook-projections'), 'NEO_HOOK_PROJECTION_ROOT', 'string', {planeMember: true}),
             /**
              * Minimum `daysIdle * max(structuralWeight, 1)` score required for Silent Threads.
              * @type {number}
@@ -632,7 +632,7 @@ class ConfigBase extends ConfigProvider {
              * synthesizer runs in that daemon).
              * @type {string}
              */
-            goldenPathRouteAttributionLedgerDirProd: leaf(path.resolve(planeDataRoot, 'orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
+            goldenPathRouteAttributionLedgerDirProd: leaf(path.resolve(planeDataRoot, 'orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string', {planeMember: true}),
             /**
              * Unit-test ledger directory — under the OS temp root so test-mode emits stay off the production
              * `.neo-ai-data` path. Declarative leaf; test-mode resolved by construction via the formula below.
@@ -733,7 +733,7 @@ class ConfigBase extends ConfigProvider {
              * `nl-server-`). Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_MEMORY_LOG_PATH', 'string'),
+            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_MEMORY_LOG_PATH', 'string', {planeMember: true}),
             /**
              * @summary Retention policy for Memory Core MCP diagnostic log files.
              *
@@ -839,7 +839,7 @@ class ConfigBase extends ConfigProvider {
              * Target file path for the lazy backfill queue of unresolved provenance edges.
              * @type {string}
              */
-            lazyEdgesQueuePath: leaf(path.resolve(planeDataRoot, 'memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string')
+            lazyEdgesQueuePath: leaf(path.resolve(planeDataRoot, 'memory-core/lazy-edges.jsonl'), 'NEO_LAZY_EDGES_QUEUE_PATH', 'string', {planeMember: true})
         },
         /**
          * Reactive computed config values (`Neo.state.Provider` formulas — recompute when a dependency changes).
