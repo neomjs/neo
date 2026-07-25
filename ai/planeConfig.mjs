@@ -2,17 +2,21 @@ import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
- * @summary The plane-identity pure-defaults twin — the sanctioned non-entrypoint companion
- * (ticket-ref-ok: ADR 0019 §5.5 names this exact module shape) to the `plane` leaf subtree
- * in `ai/configBase.mjs`.
+ * @summary Plane-identity helpers for the CONFIG layer: the opacity predicate, the leaf's env
+ * parser, the module-scope anchor computation, and the boot coherence assertions.
  *
- * Non-entrypoints (host CLI scripts, per-harness-family hook writers, host daemons) must not
- * import Neo singletons. This module carries the SAME env-var names and default literals the leaf
- * subtree declares — and the leaf subtree imports THESE constants as its declaration source, so
- * leaf↔twin drift is impossible by construction. The resolver semantics are equivalent to the
- * leaf's env layer by construction too (for strings, truthiness and the provider's emptiness
- * partition identically — `''` is the only falsy string), so the pairing test pins that
- * equivalence rather than guarding a live drift channel.
+ * **This module reads no environment.** It used to — it carried a parallel env-resolution path
+ * (`resolvePlaneId`, and an `env` argument on the anchor computation) alongside the leaf's own env
+ * layer. That was the duplication the config SSOT bans: two resolvers for one value, able to
+ * disagree. Every production caller had already opted out by passing `{env: {}}`, and the identity
+ * resolver had no production caller at all — the second path was exercised only by its own tests.
+ * The leaf machinery owns env binding, unconditionally and alone.
+ *
+ * **Why it stays free of Neo imports**, now that the "serves non-Neo consumers" story is retired:
+ * because its consumers are **config files** — `ai/configBase.mjs` and the three per-server config
+ * bases — and a config cannot read the Provider that does not exist yet. That is the genuine
+ * chicken-and-egg, and it is the whole justification. It is not a companion module shadowing the
+ * config; it is the config layer's own helper.
  *
  * The three concepts this plane API never conflates:
  * - **identity** — the opaque `planeId` (never a path, never checkout-shaped: a checkout-shaped
@@ -21,23 +25,31 @@ import path from 'node:path';
  * - **checkout root** — `NEO_AI_CANONICAL_ROOT`, which names a checkout for provisioning-time
  *   hydration (`bootstrapWorktree.mjs`) and is explicitly NOT the plane identity.
  */
-export const PLANE_ENV = Object.freeze({
-    dataRoot: 'NEO_PLANE_DATA_ROOT',
-    planeId : 'NEO_PLANE_ID'
-});
 
-export const PLANE_DEFAULTS = Object.freeze({
-    /**
-     * Relative to the injected root; the leaf side resolves it against `neoRootDir`,
-     * non-entrypoint consumers inject their own discovered root.
-     */
+/**
+ * @summary The institution's canonical local plane identity — the ONE exported literal.
+ *
+ * It crosses the module boundary because two consumers must compare against the same value: the
+ * `plane.id` leaf declares it as its default, and {@link assertPlaneCoherence} treats it as the
+ * canonical identity a declared overlay must not resolve to. If those two drifted, an overlay could
+ * be mistaken for canonical and mutate the durable plane — so this is one literal with two
+ * consumers, not a defaults copy kept in step.
+ *
+ * Overlays, cloud deployments and ephemeral isolation planes override it through the leaf's env
+ * binding — a stable literal, deliberately carrying no path or checkout content.
+ * @type {String}
+ */
+export const CANONICAL_PLANE_ID = 'neo-local-canonical';
+
+/**
+ * Module-internal only. `dataRootRelative` is consumed by the opacity predicate and the anchor
+ * computation below; nothing outside this file needs either value.
+ * @type {Object}
+ * @private
+ */
+const PLANE_DEFAULTS = Object.freeze({
     dataRootRelative: '.neo-ai-data',
-    /**
-     * The institution's canonical local plane. Overlays, cloud deployments, and ephemeral
-     * isolation planes override via env — a stable literal, deliberately carrying no
-     * path or checkout content.
-     */
-    planeId: 'neo-local-canonical'
+    planeId         : CANONICAL_PLANE_ID
 });
 
 /**
@@ -76,44 +88,26 @@ export function parsePlaneIdEnv(envVarName, {env = process.env} = {}) {
 }
 
 /**
- * @summary Resolves the plane identity without importing Neo singletons. The RESOLVED value
- * (override or default) must satisfy the opacity invariant — fail loud, never propagate a
- * path-shaped identity.
- * @param {Object} [options]
- * @param {Object} [options.env=process.env] Environment source.
- * @returns {String}
- */
-export function resolvePlaneId({env = process.env} = {}) {
-    const override = env[PLANE_ENV.planeId];
-    const resolved = override ? override : PLANE_DEFAULTS.planeId;
-
-    if (!isOpaquePlaneId(resolved)) {
-        throw new Error(
-            `planeConfig.resolvePlaneId: "${resolved}" is not an opaque planeId — ` +
-            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
-        );
-    }
-    return resolved
-}
-
-/**
- * @summary Resolves the plane data root without importing Neo singletons.
+ * @summary Computes the plane data-root ANCHOR a config's leaf defaults derive from — a pure path
+ * join over a caller-supplied root, with no environment access of any kind.
+ *
+ * It reads no env on purpose. The `plane.dataRoot` leaf binds `NEO_PLANE_DATA_ROOT` and the leaf
+ * machinery resolves it; a second env read here would be a resolver competing with that one, able
+ * to disagree with it. This function answers only "where does the anchor sit when nothing has
+ * relocated it" — relocation is the leaf's job, and every caller reaches this for the anchor alone.
+ *
+ * `rootDir` is required rather than defaulted: a config that trusted ambient cwd would land its
+ * plane wherever the process happened to start, which is the alternate-realities defect the plane
+ * contract exists to remove.
  * @param {Object} options
- * @param {Object} [options.env=process.env] Environment source.
  * @param {String} options.rootDir Discovered repository / deployment root the relative default anchors on.
  * @returns {String}
  */
-export function resolvePlaneDataRoot({env = process.env, rootDir} = {}) {
-    const override = env[PLANE_ENV.dataRoot];
-
-    if (override) {
-        return override
-    }
-
+export function resolvePlaneDataRoot({rootDir} = {}) {
     if (!rootDir) {
         throw new Error(
-            `planeConfig.resolvePlaneDataRoot: rootDir is required when ${PLANE_ENV.dataRoot} is unset — ` +
-            'a non-entrypoint consumer must inject its discovered root rather than trusting ambient cwd.'
+            'planeConfig.resolvePlaneDataRoot: rootDir is required — a config must inject its ' +
+            'discovered root rather than trusting ambient cwd.'
         );
     }
 
