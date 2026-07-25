@@ -1793,12 +1793,13 @@ class Workspace extends Container {
      * @param {Boolean} [options.reenter=false] Walk back inside instead of releasing — the morph witness.
      * @returns {Promise<Object>}
      */
-    async executeTearOutStep(step, {cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false}={}) {
+    async executeTearOutStep(step, {cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false}={}) {
         let me                     = this,
             {itemId, sourceNodeId} = step || {},
             document               = me.dockModel,
             node                   = document?.nodes?.[sourceNodeId],
             button                 = null,
+            cursorDot              = null,
             release                = null;
 
         if (!itemId || node?.type !== 'tabs' || !node.items.includes(itemId)) {
@@ -1842,10 +1843,18 @@ class Workspace extends Container {
                 opt     = (clientX, clientY, screenX, screenY, buttons) => ({
                     bubbles: true, button: 0, buttons, cancelable: true, clientX, clientY, screenX, screenY
                 }),
-                moveTo  = (x, y) => me.interactionService.simulateEvent({events: [{
-                    delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
-                    options: opt(x, y, window.innerRect.x + x, window.innerRect.y + y, 1)
-                }]});
+                moveTo  = (x, y) => {
+                    // The visible cursor rides the executor's own coordinate log — never a
+                    // second derivation that could disagree with what the gesture actually did.
+                    if (cursorDot) {
+                        cursorDot.style = {...cursorDot.style, left: `${x - 8}px`, top: `${y - 8}px`}
+                    }
+
+                    return me.interactionService.simulateEvent({events: [{
+                        delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                        options: opt(x, y, window.innerRect.x + x, window.innerRect.y + y, 1)
+                    }]})
+                };
 
             // A stale record from a prior gesture would false-open the birth gate.
             delete me.tearOutConnects[itemId];
@@ -1870,6 +1879,33 @@ class Workspace extends Container {
                 let cancellation = await me.cancelTearOutGesture(button, {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY});
 
                 return {applied: false, errors: ['tear-out drag did not arm'], proof: {armed: false, cancellation, documentBefore}}
+            }
+
+            // Film mode only: the visible synthetic cursor. CDP-dispatched pointer events move no
+            // OS cursor, so an unassisted take reads as UI-moving-itself. The dot rides the SAME
+            // coordinates the executor logs (single source of truth — it never re-derives a
+            // position), stays pointer-events:none, and never enters the dock document (worker
+            // truth is blind to it by construction: it is a presentation layer for the camera).
+            if (showCursor) {
+                cursorDot = Neo.create({
+                    ntype   : 'component',
+                    appName : me.appName,
+                    parentId: me.id,
+                    cls     : ['film-cursor'],
+                    style   : {
+                        backgroundColor: 'rgba(255, 90, 0, 0.92)',
+                        borderRadius   : '50%',
+                        boxShadow      : '0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85)',
+                        display        : 'block',
+                        height         : '16px',
+                        left           : `${startX - 8}px`,
+                        pointerEvents  : 'none',
+                        position       : 'fixed',
+                        top            : `${startY - 8}px`,
+                        width          : '16px',
+                        zIndex         : 99999
+                    }
+                })
             }
 
             // The tear-out exit fires when the proxy LEAVES `boundaryContainerRect`. Target past
@@ -2040,6 +2076,10 @@ class Workspace extends Container {
             button && await me.cancelTearOutGesture(button, release).catch(() => {});
 
             return {applied: false, errors: [error?.message || String(error)]}
+        } finally {
+            // The synthetic cursor is per-gesture presentation: it never outlives the take's
+            // gesture, and it never enters worker truth (pointer-events:none, no dock document).
+            cursorDot?.destroy()
         }
     }
 

@@ -48,7 +48,40 @@ import {test, expect} from '../../fixtures.mjs';
 // witness is not a take.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
+    filmPace = filmTake ? {curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true} : {};
+
+/**
+ * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
+ * the instance-addressed placement verb (never AppleScript: two same-bundle Chrome processes make
+ * script addressing flip-flop, which is why the boot already fronts via CDP).
+ *
+ * The stage rule: default is the window's NATURAL landing position with the size pinned — measured
+ * deterministic on this host (identical bounds across runs) — because an explicit cross-display
+ * target (the take-4 BenQ receipt, global x≥1728) currently breaks the morph leg: the tear-out's
+ * vessel/drag geometry does not survive the main window living on a secondary display (return
+ * samples measure ratio 0 — the finding is filed separately). An explicit stage is still available
+ * via `NEO_FILM_DISPLAY_BOUNDS="left,top,width,height"` for hosts where it is verified working;
+ * every landing is logged through `Browser.getWindowBounds`, never silent.
+ * @param {Object} page Playwright page.
+ * @returns {Promise<Object>} the verified window bounds
+ */
+async function pinToCaptureDisplay(page) {
+    const session    = await page.context().newCDPSession(page),
+          {windowId} = await session.send('Browser.getWindowForTarget'),
+          current    = (await session.send('Browser.getWindowBounds', {windowId})).bounds,
+          override   = process.env.NEO_FILM_DISPLAY_BOUNDS?.split(',').map(Number),
+          target     = override?.length === 4 && override.every(Number.isFinite)
+              ? {left: override[0], top: override[1], width: override[2], height: override[3]}
+              : {left: current.left, top: current.top, width: current.width, height: current.height},
+          {bounds}   = await session.send('Browser.setWindowBounds', {
+              bounds: {...target, windowState: 'normal'}, windowId
+          }).then(() => session.send('Browser.getWindowBounds', {windowId}));
+
+    console.log(`[film-stage] window pinned via Browser.setWindowBounds: ${JSON.stringify(bounds)}` +
+        (override ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
+
+    return bounds
+}
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
 test.use({video: filmTake ? 'on' : 'off'});
@@ -83,8 +116,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // A film take records the physical display: the headed window must be the top of the
         // z-order or the capture shows whatever application happens to cover it. CDP-level and
         // deterministic — never AppleScript (two same-bundle Chrome processes make script
-        // addressing flip-flop between instances).
-        filmTake && await page.bringToFront();
+        // addressing flip-flop between instances). The stage is then pinned to the capture
+        // display, so two takes land in the same frame rather than whichever display the OS chose.
+        if (filmTake) {
+            await page.bringToFront();
+            await pinToCaptureDisplay(page);
+        }
 
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
