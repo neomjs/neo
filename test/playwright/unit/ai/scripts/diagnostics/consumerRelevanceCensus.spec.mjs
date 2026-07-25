@@ -54,7 +54,7 @@ test.describe('consumer-relevance census', () => {
         expect(classifyPath('some/random/thing.xyz')).toBeNull()
     });
 
-    test('classifyPr: majority bucket wins, precedence breaks ties, empty is unclassified', () => {
+    test('classifyPr: majority bucket wins, precedence breaks ties, unclassified names its cause', () => {
         expect(classifyPr(['src/data/Store.mjs', 'src/grid/Container.mjs', 'test/playwright/unit/x.spec.mjs']).bucket)
             .toBe('consumer-direct');
 
@@ -65,8 +65,10 @@ test.describe('consumer-relevance census', () => {
         expect(classifyPr(['docs/guides/x.md', 'learn/agentos/y.md']).bucket)
             .toBe('internal-only');
 
-        expect(classifyPr([]).bucket).toBe('unclassified');
-        expect(classifyPr(['some/random/thing.xyz']).bucket).toBe('unclassified')
+        // The unclassified family names its cause: a zero-file merge is an honest empty row,
+        // files matching no rule are a mapping gap — the legend can never mislabel a member.
+        expect(classifyPr([]).bucket).toBe('unclassified:no-files');
+        expect(classifyPr(['some/random/thing.xyz']).bucket).toBe('unclassified:no-rule')
     });
 
     test('temporal tag rides the bucket only for future-direct subsystems', () => {

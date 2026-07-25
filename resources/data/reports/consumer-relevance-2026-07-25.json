@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-25T17:53:23.058Z",
+  "generatedAt": "2026-07-25T18:18:26.268Z",
   "since": "2026-02-25T00:00:00Z",
   "until": "2026-07-25T17:52:00Z",
   "total": 2520,
@@ -8,7 +8,7 @@
     "consumer-direct:future-direct": 118,
     "consumer-direct:now": 527,
     "internal-only": 303,
-    "unclassified": 1
+    "unclassified:no-files": 1
   },
   "monthly": {
     "2026-07": {
@@ -21,7 +21,7 @@
       "consumer-enabling": 598,
       "internal-only": 124,
       "consumer-direct:now": 200,
-      "unclassified": 1,
+      "unclassified:no-files": 1,
       "consumer-direct:future-direct": 27
     },
     "2026-05": {
@@ -43,6 +43,7 @@
     {
       "pr": "14004",
       "subject": "fix(ai): preserve Memory Core partial-export collection identity (#14001) (#14004)",
+      "bucket": "unclassified:no-files",
       "files": []
     }
   ]

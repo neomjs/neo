@@ -20,10 +20,8 @@
  *    also yields its touched file list in the same pass.
  * 2. Files classify by longest-prefix path rules (the mapping). PR bucket = majority-file bucket,
  *    ties broken by BUCKET_PRECEDENCE (more consumer-visible wins). Zero matched files → the honest
- *    `unclassified` bucket, with the PR list attached.
- * 3. Close-target tickets resolve to their archive frontmatter (labels) for reporting context in
- *    the appendix table; the archive lives under `resources/content/issues/**`. Classification
- *    itself is path-based — labels are display context, never a second classifier.
+ *    `unclassified` family, with the cause in the bucket name (`:no-rule` = mapping gap,
+ *    `:no-files` = zero-file merge) and the PR list attached.
  *
  * The output is dated and deterministic for a fixed window + mapping: the same inputs always
  * produce the same distribution, so a changed number means the corpus or the mapping changed —
@@ -108,6 +106,9 @@ export function classifyPath(filePath) {
 
 /**
  * Resolves one PR record to its bucket: majority-file subsystem bucket, precedence-broken ties.
+ * The unclassified family names its CAUSE, never one blurry bucket: `unclassified:no-files` for a
+ * merge commit touching zero files (a parse-honest empty row) and `unclassified:no-rule` for
+ * touched files no mapping rule covers (a mapping gap — the only cause a reader should act on).
  * @param {String[]} files
  * @returns {{bucket: String, subsystem: String|null, temporal: String|null, ruleCounts: Object}}
  */
@@ -124,7 +125,8 @@ export function classifyPr(files) {
     const entries = Object.entries(ruleCounts);
 
     if (entries.length === 0) {
-        return {bucket: 'unclassified', subsystem: null, temporal: null, ruleCounts}
+        return {bucket: files.length === 0 ? 'unclassified:no-files' : 'unclassified:no-rule',
+            subsystem: null, temporal: null, ruleCounts}
     }
 
     entries.sort((a, b) => b[1] - a[1] || BUCKET_PRECEDENCE.indexOf(a[0]) - BUCKET_PRECEDENCE.indexOf(b[0]));
@@ -189,44 +191,12 @@ export function summarize(records) {
         monthly[month] ??= {};
         monthly[month][key] = (monthly[month][key] || 0) + 1;
 
-        if (record.bucket === 'unclassified') {
+        if (record.bucket?.startsWith('unclassified')) {
             unclassified.push(record)
         }
     }
 
     return {totals, monthly, unclassified}
-}
-
-/**
- * Builds a ticket-id → labels index from the local issue archive (display context only — the
- * classifier is path-based by design; labels never outrank a path rule).
- * @param {String} [archiveRoot] defaults to resources/content/issues
- * @returns {Map<String,String[]>}
- */
-export function buildIssueLabelIndex(archiveRoot = path.join(repoRoot, 'resources/content/issues')) {
-    const index = new Map();
-
-    if (!fs.existsSync(archiveRoot)) return index;
-
-    for (const chunk of fs.readdirSync(archiveRoot, {withFileTypes: true})) {
-        if (!chunk.isDirectory()) continue;
-
-        const dir = path.join(archiveRoot, chunk.name);
-
-        for (const file of fs.readdirSync(dir)) {
-            const id = file.match(/^issue-(\d+)\.md$/)?.[1];
-            if (!id) continue;
-
-            const head   = fs.readFileSync(path.join(dir, file), 'utf8').slice(0, 3000),
-                  labels = [...head.matchAll(/^\s+-\s+(.+)$/gm)]
-                      .map(([, value]) => value.trim())
-                      .filter(value => !value.startsWith('['));
-
-            index.set(id, labels);
-        }
-    }
-
-    return index
 }
 
 function main() {
@@ -238,7 +208,6 @@ function main() {
 
     const records                         = readMergedPrs({since, until}).map(record => ({...record, ...classifyPr(record.files)})),
           {totals, monthly, unclassified} = summarize(records),
-          labelIndex                      = buildIssueLabelIndex(),
           generatedAt                     = new Date().toISOString();
 
     const lines = [
@@ -275,34 +244,35 @@ function main() {
         '',
         `## Unclassified (${unclassified.length})`,
         '',
-        'PRs whose touched files match no mapping rule — listed, never silently omitted. A growing row here is a mapping gap, not a corpus defect.'
+        'Listed, never silently omitted — and the bucket names its cause, because the two causes '
+        + 'are different acts: `unclassified:no-rule` means touched files matched NO mapping rule '
+        + '(a growing row here is a mapping gap — act on it); `unclassified:no-files` means the '
+        + 'merge commit touches zero files (an honest empty row, not a gap).'
     );
 
     for (const record of unclassified) {
         const shown = record.files.slice(0, 4).join(', ') || '—';
 
-        lines.push(`- #${record.pr} ${record.subject} — files: ${shown}${record.files.length > 4 ? '…' : ''}`)
+        lines.push(`- #${record.pr} ${record.subject} — ${record.bucket} — files: ${shown}${record.files.length > 4 ? '…' : ''}`)
     }
 
     lines.push(
         '',
         '## Appendix: per-PR table',
         '',
-        '| PR | Date | Bucket | Subsystem | Ticket labels | Files |',
-        '|---|---|---|---|---|---|'
+        '| PR | Date | Bucket | Subsystem | Files |',
+        '|---|---|---|---|---|'
     );
 
     for (const record of records) {
-        const labels = (labelIndex.get(record.ticket) || []).join(', ') || '—';
-
-        lines.push(`| ${record.pr} | ${record.date.slice(0, 10)} | ${record.temporal ? `${record.bucket}:${record.temporal}` : record.bucket} | ${record.subsystem ?? '—'} | ${labels} | ${record.files.length} |`)
+        lines.push(`| ${record.pr} | ${record.date.slice(0, 10)} | ${record.temporal ? `${record.bucket}:${record.temporal}` : record.bucket} | ${record.subsystem ?? '—'} | ${record.files.length} |`)
     }
 
     const markdown = lines.join('\n') + '\n',
           // The committed JSON carries the distribution, never the bulk corpus — the full per-PR
           // table lives in the markdown appendix, and the corpus itself is reproducible by re-running.
           json     = JSON.stringify({generatedAt, since, until, total, totals, monthly,
-              unclassified: unclassified.map(({pr, subject, files}) => ({pr, subject, files}))}, null, 2);
+              unclassified: unclassified.map(({pr, subject, bucket, files}) => ({pr, subject, bucket, files}))}, null, 2);
 
     if (mdOut)   { fs.mkdirSync(path.dirname(mdOut), {recursive: true});   fs.writeFileSync(mdOut, markdown) }
     if (jsonOut) { fs.mkdirSync(path.dirname(jsonOut), {recursive: true}); fs.writeFileSync(jsonOut, json) }
