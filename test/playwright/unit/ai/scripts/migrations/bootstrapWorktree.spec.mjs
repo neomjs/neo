@@ -585,6 +585,27 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(await fs.readFile(path.join(dst, 'canary.txt'), 'utf-8')).toBe('main-memory-wal-canary\n');
         });
 
+        test('skips dot-entries while still linking ordinary canonical children', async () => {
+            const mainDataDir = path.join(fakeMainCheckout, dataDir);
+
+            await fs.ensureDir(mainDataDir);
+            await fs.writeFile(path.join(mainDataDir, '.DS_Store'), 'finder metadata');
+            await seedMainSubdirs(['sqlite']);
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                dryRun     : true,
+                log         : () => {}
+            });
+
+            expect(result.linked).toContain('sqlite');
+            expect(result.linked).not.toContain('.DS_Store');
+            expect(result.alreadyLinked).not.toContain('.DS_Store');
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, '.DS_Store'))).toBe(false);
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'sqlite'))).toBe(false);
+        });
+
         test('symlinks a top-level FILE child, not just directories', async () => {
             // .neo-ai-data can hold file children (e.g. memory-core.sqlite); they must link too.
             await fs.ensureDir(path.join(fakeMainCheckout, dataDir));
