@@ -112,7 +112,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 ## 4. Label Rules
 
 - **`ai` — MANDATORY on every ticket created by an agent.** Signals provenance for downstream graph/memory systems.
-- **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
+- **Primary — exactly one:** `epic`, `enhancement`, or `bug`. **Choosing it:** a standalone must be one-PR-resolvable — one `Resolves`, so a second PR closes it early or fails the lint. Bigger → **split**, or `epic` only when leaves coordinate toward one shared outcome (`epic-create` Procedure 1).
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
 
@@ -128,7 +128,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **Decision Record impact** *(architecture/substrate tickets)* — Declare `none`, `aligned-with ADR ####`, `depends-on ADR ####`, `amends ADR ####`, `supersedes ADR ####`, or `challenges ADR ####`. Use the ADR successor-risk audit when the ticket conflicts with or depends on accepted ADR authority.
 - **Decision Record** *(Discussion-origin tickets)* — Preserve the source Discussion's ADR classification when present: `Not needed`, `Optional: <ADR/ticket/discussion anchor>`, or `Required: ADR #### / PR #N / ticket #N`. This is distinct from `Decision Record impact`: the classification records the Discussion graduation's authority target; the impact line records what this ticket itself does to ADR authority.
 - **Discussion Criteria Mapping** *(when graduating from a Discussion)* — A section mapping the upstream Discussion's `[RESOLVED_TO_AC]` criteria to this Epic's ACs. See `ideation-sandbox-workflow.md §6.6` for the required format. This satisfies the `epic-resolution` Closeout Gates upfront.
-- **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged. **Epic trigger:** if these ACs need more than one PR to land, label it `epic` now — a non-`epic` ticket carries one `Resolves`, so every later PR must close it early or fail the body lint. Count PRs, not ACs. **Epic exception:** for `epic`-labeled tickets, ACs live in the **SUB** tickets (not the epic body) — author the epic per `epic-create` (epic body = problem-scope + intended-solution; subs linked via `update_issue_relationship`, each a one-PR-deliverable leaf). See `.agents/skills/epic-create/`.
+- **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged. **Epic exception:** for `epic`-labeled tickets, ACs live in the **SUB** tickets (not the epic body) — author the epic per `epic-create` (epic body = problem-scope + intended-solution; subs linked via `update_issue_relationship`, each a one-PR-deliverable leaf). See `.agents/skills/epic-create/`.
 - **Out of Scope** — what this ticket deliberately does NOT do. Prevents scope creep during implementation.
 - **Avoided Traps** / **Gold Standards Rejected** *(when applicable)* — alternatives considered and rejected, with rationale. Especially critical when rejecting a generic industry/LLM "best practice" (e.g. standard React patterns, generic node workflows) that is a trap in Neo.mjs's multi-threaded architecture.
 - **Related** — sibling tickets, superseded tickets, dependencies, PRs.
