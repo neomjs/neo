@@ -61,13 +61,18 @@ const
  * the instance-addressed placement verb (never AppleScript: two same-bundle Chrome processes make
  * script addressing flip-flop, which is why the boot already fronts via CDP).
  *
- * The stage rule: default is the window's NATURAL landing position with the size pinned — measured
- * deterministic on this host (identical bounds across runs) — because an explicit cross-display
- * target (the take-4 BenQ receipt, global x≥1728) currently breaks the morph leg: the tear-out's
- * vessel/drag geometry does not survive the main window living on a secondary display (return
- * samples measure ratio 0 — the finding is filed separately). An explicit stage is still available
- * via `NEO_FILM_DISPLAY_BOUNDS="left,top,width,height"` for hosts where it is verified working;
- * every landing is logged through `Browser.getWindowBounds`, never silent.
+ * The stage rule, two paths with different guarantees:
+ * - DEFAULT = the window's natural landing position with the size pinned. Natural landing is
+ *   HOST- AND CURSOR-CONDITIONAL, not enforced: identical across runs on the author's host
+ *   ({22,22} ×4), but cascade drift has been observed (75 vs 74 across one run's two boots) and
+ *   the OS can seat the window on a secondary display (a roulette landing at x=1750 = the BenQ,
+ *   where the morph leg currently dies — the secondary-display finding filed from this lane).
+ * - `NEO_FILM_DISPLAY_BOUNDS="left,top,width,height"` = the ENFORCED determinism path, and the
+ *   take-night rule: set it explicitly to a primary-display target. Receipted green for
+ *   same-display moves: 122,122,1282,880 pinned identically across two boots of the film suite.
+ *   A cross-display target stays out of scope until the engine finding is answered.
+ * Every landing is logged through `Browser.getWindowBounds`, never silent; a malformed override is
+ * warned about and ignored — the log is the AC1 receipt, so it must name what actually ran.
  * @param {Object} page Playwright page.
  * @returns {Promise<Object>} the verified window bounds
  */
@@ -75,16 +80,22 @@ async function pinToCaptureDisplay(page) {
     const session    = await page.context().newCDPSession(page),
           {windowId} = await session.send('Browser.getWindowForTarget'),
           current    = (await session.send('Browser.getWindowBounds', {windowId})).bounds,
-          override   = process.env.NEO_FILM_DISPLAY_BOUNDS?.split(',').map(Number),
-          target     = override?.length === 4 && override.every(Number.isFinite)
-              ? {left: override[0], top: override[1], width: override[2], height: override[3]}
+          raw        = process.env.NEO_FILM_DISPLAY_BOUNDS,
+          parsed     = raw?.split(',').map(Number),
+          valid      = parsed?.length === 4 && parsed.every(Number.isFinite),
+          target     = valid
+              ? {left: parsed[0], top: parsed[1], width: parsed[2], height: parsed[3]}
               : {left: current.left, top: current.top, width: current.width, height: current.height},
           {bounds}   = await session.send('Browser.setWindowBounds', {
               bounds: {...target, windowState: 'normal'}, windowId
           }).then(() => session.send('Browser.getWindowBounds', {windowId}));
 
+    if (raw && !valid) {
+        console.log(`[film-stage] NEO_FILM_DISPLAY_BOUNDS invalid, ignoring: "${raw}"`)
+    }
+
     console.log(`[film-stage] window pinned via Browser.setWindowBounds: ${JSON.stringify(bounds)}` +
-        (override ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
+        (valid ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
 
     return bounds
 }

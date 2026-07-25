@@ -1901,13 +1901,23 @@ class Workspace extends Container {
             // coordinates the executor logs (single source of truth — it never re-derives a
             // position), stays pointer-events:none, and never enters the dock document (worker
             // truth is blind to it by construction: it is a presentation layer for the camera).
+            // The create shape carries four keys, each earned by a real failure in this lane:
+            // `className` (a bare `ntype` object config makes Neo.create return null), the
+            // autoInitVnode+autoMount pair (the floating-component idiom — parentId alone
+            // registers, it never renders), `parentId: 'document.body'` (the DragZone
+            // proxyParentId precedent — no re-rendering ancestor can strand the node), and
+            // `windowId` (null-windowId vdom deltas misroute in a multi-window app: the mount
+            // render lands, every subsequent style delta is lost).
             if (showCursor) {
                 cursorDot = Neo.create({
-                    ntype   : 'component',
-                    appName : me.appName,
-                    parentId: me.id,
-                    cls     : ['film-cursor'],
-                    style   : {
+                    className    : 'Neo.component.Base',
+                    appName      : me.appName,
+                    autoInitVnode: true,
+                    autoMount    : true,
+                    parentId     : 'document.body',
+                    windowId     : me.windowId,
+                    cls          : ['film-cursor'],
+                    style        : {
                         backgroundColor: 'rgba(255, 90, 0, 0.92)',
                         borderRadius   : '50%',
                         boxShadow      : '0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85)',
@@ -1920,6 +1930,13 @@ class Workspace extends Container {
                         width          : '16px',
                         zIndex         : 99999
                     }
+                });
+
+                // The text receipt beside the frame receipt: assertions stay byte-identical
+                // (AC4), so observability is the only guard against a silent camera-truth
+                // regression (a green suite cannot see the dot).
+                cursorDot.mountedPromise.then(() => {
+                    console.log(`[film-cursor] dot mounted at client (${startX}, ${startY})`)
                 })
             }
 
