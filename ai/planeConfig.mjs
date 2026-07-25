@@ -53,17 +53,56 @@ const PLANE_DEFAULTS = Object.freeze({
 });
 
 /**
- * @summary The opacity predicate for plane identities — ONE rule covering the frozen default
+ * Compose canonicalizes a project name (lowercase, `[a-z0-9_-]` only, leading alphanumeric) while
+ * every env consumer keeps the RAW value. So an id outside this grammar is read as two different
+ * identities by two readers of the SAME variable — measured on `docker-compose.dev.yml`:
+ * `"Team Plane"` → project `teamplane` vs env `Team Plane`; `"UPPER"` → `upper` vs `UPPER`.
+ * Feeding one raw string to both is one SOURCE and still two INTERPRETATIONS.
+ * @type {RegExp}
+ */
+const COMPOSE_SAFE_PLANE_ID = /^[a-z0-9][a-z0-9_-]*$/;
+
+/**
+ * @summary Names the rule a candidate plane identity breaks, or `null` when it is valid — the
+ * single gate behind `isOpaquePlaneId`, kept as a reason-reporter so a boot-time rejection says
+ * WHICH invariant failed rather than restating the whole grammar.
+ *
+ * Two clauses, one gate. Adding a second predicate callers must remember is the defect this file
+ * exists to prevent, so both live here and every existing consumer inherits the new one.
+ * @param {*} value
+ * @returns {String|null}
+ * @private
+ */
+function planeIdViolation(value) {
+    if (typeof value !== 'string' || value.length === 0) return 'must be a non-empty string';
+
+    if (value.includes('/') || value.includes('\\') || value.includes(PLANE_DEFAULTS.dataRootRelative)) {
+        return 'must be opaque — no path separators or data-dir content; a path-shaped identity would pre-decide the placement election';
+    }
+
+    if (!COMPOSE_SAFE_PLANE_ID.test(value)) {
+        return 'must be compose-safe — lowercase letters, digits, `_` and `-` only, starting alphanumeric. ' +
+            'Docker Compose canonicalizes the project name while env consumers keep the raw value, so an id ' +
+            'outside this grammar is silently read as two identities (e.g. "Team Plane" → project `teamplane`, env `Team Plane`)';
+    }
+
+    return null
+}
+
+/**
+ * @summary The validity predicate for plane identities — ONE rule covering the frozen default
  * (module-load guard below) and every RESOLVED value, env overrides included. A path- or
  * checkout-shaped planeId silently pre-decides the data-root placement election, so opacity
  * must hold on the values that vary, not only on the literal that cannot.
+ *
+ * Also enforces the Compose-safe grammar: identity is compared by EQUALITY across deployment
+ * surfaces, so an id that one surface cannot represent losslessly is unsafe as an identity even
+ * where that surface is not in play. Fail closed on the grammar, not on the surface in use.
  * @param {*} value
  * @returns {Boolean}
  */
 export function isOpaquePlaneId(value) {
-    return typeof value === 'string' && value.length > 0 &&
-        !value.includes('/') && !value.includes('\\') &&
-        !value.includes(PLANE_DEFAULTS.dataRootRelative)
+    return planeIdViolation(value) === null
 }
 
 /**
@@ -78,11 +117,11 @@ export function isOpaquePlaneId(value) {
 export function parsePlaneIdEnv(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
     if (rawValue === undefined || rawValue === null || rawValue === '') return;
-    if (!isOpaquePlaneId(rawValue)) {
-        throw new Error(
-            `planeConfig: ${envVarName}="${rawValue}" is not an opaque planeId — ` +
-            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
-        );
+
+    const violation = planeIdViolation(rawValue);
+
+    if (violation) {
+        throw new Error(`planeConfig: ${envVarName}="${rawValue}" is not a valid planeId — it ${violation}.`);
     }
     return rawValue
 }
@@ -151,11 +190,10 @@ function realpathOrResolve(p) {
  * @returns {Object} Frozen observed identity `{planeId, dataRoot}` for emission consumers.
  */
 export function assertPlaneCoherence({planeId, dataRoot, canonicalDataRoot, canonicalPlaneId = PLANE_DEFAULTS.planeId, realpathFn = realpathOrResolve}) {
-    if (!isOpaquePlaneId(planeId)) {
-        throw new Error(
-            `planeConfig.assertPlaneCoherence: planeId "${planeId}" is not opaque — ` +
-            'no path separators or data-dir content; a path-shaped identity would pre-decide the placement election.'
-        );
+    const planeIdFault = planeIdViolation(planeId);
+
+    if (planeIdFault) {
+        throw new Error(`planeConfig.assertPlaneCoherence: planeId "${planeId}" is not valid — it ${planeIdFault}.`);
     }
 
     if (typeof dataRoot !== 'string' || !path.isAbsolute(dataRoot)) {
@@ -338,8 +376,10 @@ export function assertPlaneMemberCoherence({dataRoot, members, realpathFn = path
 }
 
 // Module-load invariant: the twin is literals + env NAMES only — the frozen default must
-// satisfy the same opacity predicate every resolved value passes through. Fail at load,
+// satisfy the same validity predicate every resolved value passes through. Fail at load,
 // not at review.
-if (!isOpaquePlaneId(PLANE_DEFAULTS.planeId)) {
-    throw new Error('planeConfig: PLANE_DEFAULTS.planeId must stay opaque — no path content.');
+const defaultPlaneIdFault = planeIdViolation(PLANE_DEFAULTS.planeId);
+
+if (defaultPlaneIdFault) {
+    throw new Error(`planeConfig: PLANE_DEFAULTS.planeId "${PLANE_DEFAULTS.planeId}" is not valid — it ${defaultPlaneIdFault}.`);
 }
