@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import {spawn}         from 'node:child_process';
-import path            from 'node:path';
-import process         from 'node:process';
-import {fileURLToPath} from 'node:url';
+import {spawn}                from 'node:child_process';
+import path                   from 'node:path';
+import process                from 'node:process';
+import {fileURLToPath}        from 'node:url';
+import {assertDataSyncAccess} from './dataSyncPreflight.mjs';
 
 /**
  * @module buildScripts.dataSyncPipeline
@@ -311,7 +312,19 @@ async function recoverStaleAttempt({
  * @param {Function} options.log Telemetry sink.
  * @returns {Promise<void>}
  */
-export async function emitGeneratedData({attempt, cwd, execute = executeCommand, log = console.log}) {
+export async function emitGeneratedData({
+    attempt,
+    cwd,
+    execute   = executeCommand,
+    log       = console.log,
+    preflight = assertDataSyncAccess
+}) {
+    // Before any expensive stage: prove the intake identity can actually reach the repositories the
+    // collection stages depend on. A denial here carries no retry budget and precedes all work, so
+    // it is the installation answering rather than a transient read — the distinction the shared
+    // message string cannot make, and the one whose absence cost sixty silent scheduled runs.
+    await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN});
+
     for (const {args, command, label, tokenScope} of emissionCommands) {
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
         await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})

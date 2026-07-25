@@ -107,7 +107,11 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
                 calls.push({args, command, options});
                 return {stderr: '', stdout: ''}
             },
-            log: () => {}
+            log: () => {},
+            // This test owns stage ORDER, not repository access. The real preflight makes a network
+            // call and fails closed without an intake token, which is its job — so it is stubbed
+            // here rather than weakened there.
+            preflight: async () => {}
         });
 
         expect(calls.map(({args, command}) => [command, ...args])).toEqual([
@@ -338,7 +342,8 @@ test.describe('emission-stage credential scoping', () => {
             execute: async (command, args, {env}) => {
                 calls.push({command, token: env.GITHUB_TOKEN ?? null})
             },
-            log: () => {}
+            log      : () => {},
+            preflight: async () => {}
         });
 
         expect(calls.length).toBeGreaterThan(0);
