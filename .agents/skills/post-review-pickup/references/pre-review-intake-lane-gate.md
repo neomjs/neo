@@ -58,8 +58,8 @@ review-first rationale: <why review precedes author-lane pickup>
 Do not stop merely because no operator assigned a lane. Per `§no_hold_state`,
 a gated, blocked, or absent current lane excludes only that lane; it does not
 create a turn terminal. If the author/review surface is empty, continue through
-the backlog self-survey in `post-review-pickup-workflow.md §5` and choose the
-next named lane.
+the claim survey in `post-review-pickup-workflow.md §6` and choose the next
+named lane.
 
 ## Anti-Patterns
 

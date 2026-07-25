@@ -7,6 +7,7 @@
     "payloadBudget": 80000,
     "perFilePayloadBudget": 25000,
     "oversizedWorkflowMaps": [
+      ".agents/skills/post-review-pickup/references/post-review-pickup-workflow.md",
       ".agents/skills/pr-review/references/pr-review-guide.md",
       ".agents/skills/pull-request/references/pull-request-workflow.md"
     ],
