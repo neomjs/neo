@@ -98,6 +98,8 @@
 .DS_Store
 Thumbs.db
 resources/data/deck/EditorConfig.json
+# Generated census reports — derived data, regenerable from the generator + REPORT_WINDOW
+resources/data/reports/
 
 # Agent OS Local Data
 .env
