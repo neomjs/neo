@@ -46,12 +46,31 @@ import {test, expect} from '../../fixtures.mjs';
 // switch from spec pacing to the production record's D-010 film pacing (slightly-quick, curved,
 // ~30fps pointer sampling). The spec's assertions stay identical: a take that cannot pass the
 // witness is not a take.
+// birthAttempts ceiling: gesture time + the birth gate must stay UNDER the Neural Link
+// rpcTimeout (10s) or a failed birth times the bridge call out and replaces the executor's
+// layered diag with a bare "Request timed out" — the knob would destroy its own receipts.
+// 240 × 16ms ≈ 3.8s of gate + ~1s of film-paced gesture keeps the whole call inside the
+// window; NEO_FILM_BIRTH_ATTEMPTS overrides for bisect cells.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {birthAttempts: 600, curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
+    // NEO_FILM_PACE_OFF: bisect knob — film launch args with SPEC-DEFAULT gesture
+    // pacing, isolating "the launch profile" from "the film gesture shape" as birth factors.
+    filmPace = filmTake && !process.env.NEO_FILM_PACE_OFF ? {
+        birthAttempts: Number(process.env.NEO_FILM_BIRTH_ATTEMPTS) || 240,
+        // NEO_FILM_CURVE: bisect knob — curve-only override inside otherwise-full film
+        // pacing; a bowed outward path can transiently re-cover the strip post-exit.
+        curve    : process.env.NEO_FILM_CURVE !== undefined ? Number(process.env.NEO_FILM_CURVE) : 0.18,
+        moveDelay: 33,
+        // NEO_FILM_STEPS: bisect knob — post-exit sample count is the suspected
+        // false-reattach trigger dimension.
+        moveSteps    : Number(process.env.NEO_FILM_STEPS) || 24
+    } : {};
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
-test.use({video: filmTake ? 'on' : 'off'});
+// NEO_FILM_NOVIDEO: bisect knob — the per-page recorder attaches a screencast to
+// every page INCLUDING the newborn vessel; whether that attach interacts with first-navigation
+// commit under real-vsync compositing is a matrix dimension.
+test.use({video: filmTake && !process.env.NEO_FILM_NOVIDEO ? 'on' : 'off'});
 
 test.describe('Workstation — the five-beat multi-window journey', () => {
     test.setTimeout(180000);
@@ -68,12 +87,33 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @returns {Promise<Object>} `{app, pageErrors, wsId}`
      */
     async function boot({page, neuralLink}) {
-        const pageErrors = [];
+        const pageErrors = [],
+              popupProbe = [];
 
         page.on('pageerror', error => {
             let value = String(error?.stack || error?.message || error || '');
 
             value && value !== 'undefined' && pageErrors.push(value)
+        });
+
+        // Passive birth-layer probe: whether the platform CREATED a popup window is a different
+        // fact from whether its page loaded, which is a different fact from whether the vessel
+        // joined the shared heap (the executor's own gate). A birth failure needs all three —
+        // logged EAGERLY, because a failed birth can outlive the bridge call that reports it.
+        page.on('popup', popup => {
+            const fact = {urlAtOpen: popup.url(), loaded: false};
+
+            popupProbe.push(fact);
+            console.log(`[vessel-probe] popup created urlAtOpen=${fact.urlAtOpen}`);
+            // Bisect knob: a newborn vessel window that is fully occluded on glass may
+            // never receive a BeginFrame under real-vsync compositing — fronting it at birth is
+            // the occlusion-commit discriminator (and the film wants the vessel on camera anyway).
+            process.env.NEO_FILM_FRONT_VESSEL && popup.bringToFront().then(
+                () => console.log('[vessel-probe] popup fronted'),
+                () => {}
+            );
+            popup.once('load',  () => {fact.loaded = true; fact.urlAtLoad = popup.url(); console.log(`[vessel-probe] popup loaded ${fact.urlAtLoad}`)});
+            popup.once('close', () => {fact.closed = true; console.log('[vessel-probe] popup closed')})
         });
 
         await page.goto('/apps/workstation/index.html');
@@ -86,13 +126,20 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // addressing flip-flop between instances).
         filmTake && await page.bringToFront();
 
+        // Bisect knobs (vessel-birth matrix): NEO_FILM_BOOT_SHOT forces one compositor
+        // frame-request post-boot (the round-2 green differed from the red runs by exactly this);
+        // NEO_FILM_BOOT_WAIT=<ms> is its time-only control — together they discriminate
+        // "first-frame kick" from "settle time" as the birth enabler.
+        process.env.NEO_FILM_BOOT_SHOT && await page.screenshot();
+        process.env.NEO_FILM_BOOT_WAIT && await page.waitForTimeout(Number(process.env.NEO_FILM_BOOT_WAIT));
+
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(wsId, 'the App Worker must own one Workspace').toBeTruthy();
 
-        return {app, pageErrors, wsId}
+        return {app, pageErrors, popupProbe, wsId}
     }
 
     /**
@@ -228,7 +275,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     // ── beats 3-4: contracted legs — activate as the cross-window docking wiring lands ──
 
     test('scene 2 — the tear-out: a real pointer drag births a vessel MID-GESTURE', async ({page, neuralLink}) => {
-        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         const
             heartbeatBefore = await readHeartbeat(app, wsId),
@@ -243,6 +290,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             filmPace
         ]);
 
+        console.log('[vessel-probe][commit-leg]', JSON.stringify(popupProbe));
         expect(result.errors).toEqual([]);
         expect(result.proof.born,  'the vessel must be born MID-GESTURE (before pointer-up)').toBe(true);
         expect(result.proof.survivedProbe, 'post-birth outward moves must not reap the vessel').toBe(true);
@@ -277,7 +325,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     // entry fires on placeholder-less zones (the layout restore is gated on its own marker) — one
     // continuous drag out past the edge and home again, zero mutation by guard.
     test('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
-        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         const
             heartbeatBefore = await readHeartbeat(app, wsId),
@@ -291,6 +339,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             {reenter: true, ...filmPace}
         ]);
 
+        console.log('[vessel-probe][morph-leg]', JSON.stringify(popupProbe));
         expect(result.errors).toEqual([]);
         expect(result.proof.born, 'the vessel must be born mid-gesture').toBe(true);
         expect(result.reentered, 'the vessel must retire on re-entry while the pointer is down').toBe(true);

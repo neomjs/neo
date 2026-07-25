@@ -12,7 +12,11 @@ import {BASE_LAUNCH_ARGS}      from './e2e/utils/gpuIntent.mjs';
 // backgrounding-disable trio STAYS: a newborn tear-out vessel is an occluded window whose
 // renderer must keep running long enough to join the shared heap, or vessels are never
 // born. Bisect receipt table: the film-profile ticket this block cites.
-const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
+// NEO_FILM_KEEP_GPU: bisect knob — the film profile changed TWO things at once
+// (dropped the frame-rate-limit flag AND the four GPU-intent flags); this isolates the
+// second half: E2E args minus ONLY the frame-limiter.
+const FILM_LAUNCH_ARGS = (process.env.NEO_FILM_KEEP_GPU ? E2E_LAUNCH_ARGS : BASE_LAUNCH_ARGS)
+    .filter(arg => arg !== '--disable-frame-rate-limit');
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -62,7 +66,11 @@ export default defineConfig({
         name        : 'chromium',
         dependencies: ['gl-probe'],
         use         : {
-            channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
+            // Use local Google Chrome instead of Playwright's Chromium binary.
+            // NEO_FILM_CHROMIUM: bisect knob — the bundled Chromium carries a DIFFERENT
+            // macOS bundle id, so per-bundle desktop state (Space assignment, the AllSpaces Dock
+            // binding) does not apply: it isolates bundle-environmental effects on vessel birth.
+            ...(process.env.NEO_FILM_CHROMIUM ? {} : {channel: 'chrome'}),
             // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
             // launches with. A second copy here would drift, and drift between two statements of one
             // fact is how a dead GL flag stayed invisible for five months.

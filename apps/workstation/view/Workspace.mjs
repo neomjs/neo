@@ -1262,7 +1262,13 @@ class Workspace extends Container {
         admissionToken = Number.isFinite(admissionToken) ? admissionToken : ownerGrant.generation;
         ownerGrant.admissionToken = admissionToken;
 
+        // Diagnostic trail for the birth gate: absence has three distinct layers (admission
+        // refused / platform refused the window / window granted but never connected), and the
+        // failure diag must name which one this gesture died in.
+        me.lastVesselOpen = {itemId, stage: 'invoked'};
+
         if (me.tearOutRetirements.has(itemId)) {
+            me.lastVesselOpen.stage = 'blocked-by-retirement';
             me.revokeVesselOwnerGrant('tear-out', itemId);
             return null
         }
@@ -1285,6 +1291,8 @@ class Workspace extends Container {
                 windowName
             });
 
+            me.lastVesselOpen.stage = opened === false ? 'windowOpen-false' : 'granted';
+
             if (opened === false) {
                 me.revokeVesselOwnerGrant('tear-out', itemId);
                 return null
@@ -1300,6 +1308,8 @@ class Workspace extends Container {
                 windowName
             }
         } catch (error) {
+            me.lastVesselOpen.stage = 'threw';
+            me.lastVesselOpen.error = String(error?.message || error);
             me.revokeVesselOwnerGrant('tear-out', itemId);
             return null
         }
@@ -1875,6 +1885,17 @@ class Workspace extends Container {
                 return {applied: false, errors: ['tear-out drag did not arm'], proof: {armed: false, cancellation, documentBefore}}
             }
 
+            // Pre-birth entry sentinels: a curved outward path can transiently re-cover the strip
+            // AFTER the exit fired, retiring the newborn vessel before it ever connects — the
+            // birth-failure diag must carry whether that happened, or the death reads as absence.
+            let preBirthBoundaryEntries = 0,
+                preBirthEntries         = 0,
+                preBirthBoundaryProbe   = () => {preBirthBoundaryEntries++},
+                preBirthEntryProbe      = () => {preBirthEntries++};
+
+            sortZone.on('dragBoundaryEntry', preBirthBoundaryProbe);
+            tabs.on('dockTearOutEntry', preBirthEntryProbe);
+
             // The tear-out exit fires when the proxy LEAVES `boundaryContainerRect`. Target past
             // its bottom-right corner, fully outside, so intersectionRatio collapses below the
             // reattach threshold.
@@ -1910,8 +1931,11 @@ class Workspace extends Container {
             // Gate on the vessel's ACTUAL birth: a `?popout=` window connecting through onWindowConnect.
             let born = await me.waitForTearOutVessel(itemId, {attempts: birthAttempts});
 
+            sortZone.un('dragBoundaryEntry', preBirthBoundaryProbe);
+            tabs.un('dockTearOutEntry', preBirthEntryProbe);
+
             if (!born) {
-                let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'}`,
+                let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} preBirthBoundaryEntries=${preBirthBoundaryEntries} preBirthEntries=${preBirthEntries} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'}`,
                     cancellation = await me.cancelTearOutGesture(button, release);
 
                 return {
