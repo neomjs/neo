@@ -46,9 +46,15 @@ import {test, expect} from '../../fixtures.mjs';
 // switch from spec pacing to the production record's D-010 film pacing (slightly-quick, curved,
 // ~30fps pointer sampling). The spec's assertions stay identical: a take that cannot pass the
 // witness is not a take.
+// birthAttempts ceiling: gesture time + the birth gate must stay UNDER the Neural Link
+// rpcTimeout (10s) or a failed birth times the bridge call out and replaces the executor's
+// layered diag with a bare "Request timed out" — the widened gate would destroy its own
+// receipts. 240 × 16ms ≈ 3.8s of gate + ~1s of film-paced gesture keeps the whole call
+// inside the window; birth is absence-not-slowness when it fails, so a longer gate buys
+// nothing but a worse error.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true} : {};
+    filmPace = filmTake ? {birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true} : {};
 
 /**
  * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
@@ -96,17 +102,34 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     });
 
     /**
-     * Boots the workstation, connects the Neural Link bridge, and wires error capture.
+     * Boots the workstation, connects the Neural Link bridge, and wires error capture plus the
+     * eager popup-layer probe (window created / page loaded / window closed — the three facts a
+     * birth failure needs, logged as they happen because a failed birth can outlive the bridge
+     * call that reports it).
      * @param {Object} fixtures `{page, neuralLink}`
-     * @returns {Promise<Object>} `{app, pageErrors, wsId}`
+     * @returns {Promise<Object>} `{app, pageErrors, popupProbe, wsId}`
      */
     async function boot({page, neuralLink}) {
-        const pageErrors = [];
+        const pageErrors = [],
+              popupProbe = [];
 
         page.on('pageerror', error => {
             let value = String(error?.stack || error?.message || error || '');
 
             value && value !== 'undefined' && pageErrors.push(value)
+        });
+
+        // Passive birth-layer probe: whether the platform CREATED a popup window is a different
+        // fact from whether its page loaded, which is a different fact from whether the vessel
+        // joined the shared heap (the executor's own gate). A birth failure needs all three —
+        // logged EAGERLY, because a failed birth can outlive the bridge call that reports it.
+        page.on('popup', popup => {
+            const fact = {urlAtOpen: popup.url(), loaded: false};
+
+            popupProbe.push(fact);
+            console.log(`[vessel-probe] popup created urlAtOpen=${fact.urlAtOpen}`);
+            popup.once('load',  () => {fact.loaded = true; fact.urlAtLoad = popup.url(); console.log(`[vessel-probe] popup loaded ${fact.urlAtLoad}`)});
+            popup.once('close', () => {fact.closed = true; console.log('[vessel-probe] popup closed')})
         });
 
         await page.goto('/apps/workstation/index.html');
@@ -129,7 +152,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(wsId, 'the App Worker must own one Workspace').toBeTruthy();
 
-        return {app, pageErrors, wsId}
+        return {app, pageErrors, popupProbe, wsId}
     }
 
     /**
@@ -265,7 +288,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     // ── beats 3-4: contracted legs — activate as the cross-window docking wiring lands ──
 
     test('scene 2 — the tear-out: a real pointer drag births a vessel MID-GESTURE', async ({page, neuralLink}) => {
-        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         const
             heartbeatBefore = await readHeartbeat(app, wsId),
@@ -280,6 +303,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             filmPace
         ]);
 
+        console.log('[vessel-probe][commit-leg]', JSON.stringify(popupProbe));
         expect(result.errors).toEqual([]);
         expect(result.proof.born,  'the vessel must be born MID-GESTURE (before pointer-up)').toBe(true);
         expect(result.proof.survivedProbe, 'post-birth outward moves must not reap the vessel').toBe(true);
@@ -314,7 +338,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     // entry fires on placeholder-less zones (the layout restore is gated on its own marker) — one
     // continuous drag out past the edge and home again, zero mutation by guard.
     test('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
-        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         const
             heartbeatBefore = await readHeartbeat(app, wsId),
@@ -328,6 +352,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             {reenter: true, ...filmPace}
         ]);
 
+        console.log('[vessel-probe][morph-leg]', JSON.stringify(popupProbe));
         expect(result.errors).toEqual([]);
         expect(result.proof.born, 'the vessel must be born mid-gesture').toBe(true);
         expect(result.reentered, 'the vessel must retire on re-entry while the pointer is down').toBe(true);

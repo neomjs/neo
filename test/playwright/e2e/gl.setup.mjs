@@ -1,6 +1,6 @@
-import {test as setup, expect} from '@playwright/test';
-import {claimsGpuAcceleration} from './utils/gpuIntent.mjs';
-import {readGlState}           from './utils/glState.mjs';
+import {test as setup, expect}                   from '@playwright/test';
+import {activeLaunchArgs, claimsGpuAcceleration} from './utils/gpuIntent.mjs';
+import {readGlState}                             from './utils/glState.mjs';
 
 /**
  * @summary Boot gate: the E2E suite refuses to run silently on a GPU it only *claims* to have.
@@ -26,7 +26,7 @@ import {readGlState}           from './utils/glState.mjs';
  */
 setup('E2E boot: GPU-intent flags resolve to real GL', async ({page}) => {
     const
-        demandsGl = claimsGpuAcceleration(),
+        demandsGl = claimsGpuAcceleration(activeLaunchArgs()),
         gl        = await readGlState(page),
         detail    = `state=${gl.state} renderer=${gl.renderer ?? 'n/a'} vendor=${gl.vendor ?? 'n/a'} generic=${gl.generic ?? 'n/a'} reason=${gl.reason ?? 'none'}`;
 

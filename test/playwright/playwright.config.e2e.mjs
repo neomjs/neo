@@ -2,7 +2,7 @@ import './configTemplateResolver.mjs';
 
 import {defineConfig, devices} from '@playwright/test';
 import {resolveFreePortSync}   from './resolveFreePort.mjs';
-import {E2E_LAUNCH_ARGS}       from './e2e/utils/gpuIntent.mjs';
+import {activeLaunchArgs}      from './e2e/utils/gpuIntent.mjs';
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -47,7 +47,7 @@ export default defineConfig({
         // with the SAME args as the suite — probing a different browser would prove nothing.
         name     : 'gl-probe',
         testMatch: /gl\.setup\.mjs$/,
-        use      : {channel: 'chrome', launchOptions: {args: E2E_LAUNCH_ARGS}}
+        use      : {channel: 'chrome', launchOptions: {args: activeLaunchArgs()}}
     }, {
         name        : 'chromium',
         dependencies: ['gl-probe'],
@@ -55,8 +55,9 @@ export default defineConfig({
             channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
             // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
             // launches with. A second copy here would drift, and drift between two statements of one
-            // fact is how a dead GL flag stayed invisible for five months.
-            launchOptions: {args: E2E_LAUNCH_ARGS}
+            // fact is how a dead GL flag stayed invisible for five months. The mode selection
+            // (film vs benchmark) lives in the same module for the same reason.
+            launchOptions: {args: activeLaunchArgs()}
         }
     }]
 });
