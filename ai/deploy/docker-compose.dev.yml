@@ -99,6 +99,15 @@ services:
     ports:
       # ELECTION-SLOT: parity port band. Provisional 81xx — disjoint from the native
       # local Chroma daemon (:8000) so both stacks run BESIDE each other.
+      #
+      # PARKED PENDING THE DERIVATION RULE, NOT HOST-VALIDATED. This exact number was
+      # hand-picked and collided with a live `ssh` listener on the first real host it met
+      # (first parity boot; field evidence recorded on the election record's ticket). The
+      # collision is the argument for the slot: a connect-only health check goes GREEN
+      # against an `ssh` daemon, because it accepts the connection and answers nothing of
+      # ours — which is why served-identity verification, not connectivity, is the boot
+      # check. Treat 8100 as a placeholder awaiting the band rule PLUS a claim/probe step;
+      # a derived number with no probe is a hand-pick with extra ceremony.
       - "8100:8000"
 
   kb-server:
