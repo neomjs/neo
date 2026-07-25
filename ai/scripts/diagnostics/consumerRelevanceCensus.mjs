@@ -25,21 +25,23 @@
  *
  * The output is dated and deterministic for a fixed window + mapping: the same inputs always
  * produce the same distribution, so a changed number means the corpus or the mapping changed —
- * never the method. The default window is PINNED to the committed artifact (`REPORT_WINDOW`), so a
- * bare re-run is the regression check for that report. A clock-derived default would make the
- * window itself a hidden moving input — re-runs a day (or a timezone) apart would measure
- * different ranges while the doc above invites blaming the corpus — so freshness is always an
- * explicit flag, never a default.
+ * never the method. The default window is PINNED (`REPORT_WINDOW` — the exemplar run's window), so
+ * a bare re-run reproduces that run's distribution on an unchanged corpus: determinism you can
+ * check on demand, with no derived data committed. A clock-derived default would make the window
+ * itself a hidden moving input — re-runs a day (or a timezone) apart would measure different
+ * ranges while the doc above invites blaming the corpus — so freshness is always an explicit
+ * flag, never a default.
  *
  * Usage:
  *   node ai/scripts/diagnostics/consumerRelevanceCensus.mjs [--since YYYY-MM-DD] [--until YYYY-MM-DD]
  *        [--json <path>] [--out <path>]
  *
- * No flags: reproduce the committed artifact's window (REPORT_WINDOW). Fresh window: pass the
- * flags — e.g. `--until $(date -u +%Y-%m-%dT%H:%M:00Z)` for a run anchored at now. Date-only flags
- * work but are interpreted by git as end-of-day in the HOST'S LOCAL zone (fine for interactive
- * reading; use UTC instants when two seats must measure the identical corpus). The report header
- * always names the window measured.
+ * No flags: reproduce the exemplar window (REPORT_WINDOW). Fresh window: pass the flags — e.g.
+ * `--until $(date -u +%Y-%m-%dT%H:%M:00Z)` for a run anchored at now. Date-only flags work but are
+ * interpreted by git as end-of-day in the HOST'S LOCAL zone (fine for interactive reading; use
+ * UTC instants when two seats must measure the identical corpus). The report header always names
+ * the window measured. Generated reports land under `resources/data/reports/`, which is
+ * gitignored — derived data is regenerable, never committed.
  */
 import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
@@ -54,14 +56,13 @@ import {
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /**
- * The committed artifact's window (`resources/data/reports/consumer-relevance-2026-07-25.*`) and
- * the default for a bare invocation — the pin that makes the re-run invariant true: re-running
- * with no flags regenerates that report's distribution on an unchanged corpus, so the artifact is
- * its own regression baseline. Both ends are explicit UTC instants, never bare dates: git parses a
- * date-only `--until` as END of that day in the host's LOCAL zone, so a date string leaves the
- * corpus open for the rest of the local day AND shifts the measured instant across host zones —
- * the two hidden moving inputs the pin exists to remove. `until` is the generation cutoff, so the
- * window is closed by construction. Update both ends only when committing a new artifact.
+ * The exemplar run's window and the default for a bare invocation — the pin that makes the re-run
+ * invariant true: re-running with no flags reproduces that run's distribution on an unchanged
+ * corpus. Both ends are explicit UTC instants, never bare dates: git parses a date-only `--until`
+ * as END of that day in the host's LOCAL zone, so a date string leaves the corpus open for the
+ * rest of the local day AND shifts the measured instant across host zones — the two hidden moving
+ * inputs the pin exists to remove. `until` is the generation cutoff, so the window is closed by
+ * construction. Update both ends only when publishing a new exemplar (e.g. at a release boundary).
  * @type {{since: String, until: String}}
  */
 export const REPORT_WINDOW = {since: '2026-02-25T00:00:00Z', until: '2026-07-25T17:52:00Z'};
