@@ -10,8 +10,8 @@ const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
 // The single plane-member anchor: every durable data-plane default below derives from this
-// const (env-free twin resolution — the leaf machinery owns all env binding), so no member
-// re-derives its own root and no member resolves against ambient cwd.
+// const. `resolvePlaneDataRoot` reads no env of its own — the leaf machinery owns all env
+// binding — so no member re-derives its own root and no member resolves against ambient cwd.
 const planeDataRootDefault  = resolvePlaneDataRoot({rootDir: neoRootDir});
 const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
@@ -53,10 +53,14 @@ class ConfigBase extends ConfigProvider {
             projectRoot: leaf(projectRoot),
             /**
              * The declared plane-identity subtree — the first-class object the data-root
-             * placement election decides placement FOR. Declaration source is the pure-defaults
-             * twin `ai/planeConfig.mjs` (ticket-ref-ok: ADR 0019 §5.5 names that module shape):
-             * the leaf imports the twin's frozen literals + env names, so leaf↔twin drift is
-             * impossible by construction.
+             * placement election decides placement FOR. These leaves declare FROM
+             * `ai/planeConfig.mjs`, which must never grow an env read or a resolver of its own:
+             * env binding belongs to the leaf, alone. A second resolution path beside the leaf
+             * is precisely what the retired shape was — two resolvers for one value, free to
+             * disagree — and it was removed, not shrunk: the exported defaults map and env-name
+             * map are both gone, and the one surviving constant crosses the boundary only
+             * because the boot coherence assertion must compare against the same literal this
+             * leaf declares. Growing that surface back re-creates the drift channel.
              * Three concepts, never conflated: `id` is opaque identity (no path/checkout content);
              * `dataRoot` is the resolved evidence every plane-member leaf derives from;
              * `NEO_AI_CANONICAL_ROOT` (provisioning-time, `bootstrapWorktree.mjs`) names a
@@ -68,9 +72,10 @@ class ConfigBase extends ConfigProvider {
                  * Stable opaque plane identity. Overlays, cloud deployments, and ephemeral
                  * isolation planes (Option F overlays) override via env; equality of `planeId`
                  * is the ONLY sanctioned "same plane?" predicate — never path comparison.
-                 * The env layer routes through the twin's `parsePlaneIdEnv`, so a path-shaped
-                 * override fails loud at boot — the opacity invariant holds on RESOLVED values,
-                 * not only on the frozen default the load guard covers.
+                 * The env layer routes through `parsePlaneIdEnv`, carried on this leaf's own
+                 * `parse` hook, so a path-shaped override fails loud at boot — the opacity
+                 * invariant holds on RESOLVED values, not only on the frozen default the load
+                 * guard covers.
                  * @type {string}
                  */
                 id: leaf(CANONICAL_PLANE_ID, 'NEO_PLANE_ID', 'string', {parse: parsePlaneIdEnv}),
@@ -90,7 +95,7 @@ class ConfigBase extends ConfigProvider {
              * The turn-end hooks are thread-entrypoints: they bootstrap `Neo` + `core/_export` and
              * read these leaves at the use site, so these stay plain declarative leaves with no
              * companion defaults module. Measured: bootstrap plus resolve is ~50ms against the hook's
-             * 10s budget, so no twin indirection is warranted.
+             * 10s budget, so the extra indirection would buy nothing.
              * @member {Object} data.stopHook
              */
             stopHook: {
