@@ -112,7 +112,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 ## 4. Label Rules
 
 - **`ai` — MANDATORY on every ticket created by an agent.** Signals provenance for downstream graph/memory systems.
-- **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
+- **Primary — exactly one:** `epic`, `enhancement`, or `bug`. **Choosing it:** a standalone must be one-PR-resolvable — one `Resolves`, so a second PR closes it early or fails the lint. Bigger → **split**, or `epic` only when leaves coordinate toward one shared outcome (`epic-create` Procedure 1).
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
 
