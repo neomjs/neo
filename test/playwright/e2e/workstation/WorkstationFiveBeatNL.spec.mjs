@@ -41,6 +41,18 @@ import {test, expect} from '../../fixtures.mjs';
  *   NEO_E2E_PORT=8124 npx playwright test workstation/WorkstationFiveBeatNL \
  *     -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
+// Film-take mode (NEO_FILM_TAKE=1): the SAME journey drive, recorded — per-page videos land in
+// the Playwright artifacts dir (main window + each vessel separately), and the gesture executors
+// switch from spec pacing to the production record's D-010 film pacing (slightly-quick, curved,
+// ~30fps pointer sampling). The spec's assertions stay identical: a take that cannot pass the
+// witness is not a take.
+const
+    filmTake = Boolean(process.env.NEO_FILM_TAKE),
+    filmPace = filmTake ? {curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
+
+// `video` must live at file level (a describe-scoped use() would force a new worker).
+test.use({video: filmTake ? 'on' : 'off'});
+
 test.describe('Workstation — the five-beat multi-window journey', () => {
     test.setTimeout(180000);
     // The later beats need real screen estate to the right of the main window for vessels;
@@ -221,7 +233,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         // Drive through the workspace-owned gesture executor — real pointer, worker-truth proof.
         const result = await app.callMethod(wsId, 'executeTearOutStep', [
-            {itemId: 'metrics', sourceNodeId: 'right-top-tabs'}
+            {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+            filmPace
         ]);
 
         expect(result.errors).toEqual([]);
@@ -254,14 +267,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
-    // CONTRACTED pending the SortZone window-drag re-entry geometry fix: during window-drag the
-    // proxy is VESSEL-sized (popupWidth × popupHeight) while the boundary is the TAB STRIP, and
-    // checkWindowBoundary normalizes the intersection by the PROXY area — the achievable maximum
-    // is stripArea/proxyArea (measured 0.2003 on this stage, hit exactly at full strip cover),
-    // so `reattachThreshold: 0.6` is unreachable and `dockTearOutEntry` can never fire from a
-    // real pointer walk-back. The executor's `reenter` drive below is the ready witness; it
-    // activates once the entry test normalizes by the smaller rect (engine ticket filed from
-    // this finding — receipts in fivebeat-morph-run5.log, production root).
+    // CONTRACTED pending the second re-entry defect: the ratio now crosses (min-area coverage —
+    // measured 0.7898 > 0.6 armed+rising on this stage), but the SortZone entry block dereferences
+    // `dragPlaceholder.wrapperStyle` before firing, and dock tab strips are placeholder-less by
+    // design (projection-owned layout) — the crossing sample throws, `dragBoundaryEntry` never
+    // fires, the vessel never retires. Three-hop probes (`boundaryEntrySeen=false` while the
+    // ratio stored) pinned it; the executor's reenter drive stays the activation witness.
     test.fixme('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
         const {app, pageErrors, wsId} = await boot({page, neuralLink});
 
@@ -274,7 +285,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // resumes) — the film's back-IN morph beat, witnessed from worker truth.
         const result = await app.callMethod(wsId, 'executeTearOutStep', [
             {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
-            {reenter: true}
+            {reenter: true, ...filmPace}
         ]);
 
         expect(result.errors).toEqual([]);

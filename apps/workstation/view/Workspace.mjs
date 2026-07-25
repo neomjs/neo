@@ -1937,9 +1937,16 @@ class Workspace extends Container {
                 // button: the tear-out proxy is pane-sized and the grab corner is unknown, so a
                 // button near a window edge can never recover 60% overlap — the interior point
                 // guarantees the ratio for any grab corner.
-                let vesselWindowId = me.tearOutConnects[itemId]?.windowId ?? null,
-                    inX            = Math.round(b.x + (b.width  ?? 0) * 0.35),
-                    inY            = Math.round(b.y + (b.height ?? 0) * 0.35);
+                let vesselWindowId    = me.tearOutConnects[itemId]?.windowId ?? null,
+                    inX               = Math.round(b.x + (b.width  ?? 0) * 0.35),
+                    inY               = Math.round(b.y + (b.height ?? 0) * 0.35),
+                    boundaryEntrySeen = false,
+                    entrySeen         = false,
+                    boundaryProbe     = () => {boundaryEntrySeen = true},
+                    entryProbe        = () => {entrySeen = true};
+
+                sortZone.on('dragBoundaryEntry', boundaryProbe);
+                tabs.on('dockTearOutEntry', entryProbe);
 
                 for (let stepIndex = 1; stepIndex <= moveSteps; stepIndex++) {
                     let t = stepIndex / moveSteps;
@@ -1950,8 +1957,13 @@ class Workspace extends Container {
                     )
                 }
 
-                let retired       = await me.waitForTearOutVesselRetired(itemId),
-                    reentryDiag   = `isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.tearOutConnects[itemId])} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`,
+                let retired     = await me.waitForTearOutVesselRetired(itemId),
+                    reentryDiag = `boundaryEntrySeen=${boundaryEntrySeen} entrySeen=${entrySeen} isWindowDragging=${Boolean(sortZone.isWindowDragging)} reattachArmed=${Boolean(sortZone.reattachArmed)} lastRatio=${sortZone.lastIntersectionRatio} placeholder=${Boolean(sortZone.dragPlaceholder)} indexMap=${JSON.stringify(sortZone.indexMap)} ownerItems=${sortZone.owner?.items?.length} itemRectsLen=${sortZone.itemRects?.length} activeVessel=${Boolean(me.tearOutHandlers.activeVessel)} connects=${Boolean(me.tearOutConnects[itemId])} staged=${me.tearOutEmbodiment.isStaged(itemId)} boundary=${JSON.stringify(b)} in=(${inX},${inY}) vesselDims=${JSON.stringify(me.tearOutVesselDims)}`;
+
+                sortZone.un('dragBoundaryEntry', boundaryProbe);
+                tabs.un('dockTearOutEntry', entryProbe);
+
+                let
                     cancellation  = await me.cancelTearOutGesture(button, {clientX: inX, clientY: inY, screenX: window.innerRect.x + inX, screenY: window.innerRect.y + inY}),
                     documentAfter = DockZoneModel.clone(me.dockModel),
                     windowGone    = !vesselWindowId || !WindowManager.get(vesselWindowId);
