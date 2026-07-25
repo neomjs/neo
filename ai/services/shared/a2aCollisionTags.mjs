@@ -16,12 +16,14 @@
  */
 
 /**
- * The collision-prevention tag vocabulary. Membership is owned here and only here; consumers decide
- * per-surface how WIDE their own question is (the wake guard fires on any member; fleet activity
- * counts only `lane-claim`) by comparing against the returned tag name.
+ * The collision-prevention tag vocabulary. PRIVATE to this module — the consumed contract is the
+ * reader below, never the Set: an exported mutable Set lets any importer rewrite every consumer's
+ * classifier at once (`.delete()` is a silent global veto). Consumers decide per-surface how WIDE
+ * their own question is (the wake guard fires on any member; fleet activity counts only
+ * `lane-claim`) by comparing against the returned tag name.
  * @type {Set<String>}
  */
-export const COLLISION_PREVENTION_TAGS = new Set([
+const COLLISION_PREVENTION_TAGS = new Set([
     'lane-claim',      // a work lane
     'review-claim',    // a review seat — same collision, different vocabulary
     'claim-corrected', // a RELEASE: the lane is free again

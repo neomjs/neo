@@ -27,18 +27,18 @@ import {FLEET_COCKPIT_SOURCES} from '../../../../../../src/ai/fleet/fleetCockpit
 test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () => {
     test('maps mailbox summaries without exposing bodies or exact recipient ids', () => {
         const [event] = createA2AMessageActivityEvents([{
-            messageId     : 'MESSAGE:123',
-            subject       : '[review-request] PR #14703 token=secret',
-            body          : 'full body ghp_secret must not reach the cockpit',
-            bodyText      : 'full body ghp_secret must not reach the cockpit',
-            from          : '@neo-opus-ada',
-            to            : '@neo-gpt',
-            priority      : 'normal',
-            sentAt        : '2026-07-04T06:00:00Z',
-            relatedTickets: ['#14572', '#14703'],
+            messageId          : 'MESSAGE:123',
+            subject            : '[review-request] PR #14703 token=secret',
+            body               : 'full body ghp_secret must not reach the cockpit',
+            bodyText           : 'full body ghp_secret must not reach the cockpit',
+            from               : '@neo-opus-ada',
+            to                 : '@neo-gpt',
+            priority           : 'normal',
+            sentAt             : '2026-07-04T06:00:00Z',
+            relatedTickets     : ['#14572', '#14703'],
             relatedPullRequests: [{number: 14703}],
-            task          : {state: 'Submitted', input: 'secret=hidden'},
-            wakeSuppressed: true
+            task               : {state: 'Submitted', input: 'secret=hidden'},
+            wakeSuppressed     : true
         }])
 
         expect(event).toMatchObject({
@@ -48,15 +48,15 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
             confidence: 'observed',
             occurredAt: '2026-07-04T06:00:00.000Z',
             payload   : {
-                kind              : 'a2a-message',
-                messageId         : 'MESSAGE:123',
-                from              : 'neo-opus-ada',
-                recipientClass    : 'agent',
-                relatedTickets    : [14572, 14703],
+                kind               : 'a2a-message',
+                messageId          : 'MESSAGE:123',
+                from               : 'neo-opus-ada',
+                recipientClass     : 'agent',
+                relatedTickets     : [14572, 14703],
                 relatedPullRequests: [14703],
-                status            : 'unread',
-                taskState         : 'Submitted',
-                wakeSuppressed    : true
+                status             : 'unread',
+                taskState          : 'Submitted',
+                wakeSuppressed     : true
             }
         })
 
@@ -140,6 +140,38 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         }
     })
 
+    test('classifies the RAW subject — a claim opening a later line still counts (representation boundary)', () => {
+        // The display subject is whitespace-collapsed; the reader's grammar is segments, so a
+        // claim that opens a later LINE must be judged before normalization, not after.
+        const [event] = createA2AMessageActivityEvents([{
+            messageId: 'MESSAGE:newline',
+            subject  : '[merge-eligible][PR #15926] film lane 3 approved at head\n[lane-claim][#15925] the fleet activity regex copy',
+            from     : '@neo-fable',
+            to       : 'AGENT:*',
+            sentAt   : '2026-07-25T19:00:00Z'
+        }])
+
+        expect(event.type).toBe('lane-claim');
+        expect(event.payload.kind).toBe('a2a-lane-claim')
+    });
+
+    test('classifies the RAW subject — a claim past the 180-char display boundary still counts (representation boundary)', () => {
+        // The display subject truncates at 180; a trailing claim segment lives beyond it.
+        const filler  = 'x'.repeat(200),
+              [event] = createA2AMessageActivityEvents([{
+                  messageId: 'MESSAGE:truncated',
+                  subject  : `[merged][PR #15926] ${filler} · [lane-claim][#15925] the fleet activity regex copy`,
+                  from     : '@neo-opus-grace',
+                  to       : 'AGENT:*',
+                  sentAt   : '2026-07-25T19:30:00Z'
+              }]);
+
+        expect(event.type).toBe('lane-claim');
+        expect(event.payload.kind).toBe('a2a-lane-claim');
+        // …and the payload keeps the SAFE display form: collapsed, redacted, truncated.
+        expect(event.payload.subject.length).toBeLessThanOrEqual(180)
+    })
+
     test('sorts newest first, applies timestamp bounds, and limits events', () => {
         const snapshot = createFleetA2AActivitySnapshot({
             capturedAt: '2026-07-04T06:10:00Z',
@@ -180,9 +212,9 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         const seenArgs = []
 
         const snapshot = await readFleetA2AActivitySnapshot({
-            capturedAt : '2026-07-04T06:12:00Z',
-            limit      : 2,
-            listArgs   : {box: 'inbox', status: 'unread', includeArchived: false},
+            capturedAt  : '2026-07-04T06:12:00Z',
+            limit       : 2,
+            listArgs    : {box: 'inbox', status: 'unread', includeArchived: false},
             listMessages: async(args) => {
                 seenArgs.push(args)
 
@@ -213,7 +245,7 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
             capturedAt: '2026-07-04T06:12:00Z'
         })
         const failed = await readFleetA2AActivitySnapshot({
-            capturedAt : '2026-07-04T06:12:00Z',
+            capturedAt  : '2026-07-04T06:12:00Z',
             listMessages: async() => {
                 throw new Error('Memory Core token=secret unavailable')
             }

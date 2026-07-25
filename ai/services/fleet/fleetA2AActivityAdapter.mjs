@@ -192,7 +192,10 @@ function normalizeA2AMessage(message, capturedAt) {
         taskState          : message.task?.state || null,
         wakeSuppressed     : Boolean(message.wakeSuppressed),
         occurredAt         : toIsoString(message.sentAt || message.createdAt, capturedAt),
-        isLaneClaim        : collisionPreventionTag({subject, taggedConcepts: message.taggedConcepts}) === 'lane-claim'
+        // Classify the RAW subject: the display form above is whitespace-collapsed and truncated,
+        // and the reader's grammar is segments and length — normalizing the evidence first can
+        // erase a claim that opens a later line or lands past the display boundary.
+        isLaneClaim        : collisionPreventionTag({subject: message.subject, taggedConcepts: message.taggedConcepts}) === 'lane-claim'
     }
 }
 

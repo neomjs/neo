@@ -1,13 +1,10 @@
-import {test, expect} from '@playwright/test'
-import {
-    COLLISION_PREVENTION_TAGS,
-    collisionPreventionTag
-} from '../../../../../../ai/services/shared/a2aCollisionTags.mjs'
+import {test, expect}           from '@playwright/test'
+import {collisionPreventionTag} from '../../../../../../ai/services/shared/a2aCollisionTags.mjs'
 
 /**
  * @summary Contract suite for the shared collision-tag reader — the structural rules both consumers
  * (the wake guard, fleet activity) depend on: declared concepts beat prose, a tag counts only inside
- * a segment-opening bracket run, and the class vocabulary lives in exactly one Set.
+ * a segment-opening bracket run, and the vocabulary is exercised ONLY through the reader.
  */
 test.describe('a2aCollisionTags — the structural reader', () => {
     test('taggedConcepts wins over prose and needs no subject at all', () => {
@@ -37,10 +34,10 @@ test.describe('a2aCollisionTags — the structural reader', () => {
             .toBeNull()
     });
 
-    test('the class vocabulary is the owned Set, all four members reachable', () => {
-        expect(COLLISION_PREVENTION_TAGS.size).toBe(4);
-
-        for (const tag of COLLISION_PREVENTION_TAGS) {
+    test('the vocabulary is reachable only through the reader — all four canonical names', () => {
+        // The Set itself is private by contract (a mutable export lets any importer veto the
+        // class globally); the four canonical names pin today's vocabulary via the public API.
+        for (const tag of ['lane-claim', 'review-claim', 'claim-corrected', 'drive-claimed']) {
             expect(collisionPreventionTag({subject: `[${tag}][#1] x`})).toBe(tag)
         }
 
