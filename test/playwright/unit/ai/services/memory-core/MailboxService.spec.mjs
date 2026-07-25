@@ -1670,6 +1670,89 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         )).toHaveLength(0);
     });
 
+    /**
+     * @summary The guard covers the collision CLASS, and only where a tag is structural.
+     *
+     * Every subject below is VERBATIM from the live `AGENT:*` corpus (2026-07-24T21:46Z →
+     * 2026-07-25T13:07Z). That is deliberate: the predecessor `/^\s*\[lane-claim\]/i` passed every
+     * hand-written fixture anyone had thought to author, while 8 of 15 real claims walked past it
+     * because the fleet writes `[ticket-created][lane-claim][#N]`. The corpus is the reproducer.
+     */
+    test('#15905 rejects wake-suppressed collision signals in NON-LEADING tag positions and across the class', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // The 8 real subjects the `^`-anchored predecessor let through, plus the wider class.
+            const collisionSubjects = [
+                '[ticket-created][lane-claim][#15900] ai:config-print — dump resolved AiConfig leaves at a head',
+                '[ticket-created][lane-claim][#15886] the ESM-module-cache pollution class — split from #15874',
+                '[ticket-created][lane-claim][#15899] + [pr-opened][PR #15901] the morph beat found a SECOND defect',
+                // Compound subject: the claim rides AFTER a `·` separator, not at the start.
+                '[pr-updated][PR #15840][95f859b706] workstation tear-out is spec-proven · [ticket-created][lane-claim][#15895] the morph beat exposed a real engine gap',
+                // A review SEAT is claimable — an observed collision had two families take the same seat.
+                '[review-claim][PR #15867][6d81c7b332] GPT cross-family seat taken',
+                // A RELEASE is as collision-relevant as a claim: silencing it leaves a free lane looking taken.
+                '[claim-corrected][#15805 → #15803] my #15805 claim was premature — released with intake record',
+                '[drive-claimed][wake-routing ideation] I take the sandbox drive'
+            ];
+
+            for (const subject of collisionSubjects) {
+                await expect(MailboxService.addMessage({
+                    to            : 'AGENT:*',
+                    subject,
+                    body          : 'collision signal',
+                    wakeSuppressed: true
+                }), subject).rejects.toThrow(/Cannot suppress wake for collision-prone \[/);
+            }
+        });
+
+        expect(GraphService.db.nodes.items.filter(node =>
+            node.label === 'MESSAGE' &&
+            node.properties?.wakeSuppressed === true
+        )).toHaveLength(0);
+    });
+
+    test('#15905 a message that MENTIONS a collision tag in prose stays suppressible', async () => {
+        // The naive repair — dropping the `^` anchor — passes the test above and breaks these. All three
+        // are real sends from the wake-routing divergence; two were sent `wakeSuppressed: true` and a
+        // substring matcher would have rejected them. Discussing the guard must not trip the guard.
+        const metaSubjects = [
+            '[falsifier-positive][D#15904] the [lane-claim] guard is ^-anchored — 53% of LIVE lane-claims bypass #14100',
+            '[evidence][wake-routing] the guard ALREADY exempts broadcasts — why [lane-claim] must never be suppressible',
+            '[census-delivered][D#15904] the collision class is WIDER than lane-claims — 71% unguarded'
+        ];
+
+        const ids = [];
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            for (const subject of metaSubjects) {
+                const {messageId} = await MailboxService.addMessage({
+                    to            : 'AGENT:*',
+                    subject,
+                    body          : 'meta-discussion about the collision class',
+                    wakeSuppressed: true
+                });
+                ids.push(messageId);
+            }
+        });
+
+        for (const id of ids) {
+            expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, 'meta subject must stay suppressible').toBe(true);
+        }
+    });
+
+    test('#15905 taggedConcepts is the structural signal — it wins with no tag in the subject at all', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // The preferred contract: declared data, not prose a parser must interpret. A sender that
+            // labels the message structurally is guarded even with a subject carrying no bracket run.
+            await expect(MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : 'taking the foo leaf',
+                body          : 'no bracket tags anywhere in this subject',
+                taggedConcepts: ['lane-claim'],
+                wakeSuppressed: true
+            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+        });
+    });
+
     test('#15376 a human-class sender defaults durable-quiet + priority-high; an explicit false elects the wake', async () => {
         GraphService.upsertNode({id: '@operator', type: 'AgentIdentity', name: 'Operator', properties: {accountType: 'human'}});
 
