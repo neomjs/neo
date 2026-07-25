@@ -941,12 +941,12 @@ function getCachedMessageProjectionIssues(messageId) {
  * edges are written per recipient for `AGENT:*` fan-out; a direct message carries `SENT_TO` and no
  * delivery cohort at all (the same asymmetry `hasMailboxGraphProjectionGap` documents: *"the
  * delivery-cohort spans broadcasts only, so a single DM would make a `< projectedCount` term
- * permanently true"*). So a DM contributes to `sends` and contributes **nothing** to `deliveries`.
+ * permanently true"*). So a DM contributes to `sends` and contributes **nothing** to `broadcastDeliveries`.
  *
  * That is the right scope for the wake baseline rather than a limitation to work around: a DM is
  * 1:1 and cannot fan out, so it carries no multiplied interrupt cost. The number a quiet-default
  * is measured against is broadcast fan-out. A caller wanting total message volume must not read
- * `deliveries` for it.
+ * `broadcastDeliveries` for it.
  *
  * **A reader, not an instrument.** Every field already exists in the graph — nothing is counted
  * into a new counter, so the series is retroactive: it describes traffic that predates it, which
@@ -955,7 +955,9 @@ function getCachedMessageProjectionIssues(messageId) {
  *
  * **Deliveries, not sends.** One broadcast is one send and N deliveries, and the interrupt cost is
  * the second number — measured at 70 sends vs 490 deliveries across one afternoon, so reporting
- * sends understates fleet-wide cost by roughly the active-roster size.
+ * sends understates fleet-wide cost by roughly the active-roster size. The field carries its own
+ * scope in its NAME rather than in this paragraph: a boundary that lives only in prose is read by
+ * whoever reads the prose, and the empirical answer to how many that is turned out to be zero.
  *
  * **`suppressed` is the sender's election, not an outcome.** It records that a send declined to
  * wake; it does not prove no interrupt occurred, because honouring `wakeSuppressed` is per-harness
@@ -966,14 +968,15 @@ function getCachedMessageProjectionIssues(messageId) {
  * @param {String}  [options.since] ISO instant, inclusive. Omitted = unbounded.
  * @param {String}  [options.until] ISO instant, exclusive. Omitted = unbounded.
  * @returns {{window: Object, totals: Object, perRecipient: Object[]}} `totals.sends` counts ALL
- * messages in the window; `totals.deliveries` counts broadcast fan-out only. `perRecipient` is
- * sorted by delivery count descending, so the loudest inbox is the first row.
+ * messages in the window; `broadcastDeliveries` is named for its scope so a reader of the field
+ * alone cannot mistake it for total delivery volume. `perRecipient` is sorted descending, so the
+ * loudest inbox is the first row.
  */
 export function getWakeDeliverySeries({since = null, until = null} = {}) {
     const sqlite = GraphService.db?.storage?.db;
 
     if (!sqlite) {
-        return {window: {since, until}, totals: {sends: 0, deliveries: 0, suppressed: 0, broadcasts: 0}, perRecipient: []};
+        return {window: {since, until}, totals: {sends: 0, broadcasts: 0, broadcastDeliveries: 0, suppressed: 0}, perRecipient: []};
     }
 
     // The window filters on the MESSAGE node's own `sentAt`, never on edge insertion order — a
@@ -1010,14 +1013,13 @@ export function getWakeDeliverySeries({since = null, until = null} = {}) {
         totals: {
             sends     : sendRow?.sends      ?? 0,
             broadcasts: sendRow?.broadcasts ?? 0,
-            deliveries: rows.reduce((sum, row) => sum + row.deliveries, 0),
+            broadcastDeliveries: rows.reduce((sum, row) => sum + row.deliveries, 0),
             suppressed: rows.reduce((sum, row) => sum + (row.suppressed ?? 0), 0)
         },
         perRecipient: rows.map(row => ({
-            recipient    : row.recipient,
-            deliveries   : row.deliveries,
-            suppressed   : row.suppressed    ?? 0,
-            fromBroadcast: row.fromBroadcast ?? 0
+            recipient          : row.recipient,
+            broadcastDeliveries: row.deliveries,
+            suppressed         : row.suppressed ?? 0
         }))
     }
 }

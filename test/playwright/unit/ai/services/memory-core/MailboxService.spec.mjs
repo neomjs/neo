@@ -1784,7 +1784,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         const afterDm = getWakeDeliverySeries({});
 
         expect(afterDm.totals.sends, 'a DM is a send').toBeGreaterThan(beforeDm.totals.sends);
-        expect(afterDm.totals.deliveries, 'a DM has no delivery cohort').toBe(beforeDm.totals.deliveries);
+        expect(afterDm.totals.broadcastDeliveries, 'a DM has no broadcast delivery cohort').toBe(beforeDm.totals.broadcastDeliveries);
 
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({to: 'AGENT:*', subject: '[series] broadcast', body: 'b'});
@@ -1793,11 +1793,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         const afterBroadcast = getWakeDeliverySeries({});
 
         expect(afterBroadcast.totals.broadcasts).toBeGreaterThan(afterDm.totals.broadcasts);
-        expect(afterBroadcast.totals.deliveries, 'a broadcast fans out').toBeGreaterThan(afterDm.totals.deliveries);
+        expect(afterBroadcast.totals.broadcastDeliveries, 'a broadcast fans out').toBeGreaterThan(afterDm.totals.broadcastDeliveries);
         // perRecipient is the per-pair breakdown AC5 asks for, loudest inbox first.
         expect(afterBroadcast.perRecipient.length).toBeGreaterThan(0);
-        expect(afterBroadcast.perRecipient[0].deliveries)
-            .toBeGreaterThanOrEqual(afterBroadcast.perRecipient.at(-1).deliveries);
+        expect(afterBroadcast.perRecipient[0].broadcastDeliveries)
+            .toBeGreaterThanOrEqual(afterBroadcast.perRecipient.at(-1).broadcastDeliveries);
     });
 
     test('#15919 the window filters on the message sentAt, so the series is retroactive', async () => {
@@ -1815,10 +1815,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
               future = getWakeDeliverySeries({since: '2099-01-01T00:00:00Z'}),
               past   = getWakeDeliverySeries({until: '2000-01-01T00:00:00Z'});
 
-        expect(all.totals.deliveries).toBeGreaterThan(0);
-        expect(future.totals.deliveries).toBe(0);
+        expect(all.totals.broadcastDeliveries).toBeGreaterThan(0);
+        expect(future.totals.broadcastDeliveries).toBe(0);
         expect(future.perRecipient).toEqual([]);
-        expect(past.totals.deliveries).toBe(0);
+        expect(past.totals.broadcastDeliveries).toBe(0);
         expect(all.window).toEqual({since: null, until: null});
     });
 
@@ -1840,7 +1840,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // one suppressed broadcast suppresses N deliveries, not one.
         expect(after.totals.suppressed).toBeGreaterThan(before.totals.suppressed);
         expect(after.totals.suppressed - before.totals.suppressed)
-            .toBe(after.totals.deliveries - before.totals.deliveries);
+            .toBe(after.totals.broadcastDeliveries - before.totals.broadcastDeliveries);
     });
 
     test('#15376 a human-class sender defaults durable-quiet + priority-high; an explicit false elects the wake', async () => {
