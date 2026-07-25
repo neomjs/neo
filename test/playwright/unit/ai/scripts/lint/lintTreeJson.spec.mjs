@@ -14,6 +14,32 @@ import {
 } from '../../../../../../ai/scripts/lint/lint-tree-json.mjs';
 
 /**
+ * @summary Per-test budget for the TWO tests that lint the REAL `learn/` tree.
+ *
+ * Both walk all of `learn/` and cross-check `learn/tree.json`; every other test in this file is
+ * fixture-based and finishes in milliseconds, so the strict 30s default still guards those.
+ *
+ * Measured 2026-07-24 (isolated, per test): the CLI shell-out at **29.42s wall / 27.07s user**,
+ * the `runLint` export at **29.63s wall / 27.15s user**. They are cost twins — the same full-tree
+ * walk reached through two different seams. Against Playwright's 30s default that is ~3s (~11%)
+ * of headroom, so either could time out under any load at all, including a serial run on a busy
+ * machine. Neither was hanging; they had no margin.
+ *
+ * 120s is ~4.4x the measured duration, chosen so ordinary variance cannot reach it while a genuine
+ * hang or a large regression in lint cost still fails rather than stalls the suite. This raises only
+ * the BUDGET — assertions are unchanged, so both tests discriminate exactly what they always did.
+ * If the lint's ~27s cost is itself the concern, that is a performance ticket with its own
+ * measurement, not a timeout value.
+ *
+ * A shared const rather than two literals: the population is what went wrong once already — the
+ * first cut of this budget covered only the `runLint` twin and left the CLI test exposed on the
+ * default. A third real-tree test should therefore find one obvious thing to reach for instead of
+ * a comment to re-read.
+ * @type {Number}
+ */
+const REAL_TREE_TIMEOUT = 120000;
+
+/**
  * @summary Coverage for `ai/scripts/lint/lint-tree-json.mjs` — the structural lint that
  * verifies `learn/tree.json` mirrors the on-disk `learn/` folder structure.
  *
@@ -60,7 +86,12 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         expect(result.stdout).toContain('NO_TOP_LEVEL_ORPHAN');
     });
 
+    // Real-tree test 1 of 2 — see REAL_TREE_TIMEOUT. Reaches the full walk through the CLI
+    // (process boundary + exit code); the `runLint` test below reaches the same walk through the
+    // module export. Different seams, same ~27s cost, so both carry the budget.
     test('CLI: the real learn/tree.json passes (mirrors the folder structure)', () => {
+        test.setTimeout(REAL_TREE_TIMEOUT);
+
         const result = spawnSync('node', [scriptPath], {cwd: process.cwd(), encoding: 'utf8'});
 
         expect(result.status, result.stderr).toBe(0);
@@ -268,21 +299,10 @@ test.describe('ai/scripts/lint-tree-json (learn/tree.json mirrors learn/ folder 
         }).map(v => v.code)).toEqual(['SEO_GENERATED_EXTRA', 'SEO_GENERATED_EXTRA']);
     });
 
-    // The only test here that runs the lint against the REAL docs tree; every other test in this
-    // file is fixture-based and finishes in milliseconds, so the strict default still guards them.
-    //
-    // Measured 2026-07-24: `node ai/scripts/lint/lint-tree-json.mjs` takes **27.06s** wall-clock
-    // (25.71s user) walking `learn/` and cross-checking `learn/tree.json`. Against Playwright's
-    // 30s default that is ~3s — about 11% — of headroom, so the test timed out under any load at
-    // all, including a serial run on a busy machine. It was never hanging; it had no margin.
-    //
-    // 120s is ~4.4x the measured duration, chosen so ordinary variance cannot reach it while a
-    // genuine hang or a large regression in lint cost still fails rather than stalls the suite.
-    // This raises only the BUDGET — the assertions below are unchanged, so the test discriminates
-    // exactly what it always did. If the lint's cost is itself the concern, that is a performance
-    // ticket with its own measurement, not a timeout value.
+    // Real-tree test 2 of 2 — see REAL_TREE_TIMEOUT. Reaches the full walk through the module
+    // export (no process boundary), the CLI test above through the shell-out.
     test('runLint: exported entry returns a numeric exit code on the real tree', async () => {
-        test.setTimeout(120000);
+        test.setTimeout(REAL_TREE_TIMEOUT);
 
         const {exitCode, violations} = await runLint();
 
