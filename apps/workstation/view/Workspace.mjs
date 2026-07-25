@@ -1067,10 +1067,14 @@ class Workspace extends Container {
      * later flip across documents, so an open vessel stayed on the theme it was born with while
      * the workspace beside it changed.
      *
-     * Fanning across `Neo.apps` is the same seam the tear-out already resolves vessels through
-     * (`resolveTarget: windowId => Neo.apps[windowId]?.mainView`), and the viewport is where the
-     * app's token bridge lives — so a vessel restyles from its own theme class rather than
-     * inheriting a stale one from its boot-time body.
+     * Fanning reaches the viewport because that is where this app's token bridge lives, so a vessel
+     * restyles from its own theme class rather than inheriting a stale one from its boot-time body.
+     *
+     * `Neo.appsByName[appName]` rather than `Neo.apps`: the worker-global registry is keyed by
+     * window and can carry more than one app name (`controller/Application.mjs` indexes both), so
+     * iterating it would let a Workstation toggle retheme an unrelated co-hosted app. The
+     * name-keyed registry is the same set restricted to this app's own render targets — one window
+     * today, one per open vessel tomorrow.
      * @param {String} theme
      * @returns {String}
      */
@@ -1080,7 +1084,7 @@ class Workspace extends Container {
         me.theme = theme;
         me.syncThemeToggle(theme);
 
-        Object.values(Neo.apps || {}).forEach(app => {
+        (Neo.appsByName?.[me.appName] || []).forEach(app => {
             const view = app?.mainView;
 
             view && view !== me && view.theme !== theme && (view.theme = theme)

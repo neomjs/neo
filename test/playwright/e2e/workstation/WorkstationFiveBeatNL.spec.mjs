@@ -329,9 +329,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
 
-        const flipped = await popup.evaluate(async () => {
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
+        // Poll the OBSERVABLE transition rather than sleeping a frame count. The flip crosses a
+        // worker→two-main-threads boundary and commits through a vdom update the popup does not
+        // publish an event for, so any fixed wait encodes a guess about someone else's scheduler:
+        // two rAFs sampled BEFORE the commit and failed deterministically at this exact head.
+        // Polling states the actual contract — the vessel restyles, eventually and observably.
+        const readVesselTokens = () => popup.evaluate(() => {
             const viewport = document.querySelector('.workstation-viewport'),
                   styles   = viewport && getComputedStyle(viewport);
 
@@ -341,8 +344,15 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             }
         });
 
-        expect(flipped.cellBg, 'the open vessel must restyle when the workspace theme flips')
-            .not.toBe(themeBefore);
+        await expect.poll(async () => (await readVesselTokens()).cellBg, {
+            message: 'the open vessel must restyle when the workspace theme flips',
+            timeout: 15000
+        }).not.toBe(themeBefore);
+
+        const flipped = await readVesselTokens();
+
+        // Changing is not enough: it must land on the NEW palette. A vessel that merely moved off
+        // its birth value — to a stock Neo default, say — would satisfy the assertion above.
         expect(flipped.cellBg, 'and it must land on the NEW palette, not merely change')
             .toBe(flipped.panel);
 
