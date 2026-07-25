@@ -10,7 +10,13 @@
  *
  * What it does: on every operator-seat `session.created` event, atomically writes the seat's
  * wake envelope to `$XDG_DATA_HOME/opencode/wake-envelope.json` (fallback
- * `~/.local/share/opencode/wake-envelope.json`), mode 0600:
+ * `~/.local/share/opencode/wake-envelope.json`), mode 0600. A desktop restart with a
+ * RESTORED session never fires `session.created`, so the first qualifying `session.updated`
+ * of a restored top-level session re-binds the envelope through the same write+probe
+ * discipline (the restore gap this writer exists to close; identity always comes from an
+ * owner event's exact id, never from a listing heuristic). A load-time log line records
+ * that the plugin armed at all — after a restart, that line is what distinguishes
+ * "plugin never loaded" from "loaded but no qualifying event yet".
  *
  * ```json
  * {
@@ -51,9 +57,11 @@
  *   `written-probe-failed`. The envelope stays written either way, but an unverified
  *   envelope is a degraded result, never a silent success.
  *
- * NOTE: the envelope is written on `session.created`; a session already open when the
- * plugin is first planted re-writes it at the next session start (or immediately on
- * restart of the seat).
+ * NOTE: the envelope is written on `session.created` and re-bound on the first qualifying
+ * `session.updated` of a restored session; a session already open when the plugin is first
+ * planted re-writes it at the next session start (or immediately on restart of the seat).
+ * Within one plugin lifetime the server's port cannot change, so a once-written-or-adopted
+ * session id is the whole freshness check the frequent `session.updated` events need.
  *
  * @summary OpenCode plugin that writes the wake-daemon seat envelope on operator-seat session.created.
  * @see ai/daemons/wake/daemon.mjs deliverViaOpencodeServer (the consuming route)
@@ -146,10 +154,10 @@ export const NeoWakeEnvelope = async (ctx) => {
      *
      * @param {Object} options
      * @param {Number} options.port The resolved server port written into the envelope.
-     * @param {String} options.sessionId The exact session id from the `session.created` event.
-     * @returns {Promise<void>} Resolves when the route verifies; throws (with the cause) otherwise.
+     * @param {String} options.sessionId The exact session id from the qualifying session event.
+     * @returns {Promise<Object>} Resolves with the server's own session payload; throws (with the cause) otherwise.
      */
-    const probeEnvelopeRoute = async ({port, sessionId}) => {
+    const getSession = async ({port, sessionId}) => {
         const username = process.env.OPENCODE_SERVER_USERNAME;
         const password = process.env.OPENCODE_SERVER_PASSWORD;
 
@@ -185,38 +193,134 @@ export const NeoWakeEnvelope = async (ctx) => {
         if (session?.id !== sessionId) {
             throw new Error(`probe id mismatch: asked ${sessionId}, got ${session?.id}`);
         }
+
+        return session;
     };
+
+    const probeEnvelopeRoute = async (options) => {
+        await getSession(options);
+    };
+
+    /**
+     * Reads the on-disk envelope for the adoption check. A missing or malformed file is
+     * not an error — it simply means there is nothing to adopt.
+     *
+     * @returns {Promise<Object|null>} The parsed envelope, or null.
+     */
+    const readEnvelope = async () => {
+        try {
+            return JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+        } catch (_) {
+            return null;
+        }
+    };
+
+    // The (sessionId, port) pair this plugin instance already wrote or adopted. Within one
+    // plugin lifetime the server's port cannot change, so a sessionId hit alone is proof the
+    // envelope is current — this keeps the high-frequency `session.updated` path fetch-free
+    // and lsof-free in the common case.
+    let lastTarget = null;
+
+    // Sessions already identified as child/subagent sessions. A busy subagent fires
+    // `session.updated` constantly; without this set each one would cost an authoritative
+    // parentage fetch.
+    const ignoredSessions = new Set();
+
+    // Decisive load-time instrument: after a desktop restart, this line in the seat log is
+    // what distinguishes "plugin never loaded" from "loaded but no qualifying event yet" —
+    // observability before trust (a quiet channel fails silently; instrument first).
+    await log('info', `neo-wake-envelope plugin loaded (pid ${process.pid}, directory ${directory ?? 'unknown'}) — restore coverage armed`);
 
     return {
         event: async ({ event }) => {
-            if (event?.type !== 'session.created') {
+            const type = event?.type;
+
+            if (type !== 'session.created' && type !== 'session.updated') {
                 return;
             }
 
-            const info      = event.properties?.info ?? {};
-            const sessionId = info.id;
-            const parentId  = info.parentID ?? info.parent_id ?? null;
+            const info      = event.properties?.info ?? event.properties ?? {};
+            const sessionId = info.id ?? info.sessionID ?? null;
 
-            // Child/subagent sessions never retarget the operator seat's wake route.
-            if (!sessionId || parentId) {
+            // Written or adopted this boot — within one plugin lifetime the port cannot
+            // change, so this is the whole freshness check frequent `session.updated`
+            // events need. Known child sessions are filtered without a fetch.
+            if (!sessionId || lastTarget?.sessionId === sessionId || ignoredSessions.has(sessionId)) {
                 return;
             }
 
+            if (type === 'session.created') {
+                // Child/subagent sessions never retarget the operator seat's wake route.
+                const parentId = info.parentID ?? info.parent_id ?? null;
+
+                if (parentId) {
+                    ignoredSessions.add(sessionId);
+                    return;
+                }
+
+                try {
+                    const port = await resolvePort();
+
+                    await writeEnvelope(sessionId, port);
+
+                    try {
+                        await probeEnvelopeRoute({port, sessionId});
+                        await log('info', `wake envelope written-probed for session ${sessionId} (port ${port})`);
+                    } catch (probeErr) {
+                        // Degraded, loud, never fatal: the envelope stays written — an unverified
+                        // envelope is still better than none, but it must not report success.
+                        await log('error', `written-probe-failed for session ${sessionId} (port ${port}): ${probeErr.message}`);
+                    }
+
+                    lastTarget = {sessionId, port};
+                } catch (err) {
+                    await log('error', `envelope write failed: ${err.message}`);
+                }
+
+                return;
+            }
+
+            // `session.updated` — the restore path. A restored session never fires
+            // `session.created`, so its first qualifying update is the owner event that
+            // re-binds the envelope after a desktop restart. Identity comes from the
+            // event's exact id, never from a listing heuristic — a listing cannot
+            // distinguish which of two live top-level sessions is the operator's.
             try {
                 const port = await resolvePort();
+
+                // Adopt an already-current envelope (e.g. a plugin reload within one
+                // server life) instead of rewriting it.
+                const existing = await readEnvelope();
+
+                if (existing?.sessionId === sessionId && existing?.port === port) {
+                    lastTarget = {sessionId, port};
+                    await log('debug', `envelope already targets session ${sessionId} (port ${port}) — adopted`);
+                    return;
+                }
+
+                // The updated event does not reliably carry parentage; the server's own
+                // session resource is the authoritative source for the child filter.
+                const session = await getSession({port, sessionId});
+
+                if (session?.parentID ?? session?.parent_id) {
+                    ignoredSessions.add(sessionId);
+                    await log('debug', `session.updated for child session ${sessionId} ignored — child sessions never retarget`);
+                    return;
+                }
 
                 await writeEnvelope(sessionId, port);
 
                 try {
                     await probeEnvelopeRoute({port, sessionId});
-                    await log('info', `wake envelope written-probed for session ${sessionId} (port ${port})`);
+                    await log('info', `wake envelope written-probed for restored session ${sessionId} (port ${port})`);
                 } catch (probeErr) {
-                    // Degraded, loud, never fatal: the envelope stays written — an unverified
-                    // envelope is still better than none, but it must not report success.
-                    await log('error', `written-probe-failed for session ${sessionId} (port ${port}): ${probeErr.message}`);
+                    // Same degraded-loud discipline as the created path.
+                    await log('error', `written-probe-failed for restored session ${sessionId} (port ${port}): ${probeErr.message}`);
                 }
+
+                lastTarget = {sessionId, port};
             } catch (err) {
-                await log('error', `envelope write failed: ${err.message}`);
+                await log('error', `restore-target failed for session ${sessionId}: ${err.message}`);
             }
         }
     };
