@@ -566,6 +566,9 @@ export async function symlinkDataDir({
     for (const entry of entries) {
         const name = entry.name;
 
+        // Dot-entries are OS/tool artifacts, not managed shared substrate.
+        if (name.startsWith('.')) continue;
+
         if (blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) {
             log(`symlink skip (blocklisted): ${name}`);
             result.blocklisted.push(name);
