@@ -319,6 +319,35 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(vesselTokens.stripBg, 'the vessel must bridge tab tokens onto the Workstation palette')
             .toBe(vesselTokens.panel2);
 
+        // …and the skin must keep reaching it AFTER it is open. A theme is a class an ancestor
+        // carries, written by `afterSetTheme` onto the component it was set on — so a workspace-
+        // local flip reaches this window and no other, and the vessel's own `body` still carries
+        // whatever the Stylesheet addon put there at boot. Carrier-presence at birth proves
+        // initial styling only; an open vessel stranding on its birth theme is invisible to every
+        // assertion above. Flip, then read the same tokens back through the popup.
+        const themeBefore = vesselTokens.cellBg;
+
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+
+        const flipped = await popup.evaluate(async () => {
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+            const viewport = document.querySelector('.workstation-viewport'),
+                  styles   = viewport && getComputedStyle(viewport);
+
+            return {
+                cellBg: styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
+                panel : styles?.getPropertyValue('--workstation-panel').trim()
+            }
+        });
+
+        expect(flipped.cellBg, 'the open vessel must restyle when the workspace theme flips')
+            .not.toBe(themeBefore);
+        expect(flipped.cellBg, 'and it must land on the NEW palette, not merely change')
+            .toBe(flipped.panel);
+
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
+
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])

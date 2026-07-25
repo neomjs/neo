@@ -1058,12 +1058,34 @@ class Workspace extends Container {
     }
 
     /**
+     * Applies the theme to every render target of this app, not only to the workspace.
+     *
+     * A theme in Neo is a CSS class an ancestor carries, and `afterSetTheme` writes it onto the
+     * component it was set on — so setting it here reaches this window's subtree and nothing else.
+     * A tear-out vessel is a SECOND document driven by the same App Worker, whose only theme
+     * carrier is the class the Stylesheet addon puts on its `body` at boot. Nothing propagates a
+     * later flip across documents, so an open vessel stayed on the theme it was born with while
+     * the workspace beside it changed.
+     *
+     * Fanning across `Neo.apps` is the same seam the tear-out already resolves vessels through
+     * (`resolveTarget: windowId => Neo.apps[windowId]?.mainView`), and the viewport is where the
+     * app's token bridge lives — so a vessel restyles from its own theme class rather than
+     * inheriting a stale one from its boot-time body.
      * @param {String} theme
      * @returns {String}
      */
     setWorkspaceTheme(theme) {
-        this.theme = theme;
-        this.syncThemeToggle(theme);
+        const me = this;
+
+        me.theme = theme;
+        me.syncThemeToggle(theme);
+
+        Object.values(Neo.apps || {}).forEach(app => {
+            const view = app?.mainView;
+
+            view && view !== me && view.theme !== theme && (view.theme = theme)
+        });
+
         return theme
     }
 
