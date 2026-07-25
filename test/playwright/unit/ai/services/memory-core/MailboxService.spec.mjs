@@ -25,7 +25,7 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
-    let messageWalDir;
+    let messageWalDir, getWakeDeliverySeries;
 
     test.beforeAll(async () => {
 
@@ -34,6 +34,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // Load dynamically due to SQLite DB mount timing
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
+        getWakeDeliverySeries = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).getWakeDeliverySeries;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
@@ -1755,6 +1756,91 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 wakeSuppressed: true
             })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
         });
+    });
+
+    /**
+     * @summary The broadcast-delivery series reads shipped graph state, it does not count.
+     *
+     * Every assertion here pins a claim the JSDoc makes, because the series' whole value is that a
+     * PRE-flip baseline is possible: a counter added today could only measure forward, while a
+     * reader describes traffic that already happened. If the read silently changed shape, a
+     * post-flip comparison would be against a differently-derived number and nobody would see it.
+     */
+    test('#15919 deliveries count BROADCAST fan-out only — a DM raises sends and not deliveries', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        // The scope boundary, asserted rather than assumed: `DELIVERED_TO` edges exist for
+        // AGENT:* fan-out only, so a DM is invisible to `deliveries` by construction. This is
+        // the assertion that would have caught the original JSDoc claiming more than the
+        // mechanism delivers — it failed RED against exactly that overstatement.
+        const beforeDm = getWakeDeliverySeries({});
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({to: '@bob', subject: '[series] direct', body: 'd'});
+        });
+
+        const afterDm = getWakeDeliverySeries({});
+
+        expect(afterDm.totals.sends, 'a DM is a send').toBeGreaterThan(beforeDm.totals.sends);
+        expect(afterDm.totals.deliveries, 'a DM has no delivery cohort').toBe(beforeDm.totals.deliveries);
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({to: 'AGENT:*', subject: '[series] broadcast', body: 'b'});
+        });
+
+        const afterBroadcast = getWakeDeliverySeries({});
+
+        expect(afterBroadcast.totals.broadcasts).toBeGreaterThan(afterDm.totals.broadcasts);
+        expect(afterBroadcast.totals.deliveries, 'a broadcast fans out').toBeGreaterThan(afterDm.totals.deliveries);
+        // perRecipient is the per-pair breakdown AC5 asks for, loudest inbox first.
+        expect(afterBroadcast.perRecipient.length).toBeGreaterThan(0);
+        expect(afterBroadcast.perRecipient[0].deliveries)
+            .toBeGreaterThanOrEqual(afterBroadcast.perRecipient.at(-1).deliveries);
+    });
+
+    test('#15919 the window filters on the message sentAt, so the series is retroactive', async () => {
+        // Self-seeding deliberately: reading another test's traffic would make this order-dependent,
+        // which is the defect class this suite's own neighbourhood was bisected for. It seeds what
+        // it asserts and depends on no sibling.
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({to: 'AGENT:*', subject: '[series] window probe', body: 'w'});
+        });
+
+        // The retroactive property is the reason a pre-flip baseline exists at all: the message was
+        // sent BEFORE this read and is still counted. A window excluding already-sent traffic would
+        // make the reader a counter with extra steps, and no pre-flip baseline would be possible.
+        const all    = getWakeDeliverySeries({}),
+              future = getWakeDeliverySeries({since: '2099-01-01T00:00:00Z'}),
+              past   = getWakeDeliverySeries({until: '2000-01-01T00:00:00Z'});
+
+        expect(all.totals.deliveries).toBeGreaterThan(0);
+        expect(future.totals.deliveries).toBe(0);
+        expect(future.perRecipient).toEqual([]);
+        expect(past.totals.deliveries).toBe(0);
+        expect(all.window).toEqual({since: null, until: null});
+    });
+
+    test('#15919 suppressed is the sender ELECTION, counted per delivery — not a wake outcome', async () => {
+        const before = getWakeDeliverySeries({});
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[series] quiet broadcast',
+                body          : 'q',
+                wakeSuppressed: true
+            });
+        });
+
+        const after = getWakeDeliverySeries({});
+
+        // Suppression rides the MESSAGE node, so it must multiply across the delivery cohort —
+        // one suppressed broadcast suppresses N deliveries, not one.
+        expect(after.totals.suppressed).toBeGreaterThan(before.totals.suppressed);
+        expect(after.totals.suppressed - before.totals.suppressed)
+            .toBe(after.totals.deliveries - before.totals.deliveries);
     });
 
     test('#15376 a human-class sender defaults durable-quiet + priority-high; an explicit false elects the wake', async () => {
