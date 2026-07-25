@@ -336,29 +336,36 @@ class SortZone extends DragZone {
                 }
 
                 if (me.reattachArmed && isMovingIn && intersectionRatio > me.reattachThreshold) {
-                    // Restore layout
-                    me.dragPlaceholder.wrapperStyle = {
-                        ...me.dragPlaceholder.wrapperStyle,
-                        visibility: 'visible'
-                    };
+                    // The layout restore is the wrapperStyle-managed zone family's concern, and
+                    // the placeholder is its marker. Projection-owned zones (dock tab strips)
+                    // never captured an in-window layout — for them the restore is semantically
+                    // a no-op, and the EVENT below is the whole re-entry contract. An unguarded
+                    // dereference here dies inside the DOM-event dispatch, so the fire is never
+                    // reached and the gesture is stuck in window-drag with no visible error.
+                    if (me.dragPlaceholder) {
+                        me.dragPlaceholder.wrapperStyle = {
+                            ...me.dragPlaceholder.wrapperStyle,
+                            visibility: 'visible'
+                        };
 
-                    // Re-applying the current state:
-                    me.itemRects.forEach((rect, index) => {
-                        let mappedIndex = me.indexMap[index];
-                        if (mappedIndex !== -1) {
-                            let item = me.owner.items[mappedIndex];
+                        // Re-applying the current state:
+                        me.itemRects.forEach((rect, index) => {
+                            let mappedIndex = me.indexMap[index];
+                            if (mappedIndex !== -1) {
+                                let item = me.owner.items[mappedIndex];
 
-                            if (item !== me.dragPlaceholder && item !== me.dragComponent) {
-                                item.wrapperStyle = {
-                                    ...item.wrapperStyle,
-                                    height: `${rect.height}px`,
-                                    left  : `${rect.left}px`,
-                                    top   : `${rect.top}px`,
-                                    width : `${rect.width}px`
+                                if (item && item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                    item.wrapperStyle = {
+                                        ...item.wrapperStyle,
+                                        height: `${rect.height}px`,
+                                        left  : `${rect.left}px`,
+                                        top   : `${rect.top}px`,
+                                        width : `${rect.width}px`
+                                    }
                                 }
                             }
-                        }
-                    });
+                        })
+                    }
 
                     me.fire('dragBoundaryEntry', {
                         draggedItem: me.dragComponent,
