@@ -46,3 +46,65 @@
 .workstation-viewport.neo-viewport {
     background: var(--workstation-ground);
 }
+
+// Pane SKIN — everything a pane keeps when it is torn out of the workspace.
+//
+// The token bridge above made a vessel-hosted pane resolve the right colours; these rules are
+// what make it look like a Workstation pane rather than a stock Neo one. They lived inside
+// `.workstation-workspace` and so were lost the moment a pane crossed into a `?popout=` vessel,
+// which mounts no workspace by design — the pane rendered dark (tokens reached it) but unskinned:
+// no header-toolbar fill, no body-frame treatment, no grid-header styling.
+//
+// The split rule, and it is mechanical rather than aesthetic: **would this need to apply to a pane
+// that has been torn out?** Yes → here. No → `.workstation-workspace`, which keeps the gradient
+// backdrop, the dock zones/splitters/rails, and the tourbar/statusbar. A vessel must not inherit
+// those; a bare pane host is not a dense composition.
+.workstation-viewport {
+    // Grouped with `.neo-dashboard-dock-edge-band` in the workspace block. The band is chrome and
+    // stayed; this half is pane skin, so the pair split rather than moved together.
+    .neo-tab-container {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    // The pane owns Workstation's visible border and radius. The generic tab body stays a
+    // layout/overflow wrapper, not a second square opaque frame around the live pane.
+    .neo-tab-container > .neo-tab-body-container {
+        background: transparent;
+        border    : 0;
+    }
+
+    .neo-tab-header-toolbar {
+        background   : var(--workstation-panel-2);
+        border-bottom: 1px solid var(--workstation-line);
+    }
+
+    .neo-tab-header-button.pressed {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--workstation-ink);
+        }
+    }
+
+    // Theme classes live on the grid primitives themselves, so inherited variables alone cannot
+    // out-rank their light-skin defaults — which is why these must travel with the pane and not
+    // merely be reachable from it.
+    .neo-grid-header-button {
+        --grid-header-button-background-color      : var(--workstation-panel-2);
+        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --grid-header-button-background-image      : none;
+        --grid-header-button-color                 : var(--workstation-ink);
+        --grid-header-button-color-hover           : var(--workstation-ink);
+        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+        --grid-header-button-justify-content       : flex-end;
+        --grid-header-button-padding               : 0 10px;
+
+        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+        // column). Keep the glyph on the physical right edge without participating in flex.
+        .neo-button-glyph {
+            position: absolute;
+            right   : 10px;
+        }
+    }
+}

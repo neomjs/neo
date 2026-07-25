@@ -32,20 +32,20 @@
         background-color: color-mix(in srgb, var(--workstation-signal) 9%, transparent);
         border-radius   : 999px;
         box-shadow      : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
-        position        : relative;
-        transition      : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+        position  : relative;
+        transition: background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
                           box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
         z-index         : 1;
 
         &::after {
             background   : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
             border-radius: 999px;
-            content      : '';
-            left         : 50%;
-            position     : absolute;
-            top          : 50%;
-            transform    : translate(-50%, -50%);
-            transition   : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+            content   : '';
+            left      : 50%;
+            position  : absolute;
+            top       : 50%;
+            transform : translate(-50%, -50%);
+            transition: background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
                            box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
         }
 
@@ -81,22 +81,16 @@
         width : 36px;
     }
 
-    .neo-dashboard-dock-edge-band,
-    .neo-tab-container {
+    // The band is dock chrome and stays; `.neo-tab-container` was grouped with it and is pane
+    // skin, so the pair had to split rather than move together.
+    .neo-dashboard-dock-edge-band {
         min-height: 0;
         min-width : 0;
     }
 
-    // The pane owns Workstation's visible border and radius. The generic tab body remains a
-    // layout/overflow wrapper here, not a second square opaque frame around the live pane.
-    .neo-tab-container > .neo-tab-body-container {
-        background: transparent;
-        border    : 0;
-    }
-
     .neo-dashboard-dock-edge-rail {
-        background   : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
-        border        : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
+        background: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
+        border    : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
         border-radius : 7px;
         box-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
         overflow      : hidden;
@@ -109,38 +103,6 @@
         }
     }
 
-    .neo-tab-header-toolbar {
-        background   : var(--workstation-panel-2);
-        border-bottom: 1px solid var(--workstation-line);
-    }
-
-    .neo-tab-header-button.pressed {
-        .neo-button-glyph,
-        .neo-button-text {
-            color: var(--workstation-ink);
-        }
-    }
-
-    // Theme classes live on the grid primitives themselves, so inherited workspace
-    // variables alone cannot out-rank their light-skin defaults.
-    .neo-grid-header-button {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
-
-        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-        // column). Keep the glyph on the physical right edge without participating in flex.
-        .neo-button-glyph {
-            position: absolute;
-            right   : 10px;
-        }
-    }
 }
 
 .workstation-tourbar {
@@ -151,9 +113,9 @@
         var(--workstation-panel) 55%);
     border-bottom: 1px solid color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-line));
     box-shadow   : 0 8px 28px color-mix(in srgb, var(--workstation-ground) 66%, transparent);
-    gap          : 12px;
-    height       : 64px;
-    padding      : 8px 14px;
+    gap    : 12px;
+    height : 64px;
+    padding: 8px 14px;
 
     .workstation-tour-story {
         background: transparent;
@@ -179,8 +141,8 @@
         .workstation-pip {
             background   : var(--workstation-line);
             border-radius: 999px;
-            flex         : 1;
-            height       : 4px;
+            flex  : 1;
+            height: 4px;
             max-width    : 48px;
             transition   : background .2s ease, box-shadow .2s ease;
         }
@@ -241,17 +203,17 @@
     align-items  : center;
     background   : var(--workstation-panel-2);
     border-bottom: 1px solid var(--workstation-line);
-    display      : flex;
-    flex         : 0 0 34px;
-    gap          : 8px;
+    display: flex;
+    flex   : 0 0 34px;
+    gap    : 8px;
     min-height   : 34px;
-    padding      : 5px 12px;
-    position     : relative;
+    padding : 5px 12px;
+    position: relative;
     z-index      : 2;
 
     span {
-        background    : color-mix(in srgb, var(--workstation-signal) 9%, var(--workstation-panel));
-        border        : 1px solid color-mix(in srgb, var(--workstation-signal) 32%, var(--workstation-line));
+        background: color-mix(in srgb, var(--workstation-signal) 9%, var(--workstation-panel));
+        border    : 1px solid color-mix(in srgb, var(--workstation-signal) 32%, var(--workstation-line));
         border-radius : 999px;
         color         : var(--workstation-ink-dim);
         font-family   : var(--workstation-font-mono);
@@ -274,8 +236,8 @@
 }
 
 .workstation-data-pane {
-    background   : var(--workstation-panel);
-    border       : 1px solid var(--workstation-line-soft);
+    background: var(--workstation-panel);
+    border    : 1px solid var(--workstation-line-soft);
     border-radius: 8px;
     min-height   : 0;
     min-width    : 0;
@@ -288,11 +250,11 @@
     // The Sparkline component's intrinsic canvas is 300x150. Workstation must load the
     // same cell-fit contract proven by DevIndex instead of letting that size escape.
     .neo-sparkline-wrapper {
-        contain  : strict;
-        height   : 100%;
+        contain: strict;
+        height : 100%;
         min-width: 0;
         position: relative;
-        width    : 100%;
+        width   : 100%;
 
         .neo-sparkline-canvas {
             height  : 100%;
@@ -304,7 +266,7 @@
     }
 }
 
-.workstation-workspace .neo-button.workstation-row-action {
+.workstation-viewport .neo-button.workstation-row-action {
     --button-background-color       : color-mix(in srgb, var(--workstation-signal) 8%, var(--workstation-panel-2));
     --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
     --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
@@ -345,9 +307,9 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
         linear-gradient(145deg, var(--workstation-panel), color-mix(in srgb, var(--workstation-signal) 5%, var(--workstation-panel-2)));
     border        : 1px solid var(--workstation-line-soft);
     border-radius : 8px;
-    overflow      : hidden;
-    padding       : 0;
-    position      : relative;
+    overflow: hidden;
+    padding : 0;
+    position: relative;
 
     &::after {
         background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--workstation-signal) 55%, transparent), transparent);
@@ -366,14 +328,14 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
     flex-direction: column;
     height        : 100%;
     min-height    : 0;
-    padding       : clamp(12px, 2vw, 24px);
-    position      : relative;
+    padding : clamp(12px, 2vw, 24px);
+    position: relative;
 }
 
 .workstation-resident-kicker {
     align-items   : center;
-    color         : var(--workstation-ink-dim);
-    display       : flex;
+    color  : var(--workstation-ink-dim);
+    display: flex;
     font-family   : var(--workstation-font-mono);
     font-size     : 10px;
     font-weight   : 700;
@@ -384,16 +346,16 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
         background   : var(--workstation-state-ok);
         border-radius: 50%;
         box-shadow   : 0 0 12px color-mix(in srgb, var(--workstation-state-ok) 72%, transparent);
-        height       : 6px;
-        width        : 6px;
+        height: 6px;
+        width : 6px;
     }
 }
 
 .workstation-resident-icon {
     color    : color-mix(in srgb, var(--workstation-signal) 72%, var(--workstation-ink));
     font-size: clamp(18px, 2vw, 30px);
-    margin   : auto 0 8px;
-    opacity  : .82;
+    margin : auto 0 8px;
+    opacity: .82;
 }
 
 .workstation-resident-metric {
@@ -418,8 +380,8 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
 .workstation-resident-footer {
     align-items   : center;
     border-top    : 1px solid var(--workstation-line-soft);
-    color         : var(--workstation-ink-faint);
-    display       : flex;
+    color  : var(--workstation-ink-faint);
+    display: flex;
     font-family   : var(--workstation-font-mono);
     font-size     : 9px;
     gap           : 8px;
@@ -437,17 +399,17 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
 
 .workstation-resident-wave {
     align-items: end;
-    display    : flex;
-    gap        : 3px;
-    height     : 15px;
+    display: flex;
+    gap    : 3px;
+    height : 15px;
     margin-top : 9px;
 
     i {
         background   : color-mix(in srgb, var(--workstation-signal) 68%, var(--workstation-line));
         border-radius: 2px;
-        display      : block;
-        height       : 40%;
-        width        : 8px;
+        display: block;
+        height : 40%;
+        width  : 8px;
 
         &:nth-child(2), &:nth-child(5) {height: 78%}
         &:nth-child(3) {height: 100%}
