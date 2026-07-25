@@ -80,6 +80,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         await page.waitForSelector('.workstation-tour-play',    {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
 
+        // A film take records the physical display: the headed window must be the top of the
+        // z-order or the capture shows whatever application happens to cover it. CDP-level and
+        // deterministic — never AppleScript (two same-bundle Chrome processes make script
+        // addressing flip-flop between instances).
+        filmTake && await page.bringToFront();
+
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
@@ -267,13 +273,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
-    // CONTRACTED pending the second re-entry defect: the ratio now crosses (min-area coverage —
-    // measured 0.7898 > 0.6 armed+rising on this stage), but the SortZone entry block dereferences
-    // `dragPlaceholder.wrapperStyle` before firing, and dock tab strips are placeholder-less by
-    // design (projection-owned layout) — the crossing sample throws, `dragBoundaryEntry` never
-    // fires, the vessel never retires. Three-hop probes (`boundaryEntrySeen=false` while the
-    // ratio stored) pinned it; the executor's reenter drive stays the activation witness.
-    test.fixme('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
+    // The engine's re-entry path is whole at last: the ratio crosses (min-area coverage) AND the
+    // entry fires on placeholder-less zones (the layout restore is gated on its own marker) — one
+    // continuous drag out past the edge and home again, zero mutation by guard.
+    test('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
         const {app, pageErrors, wsId} = await boot({page, neuralLink});
 
         const
