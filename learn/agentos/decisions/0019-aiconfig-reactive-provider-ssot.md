@@ -96,7 +96,7 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 ## 5. Sanctioned patterns (the fix, in one place)
 
 1. **Read at the use site:** `const dir = AiConfig.engines.chroma.dataDir;` — no export (B1), no once-used alias (B2), no `?.` (B3), no threading into other consumers (B5).
-2. **Leaves are declarative:** `leaf(default, env, type)`. No inline env-ternaries (A4), no `hasEnvValue` (A5).
+2. **Leaves are declarative:** `leaf(default, env, type, metadata)`. No inline env-ternaries (A4), no `hasEnvValue` (A5). A custom env parser rides **`metadata.parse`** — the only sanctioned way to declare one, and it overrides the type-derived parser. **A hand-written descriptor object (`name: {default, env, parse}`) is non-canonical**, and the cost is not stylistic: the config-path collector counts a descriptor as a leaf only when `default` + `env` + `type` are all present, so a hand-written one reads as a **namespace** — and the module-scope capture rule *passes* namespace captures while *failing* leaf captures, so the misread silently widens what B5 permits. (2026-07-25, `#15914` — `metadata.parse` was added precisely to remove the reason the descriptor form existed; it converted the four live instances.)
 3. **Formulas only for genuine computed values** — reactive on real deps. Never to re-derive a leaf (A6/A7) or for a plain path-join (A9); a path-under-root is a derivation, not a formula.
 4. **Tests isolate by construction** (`UNIT_TEST_MODE` → the config resolves the test DB). Never mutate the shared singleton (B4).
 5. **The C1×B5 sanctioned shape** (V-B-A'd against `dev` — most "daemon C1" sites are actually A1):
