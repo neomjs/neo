@@ -437,3 +437,154 @@ test.describe('Neo.ai.mcp.server.shared.Logger', () => {
         expect(warnings[0].loggerConfig.filePrefix).toBe('shared-test');
     });
 });
+
+/**
+ * @summary Log-path resolution + failure-containment contract.
+ *
+ * The canonical-path fallback (`<rootDir>/.neo-ai-data/logs`) was removed deliberately:
+ * a file-sink logger resolves its dir from the declared `logPath` leaf (or an explicit
+ * `loggerConfig.logPath`) and FAILS LOUD at construction otherwise — the construction
+ * stack names the defective caller. Sink failures — synchronous AND asynchronous stream
+ * events — degrade to stderr instead of killing a serving process, and a not-yet-ready
+ * Neo config provider routes file writes to stderr so anchor defaults can never leak a
+ * write into the canonical plane (one-reality guard).
+ */
+test.describe('Neo.ai.mcp.server.shared.Logger — log-path resolution contract', () => {
+    let originalStderrWrite;
+
+    const tmpDirs    = [];
+    const makeTmpDir = () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-logger-contract-'));
+
+        tmpDirs.push(dir);
+        return dir;
+    };
+    const dayName = prefix => `${prefix}-${new Date().toISOString().slice(0, 10)}.log`;
+
+    test.beforeEach(() => {
+        originalStderrWrite = process.stderr.write;
+    });
+
+    test.afterEach(() => {
+        process.stderr.write = originalStderrWrite;
+
+        tmpDirs.splice(0).forEach(dir => fs.rmSync(dir, {force: true, recursive: true}));
+    });
+
+    test('file sink with NO resolvable path throws a named error at construction', () => {
+        expect(() => createLogger({data: {}}, {fileSink: true, filePrefix: 'contract-noPath'}))
+            .toThrow(/no log path resolves/);
+    });
+
+    test('empty-config construction with a file sink throws — the silent canonical fallback is gone', () => {
+        expect(() => createLogger(undefined, {fileSink: true, filePrefix: 'contract-emptyConfig'}))
+            .toThrow(/no log path resolves/);
+    });
+
+    test('the declared logPath leaf is consulted — a bound path receives the file writes', async () => {
+        const dir    = makeTmpDir();
+        const logger = createLogger({data: {logPath: dir}}, {fileSink: true, filePrefix: 'contract-bound', flush: true});
+
+        logger.info('bound-path-write');
+        await logger.flush();
+
+        expect(fs.readFileSync(path.join(dir, dayName('contract-bound')), 'utf8')).toContain('bound-path-write');
+    });
+
+    test('loggerConfig.logPath overrides the config leaf', async () => {
+        const leafDir     = makeTmpDir();
+        const overrideDir = makeTmpDir();
+        const logger      = createLogger({data: {logPath: leafDir}}, {fileSink: true, filePrefix: 'contract-override', logPath: overrideDir, flush: true});
+
+        logger.info('override-write');
+        await logger.flush();
+
+        expect(fs.existsSync(path.join(overrideDir, dayName('contract-override')))).toBe(true);
+        expect(fs.existsSync(path.join(leafDir, dayName('contract-override')))).toBe(false);
+    });
+
+    test('stderr-only loggers construct and log without any path', () => {
+        const logger = createLogger({data: {}}, {fileSink: false, stderrMode: 'threshold', filePrefix: 'contract-stderrOnly'});
+
+        expect(() => logger.error('stderr-only-write')).not.toThrow();
+    });
+
+    test('a synchronously-unusable sink path degrades to stderr instead of throwing', () => {
+        const dir      = makeTmpDir();
+        const filePath = path.join(dir, 'occupied');
+
+        fs.writeFileSync(filePath, 'a file where a dir must go');
+
+        const logger  = createLogger({data: {logPath: path.join(filePath, 'child')}}, {fileSink: true, filePrefix: 'contract-syncDegrade'});
+        const written = [];
+
+        process.stderr.write = chunk => { written.push(String(chunk)); return true; };
+
+        expect(() => logger.info('degraded-write')).not.toThrow();
+        expect(written.join('')).toContain('file sink unavailable');
+        expect(written.join('')).toContain('degraded-write');
+    });
+
+    test('an ASYNC stream error (EISDIR on a directory-shaped filename) is contained, never uncaught', async () => {
+        const dir    = makeTmpDir();
+        const prefix = 'contract-asyncDegrade';
+
+        // The daily log FILENAME exists as a directory: createWriteStream() returns
+        // normally and emits 'error' later — the uncontained shape kills the process.
+        fs.mkdirSync(path.join(dir, dayName(prefix)), {recursive: true});
+
+        const escaped = [];
+        const trap    = e => escaped.push(e);
+
+        process.on('uncaughtException', trap);
+
+        const written = [];
+
+        process.stderr.write = chunk => { written.push(String(chunk)); return true; };
+
+        try {
+            const logger = createLogger({data: {logPath: dir}}, {fileSink: true, filePrefix: prefix, flush: true});
+
+            logger.info('first-write-arms-the-stream');
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            logger.info('post-failure-write');
+
+            expect(escaped).toHaveLength(0);
+            expect(written.join('')).toContain('file sink unavailable');
+            expect(written.join('')).toContain('post-failure-write');
+
+            // flush() must SETTLE on a dead sink — the error handler nulls currentStream, so
+            // the fast-resolve branch fires; a hang here is a shutdown-path regression (the
+            // test timeout is the falsifier).
+            await logger.flush();
+        } finally {
+            process.removeListener('uncaughtException', trap);
+        }
+    });
+
+    test('a not-ready provider routes file writes to stderr — zero filesystem writes before the overlay resolves', async () => {
+        const anchorDefaultDir = makeTmpDir();
+        const overlayDir       = makeTmpDir();
+        const prefix           = 'contract-oneReality';
+        const config           = {data: {logPath: anchorDefaultDir}, isReady: false};
+        const logger           = createLogger(config, {fileSink: true, filePrefix: prefix, flush: true});
+        const written          = [];
+
+        process.stderr.write = chunk => { written.push(String(chunk)); return true; };
+
+        logger.info('pre-ready-line');
+
+        expect(fs.readdirSync(anchorDefaultDir)).toHaveLength(0);
+        expect(written.join('')).toContain('pre-ready-line');
+
+        config.isReady      = true;
+        config.data.logPath = overlayDir;
+
+        logger.info('post-ready-line');
+        await logger.flush();
+
+        expect(fs.readFileSync(path.join(overlayDir, dayName(prefix)), 'utf8')).toContain('post-ready-line');
+        expect(fs.readdirSync(anchorDefaultDir)).toHaveLength(0);
+    });
+});
