@@ -182,6 +182,85 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(sortZone.isWindowDragging).toBe(true);
     });
 
+    test('re-entry stays reachable when the window-drag proxy dwarfs the boundary', async () => {
+        const mockOwner = {
+            id   : 'mockOwner2',
+            items: [{
+                id          : 'item2',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            }],
+            vdom           : {},
+            addDomListeners: () => {},
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:40}]),
+            on             : () => {}
+        };
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
+            enableProxyToPopup: true
+        });
+
+        // Strip-scale boundary: during window-drag the move payload's proxy embodies the future
+        // vessel and is LARGER than the boundary, so a proxy-area denominator would cap the
+        // ratio at boundaryArea/proxyArea (~0.2 here) and 0.6 could never be reached. The
+        // re-entry test therefore normalizes by the smaller rect: full boundary cover = 1.
+        sortZone.boundaryContainerRect = new Rectangle(0, 0, 314, 49);
+        sortZone.dragProxy = { id: 'proxy2', destroy: () => {} };
+        sortZone.dragPlaceholder = { id: 'placeholder2', wrapperStyle: {}, destroy: () => {} };
+
+        sortZone.lastIntersectionRatio = 1;
+        sortZone.isWindowDragging = false;
+
+        const simulateMove = async (x, y, width, height) => {
+            const proxyRect = new Rectangle(x, y, width, height);
+            await sortZone.onDragMove({
+                clientX: x,
+                clientY: y,
+                proxyRect,
+                screenX: x,
+                screenY: y,
+                path   : []
+            });
+        };
+
+        sortZone.itemRects = [{left:0, top:0, width:100, height:40}];
+        sortZone.indexMap = {0: 0};
+        sortZone.currentIndex = 0;
+        sortZone.isScrolling = false;
+
+        sortZone.fire = (event) => {
+            if (event === 'dragBoundaryExit') sortZone.isWindowDragging = true;
+            if (event === 'dragBoundaryEntry') sortZone.isWindowDragging = false;
+        };
+
+        // In-window phase drives an item-scale DOM proxy: leaving the strip fires the exit
+        // (proxy-normalized, unchanged semantics) and pre-arms re-entry in coverage scale.
+        await simulateMove(300, 60, 100, 40);
+        expect(sortZone.isWindowDragging).toBe(true);
+        expect(sortZone.reattachArmed).toBe(true);
+        expect(sortZone.lastIntersectionRatio).toBe(0);
+
+        // Window-drag phase: the payload proxy is now vessel-sized (320×240 > the boundary).
+        // Far outside — coverage 0, still window-dragging.
+        await simulateMove(400, 200, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBe(0);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // Partial return: the vessel covers ~54% of the strip — rising, but below the threshold.
+        await simulateMove(100, 10, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.5424, 3);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // Full strip cover: min-area coverage reads 1 and re-entry fires. Under a proxy-area
+        // denominator this sample would read 15386/76800 ≈ 0.2 and re-entry would be unreachable.
+        await simulateMove(0, 0, 320, 240);
+        expect(sortZone.lastIntersectionRatio).toBe(1);
+        expect(sortZone.isWindowDragging).toBe(false);
+    });
+
     test('does not move a remote drag visitor into the target when it leaves (#8162)', async () => {
         const appliedDeltas = [];
 
