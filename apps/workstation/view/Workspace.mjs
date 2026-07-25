@@ -1785,6 +1785,9 @@ class Workspace extends Container {
      * @param {String} step.itemId The dock item to tear out.
      * @param {String} step.sourceNodeId The tabs node currently holding it.
      * @param {Object} [options={}]
+     * @param {Number} [options.birthAttempts=180] Vessel-birth poll attempts (16ms each) — film
+     *     pacing widens this: vsync-limited boot can push the popup's shared-heap join past the
+     *     default three-second gate.
      * @param {Boolean} [options.cancel=false] Escape while detached — the zero-mutation witness.
      * @param {Number} [options.curve=0] Perpendicular path bow as a fraction of path length.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
@@ -1793,7 +1796,7 @@ class Workspace extends Container {
      * @param {Boolean} [options.reenter=false] Walk back inside instead of releasing — the morph witness.
      * @returns {Promise<Object>}
      */
-    async executeTearOutStep(step, {cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false}={}) {
+    async executeTearOutStep(step, {birthAttempts=180, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false}={}) {
         let me                     = this,
             {itemId, sourceNodeId} = step || {},
             document               = me.dockModel,
@@ -1905,7 +1908,7 @@ class Workspace extends Container {
             }
 
             // Gate on the vessel's ACTUAL birth: a `?popout=` window connecting through onWindowConnect.
-            let born = await me.waitForTearOutVessel(itemId);
+            let born = await me.waitForTearOutVessel(itemId, {attempts: birthAttempts});
 
             if (!born) {
                 let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'}`,

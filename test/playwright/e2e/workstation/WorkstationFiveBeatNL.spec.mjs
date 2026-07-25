@@ -48,7 +48,7 @@ import {test, expect} from '../../fixtures.mjs';
 // witness is not a take.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
+    filmPace = filmTake ? {birthAttempts: 600, curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
 test.use({video: filmTake ? 'on' : 'off'});

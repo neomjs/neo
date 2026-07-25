@@ -3,6 +3,16 @@ import './configTemplateResolver.mjs';
 import {defineConfig, devices} from '@playwright/test';
 import {resolveFreePortSync}   from './resolveFreePort.mjs';
 import {E2E_LAUNCH_ARGS}       from './e2e/utils/gpuIntent.mjs';
+import {BASE_LAUNCH_ARGS}      from './e2e/utils/gpuIntent.mjs';
+
+// Film-take launch profile: capture needs frames ON GLASS. `--disable-frame-rate-limit`
+// suppresses headed compositing entirely on retina hosts (page.screenshot starves for the
+// full test timeout; every screen-capture grain records black while worker-truth stays
+// green), and the GPU-intent args are benchmark claims a film take does not make. The
+// backgrounding-disable trio STAYS: a newborn tear-out vessel is an occluded window whose
+// renderer must keep running long enough to join the shared heap, or vessels are never
+// born. Bisect receipt table: the film-profile ticket this block cites.
+const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -56,7 +66,7 @@ export default defineConfig({
             // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
             // launches with. A second copy here would drift, and drift between two statements of one
             // fact is how a dead GL flag stayed invisible for five months.
-            launchOptions: {args: E2E_LAUNCH_ARGS}
+            launchOptions: {args: process.env.NEO_FILM_TAKE ? FILM_LAUNCH_ARGS : E2E_LAUNCH_ARGS}
         }
     }]
 });
