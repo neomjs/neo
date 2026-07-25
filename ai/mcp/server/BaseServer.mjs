@@ -127,12 +127,19 @@ class BaseServer extends Base {
 
     // ===== Required override hooks =====
 
+    // The two required-override throws below use `className` for the same reason the
+    // plane-identity assertion does (see `assertPlaneIdentity()`): every MCP server class is
+    // literally named `Server`, so `constructor.name` renders the same string for all of them.
+    // These two fire synchronously with the caller's own stack, so the ambiguity is not
+    // load-bearing the way the queued-boot case was — but a file that discriminates at two
+    // sites and not two others leaves the next misdiagnosis to find the unconverted pair.
+
     /**
      * @summary Override: return the MCP server metadata.
      * @returns {{name: String, version: String|undefined, capabilities: Object|undefined}}
      */
     getServerMetadata() {
-        throw new Error(`${this.constructor.name}: must override getServerMetadata() to return {name, version?, capabilities?}`);
+        throw new Error(`${this.className}: must override getServerMetadata() to return {name, version?, capabilities?}`);
     }
 
     /**
@@ -140,7 +147,7 @@ class BaseServer extends Base {
      * @returns {{listTools: Function, callTool: Function}}
      */
     getToolService() {
-        throw new Error(`${this.constructor.name}: must override getToolService() to return {listTools, callTool}`);
+        throw new Error(`${this.className}: must override getToolService() to return {listTools, callTool}`);
     }
 
     // ===== Optional override hooks (defaults provided) =====
