@@ -437,22 +437,27 @@ ${LANE_STATE_SCHEMA_HINT}`;
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.blockInjectionSupported=CODEX_STOP_BLOCK_INJECTION_SUPPORTED]
  * @param {Boolean} [options.operatorInLoop=false]
+ * @param {Boolean} [options.laneContinuationEnforced=true] The `stopHook.laneContinuation` policy leaf
+ * — `false` allows every turn-end without demanding a lane-state terminal. Resolved from the same
+ * config SSOT the Claude adapter reads, so the two harnesses cannot drift on policy.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideCodexHookAction(verdict, {
-    autonomousHandoff       = false,
-    enforcing               = false,
-    blockInjectionSupported = CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
-    handoffReason           = '',
-    handoffWindowMs         = null,
-    operatorInLoop          = false,
-    promptSource            = ''
+    autonomousHandoff        = false,
+    enforcing                = false,
+    blockInjectionSupported  = CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
+    handoffReason            = '',
+    handoffWindowMs          = null,
+    operatorInLoop           = false,
+    promptSource             = '',
+    laneContinuationEnforced = true
 } = {}) {
     const decision = decideStopHookAction(verdict, {
         enforcing,
         operatorInLoop,
         blockInjectionSupported,
-        blockUnsupportedReason: 'Codex Stop block/inject contract is not proven, so this hook remains fail-open.'
+        blockUnsupportedReason: 'Codex Stop block/inject contract is not proven, so this hook remains fail-open.',
+        laneContinuationEnforced
     });
 
     if (decision.action === 'allow') return decision;
@@ -502,16 +507,38 @@ export function summarizePayloadShape(payload = {}) {
  * @param {String} [options.logDir]
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String, source: String, promptSource: String, verdict: Object, phrase: (String|undefined)}}
  */
-export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir} = {}) {
-    const stopHookActive                                                      = !!(input.stop_hook_active || input.stopHookActive),
-          {text, source}                                                      = extractFinalAssistantText(input),
-          {text: promptingText, source: promptSource}                         = extractPromptingText(input, {logDir}),
-          evidenceText                                                        = collectCodexLaneStateEvidence(input),
+export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir, policy} = {}) {
+    // Two-axis turn-end policy, resolved through the same pure-defaults twin the Claude adapter uses
+    // (ticket-ref-ok: ADR 0019 §5.5 names this exact module shape — a non-entrypoint must not import
+    // Neo). INJECTABLE: the live
+    // hook lets it default to the env-resolved policy, while callers that need to pin a policy pass
+    // one explicitly rather than mutating `process.env` — a classifier that can only be exercised by
+    // global env mutation is untestable in-process and invites cross-spec bleed.
+    // `policy` is REQUIRED and deliberately has no fallback: a hardcoded default here would be a
+    // shadow copy of the `stopHook.*` leaves — a hidden default that drifts silently. `main()`
+    // resolves it from the config SSOT and always passes it; a missing policy is a wiring bug, and
+    // `main()`'s try/catch turns the throw into the hook's fail-open allow rather than a trapped turn.
+    if (!policy) {
+        throw new Error('classifyCodexStopPayload: `policy` is required — resolve it from AiConfig.stopHook');
+    }
+
+    const {deferenceMirror, laneContinuation: laneContinuationEnforced} = policy;
+
+    const stopHookActive                              = !!(input.stop_hook_active || input.stopHookActive),
+          {text, source}                              = extractFinalAssistantText(input),
+          {text: promptingText, source: promptSource} = extractPromptingText(input, {logDir}),
+          // Evidence collection feeds ONLY the lane-state validator — skip the scan when the
+          // continuation apparatus is off rather than computing a result nothing reads.
+          evidenceText                                                        = laneContinuationEnforced ? collectCodexLaneStateEvidence(input) : '',
           promptContext                                                       = classifyPromptingContext({stopHookActive, promptingText}),
           {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
 
     // Deference-register check: shared decision, adapter-owned payload/source metadata.
-    const deferenceDecision = decideDeferenceStopHookAction(text, {operatorInLoop, enforcing});
+    const deferenceDecision = decideDeferenceStopHookAction(text, {
+        operatorInLoop,
+        enforcing,
+        deferenceMirrorEnabled: deferenceMirror
+    });
     if (deferenceDecision) {
         return {
             ...deferenceDecision,
@@ -544,7 +571,8 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir}
             handoffReason,
             handoffWindowMs,
             operatorInLoop,
-            promptSource
+            promptSource,
+            laneContinuationEnforced
         }),
         autonomousHandoff,
         handoffReason,
@@ -554,6 +582,35 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir}
         promptSource,
         verdict
     };
+}
+
+/**
+ * @summary Resolves the two-axis turn-end policy from the config SSOT.
+ *
+ * This hook is a thread-entrypoint, so it bootstraps the `Neo` namespace and reads
+ * `AiConfig.stopHook.*` at the use site — no re-derivation, no defaults twin, no hand-rolled env
+ * decode. The bootstrap is a GUARDED DYNAMIC import rather than a top-level one: a top-level import
+ * throws before `main()`'s try/catch exists, so a broken overlay would trap every turn-end instead
+ * of degrading to this hook's fail-open allow.
+ * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean}|null>} `null` when the
+ * config tree could not be resolved.
+ * @protected
+ */
+async function resolveStopHookPolicy() {
+    try {
+        await import('../../src/Neo.mjs');
+        await import('../../src/core/_export.mjs');
+
+        const {default: AiConfig} = await import('../../ai/config.mjs');
+
+        return {
+            deferenceMirror : AiConfig.stopHook.deferenceMirror,
+            laneContinuation: AiConfig.stopHook.laneContinuation
+        };
+    } catch (e) {
+        auditLog(`CONFIG-ERROR: could not resolve stopHook policy (${e.message}); allowing stop.`);
+        return null;
+    }
 }
 
 /**
@@ -573,10 +630,17 @@ async function main() {
         auditLog(`PAYLOAD-SHAPE: ${JSON.stringify(summarizePayloadShape(input))}`);
     }
 
+    const policy = await resolveStopHookPolicy();
+
+    if (!policy) {
+        process.exit(0);
+    }
+
     let result;
     try {
         result = classifyCodexStopPayload(input, {
-            enforcing: process.env.NEO_CODEX_LANE_STATE_ENFORCE === '1'
+            enforcing: process.env.NEO_CODEX_LANE_STATE_ENFORCE === '1',
+            policy
         });
     } catch (e) {
         auditLog(`HOOK-ERROR: ${e.message}; allowing stop.`);

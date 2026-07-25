@@ -126,7 +126,7 @@ disposed. `validateMergeReady` (ai/scripts/lifecycle) encodes this contract.
 
 Per #11455 AC, every lifecycle boundary (reviewer post, author response,
 post-implementation, PR open/update, ticket create, blocked-state exit) emits
-both surfaces: prose for humans, fenced JSON for Stop hooks.
+the human-readable prose form:
 
 ```text
 lane-state: next-lane (picking up ticket #NNNN)
@@ -136,75 +136,49 @@ lane-state: next-lane (PR #NNNN at human merge gate; picking up unrelated ticket
 lane-state: next-lane (filed/routed blocker bug #NNNN; picking up unrelated ticket #MMMM)
 ```
 
+**The fenced machine block is emitted ONLY when `stopHook.laneContinuation` is
+enabled** (#15877). Its sole consumer is `parseLaneState()` inside the turn-end
+hooks; with the leaf off — the shipped default — nothing reads it, so emitting it
+is pure waste in every turn's output budget. Do not emit it by habit, and do not
+treat its absence as a missing deliverable. When the leaf IS enabled, the block
+is required and takes this shape:
+
 ```lane-state
 {"laneContinuation":"next-lane","namedGates":[{"ref":"PR #NNNN","checkedAt":"YYYY-MM-DDTHH:mm:ssZ"}]}
 ```
 
-Only `next-lane` is normal here. "Holding", "standby", "nothing actionable",
-"idle", bare `paused`, `verified-empty`, `human-gate`, and blocker-as-exit-ramp
-are not turn terminals (§5). Prose alone is not a machine emission;
-`parseLaneState()` reads only the fenced block. No gate: `namedGates: []`; merge
-claim: `"mergeClaim":true,"field":"mergedAt"`.
+The prose form stays unconditional: it is coordination substrate peers and the
+operator actually read, and it costs one line. Only `next-lane` is normal here.
+"Holding", "standby", "nothing actionable", "idle", bare `paused`,
+`verified-empty`, `human-gate`, and blocker-as-exit-ramp are not turn terminals
+(§5) — that stays true of the prose form regardless of the leaf, because it is a
+discipline about what you may CALL a terminal, not about what the hook parses.
+When the machine block IS in play, `parseLaneState()` reads only the fenced
+block, so prose alone does not satisfy it: no gate → `namedGates: []`; merge
+claim → `"mergeClaim":true,"field":"mergedAt"`.
 
-## 2.6. Typed `lane-state` Ledger + Commitment Lease
+## 2.6. Deferring a Known Lane
 
-Lineage: #12506 / Discussion #12501. The `lane-state:` declaration also acts as
-the minimum decision ledger for lifecycle boundaries where an agent considers,
-defers, or selects a known lane. This is telemetry-routes-not-gates substrate:
-it surfaces commitment drift and routes recovery, but it never hard-blocks,
-centrally assigns, schedules, or throttles a peer.
+**A defer needs a named falsifier; a second defer of the same lane needs a
+decision.** That is the whole discipline.
 
-Minimum ledger shape when a boundary involves a known positive-ROI lane:
+- Legitimate defer: name the artifact to re-read, the check to run, the peer
+  signal awaited, or the external unblock condition. Politeness, "do it fresh
+  next turn", or "await steer" name nothing and are not evidence.
+- Deferring the same known positive-ROI lane a second time while busy elsewhere
+  is drift. Resolve it: execute, hand off to a named peer with the collision
+  state, or downgrade it with the evidence that it is no longer positive-ROI.
 
-| Field | Meaning |
-|---|---|
-| `considered[]` | Lane ids inspected at the boundary and whether each was chosen, deferred, human-gated, or blocked. |
-| `chosen` | The selected next action, matching the visible `lane-state:` declaration. |
-| `deferReasonType` | `freshness-needed`, `context-exhaustion`, `blocked-human`, `peer-signal-awaited`, `downgraded-with-evidence`, or `productive-deflection`. |
-| `revisitTrigger` | The named falsifier that makes a defer legitimate: a specific artifact to re-read, test/check to run, peer signal to await, or external unblock condition. |
-| `consecutiveDeferralCount(agent-id,lane-id)` | Counter for consecutive qualifying `productive-deflection` events only. |
+Surface the decision where lifecycle decisions already surface (an A2A note or
+graph node). Never build dedicated telemetry substrate for it.
 
-The discriminator is evidence, not tone:
-
-- A legitimate defer names the falsifier in `revisitTrigger`. "Freshness needed"
-  means naming the artifact or live check that will falsify stale context.
-  "Context exhaustion" only qualifies when it satisfies the concrete §5
-  exhaustion triggers. Human-gate / blocked-human states name the external
-  unblock condition.
-- A qualifying `productive-deflection` event is a defer of the same known,
-  positive-ROI lane while the agent remains productively busy elsewhere, with
-  no named falsifier. Polite prudence, "do fresh next turn", or "await steer"
-  without a specific artifact/test/peer-signal is not evidence.
-
-Typed event keys:
-
-| Key | Shape |
-|---|---|
-| Deflection event | `(agent-id, lane-id, boundary-ts)` |
-| Counter | `(agent-id, lane-id)` |
-
-Activation is a fixed threshold: when the counter reaches `N >= 2`, emit a
-commitment lease. Blast, priority, ticket size, reviewer mood, and lane
-difficulty are metadata for routing/copy/visibility only; they MUST NOT alter
-the threshold. A first-deflection lease is valid only for a source-backed
-`hard-lease` pre-classification: explicit operator direction, explicit peer
-yield, or a ticket AC requiring immediate lease.
-
-Lease responses are limited to:
-
-1. `execute` - begin the lane now.
-2. `hand off` - transfer the lane to a named peer with the evidence and current
-   collision state.
-3. `downgrade-with-evidence` - document why the lane is no longer positive ROI.
-4. `renew-once-with-a-named-falsifier` - one renewal only, with the concrete
-   `revisitTrigger` that will be checked next.
-
-Log the event lightweight-home-first where lifecycle decisions already surface
-(A2A note or graph node). Do not build dedicated telemetry substrate until
-recurrence proves it earns one. Revalidation triggers: if fixed `N=2` creates
-noise on low-value lanes, narrow the eligible lane class; if it misses
-high-blast known-hard lanes, add a source-backed `hard-lease` class. Do not
-scale the counter.
+*Compressed 2026-07-25 from a 3.1KB ledger/lease specification — typed event
+keys, a deferral counter, threshold-immutability rules, and a four-verb lease
+response taxonomy — that was authored for a weaker model generation and was
+never mechanized (it self-described as "telemetry-routes-not-gates" and deferred
+its own implementation). The discipline above is what the specification was
+protecting; the choreography around it was cost without a consumer. Full prior
+text is in git history and its source Discussion.*
 
 ## 2.7. Pre-Implementation Brief Gate
 
