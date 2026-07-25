@@ -21,6 +21,7 @@ import Neo                                                         from '../../.
 import * as core                                                   from '../../../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy}                         from '../../../../../../ai/ConfigProvider.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_MEMBER_PATHS} from '../../../../../../ai/configBase.mjs';
+import {derivePlaneMemberPaths}                                    from '../../../../../../ai/planeConfig.mjs';
 import BaseServer                                                  from '../../../../../../ai/mcp/server/BaseServer.mjs';
 
 /**
@@ -896,9 +897,16 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
             const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
             server.aiConfig = isolated;
 
-            // census, not coherence: a silent PLANE_MEMBER_PATHS deletion must fail this line.
-            // Changing plane membership = bumping this literal consciously in the same commit.
-            expect(TIER1_MEMBER_PATHS.length).toBe(10);
+            // Completeness, not a pinned count: the declared list must EQUAL the set derived from
+            // the descriptor tree it claims to describe (declaration and membership are one act —
+            // an anchored leaf with no planeMember decision fails the derivation itself, so the
+            // forget-to-edit class fails here rather than shipping green. No literal to bump on
+            // legitimate membership changes.
+            // ticket-ref-ok: #15932 is the completeness mechanism this line enforces; #15872's
+            // graph-SQLite omission is its first confirmed instance — named because the
+            // regression's shape is the point.
+            expect(new Set(TIER1_MEMBER_PATHS))
+                .toEqual(new Set(derivePlaneMemberPaths({descriptorData: Tier1ConfigBase.config.data, anchor: Tier1ConfigBase.config.data.plane.dataRoot.default})));
             expect(server.getPlaneMembers().length).toBe(TIER1_MEMBER_PATHS.length);
 
             const observed = server.assertPlaneIdentity();

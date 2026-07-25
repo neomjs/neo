@@ -209,6 +209,97 @@ export function collectPlaneMembers({memberPaths, resolvedConfig, descriptorData
 }
 
 /**
+ * @summary Derives the plane-member path set from a declaring class's static descriptor tree —
+ * the COMPLETENESS half of the member contract, checking the list against the config tree it
+ * claims to describe rather than against itself or a pinned count.
+ *
+ * Declaration and membership are ONE act: a leaf whose default resolves beneath the plane
+ * anchor must carry an explicit `planeMember` decision in its descriptor metadata.
+ * - `planeMember: true`  — the leaf IS a plane member; included in the derived set.
+ * - `planeMember: false` — an explicit non-member; REQUIRES a non-empty `planeMemberReason`
+ *   (the decision is recorded, never implied — see `orchestrator.tenantRepoMirrorRoot`'s
+ *   cloud-profile pinning and the `plane.dataRoot` anchor leaf itself).
+ * - absent               — undecided. When the default is an absolute path at or beneath the
+ *   anchor, this FAILS CLOSED: the common operation (add a plane-anchored leaf, forget the
+ *   list) can no longer pass silently, which is the omission class a real instance first confirmed
+ *   (the graph SQLite leaf in the memory-core copy — the plane's core artifact with a plane-anchored
+ *   default and no declared membership) and the pinned `toBe(N)` census could never see.
+ *   ticket-ref-ok: #15872 is the omission instance the mechanism exists to catch — the check's
+ *   empirical anchor, named because the motivation lives in the proof, not the number.
+ *
+ * A leaf-shaped node owns all four descriptor keys (`default`, `env`, `type`, `parse`) — the
+ * `leaf()` signature in `ConfigProvider.mjs` — which is what distinguishes a descriptor from
+ * a plain nested config object that merely has a `default`-named key.
+ *
+ * "Explicitly placed" is unaffected: this walk reads METADATA and DEFAULTS, never resolved
+ * values, so a member relocated by its own env binding stays a member (its placement is the
+ * boot clause's question, `assertPlaneMemberCoherence` — not this one's).
+ *
+ * Pure and injectable (no Neo import): the declaring config's descriptor tree is plain data.
+ * @param {Object} options
+ * @param {Object} options.descriptorData The declaring class's static `config.data` tree.
+ * @param {String} options.anchor The absolute plane anchor the config's member defaults derive
+ *     from (each config base's own `resolvePlaneDataRoot({rootDir})` result).
+ * @returns {String[]} The derived member path list (tree-walk order).
+ */
+export function derivePlaneMemberPaths({descriptorData, anchor}) {
+    if (!descriptorData || typeof descriptorData !== 'object' || Array.isArray(descriptorData)) {
+        throw new Error('planeConfig.derivePlaneMemberPaths: descriptorData must be a config data tree (object).');
+    }
+    if (typeof anchor !== 'string' || !path.isAbsolute(anchor)) {
+        throw new Error(`planeConfig.derivePlaneMemberPaths: anchor "${anchor}" must be an absolute path — the reference member defaults derive from.`);
+    }
+
+    const
+        memberPaths = [],
+        LEAF_KEYS   = ['default', 'env', 'type', 'parse'],
+        isLeaf      = node => LEAF_KEYS.every(key => Object.prototype.hasOwnProperty.call(node, key));
+
+    const walk = (node, trail) => {
+        if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+
+        if (isLeaf(node)) {
+            const dotted = trail.join('.');
+
+            if (node.planeMember === true) {
+                memberPaths.push(dotted);
+                return;
+            }
+
+            if (node.planeMember === false) {
+                if (typeof node.planeMemberReason !== 'string' || node.planeMemberReason.length === 0) {
+                    throw new Error(
+                        `planeConfig.derivePlaneMemberPaths: "${dotted}" declares planeMember: false without a non-empty ` +
+                        'planeMemberReason — an explicit non-member must name why, or the exclusion is indistinguishable from an omission.'
+                    );
+                }
+                return;
+            }
+
+            const defaultValue = node.default;
+
+            if (typeof defaultValue === 'string' && path.isAbsolute(defaultValue) &&
+                (defaultValue === anchor || defaultValue.startsWith(anchor + path.sep))) {
+                throw new Error(
+                    `planeConfig.derivePlaneMemberPaths: leaf "${dotted}" has a plane-anchored default but NO planeMember decision — ` +
+                    'declaration and membership are one act: set planeMember: true (a plane member), or planeMember: false with ' +
+                    'planeMemberReason (an explicit non-member). An undecided anchored leaf fails closed; a pinned count cannot see it.'
+                );
+            }
+            return;
+        }
+
+        for (const key of Object.keys(node)) {
+            walk(node[key], [...trail, key]);
+        }
+    };
+
+    walk(descriptorData, []);
+
+    return memberPaths;
+}
+
+/**
  * @summary Member-coherence clause of the F-invariant: when `plane.dataRoot` resolves away
  * from the build-time anchor (an env/profile relocation), every claimed member must either
  * sit beneath the RESOLVED root or be EXPLICITLY placed (resolved ≠ its declared default).

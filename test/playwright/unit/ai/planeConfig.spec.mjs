@@ -12,6 +12,7 @@ import {
     assertPlaneCoherence,
     assertPlaneMemberCoherence,
     collectPlaneMembers,
+    derivePlaneMemberPaths,
     isOpaquePlaneId,
     parsePlaneIdEnv,
     resolvePlaneDataRoot
@@ -179,6 +180,82 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
 
         expect(KbConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'));
         expect(NlConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'))
+    });
+});
+
+test.describe('derivePlaneMemberPaths — the completeness half (#15932)', () => {
+    // ticket-ref-ok: the pinned census (`expect(TIER1_MEMBER_PATHS.length).toBe(10)`) guarded the
+    // list against DELETIONS and against nothing else — a plane-anchored leaf added without a list
+    // edit passed green forever, which is the omission direction that actually happens.
+    // ticket-ref-ok: #15932 is the mechanism under test; #15872's graph-SQLite omission is its
+    // first confirmed instance — named because the red control's target shape is the point.
+    // the config tree it claims to describe: declaration and membership are ONE act.
+    const anchor = ConfigBase.config.data.plane.dataRoot.default,
+          leaf   = (defaultValue, extra = {}) => ({default: defaultValue, env: null, type: 'string', parse: null, ...extra});
+
+    test('the derived set EQUALS each declared PLANE_MEMBER_PATHS — all three declaring configs', async () => {
+        expect(new Set(derivePlaneMemberPaths({descriptorData: ConfigBase.config.data, anchor})))
+            .toEqual(new Set(PLANE_MEMBER_PATHS));
+
+        expect(new Set(derivePlaneMemberPaths({descriptorData: McConfigBase.config.data, anchor})))
+            .toEqual(new Set(McConfigBase.PLANE_MEMBER_PATHS ?? (await import('../../../../ai/mcp/server/memory-core/configBase.mjs')).PLANE_MEMBER_PATHS));
+
+        // The KB config base re-wraps the registered Tier-1 singleton at module scope — the
+        // template must be fully evaluated FIRST (the same registration shape as the derivation
+        // witnesses above: awaited dynamic import, re-bind from the cached export if this worker's
+        // afterAll restore already unregistered it).
+        const templateModule = await import('../../../../ai/config.template.mjs');
+
+        if (!Neo.ai?.Config) {
+            Neo.ai        = Neo.ai || {};
+            Neo.ai.Config = templateModule.default;
+        }
+
+        const KbConfigBase                          = (await import('../../../../ai/mcp/server/knowledge-base/configBase.mjs')).default,
+              {PLANE_MEMBER_PATHS: KB_MEMBER_PATHS} = await import('../../../../ai/mcp/server/knowledge-base/configBase.mjs');
+
+        expect(new Set(derivePlaneMemberPaths({descriptorData: KbConfigBase.config.data, anchor})))
+            .toEqual(new Set(KB_MEMBER_PATHS));
+    });
+
+    test('green fixture: member included, reasoned exclusion honored, non-anchored undecided ignored', () => {
+        const tree = {
+            member     : leaf(path.resolve(anchor, 'backups'), {planeMember: true}),
+            notAMember : leaf('/app/.neo-ai-data', {planeMember: false, planeMemberReason: 'cloud-profile-pinned — the election owns profile-pinned members'}),
+            anchorLeaf : leaf(anchor, {planeMember: false, planeMemberReason: 'the anchor itself — not its own member'}),
+            unrelated  : leaf('/etc/hostname'),
+            aboveAnchor: leaf(path.dirname(anchor)),
+            nested     : {inner: leaf(path.resolve(anchor, 'memory-wal'), {planeMember: true})}
+        };
+
+        expect(derivePlaneMemberPaths({descriptorData: tree, anchor})).toEqual(['member', 'nested.inner']);
+    });
+
+    test('RED control: an anchored leaf with NO planeMember decision fails closed — the #15872 class', () => {
+        const tree = {forgotten: leaf(path.resolve(anchor, 'graph.sqlite'))};
+
+        expect(() => derivePlaneMemberPaths({descriptorData: tree, anchor}))
+            .toThrow(/forgotten.*NO planeMember decision|NO planeMember decision/);
+    });
+
+    test('RED control: planeMember: false without a reason fails closed — exclusion must not read as omission', () => {
+        const tree = {silent: leaf('/app/.neo-ai-data', {planeMember: false})};
+
+        expect(() => derivePlaneMemberPaths({descriptorData: tree, anchor}))
+            .toThrow(/planeMemberReason/);
+    });
+
+    test('explicitly placed is unaffected: membership reads metadata + defaults, never resolved values', () => {
+        // A member relocated by its own env binding (resolved ≠ default) stays a member — its
+        // placement is the boot clause's question (assertPlaneMemberCoherence), not this one's.
+        const tree = {placed: leaf(path.resolve(anchor, 'chroma/unified'), {planeMember: true, env: 'NEO_CHROMA_DATA_DIR'})};
+
+        expect(derivePlaneMemberPaths({descriptorData: tree, anchor})).toEqual(['placed']);
+    });
+
+    test('guardrails on the inputs themselves fail loud', () => {
+        expect(() => derivePlaneMemberPaths({descriptorData: null, anchor})).toThrow(/descriptorData must be/);
+        expect(() => derivePlaneMemberPaths({descriptorData: {}, anchor: 'relative/path'})).toThrow(/must be an absolute path/);
     });
 });
 
