@@ -53,11 +53,14 @@ class ConfigBase extends ConfigProvider {
             projectRoot: leaf(projectRoot),
             /**
              * The declared plane-identity subtree — the first-class object the data-root
-             * placement election decides placement FOR. The literals below are declared FROM
-             * `ai/planeConfig.mjs`, a shared-constant module these leaves import: it holds the
-             * canonical id, the env-free data-root derivation, and the id parser the leaf binds
-             * as its own `parse` hook. It carries no resolver of its own and reads no env, so
-             * there is no second resolution path for these leaves to drift against.
+             * placement election decides placement FOR. These leaves declare FROM
+             * `ai/planeConfig.mjs`, which must never grow an env read or a resolver of its own:
+             * env binding belongs to the leaf, alone. A second resolution path beside the leaf
+             * is precisely what the retired shape was — two resolvers for one value, free to
+             * disagree — and it was removed, not shrunk: the exported defaults map and env-name
+             * map are both gone, and the one surviving constant crosses the boundary only
+             * because the boot coherence assertion must compare against the same literal this
+             * leaf declares. Growing that surface back re-creates the drift channel.
              * Three concepts, never conflated: `id` is opaque identity (no path/checkout content);
              * `dataRoot` is the resolved evidence every plane-member leaf derives from;
              * `NEO_AI_CANONICAL_ROOT` (provisioning-time, `bootstrapWorktree.mjs`) names a
