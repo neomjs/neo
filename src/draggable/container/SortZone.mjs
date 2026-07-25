@@ -289,7 +289,19 @@ class SortZone extends DragZone {
                 intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
                 proxyArea         = proxyRect.width * proxyRect.height,
                 intersectionArea  = intersection ? intersection.width * intersection.height : 0,
-                intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                // During window-drag the move payload's proxy embodies the FUTURE VESSEL
+                // (popupWidth × popupHeight, src/main/addon/DragDrop.mjs), which can dwarf a
+                // strip-scale boundary; a proxy-area denominator then caps the ratio at
+                // boundaryArea/proxyArea and reattachThreshold becomes unreachable. Normalizing
+                // by the smaller rect keeps same-scale gestures byte-identical (min === proxy
+                // area) while re-entry reads "the returning proxy substantially covers the
+                // boundary". The exit test below stays proxy-normalized.
+                boundaryArea      = boundaryRect.width * boundaryRect.height,
+                minArea           = Math.min(proxyArea, boundaryArea),
+                coverageRatio     = minArea > 0 ? intersectionArea / minArea : 0,
+                intersectionRatio = me.isWindowDragging
+                    ? coverageRatio
+                    : (proxyArea > 0 ? intersectionArea / proxyArea : 0),
                 isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
                 isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
 
@@ -301,7 +313,10 @@ class SortZone extends DragZone {
                     // Re-entry must be earned: the ratio has to sit below reattachThreshold before a
                     // return counts. A slow exit (crossing at ~detachThreshold) starts UNarmed; a
                     // single-move fling that already landed below reattachThreshold is pre-armed.
-                    me.reattachArmed = intersectionRatio < me.reattachThreshold;
+                    // From the next sample on this branch reads the min-area coverage scale, so the
+                    // arming test and the direction baseline both seed in that scale here.
+                    me.reattachArmed         = coverageRatio < me.reattachThreshold;
+                    me.lastIntersectionRatio = coverageRatio;
 
                     me.fire('dragBoundaryExit', {
                         draggedItem: me.dragComponent,
