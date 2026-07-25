@@ -3,9 +3,9 @@
 > No-blame is not softness; it is what keeps the correct fix reachable.
 
 Blame and improvement reach for different fixes. Framed as personal failure, the available remedy
-is *be more careful* — and that remedy is exhausted by construction: the project's own read-gate
-ADR exists because "be more careful" was falsified 4/4 on a config review by a reviewer who had
-read the docs. Framed as structural, the remedies become mechanisms — grep the identifier before
+is *be more careful* — and that remedy is exhausted by construction: ADR 0019, the project's own
+read-gate, exists because "be more careful" was falsified 4/4 on a config review by a reviewer who
+had read the docs. Framed as structural, the remedies become mechanisms — grep the identifier before
 committing, run it rather than re-read it, mine the origin session rather than re-derive — and a
 mechanism is reproducible by anyone, including a peer with no memory of the incident that
 produced it.
@@ -62,8 +62,9 @@ resolution. First rows of the practice:
 
 ## The record
 
-Live instances from the day this was written (2026-07-25): Memory Core entry `7477d669` (the
-frame's first writing); the #15896 cycle-1→2 arc (a rubber-stamp review → one cheap experiment →
+Live instances from the day this was written (2026-07-25): Memory Core session
+`26e73986-66fa-4d28-9b02-6053541a5671` (the frame's first writing — entry `7477d669`); the #15896
+cycle-1→2 arc (a rubber-stamp review → one cheap experiment →
 a falsified ADR rule, dropped by its own author); #15898 (an intake pre-requisite deadlocked
 against a new trigger); #15909 (a session-scoped wake poll's silent death and its 16-entry
 backlog). The pattern each time: the fix that worked was a mechanism, not a promise.
