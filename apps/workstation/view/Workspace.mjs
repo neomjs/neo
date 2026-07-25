@@ -1804,14 +1804,17 @@ class Workspace extends Container {
      * @param {Number} [options.moveSteps=4] Pointer samples per path leg.
      * @param {Number} [options.postBirthMoves=2] Outward moves after birth (survival probe; floored at 2).
      * @param {Boolean} [options.reenter=false] Walk back inside instead of releasing — the morph witness.
+     * @param {Boolean} [options.showCursor=false] Film mode: ride a visible synthetic cursor dot on
+     *     the logged pointer coordinates — CDP events move no OS cursor, and the camera needs one.
      * @returns {Promise<Object>}
      */
-    async executeTearOutStep(step, {birthAttempts=180, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false}={}) {
+    async executeTearOutStep(step, {birthAttempts=180, cancel=false, curve=0, moveDelay=16, moveSteps=4, postBirthMoves=2, reenter=false, showCursor=false}={}) {
         let me                     = this,
             {itemId, sourceNodeId} = step || {},
             document               = me.dockModel,
             node                   = document?.nodes?.[sourceNodeId],
             button                 = null,
+            cursorDot              = null,
             release                = null;
 
         if (!itemId || node?.type !== 'tabs' || !node.items.includes(itemId)) {
@@ -1855,10 +1858,18 @@ class Workspace extends Container {
                 opt     = (clientX, clientY, screenX, screenY, buttons) => ({
                     bubbles: true, button: 0, buttons, cancelable: true, clientX, clientY, screenX, screenY
                 }),
-                moveTo  = (x, y) => me.interactionService.simulateEvent({events: [{
-                    delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
-                    options: opt(x, y, window.innerRect.x + x, window.innerRect.y + y, 1)
-                }]});
+                moveTo  = (x, y) => {
+                    // The visible cursor rides the executor's own coordinate log — never a
+                    // second derivation that could disagree with what the gesture actually did.
+                    if (cursorDot) {
+                        cursorDot.style = {...cursorDot.style, left: `${x - 8}px`, top: `${y - 8}px`}
+                    }
+
+                    return me.interactionService.simulateEvent({events: [{
+                        delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                        options: opt(x, y, window.innerRect.x + x, window.innerRect.y + y, 1)
+                    }]})
+                };
 
             // A stale record from a prior gesture would false-open the birth gate.
             delete me.tearOutConnects[itemId];
@@ -1883,6 +1894,50 @@ class Workspace extends Container {
                 let cancellation = await me.cancelTearOutGesture(button, {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY});
 
                 return {applied: false, errors: ['tear-out drag did not arm'], proof: {armed: false, cancellation, documentBefore}}
+            }
+
+            // Film mode only: the visible synthetic cursor. CDP-dispatched pointer events move no
+            // OS cursor, so an unassisted take reads as UI-moving-itself. The dot rides the SAME
+            // coordinates the executor logs (single source of truth — it never re-derives a
+            // position), stays pointer-events:none, and never enters the dock document (worker
+            // truth is blind to it by construction: it is a presentation layer for the camera).
+            // The create shape carries four keys, each earned by a real failure in this lane:
+            // `className` (a bare `ntype` object config makes Neo.create return null), the
+            // autoInitVnode+autoMount pair (the floating-component idiom — parentId alone
+            // registers, it never renders), `parentId: 'document.body'` (the DragZone
+            // proxyParentId precedent — no re-rendering ancestor can strand the node), and
+            // `windowId` (null-windowId vdom deltas misroute in a multi-window app: the mount
+            // render lands, every subsequent style delta is lost).
+            if (showCursor) {
+                cursorDot = Neo.create({
+                    className    : 'Neo.component.Base',
+                    appName      : me.appName,
+                    autoInitVnode: true,
+                    autoMount    : true,
+                    parentId     : 'document.body',
+                    windowId     : me.windowId,
+                    cls          : ['film-cursor'],
+                    style        : {
+                        backgroundColor: 'rgba(255, 90, 0, 0.92)',
+                        borderRadius   : '50%',
+                        boxShadow      : '0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85)',
+                        display        : 'block',
+                        height         : '16px',
+                        left           : `${startX - 8}px`,
+                        pointerEvents  : 'none',
+                        position       : 'fixed',
+                        top            : `${startY - 8}px`,
+                        width          : '16px',
+                        zIndex         : 99999
+                    }
+                });
+
+                // The text receipt beside the frame receipt: assertions stay byte-identical
+                // (AC4), so observability is the only guard against a silent camera-truth
+                // regression (a green suite cannot see the dot).
+                cursorDot.mountedPromise.then(() => {
+                    console.log(`[film-cursor] dot mounted at client (${startX}, ${startY})`)
+                })
             }
 
             // Pre-birth entry sentinels: a curved outward path can transiently re-cover the strip
@@ -2067,6 +2122,10 @@ class Workspace extends Container {
             button && await me.cancelTearOutGesture(button, release).catch(() => {});
 
             return {applied: false, errors: [error?.message || String(error)]}
+        } finally {
+            // The synthetic cursor is per-gesture presentation: it never outlives the take's
+            // gesture, and it never enters worker truth (pointer-events:none, no dock document).
+            cursorDot?.destroy()
         }
     }
 

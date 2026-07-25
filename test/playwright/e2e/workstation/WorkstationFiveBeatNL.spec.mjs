@@ -54,7 +54,51 @@ import {test, expect} from '../../fixtures.mjs';
 // nothing but a worse error.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24} : {};
+    filmPace = filmTake ? {birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true} : {};
+
+/**
+ * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
+ * the instance-addressed placement verb (never AppleScript: two same-bundle Chrome processes make
+ * script addressing flip-flop, which is why the boot already fronts via CDP).
+ *
+ * The stage rule, two paths with different guarantees:
+ * - DEFAULT = the window's natural landing position with the size pinned. Natural landing is
+ *   HOST- AND CURSOR-CONDITIONAL, not enforced: identical across runs on the author's host
+ *   ({22,22} ×4), but cascade drift has been observed (75 vs 74 across one run's two boots) and
+ *   the OS can seat the window on a secondary display (a roulette landing at x=1750 = the BenQ,
+ *   where the morph leg currently dies — the secondary-display finding filed from this lane).
+ * - `NEO_FILM_DISPLAY_BOUNDS="left,top,width,height"` = the ENFORCED determinism path, and the
+ *   take-night rule: set it explicitly to a primary-display target. Receipted green for
+ *   same-display moves: 122,122,1282,880 pinned identically across two boots of the film suite.
+ *   A cross-display target stays out of scope until the engine finding is answered.
+ * Every landing is logged through `Browser.getWindowBounds`, never silent; a malformed override is
+ * warned about and ignored — the log is the AC1 receipt, so it must name what actually ran.
+ * @param {Object} page Playwright page.
+ * @returns {Promise<Object>} the verified window bounds
+ */
+async function pinToCaptureDisplay(page) {
+    const session    = await page.context().newCDPSession(page),
+          {windowId} = await session.send('Browser.getWindowForTarget'),
+          current    = (await session.send('Browser.getWindowBounds', {windowId})).bounds,
+          raw        = process.env.NEO_FILM_DISPLAY_BOUNDS,
+          parsed     = raw?.split(',').map(Number),
+          valid      = parsed?.length === 4 && parsed.every(Number.isFinite),
+          target     = valid
+              ? {left: parsed[0], top: parsed[1], width: parsed[2], height: parsed[3]}
+              : {left: current.left, top: current.top, width: current.width, height: current.height},
+          {bounds}   = await session.send('Browser.setWindowBounds', {
+              bounds: {...target, windowState: 'normal'}, windowId
+          }).then(() => session.send('Browser.getWindowBounds', {windowId}));
+
+    if (raw && !valid) {
+        console.log(`[film-stage] NEO_FILM_DISPLAY_BOUNDS invalid, ignoring: "${raw}"`)
+    }
+
+    console.log(`[film-stage] window pinned via Browser.setWindowBounds: ${JSON.stringify(bounds)}` +
+        (valid ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
+
+    return bounds
+}
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
 test.use({video: filmTake ? 'on' : 'off'});
@@ -106,8 +150,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // A film take records the physical display: the headed window must be the top of the
         // z-order or the capture shows whatever application happens to cover it. CDP-level and
         // deterministic — never AppleScript (two same-bundle Chrome processes make script
-        // addressing flip-flop between instances).
-        filmTake && await page.bringToFront();
+        // addressing flip-flop between instances). The stage is then pinned to the capture
+        // display, so two takes land in the same frame rather than whichever display the OS chose.
+        if (filmTake) {
+            await page.bringToFront();
+            await pinToCaptureDisplay(page);
+        }
 
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
