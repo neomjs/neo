@@ -261,6 +261,80 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(sortZone.isWindowDragging).toBe(false);
     });
 
+    test('re-entry fires on placeholder-less zones instead of dying in the layout restore', async () => {
+        const mockOwner = {
+            id   : 'mockOwner3',
+            items: [{
+                id          : 'item3',
+                vdom        : {cls: ['neo-draggable']},
+                wrapperStyle: {}
+            }],
+            vdom           : {},
+            addDomListeners: () => {},
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:40}]),
+            on             : () => {}
+        };
+
+        sortZone = Neo.create(DashboardSortZone, {
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
+            enableProxyToPopup: true
+        });
+
+        sortZone.boundaryContainerRect = new Rectangle(0, 0, 314, 49);
+        sortZone.dragProxy = { id: 'proxy3', destroy: () => {} };
+        // Projection-owned zones (dock tab strips) never create a drag placeholder: their
+        // in-window layout is owned by the committed model projection, so there is nothing to
+        // restore on re-entry — the EVENT is the whole contract. The restore block must not
+        // dereference the absent placeholder ahead of the fire.
+        sortZone.dragPlaceholder = null;
+
+        sortZone.lastIntersectionRatio = 1;
+        sortZone.isWindowDragging = false;
+
+        const simulateMove = async (x, y, width, height) => {
+            const proxyRect = new Rectangle(x, y, width, height);
+            await sortZone.onDragMove({
+                clientX: x,
+                clientY: y,
+                proxyRect,
+                screenX: x,
+                screenY: y,
+                path   : []
+            });
+        };
+
+        sortZone.itemRects = [{left:0, top:0, width:100, height:40}];
+        sortZone.indexMap = {0: 0};
+        sortZone.currentIndex = 0;
+        sortZone.isScrolling = false;
+
+        let entryFired = 0;
+
+        sortZone.fire = (event) => {
+            if (event === 'dragBoundaryExit') sortZone.isWindowDragging = true;
+            if (event === 'dragBoundaryEntry') {
+                entryFired++;
+                sortZone.isWindowDragging = false
+            }
+        };
+
+        // Exit past the strip (item-scale in-window proxy), pre-armed in coverage scale.
+        await simulateMove(300, 60, 100, 40);
+        expect(sortZone.isWindowDragging).toBe(true);
+        expect(sortZone.reattachArmed).toBe(true);
+
+        // Window-drag walk-back to full strip cover with the vessel-sized proxy: the crossing
+        // sample must FIRE the entry — with an unguarded placeholder dereference it throws
+        // before the fire and this await rejects.
+        await simulateMove(400, 200, 320, 240);
+        await simulateMove(0, 0, 320, 240);
+
+        expect(entryFired).toBe(1);
+        expect(sortZone.isWindowDragging).toBe(false);
+    });
+
     test('does not move a remote drag visitor into the target when it leaves (#8162)', async () => {
         const appliedDeltas = [];
 
