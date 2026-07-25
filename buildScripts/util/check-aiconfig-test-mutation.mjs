@@ -70,24 +70,32 @@ export const DB_PATH_MUTATION = new RegExp(
 );
 
 /*
- * Files that already mutate Class-A DB paths, grandfathered while the cleanup migrates them to
- * by-construction isolation. The ratchet bites only NEW offenders; this set shrinks as the cleanup
- * lands. Paths are repo-relative POSIX.
+ * Files whose Class-A mutation is load-bearing — NOT a grandfathering queue. Every entry whose write
+ * duplicated isolation the harness already provides by construction has been removed; what survives
+ * is here because by-construction isolation provably cannot serve it, and each entry states why. A new entry needs that same justification, not a migration promise: an unexplained
+ * entry is a silent licence, and the gate stops counting a file the moment it is listed.
+ *
+ * Both survivors restore what they write, which is what keeps the blast radius inside the spec.
+ * Paths are repo-relative POSIX.
  */
 export const ALLOWLIST = new Set([
+    /*
+     * The three logger siblings repoint `data.logPath` at a per-process temp dir. The harness DOES
+     * worker-scope these (`configTemplateResolver` sets NEO_{MEMORY,KB,NL}_LOG_PATH per worker), but
+     * worker-scoped is not spec-scoped: every spec sharing a worker appends to the same daily file,
+     * and these suites assert on the FIRST LINE of that file. Reading the resolved path instead would
+     * make the assertion depend on whichever spec logged first — so the only removal available here
+     * weakens an assertion, which the burndown does not do.
+     */
     'test/playwright/unit/ai/mcp/server/knowledge-base/logger.spec.mjs',
     'test/playwright/unit/ai/mcp/server/memory-core/logger.spec.mjs',
     'test/playwright/unit/ai/mcp/server/neural-link/logger.spec.mjs',
+    /*
+     * Flips `useUnitTestDatabase` / `useTestHarness` to false in order to assert that the destructive-
+     * operation guard fires when they ARE false. The off state is the subject under test, so it cannot
+     * be supplied by construction: the harness exists to hold those selectors on.
+     */
     'test/playwright/unit/ai/mcp/server/shared/services/DestructiveOperationGuard.spec.mjs',
-    'test/playwright/unit/ai/services/graph/GoldenPathSynthesizer.spec.mjs',
-    'test/playwright/unit/ai/services/graph/LazyEdgeDrainer.spec.mjs',
-    'test/playwright/unit/ai/services/ingestion/ConceptIngestor.spec.mjs',
-    'test/playwright/unit/ai/services/ingestion/MemorySessionIngestor.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/CoalescingEngineService.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/DatabaseService.backupPath.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/DatabaseService.importMergeChroma.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/PermissionService.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs',
 ]);
 
 /**

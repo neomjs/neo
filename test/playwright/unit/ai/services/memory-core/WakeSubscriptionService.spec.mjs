@@ -29,22 +29,10 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
     let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave;
-    let dbPath;
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-        dbPath = path.join(tmpDir, `neo-wake-subscription-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
-
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        aiConfig.storagePaths.graph = dbPath;
-
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
-
+        // Isolation is by construction: `storagePaths.graph` resolves `graphTest` (`:memory:`) and
+        // `collections.*` resolve to per-process randomized `test-*` names under `UNIT_TEST_MODE`.
         GraphService            = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         WakeSubscriptionService = (await import('../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../ai/services/memory-core/CoalescingEngineService.mjs')).default;
@@ -55,7 +43,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         globalThis.GraphMaintenanceService = GraphMaintenanceService;
 
         const { TestLifecycleHelper } = await import('./util.mjs');
-        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, fs, 'clear');
 
         if (!LifecycleService._initPromise) { await LifecycleService.initAsync(); } else { await LifecycleService.ready(); }
 
@@ -67,7 +55,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, fs, 'clear');
     });
 
     test.beforeEach(async () => {

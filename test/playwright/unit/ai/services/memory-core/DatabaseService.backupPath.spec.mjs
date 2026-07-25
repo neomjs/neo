@@ -32,10 +32,10 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        if (!aiConfig.collections) aiConfig.collections = {};
-        memoryCollectionName       = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.memory = memoryCollectionName;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+        // Isolation is by construction: `collections.*` already resolve to per-process randomized
+        // `test-*` names under `UNIT_TEST_MODE`, and Chroma isolates one level higher still, at the
+        // database (`databaseTest`). Repointing the shared singleton duplicated that with a coarser
+        // generator and left the names pointing here for the rest of the worker's life.
 
         SDK                    = await import('../../../../../../ai/services.mjs');
         Memory_DatabaseService = SDK.Memory_DatabaseService;

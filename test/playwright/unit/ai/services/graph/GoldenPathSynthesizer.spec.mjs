@@ -84,9 +84,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
-        const testDbName = `memory-core-goldenpath-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath = path.join(tmpDir, testDbName);
-        aiConfig.storagePaths.graph = testDbPath;
+        // Isolation is by construction: `storagePaths.graph` is a formula resolving `graphTest`
+        // (`:memory:`) under `UNIT_TEST_MODE`, and a `:memory:` store is process-local — stronger
+        // than the shared tmp file this suite used to repoint it at.
 
         // Read the resolved per-worker test handoff path (a computed formula under UNIT_TEST_MODE);
         // the writer targets the same resolved path, so the read-backs match. Mutating
@@ -165,8 +165,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test.afterAll(async () => {
-        const testDbPath = aiConfig.storagePaths.graph;
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, fs, 'clear');
     });
 
     test('derives repo-enrichment identity projections from identityRoots', () => {
