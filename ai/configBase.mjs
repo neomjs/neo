@@ -88,6 +88,40 @@ class ConfigBase extends ConfigProvider {
                 dataRoot: leaf(planeDataRootDefault, PLANE_ENV.dataRoot, 'string')
             },
             /**
+             * Turn-end stop-hook policy — two INDEPENDENT axes that were previously welded to one
+             * all-or-nothing enforcement flag (`NEO_LANE_STATE_ENFORCE`), so switching off the
+             * expensive apparatus also switched off the cheap, effective mirror.
+             *
+             * The turn-end hooks are thread-entrypoints: they bootstrap `Neo` + `core/_export` and
+             * read these leaves at the use site, so these stay plain declarative leaves with no
+             * companion defaults module. Measured: bootstrap plus resolve is ~50ms against the hook's
+             * 10s budget, so no twin indirection is warranted.
+             * @member {Object} data.stopHook
+             */
+            stopHook: {
+                /**
+                 * Reflect helpful-assistant register slips ("would you like me to…?") back as the
+                 * equal-peer reminder. One injected paragraph, no forced continuation behind it —
+                 * cheap, and the part that empirically earns its cost.
+                 * @type {boolean}
+                 */
+                deferenceMirror: leaf(true, 'NEO_STOP_HOOK_DEFERENCE_MIRROR', 'boolean'),
+                /**
+                 * The no-hold forced-continuation apparatus: refusing turn-ends, the lane-state JSON
+                 * terminal contract, the drive-ratchet, the clean-terminal / material-artifact
+                 * acceptance edges, and the injected lifecycle directive.
+                 *
+                 * Defaults OFF (operator-directed, 2026-07-25). Measured over a 26h window:
+                 * ONE refusal spawns a median-20-message continuation chain (mean 34.4, p90 78,
+                 * max 239) costing ~1.79M full-rate-equivalent tokens, because every message re-reads
+                 * a context that is deep precisely because the session is late — 30.1% of all billed
+                 * volume. This is an L3_No_Hold_State teeth change and therefore Tier-4 authority:
+                 * operator/deployment-owned, never self-licensable by an agent mid-turn.
+                 * @type {boolean}
+                 */
+                laneContinuation: leaf(false, 'NEO_STOP_HOOK_LANE_CONTINUATION', 'boolean')
+            },
+            /**
              * The current in-flight release version whose milestone / epic work counts as "current
              * release focus" for the Golden Path emitter. Set at cut-prep, advanced by
              * `buildScripts/release/publish.mjs` at release — so a shipped release never lingers as

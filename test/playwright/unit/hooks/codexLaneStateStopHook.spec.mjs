@@ -8,7 +8,7 @@ import {
     CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
     buildNoHoldReminder,
     collectCodexLaneStateEvidence,
-    classifyCodexStopPayload,
+    classifyCodexStopPayload as classifyCodexStopPayloadRaw,
     decideCodexHookAction,
     extractFinalAssistantText,
     extractLastAssistantTextFromJsonl,
@@ -32,6 +32,26 @@ const block       = body => '```lane-state\n' + body + '\n```',
               content: [{type: role === 'assistant' ? 'output_text' : 'input_text', text}]
           }
       });
+
+/**
+ * The specs in this file pin the CONTINUATION-ON contract. That apparatus is still live code —
+ * reachable via the `stopHook.laneContinuation` leaf — but the leaf now defaults OFF, so the
+ * policy is INJECTED here rather than inherited from the ambient default. Wrapping once at the import
+ * keeps every call site unchanged and, more importantly, makes a future default flip unable to
+ * silently re-target these fixtures at the opposite behavior while still reporting green.
+ * A spec that needs the off path passes its own `policy`.
+ * @type {Object}
+ */
+const CONTINUATION_ON = {deferenceMirror: true, laneContinuation: true};
+
+/**
+ * @summary `classifyCodexStopPayload` with the continuation-ON policy defaulted in.
+ * @param {Object} input
+ * @param {Object} [options]
+ * @returns {Object}
+ */
+const classifyCodexStopPayload = (input, options = {}) =>
+    classifyCodexStopPayloadRaw(input, {policy: CONTINUATION_ON, ...options});
 
 function classifyWithIsolatedPromptContext(input, options = {}) {
     const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-direct-'));
@@ -462,7 +482,9 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
     function runHook(payload, {enforce = false, capture = false, promptContextText} = {}) {
         return new Promise((resolve, reject) => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-hook-')),
-                  env = {...process.env, NEO_AI_DAEMON_DIR: dir};
+                  // Spawned counterpart of the CONTINUATION_ON injection above: the child process
+                  // resolves policy from env, so the contract under test is pinned there too.
+                  env = {...process.env, NEO_STOP_HOOK_LANE_CONTINUATION: 'true', NEO_AI_DAEMON_DIR: dir};
 
             if (enforce) env.NEO_CODEX_LANE_STATE_ENFORCE = '1';
             if (capture) env.NEO_CODEX_LANE_STATE_CAPTURE = '1';
