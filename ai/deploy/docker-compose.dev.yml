@@ -26,35 +26,25 @@
 
 # Project identity derives from the plane id (one plane ⇔ one compose project) so Docker
 # labels, networks, and volumes are namespaced per plane and cannot collide with the
-# native stack or other planes. ELECTION-SLOT: derivation rule confirmation.
+# native stack or other planes. ELECTION-SLOT resolved (#15800): derivation rule confirmed.
 #
-# ONE source — but NOT yet one value. Read the residual below before trusting this line.
+# ONE VALUE, PROJECTED — the anchor below is the whole mechanism. `&plane-id` and `*plane-id`
+# reference the SAME YAML scalar, so the project namespace and the plane identity cannot
+# disagree: divergence is not prevented here, it is inexpressible.
 #
-# This previously read `${NEO_PARITY_PROJECT_NAME:-…}` while `NEO_PLANE_ID` was hardcoded,
-# inverting the direction the comment above states: placement was overridable, identity was
-# pinned. ADR 0019 §10.3 makes identity opaque and independent of PLACEMENT; it does not
-# permit placement to move while identity is nailed down. Deleting the second variable is
-# strictly better than syncing two — synced sources agree only by convention.
+# `COMPOSE_PROJECT_NAME` is deliberate — it is COMPOSE'S OWN variable, so Compose VALIDATES it
+# rather than silently canonicalizing it. Measured on this file: `Team Plane`, `-plane`, `café`
+# and `UPPER` each make `docker compose config` FAIL with Compose's own "invalid project name"
+# error, while every accepted value renders exact equality across `name` and `NEO_PLANE_ID`.
 #
-# One source was necessary and NOT sufficient. Compose NORMALIZES the project name while
-# every env consumer keeps the RAW value, so one variable still produced two interpretations:
-#
-#   NEO_PLANE_ID="Team Plane"  -> name: teamplane   NEO_PLANE_ID: Team Plane   ✗
-#   NEO_PLANE_ID="MyPlane_01"  -> name: myplane_01  NEO_PLANE_ID: MyPlane_01   ✗
-#   NEO_PLANE_ID="ünicode"     -> name: nicode      NEO_PLANE_ID: ünicode      ✗ (drops a char)
-#
-# CLOSED at the identity gate, not here: `planeConfig.isOpaquePlaneId` now fails closed on
-# any id outside Compose's canonical grammar, so a divergent id cannot reach this file. The
-# grammar was measured against Compose in BOTH directions — every accepted value survives
-# unchanged, every rejected value is provably mangled — never inferred from samples.
-#
-# This is an invariant, not a derivation rule: the election still owns what the id derives
-# FROM. It does not own the requirement that both readers resolve one value identically.
-#
-# What diverges is the Docker-namespaced surface (project name, `<name>_neo-parity-network`)
-# — a duplicate-deployment / routing invariant. It is NOT a storage fork: `NEO_PLANE_DATA_ROOT`
-# below is bind-pinned and measured invariant under every override above.
-name: "${NEO_PLANE_ID:-neo-local-parity}"
+# The rejected alternative, recorded because it looks more rigorous and is worse: a custom
+# variable plus a grammar guard in `planeConfig`. A custom variable takes Compose's NORMALIZE
+# path instead of its VALIDATE path, so it needs a guard — and that guard would be a COPY of
+# Compose's grammar living in our tree. Correct on the day it is written, silently wrong the
+# day Compose changes its rule, and unable to fail loudly in between. The same duplicated-rule
+# defect this file's own history is made of. Here the only grammar in play is Compose's, owned
+# and enforced by Compose.
+name: &plane-id "${COMPOSE_PROJECT_NAME:-neo-local-parity}"
 
 # The full plane-member binding for the RELOCATED parity plane — map form (not list) so
 # services compose it via YAML merge keys. One shared map binds the union of the three
@@ -63,9 +53,9 @@ name: "${NEO_PLANE_ID:-neo-local-parity}"
 # Paths mirror each leaf's anchor-derived default, re-rooted under the parity root.
 x-plane-env: &plane-env
   # Identity + root (ADR 0019 §10.3: id is opaque; equality is the only same-plane test).
-  # Same expression as the project `name` above, deliberately — one source, two readers.
-  # This value stays RAW; `name` is normalized by Compose. See the measured residual there.
-  NEO_PLANE_ID: "${NEO_PLANE_ID:-neo-local-parity}"
+  # `*plane-id` is the SAME YAML scalar the project `name` uses — not a matching expression,
+  # the identical node. There is no second value that could drift out of step with it.
+  NEO_PLANE_ID: *plane-id
   NEO_PLANE_DATA_ROOT: /app/.neo-ai-data-parity
   # Tier-1 members (ai/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_AUTH_SEAT_TOKEN_REGISTRY_PATH: /app/.neo-ai-data-parity/seat-tokens/registry.json

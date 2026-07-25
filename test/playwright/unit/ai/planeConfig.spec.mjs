@@ -109,57 +109,6 @@ test.describe('resolved-value opacity — the invariant on the values that vary'
         }
     });
 
-    // Identity is compared by EQUALITY across deployment surfaces, so an id that one surface cannot
-    // represent losslessly is unsafe AS an identity. Compose canonicalizes the project name while
-    // every env consumer keeps the raw value, so feeding one raw string to both is one SOURCE and
-    // still two INTERPRETATIONS. The gate therefore fails closed on the grammar itself, not on
-    // whether Compose happens to be the surface in play for a given deployment.
-    //
-    // Every row below was measured against `docker compose config` in BOTH directions — accepted
-    // values verified to survive unchanged, rejected values verified to be mangled. The grammar is
-    // not inferred from samples; inferring it from four comfortable samples is the mistake that
-    // made the first repair attempt insufficient.
-    test('compose-safe grammar: accepted ids survive canonicalization, rejected ids provably do not', () => {
-        // Both SHIPPED defaults must keep passing — the regression this guard could most easily cause.
-        expect(isOpaquePlaneId('neo-local-canonical')).toBe(true);
-        expect(isOpaquePlaneId('neo-local-parity')).toBe(true);
-
-        // Lossless under `docker compose config` — including the grammar's own edges.
-        for (const ok of ['foo-plane', 'overlay-plane-a', '9lead', 'trail_']) {
-            expect(isOpaquePlaneId(ok), ok).toBe(true)
-        }
-
-        // Each measured as MANGLED by compose: name/env would resolve to two different identities.
-        // `ünicode` -> `nicode` is the worst of them — a dropped character yields a different
-        // identity that still looks valid, which no equality test downstream can catch.
-        for (const [bad, canonicalized] of [
-            ['Team Plane', 'teamplane'], ['MyPlane_01', 'myplane_01'], ['UPPER', 'upper'],
-            ['a.b', 'ab'], ['ünicode', 'nicode'], ['-lead', 'lead']
-        ]) {
-            expect(isOpaquePlaneId(bad), `${bad} -> compose ${canonicalized}`).toBe(false)
-        }
-    });
-
-    test('the violation names WHICH clause failed, so a boot rejection is self-diagnosing', () => {
-        expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: '../seat-a'}}))
-            .toThrow('opaque');
-        expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: 'Team Plane'}}))
-            .toThrow('compose-safe');
-        // A path-shaped id also breaks the compose grammar; opacity is reported first because it is
-        // the older invariant and the one that pre-decides the placement election.
-        expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: '/abs/path'}}))
-            .not.toThrow('compose-safe');
-
-        // The custom-config boot route reaches the predicate but built its own message, so it
-        // answered every rejection with the opacity text. A compose-mangled id has no path
-        // separators, so that diagnosis sent the operator hunting for a fault that is not there —
-        // a gate can be correct while its REASON is wrong, and only the reason reaches a human.
-        expect(() => assertPlaneCoherence({planeId: 'Team Plane', dataRoot: '/tmp/x'}))
-            .toThrow('compose-safe');
-        expect(() => assertPlaneCoherence({planeId: '../seat-a', dataRoot: '/tmp/x'}))
-            .toThrow('opaque');
-    });
-
     test('the leaf reaches the same predicate: plane.id declares the twin parser', () => {
         expect(ConfigBase.config.data.plane.id.parse).toBe(parsePlaneIdEnv)
     });
