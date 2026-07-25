@@ -90,6 +90,56 @@ test.describe('fleetA2AActivityAdapter - Memory Core A2A activity mapping', () =
         })
     })
 
+    test('counts lane-claims in NON-leading tag position — the real-corpus bypass class (#15925)', () => {
+        // The fleet writes compound claims — `[ticket-created][lane-claim][#N] …` — and the
+        // ^-anchored regex read all eight of these as plain activity. Fixtures: three verbatim
+        // from the wake-guard census reproducer, five live sends from the 2026-07-25 mailbox.
+        const bypassSubjects = [
+            '[ticket-created][lane-claim][#15900] ai:config-print',
+            '[ticket-created][lane-claim][#15886] the ESM-module-cache pollution class',
+            '[ticket-created][lane-claim][#15875] the AC5 crash root-caused',
+            '[ticket-created][lane-claim][#15923] vessel theme propagation — claimed 16:48Z; also: the ticket was still ASSIGNED to @neo-fable, third field/message divergence today',
+            '[ticket-created][lane-claim][#15915] the film found engine defect #3 — false re-entry across the proxy-identity swap stillbirths tear-out vessels; 14-cell matrix pinned it, mine to fix',
+            '[ticket-created][lane-claim][#15905] the wake guard\'s lane-claim predicate — filed on Phoebe\'s split-nod, mine to fix. And the OBVIOUS fix is falsified in the body',
+            '[ticket-created][lane-claim][#15932] PLANE_MEMBER_PATHS is guarded by a pinned count, not the config tree — #15872 is its first confirmed instance',
+            '[ticket-created][lane-claim][#15923] operator glitch-review of film v0 → the vessel renders its pane UNSTYLED (popout shell drops the theme) — first defect only visible now that frames exist'
+        ]
+
+        for (const [index, subject] of bypassSubjects.entries()) {
+            const [event] = createA2AMessageActivityEvents([{
+                messageId: `MESSAGE:bypass-${index}`,
+                subject,
+                from     : '@neo-opus-grace',
+                to       : 'AGENT:*',
+                sentAt   : '2026-07-25T16:00:00Z'
+            }])
+
+            expect(event.type, `non-leading claim must count: ${subject}`).toBe('lane-claim');
+            expect(event.payload.kind).toBe('a2a-lane-claim')
+        }
+    })
+
+    test('does NOT count a subject that merely MENTIONS [lane-claim] in prose (#15925)', () => {
+        // The unanchored-substring trap the class was built against: discussing claims ≠ claiming.
+        const mentionSubjects = [
+            '[falsifier-positive][D#15904] the [lane-claim] guard is ^-anchored — 53% of LIVE lane-claims bypass #14100 today',
+            '[ticket-created ×2][#15933 + #15934] lane 4 claimed + the secondary-display engine defect promoted'
+        ]
+
+        for (const subject of mentionSubjects) {
+            const [event] = createA2AMessageActivityEvents([{
+                messageId: 'MESSAGE:mention',
+                subject,
+                from     : '@neo-opus-ada',
+                to       : 'AGENT:*',
+                sentAt   : '2026-07-25T17:00:00Z'
+            }])
+
+            expect(event.type, `prose mention must NOT count: ${subject}`).toBe('a2a-activity');
+            expect(event.payload.kind).toBe('a2a-message')
+        }
+    })
+
     test('sorts newest first, applies timestamp bounds, and limits events', () => {
         const snapshot = createFleetA2AActivitySnapshot({
             capturedAt: '2026-07-04T06:10:00Z',
