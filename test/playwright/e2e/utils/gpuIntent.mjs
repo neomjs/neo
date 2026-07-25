@@ -69,6 +69,31 @@ export const BASE_LAUNCH_ARGS = [
 export const E2E_LAUNCH_ARGS = [...GPU_INTENT_ARGS, ...BASE_LAUNCH_ARGS];
 
 /**
+ * @summary The film-take launch profile: capture needs frames ON GLASS.
+ *
+ * `--disable-frame-rate-limit` suppresses headed compositing entirely on retina hosts —
+ * `page.screenshot` starves for the full test timeout and every screen-capture grain records
+ * black while worker-truth stays green — so a filmable run must drop it. The GPU-intent flags
+ * are benchmark claims a film take does not make. The backgrounding-disable trio STAYS: a
+ * newborn tear-out vessel is an occluded window whose renderer must keep running long enough
+ * to join the shared heap, or vessels are never born.
+ * @type {String[]}
+ */
+export const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
+
+/**
+ * @summary The launch list the CURRENT run mode actually uses.
+ *
+ * Single selection point for config projects AND the boot probe: the probe must demand GL
+ * proportional to the args the suite really launches with — reading intent from one list while
+ * launching another is the drift class this module exists to prevent.
+ * @returns {String[]}
+ */
+export function activeLaunchArgs() {
+    return process.env.NEO_FILM_TAKE ? FILM_LAUNCH_ARGS : E2E_LAUNCH_ARGS
+}
+
+/**
  * @summary Whether a given argument list claims hardware acceleration.
  * @param {String[]} [args=E2E_LAUNCH_ARGS]
  * @returns {Boolean}
