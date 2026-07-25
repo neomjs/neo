@@ -7,6 +7,8 @@ import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantR
         formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../../../ai/scripts/lifecycle/materialArtifactKey.mjs';
+import {FALSE_TOKENS, TRUE_TOKENS, parseStopHookBool,
+        resolveStopHookPolicy} from '../../../../ai/stopHookConfig.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -546,7 +548,18 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
-                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir, ...(extraEnv || {})},
+                  // The specs in this describe pin the CONTINUATION-ON contract. That apparatus is
+                  // still live code — reachable via the `stopHook.laneContinuation` leaf — so its
+                  // guarantees stay under test even though the leaf now defaults OFF. Pinned
+                  // EXPLICITLY rather than inherited from the ambient default, so a future default
+                  // flip can never silently re-target 39 fixtures at the opposite behavior while
+                  // still reporting green. The off-by-default path has its own describe block below.
+                  env            = {
+                      ...process.env,
+                      NEO_STOP_HOOK_LANE_CONTINUATION: 'true',
+                      NEO_AI_DAEMON_DIR              : dir,
+                      ...(extraEnv || {})
+                  },
                   payload        = {stop_hook_active: stopHookActive, session_id: 'e2e'};
 
             if (lifecycleState !== null) {
@@ -1134,5 +1147,182 @@ test.describe('the adapter composition — boundary → collector → evaluator,
             fs.appendFileSync(file, `[2026-07-18T07:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): dialogue\n`, 'utf8');
             expect(composeKey(artifactJsonl, file).accept).toBe(false)
         } finally { fs.unlinkSync(file) }
+    });
+});
+
+test.describe('stopHook policy leaves — the two-axis turn-end contract (#15877)', () => {
+    /**
+     * @summary Spawns the real hook with an explicit policy env, so each spec states the policy it
+     * pins instead of inheriting an ambient default.
+     * @param {String} finalText
+     * @param {Object} [opts]
+     * @returns {Promise<{stdout: String, log: String}>}
+     */
+    function runPolicyHook(finalText, {enforce = true, promptingText = '[WAKE][priority:normal] 1 events', policyEnv = {}} = {}) {
+        return new Promise((resolve, reject) => {
+            const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-policy-')),
+                  transcriptPath = path.join(dir, 'transcript.jsonl'),
+                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir, NEO_AGENT_IDENTITY: 'neo-test-seat', ...policyEnv},
+                  payload        = {stop_hook_active: false, session_id: 'policy-e2e'};
+
+            delete env.NEO_STOP_HOOK_LANE_CONTINUATION;
+            delete env.NEO_STOP_HOOK_DEFERENCE_MIRROR;
+            Object.assign(env, policyEnv);
+
+            fs.writeFileSync(transcriptPath, [
+                JSON.stringify({type: 'user',      message: {role: 'user',      content: promptingText}}),
+                JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}})
+            ].join('\n') + '\n');
+
+            payload.transcript_path = transcriptPath;
+            if (enforce) env.NEO_LANE_STATE_ENFORCE = '1';
+
+            const proc   = spawn('node', ['.claude/hooks/laneStateStopHook.mjs'], {stdio: ['pipe', 'pipe', 'pipe'], env});
+            let   stdout = '';
+
+            proc.stdout.on('data', chunk => stdout += chunk);
+            proc.on('error', reject);
+            proc.on('exit', () => {
+                const logPath = path.join(dir, 'lane-state-stop-hook.log');
+                resolve({stdout, log: fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : ''});
+            });
+
+            proc.stdin.write(JSON.stringify(payload));
+            proc.stdin.end();
+        });
+    }
+
+    test('DEFAULT (leaf off): an autonomous turn with NO lane-state block ends — the apparatus is dark', async () => {
+        const {stdout, log} = await runPolicyHook('Lane finished. No machine block here.');
+        expect(stdout).toBe('');
+        expect(log).toContain('ALLOW');
+        expect(log).not.toContain('BLOCK');
+        expect(log).toContain('[lane-continuation-disabled]');
+    });
+
+    test('DEFAULT (leaf off): a MALFORMED lane-state emission is no longer a finding', async () => {
+        const {stdout, log} = await runPolicyHook('Done.\n\n' + block('{"laneContinuation": NOT_JSON'));
+        expect(stdout).toBe('');
+        expect(log).toContain('[lane-continuation-disabled]');
+    });
+
+    test('THE OPERATOR REQUIREMENT: with continuation off, the deference MIRROR still fires', async () => {
+        const {stdout, log} = await runPolicyHook('All set. Would you like me to open the PR?');
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('deference phrase');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('helpful assistant');
+        // The mirror must NOT drag the continuation payload back in — that is the whole cost split.
+        expect(decision.reason).not.toContain('lane-state');
+        expect(decision.reason).not.toContain('L3_No_Hold_State');
+    });
+
+    test('the two axes are independent: mirror OFF + continuation OFF → a deference turn just ends', async () => {
+        const {stdout, log} = await runPolicyHook('All set. Would you like me to open the PR?', {
+            policyEnv: {NEO_STOP_HOOK_DEFERENCE_MIRROR: 'false'}
+        });
+        expect(stdout).toBe('');
+        expect(log).not.toContain('deference phrase');
+        expect(log).toContain('[lane-continuation-disabled]');
+    });
+
+    test('the two axes are independent: mirror OFF + continuation ON → lane contract still enforced', async () => {
+        const {stdout, log} = await runPolicyHook('All set. Would you like me to open the PR?', {
+            policyEnv: {NEO_STOP_HOOK_DEFERENCE_MIRROR: 'false', NEO_STOP_HOOK_LANE_CONTINUATION: 'true'}
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).not.toContain('deference phrase');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('REGRESSION GUARD: continuation ON restores the refusal byte-for-byte — the leaf is a switch, not a deletion', async () => {
+        const valid         = 'On it.\n\n' + block('{"laneContinuation":"active-lane"}');
+        const {stdout, log} = await runPolicyHook(valid, {
+            policyEnv: {NEO_STOP_HOOK_LANE_CONTINUATION: 'true'}
+        });
+        expect(log).toContain('BLOCK');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('L3_No_Hold_State');
+        expect(decision.reason).toContain('lane-state');
+    });
+
+    test('an unrecognized env token falls back to the DECLARED DEFAULT, never a silent disable', async () => {
+        const valid = 'On it.\n\n' + block('{"laneContinuation":"active-lane"}');
+        const {log} = await runPolicyHook(valid, {
+            policyEnv: {NEO_STOP_HOOK_LANE_CONTINUATION: 'ja, bitte'}
+        });
+        // Garbage → undefined → declared default (off). A typo must not read as a deliberate ENABLE either.
+        expect(log).toContain('[lane-continuation-disabled]');
+    });
+});
+
+test.describe('stopHookConfig twin — resolver equivalence with the leaf env layer (ADR 0019 §10.1)', () => {
+    test('token lists match Neo.util.Env exactly — the pairing obligation booleans cannot get by construction', async () => {
+        // §10.1 gets by-construction equivalence for STRING leaves (truthiness and the provider's
+        // emptiness check partition identically). Booleans do not: 'false' is a truthy JS string.
+        // So the twin replicates the token lists and THIS test is the drift guard.
+        const envSource = fs.readFileSync(path.join(process.cwd(), 'src/util/Env.mjs'), 'utf8');
+
+        const trueTokens  = JSON.parse(envSource.match(/TRUE_TOKENS:\s*(\[[^\]]*\])/)[1].replace(/'/g, '"')),
+              falseTokens = JSON.parse(envSource.match(/FALSE_TOKENS:\s*(\[[^\]]*\])/)[1].replace(/'/g, '"'));
+
+        expect([...TRUE_TOKENS]).toEqual(trueTokens);
+        expect([...FALSE_TOKENS]).toEqual(falseTokens);
+    });
+
+    test('parseStopHookBool: every true token resolves true', () => {
+        for (const token of TRUE_TOKENS) {
+            expect(parseStopHookBool('X', {env: {X: token}})).toBe(true);
+            expect(parseStopHookBool('X', {env: {X: token.toUpperCase()}})).toBe(true);
+            expect(parseStopHookBool('X', {env: {X: `  ${token}  `}})).toBe(true);
+        }
+    });
+
+    test('parseStopHookBool: every false token resolves false — including the truthy string "false"', () => {
+        for (const token of FALSE_TOKENS) {
+            expect(parseStopHookBool('X', {env: {X: token}})).toBe(false);
+        }
+    });
+
+    test('parseStopHookBool: absent / empty / garbage → undefined so the DECLARED default applies', () => {
+        expect(parseStopHookBool('X', {env: {}})).toBeUndefined();
+        expect(parseStopHookBool('X', {env: {X: ''}})).toBeUndefined();
+        expect(parseStopHookBool('X', {env: {X: 'maybe'}})).toBeUndefined();
+    });
+
+    test('resolveStopHookPolicy: the shipped defaults are mirror-ON / continuation-OFF', () => {
+        expect(resolveStopHookPolicy({env: {}})).toEqual({deferenceMirror: true, laneContinuation: false});
+    });
+
+    test('resolveStopHookPolicy: each axis overrides independently', () => {
+        expect(resolveStopHookPolicy({env: {NEO_STOP_HOOK_LANE_CONTINUATION: 'true'}}))
+            .toEqual({deferenceMirror: true, laneContinuation: true});
+        expect(resolveStopHookPolicy({env: {NEO_STOP_HOOK_DEFERENCE_MIRROR: 'off'}}))
+            .toEqual({deferenceMirror: false, laneContinuation: false});
+    });
+});
+
+test.describe('decideStopHookAction — the policy gate is unconditional (#15877)', () => {
+    test('continuation disabled beats every would-be block input — no residual refusal path', () => {
+        for (const operatorInLoop of [true, false]) {
+            for (const laneContinuation of [null, 'active-lane', 'next-lane']) {
+                const decision = decideHookAction(
+                    {valid: false, reason: 'no lane-state block emitted at turn-terminal'},
+                    true, operatorInLoop, null, laneContinuation, null, false
+                );
+                expect(decision.action).toBe('allow');
+                expect(decision.reason).toContain('[lane-continuation-disabled]');
+            }
+        }
+    });
+
+    test('the default stays TRUE for callers that pass no policy — historical semantics preserved', () => {
+        const decision = decideHookAction(
+            {valid: false, reason: 'no lane-state block emitted at turn-terminal'},
+            true, false, null, null, null
+        );
+        expect(decision.action).toBe('block');
     });
 });

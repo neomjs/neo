@@ -277,17 +277,35 @@ export function evaluateCleanTerminalAcceptance({
  * clean-terminal acceptance; only `accept === true` changes the action (an allow with its audit line).
  * @param {{accept: Boolean, reason: String}|null} [options.materialArtifact=null] The adapter-evaluated
  * material-artifact key; only `accept === true` changes the action (the PRIMARY autonomous allow).
+ * @param {Boolean} [options.laneContinuationEnforced=true] The `stopHook.laneContinuation` policy leaf
+ * (`ai/stopHookConfig.mjs` twin → `ai/configBase.mjs`). When `false`, the forced-continuation
+ * apparatus is OFF: every turn-end is allowed and no lane-state terminal is demanded. Defaults `true`
+ * so the pure function keeps its historical semantics for any caller that does not pass the policy.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideStopHookAction(verdict, {
-    enforcing               = false,
-    operatorInLoop          = false,
-    laneContinuation        = null,
-    blockInjectionSupported = true,
-    blockUnsupportedReason  = '',
-    cleanTerminal           = null,
-    materialArtifact        = null
+    enforcing                = false,
+    operatorInLoop           = false,
+    laneContinuation         = null,
+    blockInjectionSupported  = true,
+    blockUnsupportedReason   = '',
+    cleanTerminal            = null,
+    materialArtifact         = null,
+    laneContinuationEnforced = true
 } = {}) {
+    // The policy gate comes FIRST and is unconditional: with lane continuation disabled there is no
+    // terminal contract to satisfy, so a missing/malformed lane-state block is not a finding and the
+    // turn simply ends. Deliberately NOT expressed as another "valid terminal" edge — this is the
+    // apparatus being off, not a new way to earn a stop, and conflating the two would re-create
+    // exactly the self-declarable exit L3_No_Hold_State exists to prevent. Authority lives in the
+    // config leaf (operator/deployment, Tier-4), never in anything the agent emits this turn.
+    if (!laneContinuationEnforced) {
+        return {
+            action: 'allow',
+            reason: '[lane-continuation-disabled] stopHook.laneContinuation is off — turn-end allowed without a lane-state terminal'
+        };
+    }
+
     const activeLaneInDialogue = operatorInLoop && laneContinuation === 'active-lane';
 
     if (operatorInLoop && !activeLaneInDialogue) {
@@ -341,12 +359,20 @@ export function buildDeferenceStopHookDirective(phrase = null) {
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.operatorInLoop=false]
+ * @param {Boolean} [options.deferenceMirrorEnabled=true] The `stopHook.deferenceMirror` policy leaf.
+ * When `false`, the mirror is off and this returns `null` (no deference action) regardless of the
+ * text. Independent of `laneContinuation` on purpose: the mirror is one injected paragraph with no
+ * continuation chain behind it, so it survives the continuation apparatus being switched off — the
+ * exact split the single legacy `NEO_LANE_STATE_ENFORCE` flag could not express.
  * @returns {{action: ('block'|'would-block'), reason: String, phrase: String}|null}
  */
 export function decideDeferenceStopHookAction(text = '', {
-    enforcing      = false,
-    operatorInLoop = false
+    enforcing              = false,
+    operatorInLoop         = false,
+    deferenceMirrorEnabled = true
 } = {}) {
+    if (!deferenceMirrorEnabled) return null;
+
     const phrase = detectDeferencePhrase(text, {operatorInLoop});
 
     if (!phrase) return null;

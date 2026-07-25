@@ -76,11 +76,19 @@ import {collectLaneStateToolEvidenceFromJsonl,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../ai/scripts/lifecycle/materialArtifactKey.mjs';
+import {resolveStopHookPolicy} from '../../ai/stopHookConfig.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
 // Live harness wiring explicitly enables enforcement. An absent flag fails open and emits diagnostics.
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
+
+// The two-axis turn-end policy (`stopHook.*` leaves), resolved through the pure-defaults twin because
+// this hook is a genuine non-entrypoint (ticket-ref-ok: ADR 0019 C1 is the sanctioned-pattern name for this constraint — no Neo import)
+// that runs on every turn-end
+// inside a 10s budget. `ENFORCING` above stays the WIRING signal (is the hook live at all); these are
+// the POLICY signals (which of the two jobs it does) — the split the single legacy flag lacked.
+const {deferenceMirror: DEFERENCE_MIRROR, laneContinuation: LANE_CONTINUATION} = resolveStopHookPolicy();
 
 // Append-only decision log — WOULD-BLOCK records non-enforcing diagnostics; ALLOW/BLOCK record live truth.
 // NEO_AI_DAEMON_DIR override keeps tests off the real store.
@@ -147,16 +155,19 @@ function auditLog(line) {
  * @param {String|null} [laneContinuation=null] Parsed terminal continuation, when available.
  * @param {{accept: Boolean, reason: String}|null} [materialArtifact=null] Adapter-evaluated
  * material-artifact key (the PRIMARY autonomous allow).
+ * @param {Boolean} [laneContinuationEnforced=true] The `stopHook.laneContinuation` policy leaf —
+ * `false` allows every turn-end without demanding a lane-state terminal.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, laneContinuation = null, materialArtifact = null) {
+export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, laneContinuation = null, materialArtifact = null, laneContinuationEnforced = true) {
     return decideStopHookAction(verdict, {
         enforcing,
         operatorInLoop,
         laneContinuation,
         blockInjectionSupported: true,
         cleanTerminal,
-        materialArtifact
+        materialArtifact,
+        laneContinuationEnforced
     });
 }
 
@@ -723,11 +734,16 @@ async function main() {
     }
     const promptingText = extractLatestHumanUserTextFromJsonl(transcriptJsonl);
     let   evidenceText  = '';
-    try {
-        evidenceText = collectLaneStateToolEvidenceFromJsonl(transcriptJsonl);
-    } catch {
-        // Missing transcript evidence is an agent-proof failure, not a hook failure.
-        evidenceText = '';
+    // Terminal-evidence collection is a full transcript scan whose ONLY consumer is the lane-state
+    // validator. With the continuation apparatus off there is no terminal to validate, so the scan is
+    // pure waste — skip it rather than compute an unread result.
+    if (LANE_CONTINUATION) {
+        try {
+            evidenceText = collectLaneStateToolEvidenceFromJsonl(transcriptJsonl);
+        } catch {
+            // Missing transcript evidence is an agent-proof failure, not a hook failure.
+            evidenceText = '';
+        }
     }
     const promptContext = classifyPromptingContext({
         stopHookActive            : !!input.stop_hook_active,
@@ -736,7 +752,11 @@ async function main() {
     });
     const {autonomousHandoff, handoffReason, handoffWindowMs, midChainOperator, operatorInLoop} = promptContext;
 
-    const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
+    const deferenceDecision = decideDeferenceStopHookAction(finalText, {
+        operatorInLoop,
+        enforcing             : ENFORCING,
+        deferenceMirrorEnabled: DEFERENCE_MIRROR
+    });
     if (deferenceDecision) {
         const reason   = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
               session  = input.session_id || '?',
@@ -752,6 +772,28 @@ async function main() {
         }
 
         auditLog(`WOULD-BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+        process.exit(0);
+    }
+
+    // POLICY GATE — `stopHook.laneContinuation` off: the forced-continuation apparatus does not run.
+    // Placed AFTER the deference mirror on purpose, so the cheap register-correction still fires while
+    // the expensive continuation machinery stays dark. Everything below (terminal parse, validation,
+    // drive-ratchet, clean-terminal + material-artifact evaluation, directive composition) is
+    // lane-continuation machinery with no other consumer, so it is skipped wholesale rather than
+    // computed and discarded. Audited like every other boundary — a silent behavior switch is exactly
+    // what makes a hook unfalsifiable later.
+    if (!LANE_CONTINUATION) {
+        const {action, reason} = decideHookAction(
+            {valid: false, reason: 'lane continuation disabled'},
+            ENFORCING,
+            operatorInLoop,
+            null,
+            null,
+            null,
+            false
+        );
+
+        auditLog(`${action === 'allow' ? 'ALLOW' : action.toUpperCase()} (session=${input.session_id || '?'}, identity=${process.env.NEO_AGENT_IDENTITY || '?'}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
         process.exit(0);
     }
 

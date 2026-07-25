@@ -126,7 +126,7 @@ disposed. `validateMergeReady` (ai/scripts/lifecycle) encodes this contract.
 
 Per #11455 AC, every lifecycle boundary (reviewer post, author response,
 post-implementation, PR open/update, ticket create, blocked-state exit) emits
-both surfaces: prose for humans, fenced JSON for Stop hooks.
+the human-readable prose form:
 
 ```text
 lane-state: next-lane (picking up ticket #NNNN)
@@ -136,15 +136,26 @@ lane-state: next-lane (PR #NNNN at human merge gate; picking up unrelated ticket
 lane-state: next-lane (filed/routed blocker bug #NNNN; picking up unrelated ticket #MMMM)
 ```
 
+**The fenced machine block is emitted ONLY when `stopHook.laneContinuation` is
+enabled** (#15877). Its sole consumer is `parseLaneState()` inside the turn-end
+hooks; with the leaf off — the shipped default — nothing reads it, so emitting it
+is pure waste in every turn's output budget. Do not emit it by habit, and do not
+treat its absence as a missing deliverable. When the leaf IS enabled, the block
+is required and takes this shape:
+
 ```lane-state
 {"laneContinuation":"next-lane","namedGates":[{"ref":"PR #NNNN","checkedAt":"YYYY-MM-DDTHH:mm:ssZ"}]}
 ```
 
-Only `next-lane` is normal here. "Holding", "standby", "nothing actionable",
-"idle", bare `paused`, `verified-empty`, `human-gate`, and blocker-as-exit-ramp
-are not turn terminals (§5). Prose alone is not a machine emission;
-`parseLaneState()` reads only the fenced block. No gate: `namedGates: []`; merge
-claim: `"mergeClaim":true,"field":"mergedAt"`.
+The prose form stays unconditional: it is coordination substrate peers and the
+operator actually read, and it costs one line. Only `next-lane` is normal here.
+"Holding", "standby", "nothing actionable", "idle", bare `paused`,
+`verified-empty`, `human-gate`, and blocker-as-exit-ramp are not turn terminals
+(§5) — that stays true of the prose form regardless of the leaf, because it is a
+discipline about what you may CALL a terminal, not about what the hook parses.
+When the machine block IS in play, `parseLaneState()` reads only the fenced
+block, so prose alone does not satisfy it: no gate → `namedGates: []`; merge
+claim → `"mergeClaim":true,"field":"mergedAt"`.
 
 ## 2.6. Typed `lane-state` Ledger + Commitment Lease
 
