@@ -65,6 +65,26 @@ edges such as `SENT_BY`, `SENT_TO`, and, for broadcasts, per-recipient
 threads, and concepts. `list_messages` reads that graph back with permission
 checks, read/archive filtering, and live pull-request echoes where available.
 
+Read and archive state therefore live in **two different places, by message
+kind**, and this is the fact most consumers get wrong. A broadcast needs
+per-recipient isolation — one seat reading it must not mark it read for everyone
+— so its `readAt` and `archivedAt` ride that seat's own `DELIVERED_TO` edge. A
+direct message has exactly one recipient and no delivery cohort to isolate, so
+its state rides the shared `MESSAGE` node instead.
+
+The consequence is what makes this worth knowing: **anything that reads one
+carrier is silently wrong about the other half of the traffic, and wrong in the
+quiet direction.** A probe that asks "does the `DELIVERED_TO` row carry a
+`readAt`?" finds no row at all for a direct message and reads that absence as
+"never persisted" rather than "wrong carrier" — a false negative, not an error.
+A counter over `DELIVERED_TO` under-reports directed traffic to zero rather than
+failing. Two independent consumers hit exactly these two failures within one hour
+on 2026-07-25 (`#15825`'s probe, `#15935`'s first delivery series), which is why
+the failure mode is stated here and not just the topology: knowing that
+`DELIVERED_TO` exists only for broadcasts does not tell you where the other half
+of the state lives, and the natural inference — that read-state rides the
+delivery edge — is correct for broadcasts and wrong for direct messages.
+
 Wake routing hangs off that durable write. `WakeSubscriptionService` evaluates
 graph deltas for subscriptions such as `SENT_TO_ME`, `TASK_STATE_CHANGED`,
 `PERMISSION_GRANTED`, and `HEARTBEAT_PULSE`. The wake layer may push through MCP
