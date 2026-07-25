@@ -261,6 +261,62 @@ services:
       # ELECTION-SLOT: parity port band. Provisional 31xx — disjoint from native :3001.
       - "3101:3001"
 
+  # The maintenance orchestrator — the THIRD Tier-1 plane consumer, and the one that makes this
+  # profile a complete plane rather than two servers on a shared root. Lifted from the production
+  # compose's `orchestrator` service (same generalized `SERVICE_ENTRYPOINT` arg), re-rooted onto
+  # the parity plane via the shared `x-plane-env` anchor.
+  #
+  # Why it belongs here rather than in a follow-up: it is the only Tier-1 consumer that WRITES on
+  # a timer — backups, dream artifacts, golden-path handoffs, recovery ledgers. A parity stack
+  # without it is not a parity stack; it is two servers with no scheduler, and the plane-completeness
+  # claim would be true only because the writer was absent.
+  #
+  # It now runs the same F-invariant boot walk kb/mc run (`assertOrchestratorPlane`), so it fails
+  # closed before scheduling anything. A server on the wrong plane returns wrong answers and someone
+  # notices; a scheduler on the wrong plane mutates the wrong durable store on a timer.
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        NEO_SOURCE: local
+        SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
+    environment:
+      <<: *plane-env
+      # Cloud-safe lane profile: only the deployable lanes run. Local-only lanes and local
+      # inference launchers stay off — the parity stack proves plane topology, not model hosting.
+      NEO_AI_DEPLOYMENT_MODE: cloud
+      NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: "false"
+      NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED: "false"
+      NEO_ORCHESTRATOR_KB_SYNC_ENABLED: "false"
+      NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED: "false"
+      NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: "false"
+      NEO_ORCHESTRATOR_MLX_ENABLED: "false"
+      NEO_ORCHESTRATOR_LMS_ENABLED: "false"
+      NEO_ORCHESTRATOR_OLLAMA_ENABLED: "false"
+      NEO_CHROMA_HOST: chroma
+      NEO_CHROMA_PORT: "8000"
+      # Runtime access is scoped to THIS plane's compose project — the same scalar the project
+      # `name` and `NEO_PLANE_ID` resolve from, so a parity orchestrator can never address the
+      # native stack's containers.
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED: "true"
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM: docker-socket
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH: /var/run/docker.sock
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *plane-id
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: chroma,kb-server,mc-server
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS: inspect,logs,stats
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS: restart
+    volumes:
+      - ../..:/app
+      # Same node_modules shadowing guard as the servers (AC5 defect 2).
+      - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-parity-network
+
 networks:
   # Plane-scoped network name: the compose project (plane-derived) namespaces it, and the
   # explicit name keeps `docker network ls` legible when the parity stack runs beside the

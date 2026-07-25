@@ -86,6 +86,36 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('the orchestrator rides the SAME plane — a stack without its writer is not a plane', () => {
+        // The orchestrator is the third Tier-1 consumer and the only one that writes on a timer:
+        // backups, dream artifacts, golden-path handoffs, recovery ledgers. A profile without it
+        // could claim plane-completeness only because the writer was absent.
+        const orchestrator = compose.services?.orchestrator;
+
+        expect(orchestrator, 'the parity profile has no orchestrator — plane completeness would be true only by omission').toBeTruthy();
+        expect(orchestrator.build?.args?.SERVICE_ENTRYPOINT).toBe('ai/daemons/orchestrator/daemon.mjs');
+
+        // Every plane consumer binds via the SHARED ANCHOR (`<<: *plane-env`), never a restated
+        // map. Asserting the resolved VALUE would be the weaker test: a copy-pasted block resolves
+        // to the same string and passes, while being exactly the second-source defect this profile
+        // exists to remove. js-yaml leaves the `<<` merge key literal, which is what makes the
+        // structural check available at all.
+        for (const service of ['kb-server', 'mc-server', 'orchestrator']) {
+            expect(Object.keys(compose.services[service].environment), `${service} restates the plane binding instead of merging the shared anchor`)
+                .toContain('<<');
+        }
+
+        // ...and the anchor is the single place the root is declared.
+        expect(compose['x-plane-env'].NEO_PLANE_DATA_ROOT).toBe('/app/.neo-ai-data-parity');
+
+        // Runtime access scoped to THIS project, so a parity orchestrator can never address the
+        // native stack's containers. Both sites alias the same `&plane-id` scalar, so this asserts
+        // they resolve identically — a restated literal here would be a second source that agrees
+        // today and drifts the first time the project derivation changes.
+        expect(orchestrator.environment.NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT)
+            .toBe(compose['x-plane-env'].NEO_PLANE_ID);
+    });
+
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
         // The anchor/alias pair cannot drift: `*plane-id` IS the node `&plane-id` defines, so
         // there is no second value to keep in step. Asserting on the parsed tree proves the
