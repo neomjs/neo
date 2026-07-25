@@ -105,6 +105,8 @@ resources/data/reports/
 .env
 .neo-ai-data
 !.neo-ai-data/concepts/
+# Relocated parity-plane root (dev parity stack, #15803) — runtime data, never tracked
+.neo-ai-data-parity
 # Parity-plane runtime root (docker-compose.dev.yml relocated plane — #15803)
 .neo-ai-data-parity
 ai/mcp/server/*/config.mjs
