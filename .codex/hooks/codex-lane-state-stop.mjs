@@ -22,7 +22,6 @@ import {classifyPromptingContext,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
-import {resolveStopHookPolicy} from '../../ai/stopHookConfig.mjs';
 import {collectLaneStateToolEvidenceFromJsonl,
         collectLaneStateToolEvidenceFromMessages,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
@@ -440,7 +439,7 @@ ${LANE_STATE_SCHEMA_HINT}`;
  * @param {Boolean} [options.operatorInLoop=false]
  * @param {Boolean} [options.laneContinuationEnforced=true] The `stopHook.laneContinuation` policy leaf
  * — `false` allows every turn-end without demanding a lane-state terminal. Resolved from the same
- * `ai/stopHookConfig.mjs` twin the Claude adapter reads, so the two harnesses cannot drift on policy.
+ * config SSOT the Claude adapter reads, so the two harnesses cannot drift on policy.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideCodexHookAction(verdict, {
@@ -515,7 +514,15 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir,
     // hook lets it default to the env-resolved policy, while callers that need to pin a policy pass
     // one explicitly rather than mutating `process.env` — a classifier that can only be exercised by
     // global env mutation is untestable in-process and invites cross-spec bleed.
-    const {deferenceMirror, laneContinuation: laneContinuationEnforced} = policy ?? resolveStopHookPolicy();
+    // `policy` is REQUIRED and deliberately has no fallback: a hardcoded default here would be a
+    // shadow copy of the `stopHook.*` leaves — a hidden default that drifts silently. `main()`
+    // resolves it from the config SSOT and always passes it; a missing policy is a wiring bug, and
+    // `main()`'s try/catch turns the throw into the hook's fail-open allow rather than a trapped turn.
+    if (!policy) {
+        throw new Error('classifyCodexStopPayload: `policy` is required — resolve it from AiConfig.stopHook');
+    }
+
+    const {deferenceMirror, laneContinuation: laneContinuationEnforced} = policy;
 
     const stopHookActive                              = !!(input.stop_hook_active || input.stopHookActive),
           {text, source}                              = extractFinalAssistantText(input),
@@ -578,6 +585,35 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir,
 }
 
 /**
+ * @summary Resolves the two-axis turn-end policy from the config SSOT.
+ *
+ * This hook is a thread-entrypoint, so it bootstraps the `Neo` namespace and reads
+ * `AiConfig.stopHook.*` at the use site — no re-derivation, no defaults twin, no hand-rolled env
+ * decode. The bootstrap is a GUARDED DYNAMIC import rather than a top-level one: a top-level import
+ * throws before `main()`'s try/catch exists, so a broken overlay would trap every turn-end instead
+ * of degrading to this hook's fail-open allow.
+ * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean}|null>} `null` when the
+ * config tree could not be resolved.
+ * @protected
+ */
+async function resolveStopHookPolicy() {
+    try {
+        await import('../../src/Neo.mjs');
+        await import('../../src/core/_export.mjs');
+
+        const {default: AiConfig} = await import('../../ai/config.mjs');
+
+        return {
+            deferenceMirror : AiConfig.stopHook.deferenceMirror,
+            laneContinuation: AiConfig.stopHook.laneContinuation
+        };
+    } catch (e) {
+        auditLog(`CONFIG-ERROR: could not resolve stopHook policy (${e.message}); allowing stop.`);
+        return null;
+    }
+}
+
+/**
  * @summary Codex Stop hook entrypoint; emits block decisions when enforcing and otherwise exits successfully.
  * @protected
  */
@@ -594,10 +630,17 @@ async function main() {
         auditLog(`PAYLOAD-SHAPE: ${JSON.stringify(summarizePayloadShape(input))}`);
     }
 
+    const policy = await resolveStopHookPolicy();
+
+    if (!policy) {
+        process.exit(0);
+    }
+
     let result;
     try {
         result = classifyCodexStopPayload(input, {
-            enforcing: process.env.NEO_CODEX_LANE_STATE_ENFORCE === '1'
+            enforcing: process.env.NEO_CODEX_LANE_STATE_ENFORCE === '1',
+            policy
         });
     } catch (e) {
         auditLog(`HOOK-ERROR: ${e.message}; allowing stop.`);

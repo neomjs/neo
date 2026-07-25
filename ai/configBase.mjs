@@ -8,10 +8,6 @@ import {
     parsePlaneIdEnv,
     resolvePlaneDataRoot
 } from './planeConfig.mjs';
-import {
-    STOP_HOOK_DEFAULTS,
-    STOP_HOOK_ENV
-} from './stopHookConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -96,20 +92,20 @@ class ConfigBase extends ConfigProvider {
              * all-or-nothing enforcement flag (`NEO_LANE_STATE_ENFORCE`), so switching off the
              * expensive apparatus also switched off the cheap, effective mirror.
              *
-             * Declared FROM the pure-defaults twin `ai/stopHookConfig.mjs` (ticket-ref-ok: ADR 0019
-             * §5.5 names that module shape; §10.1 the inversion) — the turn-end hooks are genuine
-             * non-entrypoints that must not import Neo (C1) and cannot pay bootstrap weight on every
-             * turn-end, so they resolve the SAME literals through the twin's pure resolver.
+             * The turn-end hooks are thread-entrypoints: they bootstrap `Neo` + `core/_export` and
+             * read these leaves at the use site, so these stay plain declarative leaves with no
+             * companion defaults module. Measured: bootstrap plus resolve is ~50ms against the hook's
+             * 10s budget, so no twin indirection is warranted.
              * @member {Object} data.stopHook
              */
             stopHook: {
                 /**
                  * Reflect helpful-assistant register slips ("would you like me to…?") back as the
                  * equal-peer reminder. One injected paragraph, no forced continuation behind it —
-                 * cheap, and the part that empirically earns its cost. Defaults ON.
+                 * cheap, and the part that empirically earns its cost.
                  * @type {boolean}
                  */
-                deferenceMirror: leaf(STOP_HOOK_DEFAULTS.deferenceMirror, STOP_HOOK_ENV.deferenceMirror, 'boolean'),
+                deferenceMirror: leaf(true, 'NEO_STOP_HOOK_DEFERENCE_MIRROR', 'boolean'),
                 /**
                  * The no-hold forced-continuation apparatus: refusing turn-ends, the lane-state JSON
                  * terminal contract, the drive-ratchet, the clean-terminal / material-artifact
@@ -123,7 +119,7 @@ class ConfigBase extends ConfigProvider {
                  * operator/deployment-owned, never self-licensable by an agent mid-turn.
                  * @type {boolean}
                  */
-                laneContinuation: leaf(STOP_HOOK_DEFAULTS.laneContinuation, STOP_HOOK_ENV.laneContinuation, 'boolean')
+                laneContinuation: leaf(false, 'NEO_STOP_HOOK_LANE_CONTINUATION', 'boolean')
             },
             /**
              * The current in-flight release version whose milestone / epic work counts as "current

@@ -7,8 +7,6 @@ import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantR
         formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../../../ai/scripts/lifecycle/materialArtifactKey.mjs';
-import {FALSE_TOKENS, TRUE_TOKENS, parseStopHookBool,
-        resolveStopHookPolicy} from '../../../../ai/stopHookConfig.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -1255,52 +1253,6 @@ test.describe('stopHook policy leaves — the two-axis turn-end contract (#15877
         });
         // Garbage → undefined → declared default (off). A typo must not read as a deliberate ENABLE either.
         expect(log).toContain('[lane-continuation-disabled]');
-    });
-});
-
-test.describe('stopHookConfig twin — resolver equivalence with the leaf env layer (ADR 0019 §10.1)', () => {
-    test('token lists match Neo.util.Env exactly — the pairing obligation booleans cannot get by construction', async () => {
-        // §10.1 gets by-construction equivalence for STRING leaves (truthiness and the provider's
-        // emptiness check partition identically). Booleans do not: 'false' is a truthy JS string.
-        // So the twin replicates the token lists and THIS test is the drift guard.
-        const envSource = fs.readFileSync(path.join(process.cwd(), 'src/util/Env.mjs'), 'utf8');
-
-        const trueTokens  = JSON.parse(envSource.match(/TRUE_TOKENS:\s*(\[[^\]]*\])/)[1].replace(/'/g, '"')),
-              falseTokens = JSON.parse(envSource.match(/FALSE_TOKENS:\s*(\[[^\]]*\])/)[1].replace(/'/g, '"'));
-
-        expect([...TRUE_TOKENS]).toEqual(trueTokens);
-        expect([...FALSE_TOKENS]).toEqual(falseTokens);
-    });
-
-    test('parseStopHookBool: every true token resolves true', () => {
-        for (const token of TRUE_TOKENS) {
-            expect(parseStopHookBool('X', {env: {X: token}})).toBe(true);
-            expect(parseStopHookBool('X', {env: {X: token.toUpperCase()}})).toBe(true);
-            expect(parseStopHookBool('X', {env: {X: `  ${token}  `}})).toBe(true);
-        }
-    });
-
-    test('parseStopHookBool: every false token resolves false — including the truthy string "false"', () => {
-        for (const token of FALSE_TOKENS) {
-            expect(parseStopHookBool('X', {env: {X: token}})).toBe(false);
-        }
-    });
-
-    test('parseStopHookBool: absent / empty / garbage → undefined so the DECLARED default applies', () => {
-        expect(parseStopHookBool('X', {env: {}})).toBeUndefined();
-        expect(parseStopHookBool('X', {env: {X: ''}})).toBeUndefined();
-        expect(parseStopHookBool('X', {env: {X: 'maybe'}})).toBeUndefined();
-    });
-
-    test('resolveStopHookPolicy: the shipped defaults are mirror-ON / continuation-OFF', () => {
-        expect(resolveStopHookPolicy({env: {}})).toEqual({deferenceMirror: true, laneContinuation: false});
-    });
-
-    test('resolveStopHookPolicy: each axis overrides independently', () => {
-        expect(resolveStopHookPolicy({env: {NEO_STOP_HOOK_LANE_CONTINUATION: 'true'}}))
-            .toEqual({deferenceMirror: true, laneContinuation: true});
-        expect(resolveStopHookPolicy({env: {NEO_STOP_HOOK_DEFERENCE_MIRROR: 'off'}}))
-            .toEqual({deferenceMirror: false, laneContinuation: false});
     });
 });
 

@@ -278,7 +278,7 @@ export function evaluateCleanTerminalAcceptance({
  * @param {{accept: Boolean, reason: String}|null} [options.materialArtifact=null] The adapter-evaluated
  * material-artifact key; only `accept === true` changes the action (the PRIMARY autonomous allow).
  * @param {Boolean} [options.laneContinuationEnforced=true] The `stopHook.laneContinuation` policy leaf
- * (`ai/stopHookConfig.mjs` twin → `ai/configBase.mjs`). When `false`, the forced-continuation
+ * (declared in `ai/configBase.mjs`; adapters read it from `AiConfig`). When `false`, the forced-continuation
  * apparatus is OFF: every turn-end is allowed and no lane-state terminal is demanded. Defaults `true`
  * so the pure function keeps its historical semantics for any caller that does not pass the policy.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}

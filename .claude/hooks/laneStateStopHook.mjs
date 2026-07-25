@@ -76,19 +76,47 @@ import {collectLaneStateToolEvidenceFromJsonl,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../ai/scripts/lifecycle/materialArtifactKey.mjs';
-import {resolveStopHookPolicy} from '../../ai/stopHookConfig.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
 // Live harness wiring explicitly enables enforcement. An absent flag fails open and emits diagnostics.
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
 
-// The two-axis turn-end policy (`stopHook.*` leaves), resolved through the pure-defaults twin because
-// this hook is a genuine non-entrypoint (ticket-ref-ok: ADR 0019 C1 is the sanctioned-pattern name for this constraint — no Neo import)
-// that runs on every turn-end
-// inside a 10s budget. `ENFORCING` above stays the WIRING signal (is the hook live at all); these are
-// the POLICY signals (which of the two jobs it does) — the split the single legacy flag lacked.
-const {deferenceMirror: DEFERENCE_MIRROR, laneContinuation: LANE_CONTINUATION} = resolveStopHookPolicy();
+/**
+ * @summary Resolves the two-axis turn-end policy from the config SSOT. `ENFORCING` above is the
+ * WIRING signal (is the hook live at all); these are the POLICY signals (which of its two jobs it
+ * does) — the split the single legacy flag could not express.
+ *
+ * This hook is a thread-entrypoint, so it bootstraps the `Neo` namespace and reads
+ * `AiConfig.stopHook.*` at the use site — no re-derivation, no defaults twin, no hand-rolled env
+ * decode. Measured at ~50ms against the hook's 10s budget.
+ *
+ * The bootstrap is a GUARDED DYNAMIC import, not a top-level one, because this hook's load-bearing
+ * safety contract is that it never blocks a turn-end on its own failure: a top-level import throws
+ * BEFORE `main()`'s try/catch exists, so a broken overlay or a failing boot assertion would trap
+ * every turn-end instead of degrading. On resolution failure the hook takes its existing
+ * fail-open posture — allow the stop — which is the hook's own safety default, NOT a shadow copy of
+ * a config default (there is no hardcoded policy literal here to drift from the leaves).
+ * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean}|null>} `null` when the
+ * config tree could not be resolved, which the caller treats as allow-and-audit.
+ * @protected
+ */
+async function resolveStopHookPolicy() {
+    try {
+        await import('../../src/Neo.mjs');
+        await import('../../src/core/_export.mjs');
+
+        const {default: AiConfig} = await import('../../ai/config.mjs');
+
+        return {
+            deferenceMirror : AiConfig.stopHook.deferenceMirror,
+            laneContinuation: AiConfig.stopHook.laneContinuation
+        };
+    } catch (e) {
+        auditLog(`CONFIG-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): could not resolve stopHook policy (${e.message}); allowing stop.`);
+        return null;
+    }
+}
 
 // Append-only decision log — WOULD-BLOCK records non-enforcing diagnostics; ALLOW/BLOCK record live truth.
 // NEO_AI_DAEMON_DIR override keeps tests off the real store.
@@ -705,6 +733,16 @@ async function main() {
         auditLog(`PARSE-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): could not parse Stop-hook input (${e.message}); allowing stop.`);
         process.exit(0);
     }
+
+    // Policy from the config SSOT, resolved before any transcript work so an unresolvable config
+    // costs nothing. A null resolution is OUR failure → allow + audit, never trap a turn-end.
+    const policy = await resolveStopHookPolicy();
+
+    if (!policy) {
+        process.exit(0);
+    }
+
+    const {deferenceMirror: DEFERENCE_MIRROR, laneContinuation: LANE_CONTINUATION} = policy;
 
     // Resolve the agent's FINAL message text (last_assistant_message, or JSONL-extracted from the
     // transcript) — NOT the raw transcript: raw Claude JSONL is JSON-escaped, so the fence parser
