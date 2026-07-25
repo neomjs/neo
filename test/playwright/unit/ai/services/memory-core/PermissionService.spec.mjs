@@ -22,26 +22,15 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.PermissionService', () => {
     test.describe.configure({ mode: 'serial' });
     let PermissionService, GraphService, LifecycleService, originalAutoSave;
-    let dbPath, originalDbPath, hadGraphDb = false;
+    let hadGraphDb = false;
 
     test.beforeAll(async () => {
-        // Build an isolated tmp path for the database file tests
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        dbPath = path.join(tmpDir, `neo-permission-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
-
-        // Force temp file DB config instead of :memory: to prevent initialization race wipes
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        originalDbPath = aiConfig.storagePaths.graph;
-        aiConfig.storagePaths.graph = dbPath;
-
-        // Mock Chroma collections to prevent production data wipes
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
-
+        // Isolation is by construction. `storagePaths.graph` resolves `graphTest` (`:memory:`) and
+        // `collections.*` resolve to per-process randomized `test-*` names, both under `UNIT_TEST_MODE`.
+        // The removed writes carried two stale rationales: a temp file was said to beat `:memory:`
+        // against "initialization race wipes" (the suite is green on `:memory:` across repeated runs),
+        // and the collection names were said to prevent production wipes — Chroma isolates at the
+        // database level (`databaseTest`) before any collection name is resolved.
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
@@ -78,10 +67,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
             GraphService.db.autoSave = originalAutoSave;
         }
 
-        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
-
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        aiConfig.storagePaths.graph = originalDbPath;
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, fs, 'clear');
 
         if (hadGraphDb) {
             await GraphService.initAsync();

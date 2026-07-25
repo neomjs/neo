@@ -25,33 +25,27 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     let GraphService;
     let SystemLifecycleService;
     let FileSystemIngestor;
-    const testDbName = `memory-core-fs-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
     let mockFsRoot;
-    let originalDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        originalDbPath = aiConfig.storagePaths.graph;
-
+        // Isolation is by CONSTRUCTION, not by mutation. Under `UNIT_TEST_MODE`, `storagePaths.graph`
+        // is a formula resolving `graphTest` (`:memory:`) and `collections.*` resolve to generated
+        // test names — both declared in `configBase.mjs`. This suite previously repointed all three
+        // on the shared config singleton, so the writes bought nothing the harness had not already
+        // provided; and only the graph path was ever handed back, leaving the two collection names
+        // pointing at this suite's values for the remaining life of the worker.
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
-        testDbPath = path.join(tmpDir, testDbName);
         mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${process.pid}-${Date.now()}`);
-
-        aiConfig.storagePaths.graph = testDbPath;
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${Date.now()}`;
 
         GraphService       = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         FileSystemIngestor = (await import('../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         const { TestLifecycleHelper } = await import('./util.mjs');
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, fs, 'clear');
 
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
 
@@ -103,10 +97,9 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        aiConfig.storagePaths.graph = originalDbPath;
-
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        // No config to hand back — nothing was mutated. The `'clear'` strategy never reads the path
+        // argument: it clears the in-memory stores and calls `storage.clear()`.
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, fs, 'clear');
 
         fs.removeSync(mockFsRoot);
     });

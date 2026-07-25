@@ -43,9 +43,10 @@ test.describe('CoalescingEngineService', () => {
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        if (!aiConfig.collections) aiConfig.collections = {};
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+        // Isolation is by construction: `collections.*` already resolve to per-process randomized
+        // `test-*` names under `UNIT_TEST_MODE`, and Chroma isolates one level higher still, at the
+        // database (`databaseTest`). Repointing the shared singleton duplicated that with a coarser
+        // generator and left the names pointing here for the rest of the worker's life.
 
         CoalescingEngineService = (await import('../../../../../../ai/services/memory-core/CoalescingEngineService.mjs')).default;
         WebhookDeliveryService  = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;

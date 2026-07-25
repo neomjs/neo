@@ -31,9 +31,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     let logger;
     let originalLinkNodesAsync;
 
-    const testDbName = `memory-core-lazy-edge-drainer-test-${process.pid}-${Date.now()}.sqlite`;
-    const queueName  = `test-lazy-edges-${process.pid}-${Date.now()}.jsonl`;
-    let testDbPath;
+    const queueName = `test-lazy-edges-${process.pid}-${Date.now()}.jsonl`;
     let queuePath;
 
     test.beforeAll(async () => {
@@ -43,22 +41,17 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
-        testDbPath = path.join(tmpDir, testDbName);
-        queuePath  = path.join(tmpDir, queueName);
+        queuePath = path.join(tmpDir, queueName);
 
-        aiConfig.storagePaths.graph   = testDbPath;
+        // Isolation is by construction: `storagePaths.graph` is a formula resolving `graphTest`
+        // (`:memory:`) under `UNIT_TEST_MODE`, and a `:memory:` store is process-local — stronger
+        // than the shared tmp file this suite used to repoint it at.
         aiConfig.autoIngestFileSystem = false;
 
         LazyEdgeDrainer        = (await import('../../../../../../ai/services/graph/LazyEdgeDrainer.mjs')).default;
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
-
-        if (fs.existsSync(testDbPath)) {
-            try { fs.unlinkSync(testDbPath); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-shm`)) try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
-        }
 
         if (!SystemLifecycleService._initPromise) {
             await SystemLifecycleService.initAsync();
@@ -86,7 +79,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     });
 
     test.afterAll(async () => {
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, fs, 'clear');
     });
 
     test('drainQueue on non-existent queue file is a no-op', async () => {

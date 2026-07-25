@@ -1,5 +1,10 @@
 import {test, expect}                                  from '@playwright/test';
+import {existsSync}                                    from 'node:fs';
+import path                                            from 'node:path';
+import {fileURLToPath}                                 from 'node:url';
 import {findDbPathMutations, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 /**
  * Self-test for the Class-A DB-path AiConfig test-mutation guard: the mechanical enforcement of the
@@ -129,9 +134,25 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations(`aiConfig.storagePaths.graph = p; // ${ESCAPE_MARKER}: legacy shim, migrates in #12435`)).toEqual([])
     });
 
-    test('the grandfather allowlist is populated (the ratchet bites only new offenders)', () => {
+    test('every allowlist entry names a file that still exists (a stale entry is a silent licence)', () => {
+        /*
+         * This deliberately does NOT pin a member path. The predecessor did — it named one specific
+         * grandfathered spec — so the burndown that retired that entry turned the guard's own self-test
+         * red for the one reason that is not a defect: the burndown working. A pinned member is the
+         * same point-in-time figure the B4 row itself stopped carrying, and it re-breaks on every
+         * future burndown step.
+         *
+         * What the checker's own header asserts is the contract worth testing: this is a
+         * justified-exception set, and "the gate stops counting a file the moment it is listed". So an
+         * entry that outlives its file is a silent exemption on a path nothing can reach again — the
+         * exact residue a burndown leaves if it deletes the file and forgets the entry.
+         *
+         * Sunset: when the set reaches empty, the exemption branch in the checker has no consumer left
+         * — retire the mechanism and this test together rather than relaxing the bound below.
+         */
         expect(ALLOWLIST.size).toBeGreaterThan(0);
-        expect(ALLOWLIST.has('test/playwright/unit/ai/services/memory-core/DatabaseService.backupPath.spec.mjs')).toBe(true)
+
+        expect([...ALLOWLIST].filter(entry => !existsSync(path.join(repoRoot, entry)))).toEqual([])
     });
 
     /*
