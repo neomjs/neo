@@ -33,20 +33,33 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             NEO_MCP_HEALTHCHECK_IDENTITY       : 'deploy-probe',
             NEO_MCP_HEALTHCHECK_TOKEN_ENV      : 'TOKEN_SLOT',
             TOKEN_SLOT                         : 'secret-token',
-            NEO_MCP_HEALTHCHECK_EXPECTED_STATUS: 'ready',
-            NEO_MCP_HEALTHCHECK_CLIENT_NAME    : 'deploy-client',
-            NEO_MCP_HEALTHCHECK_TIMEOUT_MS     : '7000'
+            NEO_MCP_HEALTHCHECK_EXPECTED_STATUS         : 'ready',
+            NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_ID       : 'neo-local-parity',
+            NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_DATA_ROOT: '/app/.neo-ai-data-parity',
+            NEO_MCP_HEALTHCHECK_CLIENT_NAME             : 'deploy-client',
+            NEO_MCP_HEALTHCHECK_TIMEOUT_MS              : '7000'
         });
 
         expect(args).toEqual({
-            url           : 'http://mc-server:3001',
-            identity      : 'deploy-probe',
-            bearerToken   : 'secret-token',
-            bearerTokenEnv: 'TOKEN_SLOT',
-            expectedStatus: 'ready',
-            clientName    : 'deploy-client',
-            timeoutMs     : 7000
+            url                  : 'http://mc-server:3001',
+            identity             : 'deploy-probe',
+            bearerToken          : 'secret-token',
+            bearerTokenEnv       : 'TOKEN_SLOT',
+            expectedStatus       : 'ready',
+            expectedPlaneId      : 'neo-local-parity',
+            expectedPlaneDataRoot: '/app/.neo-ai-data-parity',
+            clientName           : 'deploy-client',
+            timeoutMs            : 7000
         });
+    });
+
+    test('the served-plane expectations default to null, so they are opt-in', () => {
+        // A container healthcheck that has not been told which plane to expect must keep behaving
+        // exactly as before — the identity assertion is a capability, never a new requirement.
+        const args = parseArgs([], {});
+
+        expect(args.expectedPlaneId).toBeNull();
+        expect(args.expectedPlaneDataRoot).toBeNull()
     });
 
     test('parseArgs lets CLI flags override environment defaults', () => {
@@ -337,5 +350,103 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         }
 
         expect(orchestratorEnv.NEO_ORCHESTRATOR_MLX_ENABLED).toBe('false');
+    });
+});
+
+/**
+ * Served identity, not connectivity.
+ *
+ * A port probe proves a socket accepted a connection. It cannot prove WHICH process accepted it,
+ * and that gap is not theoretical here: the parity profile's provisional 8100 slot collided with
+ * a host ssh listener, so a connectivity check reported a healthy stack while nothing of ours ran
+ * there. Ports belong to the host; identity belongs to the process.
+ *
+ * The load-bearing assertion below is the ABSENT-plane case. A responder that speaks MCP and
+ * returns `status: healthy` but reports no plane is exactly the wrong-process case — accepting it
+ * would reinstate the connectivity check under a new name.
+ */
+test.describe('served-plane verification — a healthy status is not an identity', () => {
+    let assertServedPlane;
+    let runHealthcheck;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs');
+
+        assertServedPlane = mod.assertServedPlane;
+        runHealthcheck    = mod.runHealthcheck;
+    });
+
+    test('no expectation configured is a no-op, so existing callers keep their contract', () => {
+        expect(assertServedPlane({status: 'healthy'})).toBeNull();
+        expect(assertServedPlane({status: 'healthy'}, {})).toBeNull();
+    });
+
+    test('an ABSENT plane block fails closed — the wrong-process case', () => {
+        // `healthy` and no identity is precisely what a foreign responder looks like.
+        expect(() => assertServedPlane({status: 'healthy'}, {expectedPlaneId: 'neo-local-parity'}))
+            .toThrow('never identified itself');
+
+        expect(() => assertServedPlane({status: 'healthy', plane: null}, {expectedPlaneId: 'neo-local-parity'}))
+            .toThrow('never identified itself');
+    });
+
+    test('a mismatched identity names the plane that actually answered', () => {
+        expect(() => assertServedPlane(
+            {status: 'healthy', plane: {id: 'neo-local-canonical', dataRoot: '/app/.neo-ai-data'}},
+            {expectedPlaneId: 'neo-local-parity'}
+        )).toThrow(/'neo-local-canonical', expected 'neo-local-parity'/);
+    });
+
+    test('matching identity with a DIFFERENT dataRoot still fails — identity without isolation', () => {
+        // The failure the F-invariant exists for: same declared identity, different storage.
+        expect(() => assertServedPlane(
+            {status: 'healthy', plane: {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data'}},
+            {expectedPlaneId: 'neo-local-parity', expectedPlaneDataRoot: '/app/.neo-ai-data-parity'}
+        )).toThrow(/identity without isolation/);
+    });
+
+    test('a fully matching plane returns the observed pair', () => {
+        expect(assertServedPlane(
+            {status: 'healthy', plane: {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'}},
+            {expectedPlaneId: 'neo-local-parity', expectedPlaneDataRoot: '/app/.neo-ai-data-parity'}
+        )).toEqual({id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'});
+    });
+
+    test('runHealthcheck rejects a HEALTHY responder serving another plane, and reports the plane when it matches', async () => {
+        class FakeTransport {
+            constructor(url, options) {
+                this.url     = url;
+                this.options = options;
+            }
+        }
+
+        const clientFor = payload => class {
+            async connect() {}
+            async callTool() { return {structuredContent: payload} }
+            async close() {}
+        };
+
+        const matching = {status: 'healthy', plane: {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'}};
+        const foreign  = {status: 'healthy', plane: {id: 'neo-local-canonical', dataRoot: '/app/.neo-ai-data'}};
+
+        // Status alone would pass this. Identity is what refuses it.
+        await expect(runHealthcheck({
+            url            : 'http://127.0.0.1:8100',
+            expectedPlaneId: 'neo-local-parity',
+            ClientClass    : clientFor(foreign),
+            TransportClass : FakeTransport
+        })).rejects.toThrow('a different plane is answering');
+
+        expect(await runHealthcheck({
+            url                  : 'http://127.0.0.1:8100',
+            expectedPlaneId      : 'neo-local-parity',
+            expectedPlaneDataRoot: '/app/.neo-ai-data-parity',
+            ClientClass          : clientFor(matching),
+            TransportClass       : FakeTransport
+        })).toEqual({
+            status: 'healthy',
+            url   : 'http://127.0.0.1:8100/',
+            plane : {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'}
+        });
     });
 });

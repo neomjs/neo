@@ -176,6 +176,26 @@ services:
       # Anonymous volume: the image's linux-built node_modules must not be shadowed by the
       # host bind (darwin/arm64 natives → exec format error; AC5 live-run defect 2, #15803).
       - /app/node_modules
+    # SERVED IDENTITY, not connectivity — the AC's actual check.
+    #
+    # A TCP probe proves a socket accepted a connection, never WHICH process accepted it. That gap
+    # is field-proven here: the provisional 8100 slot collided with a host ssh listener, so a port
+    # check reported a healthy stack while nothing of ours ran there. Ports belong to the host;
+    # identity belongs to the process.
+    #
+    # `*plane-id` is the same YAML scalar the project `name` uses, so the container is asked to
+    # prove it serves THIS plane — not merely that something answered. A responder returning
+    # `healthy` with a missing or foreign `plane` block fails closed.
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs",
+             "--url", "http://127.0.0.1:3000",
+             "--client-name", "neo-kb-parity-healthcheck",
+             "--expected-plane-id", *plane-id,
+             "--expected-plane-data-root", "/app/.neo-ai-data-parity"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     depends_on:
       chroma:
         condition: service_healthy
@@ -220,6 +240,18 @@ services:
       - ../..:/app
       # Anonymous volume: same node_modules shadowing guard as kb-server (AC5 defect 2).
       - /app/node_modules
+    # Served identity, same contract as kb-server above — both servers declare `plane {id, dataRoot}`
+    # in their healthcheck response schema, so both can be asked to prove which plane they serve.
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs",
+             "--url", "http://127.0.0.1:3001",
+             "--client-name", "neo-mc-parity-healthcheck",
+             "--expected-plane-id", *plane-id,
+             "--expected-plane-data-root", "/app/.neo-ai-data-parity"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     depends_on:
       chroma:
         condition: service_healthy

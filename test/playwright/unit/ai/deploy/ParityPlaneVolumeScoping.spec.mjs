@@ -72,6 +72,20 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('both MCP servers verify SERVED identity, not connectivity', () => {
+        // The AC's distinction, and it is field-proven rather than theoretical: the provisional
+        // 8100 slot collided with a host ssh listener, so a port probe reported a healthy stack
+        // while nothing of ours was running there. A connectivity check cannot tell which process
+        // answered; only asking the process to name its plane can.
+        for (const service of ['kb-server', 'mc-server']) {
+            const probe = compose.services?.[service]?.healthcheck?.test;
+
+            expect(probe, `${service} has no healthcheck — an unprobed server is worse than a connectivity-probed one`).toBeTruthy();
+            expect(probe.join(' '), `${service} probes connectivity without asserting which plane answered`).toContain('--expected-plane-id');
+            expect(probe.join(' '), `${service} does not pin the data root, so a matching id with foreign storage would pass`).toContain('--expected-plane-data-root');
+        }
+    });
+
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
         // The anchor/alias pair cannot drift: `*plane-id` IS the node `&plane-id` defines, so
         // there is no second value to keep in step. Asserting on the parsed tree proves the
