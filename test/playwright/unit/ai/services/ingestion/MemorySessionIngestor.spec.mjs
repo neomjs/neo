@@ -33,8 +33,6 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     let logger;
     let SystemLifecycleService;
 
-    const testDbName = `memory-core-memory-session-ingestor-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
     let restoreAiConfig;
 
     let originalWarn;
@@ -75,25 +73,17 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
-        testDbPath = path.join(tmpDir, testDbName);
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['handoffFilePath']);
 
-        restoreAiConfig = snapshotAiConfig(aiConfig, ['storagePaths.graph', 'handoffFilePath']);
-
-        aiConfig.storagePaths.graph = testDbPath;
+        // Isolation is by construction: `storagePaths.graph` is a formula resolving `graphTest`
+        // (`:memory:`) under `UNIT_TEST_MODE`, and a `:memory:` store is process-local — stronger
+        // than the shared tmp file this suite used to repoint it at.
         aiConfig.handoffFilePath    = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemorySessionIngestor  = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-                if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-                if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-            } catch (e) {}
-        }
 
         if (!SystemLifecycleService._initPromise) {
             await SystemLifecycleService.initAsync();
@@ -145,7 +135,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     });
 
     test.afterAll(async () => {
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, fs, 'clear');
     });
 
     test('should return stats object with the documented shape', async () => {
