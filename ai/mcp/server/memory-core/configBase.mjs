@@ -28,7 +28,7 @@ const cwd        = neoRootDir;
 // binding): every durable data-plane default below derives from it, replacing the per-leaf
 // `path.resolve(cwd, '.neo-ai-data/…')` re-derivations and the prior module-scope
 // `process.env.NEO_AI_DAEMON_DIR` inline read.
-const planeDataRoot = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
+const planeDataRoot = resolvePlaneDataRoot({rootDir: neoRootDir});
 const DAY_MS        = 24 * 60 * 60 * 1000;
 
 // Per-worker-unique test collection names, generated at config-load. Each playwright worker is a
