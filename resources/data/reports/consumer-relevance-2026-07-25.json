@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-07-25T16:30:24.910Z",
+  "since": "2026-02-25",
+  "until": "2026-07-25",
+  "total": 2515,
+  "totals": {
+    "consumer-enabling": 1568,
+    "internal-only": 303,
+    "consumer-direct:now": 526,
+    "consumer-direct:future-direct": 117,
+    "unclassified": 1
+  },
+  "monthly": {
+    "2026-07": {
+      "consumer-enabling": 336,
+      "internal-only": 73,
+      "consumer-direct:now": 130,
+      "consumer-direct:future-direct": 90
+    },
+    "2026-06": {
+      "consumer-enabling": 598,
+      "internal-only": 124,
+      "consumer-direct:now": 200,
+      "unclassified": 1,
+      "consumer-direct:future-direct": 27
+    },
+    "2026-05": {
+      "consumer-enabling": 497,
+      "internal-only": 81,
+      "consumer-direct:now": 118
+    },
+    "2026-04": {
+      "consumer-enabling": 137,
+      "consumer-direct:now": 77,
+      "internal-only": 22
+    },
+    "2026-03": {
+      "internal-only": 3,
+      "consumer-direct:now": 1
+    }
+  },
+  "unclassified": [
+    {
+      "pr": "14004",
+      "subject": "fix(ai): preserve Memory Core partial-export collection identity (#14001) (#14004)",
+      "files": []
+    }
+  ]
+}

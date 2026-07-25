@@ -1,0 +1,277 @@
+#!/usr/bin/env node
+/**
+ * @module ai/scripts/diagnostics/consumerRelevanceCensus
+ * @summary Re-runnable census of merged PRs by consumer-relevance bucket — distribution, never a
+ * percentage. A stakeholder holding "how many of these PRs matter for our deployment?" gets the
+ * auditable shape of the answer: every merged PR classified by what it TOUCHES (mechanical), with
+ * the mapping that produced each row printed alongside, and the unclassifiable remainder named.
+ *
+ * ## Why distribution, not a number
+ *
+ * "X% of PRs matter" requires counterfactual necessity judgment (would the deployment work without
+ * PR N?), which no mechanical walk can deliver — the operator-challenged premise boundary accepted
+ * at the ticket's creation. This census claims NO relevance percentage. Its deliverable is the
+ * bucket distribution + per-month trend + the editable mapping (`consumerRelevanceMap.mjs`), so a
+ * stakeholder contests a classification by changing a rule and re-running, not by arguing prose.
+ *
+ * ## Method (all local, all reproducible)
+ *
+ * 1. `git log --name-only` over the range — squash-merge subjects carry `(#TICKET) (#PR)`; each PR
+ *    also yields its touched file list in the same pass.
+ * 2. Files classify by longest-prefix path rules (the mapping). PR bucket = majority-file bucket,
+ *    ties broken by BUCKET_PRECEDENCE (more consumer-visible wins). Zero matched files → the honest
+ *    `unclassified` bucket, with the PR list attached.
+ * 3. Close-target tickets resolve to their archive frontmatter (labels) for reporting context in
+ *    the appendix table; the archive lives under `resources/content/issues/**`. Classification
+ *    itself is path-based — labels are display context, never a second classifier.
+ *
+ * The output is dated and deterministic for a fixed range + mapping: the same inputs always produce
+ * the same distribution, so a changed number means the corpus or the mapping changed — never the method.
+ *
+ * Usage:
+ *   node ai/scripts/diagnostics/consumerRelevanceCensus.mjs [--since YYYY-MM-DD] [--until YYYY-MM-DD]
+ *        [--json <path>] [--out <path>]
+ */
+import {execFileSync}  from 'node:child_process';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {
+    BUCKET_PRECEDENCE,
+    PATH_RULES,
+    SUBSYSTEMS
+} from './consumerRelevanceMap.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+/**
+ * Parses the squash-merge subject form `... (#TICKET) (#PR)`.
+ * @param {String} subject
+ * @returns {{ticket: String, pr: String}|null}
+ */
+export function parseSquashSubject(subject) {
+    const match = subject.match(/\(#(\d+)\)\s*\(#(\d+)\)\s*$/);
+    return match ? {ticket: match[1], pr: match[2]} : null
+}
+
+/**
+ * Classifies one file path to a subsystem via longest-prefix rule.
+ * @param {String} filePath
+ * @returns {String|null} subsystem id, or null when no rule matches (honest unclassified)
+ */
+export function classifyPath(filePath) {
+    const rule = PATH_RULES
+        .filter(({prefix}) => filePath.startsWith(prefix))
+        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+
+    return rule ? rule.subsystem : null
+}
+
+/**
+ * Resolves one PR record to its bucket: majority-file subsystem bucket, precedence-broken ties.
+ * @param {String[]} files
+ * @returns {{bucket: String, subsystem: String|null, temporal: String|null, ruleCounts: Object}}
+ */
+export function classifyPr(files) {
+    const ruleCounts = {};
+
+    for (const file of files) {
+        const subsystem = classifyPath(file);
+        if (!subsystem) continue;
+        const {bucket} = SUBSYSTEMS[subsystem];
+        ruleCounts[bucket] = (ruleCounts[bucket] || 0) + 1;
+    }
+
+    const entries = Object.entries(ruleCounts);
+
+    if (entries.length === 0) {
+        return {bucket: 'unclassified', subsystem: null, temporal: null, ruleCounts}
+    }
+
+    entries.sort((a, b) => b[1] - a[1] || BUCKET_PRECEDENCE.indexOf(a[0]) - BUCKET_PRECEDENCE.indexOf(b[0]));
+
+    const bucket    = entries[0][0],
+          subsystem = Object.keys(SUBSYSTEMS).find(id =>
+              SUBSYSTEMS[id].bucket === bucket &&
+              files.some(file => classifyPath(file) === id));
+
+    return {bucket, subsystem, temporal: SUBSYSTEMS[subsystem]?.temporal ?? null, ruleCounts}
+}
+
+/**
+ * Reads the merged-PR corpus from git in one pass.
+ * @param {Object} options
+ * @param {String} options.since YYYY-MM-DD
+ * @param {String} options.until YYYY-MM-DD
+ * @returns {Array<{sha: String, date: String, subject: String, ticket: String, pr: String, files: String[]}>}
+ */
+export function readMergedPrs({since, until}) {
+    const raw = execFileSync('git', [
+        'log', 'origin/dev', `--since=${since}`, `--until=${until}`,
+        '--name-only', '--format=@@@%h|%aI|%s'
+    ], {cwd: repoRoot, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024});
+
+    const records = [];
+
+    for (const chunk of raw.split('@@@').slice(1)) {
+        const [header, ...fileLines] = chunk.trim().split('\n'),
+              [sha, date, subject]   = header.split('|'),
+              parsed                 = parseSquashSubject(subject);
+
+        if (!parsed) continue;
+
+        records.push({
+            sha, date, subject,
+            ...parsed,
+            files: fileLines.map(line => line.trim()).filter(Boolean)
+        });
+    }
+
+    return records
+}
+
+/**
+ * Builds the bucket distribution + per-month trend from classified records.
+ * @param {Object[]} records classified PR records (with bucket + temporal)
+ * @returns {{totals: Object, monthly: Object, unclassified: Object[]}}
+ */
+export function summarize(records) {
+    const totals       = {},
+          monthly      = {},
+          unclassified = [];
+
+    for (const record of records) {
+        const key = record.temporal ? `${record.bucket}:${record.temporal}` : record.bucket;
+
+        totals[key] = (totals[key] || 0) + 1;
+
+        const month = record.date.slice(0, 7);
+
+        monthly[month] ??= {};
+        monthly[month][key] = (monthly[month][key] || 0) + 1;
+
+        if (record.bucket === 'unclassified') {
+            unclassified.push(record)
+        }
+    }
+
+    return {totals, monthly, unclassified}
+}
+
+/**
+ * Builds a ticket-id → labels index from the local issue archive (display context only — the
+ * classifier is path-based by design; labels never outrank a path rule).
+ * @param {String} [archiveRoot] defaults to resources/content/issues
+ * @returns {Map<String,String[]>}
+ */
+export function buildIssueLabelIndex(archiveRoot = path.join(repoRoot, 'resources/content/issues')) {
+    const index = new Map();
+
+    if (!fs.existsSync(archiveRoot)) return index;
+
+    for (const chunk of fs.readdirSync(archiveRoot, {withFileTypes: true})) {
+        if (!chunk.isDirectory()) continue;
+
+        const dir = path.join(archiveRoot, chunk.name);
+
+        for (const file of fs.readdirSync(dir)) {
+            const id = file.match(/^issue-(\d+)\.md$/)?.[1];
+            if (!id) continue;
+
+            const head   = fs.readFileSync(path.join(dir, file), 'utf8').slice(0, 3000),
+                  labels = [...head.matchAll(/^\s+-\s+(.+)$/gm)]
+                      .map(([, value]) => value.trim())
+                      .filter(value => !value.startsWith('['));
+
+            index.set(id, labels);
+        }
+    }
+
+    return index
+}
+
+function main() {
+    const args    = process.argv.slice(2),
+          read    = flag => args.includes(flag) ? args[args.indexOf(flag) + 1] : null,
+          until   = read('--until') ?? new Date().toISOString().slice(0, 10),
+          since   = read('--since') ?? new Date(Date.now() - 150 * 864e5).toISOString().slice(0, 10),
+          jsonOut = read('--json'),
+          mdOut   = read('--out');
+
+    const records                         = readMergedPrs({since, until}).map(record => ({...record, ...classifyPr(record.files)})),
+          {totals, monthly, unclassified} = summarize(records),
+          labelIndex                      = buildIssueLabelIndex(),
+          generatedAt                     = new Date().toISOString();
+
+    const lines = [
+        `# Consumer-Relevance Census — merged PRs, ${since} → ${until}`,
+        '',
+        `Generated: ${generatedAt} · corpus: \`git log origin/dev --name-only\` · mapping: \`ai/scripts/diagnostics/consumerRelevanceMap.mjs\``,
+        `Re-runnable and deterministic for a fixed range + mapping. **No single relevance percentage is computed anywhere** — the deliverable is the distribution and the mapping; necessity judgment is the reader's, permanently.`,
+        '',
+        '## Distribution',
+        '',
+        '| Bucket | PRs |',
+        '|---|---|'
+    ];
+
+    let total = 0;
+
+    for (const [key, count] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
+        lines.push(`| ${key} | ${count} |`);
+        total += count;
+    }
+
+    lines.push(`| **total** | **${total}** |`, '', '## Per-month trend', '');
+
+    const months = Object.keys(monthly).sort(),
+          keys   = [...new Set(Object.values(monthly).flatMap(row => Object.keys(row)))].sort();
+
+    lines.push(`| Month | ${keys.join(' | ')} |`, `|---|${keys.map(() => '---').join('|')}|`);
+
+    for (const month of months) {
+        lines.push(`| ${month} | ${keys.map(key => monthly[month][key] || 0).join(' | ')} |`)
+    }
+
+    lines.push(
+        '',
+        `## Unclassified (${unclassified.length})`,
+        '',
+        'PRs whose touched files match no mapping rule — listed, never silently omitted. A growing row here is a mapping gap, not a corpus defect.'
+    );
+
+    for (const record of unclassified) {
+        const shown = record.files.slice(0, 4).join(', ') || '—';
+
+        lines.push(`- #${record.pr} ${record.subject} — files: ${shown}${record.files.length > 4 ? '…' : ''}`)
+    }
+
+    lines.push(
+        '',
+        '## Appendix: per-PR table',
+        '',
+        '| PR | Date | Bucket | Subsystem | Ticket labels | Files |',
+        '|---|---|---|---|---|---|'
+    );
+
+    for (const record of records) {
+        const labels = (labelIndex.get(record.ticket) || []).join(', ') || '—';
+
+        lines.push(`| ${record.pr} | ${record.date.slice(0, 10)} | ${record.temporal ? `${record.bucket}:${record.temporal}` : record.bucket} | ${record.subsystem ?? '—'} | ${labels} | ${record.files.length} |`)
+    }
+
+    const markdown = lines.join('\n') + '\n',
+          // The committed JSON carries the distribution, never the bulk corpus — the full per-PR
+          // table lives in the markdown appendix, and the corpus itself is reproducible by re-running.
+          json     = JSON.stringify({generatedAt, since, until, total, totals, monthly,
+              unclassified: unclassified.map(({pr, subject, files}) => ({pr, subject, files}))}, null, 2);
+
+    if (mdOut)   { fs.mkdirSync(path.dirname(mdOut), {recursive: true});   fs.writeFileSync(mdOut, markdown) }
+    if (jsonOut) { fs.mkdirSync(path.dirname(jsonOut), {recursive: true}); fs.writeFileSync(jsonOut, json) }
+
+    console.log(markdown);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    main()
+}
