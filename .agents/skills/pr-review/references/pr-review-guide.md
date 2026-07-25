@@ -12,9 +12,9 @@ This protocol ensures that feedback is:
 
 ## §0 — Patch-blind premise snapshot (BEFORE the diff)
 
-Build — and write down — your premise of the change **before** reading the patch as the source of truth. You can reject a toaster-when-we-need-a-car before reading a line; a green checklist over a wrong premise is theater. Capture four fields. The snapshot is **patch-blind** — the *premise authority* is the substrate, not the patch (NOT a temporal pre-commitment; "I wrote this first" is itself theater).
+Build — and write down — your premise of the change **before** reading the patch as the source of truth. You can reject a toaster-when-we-need-a-car before reading a line; a green checklist over a wrong premise is theater. Capture four fields. The snapshot is **patch-blind** — the *premise authority* is the substrate, not the patch ("I wrote this first" is itself theater).
 
-1. **Inputs read before the patch** — the ticket/issue, the changed-file list, the current `dev` source of the touched files, sibling precedent, and the source-of-authority substrate (ADRs, `learn/`, the owning service). **NOT the PR's own self-description as the primary premise** — the PR body is a claim to verify, not the authority. Build the premise from the affected files (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports; use `memory-mining` / `ask_knowledge_base` when the code is thin. Intent you can't find anywhere is the finding: ticket the gap.
+1. **Inputs read before the patch** — the ticket/issue, the changed-file list, the current `dev` source of the touched files, sibling precedent, and the source-of-authority substrate (ADRs, `learn/`, the owning service). **NOT the PR's own self-description as the primary premise** — the PR body is a claim to verify, not the authority. Build the premise from the affected files (intent belongs in their JSDoc — `src/core/Base.mjs` is the bar), their neighbors, and their imports; use `memory-mining` / `ask_knowledge_base` when the code is thin. Intent you can't find anywhere is the finding: ticket the gap. **Intent authority:** when the PR claims to change / retire / amend / supersede / correct a prior position, mine the body's `Origin Session ID` — the premise is intent-vs-diff, not claims-vs-diff. Semantic search misses silently; the session id is the direct route ([correction-culture](../../../../learn/agentos/process/correction-culture.md)).
 2. **Expected solution-shape** (1–3 sentences) — what *should* a correct change here look like? Explicitly include **"what boundary should this NOT hardcode?"** and **"what test-isolation should exist?"**, so the snapshot reaches the portability + test-isolation dimensions before the diff frames them away.
 3. **Patch-verdict** — does the diff **match / improve / contradict** the expected shape? Name the specific evidence that changed (or confirmed) your mind. "Matches" with no evidence is not a verdict.
 4. **Premise-coherence** — the value-coherence verdict, or a scoped "N/A — no value-surface".
@@ -203,7 +203,7 @@ The search documentation is not optional filler — it's the reviewer proving th
 
 Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
 
-*(Extension for Discussion reviews: When reviewing Ideation Sandbox proposals, this Depth Floor applies equally. You must challenge an assumption or document your search. See `.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §4`)*
+*(Discussion reviews: this Depth Floor applies equally — challenge an assumption or document the search; `ideation-sandbox-workflow.md §4`.)*
 
 ### 7.2 Cross-Model Asymmetry Context
 
@@ -241,6 +241,8 @@ Future-work suggestions, non-blocking observations, and follow-up ideas are revi
 10% AC/scope sanity layer unless execution disproves the diff. Verify claims and canonical test placement; green tests cannot override a wrong premise or owner.
 
 Exact-head required CI is routine unit/integration evidence. Do not search for or rerun "related tests" to duplicate green CI. Run and record a targeted falsifier only for a concrete behavior CI does not establish.
+
+**Citation vs inference:** verify the citation; RUN the inference — anything downstream of "therefore / so / which means / hence" in your own draft is an inference, so grep the connective before submitting ([correction-culture](../../../../learn/agentos/process/correction-culture.md)).
 
 Deployment proof gates only if it can deploy the exact unmerged head. Consumers limited to merged `dev` / `main` / release artifacts make it Post-Merge Validation; failure becomes a new ticket.
 
@@ -284,10 +286,10 @@ Formal reviews assume green current-head CI. Verify before `manage_pr_review`; i
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see `#9999` sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
-| Substantive review comment posted without atomic `manage_pr_review` | Cross-family gate is outside the fail-closed budget despite visible review prose; item 7 above violated. Direct `gh pr review` / UI is bypass-with-telemetry only: run the meter and disclose `[review-budget-bypass] reason: ...`; it is never an equivalent fallback. |
+| Substantive review comment posted without atomic `manage_pr_review` | Cross-family gate sits outside the fail-closed budget (item 7 violated). Direct `gh pr review` / UI = bypass-with-telemetry only: meter + disclose `[review-budget-bypass] reason: ...`; never an equivalent fallback. |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
-| Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; reviewer normalized "fix-these-N" as merge-path when Drop+Supersede framing was substrate-correct (Velocity-Preservation Bias) |
-| Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **§7.8 Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR `#11244` empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
+| Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; "fix-these-N" normalized as merge-path when Drop+Supersede was substrate-correct (Velocity-Preservation Bias) |
+| Approving multi-loaded agent-memory substrate by FILE-COMPLETENESS only, skipping the RUNTIME-LOAD-EFFECT audit | Loading-runtime-effect substitution — §7.8 + PR `#11244`; companion `/turn-memory-pre-flight`. |
 | PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`, `pr-review-guide.md`, `pull-request-workflow.md`, `AGENTS.md`) instead of conditionally loaded `references/` payload | **Progressive Disclosure violation** — Map (always-loaded) vs World Atlas (conditional reference) split bypassed; bloats per-turn token budget. Default disposition for new rules is `compress-to-trigger` per `pull-request-workflow.md §1.1`. Proactive companion: `/create-skill`. Required Action: reshape to Map (trigger line) → Atlas (rule body in `references/`) split, or cite per-turn frequency + irreversibility justifying `keep` slot |
 
 ## 7.8 Audit Spec: Loading-Runtime-Effect Substitution
