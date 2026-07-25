@@ -1,7 +1,8 @@
-import {test, expect} from '@playwright/test';
-import {execFileSync} from 'node:child_process';
-import fs             from 'node:fs';
-import path           from 'node:path';
+import {test, expect}        from '@playwright/test';
+import {execFileSync}        from 'node:child_process';
+import fs                    from 'node:fs';
+import path                  from 'node:path';
+import {findDbPathMutations} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
 
 // The Playwright unit runner executes with cwd = repo root, so resolve against it rather than
 // __dirname arithmetic — the latter is brittle across nesting depth and git-worktree layouts.
@@ -70,10 +71,13 @@ test.describe('ai:config-print', () => {
         expect(output).toContain('neural-link')
     });
 
-    test('the script is read-only against the config SSOT (B4 from the other side)', () => {
+    test('the script is read-only against the config SSOT (the mutation guard from the other side)', () => {
         const source = fs.readFileSync(scriptPath, 'utf8');
 
-        // No assignment to any config leaf — resolving and printing is all this tool may do.
-        expect(source.match(/aiConfig\.[\w.]+\s*=[^=]/)).toBeNull()
+        // Asserted with the SAME shape-based detector that guards test files against config-
+        // singleton mutation — never a literal `aiConfig` text anchor, which silently stops
+        // testing the day the local binding is renamed (AiConfig, myAiConfig, …). Honest bound:
+        // a fully-renamed local with no `Config` in the identifier escapes BOTH shapes.
+        expect(findDbPathMutations(source)).toEqual([])
     });
 });

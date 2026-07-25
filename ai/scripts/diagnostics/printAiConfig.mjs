@@ -34,7 +34,10 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 const neoRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /**
- * Server key -> repo-relative canonical config template.
+ * Server key -> repo-relative canonical config template. Scoped to the three servers whose
+ * config resolution is the current review surface; `github-workflow` and `gitlab-workflow`
+ * templates exist but are deliberately not wired yet — an unknown key fails loud with the valid
+ * values rather than reading as "unsupported".
  * @type {Object<string,string>}
  */
 const SERVERS = Object.freeze({
@@ -127,5 +130,8 @@ export async function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    main()
+    main().catch(err => {
+        console.error(`[ai:config-print] ${err.message}`);
+        process.exit(1)
+    })
 }
