@@ -17,20 +17,53 @@ jobs:
       contents: write # Required to push changes
 
     steps:
+      # Two identities, because they hold different authority and `create-github-app-token` scopes
+      # ONE permission set across a whole repository set — a single App spanning all three repos
+      # would let the ruleset-bypass identity mutate the intake repos and let the intake identity
+      # publish here. The default GITHUB_TOKEN can do neither job: it is scoped to this repository,
+      # so it has no installation at all on the DevIndex intake repos (absent, not underprivileged),
+      # and a token that cannot bypass the code-scanning ruleset cannot publish a fresh commit,
+      # because that commit has no prior CodeQL result and only a push could produce one.
+      - name: Mint Publisher installation token
+        id: publisher-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.DATA_SYNC_PUBLISHER_APP_ID }}
+          private-key: ${{ secrets.DATA_SYNC_PUBLISHER_PRIVATE_KEY }}
+
+      # Installed on the DevIndex repos, not this one, so the installation must be named explicitly.
+      - name: Mint Intake installation token
+        id: intake-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.DATA_SYNC_INTAKE_APP_ID }}
+          private-key: ${{ secrets.DATA_SYNC_INTAKE_PRIVATE_KEY }}
+          owner: neomjs
+          repositories: |
+            devindex-opt-in
+            devindex-opt-out
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           ref: dev
           fetch-depth: 0
+          # The publish push runs through the checkout credential, so it must be the Publisher
+          # identity — the only actor permitted to bypass the code-scanning ruleset.
+          token: ${{ steps.publisher-token.outputs.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
 
+      # Both tokens are handed to the runner, never to the stages. `scopedStageEnv` strips BOTH
+      # source variables and re-injects only the one a stage is entitled to, so the publisher
+      # credential is absent from every data-collection child rather than merely unused by it.
       - name: Run bounded Data Sync emission and publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}
+          DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
 
       - name: Push Data to neomjs/pages

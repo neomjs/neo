@@ -10,7 +10,8 @@ import {
     executeCommand,
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
-    runDataSyncPipeline
+    runDataSyncPipeline,
+    scopedStageEnv
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
 
 const generatedFile = 'apps/devindex/resources/data/users.jsonl';
@@ -260,4 +261,88 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         expect(workflow).not.toContain('git pull origin dev --rebase');
         expect(workflow).not.toContain('git push origin dev')
     })
+});
+
+/**
+ * Credential scoping across emission stages.
+ *
+ * The pipeline carries two identities with different authority: an INTAKE credential that may read
+ * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may write
+ * this repository and bypass the code-scanning ruleset. The runner previously handed `process.env`
+ * to every stage, so the ruleset-bypass identity was in scope during arbitrary data collection.
+ *
+ * Every assertion below checks by VALUE across the whole environment rather than by reading one key.
+ * That distinction is not stylistic: the first implementation stripped `GH_TOKEN`/`GITHUB_TOKEN` and
+ * left `DATA_SYNC_PUBLISHER_TOKEN` in place, so a per-key check reported perfect isolation while the
+ * publisher credential sat one `process.env` lookup away from every intake child.
+ */
+test.describe('emission-stage credential scoping', () => {
+    const parentEnv = {
+        PATH                     : '/usr/bin',
+        GH_TOKEN                 : 'ambient-gh',
+        GITHUB_TOKEN             : 'ambient-default',
+        DATA_SYNC_INTAKE_TOKEN   : 'INTAKE-secret',
+        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret'
+    };
+
+    const values = env => Object.values(env);
+
+    test('an intake stage cannot see the publisher credential ANYWHERE in its environment', () => {
+        const env = scopedStageEnv('intake', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('a publisher stage cannot see the intake credential', () => {
+        const env = scopedStageEnv('publisher', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('PUBLISHER-secret');
+        expect(values(env)).not.toContain('INTAKE-secret')
+    });
+
+    test('a `none` stage runs with NO github credential — ambient tokens do not survive', () => {
+        const env = scopedStageEnv('none', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBeUndefined();
+        expect(env.GH_TOKEN).toBeUndefined();
+        expect(values(env)).not.toContain('ambient-default');
+        expect(values(env)).not.toContain('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret')
+    });
+
+    test('non-credential environment is preserved for every scope', () => {
+        for (const scope of ['none', 'intake', 'publisher']) {
+            expect(scopedStageEnv(scope, parentEnv).PATH, scope).toBe('/usr/bin')
+        }
+    });
+
+    test('a missing scoped token yields no credential rather than falling back to ambient', () => {
+        // Fail closed: an unconfigured intake secret must not silently run on whatever the runner
+        // happened to export, which is how the single-token pipeline masked its own boundary.
+        const env = scopedStageEnv('intake', {PATH: '/usr/bin', GITHUB_TOKEN: 'ambient-default'});
+
+        expect(env.GITHUB_TOKEN).toBeUndefined();
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('every declared emission stage carries an explicit scope, and only intake/none collect data', async () => {
+        // Guards the annotation itself: a new stage added without `tokenScope` would inherit
+        // `undefined`, land in the `none` branch, and look deliberate. This makes omission visible.
+        const calls = [];
+
+        await emitGeneratedData({
+            attempt: 1,
+            cwd    : '/tmp',
+            execute: async (command, args, {env}) => {
+                calls.push({command, token: env.GITHUB_TOKEN ?? null})
+            },
+            log: () => {}
+        });
+
+        expect(calls.length).toBeGreaterThan(0);
+        // No emission stage may run with the publisher credential; publication is a separate phase.
+        expect(calls.every(call => call.token !== 'PUBLISHER-secret')).toBe(true)
+    });
 });

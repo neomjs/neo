@@ -27,36 +27,83 @@ const
     remoteDevRef     = 'refs/remotes/origin/dev',
     emissionCommands = [
         {
-            args   : ['ci'],
-            command: 'npm',
-            label  : 'install dependencies'
+            args      : ['ci'],
+            command   : 'npm',
+            label     : 'install dependencies',
+            tokenScope: 'none'
         },
         {
-            args   : ['run', 'devindex:optin'],
-            command: 'npm',
-            label  : 'DevIndex Opt-In'
+            args      : ['run', 'devindex:optin'],
+            command   : 'npm',
+            label     : 'DevIndex Opt-In',
+            tokenScope: 'intake'
         },
         {
-            args   : ['run', 'devindex:optout'],
-            command: 'npm',
-            label  : 'DevIndex Opt-Out'
+            args      : ['run', 'devindex:optout'],
+            command   : 'npm',
+            label     : 'DevIndex Opt-Out',
+            tokenScope: 'intake'
         },
         {
-            args   : ['run', 'devindex:spider', '--', '--strategy', 'random'],
-            command: 'npm',
-            label  : 'DevIndex Spider'
+            args      : ['run', 'devindex:spider', '--', '--strategy', 'random'],
+            command   : 'npm',
+            label     : 'DevIndex Spider',
+            tokenScope: 'intake'
         },
         {
-            args   : ['run', 'devindex:update', '--', '--limit=200'],
-            command: 'npm',
-            label  : 'DevIndex Updater'
+            args      : ['run', 'devindex:update', '--', '--limit=200'],
+            command   : 'npm',
+            label     : 'DevIndex Updater',
+            tokenScope: 'intake'
         },
         {
-            args   : ['./buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels'],
-            command: process.execPath,
-            label  : 'content indexes and SEO'
+            args      : ['./buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels'],
+            command   : process.execPath,
+            label     : 'content indexes and SEO',
+            tokenScope: 'none'
         }
     ];
+
+/**
+ * @summary Builds the child environment for one emission stage, carrying exactly the credential
+ * that stage is entitled to and nothing else.
+ *
+ * The pipeline holds two identities with different authority: an INTAKE credential that may read
+ * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may
+ * write to this repository and bypass the code-scanning ruleset. Passing `process.env` wholesale
+ * — as this runner did — handed every stage whichever token happened to be set, so the ruleset-
+ * bypass identity was in scope during arbitrary data collection.
+ *
+ * Both token variables are STRIPPED first, then only the scoped one is re-injected as
+ * `GITHUB_TOKEN` (and `GH_TOKEN`, which the DevIndex GitHub service prefers). Stripping is the
+ * load-bearing half: without it a stage marked `none` would silently inherit whatever the parent
+ * process carried, which is the exact leak the scope annotation claims to prevent.
+ *
+ * `tokenScope: 'none'` therefore yields a child with NO GitHub credential. A stage that turns out
+ * to need one fails loudly on its own missing-auth path rather than quietly succeeding on a more
+ * privileged identity than it was granted.
+ *
+ * @param {String} tokenScope One of `intake`, `publisher`, `none`.
+ * @param {Object} [env=process.env] Parent environment.
+ * @returns {Object} A copy carrying at most one GitHub credential.
+ */
+export function scopedStageEnv(tokenScope, env = process.env) {
+    const
+        // The SOURCE variables are stripped alongside the consumed ones. Removing only
+        // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in an intake stage's
+        // environment, so the bypass credential stays one `process.env` lookup away from every
+        // data-collection child — the isolation would be nominal, not real.
+        {GH_TOKEN, GITHUB_TOKEN, DATA_SYNC_INTAKE_TOKEN, DATA_SYNC_PUBLISHER_TOKEN, ...rest} = env,
+        token = tokenScope === 'intake'    ? DATA_SYNC_INTAKE_TOKEN
+              : tokenScope === 'publisher' ? DATA_SYNC_PUBLISHER_TOKEN
+              : null;
+
+    if (!token) {
+        return rest
+    }
+
+    return {...rest, GH_TOKEN: token, GITHUB_TOKEN: token}
+}
 
 /**
  * @summary Runs one child process with argv-array isolation and optional output capture.
@@ -265,9 +312,9 @@ async function recoverStaleAttempt({
  * @returns {Promise<void>}
  */
 export async function emitGeneratedData({attempt, cwd, execute = executeCommand, log = console.log}) {
-    for (const {args, command, label} of emissionCommands) {
-        log(`[DataSync] emit attempt=${attempt} stage=${label}`);
-        await execute(command, args, {cwd, env: process.env})
+    for (const {args, command, label, tokenScope} of emissionCommands) {
+        log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
+        await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})
     }
 }
 
