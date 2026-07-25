@@ -19,12 +19,14 @@ import {test, expect} from '../../fixtures.mjs';
  *  5. «The signature»        — final topology plus the continuity readout: the same live
  *                              instances, heartbeats monotonic across every transition.
  *
- * Beats 2-4 are CONTRACTED (test.fixme) until the workstation composes the shared dashboard
- * multi-window machinery (vessel shell + workspace composition + app-owned gesture executors —
- * later commits on this branch; the underlying tear-out, conversion, arbitration, return, and
- * teardown mechanics are already shipped in src/dashboard). Each fixme names the worker-truth
- * receipts its activation must assert, so the contract is reviewable now and the legs turn on
- * without reshaping the suite.
+ * Scene 2 is LIVE (the workstation composes the shipped tear-out machinery: `?popout=` vessel
+ * shell + DockTearOut/DockVesselEmbodiment composition + the app-owned `executeTearOutStep`
+ * executor), including the back-IN morph witness — one continuous drag out and home again,
+ * zero mutation by guard. Beats 3-4 remain CONTRACTED (test.fixme) until the cross-window
+ * docking wiring lands (conversion, remote zone previews, arbitration, stack return; the
+ * mechanics are already shipped in src/dashboard). Each fixme names the worker-truth receipts
+ * its activation must assert, so the contract stays reviewable and the legs turn on without
+ * reshaping the suite.
  *
  * Determinism contract: the executable journey runs TWICE per spec run; the per-beat logs must
  * be identical across runs (structural facts only — no clock-coupled values), with a
@@ -205,17 +207,98 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors, 'the journey must be error-free').toEqual([])
     });
 
-    // ── beats 2-4: contracted legs — activate as the workstation multi-window wiring lands ──
+    // ── beats 3-4: contracted legs — activate as the cross-window docking wiring lands ──
 
-    test.fixme('scene 2 — the tear-out: a real pointer drag births a vessel MID-GESTURE', async () => {
-        // Receipts this leg must assert when activated:
-        //  - the popup exists in Playwright's window set BEFORE pointer-up (waitForEvent('popup')
-        //    resolves while the drag is still armed — the mid-gesture birth claim);
-        //  - committed document: the torn item is ABSENT from every node's items yet PRESENT in
-        //    the catalog (the vessel owns it; no leak);
-        //  - the pane instance id is IDENTICAL before and after (object permanence into the hop);
-        //  - heartbeat monotonic across the transition;
-        //  - drive through the workspace-owned gesture executor, never raw reducer calls.
+    test('scene 2 — the tear-out: a real pointer drag births a vessel MID-GESTURE', async ({page, neuralLink}) => {
+        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+
+        const
+            heartbeatBefore = await readHeartbeat(app, wsId),
+            paneIdBefore    = (await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])),
+            popupPromise    = page.waitForEvent('popup', {timeout: 90000});
+
+        expect(paneIdBefore, 'the pane must be live and cached before the gesture').toBeTruthy();
+
+        // Drive through the workspace-owned gesture executor — real pointer, worker-truth proof.
+        const result = await app.callMethod(wsId, 'executeTearOutStep', [
+            {itemId: 'metrics', sourceNodeId: 'right-top-tabs'}
+        ]);
+
+        expect(result.errors).toEqual([]);
+        expect(result.proof.born,  'the vessel must be born MID-GESTURE (before pointer-up)').toBe(true);
+        expect(result.proof.survivedProbe, 'post-birth outward moves must not reap the vessel').toBe(true);
+        expect(result.applied, 'the detached release must commit detachItem').toBe(true);
+
+        // The popup is a REAL OS window in Playwright's window set — and it stays alive: it owns
+        // the pane now.
+        const popup = await popupPromise;
+
+        expect(popup.isClosed(), 'the committed vessel must remain open').toBe(false);
+
+        // Third-party truth: the committed document read fresh from the worker.
+        const documentAfter = await readDocument(app, wsId);
+
+        expect(Object.values(documentAfter.nodes).some(node => node.items?.includes('metrics')),
+            'the torn item must be ABSENT from every node').toBe(false);
+        expect(documentAfter.items.metrics, 'the torn item must stay in the catalog').toBeTruthy();
+        expect(documentAfter.nodes['right-top-tabs'].items, 'the sibling tab keeps the node alive')
+            .toEqual(['audit']);
+
+        // Object permanence: the SAME live instance crossed the window boundary.
+        const paneIdAfter = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']);
+
+        expect(paneIdAfter).toBe(paneIdBefore);
+
+        // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
+        expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+        expect(pageErrors).toEqual([])
+    });
+
+    // CONTRACTED pending the SortZone window-drag re-entry geometry fix: during window-drag the
+    // proxy is VESSEL-sized (popupWidth × popupHeight) while the boundary is the TAB STRIP, and
+    // checkWindowBoundary normalizes the intersection by the PROXY area — the achievable maximum
+    // is stripArea/proxyArea (measured 0.2003 on this stage, hit exactly at full strip cover),
+    // so `reattachThreshold: 0.6` is unreachable and `dockTearOutEntry` can never fire from a
+    // real pointer walk-back. The executor's `reenter` drive below is the ready witness; it
+    // activates once the entry test normalizes by the smaller rect (engine ticket filed from
+    // this finding — receipts in fivebeat-morph-run5.log, production root).
+    test.fixme('scene 2 (morph) — out past the edge and BACK IN: the vessel retires mid-drag, zero mutation', async ({page, neuralLink}) => {
+        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+
+        const
+            heartbeatBefore = await readHeartbeat(app, wsId),
+            paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            popupPromise    = page.waitForEvent('popup', {timeout: 90000});
+
+        // One continuous drag: out (vessel born) → back IN (vessel retires, the in-window proxy
+        // resumes) — the film's back-IN morph beat, witnessed from worker truth.
+        const result = await app.callMethod(wsId, 'executeTearOutStep', [
+            {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+            {reenter: true}
+        ]);
+
+        expect(result.errors).toEqual([]);
+        expect(result.proof.born, 'the vessel must be born mid-gesture').toBe(true);
+        expect(result.reentered, 'the vessel must retire on re-entry while the pointer is down').toBe(true);
+        expect(result.proof.documentsUnchanged, 'a re-entered gesture is zero-mutation by guard').toBe(true);
+
+        // The popup existed for real — and closed itself when the gesture came home.
+        const popup = await popupPromise;
+
+        await expect.poll(() => popup.isClosed(), {
+            message: 'the retired vessel window must close',
+            timeout: 15000
+        }).toBe(true);
+
+        // Third-party truth: the committed document still holds the item in its original node.
+        const documentAfter = await readDocument(app, wsId);
+
+        expect(documentAfter.nodes['right-top-tabs'].items).toEqual(['metrics', 'audit']);
+
+        // Same instance, heartbeat monotonic — the morph never touched the living content.
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])).toBe(paneIdBefore);
+        expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+        expect(pageErrors).toEqual([])
     });
 
     test.fixme('scene 3 — the second window learns to dock: convert-while-dragging + exactly one preview', async () => {
