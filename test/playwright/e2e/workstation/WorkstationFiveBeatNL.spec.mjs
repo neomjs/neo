@@ -340,6 +340,72 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(paneIdAfter).toBe(paneIdBefore);
 
+        // …and the vessel must STYLE the pane it hosts, not merely own it. Every assertion above
+        // stayed green while the tear-out rendered as bare text on the ground colour, because the
+        // grid/tab token bridge was scoped to `.workstation-workspace` — a class this window
+        // deliberately never mounts. Note what this does NOT assert: the theme class was
+        // present throughout that bug, so a class check on the vessel document would have passed
+        // the whole time. Read the RESOLVED token instead, and compare it to the palette rather
+        // than to a hex literal, so a future palette edit moves both sides together.
+        const vesselTokens = await popup.evaluate(() => {
+            const viewport = document.querySelector('.workstation-viewport'),
+                  styles   = viewport && getComputedStyle(viewport);
+
+            return {
+                isVessel: !!document.querySelector('.workstation-popout-host'),
+                cellBg  : styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
+                stripBg : styles?.getPropertyValue('--tab-strip-background-color').trim(),
+                panel   : styles?.getPropertyValue('--workstation-panel').trim(),
+                panel2  : styles?.getPropertyValue('--workstation-panel-2').trim()
+            }
+        });
+
+        expect(vesselTokens.isVessel, 'the committed popup must be the pop-out vessel host').toBe(true);
+        expect(vesselTokens.panel, 'the vessel must inherit the Workstation palette').toBeTruthy();
+        expect(vesselTokens.cellBg, 'the vessel must bridge grid tokens onto the Workstation palette')
+            .toBe(vesselTokens.panel);
+        expect(vesselTokens.stripBg, 'the vessel must bridge tab tokens onto the Workstation palette')
+            .toBe(vesselTokens.panel2);
+
+        // …and the skin must keep reaching it AFTER it is open. A theme is a class an ancestor
+        // carries, written by `afterSetTheme` onto the component it was set on — so a workspace-
+        // local flip reaches this window and no other, and the vessel's own `body` still carries
+        // whatever the Stylesheet addon put there at boot. Carrier-presence at birth proves
+        // initial styling only; an open vessel stranding on its birth theme is invisible to every
+        // assertion above. Flip, then read the same tokens back through the popup.
+        const themeBefore = vesselTokens.cellBg;
+
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+
+        // Poll the OBSERVABLE transition rather than sleeping a frame count. The flip crosses a
+        // worker→two-main-threads boundary and commits through a vdom update the popup does not
+        // publish an event for, so any fixed wait encodes a guess about someone else's scheduler:
+        // two rAFs sampled BEFORE the commit and failed deterministically at this exact head.
+        // Polling states the actual contract — the vessel restyles, eventually and observably.
+        const readVesselTokens = () => popup.evaluate(() => {
+            const viewport = document.querySelector('.workstation-viewport'),
+                  styles   = viewport && getComputedStyle(viewport);
+
+            return {
+                cellBg: styles?.getPropertyValue('--grid-container-cell-background-color').trim(),
+                panel : styles?.getPropertyValue('--workstation-panel').trim()
+            }
+        });
+
+        await expect.poll(async () => (await readVesselTokens()).cellBg, {
+            message: 'the open vessel must restyle when the workspace theme flips',
+            timeout: 15000
+        }).not.toBe(themeBefore);
+
+        const flipped = await readVesselTokens();
+
+        // Changing is not enough: it must land on the NEW palette. A vessel that merely moved off
+        // its birth value — to a stock Neo default, say — would satisfy the assertion above.
+        expect(flipped.cellBg, 'and it must land on the NEW palette, not merely change')
+            .toBe(flipped.panel);
+
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
+
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])
