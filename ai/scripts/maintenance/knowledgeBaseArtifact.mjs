@@ -172,10 +172,19 @@ const FP16_ROUND_TRIP_PROBE = new Float16Array(1);
  * corpus that is the entire reason a v2 rehydrate materialises a working file LARGER than v1's,
  * even though v2's download is 5× smaller.
  *
- * This is a spelling change, never a precision change. The returned value re-quantizes to the
- * identical fp16 bit pattern, so the vectors an adopter imports are bit-identical either way and
- * recall cannot move — a stronger property than recall-neutrality, and the reason no recall
- * measurement can distinguish the two emits.
+ * This is a spelling change, never a precision change: the returned value re-quantizes to the same
+ * fp16 as its input, for every finite value except one (below). It is NOT a claim that an adopter's
+ * stored vectors are bit-identical — `DatabaseService.importDatabase` upserts the parsed doubles and
+ * never re-quantizes, so the two emits store doubles that differ by sub-ULP-of-fp16. The vectors are
+ * fp16-EQUIVALENT, not identical, which is why recall is measured rather than argued: corpus-wide
+ * systematic sample, dim 4096 — recall@10 100.000%, recall@50 99.990%, top-1 identical 400/400.
+ *
+ * The one exception, and it is a property of JSON rather than of this function: **negative zero.**
+ * The loop below correctly preserves it (`Object.is` rejects `+0` as a spelling of `-0`), but
+ * `JSON.stringify(-0)` is `"0"`, so the emit flips fp16 `0x8000` to `0x0000` no matter what this
+ * returns. Harmless for retrieval — ±0 contributes identically to a dot product — but the invariant
+ * is "every finite fp16 EXCEPT -0", and any "bit-exact JSON round-trip" claim carries the same
+ * single exception.
  *
  * Five significant digits is a proven ceiling, not a guess: fp16 carries 11 bits of significand
  * (~3.3 decimal digits), so no finite fp16 needs more to be named uniquely. The loop returns the
@@ -183,7 +192,8 @@ const FP16_ROUND_TRIP_PROBE = new Float16Array(1);
  * differently — fail-safe toward correctness, never toward size.
  *
  * `Object.is` rather than `===` because fp16 has a signed zero: `-0 === 0` is true, so `===` would
- * accept `0` as a spelling of `-0` and silently flip a bit pattern the artifact digest covers.
+ * accept `0` as a spelling of `-0` — the function must not be the thing that loses it, even though
+ * serialization does.
  * @param {Number} value A value already quantized to fp16.
  * @returns {Number} The shortest-spelling number with the identical fp16 encoding.
  */

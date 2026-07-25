@@ -732,6 +732,28 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         expect(respelled).toBeGreaterThan(samples.length / 2)
     });
 
+    test('the ONE exception is negative zero, and it is JSON that loses it — not this function', () => {
+        // The deterministic spread above cannot reach -0, so the invariant it proves is
+        // "every finite fp16 EXCEPT -0". Pinning the exception explicitly, because an invariant
+        // with a silent carve-out is the shape that gets quoted without its condition.
+        const probe = new Float16Array(1);
+
+        probe[0] = -0;
+
+        // The function preserves it: `Object.is` refuses `+0` as a spelling of `-0`, so the loop
+        // exhausts its precisions and returns the original rather than widening the carve-out.
+        expect(Object.is(shortestFp16Decimal(probe[0]), -0)).toBe(true);
+
+        // …and serialization loses it anyway. This is a property of JSON, and it means any
+        // "bit-exact JSON round-trip" claim in this file carries exactly this one exception.
+        expect(JSON.stringify(-0)).toBe('0');
+        expect(Object.is(JSON.parse(JSON.stringify(-0)), -0)).toBe(false);
+
+        // Harmless for retrieval, asserted rather than claimed: a ±0 component contributes the
+        // same term to a dot product, so the flip cannot move a similarity score.
+        expect(-0 * 0.5 + 1).toBe(0 * 0.5 + 1)
+    });
+
     test('a v2 artifact with NO byteOrder stamp is refused, not assumed to match this host', async () => {
         // Defaulting an absent stamp re-creates the exact failure the gate exists to prevent — the consumer
         // assumes the order it happens to run on. The Contract Ledger says required; so must the code.
