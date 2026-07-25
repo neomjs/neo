@@ -55,7 +55,7 @@ class ConfigBase extends ConfigProvider {
              * Minimum stderr log level for the GitHub workflow logger.
              * @type {string}
              */
-            logLevel: {env: 'NEO_LOG_LEVEL', default: 'warn', parse: parseLogLevel},
+            logLevel: leaf('warn', 'NEO_LOG_LEVEL', 'string', {parse: parseLogLevel}),
             /**
              * @summary Shared MCP logger policy for GitHub Workflow.
              *

@@ -60,7 +60,7 @@ class ConfigBase extends ConfigProvider {
             /**
              * @member {String} logLevel='warn'
              */
-            logLevel: {env: 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', default: 'warn', parse: parseLogLevel},
+            logLevel: leaf('warn', 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', 'string', {parse: parseLogLevel}),
             /**
              * @summary Shared MCP logger policy for GitLab Workflow.
              *
