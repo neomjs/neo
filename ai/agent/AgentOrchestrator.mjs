@@ -3,7 +3,22 @@ import Agent                         from '../Agent.mjs';
 import crypto                        from 'crypto';
 import fs                            from 'fs';
 import path                          from 'path';
+import {fileURLToPath}               from 'url';
+import {resolvePlaneDataRoot}        from '../planeConfig.mjs';
 import {validateComputedRouteResult} from '../services/graph/computedRouteResult.mjs';
+
+/*
+ * The single module-scope plane anchor every durable default below derives from. A config default
+ * is evaluated before any Provider exists, so it cannot read the resolved leaf — it resolves the
+ * plane root env-free, over the DISCOVERED repo root, and never over `process.cwd()`.
+ *
+ * That distinction is the whole point: a cwd-derived default follows the launch directory, so the
+ * same process writes into a different data plane depending on where it was started, and nothing
+ * fails loudly when it does. Env relocation still belongs to the leaf machinery — `NEO_PLANE_DATA_ROOT`
+ * moves the plane, and callers relocate an individual path by passing the config.
+ */
+const neoRootDir          = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
+      planeDataRootAnchor = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
 
 const OUTCOME_STATUSES = new Set(['completed', 'failed', 'blocked', 'expired', 'exhausted', 'crashed']),
       REASON_CODES     = new Set([
@@ -35,9 +50,11 @@ class AgentOrchestrator extends Base {
          */
         className: 'Neo.ai.agent.AgentOrchestrator',
         /**
-         * @member {String} handoffPath=path.resolve(process.cwd(), 'resources/content/sandman_handoff.md')
+         * Repo-anchored, not cwd-anchored: this is checkout content, so it resolves against the
+         * discovered `neoRootDir` and stays the same file no matter where the process was launched.
+         * @member {String} handoffPath=path.resolve(neoRootDir, 'resources/content/sandman_handoff.md')
          */
-        handoffPath: path.resolve(process.cwd(), 'resources/content/sandman_handoff.md'),
+        handoffPath: path.resolve(neoRootDir, 'resources/content/sandman_handoff.md'),
         /**
          * Wait interval before checking if the scheduler is exhausted natively.
          * @member {Number} monitorIntervalMs=5000
@@ -65,10 +82,13 @@ class AgentOrchestrator extends Base {
          */
         handoffEmitter: null,
         /**
-         * Append-only Golden Path issue outcome file.
-         * @member {String} outcomePath=path.resolve(process.cwd(), '.neo-ai-data/agent-orchestrator/golden-path-outcomes.jsonl')
+         * Append-only Golden Path issue outcome file — a plane MEMBER, so it derives from the one
+         * plane anchor rather than re-deriving its own root. Under ambient cwd this file followed
+         * the launch directory instead of the declared plane, which splits outcome history across
+         * roots without failing anything loudly.
+         * @member {String} outcomePath=path.resolve(planeDataRootAnchor, 'agent-orchestrator/golden-path-outcomes.jsonl')
          */
-        outcomePath: path.resolve(process.cwd(), '.neo-ai-data/agent-orchestrator/golden-path-outcomes.jsonl'),
+        outcomePath: path.resolve(planeDataRootAnchor, 'agent-orchestrator/golden-path-outcomes.jsonl'),
         /**
          * Injectable exit hook. Defaults to process.exit for CLI runner compatibility.
          * @member {Function} exitHandler=(code) => process.exit(code)
