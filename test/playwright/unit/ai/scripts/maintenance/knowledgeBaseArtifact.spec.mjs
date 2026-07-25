@@ -40,6 +40,7 @@ test.describe.configure({mode: 'serial'});
 test.describe('Knowledge Base release artifact — collection-scoped contract (#12157)', () => {
     let assertCollectionScopedArtifact, ARTIFACT_BASENAME, ARTIFACT_META_FILENAME, KB_BACKUP_FILE_PREFIX;
     let ARTIFACT_VECTORS_FILENAME, ARTIFACT_SCHEMA_VERSION, packVectorsFp16, unpackVectorsFp16, recordOrderDigest;
+    let shortestFp16Decimal;
     let packArtifactToV2, rehydrateArtifactFromV2, resolveSingleArtifactJsonl, ARTIFACT_VECTOR_BYTE_ORDER;
     let uploadKnowledgeBase, downloadKnowledgeBase;
     let workRoot;
@@ -161,6 +162,7 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
             packArtifactToV2,
             rehydrateArtifactFromV2,
             resolveSingleArtifactJsonl,
+            shortestFp16Decimal,
             ARTIFACT_VECTOR_BYTE_ORDER
         } = await import('../../../../../../ai/scripts/maintenance/knowledgeBaseArtifact.mjs'));
 
@@ -673,6 +675,83 @@ test.describe('Knowledge Base release artifact — collection-scoped contract (#
         await packArtifactToV2({artifactDir: dir, jsonlPath: jsonl, dimension: 3});
 
         expect(fs.readFileSync(path.join(dir, ARTIFACT_VECTORS_FILENAME)).toString('hex')).toBe('003c00c00038');
+    });
+
+    test('rehydrate emits the SHORTEST spelling that re-quantizes to the identical fp16', () => {
+        // The size defect this closes: rehydrating widens each fp16 to a double, and JSON.stringify
+        // emits the shortest decimal for THAT DOUBLE — the fp16 spelled out in full. Known values,
+        // pinned like the canonical-bytes fixture above, because a same-corpus round-trip cannot see
+        // a spelling regression: producer and consumer agree either way, only the byte count moves.
+        const probe    = new Float16Array(1),
+              quantize = value => {probe[0] = value; return probe[0]};
+
+        // 0.1 is the headline case: 13 characters of pure encoding waste, per value, per record.
+        expect(quantize(0.1)).toBe(0.0999755859375);
+        expect(shortestFp16Decimal(quantize(0.1))).toBe(0.1);
+
+        // Boundaries, because a naive precision loop breaks at the extremes rather than in the middle:
+        // fp16 max, the smallest normal, and the smallest subnormal.
+        expect(shortestFp16Decimal(quantize(65504))).toBe(65500);
+        expect(shortestFp16Decimal(quantize(6.103515625e-5))).toBe(0.00006104);
+        expect(shortestFp16Decimal(quantize(5.960464477539063e-8))).toBe(6e-8);
+
+        // Exactly-representable values must not be "shortened" into a different number.
+        for (const exact of [0.25, 0.5, 1, -1, -2]) {
+            expect(shortestFp16Decimal(quantize(exact))).toBe(exact)
+        }
+    });
+
+    test('every re-spelled value re-quantizes to the IDENTICAL fp16 — bit-exact, not merely close', () => {
+        // This is the property that makes a recall measurement unnecessary rather than skipped: the
+        // vectors an adopter imports are bit-identical under both emits, so recall cannot move. A
+        // tolerance-based assertion would pass on a lossy rounding that silently shifted the corpus.
+        const probe   = new Float16Array(1),
+              samples = new Float16Array(4096);
+
+        // Deterministic spread over the representable range — no Math.random(), so a failure reproduces.
+        for (let i = 0; i < samples.length; i++) {
+            samples[i] = Math.sin(i * 0.7331) * Math.pow(2, (i % 24) - 12)
+        }
+
+        let respelled = 0;
+
+        for (const value of samples) {
+            const short = shortestFp16Decimal(value);
+
+            probe[0] = short;
+
+            // Object.is, not toBe-with-tolerance and not ===: fp16 carries a signed zero, and
+            // `-0 === 0` would accept a flipped sign bit as a match.
+            expect(Object.is(probe[0], value)).toBe(true);
+
+            if (!Object.is(short, value)) respelled++
+        }
+
+        // The fixture must actually exercise re-spelling, or the assertion above is vacuous —
+        // a suite of already-shortest values would pass without testing anything.
+        expect(respelled).toBeGreaterThan(samples.length / 2)
+    });
+
+    test('the ONE exception is negative zero, and it is JSON that loses it — not this function', () => {
+        // The deterministic spread above cannot reach -0, so the invariant it proves is
+        // "every finite fp16 EXCEPT -0". Pinning the exception explicitly, because an invariant
+        // with a silent carve-out is the shape that gets quoted without its condition.
+        const probe = new Float16Array(1);
+
+        probe[0] = -0;
+
+        // The function preserves it: `Object.is` refuses `+0` as a spelling of `-0`, so the loop
+        // exhausts its precisions and returns the original rather than widening the carve-out.
+        expect(Object.is(shortestFp16Decimal(probe[0]), -0)).toBe(true);
+
+        // …and serialization loses it anyway. This is a property of JSON, and it means any
+        // "bit-exact JSON round-trip" claim in this file carries exactly this one exception.
+        expect(JSON.stringify(-0)).toBe('0');
+        expect(Object.is(JSON.parse(JSON.stringify(-0)), -0)).toBe(false);
+
+        // Harmless for retrieval, asserted rather than claimed: a ±0 component contributes the
+        // same term to a dot product, so the flip cannot move a similarity score.
+        expect(-0 * 0.5 + 1).toBe(0 * 0.5 + 1)
     });
 
     test('a v2 artifact with NO byteOrder stamp is refused, not assumed to match this host', async () => {
