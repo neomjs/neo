@@ -81,15 +81,12 @@ export const ALLOWLIST = new Set([
     'test/playwright/unit/ai/mcp/server/shared/services/DestructiveOperationGuard.spec.mjs',
     'test/playwright/unit/ai/services/graph/GoldenPathSynthesizer.spec.mjs',
     'test/playwright/unit/ai/services/graph/LazyEdgeDrainer.spec.mjs',
-    'test/playwright/unit/ai/services/graph/SemanticGraphExtractor.spec.mjs',
     'test/playwright/unit/ai/services/ingestion/ConceptIngestor.spec.mjs',
     'test/playwright/unit/ai/services/ingestion/MemorySessionIngestor.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/CoalescingEngineService.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/DatabaseService.backupPath.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/DatabaseService.importMergeChroma.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/FileSystemIngestor.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/PermissionService.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/SessionService.ResumeValidation.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs',
 ]);
 
