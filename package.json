@@ -32,6 +32,7 @@
         "ai:check-retired-primitives"          : "node ./ai/scripts/diagnostics/check-retired-primitives.mjs",
         "ai:check-substrate-size"              : "node ./ai/scripts/diagnostics/check-substrate-size.mjs",
         "ai:compact-graphlog"                  : "node ./ai/scripts/maintenance/compactGraphLog.mjs",
+        "ai:config-print"                      : "node ./ai/scripts/diagnostics/printAiConfig.mjs",
         "ai:restore"                           : "node ./ai/scripts/maintenance/restore.mjs",
         "ai:reseed"                            : "node ./ai/scripts/maintenance/restore.mjs --operation reseed",
         "ai:build-kb-faqs"                     : "node ./ai/scripts/maintenance/buildKbAgentFaqs.mjs",
