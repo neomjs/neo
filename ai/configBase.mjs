@@ -2,12 +2,7 @@ import os                     from 'os';
 import path                   from 'path';
 import {fileURLToPath}        from 'url';
 import ConfigProvider, {leaf} from './ConfigProvider.mjs';
-import {
-    PLANE_DEFAULTS,
-    PLANE_ENV,
-    parsePlaneIdEnv,
-    resolvePlaneDataRoot
-} from './planeConfig.mjs';
+import {CANONICAL_PLANE_ID, parsePlaneIdEnv, resolvePlaneDataRoot} from './planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -17,7 +12,7 @@ const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
 // The single plane-member anchor: every durable data-plane default below derives from this
 // const (env-free twin resolution — the leaf machinery owns all env binding), so no member
 // re-derives its own root and no member resolves against ambient cwd.
-const planeDataRootDefault  = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
+const planeDataRootDefault  = resolvePlaneDataRoot({rootDir: neoRootDir});
 const chromaUnitTestDataDir = path.join(os.tmpdir(), 'neo-chroma-unit-test');
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -78,14 +73,14 @@ class ConfigBase extends ConfigProvider {
                  * not only on the frozen default the load guard covers.
                  * @type {string}
                  */
-                id: {default: PLANE_DEFAULTS.planeId, env: PLANE_ENV.planeId, type: 'string', parse: parsePlaneIdEnv},
+                id: {default: CANONICAL_PLANE_ID, env: 'NEO_PLANE_ID', type: 'string', parse: parsePlaneIdEnv},
                 /**
                  * The durable data root this process resolved for the declared plane — the single
                  * anchor plane-member leaves derive from via `path.join`-style derivations, each
                  * member keeping its own env escape.
                  * @type {string}
                  */
-                dataRoot: leaf(planeDataRootDefault, PLANE_ENV.dataRoot, 'string')
+                dataRoot: leaf(planeDataRootDefault, 'NEO_PLANE_DATA_ROOT', 'string')
             },
             /**
              * Turn-end stop-hook policy — two INDEPENDENT axes that were previously welded to one

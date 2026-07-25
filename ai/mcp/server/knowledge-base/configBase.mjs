@@ -12,7 +12,7 @@ const __dirname  = path.dirname(__filename);
 const AiConfig   = createConfigProxy(Neo.ai.Config);
 const neoRootDir = path.resolve(__dirname, '../../../../');
 // The single plane-member anchor (env-free twin resolution — the leaf machinery owns env binding).
-const planeDataRoot = resolvePlaneDataRoot({env: {}, rootDir: neoRootDir});
+const planeDataRoot = resolvePlaneDataRoot({rootDir: neoRootDir});
 
 /**
  * @summary Extendable defaults and formulas for the Knowledge Base MCP server.

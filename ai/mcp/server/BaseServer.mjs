@@ -11,11 +11,11 @@ import {
 } from '../../planeConfig.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 
-// The durable-root reference for the plane fail-closed check: THIS checkout's default plane
-// root (env-free twin resolution). A declared overlay resolving it — via env leakage or a
-// symlink layer — is the breach the boot assertion exists to stop.
+// The durable-root reference for the plane fail-closed check: THIS checkout's ANCHOR plane root.
+// The anchor computation reads no env by construction, so this reference cannot drift with the
+// process environment — which is exactly what makes it usable as the fixed point a declared
+// overlay must not resolve to, whether via env leakage or a symlink layer.
 const canonicalDataRoot = resolvePlaneDataRoot({
-    env    : {},
     rootDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../')
 });
 

@@ -25,6 +25,8 @@ The empirical lesson is not "be more careful" — that is **falsified** (4/4 mis
 
 **`AiConfig` and its child providers are the single source of truth for Agent OS config. READ resolved leaves at the use site. Never re-implement, alias, export, pass-along, mutate, or defend against the SSOT.**
 
+SSOT covers two things that earlier revisions of this ADR conflated, so they are named separately: **resolution** — env layering, the hierarchy chain, reactivity — is AiConfig's, unconditionally and without exception. **Declaration** — where a literal is physically written — is AiConfig's too, with exactly one exception, stated mechanically in §5.5. A literal living elsewhere is never justified by *who consumes it*; only by *what the leaf machinery cannot do for itself*.
+
 ### 2.1 How the primitive works (read this instead of the 3 code files)
 
 `ai/ConfigProvider.mjs extends Neo.state.Provider` — every config **is** a reactive state provider; they compose into one tree. (Primitive line-anchors below are for someone changing the *primitive itself*; consumers do not need them.)
@@ -65,7 +67,7 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 ### Group C — boundary / duplication
 | ID | Antipattern | Tag | Sanctioned form |
 |---|---|---|---|
-| C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a *non-entrypoint* script can BREAK things) | `[live: TaskDefinitions.mjs]` | genuine *non-entrypoint* consumers use a pure-defaults module (literals + env-names, no Neo import) — see §5.5 |
+| C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a *non-entrypoint* script can BREAK things) | `[live: TaskDefinitions.mjs]` | keep the non-entrypoint Neo-free; it takes pure FUNCTIONS from a shared module, and any LITERAL it needs must earn §5.5's anchor reason — being a non-entrypoint is never itself the reason, and it must not carry a resolver for anything a leaf already binds |
 | C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[live-on-dev]` | fold into the SSOT leaves |
 | C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[live: #11976]` | tests import the canonical template |
 
@@ -99,9 +101,10 @@ aiConfig.engines.chroma.database = `graph-service-test-${process.pid}-${Date.now
 4. **Tests isolate by construction** (`UNIT_TEST_MODE` → the config resolves the test DB). Never mutate the shared singleton (B4).
 5. **The C1×B5 sanctioned shape** (V-B-A'd against `dev` — most "daemon C1" sites are actually A1):
    - **Entrypoints (incl. the `ai/` daemons) import `AiConfig` and read at the use site.** The daemons already `import Neo`/`_export`/`AiConfig` and work — so a daemon re-deriving a path is **A1, not C1**. Fix: read `AiConfig.X.Y` directly.
-   - **Genuine non-entrypoint helpers** (e.g. `TaskDefinitions.mjs` — imported by the orchestrator entrypoint, with no Neo import of its own): a **pure-defaults module** — literals + env-var *names* only, **no Neo import** — carrying the same defaults the leaves declare. This is the one true C1×B5 locus. *(Amended — see §10.1: the prescribed pairing is now INVERTED — the leaf declares FROM the twin, so the "same defaults" are one literal, not two synchronized copies.)*
    - An **entrypoint-injected value object** is acceptable *only* at a narrow, explicitly-named bootstrap boundary — not license for generic pass-along plumbing. Do **not** add a read-only accessor unless it stays pure / no-Neo-import.
-   - *(Folds @neo-opus-4-7's bootstrap-weight reframe: the question was never "can it import?" — the daemons prove it can — but "should a frequent lightweight helper pay full-framework bootstrap weight to read a path?")*
+   - **A config literal may live outside the leaf for exactly ONE mechanical reason: the module-scope anchor** — a leaf default is computed from it and the Provider does not exist yet (§10.5). **Everything else reads the resolved leaf.** That is a property of the leaf machinery, checkable without judgment; it is never a property of the consumer.
+   - **A helper module may stay free of Neo imports for one reason too: its consumers are CONFIG FILES**, which cannot read a Provider that does not exist yet. That is the same chicken-and-egg stated from the module's side. It is not a companion shadowing the config — it is the config layer's own helper, and it must not carry a second resolver for anything a leaf already binds.
+   - *(2026-07-25, #15892 — retires the "is this a no-Neo consumer?" test entirely, along with the pure-defaults-twin shape it sanctioned. The test was decidable by appearance and its audience was empty: a census found the plane literals had one consumer (the config itself), **every** production caller of the twin's data-root resolver passed `{env: {}}` to disable its env path, and its identity resolver had no production caller at all — the parallel resolution existed only for its own tests. The exemplar was collapsed rather than re-justified: two export kinds → one shared constant, and the module now reads no env outside the leaf's own `parse` hook.)*
 6. **Overlay = thin child of deltas** over the canonical template; never parse/splice config source to reconcile (deep-merge inheritance handles it).
 
 ## 6. V-B-A Pre-Flight for future authors (the read-gate)
@@ -136,17 +139,25 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 
 *Drafted by @neo-fable-clio under the ticket's amendment mandate (`Decision Record: amends ADR 0019`); falsification seat: the ADR author, whose PR-review `[RETROSPECTIVE]` endorsed the §10.1 inversion. Exemplar: `ai/planeConfig.mjs` (twin) + the `plane` subtree in `ai/configBase.mjs` (leaf).*
 
-### 10.1 Constructive pairing supersedes copy-pairing in §5.5
+### 10.1 The twin shape is RETIRED — one shared constant, no second resolver
 
-§5.5 as originally written sanctions a pure-defaults twin *carrying the same defaults the leaves declare* — two synchronized copies with a test as the only drift guard. The prescribed shape is now the **inversion**: the twin is the leaf declarations' literal SOURCE — `leaf(PLANE_DEFAULTS.x, PLANE_ENV.x, 'string')` — so literal drift is impossible **by construction**, and the pairing test narrows to resolver semantics (themselves equivalent by construction for string leaves: truthiness and the provider's emptiness check partition identically — `''` is the only falsy string). Test-enforced consistency is the fallback shape, not the pattern.
+*(Rewritten 2026-07-25, #15892 — this subsection previously prescribed a "pure-defaults twin" the leaf declared FROM, absorbing the former §10.2. The exemplar has been collapsed rather than re-justified, so what it prescribed no longer exists.)*
 
-### 10.2 The twin's resolvers are not A3
+**The twin's defining feature was never its exported constants — it was a parallel env-resolution path running beside the leaf's own env layer.** Two resolvers for one value, able to disagree. That is A3, and the audience argument was what hid it.
 
-A3 bans resolution helpers that duplicate the leaf's env-binding *for consumers that have the Provider in scope*. The twin's pure resolvers serve **non-entrypoints** — consumers with no Provider to defer to (the §5.5 C1 locus) — and the LEAF consumes the twin, never the reverse. The A3 test is **direction + audience**: a helper the leaf declares FROM, serving no-Neo consumers, is sanctioned; a helper an entrypoint calls INSTEAD of reading the leaf is A3. Entrypoint-side code still reads `AiConfig.plane.*` at the use site. (Precedent: `resolveMemoryCoreGraphPath` — the same sanctioned twin shape, predating this amendment.)
+Measured on the exemplar before removal: the plane literals had **one** consumer (the config itself); **every** production caller of the data-root resolver passed `{env: {}}` to switch its env path off; and the identity resolver had **no production caller at all**. The second resolution path was exercised only by its own tests.
+
+**The sanction was actively propagating.** On 2026-07-25 a second instance was built — `ai/stopHookConfig.mjs`, authored explicitly *"via the ADR-0019 §5.5/§10.1 pure-defaults twin, leaf declares FROM it"* — and deleted the same day (`3a6d8bfafc`) once the shape was questioned. A sanctioned pattern that spawns a fresh instance within hours of being cited and then needs reverting is not a pattern being followed correctly; it is a trap the sanction sets. That is the strongest argument for retirement over re-justification, and it is why this subsection now records a removal rather than prescribing a shape.
+
+The shape now: **one exported constant** (`CANONICAL_PLANE_ID` — crossing the boundary because the `plane.id` leaf declares it *and* §10.4's coherence assertion compares against it, so drift between them would let an overlay pass as canonical), plus pure functions. The anchor computation takes `rootDir` and reads no environment. **Env binding belongs to the leaf, unconditionally and alone.**
+
+**Sharing a pure FUNCTION is not A3 and never needed an exception** — that is ordinary reuse. Only a LITERAL outside the leaf needs §5.5's anchor reason. The A3 test is **direction**: a helper the leaf declares FROM is sanctioned; one an entrypoint calls INSTEAD of reading the leaf is A3, whatever its audience.
+
+**Falsified along the way, and recorded so it is not re-derived:** a first attempt at this collapse moved the `plane` subtree behind a descriptor factory, and the config-parity gate correctly reported three declared paths GONE — its collector reads `name: leaf(` / `name: {` and nothing else. That is a real limitation of a line-scan lint, and it was briefly written into this ADR as a second sanctioned reason ("parity visibility"). **It is not one.** The gate requires the *declaration* to stay inline; it never required the *literals* to be exported, and removing them keeps it green. A tooling limitation is debt to fix, not architecture to codify — the collector's grammar is tracked separately.
 
 ### 10.3 Plane identity: three concepts, never conflated
 
-- **Identity** — `plane.id`: a stable OPAQUE string; `planeId` equality is the only sanctioned "same plane?" predicate, never path comparison. Opacity is enforced on **resolved values** by one predicate (`isOpaquePlaneId`) behind three surfaces — the twin's module-load guard, `resolvePlaneId`, and the leaf's `parse` (env layer) — with the boot assertion (§10.4) closing the fourth route: a custom config file the env parser never sees. A guard that covers only the frozen default protects the one value that cannot vary.
+- **Identity** — `plane.id`: a stable OPAQUE string; `planeId` equality is the only sanctioned "same plane?" predicate, never path comparison. Opacity is enforced on **resolved values** by one predicate (`isOpaquePlaneId`) behind two surfaces — the module-load guard and the leaf's `parse` (env layer) — with the boot assertion (§10.4) closing the third route: a custom config file the env parser never sees. *(Was three surfaces; the middle one was a second identity resolver with no production caller, deleted 2026-07-25 per §10.1.)* A guard that covers only the frozen default protects the one value that cannot vary.
 - **Resolved evidence** — `plane.dataRoot`: the durable root THIS process resolved; the single anchor every plane-member leaf default derives from (§10.5).
 - **Checkout root** — `NEO_AI_CANONICAL_ROOT` names a checkout for provisioning-time hydration (`bootstrapWorktree.mjs`) and is deliberately NOT plane identity: a checkout-shaped identity would silently pre-decide the data-root placement election.
 

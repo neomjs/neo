@@ -8,15 +8,13 @@ import Neo                from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../ai/ConfigProvider.mjs';
 import {
-    PLANE_DEFAULTS,
-    PLANE_ENV,
+    CANONICAL_PLANE_ID,
     assertPlaneCoherence,
     assertPlaneMemberCoherence,
     collectPlaneMembers,
     isOpaquePlaneId,
     parsePlaneIdEnv,
-    resolvePlaneDataRoot,
-    resolvePlaneId
+    resolvePlaneDataRoot
 } from '../../../../ai/planeConfig.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from '../../../../ai/configBase.mjs';
 import McConfigBase                     from '../../../../ai/mcp/server/memory-core/configBase.mjs';
@@ -24,87 +22,83 @@ import NlConfigBase                     from '../../../../ai/mcp/server/neural-l
 
 const specDir = path.dirname(fileURLToPath(import.meta.url));
 
-test.describe('ai/planeConfig — the plane-identity pure-defaults twin', () => {
-    test('constant maps are frozen and carry env NAMES, never values', () => {
-        expect(Object.isFrozen(PLANE_ENV)).toBe(true);
-        expect(Object.isFrozen(PLANE_DEFAULTS)).toBe(true);
-        expect(PLANE_ENV.planeId).toBe('NEO_PLANE_ID');
-        expect(PLANE_ENV.dataRoot).toBe('NEO_PLANE_DATA_ROOT')
+test.describe('ai/planeConfig — the config layer\'s plane helpers', () => {
+    test('the module reads NO environment — the leaf owns env binding, alone', () => {
+        /*
+         * The load-bearing property, asserted at source. This module used to carry a parallel
+         * env-resolution path beside the leaf's own env layer — two resolvers for one value, able
+         * to disagree. Every production caller had already opted out of it and the identity
+         * resolver had no production caller at all, so the second path existed for its tests.
+         *
+         * `parsePlaneIdEnv` is the ONE permitted env reader here, and it is not a second path: it
+         * is the `plane.id` leaf's own `parse` hook, invoked BY the leaf machinery.
+         */
+        const source     = fs.readFileSync(path.join(specDir, '../../../../ai/planeConfig.mjs'), 'utf8'),
+              envReaders = source.split('\n')
+                  .map((line, index) => ({line: index + 1, text: line}))
+                  .filter(({text}) => /process\.env|env\[/.test(text) && !text.trim().startsWith('*'));
+
+        // Only inside parsePlaneIdEnv — the leaf's parse hook.
+        expect(envReaders.every(({line}) => line > source.split('\n').findIndex(l => l.includes('export function parsePlaneIdEnv')) &&
+                                            line < source.split('\n').findIndex(l => l.includes('export function resolvePlaneDataRoot')))).toBe(true)
     });
 
-    test('the default planeId is opaque — no path or checkout content', () => {
-        expect(PLANE_DEFAULTS.planeId).not.toContain('/');
-        expect(PLANE_DEFAULTS.planeId).not.toContain(path.sep);
-        expect(PLANE_DEFAULTS.planeId).not.toContain('.neo-ai-data')
+    test('CANONICAL_PLANE_ID is the single exported literal, and it is opaque', () => {
+        expect(CANONICAL_PLANE_ID).toBe('neo-local-canonical');
+        expect(CANONICAL_PLANE_ID).not.toContain('/');
+        expect(CANONICAL_PLANE_ID).not.toContain(path.sep);
+        expect(CANONICAL_PLANE_ID).not.toContain('.neo-ai-data')
     });
 
-    test('resolvePlaneId: default without override, env override wins', () => {
-        expect(resolvePlaneId({env: {}})).toBe(PLANE_DEFAULTS.planeId);
-        expect(resolvePlaneId({env: {[PLANE_ENV.planeId]: 'overlay-plane-a'}})).toBe('overlay-plane-a')
-    });
+    test('resolvePlaneDataRoot is a pure anchor computation — no env, root required', () => {
+        expect(resolvePlaneDataRoot({rootDir: '/tmp/seat-x'})).toBe(path.join('/tmp/seat-x', '.neo-ai-data'));
 
-    test('resolvePlaneDataRoot: env override needs no root; injected root anchors the default', () => {
-        expect(resolvePlaneDataRoot({env: {[PLANE_ENV.dataRoot]: '/vol/plane'}})).toBe('/vol/plane');
-
-        const resolved = resolvePlaneDataRoot({env: {}, rootDir: '/tmp/seat-x'});
-        expect(resolved).toBe(path.resolve('/tmp/seat-x', PLANE_DEFAULTS.dataRootRelative))
+        // Relocation belongs to the leaf's env binding, so an env var cannot move the ANCHOR.
+        const previous = process.env.NEO_PLANE_DATA_ROOT;
+        process.env.NEO_PLANE_DATA_ROOT = '/vol/should-not-be-read';
+        try {
+            expect(resolvePlaneDataRoot({rootDir: '/tmp/seat-x'})).toBe(path.join('/tmp/seat-x', '.neo-ai-data'))
+        } finally {
+            previous === undefined ? delete process.env.NEO_PLANE_DATA_ROOT : process.env.NEO_PLANE_DATA_ROOT = previous
+        }
     });
 
     test('resolvePlaneDataRoot fails loud without a root — ambient cwd is never trusted', () => {
-        expect(() => resolvePlaneDataRoot({env: {}})).toThrow(PLANE_ENV.dataRoot)
+        expect(() => resolvePlaneDataRoot({})).toThrow('rootDir is required')
     });
 
-    test('pairing: the leaf subtree declares FROM the twin — same literals, same env names', () => {
+    test('the leaf declares the env names, and this module no longer restates them', () => {
         const {plane} = ConfigBase.config.data;
 
-        expect(plane.id.default).toBe(PLANE_DEFAULTS.planeId);
-        expect(plane.id.env).toBe(PLANE_ENV.planeId);
-        expect(plane.dataRoot.env).toBe(PLANE_ENV.dataRoot);
-        // The leaf's absolute default anchors the twin's relative literal on neoRootDir —
-        // identity of the trailing segment proves one shared literal, not two copies.
-        expect(plane.dataRoot.default.endsWith(PLANE_DEFAULTS.dataRootRelative)).toBe(true);
+        // Hard-coded: these two strings are the deployment contract every operator env file binds.
+        expect(plane.id.env).toBe('NEO_PLANE_ID');
+        expect(plane.dataRoot.env).toBe('NEO_PLANE_DATA_ROOT');
+
+        // The one shared literal, consumed by BOTH the leaf default and the coherence assertion.
+        expect(plane.id.default).toBe(CANONICAL_PLANE_ID);
+
+        // The anchor derives from neoRootDir, not from anything ambient.
         expect(plane.dataRoot.default).toBe(
-            path.resolve(ConfigBase.config.data.neoRootDir.default, PLANE_DEFAULTS.dataRootRelative)
+            path.resolve(ConfigBase.config.data.neoRootDir.default, '.neo-ai-data')
         )
-    });
-
-    test('resolver semantics match the leaf contract under a controlled env', () => {
-        // Equivalence pin, not a drift guard: for strings, the twin's truthiness check and the
-        // provider's emptiness partition are identical ('' is the only falsy string), so this
-        // pins a constructed equivalence on both branches rather than guarding a live channel.
-        const env = {[PLANE_ENV.planeId]: 'cloud-tenant-plane', [PLANE_ENV.dataRoot]: '/app/.neo-ai-data'};
-
-        expect(resolvePlaneId({env})).toBe('cloud-tenant-plane');
-        expect(resolvePlaneDataRoot({env})).toBe('/app/.neo-ai-data');
-
-        const bare = {};
-        expect(resolvePlaneId({env: bare})).toBe(ConfigBase.config.data.plane.id.default);
-        expect(resolvePlaneDataRoot({env: bare, rootDir: ConfigBase.config.data.neoRootDir.default}))
-            .toBe(ConfigBase.config.data.plane.dataRoot.default)
     });
 });
 
 test.describe('resolved-value opacity — the invariant on the values that vary', () => {
     const pathShapedRows = ['/abs/path/checkout', '../worktrees/seat-a', 'C:\\checkout', '.neo-ai-data'];
 
-    test('resolvePlaneId fails loud on every path-shaped override', () => {
-        for (const bad of pathShapedRows) {
-            expect(() => resolvePlaneId({env: {[PLANE_ENV.planeId]: bad}}), bad).toThrow('opaque')
-        }
-    });
-
     test('parsePlaneIdEnv: absent/empty defer to the default; valid passes; path-shaped throws', () => {
-        expect(parsePlaneIdEnv(PLANE_ENV.planeId, {env: {}})).toBeUndefined();
-        expect(parsePlaneIdEnv(PLANE_ENV.planeId, {env: {[PLANE_ENV.planeId]: ''}})).toBeUndefined();
-        expect(parsePlaneIdEnv(PLANE_ENV.planeId, {env: {[PLANE_ENV.planeId]: 'overlay-plane-a'}})).toBe('overlay-plane-a');
+        expect(parsePlaneIdEnv('NEO_PLANE_ID', {env: {}})).toBeUndefined();
+        expect(parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: ''}})).toBeUndefined();
+        expect(parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: 'overlay-plane-a'}})).toBe('overlay-plane-a');
 
         for (const bad of pathShapedRows) {
-            expect(() => parsePlaneIdEnv(PLANE_ENV.planeId, {env: {[PLANE_ENV.planeId]: bad}}), bad).toThrow('opaque')
+            expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: bad}}), bad).toThrow('opaque')
         }
     });
 
-    test('isOpaquePlaneId: one predicate behind the load guard, the resolver, and the env layer', () => {
-        expect(isOpaquePlaneId(PLANE_DEFAULTS.planeId)).toBe(true);
+    test('isOpaquePlaneId: one predicate behind the load guard and the leaf env layer', () => {
+        expect(isOpaquePlaneId(CANONICAL_PLANE_ID)).toBe(true);
         expect(isOpaquePlaneId('cloud-tenant-plane')).toBe(true);
         expect(isOpaquePlaneId('')).toBe(false);
         expect(isOpaquePlaneId(null)).toBe(false);
@@ -192,9 +186,9 @@ test.describe('assertPlaneCoherence — the F-invariant, both branches', () => {
     const canonical = '/durable/checkout/.neo-ai-data';
 
     test('standard boot: canonical identity passes and returns the frozen observed identity', () => {
-        const observed = assertPlaneCoherence({planeId: PLANE_DEFAULTS.planeId, dataRoot: canonical, canonicalDataRoot: canonical});
+        const observed = assertPlaneCoherence({planeId: CANONICAL_PLANE_ID, dataRoot: canonical, canonicalDataRoot: canonical});
 
-        expect(observed).toEqual({planeId: PLANE_DEFAULTS.planeId, dataRoot: canonical});
+        expect(observed).toEqual({planeId: CANONICAL_PLANE_ID, dataRoot: canonical});
         expect(Object.isFrozen(observed)).toBe(true)
     });
 
@@ -235,7 +229,7 @@ test.describe('assertPlaneCoherence — the F-invariant, both branches', () => {
 
     test('a relative dataRoot fails the internal-consistency clause', () => {
         expect(() => assertPlaneCoherence({
-            planeId          : PLANE_DEFAULTS.planeId,
+            planeId          : CANONICAL_PLANE_ID,
             dataRoot         : '.neo-ai-data',
             canonicalDataRoot: canonical
         })).toThrow('absolute')
@@ -308,7 +302,7 @@ test.describe('member coherence — a partially-moved plane fails closed', () =>
     });
 
     test('INTEGRATION: a Provider with ONLY NEO_PLANE_DATA_ROOT changed fails member coherence', () => {
-        process.env[PLANE_ENV.dataRoot] = path.join(os.tmpdir(), 'neo-relocated-plane-spec');
+        process.env.NEO_PLANE_DATA_ROOT = path.join(os.tmpdir(), 'neo-relocated-plane-spec');
 
         try {
             const isolated = createConfigProxy(Neo.create(ConfigProvider, {
@@ -331,7 +325,7 @@ test.describe('member coherence — a partially-moved plane fails closed', () =>
                 isolated.destroy()
             }
         } finally {
-            delete process.env[PLANE_ENV.dataRoot]
+            delete process.env.NEO_PLANE_DATA_ROOT
         }
     });
 
