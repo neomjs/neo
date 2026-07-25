@@ -102,11 +102,27 @@ services:
     # through the /app mount — lockstep by construction. Ephemeral/tmpfs Chroma remains
     # legitimate ONLY for an explicit overlay plane (distinct NEO_PLANE_ID, own project;
     # the F-invariant forbids an overlay resolving this durable root).
-    # ELECTION-SLOT: bind (current) vs named volume for the dev profile.
+    # ELECTION-SLOT RESOLVED (#15800): NAMED VOLUME, not a bind.
+    #
+    # The census decided it: the native profile has four live host runtime roles holding FDs
+    # on its root, so its bind is justified by measured consumers. The parity profile has
+    # ZERO host consumers, present or planned — AC-6 makes the orchestrator a service too, so
+    # the one known future consumer also rides the mount.
+    #
+    # INVARIANT, not a preference — this volume MUST stay Compose-MANAGED. Compose namespaces
+    # managed volumes by project (`neo-local-parity_parity-chroma` → `team-plane_parity-chroma`),
+    # which is what structurally prevents two stacks from mutating one plane. Two entirely legal
+    # one-line edits silently un-scope it and restore that failure: an explicit top-level `name:`,
+    # or `external: true`. Neither looks like a plane decision at the call site — someone adding
+    # `external: true` to reuse a volume is doing an ordinary thing. **A shared or externally
+    # managed volume is a RE-ELECTION, not an implementation detail.**
+    #
+    # Asserted, not merely stated: see the parity-profile volume-scoping spec. A decision whose
+    # correctness rests on a property nothing checks is the `toBe(10)` shape #15932 just retired.
     environment:
       - PERSIST_DIRECTORY=/chroma/unified
     volumes:
-      - ../../.neo-ai-data-parity/chroma/unified:/chroma/unified
+      - parity-chroma:/chroma/unified
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
@@ -219,3 +235,12 @@ networks:
   # native stack and other planes.
   neo-parity-network:
     driver: bridge
+
+# Compose-MANAGED by construction — the EMPTY body is the invariant, not an omission.
+# Adding a top-level `name:` or `external: true` here is legal Compose and silently un-scopes
+# the volume from the project, restoring the duplicate-stacks-on-one-plane failure the named
+# volume was elected to prevent (#15800). Neither reads as a plane decision at the call site.
+# The parity-profile spec asserts both keys are ABSENT, so the property this rests on is checked
+# rather than described.
+volumes:
+  parity-chroma: {}
