@@ -1,3 +1,48 @@
+// The token bridge lives at the VIEWPORT, not the workspace.
+//
+// Workstation owns its palette (`--workstation-*`, defined globally per skin under
+// `:root .neo-theme-*`), but generic grid/tab primitives read Neo's own token names. The block
+// below is the bridge between the two, and its scope decides who gets styled: every boot mode
+// carries `.workstation-viewport`, while only the default mode mounts `.workstation-workspace`.
+//
+// The `?popout=` vessel is a viewport WITHOUT a workspace — it hosts a torn-out live pane bare
+// (Workstation.view.Viewport#onConstructed). While the bridge sat on `.workstation-workspace`,
+// that vessel inherited the palette but not the mapping, so every grid/tab token fell back to its
+// stock Neo default: cell backgrounds resolved to the ground colour, the pane dissolved into its
+// own backdrop, and the result read as unstyled text on a default background even though the
+// theme class and every component stylesheet were present. Bridging at the viewport keeps the
+// layering honest — global palette → viewport bridge → component consumption — and the vessel
+// inherits it without pretending to be a workspace.
+.workstation-viewport {
+    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
+    // palette in both skins instead of leaking their default blue/purple values.
+    --grid-container-border-color              : var(--workstation-line);
+    --grid-container-cell-background-color     : var(--workstation-panel);
+    --grid-container-cell-background-color-even: var(--workstation-panel-2);
+    --grid-container-color                     : var(--workstation-ink-dim);
+    --grid-container-header-cell-border-bottom : 1px solid var(--workstation-line);
+    --grid-cell-background-color-hover          : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --grid-cell-progress-active-color           : var(--workstation-signal);
+    --grid-cell-progress-track-color            : var(--workstation-line);
+    --grid-header-button-background-color       : var(--workstation-panel-2);
+    --grid-header-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --grid-header-button-color                  : var(--workstation-ink);
+    --grid-header-button-color-hover            : var(--workstation-ink);
+    --grid-header-button-glyph-color            : var(--workstation-ink-dim);
+    --grid-header-button-glyph-color-hover      : var(--workstation-signal);
+    // Header buttons use row-reverse to keep their sort glyph after the label. `flex-end`
+    // therefore means physical left/start alignment for the complete label + glyph group.
+    --grid-header-button-justify-content        : flex-end;
+    --grid-header-button-padding                : 0 10px;
+    --tab-button-background-color               : transparent;
+    --tab-button-background-color-active        : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-button-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-button-glyph-color                    : var(--workstation-ink-dim);
+    --tab-button-text-color                     : var(--workstation-ink-dim);
+    --tab-indicator-background-color-active     : var(--workstation-signal);
+    --tab-strip-background-color                : var(--workstation-panel-2);
+}
+
 .workstation-viewport.neo-viewport {
     background: var(--workstation-ground);
 }
