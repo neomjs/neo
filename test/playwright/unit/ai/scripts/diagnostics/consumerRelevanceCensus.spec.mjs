@@ -3,6 +3,8 @@ import {
     classifyPath,
     classifyPr,
     parseSquashSubject,
+    REPORT_WINDOW,
+    resolveWindow,
     summarize
 } from '../../../../../../ai/scripts/diagnostics/consumerRelevanceCensus.mjs';
 import {
@@ -92,5 +94,30 @@ test.describe('consumer-relevance census', () => {
         expect(monthly['2026-06']['unclassified']).toBe(1);
         expect(unclassified).toHaveLength(1);
         expect(unclassified[0].pr).toBe('3')
+    });
+
+    test('resolveWindow: no flags pins to REPORT_WINDOW, never the clock (the re-run invariant)', () => {
+        // A bare invocation must reproduce the committed artifact's window — a clock default
+        // would make the window a hidden moving input and void the re-run claim.
+        expect(resolveWindow([])).toEqual(REPORT_WINDOW);
+        expect(resolveWindow(['--json', 'x.json'])).toEqual(REPORT_WINDOW);
+
+        // Explicit flags pin their end only; the other end stays on the artifact window.
+        expect(resolveWindow(['--until', '2026-08-01']))
+            .toEqual({since: REPORT_WINDOW.since, until: '2026-08-01'});
+        expect(resolveWindow(['--since', '2026-01-01', '--until', '2026-02-01']))
+            .toEqual({since: '2026-01-01', until: '2026-02-01'})
+    });
+
+    test('re-run determinism: the same corpus + mapping classifies byte-identically twice', () => {
+        const records = [
+            {date: '2026-07-01T00:00:00Z', pr: '1', subject: 'a', files: ['src/data/Store.mjs']},
+            {date: '2026-07-02T00:00:00Z', pr: '2', subject: 'b', files: ['apps/agentos/view/FleetCockpit.mjs', 'src/grid/Container.mjs']},
+            {date: '2026-06-03T00:00:00Z', pr: '3', subject: 'c', files: ['some/random/thing.xyz']}
+        ];
+
+        const run = () => summarize(records.map(record => ({...record, ...classifyPr(record.files)})));
+
+        expect(JSON.stringify(run())).toBe(JSON.stringify(run()))
     });
 });

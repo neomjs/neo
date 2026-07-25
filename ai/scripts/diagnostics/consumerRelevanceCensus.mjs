@@ -25,12 +25,23 @@
  *    the appendix table; the archive lives under `resources/content/issues/**`. Classification
  *    itself is path-based — labels are display context, never a second classifier.
  *
- * The output is dated and deterministic for a fixed range + mapping: the same inputs always produce
- * the same distribution, so a changed number means the corpus or the mapping changed — never the method.
+ * The output is dated and deterministic for a fixed window + mapping: the same inputs always
+ * produce the same distribution, so a changed number means the corpus or the mapping changed —
+ * never the method. The default window is PINNED to the committed artifact (`REPORT_WINDOW`), so a
+ * bare re-run is the regression check for that report. A clock-derived default would make the
+ * window itself a hidden moving input — re-runs a day (or a timezone) apart would measure
+ * different ranges while the doc above invites blaming the corpus — so freshness is always an
+ * explicit flag, never a default.
  *
  * Usage:
  *   node ai/scripts/diagnostics/consumerRelevanceCensus.mjs [--since YYYY-MM-DD] [--until YYYY-MM-DD]
  *        [--json <path>] [--out <path>]
+ *
+ * No flags: reproduce the committed artifact's window (REPORT_WINDOW). Fresh window: pass the
+ * flags — e.g. `--until $(date -u +%Y-%m-%dT%H:%M:00Z)` for a run anchored at now. Date-only flags
+ * work but are interpreted by git as end-of-day in the HOST'S LOCAL zone (fine for interactive
+ * reading; use UTC instants when two seats must measure the identical corpus). The report header
+ * always names the window measured.
  */
 import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
@@ -43,6 +54,34 @@ import {
 } from './consumerRelevanceMap.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+/**
+ * The committed artifact's window (`resources/data/reports/consumer-relevance-2026-07-25.*`) and
+ * the default for a bare invocation — the pin that makes the re-run invariant true: re-running
+ * with no flags regenerates that report's distribution on an unchanged corpus, so the artifact is
+ * its own regression baseline. Both ends are explicit UTC instants, never bare dates: git parses a
+ * date-only `--until` as END of that day in the host's LOCAL zone, so a date string leaves the
+ * corpus open for the rest of the local day AND shifts the measured instant across host zones —
+ * the two hidden moving inputs the pin exists to remove. `until` is the generation cutoff, so the
+ * window is closed by construction. Update both ends only when committing a new artifact.
+ * @type {{since: String, until: String}}
+ */
+export const REPORT_WINDOW = {since: '2026-02-25T00:00:00Z', until: '2026-07-25T17:52:00Z'};
+
+/**
+ * Resolves the census window from CLI args. Flags win; anything unpinned falls back to
+ * REPORT_WINDOW — never to the clock (see the module doc: a clock default is a hidden moving input).
+ * @param {String[]} args process.argv.slice(2)
+ * @returns {{since: String, until: String}}
+ */
+export function resolveWindow(args) {
+    const read = flag => args.includes(flag) ? args[args.indexOf(flag) + 1] : null;
+
+    return {
+        since: read('--since') ?? REPORT_WINDOW.since,
+        until: read('--until') ?? REPORT_WINDOW.until
+    }
+}
 
 /**
  * Parses the squash-merge subject form `... (#TICKET) (#PR)`.
@@ -191,12 +230,11 @@ export function buildIssueLabelIndex(archiveRoot = path.join(repoRoot, 'resource
 }
 
 function main() {
-    const args    = process.argv.slice(2),
-          read    = flag => args.includes(flag) ? args[args.indexOf(flag) + 1] : null,
-          until   = read('--until') ?? new Date().toISOString().slice(0, 10),
-          since   = read('--since') ?? new Date(Date.now() - 150 * 864e5).toISOString().slice(0, 10),
-          jsonOut = read('--json'),
-          mdOut   = read('--out');
+    const args           = process.argv.slice(2),
+          read           = flag => args.includes(flag) ? args[args.indexOf(flag) + 1] : null,
+          {since, until} = resolveWindow(args),
+          jsonOut        = read('--json'),
+          mdOut          = read('--out');
 
     const records                         = readMergedPrs({since, until}).map(record => ({...record, ...classifyPr(record.files)})),
           {totals, monthly, unclassified} = summarize(records),

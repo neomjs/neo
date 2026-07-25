@@ -70,9 +70,10 @@ export const SUBSYSTEMS = {
 };
 
 /**
- * Longest-prefix path rules, first match wins. A file that matches NO rule lands in `unclassified`
- * with the path attached — an honest row, never a silent omission. Order matters only for
- * prefixes that nest; keep nested prefixes BEFORE their parents.
+ * Longest-prefix path rules. A file that matches NO rule lands in `unclassified` with the path
+ * attached — an honest row, never a silent omission. `classifyPath` resolves by prefix-length sort,
+ * so nesting needs NO ordering discipline: the longest matching prefix wins wherever it sits in
+ * this array. Keep the array roughly grouped for the human editor; order carries no semantics.
  * @type {Array<{prefix: String, subsystem: String}>}
  */
 export const PATH_RULES = [
@@ -98,7 +99,6 @@ export const PATH_RULES = [
     {prefix: 'ai/agent/',                       subsystem: 'fleet-tooling'},
     {prefix: 'ai/scripts/',                     subsystem: 'ci-test-infra'},
     {prefix: 'ai/',                             subsystem: 'skill-machinery'},
-    {prefix: '.agents/',                        subsystem: 'skill-machinery'},
     {prefix: '.github/',                        subsystem: 'ci-test-infra'},
     {prefix: '.claude/',                        subsystem: 'skill-machinery'},
     {prefix: '.codex/',                         subsystem: 'skill-machinery'},

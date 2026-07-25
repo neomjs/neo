@@ -1,18 +1,18 @@
-# Consumer-Relevance Census — merged PRs, 2026-02-25 → 2026-07-25
+# Consumer-Relevance Census — merged PRs, 2026-02-25T00:00:00Z → 2026-07-25T17:52:00Z
 
-Generated: 2026-07-25T16:30:24.910Z · corpus: `git log origin/dev --name-only` · mapping: `ai/scripts/diagnostics/consumerRelevanceMap.mjs`
+Generated: 2026-07-25T17:53:23.058Z · corpus: `git log origin/dev --name-only` · mapping: `ai/scripts/diagnostics/consumerRelevanceMap.mjs`
 Re-runnable and deterministic for a fixed range + mapping. **No single relevance percentage is computed anywhere** — the deliverable is the distribution and the mapping; necessity judgment is the reader's, permanently.
 
 ## Distribution
 
 | Bucket | PRs |
 |---|---|
-| consumer-enabling | 1568 |
-| consumer-direct:now | 526 |
+| consumer-enabling | 1571 |
+| consumer-direct:now | 527 |
 | internal-only | 303 |
-| consumer-direct:future-direct | 117 |
+| consumer-direct:future-direct | 118 |
 | unclassified | 1 |
-| **total** | **2515** |
+| **total** | **2520** |
 
 ## Per-month trend
 
@@ -22,7 +22,7 @@ Re-runnable and deterministic for a fixed range + mapping. **No single relevance
 | 2026-04 | 0 | 77 | 137 | 22 | 0 |
 | 2026-05 | 0 | 118 | 497 | 81 | 0 |
 | 2026-06 | 27 | 200 | 598 | 124 | 1 |
-| 2026-07 | 90 | 130 | 336 | 73 | 0 |
+| 2026-07 | 91 | 131 | 339 | 73 | 0 |
 
 ## Unclassified (1)
 
@@ -33,6 +33,11 @@ PRs whose touched files match no mapping rule — listed, never silently omitted
 
 | PR | Date | Bucket | Subsystem | Ticket labels | Files |
 |---|---|---|---|---|---|
+| 15918 | 2026-07-25 | consumer-enabling | ci-test-infra | — | 2 |
+| 15916 | 2026-07-25 | consumer-direct:future-direct | fleet-tooling | — | 2 |
+| 15922 | 2026-07-25 | consumer-enabling | ci-test-infra | — | 5 |
+| 15914 | 2026-07-25 | consumer-enabling | ci-test-infra | — | 9 |
+| 15917 | 2026-07-25 | consumer-direct:now | app-engine | — | 2 |
 | 15898 | 2026-07-25 | consumer-enabling | skill-machinery | — | 8 |
 | 15911 | 2026-07-25 | consumer-enabling | skill-machinery | — | 3 |
 | 15840 | 2026-07-25 | internal-only | portal-internal | documentation, enhancement, ai, '[ ] 15248 DragCoordinator teardown hygiene: exact-once cleanup across gesture terminals', '[ ] 15207 Workstation drag-affordance layers: DockPreview + DockDropIndicators overlay siblings', '[ ] 15245 Popup acquisition contract: platform defaults from the measured matrix', '[ ] 15247 Whole-stack reintegration and the vessel close policy', '[ ] 15246 Workspace-set composition, continuous remote preview, claim arbitration', The five beats (the epic body): tear-out → convert-while-dragging → popup-over-popup previews → dock-in-popup → whole-stack reintegration with self-closing vessel. | 4 |
