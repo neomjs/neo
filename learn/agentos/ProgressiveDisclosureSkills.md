@@ -70,10 +70,11 @@ flowchart TD
 ```
 
 ### 1. `ticket-intake` (The Pre-Execution Reflection Gate)
-Invoked immediately upon picking up a ticket, before any code is written.
+Invoked immediately upon picking up a ticket whose authoring the agent did not see, before any code is written.
 - **Validation Sweep:** Forces the agent to ensure the ticket has enough architectural context to be actionable.
 - **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates Neo's engine and organism philosophy.
 - **Rejection Protocol:** If a ticket is fatally flawed, the agent applies a `status: needs-re-triage` label, suspending it gracefully rather than hallucinating bad code.
+- **The self-authored carve (the seen/unseen axis):** this gate is the consumption-side dual of `ticket-create`, so when the creation-side gate ran *in the agent's own context window* the full payload merely re-derives its own reasoning. A ticket authored **this session** is exempt; one authored in an **earlier session** runs a `git log origin/dev --since=<createdAt>` drift probe intersected with the ticket's declared surface, escalating to the full gate only on a non-empty intersection. Wall-clock age is explicitly *not* the axis — `dev` takes 29–41 commits/day, so "24 hours" is 30–40 merges of drift. Every input is externally checkable (session identity, GitHub author, `git log`): an exemption resting on *"I judged this still valid"* is the loophole the carve replaces, because a gate an agent can talk itself out of is not a gate.
 
 ### 2. `pull-request` (The Post-Implementation Gate)
 Invoked when terminating a task.
@@ -129,7 +130,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, custom Playwright configs) |
 | `goal-scoping` | Lifecycle | Scope a GOAL into a few coherent owned LANES — the planning front-end of the epic lifecycle (goal→lanes, not scrap tickets; peers self-select; the planner defines goal+lanes, never assigns) |
 | `epic-create` | Lifecycle | Author Epic bodies (problem-scope + intended-solution; ACs in subs, not the body) |
-| `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
+| `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics — never on your own epic; a source-Discussion participant cites Stages 1–2, runs 2.5 from context, and runs 3–5 in full (the decomposition is a transformation they have not seen) |
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `update-roadmap` | Lifecycle | Post-release celebrate + plan-next-roadmap: cornerstones + rationale + explicit deferred set into a milestone with per-epic stewards (release-altitude analog of `epic-create`) |
 | `blog-post` | Lifecycle | Public hero-piece authoring: narrative arc, source-every-external-claim (verify-before-assert), kill the three over-claim flavors (superlative / universal / misleading-fraction), mandatory cross-family review (blog sibling of the release-notes methodology) |
