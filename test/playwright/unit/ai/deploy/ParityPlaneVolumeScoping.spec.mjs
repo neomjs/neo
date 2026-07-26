@@ -121,6 +121,69 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('both MCP servers share one rosterless provider-PAT declaration', () => {
+        const
+            providerAuth = compose['x-provider-auth-env'],
+            source       = fs.readFileSync(composePath, 'utf8');
+
+        expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — auth assertions would be vacuous').toBeGreaterThan(0);
+        expect(providerAuth).toMatchObject({
+            NEO_AUTH_MODE                           : 'github-pat',
+            NEO_AUTH_TRUST_PROXY_IDENTITY           : 'false',
+            NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT     : 'true',
+            NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: 'github-pat'
+        });
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_ALLOWED_USERS');
+        expect(providerAuth).not.toHaveProperty('NEO_MCP_LISTEN_HOST');
+
+        // Both consumers resolve one anchored FILE reference. The credential itself lives in one
+        // environment-backed Docker secret and therefore never appears in rendered config.
+        expect(providerAuth.NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE)
+            .toBe(providerAuth.NEO_MCP_HEALTHCHECK_TOKEN_FILE);
+        expect(providerAuth.NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE).toBe('/run/secrets/mcp-auth-token');
+        expect(compose.secrets?.['mcp-auth-token']).toEqual({environment: 'NEO_MCP_HEALTHCHECK_TOKEN'});
+        expect(source).toMatch(/NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE:\s*&provider-bootstrap-pat-file\s+\/run\/secrets\/mcp-auth-token/);
+        expect(source).toMatch(/NEO_MCP_HEALTHCHECK_TOKEN_FILE:\s*\*provider-bootstrap-pat-file\s*$/m);
+        expect(source).not.toMatch(/^\s+NEO_AUTH_PROVIDER_BOOTSTRAP_PAT:/m);
+        expect(source).not.toMatch(/^\s+NEO_MCP_HEALTHCHECK_TOKEN:/m);
+        expect(source).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
+
+        for (const service of mcpServices) {
+            const merges = compose.services[service].environment?.['<<'];
+
+            expect(Array.isArray(merges), `${service} does not merge the shared plane + provider-auth maps`).toBe(true);
+            expect(merges, `${service} restates or omits the provider-auth declaration`).toContain(providerAuth);
+            expect(compose.services[service].environment.NEO_MCP_LISTEN_HOST, `${service} binds its in-container listener to loopback`).toBeUndefined();
+            expect(compose.services[service].secrets).toContain('mcp-auth-token')
+        }
+
+        const
+            orchestratorEnvironment = JSON.stringify(compose.services?.orchestrator?.environment ?? {}),
+            orchestratorSecrets     = compose.services?.orchestrator?.secrets ?? [];
+
+        expect(orchestratorEnvironment).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
+        expect(orchestratorEnvironment).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+        expect(orchestratorSecrets).not.toContain('mcp-auth-token')
+    });
+
+    test('canonical MCP host publication is literal IPv4 loopback', () => {
+        const expectedPortByTarget = {
+            'knowledge-base': '127.0.0.1:3100:3000',
+            'memory-core'   : '127.0.0.1:3101:3001'
+        };
+
+        expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — port assertions would be vacuous').toBeGreaterThan(0);
+
+        for (const service of mcpServices) {
+            const
+                target       = compose.services[service].build.args.TARGET_SERVER,
+                expectedPort = expectedPortByTarget[target];
+
+            expect(expectedPort, `${service} has an unexpected TARGET_SERVER "${target}"`).toBeTruthy();
+            expect(compose.services[service].ports).toContain(expectedPort)
+        }
+    });
+
     test('the PLANE ROOT rides a named volume in every service, not the repo bind', () => {
         // The original assertion covered only Chroma — the one service whose mount I converted —
         // so it passed while the rest of the plane (WAL dirs, daemon state, sqlite) sat under the

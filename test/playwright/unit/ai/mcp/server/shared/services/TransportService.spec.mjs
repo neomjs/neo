@@ -14,11 +14,15 @@ setup({
 });
 
 import { test, expect } from '@playwright/test';
+import fs               from 'node:fs';
 import http             from 'http';
 import net              from 'net';
 import os               from 'os';
+import path             from 'node:path';
 import Neo              from '../../../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../../../src/core/_export.mjs';
+
+const noOpAuthMiddleware = (_req, _res, next) => next();
 
 test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
@@ -39,8 +43,13 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         };
 
         const testPort     = 3125;
-        const mockAiConfig = { mcpHttpHost: 'localhost', mcpHttpPort: testPort, auth: {} };
-        const mockLogger   = { info: () => {} };
+        const mockAiConfig = {
+            mcpHttpHost   : 'localhost',
+            mcpHttpPort   : testPort,
+            auth          : {},
+            authMiddleware: noOpAuthMiddleware
+        };
+        const mockLogger = { info: () => {} };
 
         // Setup the real transport service which starts the Express app
         await TransportService.setup({
@@ -110,8 +119,13 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
             mcpServer      : { connect: async () => {} },
             onSessionClosed: () => {}
         };
-        const mockAiConfig = { mcpHttpHost: 'localhost', mcpHttpPort: probePort, auth: {} };
-        const mockLogger   = { info: () => {} };
+        const mockAiConfig = {
+            mcpHttpHost   : 'localhost',
+            mcpHttpPort   : probePort,
+            auth          : {},
+            authMiddleware: noOpAuthMiddleware
+        };
+        const mockLogger = { info: () => {} };
 
         await TransportService.setup({
             server      : mockServer,
@@ -267,8 +281,14 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         // these mocks model the resolved contract instead of mutating process.env.
         test('uses aiConfig.publicUrl when set (wins over mcpHttpHost)', async () => {
             await TransportService.setup({
-                server      : { mcpServer: { connect: async () => {} } },
-                aiConfig    : { publicUrl: 'https://public.example.com', mcpHttpHost: 'internal-host', mcpHttpPort: 3000, auth: {} },
+                server  : { mcpServer: { connect: async () => {} } },
+                aiConfig: {
+                    publicUrl     : 'https://public.example.com',
+                    mcpHttpHost   : 'internal-host',
+                    mcpHttpPort   : 3000,
+                    auth          : {},
+                    authMiddleware: noOpAuthMiddleware
+                },
                 logger      : { info: () => {} },
                 resourceName: 'Test'
             });
@@ -278,8 +298,13 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
         test('falls back to mcpHttpHost and port when publicUrl is unset', async () => {
             await TransportService.setup({
-                server      : { mcpServer: { connect: async () => {} } },
-                aiConfig    : { mcpHttpHost: 'internal-host', mcpHttpPort: 3000, auth: {} },
+                server  : { mcpServer: { connect: async () => {} } },
+                aiConfig: {
+                    mcpHttpHost   : 'internal-host',
+                    mcpHttpPort   : 3000,
+                    auth          : {},
+                    authMiddleware: noOpAuthMiddleware
+                },
                 logger      : { info: () => {} },
                 resourceName: 'Test'
             });
@@ -289,8 +314,14 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
         test('falls back to mcpHttpHost and port when publicUrl is empty string', async () => {
             await TransportService.setup({
-                server      : { mcpServer: { connect: async () => {} } },
-                aiConfig    : { publicUrl: '', mcpHttpHost: 'internal-host', mcpHttpPort: 3000, auth: {} },
+                server  : { mcpServer: { connect: async () => {} } },
+                aiConfig: {
+                    publicUrl     : '',
+                    mcpHttpHost   : 'internal-host',
+                    mcpHttpPort   : 3000,
+                    auth          : {},
+                    authMiddleware: noOpAuthMiddleware
+                },
                 logger      : { info: () => {} },
                 resourceName: 'Test'
             });
@@ -331,6 +362,440 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
         test('ignores an unparseable publicUrl without throwing', () => {
             expect(TransportService.computeAllowedHosts({publicUrl: 'not a url'})).toEqual(['localhost', '127.0.0.1', '[::1]']);
+        });
+    });
+
+    /**
+     * @summary Guards the activation defect at Transport's consumed seam.
+     *
+     * AuthService owns legal-state discrimination. Transport must therefore delegate every HTTP
+     * boot, including later-added built-ins, instead of maintaining a subset that can drift.
+     */
+    test.describe('unconditional AuthService activation', () => {
+        let TransportService, AuthService;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+            AuthService      = (await import('../../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default
+        });
+
+        test.afterEach(async () => {
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports = new Map();
+            TransportService.mcpServers = new Map()
+        });
+
+        test('delegates github-pat and seat-token boots without a hand-maintained mode predicate', async () => {
+            const
+                originalSetup = AuthService.setup,
+                calls         = [];
+
+            AuthService.setup = async ({aiConfig}) => {
+                calls.push(aiConfig.auth.mode)
+            };
+
+            try {
+                for (const mode of ['github-pat', 'seat-token']) {
+                    await TransportService.setup({
+                        server: {
+                            mcpServer      : {connect: async () => {}},
+                            onSessionClosed: () => {}
+                        },
+                        aiConfig: {
+                            mcpHttpHost: '127.0.0.1',
+                            mcpHttpPort: 0,
+                            auth       : {mode}
+                        },
+                        logger      : {info: () => {}, warn: () => {}, error: () => {}},
+                        resourceName: `Activation-${mode}`
+                    });
+
+                    await new Promise((resolve, reject) => {
+                        TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                    });
+
+                    TransportService.app        = null;
+                    TransportService.httpServer = null
+                }
+            } finally {
+                AuthService.setup = originalSetup
+            }
+
+            expect(calls).toEqual(['github-pat', 'seat-token'])
+        });
+
+        test('does not create or open the HTTP server until AuthService setup resolves', async () => {
+            const originalSetup = AuthService.setup;
+
+            let
+                releaseAuth,
+                markAuthEntered;
+
+            const authEntered = new Promise(resolve => {
+                markAuthEntered = resolve
+            });
+
+            AuthService.setup = async () => {
+                markAuthEntered();
+                await new Promise(resolve => {
+                    releaseAuth = resolve
+                })
+            };
+
+            try {
+                const setupPromise = TransportService.setup({
+                    server: {
+                        mcpServer      : {connect: async () => {}},
+                        onSessionClosed: () => {}
+                    },
+                    aiConfig: {
+                        mcpHttpHost: '127.0.0.1',
+                        mcpHttpPort: 0,
+                        auth       : {mode: 'github-pat'}
+                    },
+                    logger      : {info: () => {}, warn: () => {}, error: () => {}},
+                    resourceName: 'Activation-before-listen'
+                });
+
+                await authEntered;
+
+                expect(TransportService.httpServer?.listening).not.toBe(true);
+
+                releaseAuth();
+                await setupPromise;
+
+                expect(TransportService.httpServer?.listening).toBe(true)
+            } finally {
+                releaseAuth?.();
+                AuthService.setup = originalSetup
+            }
+        });
+    });
+
+    /**
+     * @summary Consumed HTTP proof for the rosterless GitHub-PAT admission profile.
+     *
+     * Provider validation establishes the process pin before Transport creates a listener.
+     * Requests then cross the real SDK bearer middleware and Express route: the pinned subject
+     * can initialize MCP, while a second valid provider subject receives 401 before connect,
+     * transport creation, or session-id issuance.
+     */
+    test.describe('first-provider-subject HTTP ingress', () => {
+        let TransportService, McpServer, originalFetch;
+
+        const logger = {info: () => {}, warn: () => {}, error: () => {}};
+
+        function authConfig(bootstrapPat = 'bootstrap-pat') {
+            return {
+                mcpHttpHost  : '127.0.0.1',
+                mcpListenHost: '127.0.0.1',
+                mcpHttpPort  : 0,
+                auth         : {
+                    mode                   : 'github-pat',
+                    host                   : null,
+                    issuerUrl              : null,
+                    trustProxyIdentity     : false,
+                    githubApiBaseUrl       : 'https://api.github.test',
+                    patCacheTtlSeconds     : 300,
+                    patValidationTimeoutMs : 5000,
+                    allowedUsers           : [],
+                    allowedClientIds       : [],
+                    pinFirstProviderSubject: true,
+                    providerBootstrapPat   : bootstrapPat
+                }
+            }
+        }
+
+        function initializeBody() {
+            return {
+                jsonrpc: '2.0',
+                id     : 1,
+                method : 'initialize',
+                params : {
+                    protocolVersion: '2024-11-05',
+                    capabilities   : {},
+                    clientInfo     : {name: 'provider-pat-ingress-test', version: '1.0.0'}
+                }
+            }
+        }
+
+        function mockProviderUsers() {
+            globalThis.fetch = async (url, options) => {
+                if (!String(url).startsWith('https://api.github.test/')) {
+                    return originalFetch(url, options)
+                }
+
+                const
+                    token = options.headers.Authorization.replace(/^Bearer /, ''),
+                    login = token === 'outsider-pat' ? 'other-user' : 'neo-gpt';
+
+                return {
+                    ok     : true,
+                    headers: {get: () => ''},
+                    json   : async () => ({id: login === 'neo-gpt' ? 1 : 2, login})
+                }
+            }
+        }
+
+        async function setupPinned(server) {
+            await TransportService.setup({
+                server,
+                aiConfig    : authConfig(),
+                logger,
+                resourceName: 'ProviderPatIngressTest'
+            });
+
+            return TransportService.httpServer.address().port
+        }
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+            McpServer        = (await import('@modelcontextprotocol/sdk/server/mcp.js')).McpServer
+        });
+
+        test.beforeEach(() => {
+            originalFetch = globalThis.fetch;
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports = new Map();
+            TransportService.mcpServers = new Map()
+        });
+
+        test.afterEach(async () => {
+            globalThis.fetch = originalFetch;
+
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        });
+
+        test('an invalid bootstrap PAT prevents listener creation', async () => {
+            globalThis.fetch = async url => {
+                if (String(url).startsWith('https://api.github.test/')) {
+                    return {ok: false, status: 401, headers: {get: () => ''}, json: async () => ({})}
+                }
+
+                return originalFetch(url)
+            };
+
+            await expect(TransportService.setup({
+                server      : {mcpServer: {connect: async () => {}}, onSessionClosed: () => {}},
+                aiConfig    : authConfig('invalid-bootstrap-pat'),
+                logger,
+                resourceName: 'InvalidProviderPatBootstrap'
+            })).rejects.toThrow('GitHub PAT validation failed (HTTP 401)');
+
+            expect(TransportService.httpServer?.listening).not.toBe(true)
+        });
+
+        test('an unauthenticated GitHub-PAT initialize is challenged before MCP dispatch', async () => {
+            mockProviderUsers();
+
+            let connectCalls = 0;
+
+            const
+                port     = await setupPinned({
+                    mcpServer: {
+                        connect: async () => {
+                            connectCalls++
+                        }
+                    },
+                    onSessionClosed: () => {}
+                }),
+                response = await originalFetch(`http://127.0.0.1:${port}/mcp`, {
+                    method : 'POST',
+                    headers: {
+                        Accept        : 'application/json, text/event-stream',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(initializeBody())
+                }),
+                challenge = response.headers.get('www-authenticate') || '';
+
+            expect(response.status).toBe(401);
+            expect(challenge).toContain('Bearer');
+            expect(challenge).not.toContain('resource_metadata');
+            expect(response.headers.get('mcp-session-id')).toBeNull();
+            expect(connectCalls).toBe(0);
+            expect(TransportService.transports.size).toBe(0)
+        });
+
+        test('the pinned provider subject can initialize a real MCP session', async () => {
+            mockProviderUsers();
+
+            const
+                mcpServer = new McpServer({name: 'provider-pat-ingress-test', version: '1.0.0'}),
+                port      = await setupPinned({mcpServer, onSessionClosed: () => {}}),
+                response  = await originalFetch(`http://127.0.0.1:${port}/mcp`, {
+                    method : 'POST',
+                    headers: {
+                        Accept        : 'application/json, text/event-stream',
+                        Authorization : 'Bearer same-subject-pat',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(initializeBody())
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.headers.get('mcp-session-id')).toBeTruthy()
+        });
+
+        test('a second valid provider subject is denied before MCP dispatch or session creation', async () => {
+            mockProviderUsers();
+
+            let connectCalls = 0;
+
+            const
+                port     = await setupPinned({
+                    mcpServer: {
+                        connect: async () => {
+                            connectCalls++
+                        }
+                    },
+                    onSessionClosed: () => {}
+                }),
+                response = await originalFetch(`http://127.0.0.1:${port}/mcp`, {
+                    method : 'POST',
+                    headers: {
+                        Accept        : 'application/json, text/event-stream',
+                        Authorization : 'Bearer outsider-pat',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(initializeBody())
+                });
+
+            expect(response.status).toBe(401);
+            expect(response.headers.get('mcp-session-id')).toBeNull();
+            expect(connectCalls).toBe(0);
+            expect(TransportService.transports.size).toBe(0)
+        });
+    });
+
+    /**
+     * @summary Consumed HTTP activation proof for the registry-backed seat-token strategy.
+     *
+     * A provisioned registry is a boot gate, but a caller still has to present a bearer before
+     * Transport may dispatch `initialize`, allocate a transport, or issue a session id.
+     */
+    test.describe('seat-token HTTP ingress', () => {
+        let TransportService, buildSeatTokenRegistry, mintSeatToken, writeSeatTokenRegistry;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+
+            const helpers = await import('../../../../../../../../ai/mcp/server/shared/helpers/seatToken.mjs');
+
+            buildSeatTokenRegistry = helpers.buildSeatTokenRegistry;
+            mintSeatToken          = helpers.mintSeatToken;
+            writeSeatTokenRegistry = helpers.writeSeatTokenRegistry
+        });
+
+        test.beforeEach(() => {
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports = new Map();
+            TransportService.mcpServers = new Map()
+        });
+
+        test.afterEach(async () => {
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        });
+
+        test('an unauthenticated initialize receives a naked bearer challenge and no session', async () => {
+            const
+                planeId  = 'seat-token-http-ingress',
+                tempDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-seat-token-ingress-')),
+                filePath = path.join(tempDir, 'registry.json'),
+                {row}    = mintSeatToken({agentIdentityNodeId: 'AGENT_IDENTITY:@neo-test-seat'});
+
+            writeSeatTokenRegistry(filePath, buildSeatTokenRegistry({
+                planeId,
+                generation: 1,
+                rows      : [row]
+            }));
+
+            let connectCalls = 0;
+
+            try {
+                await TransportService.setup({
+                    server: {
+                        mcpServer: {
+                            connect: async () => {
+                                connectCalls++
+                            }
+                        },
+                        onSessionClosed: () => {}
+                    },
+                    aiConfig: {
+                        mcpHttpHost  : '127.0.0.1',
+                        mcpListenHost: '127.0.0.1',
+                        mcpHttpPort  : 0,
+                        plane        : {id: planeId},
+                        auth         : {
+                            mode                   : 'seat-token',
+                            pinFirstProviderSubject: false,
+                            seatTokenRegistryPath  : filePath,
+                            trustProxyIdentity     : false
+                        }
+                    },
+                    logger      : {info: () => {}, warn: () => {}, error: () => {}},
+                    resourceName: 'SeatTokenIngressTest'
+                });
+
+                const
+                    port     = TransportService.httpServer.address().port,
+                    response = await fetch(`http://127.0.0.1:${port}/mcp`, {
+                        method : 'POST',
+                        headers: {
+                            Accept        : 'application/json, text/event-stream',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            id     : 1,
+                            method : 'initialize',
+                            params : {
+                                protocolVersion: '2024-11-05',
+                                capabilities   : {},
+                                clientInfo     : {name: 'seat-token-ingress-test', version: '1.0.0'}
+                            }
+                        })
+                    }),
+                    challenge = response.headers.get('www-authenticate') || '';
+
+                expect(response.status).toBe(401);
+                expect(challenge).toContain('Bearer');
+                expect(challenge).not.toContain('resource_metadata');
+                expect(response.headers.get('mcp-session-id')).toBeNull();
+                expect(connectCalls).toBe(0);
+                expect(TransportService.transports.size).toBe(0)
+            } finally {
+                fs.rmSync(tempDir, {recursive: true, force: true})
+            }
         });
     });
 

@@ -92,6 +92,21 @@ x-plane-env: &plane-env
   # explicit placement here is coherence-valid either way.
   NEO_MEMORY_DB_PATH: /app/.neo-ai-data-parity/sqlite/memory-core-graph.sqlite
 
+# Canonical direct-local authentication profile. Ordinary forks have no generated roster, so the
+# bounded fallback is explicit rather than overloading an empty `allowedUsers`: publish MCP only
+# on host loopback, validate one operator/seat PAT before listen, and pin that provider login for
+# the process lifetime. The authenticated health probe presents the SAME PAT after boot; it cannot
+# claim a synthetic second subject. One YAML scalar owns both FILE references so rotation cannot
+# update bootstrap while silently leaving readiness behind, while `docker compose config` never
+# renders the credential.
+x-provider-auth-env: &provider-auth-env
+  NEO_AUTH_MODE: github-pat
+  NEO_AUTH_TRUST_PROXY_IDENTITY: "false"
+  NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "true"
+  NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat
+  NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE: &provider-bootstrap-pat-file /run/secrets/mcp-auth-token
+  NEO_MCP_HEALTHCHECK_TOKEN_FILE: *provider-bootstrap-pat-file
+
 services:
   chroma:
     image: chromadb/chroma:1.5.9
@@ -157,7 +172,7 @@ services:
         NEO_SOURCE: local  # build the local checkout for dev iteration, not a remote clone
         TARGET_SERVER: knowledge-base
     environment:
-      <<: *plane-env
+      <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
       NEO_AUTO_SYNC: "false"
       NEO_KB_AUTO_START_DATABASE: "false"
@@ -212,9 +227,11 @@ services:
         condition: service_healthy
     networks:
       - neo-parity-network
+    secrets:
+      - mcp-auth-token
     ports:
       # ELECTION-SLOT: parity port band. Provisional 31xx — disjoint from native :3000.
-      - "3100:3000"
+      - "127.0.0.1:3100:3000"
 
   mc-server:
     build:
@@ -224,7 +241,7 @@ services:
         NEO_SOURCE: local  # build the local checkout for dev iteration, not a remote clone
         TARGET_SERVER: memory-core
     environment:
-      <<: *plane-env
+      <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
       NEO_MC_PRIMARY: "false"
       NEO_AUTO_SUMMARIZE: "false"
@@ -275,9 +292,11 @@ services:
         condition: service_healthy
     networks:
       - neo-parity-network
+    secrets:
+      - mcp-auth-token
     ports:
       # ELECTION-SLOT: parity port band. Provisional 31xx — disjoint from native :3001.
-      - "3101:3001"
+      - "127.0.0.1:3101:3001"
 
   # The maintenance orchestrator — the THIRD Tier-1 plane consumer, and the one that makes this
   # profile a complete plane rather than two servers on a shared root. Lifted from the production
@@ -358,3 +377,10 @@ networks:
 volumes:
   parity-chroma: {}
   parity-plane: {}
+
+# Environment-backed secret: the host exports the PAT once, Compose materializes it as a mounted
+# file only for the two MCP servers, and rendered config retains the env VAR NAME rather than its
+# value. The maintenance orchestrator never receives or mounts the credential.
+secrets:
+  mcp-auth-token:
+    environment: NEO_MCP_HEALTHCHECK_TOKEN
