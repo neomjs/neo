@@ -380,6 +380,97 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         expect(failed[0].error.message).toContain('poison');
     });
 
+    test('embedBatch: provider contention yields the cycle — one attempt, no isolation pass (#16012)', async () => {
+        const records    = ['x', 'y', 'z'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   slept      = 0;
+
+        collection.onAdd = () => {
+            addCalls++;
+            const error = new Error('openAiCompatible request timed out after 300000ms');
+
+            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            throw error;
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => { slept++; },
+            log          : () => {}
+        });
+
+        // Pre-fix this was 6 whole-batch attempts plus a 3-record isolation pass = 9 offered
+        // requests to a provider whose queue was already the reason the first one timed out.
+        expect(addCalls).toBe(1);
+        expect(slept).toBe(0);
+
+        // Deferred, not dropped: the caller spaces these via the cross-cycle retryState cooldown.
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
+        expect(failed[0].error.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+    });
+
+    test('embedBatch: native-Ollama PROVIDER_TIMEOUT is the same contention class (#16012)', async () => {
+        const records    = [{...record('a', Date.now()), segmentKey: 'unused'}];
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+
+        collection.onAdd = () => {
+            addCalls++;
+            const error = new Error('embedding request timed out');
+
+            error.code = 'PROVIDER_TIMEOUT';
+            throw error;
+        };
+
+        await embedBatch({
+            collection,
+            records,
+            maxRetries   : 3,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {}
+        });
+
+        // The classifier must not be OpenAI-compatible-only, or the native provider keeps amplifying.
+        expect(addCalls).toBe(1);
+    });
+
+    test('embedBatch: a NON-contention failure still retries and still isolates (control, #16012)', async () => {
+        const records    = ['x', 'y'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   batchCalls = 0;
+        let   slept      = 0;
+
+        collection.onAdd = ({ids}) => {
+            if (ids.length > 1) {
+                batchCalls++;
+                throw new Error('malformed payload (spec) — not a timeout');
+            }
+
+            if (ids.includes('y')) throw new Error('y is poison (spec)');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 2,
+            backoffBaseMs: 1,
+            sleep        : async () => { slept++; },
+            log          : () => {}
+        });
+
+        // Without this control the fix could trade amplification for a silently-skipped retry path.
+        expect(batchCalls).toBe(3);
+        expect(slept).toBe(2);
+        expect(succeeded.map(r => r.id)).toEqual(['x']);
+        expect(failed.map(entry => entry.record.id)).toEqual(['y']);
+    });
+
     test('getBackoffDelayMs caps at MAX_RECORD_COOLDOWN_MS', () => {
         expect(getBackoffDelayMs(1000, 0)).toBe(1000);
         expect(getBackoffDelayMs(1000, 3)).toBe(8000);

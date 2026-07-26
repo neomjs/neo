@@ -63,12 +63,52 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
 }
 
 /**
+ * @summary Typed provider error codes meaning "the provider is BUSY", never "the request was bad".
+ *
+ * Both local inference providers stamp a code on their own timeout: the OpenAI-compatible transport
+ * emits `OPENAI_COMPATIBLE_REQUEST_TIMEOUT`, native Ollama owns the shared `PROVIDER_TIMEOUT` shape,
+ * and the socket layer contributes the two `*TIMEDOUT` codes. Keyed on `error.code` rather than on
+ * message text: codes are a provider-owned protocol constant, whereas the message-shaped half of
+ * the classification in `TextEmbeddingService` is coupled to a message THIS module never sees
+ * (that file pins its own log string verbatim precisely because its regex reads it). Duplicating
+ * the coupled half here would split a matched pair across modules; duplicating the codes does not.
+ * @type {Set<String>}
+ */
+const PROVIDER_CONTENTION_CODES = Object.freeze(new Set([
+    'ESOCKETTIMEDOUT',
+    'ETIMEDOUT',
+    'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+    'PROVIDER_TIMEOUT'
+]));
+
+/**
+ * @summary Default contention predicate — is this failure the provider being saturated?
+ * @param {Error} error Failure raised by `collection.add`.
+ * @returns {Boolean}
+ */
+export function isProviderContentionError(error) {
+    return PROVIDER_CONTENTION_CODES.has(error?.code);
+}
+
+/**
  * @summary Embeds one batch of WAL records via `collection.add`, retrying transient failures.
  *
  * Whole-batch first (one round-trip for the common case), with `maxRetries` exponential-backoff
  * attempts for transient outages. If the batch still fails, falls back to per-record adds so a
  * single poison record cannot hold the rest of the backlog hostage — per-record failures are
  * reported back for cross-cycle cooldown bookkeeping rather than retried inline.
+ *
+ * **Contention is not an outage, and the two need opposite responses.** A transient outage resolves
+ * while you wait, so backoff is correct: the cost of the failure is the INTERVAL. Under saturation
+ * the provider is up and its queue IS the failure, so the cost is the ATTEMPT — re-offering the same
+ * batch adds load to the exact queue that caused the timeout, and the per-record pass would then
+ * multiply the offered requests by `records.length` at the worst possible moment. A saturated
+ * provider is not a poison record. So a contention failure returns IMMEDIATELY, skipping both the
+ * retry loop and isolation; the records come back as `failed`, which the caller already spaces out
+ * via the cross-cycle `retryState` cooldown — deferred, never dropped.
+ *
+ * Empirical anchor: one batch consumed ~21 minutes as six 300s attempts against a provider that was
+ * serving the whole time (a 129-deep embedding queue), and only an operator restart cleared it.
  *
  * @param {Object}   options
  * @param {Object}   options.collection    Content-store collection (`add({ids, metadatas, documents})`).
@@ -77,9 +117,11 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
  * @param {Number}   options.backoffBaseMs Exponential backoff base for in-cycle retries.
  * @param {Function} options.sleep         `ms => Promise` delay primitive (injected for specs).
  * @param {Function} options.log           `(level, message)` sink.
+ * @param {Function} [options.isContentionError=isProviderContentionError] Saturation classifier
+ *     (injected so the pure core stays free of the Neo-class provider module).
  * @returns {Promise<{succeeded: Object[], failed: Array<{record: Object, error: Error}>}>}
  */
-export async function embedBatch({collection, records, maxRetries, backoffBaseMs, sleep, log}) {
+export async function embedBatch({collection, records, maxRetries, backoffBaseMs, sleep, log, isContentionError = isProviderContentionError}) {
     const payload = {
         ids      : records.map(record => record.id),
         metadatas: records.map(record => record.metadata),
@@ -91,6 +133,16 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
             await collection.add(payload);
             return {succeeded: [...records], failed: []};
         } catch (error) {
+            if (isContentionError(error)) {
+                // Yield the whole cycle: no in-cycle retry, and no isolation pass either. Both would
+                // re-offer work to the queue that just timed out. `retryState` defers these records
+                // with escalating spacing, so the backlog survives and the provider gets room.
+                log('INFO', `Batch embed hit provider contention (${error.message}) — deferring ` +
+                    `${records.length} record(s) to a later cycle without retry`);
+
+                return {succeeded: [], failed: records.map(record => ({record, error}))};
+            }
+
             if (attempt < maxRetries) {
                 const delay = getBackoffDelayMs(backoffBaseMs, attempt);
                 log('INFO', `Batch embed attempt ${attempt + 1}/${maxRetries + 1} failed (${error.message}) — backing off ${delay}ms`);
