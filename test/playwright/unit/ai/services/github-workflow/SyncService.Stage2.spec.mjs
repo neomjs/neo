@@ -37,6 +37,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalPull;
     let originalFetchReleases;
     let originalSyncNotes;
+    // Captured because the prerequisite witnesses MUTATE it, and it lives on a singleton — an
+    // unrestored `sortedReleases` leaks into every later test in this serial file and into any other
+    // spec sharing the worker.
+    let originalSortedReleases;
     let originalSyncDiscussions;
     let originalSyncPullRequests;
     let originalReconcileClosedPulls;
@@ -83,6 +87,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalPull = IssueSyncer.pullFromGitHub;
         originalFetchReleases = ReleaseNotesSyncer.fetchAndCacheReleases;
         originalSyncNotes = ReleaseNotesSyncer.syncNotes;
+        originalSortedReleases = ReleaseNotesSyncer.sortedReleases;
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
         originalReconcileClosedPulls = PullRequestSyncer.reconcileClosedPullRequestLocations;
@@ -132,6 +137,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         IssueSyncer.pullFromGitHub = originalPull;
         ReleaseNotesSyncer.fetchAndCacheReleases = originalFetchReleases;
         ReleaseNotesSyncer.syncNotes = originalSyncNotes;
+        ReleaseNotesSyncer.sortedReleases = originalSortedReleases;
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
         PullRequestSyncer.reconcileClosedPullRequestLocations = originalReconcileClosedPulls;
@@ -645,6 +651,59 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(error.message).toMatch(/releaseNotes/);
         expect(error.message).toMatch(/cost ceiling/);
         expect(error.message).toMatch(/2 of \d+ sync facets/);
+    });
+
+    test('a failed release PREREQUISITE skips the dependent facets instead of mis-bucketing (#16010)', async () => {
+        // Release history is not an independent facet. `ReleaseNotesSyncer.sortedReleases` is the bucketing
+        // reference every closed-artifact planner reads, and an ABSENT reference does not throw — it
+        // resolves to "no release version applies", which places closed artifacts in the ACTIVE bucket. So
+        // catching a release failure and continuing does not isolate one facet; it silently mis-buckets the
+        // corpus, and per-facet persistence then writes that placement to disk.
+        //
+        // The old sequential chain was accidentally safe here: a release throw aborted everything after it.
+        // Isolation REMOVED that implicit guard, which is the trap this asserts against — caught and
+        // independent are different properties.
+        const ran = [];
+
+        ReleaseNotesSyncer.fetchAndCacheReleases = async () => { throw new Error('releases endpoint down') };
+        ReleaseNotesSyncer.sortedReleases        = null;
+
+        IssueSyncer.pullFromGitHub         = async md => { ran.push('issues');      return {newMetadata: md, stats: {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}} };
+        ReleaseNotesSyncer.syncNotes       = async () => { ran.push('releaseNotes'); return {count: 0} };
+        DiscussionSyncer.syncDiscussions   = async () => { ran.push('discussions');  return {count: 0} };
+        PullRequestSyncer.syncPullRequests = async () => { ran.push('pulls');        return {count: 0} };
+
+        const error = await SyncService.runFullSync().then(() => null, e => e);
+
+        // NONE of the dependents may execute without the bucketing reference.
+        expect(ran).toEqual([]);
+
+        // And they must be REPORTED, not silently dropped — otherwise skipping shrinks the denominator
+        // and a run that did one of six things could read as clean.
+        expect(error).toBeTruthy();
+        expect(error.message).toMatch(/5 of \d+ sync facets did not advance/);
+        for (const name of ['releases', 'issues', 'releaseNotes', 'discussions', 'pulls']) {
+            expect(error.message, `${name} must appear in the verdict`).toMatch(new RegExp(name));
+        }
+    });
+
+    test('a CACHED bucketing reference lets the dependents run even when the fetch fails (#16010)', async () => {
+        // The prerequisite is satisfiable two ways, because a fetch failure is not the same as an absent
+        // reference: `fetchAndCacheReleases` populates `sortedReleases` from a cached fast-path BEFORE its
+        // network call. If that survived, placement is still resolvable and gating the dependents would be
+        // a false negative that strands the corpus on a transient outage.
+        const ran = [];
+
+        ReleaseNotesSyncer.fetchAndCacheReleases = async () => { throw new Error('releases endpoint down') };
+        ReleaseNotesSyncer.sortedReleases        = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+
+        DiscussionSyncer.syncDiscussions   = async () => { ran.push('discussions'); return {count: 0} };
+        PullRequestSyncer.syncPullRequests = async () => { ran.push('pulls');       return {count: 0} };
+
+        await expect(SyncService.runFullSync()).rejects.toThrow(/did not advance/);
+
+        expect(ran).toContain('discussions');
+        expect(ran).toContain('pulls');
     });
 
     test('an integrity abort withholds the PULL facet only — sibling facets still advance', async () => {

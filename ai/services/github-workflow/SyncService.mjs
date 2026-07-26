@@ -119,11 +119,20 @@ class SyncService extends Base {
      *
      * **The facets are ISOLATED and persist independently.** Each runs through `#runFacet`, which saves
      * metadata the moment that facet completes and rolls back only that facet's own slices when it does
-     * not. So a corpus too large for one pass converges across runs instead of failing whole, and one
-     * facet's failure neither discards the facets before it nor skips the facets after it.
+     * not. So one facet's failure neither discards the facets before it nor skips the facets after it.
+     *
+     * Scope note: that is BETWEEN-facet independence only. Within-facet page-level resume — a single
+     * facet too large for one pass converging across runs — is deliberately not implemented here.
+     *
+     * **Isolation is sound only over the dependency graph.** Release history is a PREREQUISITE, not an
+     * independent facet: `sortedReleases` is the bucketing reference every closed-artifact planner reads,
+     * and an absent reference does not fail — it silently places closed artifacts in the active bucket.
+     * The dependent facets are therefore gated, because catching a prerequisite failure and continuing is
+     * how a caught error gets mistaken for an independent one.
      *
      * 1. Loads the persistent metadata via `MetadataManager` — one accumulator every facet mutates.
-     * 2. Facet `releases`: fetches release data and caches it for the next run (`ReleaseNotesSyncer`).
+     * 2. Prerequisite `releases`: fetches release data and caches it (`ReleaseNotesSyncer`). Dependent
+     *    facets run only if this advanced or a non-empty cached bucketing reference survived.
      * 3. Facet `issues`: reconciles closed issue locations, **pushes** local changes, then **pulls**
      *    remote changes, merging the returned metadata into the accumulator (`IssueSyncer`).
      * 4. Facet `releaseNotes`: syncs release notes into local Markdown (`ReleaseNotesSyncer`).
@@ -140,7 +149,15 @@ class SyncService extends Base {
         const
             metadata = await MetadataManager.load(),
             outcomes = [],
-            facet    = (name, owns, run) => this.#runFacet({metadata, name, outcomes, owns, run});
+            facet    = (name, owns, run) => this.#runFacet({metadata, name, outcomes, owns, run}),
+            advanced = name => outcomes.some(outcome => outcome.name === name && outcome.advanced),
+            // A facet that never RAN is still a facet that did not advance, and it has to appear in the
+            // aggregate verdict — otherwise skipping a dependent silently shrinks the denominator and a
+            // run that did four of six things reports as clean.
+            skip     = (name, reason) => {
+                outcomes.push({advanced: false, name, reason});
+                logger.error(`[SyncService] facet "${name}" was SKIPPED: ${reason}`)
+            };
 
         // Normalized ONCE, here, instead of coerced with `|| {}` at the save site. `load()` supplies all
         // four on both its paths, but a hand-written metadata file or a stub may not — and then every
@@ -153,7 +170,19 @@ class SyncService extends Base {
         metadata.pulls       ??= {};
         metadata.releases    ??= {};
 
-        // 1. Fetch releases first, as they are needed for issue archiving
+        // 1. Release history is a PREREQUISITE, not an independent facet.
+        //
+        //    `ReleaseNotesSyncer.sortedReleases` is the bucketing reference for closed issues, pulls and
+        //    discussions — its own JSDoc says so. Every one of those planners resolves `closedAt` against
+        //    it, and an ABSENT reference does not fail: it resolves to "no release version applies", which
+        //    places closed artifacts in the ACTIVE bucket. So a failed release fetch does not merely skip
+        //    release notes, it silently mis-buckets the entire corpus — and per-facet persistence would
+        //    then write that placement to disk and to metadata.
+        //
+        //    The old sequential chain was accidentally safe here: a release throw aborted everything
+        //    downstream. Isolating the facets REMOVED that implicit guard, which is the trap in treating a
+        //    caught failure as an independent one. Caught and independent are different properties, and
+        //    isolation is only sound over the dependency graph.
         await facet('releases', ['releases', 'releasesLastFetched'], async () => {
             await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
 
@@ -164,6 +193,23 @@ class SyncService extends Base {
             metadata.releasesLastFetched = new Date().toISOString()
         });
 
+        // Satisfiable two ways, because a fetch failure is not the same as an absent reference:
+        // the facet advanced, OR a non-empty reference survived from the cached fast-path that runs
+        // before the network call. An EMPTY array after a SUCCESSFUL fetch is legitimate — a repo with no
+        // releases genuinely has nothing to bucket into — which is why this checks the failure case
+        // against the reference rather than against emptiness alone.
+        const bucketingReady = advanced('releases') ||
+            (Array.isArray(ReleaseNotesSyncer.sortedReleases) && ReleaseNotesSyncer.sortedReleases.length > 0);
+
+        // Every facet below places closed artifacts by release, so none of them may run — or persist as
+        // advanced — without the reference. Skipping is the safe direction: a facet that did not run leaves
+        // its previous high-water mark intact and retries next run, whereas one that ran without the
+        // reference writes wrong placements that look like progress.
+        const dependentFacet = (name, owns, run) => bucketingReady
+            ? facet(name, owns, run)
+            : Promise.resolve(skip(name, 'release history unavailable and no cached bucketing reference — ' +
+                'closed artifacts would be placed in the active bucket'));
+
         // 2 + 3 + 4. Reconcile closed issue locations (archiving stale closed issues BEFORE the pull),
         //     push local changes, then pull remote changes. One facet, because the ordering between them
         //     is load-bearing: splitting them would let a run persist a pull whose reconcile never ran.
@@ -171,7 +217,7 @@ class SyncService extends Base {
             pushStats      = null,
             pullStats      = null;
 
-        await facet('issues', ['issues', 'pushFailures', 'lastSync'], async () => {
+        await dependentFacet('issues', ['issues', 'pushFailures', 'lastSync'], async () => {
             reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
             pushStats      = await IssueSyncer.pushToGitHub(metadata);
 
@@ -193,10 +239,10 @@ class SyncService extends Base {
         });
 
         // 5. Sync release notes
-        const releaseStats = await facet('releaseNotes', ['releases'], () => ReleaseNotesSyncer.syncNotes(metadata));
+        const releaseStats = await dependentFacet('releaseNotes', ['releases'], () => ReleaseNotesSyncer.syncNotes(metadata));
 
         // 6. Sync discussions
-        const discussionStats = await facet('discussions', ['discussions'], () => DiscussionSyncer.syncDiscussions(metadata));
+        const discussionStats = await dependentFacet('discussions', ['discussions'], () => DiscussionSyncer.syncDiscussions(metadata));
 
         // 7. The pull facet: reconcile, sync, repair, project, and the integrity verdict that decides
         //    whether any of it counts. All one facet because 7c's abort must revert THIS facet and only
@@ -208,7 +254,7 @@ class SyncService extends Base {
             pullIndexStats     = null,
             pullIntegrity      = null;
 
-        const pullStats2 = await facet('pulls', ['pulls'], async () => {
+        const pullStats2 = await dependentFacet('pulls', ['pulls'], async () => {
             // 7-a. Reconcile closed PULL locations — the sibling reconcile that was missing. The
             //      delta-only pull sync skips PRs untouched since the last cutoff, so old merged PRs
             //      marooned in active pulls/ are never re-bucketed; this per-sync reconcile (mirroring
