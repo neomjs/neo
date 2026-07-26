@@ -10,7 +10,9 @@ import {
     computeStreak,
     evaluateBreach,
     isRecovered,
+    buildRunsQuery,
     latestCommitDate,
+    parseBranchName,
     parseFacetNames,
     parseThreshold,
     selectAlarmIssue
@@ -149,6 +151,86 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(() => parseFacetNames({name: 'X', raw: ' ', fallback: ['issues']})).toThrow(/zero facets/);
         expect(() => parseFacetNames({name: 'X', raw: ',', fallback: ['issues']})).toThrow(/zero facets/);
         expect(() => parseFacetNames({name: 'X', raw: ',,', fallback: ['issues']})).toThrow(/zero facets/)
+    });
+
+    test('buildRunsQuery is branch-SCOPED, and refuses to build an unscoped query (#15994)', () => {
+        const q = buildRunsQuery({repository: 'neomjs/neo', workflow: 'data-sync-pipeline.yml', branch: 'dev'});
+
+        expect(q).toContain('branch=dev');
+        expect(q).toContain('/repos/neomjs/neo/actions/workflows/data-sync-pipeline.yml/runs?');
+
+        // The defect this closes: an unscoped query. There is deliberately no branch default,
+        // so omission cannot silently reintroduce the all-branches form.
+        expect(() => buildRunsQuery({repository: 'neomjs/neo', workflow: 'w.yml'})).toThrow(/branch is required/);
+        expect(() => buildRunsQuery({repository: 'neomjs/neo', workflow: 'w.yml', branch: '   '})).toThrow(/branch is required/);
+
+        // A branch needing encoding stays a single query parameter.
+        expect(buildRunsQuery({repository: 'r/n', workflow: 'w.yml', branch: 'feature/a b'}))
+            .toContain('branch=feature%2Fa%20b');
+    });
+
+    test('parseBranchName falls back when absent, fails LOUD on whitespace-only (#15994)', () => {
+        expect(parseBranchName({name: 'X', raw: undefined, fallback: 'dev'})).toBe('dev');
+        expect(parseBranchName({name: 'X', raw: '', fallback: 'dev'})).toBe('dev');
+        expect(parseBranchName({name: 'X', raw: ' main ', fallback: 'dev'})).toBe('main');
+
+        // A silently-empty override would drop the filter and widen the axis back to EVERY branch.
+        expect(() => parseBranchName({name: 'X', raw: '   ', fallback: 'dev'})).toThrow(/empty branch/);
+    });
+
+    test('computeStreak truncates on ANY success — which is why the query must be branch-scoped (#15994)', () => {
+        // The exact live shape on 2026-07-26: four dev failures, then a FEATURE-BRANCH success
+        // sitting among them. Unscoped, computeStreak stops there and reports 4 while dev was
+        // ~98 deep, and hands lastSuccess a run from a branch nobody deploys.
+        const mixed = [
+            {conclusion: 'failure', head_branch: 'dev',                             created_at: '2026-07-26T12:08:22Z'},
+            {conclusion: 'failure', head_branch: 'dev',                             created_at: '2026-07-26T10:06:00Z'},
+            {conclusion: 'failure', head_branch: 'dev',                             created_at: '2026-07-26T07:39:00Z'},
+            {conclusion: 'failure', head_branch: 'dev',                             created_at: '2026-07-26T04:31:00Z'},
+            {conclusion: 'success', head_branch: 'agent/15744-data-sync-app-identity', created_at: '2026-07-26T00:17:01Z'},
+            {conclusion: 'failure', head_branch: 'dev',                             created_at: '2026-07-26T00:04:00Z'}
+        ];
+
+        const polluted = computeStreak({runs: mixed});
+
+        expect(polluted.consecutiveFailures).toBe(4);
+        expect(polluted.lastSuccess.head_branch).not.toBe('dev');
+
+        // Branch-scoped, the same reducer sees the truth: the feature-branch row is never in the list.
+        const scoped = computeStreak({runs: mixed.filter(run => run.head_branch === 'dev')});
+
+        expect(scoped.consecutiveFailures).toBe(5);
+        expect(scoped.lastSuccess).toBe(null)
+    });
+
+    test('every branch label in the alarm body follows WATCHDOG_BRANCH, never a literal (#15994)', () => {
+        const body = buildAlarmBody({
+            consecutiveFailures: 4,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['corpus facet `pulls` is 214.8h old (threshold 48h)'],
+            corpusFacets       : [{facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8, stale: true}],
+            branch             : 'release/13.2'
+        });
+
+        // Streak line, corpus header AND the table column all name the measured branch. A literal
+        // `dev` in any of them is a false statement the moment the branch is overridden.
+        expect(body).toContain('consecutive failures on `release/13.2`');
+        expect(body).toContain('**Corpus facets** (committed `release/13.2`');
+        expect(body).toContain('| facet | last commit on `release/13.2` | age | status |');
+        expect(body).not.toContain('`dev`');
+
+        // Omitted branch still renders the default truthfully rather than "undefined".
+        const defaulted = buildAlarmBody({
+            consecutiveFailures: 1,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['x'],
+            corpusFacets       : [{facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8, stale: true}]
+        });
+
+        expect(defaulted).toContain('committed `dev`');
+        expect(defaulted).not.toContain('undefined')
     });
 
     test('selectAlarmIssue: body marker wins over title, PRs are excluded, marker beats prefix', () => {
