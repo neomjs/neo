@@ -36,8 +36,22 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
     let MailboxService, GraphService, LifecycleService;
     let originalAutoSave;
 
-    const SENDER    = '@neo-opus-ada',
-          RECIPIENT = '@neo-opus-grace';
+    // Fixture-OWNED identities, not borrowed fleet members. This suite previously named
+    // `@neo-opus-ada` / `@neo-opus-grace` — real identities it never created — so both send paths
+    // depended on the ambient agent roster surviving whatever ran earlier in the worker:
+    //
+    //   `sendBroadcast` fans out over AgentIdentity nodes carrying `accountType: 'agent'`. An
+    //   upstream spec that clears the graph empties that roster, `AGENT:*` reaches nobody, and the
+    //   per-recipient DELIVERED_TO edge read back below is never written. It surfaced as "the
+    //   receipt did not persist"; storage was never involved.
+    //
+    //   `sendDirect` is worse: `to: '@<identity>'` must resolve against a REGISTERED AgentIdentity
+    //   node, so an empty roster fails that send outright rather than silently under-delivering.
+    //
+    // Seeding them here matches the sibling `MailboxService.spec.mjs`, which owns `@alice`/`@bob`
+    // for exactly this reason. A test may only assert about identities it established.
+    const SENDER    = '@receipt-durability-sender',
+          RECIPIENT = '@receipt-durability-recipient';
 
     test.beforeAll(async () => {
         // No AiConfig mutation: what this suite discriminates is the SQLite storage boundary versus
@@ -58,6 +72,11 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         }
 
         originalAutoSave = GraphService.db.autoSave;
+
+        // Establish the endpoints this suite asserts about, so neither send path depends on the
+        // ambient roster. `accountType: 'agent'` is what makes them broadcast-eligible.
+        GraphService.upsertNode({id: SENDER,    type: 'AgentIdentity', name: 'Receipt Durability Sender',    properties: {accountType: 'agent'}});
+        GraphService.upsertNode({id: RECIPIENT, type: 'AgentIdentity', name: 'Receipt Durability Recipient', properties: {accountType: 'agent'}});
     });
 
     test.afterAll(() => {
@@ -67,6 +86,16 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         if (GraphService?.db) {
             GraphService.db.autoSave = originalAutoSave;
         }
+
+        // Remove exactly the two identities this suite created, and nothing else — left in place
+        // they would add two recipients to every later `AGENT:*` fan-out in the worker, which is
+        // the leave-state-behind defect this suite was itself a victim of.
+        //
+        // SCOPED removal, deliberately not a graph clear. Wholesale teardown was measured to be a
+        // polluter in its own right — it empties the agent roster for every spec that follows in
+        // the worker, which is what made this suite fail. Removing only what you created is the
+        // opposite operation, not a smaller dose of the same one.
+        try { GraphService?.removeNodes?.([SENDER, RECIPIENT]) } catch (e) {}
     });
 
     /** Reads the per-recipient DELIVERED_TO edge back FROM STORAGE, never from the in-memory cache. */
