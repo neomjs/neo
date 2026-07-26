@@ -47,6 +47,36 @@
     background: var(--workstation-ground);
 }
 
+// A committed bare-pane vessel becomes a remote dock TARGET without changing its scene-2 surface:
+// the preview is an absolute sibling and therefore contributes zero layout. Only the first
+// accepted dock-INTO swaps the pane for `.workstation-vessel-dock-host`; that host keeps the same
+// overlay contract while real tab chrome owns the two live pane instances.
+.workstation-popout-host.workstation-vessel-target {
+    position: relative;
+
+    > .neo-dock-preview {
+        inset         : 0;
+        pointer-events: none;
+        position      : absolute;
+        z-index       : 25;
+    }
+
+    > .workstation-vessel-dock-host {
+        background: var(--workstation-ground);
+        min-height: 0;
+        min-width : 0;
+        padding   : 8px;
+        position  : relative;
+
+        > .neo-dock-preview {
+            inset         : 0;
+            pointer-events: none;
+            position      : absolute;
+            z-index       : 25;
+        }
+    }
+}
+
 // Pane SKIN — everything a pane keeps when it is torn out of the workspace.
 //
 // The token bridge above made a vessel-hosted pane resolve the right colours; these rules are

@@ -90,6 +90,24 @@ class Workspace extends Container {
      * @static
      */
     static CROSS_WINDOW_SORT_GROUP = 'workstation-cross-window'
+    /**
+     * Returns one vessel's stable semantic workspace identity. Runtime window ids never enter it.
+     * @param {String} itemId
+     * @returns {String|null}
+     * @static
+     */
+    static vesselWorkspaceId(itemId) {
+        return typeof itemId === 'string' && itemId ? `workstation-vessel:${itemId}` : null
+    }
+    /**
+     * Returns the stable landing-tabs identity for one lazily seeded vessel document.
+     * @param {String} itemId
+     * @returns {String|null}
+     * @static
+     */
+    static vesselTabsNodeId(itemId) {
+        return typeof itemId === 'string' && itemId ? `workstation-vessel-tabs:${itemId}` : null
+    }
 
     static config = {
         /**
@@ -224,6 +242,32 @@ class Workspace extends Container {
      * @protected
      */
     workspaceSet = null
+    /**
+     * Target-side adapters keyed by stable workspace identity. The main workspace registers during
+     * construction; vessel targets register only after their exact child window joins.
+     * @member {Map<String,Neo.dashboard.DockCrossWindowParticipation>} crossWindowParticipations
+     * @protected
+     */
+    crossWindowParticipations = new Map()
+    /**
+     * Readiness of the main workspace's late-bound participation. The dynamic import keeps the
+     * manager.Window singleton behind the app/harness construction boundary.
+     * @member {Promise<Neo.dashboard.DockCrossWindowParticipation|null>} crossWindowParticipationPromise
+     * @protected
+     */
+    crossWindowParticipationPromise = null
+    /**
+     * Worker-owned vessel workspace records keyed by stable workspace identity. Entries carry
+     * document ownership and render-target refs, never cached geometry.
+     * @member {Map<String,Object>} vesselWorkspaces
+     * @protected
+     */
+    vesselWorkspaces = new Map()
+    /**
+     * Most recent cross-window transfer receipt for the film/spec boundary.
+     * @member {Object|null} lastCrossWindowTransfer=null
+     */
+    lastCrossWindowTransfer = null
     /**
      * Product-semantic vessel owner grants by `flow:itemId`.
      * @member {Map} vesselOwnerGrants=new Map()
@@ -386,6 +430,12 @@ class Workspace extends Container {
             getDocument: () => me.dockModel,
             setDocument: document => me.dockModel = document
         });
+
+        me.crossWindowParticipationPromise = me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
+            .catch(error => {
+                me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};
+                return null
+            });
 
         // Conversion never re-acquires a popup: close-and-reopen is a one-way door (mid-gesture
         // acquisition consumes transient activation and reads as unsolicited), so conversion
@@ -816,6 +866,653 @@ class Workspace extends Container {
     }
 
     /**
+     * Creates one target-side adapter over a stable workspace identity. Geometry remains entirely
+     * manager.Window-owned; the app stores documents and render refs only.
+     * @param {Object} data
+     * @param {String|Number} data.windowId
+     * @param {String} data.workspaceId
+     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
+     * @protected
+     */
+    async createCrossWindowParticipation({windowId, workspaceId}) {
+        let me            = this,
+            Participation = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
+
+        if (me.isDestroyed) return null;
+
+        return Neo.create(Participation, {
+            clearPreview      : () => me.clearCrossWindowPreview(workspaceId),
+            commitLocal       : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
+            commitTransfer    : data => me.commitCrossWindowTransfer(data),
+            getDocument       : () => me.getWorkspaceDocument(workspaceId),
+            getForeignDocument: sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
+            hitTest           : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
+            previewFor        : data => me.renderCrossWindowPreview(workspaceId, data),
+            previewToOperation,
+            sortGroup         : Workspace.CROSS_WINDOW_SORT_GROUP,
+            windowId,
+            workspaceId
+        })
+    }
+
+    /**
+     * Re-registers one stable participation after its render projection. Dock tab zones and the
+     * stable workspace target share a per-window coordinator slot, so the stable target must win
+     * the final registration write after every projection.
+     * @param {String} workspaceId
+     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation|null>}
+     * @protected
+     */
+    async refreshCrossWindowParticipation(workspaceId) {
+        let me       = this,
+            isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
+            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            windowId = isMain ? me.windowId : state?.windowId;
+
+        if (windowId == null || (!isMain && !state)) return null;
+
+        me.crossWindowParticipations.get(workspaceId)?.destroy();
+        me.crossWindowParticipations.delete(workspaceId);
+        state && (state.participation = null);
+
+        const participation = await me.createCrossWindowParticipation({windowId, workspaceId});
+
+        if (
+            !participation ||
+            me.isDestroyed ||
+            (!isMain && (
+                me.vesselWorkspaces.get(workspaceId) !== state ||
+                state.app?.mainView?.isDestroyed
+            ))
+        ) {
+            participation?.destroy();
+            return null
+        }
+
+        me.crossWindowParticipations.set(workspaceId, participation);
+        state && (state.participation = participation);
+
+        return participation
+    }
+
+    /**
+     * Registers a connected bare-pane vessel as a stable remote target. Its document accessor stays
+     * lazy: hover creates no workspace state; the first accepted drop seeds it.
+     * @param {Object} data
+     * @param {Neo.app.Base} data.app
+     * @param {String} data.itemId
+     * @param {String|Number} data.windowId
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async registerVesselWorkspaceTarget({app, itemId, windowId}) {
+        let me          = this,
+            workspaceId = Workspace.vesselWorkspaceId(itemId),
+            current     = workspaceId && me.vesselWorkspaces.get(workspaceId);
+
+        if (!workspaceId || !app?.mainView || !me.tearOutPanes[itemId]) return null;
+        if (current?.windowId === windowId) {
+            if (current.participationPromise) {
+                await current.participationPromise
+            } else if (!current.participation && !current.committed && !current.closeRequested) {
+                current.participationPromise = me.refreshCrossWindowParticipation(workspaceId);
+                await current.participationPromise;
+                current.participationPromise = null
+            }
+
+            return me.vesselWorkspaces.get(workspaceId) === current ? current : null
+        }
+        if (current?.committed) return null;
+
+        current && me.retireVesselWorkspaceTarget(itemId);
+
+        const state = {
+            app,
+            closeRequested      : false,
+            committed           : false,
+            disconnected        : false,
+            document            : null,
+            host                : null,
+            itemId,
+            participation       : null,
+            participationPromise: null,
+            preview             : null,
+            reconciling         : false,
+            windowId,
+            workspaceId
+        };
+
+        me.vesselWorkspaces.set(workspaceId, state);
+
+        app.mainView.addCls('workstation-vessel-target');
+        state.preview = app.mainView.add({module: DockPreview});
+
+        await app.mainView.promiseUpdate();
+        state.participationPromise = me.refreshCrossWindowParticipation(workspaceId);
+        await state.participationPromise;
+        state.participationPromise = null;
+
+        return me.vesselWorkspaces.get(workspaceId) === state ? state : null
+    }
+
+    /**
+     * Retires one vessel target's registry and arbitration identities. Window destruction owns the
+     * rendered subtree; this method only destroys live refs when the render target still exists.
+     * @param {String} itemId
+     * @returns {Boolean}
+     * @protected
+     */
+    retireVesselWorkspaceTarget(itemId) {
+        let me          = this,
+            workspaceId = Workspace.vesselWorkspaceId(itemId),
+            state       = workspaceId && me.vesselWorkspaces.get(workspaceId);
+
+        if (!state) return false;
+
+        state.participation?.destroy();
+        me.crossWindowParticipations.delete(workspaceId);
+        state.committed && me.workspaceSet.unregister(workspaceId);
+
+        me.vesselWorkspaces.delete(workspaceId);
+
+        return true
+    }
+
+    /**
+     * Resolves a workspace's current document. A vessel creates an unregistered provisional
+     * landing document only when a transfer first asks for it; registration and hover remain
+     * mutation-free.
+     * @param {String} workspaceId
+     * @returns {Object|null}
+     * @protected
+     */
+    getWorkspaceDocument(workspaceId) {
+        if (workspaceId === Workspace.MAIN_WORKSPACE_ID) return this.dockModel;
+
+        let state = this.vesselWorkspaces.get(workspaceId);
+
+        return state ? state.document ??= this.createVesselWorkspaceDocument(state.itemId) : null
+    }
+
+    /**
+     * Seeds a valid empty landing document. The popup remains a bare pane until the first accepted
+     * transfer moves both the detached owner and the dragged pane into this document atomically.
+     * @param {String} itemId
+     * @returns {Object|null}
+     * @protected
+     */
+    createVesselWorkspaceDocument(itemId) {
+        let item       = this.dockModel?.items?.[itemId],
+            tabsNodeId = Workspace.vesselTabsNodeId(itemId);
+
+        if (!item || !tabsNodeId) return null;
+
+        return {
+            schema: DockZoneModel.SCHEMA,
+            root  : `workstation-vessel-root:${itemId}`,
+            items : {},
+            nodes : {
+                [`workstation-vessel-root:${itemId}`]: {type: 'edge-zone', zones: {center: tabsNodeId}},
+                [tabsNodeId]                         : {type: 'tabs', items: [], activeItemId: null}
+            }
+        }
+    }
+
+    /**
+     * D-013 hit-test: accepts only points inside the live manager.Window inner rect. No app-local
+     * window geometry or per-workspace measurement registry exists.
+     * @param {String} workspaceId
+     * @param {Number} localX
+     * @param {Number} localY
+     * @returns {Boolean}
+     * @protected
+     */
+    hitTestCrossWindowTarget(workspaceId, localX, localY) {
+        let me       = this,
+            isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
+            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            windowId = isMain ? me.windowId : state?.windowId,
+            inner    = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null;
+
+        return Boolean(
+            inner && Number.isFinite(localX) && Number.isFinite(localY) &&
+            localX >= 0 && localY >= 0 && localX <= inner.width && localY <= inner.height &&
+            (isMain || (
+                state && !state.committed && !state.closeRequested &&
+                me.tearOutPanes[state.itemId]
+            ))
+        )
+    }
+
+    /**
+     * Computes and renders one remote preview from live manager.Window dimensions. A vessel uses
+     * its stable lazy landing node; the main workspace returns a stack to its captured semantic home.
+     * @param {String} workspaceId
+     * @param {Object} data
+     * @returns {Object|null}
+     * @protected
+     */
+    renderCrossWindowPreview(workspaceId, data) {
+        let me              = this,
+            isMain          = workspaceId === Workspace.MAIN_WORKSPACE_ID,
+            state           = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            windowId        = isMain ? me.windowId : state?.windowId,
+            inner           = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null,
+            draggedItem     = data?.draggedItem,
+            itemId          = draggedItem?.dockItemId,
+            groupNodeId     = draggedItem?.dockGroupNodeId ?? null,
+            sourceWorkspace = draggedItem?.dockSourceWorkspaceId,
+            sourceState     = me.vesselWorkspaces.get(sourceWorkspace),
+            storedHome      = sourceState && me.tearOutPlacements[sourceState.itemId]?.tabsNodeId,
+            targetNodeId    = isMain
+                ? (me.dockModel.nodes?.[storedHome]?.type === 'tabs'
+                    ? storedHome
+                    : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0])
+                : Workspace.vesselTabsNodeId(state?.itemId),
+            pointer         = {x: data?.localX, y: data?.localY},
+            rect            = inner && {x: 0, y: 0, width: inner.width, height: inner.height},
+            previewPointer  = isMain || !rect
+                ? pointer
+                : {x: rect.width / 2, y: rect.height / 2},
+            renderer        = isMain ? me.dragAffordances?.preview : state?.preview,
+            preview;
+
+        if (
+            !itemId || !targetNodeId || !rect || state?.committed || state?.closeRequested ||
+            !me.hitTestCrossWindowTarget(workspaceId, pointer.x, pointer.y)
+        ) {
+            return null
+        }
+
+        preview = me.dragAffordances.producer.produce({
+            containerId : isMain ? me.getReference('dock-host')?.id : state.app?.mainView?.id,
+            groupNodeId,
+            itemId,
+            pointer     : previewPointer,
+            sourceNodeId: data?.sourceNodeId,
+            zones       : [{nodeId: targetNodeId, rect}]
+        });
+
+        if (renderer) {
+            renderer.dockPreview = preview;
+            preview && renderer.applyTargetGeometry(rect)
+        }
+
+        return preview
+    }
+
+    /**
+     * Clears one target's transient preview without touching committed workspace state.
+     * @param {String} workspaceId
+     * @protected
+     */
+    clearCrossWindowPreview(workspaceId) {
+        if (workspaceId === Workspace.MAIN_WORKSPACE_ID) {
+            this.dragAffordances?.clear()
+        } else {
+            let state   = this.vesselWorkspaces.get(workspaceId),
+                preview = state?.preview;
+
+            preview && (preview.dockPreview = null);
+            state && !state.committed && (state.document = null)
+        }
+    }
+
+    /**
+     * Applies an ordinary same-workspace operation through the matching owner.
+     * @param {String} workspaceId
+     * @param {Object} descriptor
+     * @returns {{document:Object,errors:String[]}|null}
+     * @protected
+     */
+    commitLocalWorkspaceOperation(workspaceId, descriptor) {
+        let me       = this,
+            state    = me.vesselWorkspaces.get(workspaceId),
+            document = workspaceId === Workspace.MAIN_WORKSPACE_ID || state?.committed
+                ? me.getWorkspaceDocument(workspaceId)
+                : null,
+            result   = document && DockZoneModel.applyOperation(document, descriptor);
+
+        if (!result || result.errors.length) return result;
+
+        if (workspaceId === Workspace.MAIN_WORKSPACE_ID) {
+            me.onDockZoneDocumentChange(result.document)
+        } else {
+            me.vesselWorkspaces.get(workspaceId).document = result.document
+        }
+
+        return result
+    }
+
+    /**
+     * Publishes one executor-validated document pair synchronously, then queues target-first render
+     * reconciliation. First dock-into composes the incoming pane transfer with a second pure
+     * transfer of the already-detached vessel owner, then adopts the final pair exactly once.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    commitCrossWindowTransfer(data) {
+        let me = this,
+            {
+                descriptor,
+                sourceDocument,
+                sourceWorkspaceId,
+                targetDocument,
+                targetWorkspaceId
+            } = data || {},
+            sourceState  = me.vesselWorkspaces.get(sourceWorkspaceId),
+            targetState  = me.vesselWorkspaces.get(targetWorkspaceId),
+            mainToVessel = sourceWorkspaceId === Workspace.MAIN_WORKSPACE_ID && Boolean(targetState),
+            vesselToMain = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID && Boolean(sourceState),
+            registeredTarget = false;
+
+        if (!descriptor || (!mainToVessel && !vesselToMain)) return false;
+        if (mainToVessel && (targetState.committed || targetState.reconciling)) return false;
+        if (vesselToMain && (!sourceState.committed || !me.workspaceSet.has(sourceWorkspaceId))) return false;
+
+        if (mainToVessel && !targetState.committed) {
+            if (descriptor.operation !== 'transferItem' || me.workspaceSet.has(targetWorkspaceId)) return false;
+
+            const ownerTransfer = DockZoneModel.transferItem(sourceDocument, targetDocument, {
+                itemId: targetState.itemId,
+                sourceWorkspaceId,
+                targetWorkspaceId,
+                target: {
+                    operation : 'addTab',
+                    tabsNodeId: Workspace.vesselTabsNodeId(targetState.itemId),
+                    index     : 0
+                }
+            });
+
+            if (ownerTransfer.errors.length) {
+                targetState.document = null;
+                return false
+            }
+
+            sourceDocument = ownerTransfer.sourceDocument;
+            targetDocument = ownerTransfer.targetDocument;
+            registeredTarget = me.workspaceSet.register(targetWorkspaceId, {
+                getDocument: () => targetState.document,
+                setDocument: document => targetState.document = document
+            });
+
+            if (!registeredTarget) {
+                targetState.document = null;
+                return false
+            }
+        }
+
+        try {
+            if (!me.workspaceSet.adoptTransfer({
+                sourceDocument,
+                sourceWorkspaceId,
+                targetDocument,
+                targetWorkspaceId
+            })) {
+                registeredTarget && me.workspaceSet.unregister(targetWorkspaceId);
+                registeredTarget && (targetState.document = null);
+                return false
+            }
+        } catch (error) {
+            registeredTarget && me.workspaceSet.unregister(targetWorkspaceId);
+            registeredTarget && (targetState.document = null);
+            me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};
+            return false
+        }
+
+        if (registeredTarget) {
+            targetState.committed   = true;
+            targetState.reconciling = true
+        }
+
+        const receipt = me.lastCrossWindowTransfer = {
+            applied       : true,
+            closeRequested: false,
+            descriptor    : DockZoneModel.clone(descriptor),
+            reconciled    : false,
+            sourceWorkspaceId,
+            targetWorkspaceId,
+            topologyExited: false
+        };
+
+        me.refreshPromise = (me.refreshPromise || Promise.resolve())
+            .then(() => me.timeout(0))
+            .then(async () => {
+                if (mainToVessel) {
+                    if (me.vesselWorkspaces.get(targetWorkspaceId) !== targetState) {
+                        throw new Error('vessel target retired before projection')
+                    }
+                    if (!await me.mountVesselWorkspace(targetWorkspaceId) ||
+                        me.vesselWorkspaces.get(targetWorkspaceId) !== targetState) {
+                        throw new Error('vessel target projection did not settle')
+                    }
+
+                    await me.refreshDockWorkspace({
+                        preserveItemIds: Object.keys(targetState.document?.items || {})
+                    });
+                    targetState.reconciling = false
+                } else {
+                    await me.refreshDockWorkspace();
+
+                    if (me.vesselWorkspaces.get(sourceWorkspaceId) === sourceState) {
+                        await me.retireReturnedVessel(sourceWorkspaceId)
+                    }
+                }
+
+                receipt.reconciled = true;
+                return receipt
+            })
+            .catch(error => {
+                targetState && (targetState.reconciling = false);
+                receipt.errors  = [error.message];
+                return receipt
+            });
+
+        return true
+    }
+
+    /**
+     * Replaces a bare vessel pane with its first real dock projection while reusing every cached
+     * pane instance. The existing preview overlay moves into the host; no pane is recreated.
+     * @param {String} workspaceId
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async mountVesselWorkspace(workspaceId) {
+        let me       = this,
+            state    = me.vesselWorkspaces.get(workspaceId),
+            document = state?.document,
+            mainView = state?.app?.mainView;
+
+        if (!state || !document || !mainView || mainView.isDestroyed) return false;
+        if (state.host && !state.host.isDestroyed) return false;
+
+        Object.keys(document.items || {}).forEach(itemId => {
+            let pane = me.paneCache[itemId];
+
+            pane?.parent?.remove(pane, false)
+        });
+        state.preview?.parent?.remove(state.preview, false);
+
+        state.host = mainView.add({
+            module: Container,
+            cls   : ['workstation-vessel-dock-host', 'neo-dashboard'],
+            flex  : 1,
+            items : [
+                me.projectVesselDockModel(workspaceId),
+                state.preview || {module: DockPreview}
+            ],
+            layout: {ntype: 'fit'}
+        });
+        state.preview ??= state.host.down({ntype: 'dock-preview'});
+
+        await state.host.promiseUpdate();
+        state.participation?.destroy();
+        state.participation = null;
+        me.crossWindowParticipations.delete(workspaceId);
+
+        return true
+    }
+
+    /**
+     * Projects a committed vessel document with one whole-stack drag grip and no nested tear-out.
+     * @param {String} workspaceId
+     * @returns {Object}
+     * @protected
+     */
+    projectVesselDockModel(workspaceId) {
+        let me       = this,
+            state    = me.vesselWorkspaces.get(workspaceId),
+            document = state?.document;
+
+        return DockLayoutAdapter.project(document, {
+            applyDockZoneOperation   : descriptor => me.commitLocalWorkspaceOperation(workspaceId, descriptor),
+            crossWindowSortGroup     : Workspace.CROSS_WINDOW_SORT_GROUP,
+            enableStackDrag          : true,
+            onDockCrossZoneDragCancel: () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockCrossZoneDrop      : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockStackDragTerminal  : () => me.clearCrossWindowPreview(Workspace.MAIN_WORKSPACE_ID),
+            onDockZoneDocumentChange : nextDocument => state.document = nextDocument,
+            resolveComponentRef      : (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            resolveRevealComponentRef: (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            workspaceId
+        })
+    }
+
+    /**
+     * Closes an emptied vessel only after the main target projection has adopted the committed
+     * stack. Physical disconnect remains the topology-exit terminal.
+     * @param {String} workspaceId
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async retireReturnedVessel(workspaceId) {
+        let me     = this,
+            state  = me.vesselWorkspaces.get(workspaceId),
+            vessel = state && me.resolveTearOutVessel(state.itemId);
+
+        if (!state || Object.keys(state.document?.items || {}).length || !vessel) return false;
+
+        const closed = await me.closeTearOutVessel(vessel);
+
+        if (closed) {
+            state.closeRequested = true;
+            state.participation?.destroy();
+            state.participation = null;
+            me.crossWindowParticipations.delete(workspaceId);
+
+            if (
+                me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
+                me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
+            ) {
+                me.lastCrossWindowTransfer.closeRequested = true
+            }
+        }
+
+        return closed
+    }
+
+    /**
+     * Atomically recovers every pane from a committed vessel whose physical window disappeared
+     * before an authored whole-stack return. The headless document remains registered if any
+     * executor/adoption gate refuses, so the only surviving A+B truth is never discarded.
+     * @param {String} itemId
+     * @returns {Boolean}
+     * @protected
+     */
+    recoverDisconnectedVesselWorkspace(itemId) {
+        let me          = this,
+            workspaceId = Workspace.vesselWorkspaceId(itemId),
+            state       = workspaceId && me.vesselWorkspaces.get(workspaceId),
+            itemIds     = Object.keys(state?.document?.items || {});
+
+        if (!state?.committed || !me.workspaceSet.has(workspaceId)) return false;
+        if (!itemIds.length) return true;
+
+        let placement  = me.tearOutPlacements[itemId],
+            storedHome = placement && me.dockModel.nodes?.[placement.tabsNodeId]?.type === 'tabs'
+                ? placement.tabsNodeId
+                : null,
+            targetNodeId = storedHome
+                || Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            nodeId       = DockZoneModel.resolveStackRoot(state.document);
+
+        if (!nodeId || !targetNodeId) {
+            me.lastCrossWindowTransfer = {
+                applied: false,
+                errors : ['disconnected vessel has no recoverable stack or main target']
+            };
+            return false
+        }
+
+        const descriptor = {
+                operation        : 'transferNode',
+                nodeId,
+                sourceWorkspaceId: workspaceId,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                target           : {targetNodeId, placement: {kind: 'tab-into'}}
+            },
+            result = DockZoneModel.transferNode(state.document, me.dockModel, descriptor);
+
+        if (result.errors.length) {
+            me.lastCrossWindowTransfer = {applied: false, errors: result.errors};
+            return false
+        }
+
+        try {
+            if (!me.workspaceSet.adoptTransfer({
+                sourceDocument   : result.sourceDocument,
+                sourceWorkspaceId: workspaceId,
+                targetDocument   : result.targetDocument,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            })) {
+                me.lastCrossWindowTransfer = {
+                    applied: false,
+                    errors : ['workspace-set refused disconnected-vessel recovery']
+                };
+                return false
+            }
+        } catch (error) {
+            me.lastCrossWindowTransfer = {applied: false, errors: [error.message]};
+            return false
+        }
+
+        me.lastCrossWindowTransfer = {
+            applied              : true,
+            descriptor           : DockZoneModel.clone(descriptor),
+            recoveredOnDisconnect: true,
+            sourceWorkspaceId    : workspaceId,
+            targetWorkspaceId    : Workspace.MAIN_WORKSPACE_ID,
+            topologyExited       : true
+        };
+        me.onDockZoneDocumentChange(me.dockModel, {preserveItemIds: itemIds});
+
+        return true
+    }
+
+    /**
+     * Removes only dead render-target seams while retaining a committed headless document for
+     * retry and diagnostics after recovery refused.
+     * @param {Object} state
+     * @protected
+     */
+    demoteDisconnectedVesselWorkspace(state) {
+        if (!state) return;
+
+        state.participation?.destroy();
+        this.crossWindowParticipations.delete(state.workspaceId);
+        state.app            = null;
+        state.closeRequested = false;
+        state.disconnected   = true;
+        state.host           = null;
+        state.participation  = null;
+        state.preview        = null;
+        state.reconciling    = false;
+        state.windowId       = null
+    }
+
+    /**
      * Assigns a new trend array to a registered visible scale record and refreshes the
      * viewport pool. Coarse dock projection preserves cached pane identities, while a resized
      * viewport pool can allocate new Canvas cells whose registration settles asynchronously;
@@ -987,7 +1684,8 @@ class Workspace extends Container {
         });
         host.updateDepth = -1;
         host.update();
-        await host.promiseUpdate()
+        await host.promiseUpdate();
+        await me.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
     }
 
     /**
@@ -1838,6 +2536,14 @@ class Workspace extends Container {
             } else {
                 me.reparentTearOutPane(itemId, connected)
             }
+
+            me.registerVesselWorkspaceTarget({
+                app     : Neo.apps[connected.windowId],
+                itemId,
+                windowId: connected.windowId
+            }).catch(error => {
+                me.lastCrossWindowTransfer = {applied: false, errors: [error.message]}
+            })
         }
     }
 
@@ -1994,6 +2700,10 @@ class Workspace extends Container {
         } else {
             me.tearOutConnects[itemId] = connection
         }
+
+        if (me.tearOutPanes[itemId]) {
+            await me.registerVesselWorkspaceTarget({app, itemId, windowId})
+        }
     }
 
     /**
@@ -2033,6 +2743,7 @@ class Workspace extends Container {
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
+                me.retireVesselWorkspaceTarget(itemId);
                 me.tearOutRetirements.delete(itemId);
                 delete me.tearOutPanes[itemId];
                 committed && me.reintegrateTearOutItem(itemId);
@@ -2064,6 +2775,7 @@ class Workspace extends Container {
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
+                me.retireVesselWorkspaceTarget(itemId);
                 me.tearOutRetirements.delete(itemId);
                 return
             }
@@ -2073,7 +2785,16 @@ class Workspace extends Container {
         // has no entry in either map and needs nothing.
         for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
             if (entry.windowId === data.windowId) {
-                const windowName = entry.windowName ?? `tearout-${itemId}`;
+                const
+                    windowName     = entry.windowName ?? `tearout-${itemId}`,
+                    workspaceId    = Workspace.vesselWorkspaceId(itemId),
+                    workspaceState = me.vesselWorkspaces.get(workspaceId);
+                let workspaceSettled = true;
+
+                if (workspaceState?.committed) {
+                    workspaceSettled = Object.keys(workspaceState.document?.items || {}).length === 0
+                        || me.recoverDisconnectedVesselWorkspace(itemId)
+                }
 
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects[itemId];
@@ -2085,7 +2806,22 @@ class Workspace extends Container {
                     windowName
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
-                me.reintegrateTearOutItem(itemId);
+
+                if (workspaceSettled) {
+                    if (
+                        workspaceState?.committed &&
+                        me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
+                        me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
+                    ) {
+                        me.lastCrossWindowTransfer.topologyExited = true
+                    }
+
+                    me.retireVesselWorkspaceTarget(itemId);
+                    me.reintegrateTearOutItem(itemId)
+                } else {
+                    me.demoteDisconnectedVesselWorkspace(workspaceState)
+                }
+
                 break
             }
         }
@@ -2996,6 +3732,9 @@ class Workspace extends Container {
             scope     : me
         });
 
+        me.crossWindowParticipations.forEach(participation => participation?.destroy());
+        me.crossWindowParticipations.clear();
+        me.vesselWorkspaces.clear();
         me.tourRunner?.destroy();
         me.dockService?.destroy();
         me.dragAffordances?.destroy();
