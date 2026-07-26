@@ -50,15 +50,28 @@
 // Pane SKIN — everything a pane keeps when it is torn out of the workspace.
 //
 // The token bridge above made a vessel-hosted pane resolve the right colours; these rules are
-// what make it look like a Workstation pane rather than a stock Neo one. They lived inside
-// `.workstation-workspace` and so were lost the moment a pane crossed into a `?popout=` vessel,
-// which mounts no workspace by design — the pane rendered dark (tokens reached it) but unskinned:
-// no header-toolbar fill, no body-frame treatment, no grid-header styling.
+// what make it look like a Workstation pane rather than a stock Neo one.
+//
+// CROSS-WINDOW CSS HAS TWO INDEPENDENT REACHABILITY GATES, and a fix that closes one reads as
+// complete while the other stays open:
+//   1. SHEET — the owning component's generated stylesheet must LOAD in that window. A `?popout=`
+//      vessel mounts no `Workspace`, so `Workspace.css` never enters its sheet set at all.
+//   2. SELECTOR — a rule in a loaded sheet must MATCH the transferred consumer.
+// Re-scoping a selector cannot repair a rule that stays in an unloaded sheet: it is then correct
+// and unreachable. This block previously contained a rule already scoped `.workstation-viewport`
+// while still sitting in `Workspace.scss` — gate 2 passed, gate 1 never did, and it could not match
+// in a vessel under any circumstances.
 //
 // The split rule, and it is mechanical rather than aesthetic: **would this need to apply to a pane
-// that has been torn out?** Yes → here. No → `.workstation-workspace`, which keeps the gradient
-// backdrop, the dock zones/splitters/rails, and the tourbar/statusbar. A vessel must not inherit
-// those; a bare pane host is not a dense composition.
+// that has been torn out?** Yes → here, the sheet both boot modes load. No → `.workstation-workspace`
+// in `Workspace.scss`, which keeps the gradient backdrop, the dock zones/splitters/rails, and the
+// tourbar/statusbar. A vessel must not inherit those; a bare pane host is not a dense composition.
+//
+// The consumer is decided from the pane the vessel ACTUALLY hosts, not from a convenient stand-in.
+// A resident pane renders as `.workstation-pane.workstation-placeholder.workstation-pane-<id>`
+// wrapping `.workstation-resident-*` children (`Workspace.mjs` pane factory); the data panes render
+// as `.workstation-data-pane` (`FeedPane`/`ScalePane`), with `.workstation-heat-*` on ScalePane's
+// grid cells. Those are the classes a torn-out pane carries, so those are the rules that travel.
 .workstation-viewport {
     // Grouped with `.neo-dashboard-dock-edge-band` in the workspace block. The band is chrome and
     // stayed; this half is pane skin, so the pair split rather than moved together.
@@ -108,3 +121,183 @@
         }
     }
 }
+
+// Already scoped to the viewport, but it lived in `Workspace.scss` — gate 2 satisfied, gate 1 not.
+// Moving the FILE is what makes it reachable; the selector never needed changing.
+.workstation-viewport .neo-button.workstation-row-action {
+    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 8%, var(--workstation-panel-2));
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 34%, var(--workstation-line));
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 62%, var(--workstation-line));
+    --button-glyph-color            : var(--workstation-signal);
+    --button-glyph-color-active     : var(--workstation-signal);
+    --button-glyph-color-hover      : var(--workstation-signal);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
+    --button-text-color             : var(--workstation-ink-dim);
+    --button-text-color-active      : var(--workstation-ink);
+    --button-text-color-hover       : var(--workstation-ink);
+    border-radius: 6px;
+    font-family  : var(--workstation-font-mono);
+    height       : 30px;
+}
+
+// `FeedPane` / `ScalePane` root. A torn-out data pane keeps its own frame, and the sparkline
+// cell-fit contract travels with it — a canvas that escapes its cell in the workspace escapes it
+// in a vessel too.
+.workstation-data-pane {
+    background: var(--workstation-panel);
+    border    : 1px solid var(--workstation-line-soft);
+    border-radius: 8px;
+    min-height   : 0;
+    min-width    : 0;
+    overflow     : hidden;
+
+    .neo-grid-header-toolbar {
+        background: var(--workstation-panel-2);
+    }
+
+    // The Sparkline component's intrinsic canvas is 300x150. Workstation must load the
+    // same cell-fit contract proven by DevIndex instead of letting that size escape.
+    .neo-sparkline-wrapper {
+        contain: strict;
+        height : 100%;
+        min-width: 0;
+        position: relative;
+        width   : 100%;
+
+        .neo-sparkline-canvas {
+            height  : 100%;
+            left    : 0;
+            position: absolute;
+            top     : 0;
+            width   : 100%;
+        }
+    }
+}
+
+// The resident pane — the class the reported vessel actually hosts. Its root and its card
+// children are the skin whose absence read as "raw stacked text" on the operator's frame.
+.workstation-placeholder {
+    background:
+        radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--workstation-signal) 16%, transparent), transparent 38%),
+        linear-gradient(145deg, var(--workstation-panel), color-mix(in srgb, var(--workstation-signal) 5%, var(--workstation-panel-2)));
+    border        : 1px solid var(--workstation-line-soft);
+    border-radius : 8px;
+    overflow: hidden;
+    padding : 0;
+    position: relative;
+
+    &::after {
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--workstation-signal) 55%, transparent), transparent);
+        content   : '';
+        height    : 1px;
+        left      : 8%;
+        position  : absolute;
+        right     : 8%;
+        top       : 0;
+    }
+}
+
+.workstation-resident-card {
+    box-sizing    : border-box;
+    display       : flex;
+    flex-direction: column;
+    height        : 100%;
+    min-height    : 0;
+    padding : clamp(12px, 2vw, 24px);
+    position: relative;
+}
+
+.workstation-resident-kicker {
+    align-items   : center;
+    color  : var(--workstation-ink-dim);
+    display: flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 10px;
+    font-weight   : 700;
+    gap           : 7px;
+    letter-spacing: .13em;
+
+    span {
+        background   : var(--workstation-state-ok);
+        border-radius: 50%;
+        box-shadow   : 0 0 12px color-mix(in srgb, var(--workstation-state-ok) 72%, transparent);
+        height: 6px;
+        width : 6px;
+    }
+}
+
+.workstation-resident-icon {
+    color    : color-mix(in srgb, var(--workstation-signal) 72%, var(--workstation-ink));
+    font-size: clamp(18px, 2vw, 30px);
+    margin : auto 0 8px;
+    opacity: .82;
+}
+
+.workstation-resident-metric {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-mono);
+    font-size     : clamp(24px, 4vw, 58px);
+    font-weight   : 800;
+    letter-spacing: -.06em;
+    line-height   : .95;
+    text-shadow   : 0 0 28px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+}
+
+.workstation-resident-title {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-sans);
+    font-size     : clamp(11px, 1.2vw, 16px);
+    font-weight   : 650;
+    letter-spacing: .02em;
+    margin-top    : 8px;
+}
+
+.workstation-resident-footer {
+    align-items   : center;
+    border-top    : 1px solid var(--workstation-line-soft);
+    color  : var(--workstation-ink-faint);
+    display: flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 9px;
+    gap           : 8px;
+    justify-content: space-between;
+    margin-top    : 14px;
+    padding-top   : 9px;
+    text-transform: uppercase;
+
+    strong {
+        color         : var(--workstation-state-ok);
+        font-size     : 9px;
+        letter-spacing: .12em;
+    }
+}
+
+.workstation-resident-wave {
+    align-items: end;
+    display: flex;
+    gap    : 3px;
+    height : 15px;
+    margin-top : 9px;
+
+    i {
+        background   : color-mix(in srgb, var(--workstation-signal) 68%, var(--workstation-line));
+        border-radius: 2px;
+        display: block;
+        height : 40%;
+        width  : 8px;
+
+        &:nth-child(2), &:nth-child(5) {height: 78%}
+        &:nth-child(3) {height: 100%}
+        &:nth-child(4) {height: 62%}
+        &:nth-child(6) {height: 28%}
+    }
+}
+
+// ScalePane's grid CELL classes — they ride the pane's own grid, so they travel with it.
+.workstation-heat-0 {background: color-mix(in srgb, var(--workstation-panel-2) 92%, var(--workstation-signal))}
+.workstation-heat-1 {background: color-mix(in srgb, var(--workstation-panel-2) 84%, var(--workstation-signal))}
+.workstation-heat-2 {background: color-mix(in srgb, var(--workstation-panel-2) 76%, var(--workstation-signal))}
+.workstation-heat-3 {background: color-mix(in srgb, var(--workstation-panel-2) 66%, var(--workstation-signal))}
