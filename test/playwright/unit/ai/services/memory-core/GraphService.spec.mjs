@@ -296,9 +296,10 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // cannot pass by disabling decay itself.
         GraphService.linkNodes('MailScentSource', 'MailScentTarget', 'RELATES_TO', 0.05);
 
-        // Assertions read the PERSISTED authority, never the RAM cache: the bulk-SQL decay
-        // path bypasses the Store mutation layer, so the cache retains pre-decay state by
-        // construction (see the syncCache note inside decayGlobalTopology).
+        // Storage read-back, not cache read-back: a durability assertion must be answered by
+        // the durable store on principle. (decayGlobalTopology does call syncCache(), so the
+        // cache is not known-stale here — which is precisely why cache agreement would prove
+        // nothing on its own.)
         const edgeRow = GraphService.db.storage.db.prepare(`
             SELECT data
             FROM Edges
