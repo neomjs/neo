@@ -341,17 +341,17 @@ export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCom
  * @param {Boolean} [options.forced=false] True when a dispatch dry-run forced the branch.
  * @returns {String}
  */
-export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, branch, forced=false}) {
+export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, branch=DEFAULT_BRANCH, forced=false}) {
     const corpusLine = corpusFacets
         ? [
-            '**Corpus facets** (committed `dev`; a green pipeline cannot attest to this backlog):',
+            `**Corpus facets** (committed \`${branch}\`; a green pipeline cannot attest to this backlog):`,
             '',
-            '| facet | last commit on `dev` | age | status |',
+            `| facet | last commit on \`${branch}\` | age | status |`,
             '|---|---|---|---|',
             ...corpusFacets.map(({facet, lastCommitAt, ageHours, stale}) =>
                 `| \`${facet}\` | ${lastCommitAt ?? 'none visible'} | ${lastCommitAt ? `${ageHours.toFixed(1)}h` : '—'} | ${stale ? '**STALE**' : 'ok'} |`)
         ].join('\n')
-        : `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`;
+        : `**Corpus axis:** last \`resources/content/**\` commit on \`${branch}\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`${branch}\` — a green pipeline cannot attest to this backlog.`;
 
     return [
         ALARM_MARKER,

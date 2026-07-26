@@ -203,6 +203,36 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(scoped.lastSuccess).toBe(null)
     });
 
+    test('every branch label in the alarm body follows WATCHDOG_BRANCH, never a literal (#15994)', () => {
+        const body = buildAlarmBody({
+            consecutiveFailures: 4,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['corpus facet `pulls` is 214.8h old (threshold 48h)'],
+            corpusFacets       : [{facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8, stale: true}],
+            branch             : 'release/13.2'
+        });
+
+        // Streak line, corpus header AND the table column all name the measured branch. A literal
+        // `dev` in any of them is a false statement the moment the branch is overridden.
+        expect(body).toContain('consecutive failures on `release/13.2`');
+        expect(body).toContain('**Corpus facets** (committed `release/13.2`');
+        expect(body).toContain('| facet | last commit on `release/13.2` | age | status |');
+        expect(body).not.toContain('`dev`');
+
+        // Omitted branch still renders the default truthfully rather than "undefined".
+        const defaulted = buildAlarmBody({
+            consecutiveFailures: 1,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['x'],
+            corpusFacets       : [{facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8, stale: true}]
+        });
+
+        expect(defaulted).toContain('committed `dev`');
+        expect(defaulted).not.toContain('undefined')
+    });
+
     test('selectAlarmIssue: body marker wins over title, PRs are excluded, marker beats prefix', () => {
         const marked   = {number: 10, title: 'renamed alarm', body: `x ${ALARM_MARKER} y`},
               prefixed = {number: 11, title: `${ALARM_TITLE_PREFIX} legacy`, body: 'no marker'},
