@@ -74,6 +74,22 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
         test.info().annotations.push({type: 'parity-boot-ms', description: `${readiness.bootMs}ms (project=${readiness.project})`});
     });
 
+    test('both imported Neural Link loggers initialize without sink degradation', () => {
+        // RecorderService imports the Neural Link logger into both processes even though the
+        // Neural Link server remains seat-local. A missing NEO_NL_LOG_PATH therefore escaped the
+        // booting servers' own config walks and degraded at runtime. A positive RecorderService
+        // marker prevents an empty log stream from satisfying the two negative assertions.
+        for (const service of ['mc-server', 'orchestrator']) {
+            const logs   = compose(['logs', '--no-color', service]),
+                  output = `${logs.stdout}\n${logs.stderr}`;
+
+            expect(logs.status, `could not read ${service} parity boot logs:\n${output.slice(-2000)}`).toBe(0);
+            expect(output).toContain('[RecorderService] Connected to Memory Core nl_action_log.');
+            expect(output).not.toContain('file sink unavailable');
+            expect(output).not.toContain("mkdir '/app/.neo-ai-data/logs'");
+        }
+    });
+
     test('served identity: both servers prove the overlay plane, never the durable root', async () => {
         for (const {service, url} of [
             {service: 'kb-server', url: KB_INTERNAL_URL},

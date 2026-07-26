@@ -9,10 +9,12 @@
 #   bind mount makes `/app/.neo-ai-data` the canonical root in-container, so the parity
 #   plane RELOCATES to `/app/.neo-ai-data-parity` (`assertPlaneCoherence` fails the boot
 #   otherwise — identity-without-isolation).
-# - Member leaf DEFAULTS are anchor-static. A relocated root with defaulted members is a
-#   partially-moved plane and FAILS BOOT (`assertPlaneMemberCoherence`), so EVERY
-#   plane-member leaf is bound declaratively below (`x-plane-env`). That boot clause IS
-#   the completeness check: an unbound member cannot boot, by construction.
+# - Member leaf DEFAULTS are anchor-static. Inside each boot owner's config tree, a
+#   relocated root with defaulted members is a partially-moved plane and FAILS BOOT
+#   (`assertPlaneMemberCoherence`). Every member in the profile's declared config roster
+#   is therefore bound below (`x-plane-env`). Imported foreign config trees remain outside
+#   that runtime walk; the static placement census covers their declarations, while a
+#   wider runtime enforcement domain is a separate ADR-0019 decision.
 # - Served identity: boot asserts the resolved {plane.id, dataRoot} before serving; the
 #   in-container healthcheck reaches the same process by network-namespace construction
 #   (the #15367 cross-checkout scar is a HOST-side port phenomenon — mitigated here by
@@ -47,8 +49,8 @@
 name: &plane-id "${COMPOSE_PROJECT_NAME:-neo-local-parity}"
 
 # The full plane-member binding for the RELOCATED parity plane — map form (not list) so
-# services compose it via YAML merge keys. One shared map binds the union of the three
-# member sets (Tier-1 configBase + memory-core + knowledge-base); leaves a server does
+# services compose it via YAML merge keys. One shared map binds the union of the four
+# member sets (Tier-1 configBase + memory-core + knowledge-base + neural-link); leaves a server does
 # not declare are simply unread env vars, which keeps the binding single-sourced here.
 # Paths mirror each leaf's anchor-derived default, re-rooted under the parity root.
 x-plane-env: &plane-env
@@ -81,6 +83,8 @@ x-plane-env: &plane-env
   NEO_LAZY_EDGES_QUEUE_PATH: /app/.neo-ai-data-parity/memory-core/lazy-edges.jsonl
   # Knowledge-base member (ai/mcp/server/knowledge-base/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_KB_LOG_PATH: /app/.neo-ai-data-parity/logs
+  # Neural-link member (ai/mcp/server/neural-link/configBase.mjs PLANE_MEMBER_PATHS)
+  NEO_NL_LOG_PATH: /app/.neo-ai-data-parity/logs
   # Graph SQLite — explicitly placed although NOT yet a declared plane member: MC's
   # `storagePaths.graphProd` is absent from its PLANE_MEMBER_PATHS and its default anchors
   # to cwd (not the plane root), with divergent sibling defaults on the KB/neural-link

@@ -19,7 +19,9 @@ import {
 } from '../../../../ai/planeConfig.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from '../../../../ai/configBase.mjs';
 import McConfigBase                     from '../../../../ai/mcp/server/memory-core/configBase.mjs';
-import NlConfigBase                     from '../../../../ai/mcp/server/neural-link/configBase.mjs';
+import NlConfigBase, {
+    PLANE_MEMBER_PATHS as NL_MEMBER_PATHS
+} from '../../../../ai/mcp/server/neural-link/configBase.mjs';
 
 const specDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -193,7 +195,7 @@ test.describe('derivePlaneMemberPaths — the completeness half (#15932)', () =>
     const anchor = ConfigBase.config.data.plane.dataRoot.default,
           leaf   = (defaultValue, extra = {}) => ({default: defaultValue, env: null, type: 'string', parse: null, ...extra});
 
-    test('the derived set EQUALS each declared PLANE_MEMBER_PATHS — all three declaring configs', async () => {
+    test('the derived set EQUALS each declared PLANE_MEMBER_PATHS — all four declaring configs', async () => {
         expect(new Set(derivePlaneMemberPaths({descriptorData: ConfigBase.config.data, anchor})))
             .toEqual(new Set(PLANE_MEMBER_PATHS));
 
@@ -216,6 +218,9 @@ test.describe('derivePlaneMemberPaths — the completeness half (#15932)', () =>
 
         expect(new Set(derivePlaneMemberPaths({descriptorData: KbConfigBase.config.data, anchor})))
             .toEqual(new Set(KB_MEMBER_PATHS));
+
+        expect(new Set(derivePlaneMemberPaths({descriptorData: NlConfigBase.config.data, anchor})))
+            .toEqual(new Set(NL_MEMBER_PATHS));
     });
 
     test('green fixture: member included, reasoned exclusion honored, non-anchored undecided ignored', () => {
