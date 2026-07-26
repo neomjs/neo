@@ -117,119 +117,180 @@ class SyncService extends Base {
      * git delivery step so a failed rebase can reset the checkout, re-emit the generated files,
      * and retry without leaving the repository mid-rebase.
      *
-     * 1.  Loads the persistent metadata from the last sync via `MetadataManager`.
-     * 2.  Fetches and caches GitHub release data via `ReleaseNotesSyncer`.
-     * 3.  Reconciles closed issue locations (archives stale issues) via `IssueSyncer`.
-     * 4.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
-     * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
-     * 6.  Syncs release notes into local Markdown files via `ReleaseNotesSyncer`.
-     * 7.  Syncs discussions into local Markdown files via `DiscussionSyncer`.
-     * 8.  Syncs pull requests into local Markdown files via `PullRequestSyncer`.
-     * 9.  Carries `metadata.discussions` + `metadata.pulls` onto `newMetadata` so the
-     *     per-syncer cache populations survive `MetadataManager.save`.
-     * 10. Caches releases in `newMetadata` for next run.
-     * 11. Saves the updated, pruned metadata to disk via `MetadataManager`.
-     * 12. Rebuilds Portal content indexes and SEO artifacts from the emitted content.
-     * @returns {Promise<object>} Statistics for the emitted generated content.
+     * **The facets are ISOLATED and persist independently.** Each runs through `#runFacet`, which saves
+     * metadata the moment that facet completes and rolls back only that facet's own slices when it does
+     * not. So a corpus too large for one pass converges across runs instead of failing whole, and one
+     * facet's failure neither discards the facets before it nor skips the facets after it.
+     *
+     * 1. Loads the persistent metadata via `MetadataManager` — one accumulator every facet mutates.
+     * 2. Facet `releases`: fetches release data and caches it for the next run (`ReleaseNotesSyncer`).
+     * 3. Facet `issues`: reconciles closed issue locations, **pushes** local changes, then **pulls**
+     *    remote changes, merging the returned metadata into the accumulator (`IssueSyncer`).
+     * 4. Facet `releaseNotes`: syncs release notes into local Markdown (`ReleaseNotesSyncer`).
+     * 5. Facet `discussions`: syncs discussions into local Markdown (`DiscussionSyncer`).
+     * 6. Facet `pulls`: reconciles closed pull locations, syncs pulls, repairs duplicates, realigns
+     *    `_index.json`, and takes the integrity verdict that decides whether the facet advances at all
+     *    (`PullRequestSyncer`).
+     * 7. Rebuilds Portal content indexes and SEO artifacts from whatever advanced.
+     * 8. Throws one aggregate verdict naming every facet that did not advance — partial progress must
+     *    never report as a clean run.
+     * @returns {Promise<object>} Statistics for the emitted generated content, plus `facetOutcomes`.
      */
     async emitGeneratedContentAndDerive() {
-        const metadata = await MetadataManager.load();
+        const
+            metadata = await MetadataManager.load(),
+            outcomes = [],
+            facet    = (name, owns, run) => this.#runFacet({metadata, name, outcomes, owns, run});
+
+        // Normalized ONCE, here, instead of coerced with `|| {}` at the save site. `load()` supplies all
+        // four on both its paths, but a hand-written metadata file or a stub may not — and then every
+        // facet downstream has to defend against `undefined`, which is how the empty-object guarantee
+        // gets lost: one site forgets the coercion and a consumer reads `undefined` where the contract
+        // promises `{}`. One normalization makes the accumulator's shape an invariant rather than a
+        // habit, and it is also what lets `MetadataManager.save` read `metadata.issues` unguarded.
+        metadata.discussions ??= {};
+        metadata.issues      ??= {};
+        metadata.pulls       ??= {};
+        metadata.releases    ??= {};
 
         // 1. Fetch releases first, as they are needed for issue archiving
-        await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
+        await facet('releases', ['releases', 'releasesLastFetched'], async () => {
+            await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
 
-        // 2. Reconcile closed issue locations - archive stale closed issues before pull
-        const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+            // Cached HERE rather than at the end of the chain. These two assignments used to live after
+            // every facet had run, so any later throw discarded a fetch that had already succeeded and
+            // the next run paid for it again.
+            metadata.releases            = ReleaseNotesSyncer.releases;
+            metadata.releasesLastFetched = new Date().toISOString()
+        });
 
-        // 2b. Reconcile closed PULL locations — the sibling reconcile that was missing. The
-        //     delta-only pull sync skips PRs untouched since the last cutoff, so old merged PRs marooned
-        //     in active pulls/ are never re-bucketed; this per-sync reconcile (mirroring the issue one)
-        //     archives them and keeps pulls archived going forward.
-        const pullReconcileStats = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata);
+        // 2 + 3 + 4. Reconcile closed issue locations (archiving stale closed issues BEFORE the pull),
+        //     push local changes, then pull remote changes. One facet, because the ordering between them
+        //     is load-bearing: splitting them would let a run persist a pull whose reconcile never ran.
+        let reconcileStats = null,
+            pushStats      = null,
+            pullStats      = null;
 
-        // 3. Push local changes
-        const pushStats = await IssueSyncer.pushToGitHub(metadata);
+        await facet('issues', ['issues', 'pushFailures', 'lastSync'], async () => {
+            reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+            pushStats      = await IssueSyncer.pushToGitHub(metadata);
 
-        // 4. Pull remote changes
-        const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
+            const {newMetadata, stats} = await IssueSyncer.pullFromGitHub(metadata);
+
+            pullStats = stats;
+
+            // MERGED into the accumulator rather than replacing it. `pullFromGitHub` returns a fresh
+            // object carrying only `{issues, pushFailures, lastSync}`, and the old chain saved THAT
+            // object at the very end — so discussion and pull populations had to be hand-copied back
+            // onto it or they were silently dropped. Merging makes the carry-over structural: a syncer
+            // that populates a new slice cannot lose it to a save that does not know the slice exists.
+            Object.assign(metadata, newMetadata);
+
+            // Self-heal push failures: a previously failed issue that pulled successfully is not failing.
+            if (metadata.pushFailures?.length > 0) {
+                metadata.pushFailures = metadata.pushFailures.filter(failedId => !metadata.issues[failedId])
+            }
+        });
 
         // 5. Sync release notes
-        const releaseStats = await ReleaseNotesSyncer.syncNotes(metadata);
+        const releaseStats = await facet('releaseNotes', ['releases'], () => ReleaseNotesSyncer.syncNotes(metadata));
 
         // 6. Sync discussions
-        const discussionStats = await DiscussionSyncer.syncDiscussions(metadata);
+        const discussionStats = await facet('discussions', ['discussions'], () => DiscussionSyncer.syncDiscussions(metadata));
 
-        // 7. Sync pull requests
-        const pullStats2 = await PullRequestSyncer.syncPullRequests(metadata);
+        // 7. The pull facet: reconcile, sync, repair, project, and the integrity verdict that decides
+        //    whether any of it counts. All one facet because 7c's abort must revert THIS facet and only
+        //    this facet — the whole point of the verdict is that a pull corpus measured broken does not
+        //    advance, and the whole point of the isolation is that it no longer takes the other facets
+        //    down with it.
+        let pullReconcileStats = null,
+            pullDuplicateStats = null,
+            pullIndexStats     = null,
+            pullIntegrity      = null;
 
-        // 7a. Restore any pull request owning more than one artifact from canonical GitHub state.
-        //     A divergent pair cannot be resolved locally — both files are real renderings and
-        //     nothing on disk says which is current — so neither is trusted and the artifact is
-        //     re-derived from the source of truth. Runs BEFORE the index realign so the restored
-        //     placement is what gets indexed, and is a no-op on a corpus with no duplicates.
-        const pullDuplicateStats = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
+        const pullStats2 = await facet('pulls', ['pulls'], async () => {
+            // 7-a. Reconcile closed PULL locations — the sibling reconcile that was missing. The
+            //      delta-only pull sync skips PRs untouched since the last cutoff, so old merged PRs
+            //      marooned in active pulls/ are never re-bucketed; this per-sync reconcile (mirroring
+            //      the issue one) archives them and keeps pulls archived going forward. It ran before
+            //      the ISSUE push/pull previously; it belongs with the pull corpus it reconciles, and
+            //      what its own rationale requires is only that it precede `syncPullRequests`.
+            pullReconcileStats = await PullRequestSyncer.reconcileClosedPullRequestLocations(metadata);
 
-        // 7b. Realign `_index.json` with the pull corpus now that placement is final for this run.
-        //     Preventing new drift does not remove old drift: entries that went stale when a move
-        //     did not carry its upsert name files that are ALREADY archived, so the relocate pass
-        //     never revisits them and the delta sync never fetches them — no existing mechanism
-        //     could ever have healed them. The index is a projection of the corpus, so this
-        //     recomputes it from disk. Idempotent and silent on a healthy corpus (it upserts only
-        //     entries that disagree), so the generated-content diff stays empty when nothing drifted.
-        const pullIndexStats = await PullRequestSyncer.reconcilePullRequestIndex();
+            const stats = await PullRequestSyncer.syncPullRequests(metadata);
 
-        // 7c. One terminal integrity verdict, CONSUMED. Every pass above reports its own outcome and
-        //     degrades softly on its own terms, which is exactly how a corpus reaches the commit with
-        //     each step reporting success and the whole known-broken: a repair that fails logs and
-        //     returns, an unrepaired duplicate stays unindexed, and nothing downstream asks. So the
-        //     verdict is taken AFTER placement, restoration and projection are final, and it aborts —
-        //     before the metadata save, before the derive, before the auto-push. Committing a corpus
-        //     we have already measured as broken is worse than failing the run: the run can be
-        //     retried, but a generated commit is what every consumer then reads as truth.
-        const pullIntegrity = await PullRequestSyncer.verifyCorpusIntegrity();
+            // 7-b. Restore any pull request owning more than one artifact from canonical GitHub state.
+            //      A divergent pair cannot be resolved locally — both files are real renderings and
+            //      nothing on disk says which is current — so neither is trusted and the artifact is
+            //      re-derived from the source of truth. Runs BEFORE the index realign so the restored
+            //      placement is what gets indexed, and is a no-op on a corpus with no duplicates.
+            pullDuplicateStats = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
 
-        if (pullDuplicateStats.failed.length > 0 || !pullIntegrity.ok) {
-            logger.error(formatIntegrityReport(pullIntegrity));
+            // 7-c. Realign `_index.json` with the pull corpus now that placement is final for this run.
+            //      Preventing new drift does not remove old drift: entries that went stale when a move
+            //      did not carry its upsert name files that are ALREADY archived, so the relocate pass
+            //      never revisits them and the delta sync never fetches them — no existing mechanism
+            //      could ever have healed them. The index is a projection of the corpus, so this
+            //      recomputes it from disk. Idempotent and silent on a healthy corpus (it upserts only
+            //      entries that disagree), so the generated-content diff stays empty when nothing drifted.
+            pullIndexStats = await PullRequestSyncer.reconcilePullRequestIndex();
 
+            // 7-d. One terminal integrity verdict, CONSUMED. Every pass above reports its own outcome and
+            //      degrades softly on its own terms, which is exactly how a corpus reaches the commit with
+            //      each step reporting success and the whole known-broken: a repair that fails logs and
+            //      returns, an unrepaired duplicate stays unindexed, and nothing downstream asks. So the
+            //      verdict is taken AFTER placement, restoration and projection are final, and it aborts —
+            //      before this facet's metadata save, before the derive, before the auto-push. Committing
+            //      a corpus we have already measured as broken is worse than failing the run: the run can
+            //      be retried, but a generated commit is what every consumer then reads as truth.
+            //
+            //      What ISOLATION changed and did not change: the abort no longer discards the issue,
+            //      release and discussion facets that already succeeded. It still prevents this facet
+            //      from advancing, so the next run re-fetches exactly these pulls. The `_index.json`
+            //      realign above has already touched disk by this point and is not rolled back — that is
+            //      acceptable only because it is idempotent by construction (its own note above), and it
+            //      is the reason the verdict must stay inside this facet rather than becoming advisory.
+            pullIntegrity = await PullRequestSyncer.verifyCorpusIntegrity();
+
+            if (pullDuplicateStats.failed.length > 0 || !pullIntegrity.ok) {
+                logger.error(formatIntegrityReport(pullIntegrity));
+
+                throw new Error(
+                    'Pull corpus integrity is not clean after repair — refusing to commit generated content. ' +
+                    `stale=${pullIntegrity.staleIndexEntries.length} ` +
+                    `inconsistent=${pullIntegrity.inconsistentIndexEntries.length} ` +
+                    `duplicateIndexRows=${pullIntegrity.duplicateIndexEntryIds.length} ` +
+                    `unindexed=${pullIntegrity.unindexedIds.length} ` +
+                    `divergentDuplicates=${pullIntegrity.divergentDuplicateIds.length} ` +
+                    `failedRepairs=${pullDuplicateStats.failed.length}`
+                );
+            }
+
+            return stats
+        });
+
+        // 8. Derive the portal projection from whatever DID advance. The indexes are a projection of the
+        //    corpus on disk, so a partially-advanced corpus derives a correspondingly partial projection
+        //    rather than a wrong one — and running it before the verdict below means a facet failure does
+        //    not also strand the facets that succeeded without their indexes.
+        await this.rebuildContentIndexesAndSeo();
+
+        const failedFacets = outcomes.filter(outcome => !outcome.advanced);
+
+        // 9. One aggregate verdict, AFTER every facet has had its turn.
+        //
+        //    Partial progress is the point — a corpus too large for one pass must converge across runs
+        //    rather than failing whole — but a partial run must never REPORT as a clean one. Exiting 0
+        //    here would trade total loss for silent loss: the corpus would look synced while a facet sat
+        //    stale, and no consumer could tell. So the progress is partial and the verdict is not.
+        if (failedFacets.length > 0) {
             throw new Error(
-                'Pull corpus integrity is not clean after repair — refusing to commit generated content. ' +
-                `stale=${pullIntegrity.staleIndexEntries.length} ` +
-                `inconsistent=${pullIntegrity.inconsistentIndexEntries.length} ` +
-                `duplicateIndexRows=${pullIntegrity.duplicateIndexEntryIds.length} ` +
-                `unindexed=${pullIntegrity.unindexedIds.length} ` +
-                `divergentDuplicates=${pullIntegrity.divergentDuplicateIds.length} ` +
-                `failedRepairs=${pullDuplicateStats.failed.length}`
+                `[SyncService] ${failedFacets.length} of ${outcomes.length} sync facets did not advance: ` +
+                failedFacets.map(({name, reason}) => `${name} (${reason})`).join('; ') + '. ' +
+                'Facets that advanced were persisted as they completed; the failed facets kept their ' +
+                'previous high-water marks, so the next run retries exactly those and nothing else.'
             );
         }
-
-        // 8. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
-        if (newMetadata.pushFailures?.length > 0) {
-            newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
-        }
-
-        // 9. Carry over per-syncer metadata mutations.
-        //
-        // `newMetadata` is a fresh object constructed by `IssueSyncer.pullFromGitHub` carrying
-        // only `{issues, pushFailures, lastSync}`. `DiscussionSyncer.syncDiscussions(metadata)`
-        // and `PullRequestSyncer.syncPullRequests(metadata)` mutate the OLD `metadata` argument
-        // (their `metadata.discussions` / `metadata.pulls` populations). Without explicit
-        // carry-over, those mutations are dropped at `save(newMetadata)` and the on-disk diff
-        // cache stays empty after every sync.
-        //
-        // This prevents a fresh metadata object from dropping discussion and PR cache populations
-        // created by their dedicated syncers, which would otherwise leave the on-disk diff cache
-        // empty after every sync.
-        newMetadata.discussions = metadata.discussions || {};
-        newMetadata.pulls       = metadata.pulls       || {};
-
-        // 10. Cache releases in metadata for next run.
-        newMetadata.releases            = ReleaseNotesSyncer.releases;
-        newMetadata.releasesLastFetched = new Date().toISOString();
-
-        // 11. Save metadata.
-        await MetadataManager.save(newMetadata);
-
-        await this.rebuildContentIndexesAndSeo();
 
         return {
             reconcileStats,
@@ -241,8 +302,60 @@ class SyncService extends Base {
             pullStats2,
             pullDuplicateStats,
             pullIndexStats,
-            pullIntegrity
+            pullIntegrity,
+            facetOutcomes: outcomes
         };
+    }
+
+    /**
+     * @summary Runs one sync facet in isolation — persisting its progress the moment it completes, and
+     * rolling back only ITS OWN metadata slices when it fails.
+     *
+     * The chain this replaces was a bare sequential `await` list with a single `MetadataManager.save`
+     * at the very end. One facet throwing therefore discarded every facet that had already succeeded
+     * AND skipped every facet after it: a deterministic failure in discussions meant pull requests were
+     * never fetched at all and the run wrote nothing, so consecutive runs made no progress rather than
+     * partial progress. With a deterministic trigger that is not "slowly falling behind" — it is a
+     * corpus frozen indefinitely while every individual facet's own code works correctly.
+     *
+     * Rollback is per-SLICE, not whole-object, because facets mutate the shared accumulator in place.
+     * Without restoring its slices, a facet that failed its integrity verdict would still have its
+     * partial mutations persisted by the NEXT facet's save — which would make "this facet advanced" and
+     * "this facet did not" inseparable claims, and publish exactly the broken corpus the verdict exists
+     * to withhold.
+     *
+     * @param {Object}   args
+     * @param {Object}   args.metadata The shared accumulator, mutated in place by the facet.
+     * @param {String}   args.name Facet name, used in the log line and the aggregate failure.
+     * @param {Object[]} args.outcomes Accumulator for per-facet results.
+     * @param {String[]} args.owns The metadata keys this facet may advance; restored verbatim on failure.
+     * @param {Function} args.run The facet body.
+     * @returns {Promise<*>} The facet's return value, or `null` when it did not advance.
+     * @private
+     */
+    async #runFacet({metadata, name, outcomes, owns, run}) {
+        // A Map rather than an object literal so an ABSENT key snapshots as absent instead of being
+        // fabricated into `null` — `MetadataManager.save` reads `metadata.issues` unguarded, and a
+        // restore that invented a value would be a different bug than the one being prevented.
+        const snapshot = new Map(owns.map(key => [key, structuredClone(metadata[key])]));
+
+        try {
+            const value = await run();
+
+            await MetadataManager.save(metadata);
+            outcomes.push({advanced: true, name});
+
+            return value
+        } catch (error) {
+            owns.forEach(key => {
+                metadata[key] = snapshot.get(key)
+            });
+
+            outcomes.push({advanced: false, name, reason: error.message});
+            logger.error(`[SyncService] facet "${name}" did not advance; its previous state is kept: ${error.message}`);
+
+            return null
+        }
     }
 
     /**

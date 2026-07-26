@@ -149,14 +149,28 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         IssueIngestor.ingestPullRequestFeedback = originalIngestPullRequestFeedback;
     });
 
-    test('an unclean pull-corpus verdict ABORTS before metadata save, derive, and auto-push', async () => {
+    test('an unclean pull-corpus verdict NEVER reaches the auto-push, and the pull facet does not advance', async () => {
         // Every pass reports its own outcome and degrades softly on its own terms, which is exactly
         // how a corpus reaches the commit with each step reporting success and the whole known-broken.
         // The verdict is only worth taking if something consumes it: a generated commit is what every
         // consumer then reads as truth, and unlike a failed run it cannot be retried away.
-        const order = [];
+        //
+        // This test previously asserted `order === []` — that NOTHING ran, including the metadata save
+        // and the derive. That was the whole-run abort, and it is deliberately narrowed: a failure in one
+        // facet must no longer discard the facets that already succeeded, or a deterministic failure
+        // anywhere freezes the entire corpus indefinitely.
+        //
+        // So the assertion moves to the property that actually protects consumers, and it is STRONGER
+        // for being explicit: **no auto-push**, and **the pull slice does not advance**. A generated
+        // commit still requires every facet clean, because the aggregate verdict throws before delivery.
+        const
+            order      = [],
+            savedPulls = [];
 
-        MetadataManager.save = async () => { order.push('metadata-save') };
+        MetadataManager.save = async metadata => {
+            order.push('metadata-save');
+            savedPulls.push(structuredClone(metadata.pulls ?? null))
+        };
         SyncService.rebuildContentIndexesAndSeo = async () => { order.push('derive') };
         RepositoryService.getViewerPermission = async () => { order.push('permission-check'); return {permission: 'READ'} };
 
@@ -172,22 +186,31 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
         await expect(SyncService.runFullSync()).rejects.toThrow(/integrity is not clean/);
 
-        // None of the three ran: the corpus is never committed in a state we already measured as broken.
-        expect(order).toEqual([]);
+        // THE invariant: delivery is never reached, so a corpus measured broken is never committed.
+        expect(order).not.toContain('permission-check');
+
+        // The pull facet is the one that failed, so it contributed no save of its own. Any save that did
+        // happen came from an earlier facet — which is the point — and none of them may carry pull
+        // mutations made after the last good state.
+        expect(savedPulls.every(pulls => !pulls || !Object.keys(pulls).length)).toBe(true);
     });
 
     test('a FAILED duplicate repair aborts too, even when the verdict is otherwise clean', async () => {
         // The repair reports its failures rather than throwing, so a soft-failed restoration would
         // otherwise sail past a verdict that cannot see it.
+        //
+        // Narrowed with its sibling above: the abort is now facet-local, so the assertion is that
+        // DELIVERY is never reached, not that no facet before it persisted.
         const order = [];
 
         MetadataManager.save = async () => { order.push('metadata-save') };
+        RepositoryService.getViewerPermission = async () => { order.push('permission-check'); return {permission: 'READ'} };
         PullRequestSyncer.repairDuplicateArtifacts = async () => ({
             repaired: [], removed: 0, failed: [{id: 10124, reason: 'network down'}]
         });
 
         await expect(SyncService.runFullSync()).rejects.toThrow(/integrity is not clean/);
-        expect(order).toEqual([]);
+        expect(order).not.toContain('permission-check');
     });
 
     test('a clean verdict lets the run proceed — the gate can PASS', async () => {
@@ -220,7 +243,22 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         const result = await SyncService.runFullSync();
 
         expect(result.success).toBe(true);
-        expect(order).toEqual(['metadata-save', 'derive', 'permission-check']);
+
+        // The claim under test is an ORDERING — persist, then derive, then check push permission — and it
+        // is asserted as one here rather than as an exact three-element sequence. The save count is no
+        // longer one: each facet persists as it completes, so a corpus too large for a single pass
+        // converges across runs instead of failing whole. Pinning the count would make this test fail on
+        // every future facet while saying nothing about the order it exists to protect.
+        const
+            lastSave    = order.lastIndexOf('metadata-save'),
+            firstDerive = order.indexOf('derive'),
+            pushCheck   = order.indexOf('permission-check');
+
+        expect(lastSave).toBeGreaterThanOrEqual(0);
+        expect(lastSave).toBeLessThan(firstDerive);
+        expect(firstDerive).toBeLessThan(pushCheck);
+        expect(order.filter(step => step === 'derive')).toHaveLength(1);
+        expect(order.filter(step => step === 'permission-check')).toHaveLength(1);
     });
 
     test('runFullSync rejects before auto-push and Stage 2 when the post-sync derive fails (#13260)', async () => {
@@ -315,7 +353,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(result.success).toBe(true);
         expect(result.statistics.pulled.count).toBe(2);
         expect(pullRuns).toBe(2);
-        expect(saves).toBe(2);
+        // NOT pinned to the pass count: each facet persists as it completes, so a pass makes several
+        // saves. `derives` is the pass counter, so `saves > derives` asserts per-facet persistence is in
+        // force without hardcoding how many facets exist.
+        expect(saves).toBeGreaterThan(derives);
         expect(derives).toBe(2);
         expect(stage2Calls).toEqual({
             issueStates        : 1,
@@ -387,7 +428,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(result.success).toBe(true);
         expect(result.statistics.pulled.count).toBe(2);
         expect(pullRuns).toBe(2);
-        expect(saves).toBe(2);
+        // NOT pinned to the pass count: each facet persists as it completes, so a pass makes several
+        // saves. `derives` is the pass counter, so `saves > derives` asserts per-facet persistence is in
+        // force without hardcoding how many facets exist.
+        expect(saves).toBeGreaterThan(derives);
         expect(derives).toBe(2);
         expect(stage2Calls).toEqual({
             issueStates        : 1,
