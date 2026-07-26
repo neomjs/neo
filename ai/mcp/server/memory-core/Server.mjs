@@ -5,6 +5,7 @@ import AuthMiddleware        from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver from '../shared/services/StdioIdentityResolver.mjs';
 import BootEnvelopeResolver  from '../shared/services/BootEnvelopeResolver.mjs';
+import {formatHostEndpoint}  from '../shared/helpers/hostEndpoint.mjs';
 import {
     buildSqliteHolderDiagnostics,
     formatHarnessGroups
@@ -777,12 +778,21 @@ class Server extends BaseServer {
             if (!health.database?.process?.running) {
                 // Print the RESOLVED target this server actually dials, never invented env fallbacks:
                 // a tip that guesses can send an operator to the wrong path while the real endpoint is
-                // one line away. The bind-family hint is not decoration — a listener bound to `[::1]`
-                // only refuses an IPv4 client (and vice versa), which presents as a dead service to
-                // every `127.0.0.1` probe while `localhost` answers fine.
+                // one line away.
+                //
+                // The bind-family line is an INDEPENDENT diagnostic, not an explanation of any
+                // particular outage: a listener bound to `[::1]` refuses an IPv4 client (and vice
+                // versa), so the service looks dead to every `127.0.0.1` probe while `localhost`
+                // answers fine. That asymmetry is cheap to hit and expensive to guess at — but it
+                // fails FAST (a refused connection, ~1ms), so it explains a "service is down" misread,
+                // never a hang or a timeout.
+                //
+                // `formatHostEndpoint` is required rather than a `${host}:${port}` template because an
+                // IPv6 host is exactly what this branch tends to be printing, and the naive form
+                // renders `::1:8000` — not a valid authority.
                 const {dataDir, host, port} = aiConfig.engines.chroma;
 
-                logger.warn(`    💡 Tip: this server expects ChromaDB at ${host}:${port} (persist dir: ${dataDir}).`);
+                logger.warn(`    💡 Tip: this server expects ChromaDB at ${formatHostEndpoint(host, port)} (persist dir: ${dataDir}).`);
                 logger.warn(`       Start it with: chroma run --path ${dataDir} --port ${port}`);
                 logger.warn(`       Already running? Check the bind family — an IPv6-only listener refuses`);
                 logger.warn(`       an IPv4 client: lsof -nP -iTCP:${port} -sTCP:LISTEN`);

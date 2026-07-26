@@ -977,7 +977,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         logger.warn = message => lines.push(String(message));
 
         try {
-            // The exact shape the outage produced: server up, chroma process not owned/running.
+            // The branch the tip guards: server up, chroma process not owned/running.
             serverInstance.logStartupStatus({
                 status  : 'unhealthy',
                 details : ['Embedding write canary failed'],
@@ -999,8 +999,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         // The invented fallbacks the predecessor printed — a path this plane never uses.
         expect(tip).not.toContain('./data/chroma');
 
-        // The bind-family hint is the diagnosis a 127.0.0.1-vs-[::1] outage needs; without it the
-        // tip is silent on the one failure mode where the service is up and the client still fails.
+        // The bind-family hint covers the one failure mode where the service is UP and the client
+        // still cannot reach it: a `[::1]`-only listener refuses an IPv4 client. It is an independent
+        // diagnostic for a "service looks down" misread — a refused connection returns in ~1ms, so it
+        // never explains a hang or a timeout, and it is not the mechanism behind any slow-boot outage.
         expect(tip).toMatch(/IPv6-only|bind family/i);
         expect(tip).toContain(`lsof -nP -iTCP:${port} -sTCP:LISTEN`);
     });
