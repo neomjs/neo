@@ -96,7 +96,7 @@ export const OPENER_SEARCH_TREES = ['ai', 'buildScripts', 'src', 'apps'];
 /**
  * The config modules that DECLARE plane membership, each exporting a frozen `PLANE_MEMBER_PATHS`.
  *
- * All three, not just Tier 1: the two MCP server configs declare their own members (`memoryWal.*`,
+ * All four, not just Tier 1: the three MCP server configs declare their own members (`memoryWal.*`,
  * `remRunStateDir`, `hookProjectionRoot`, …) and a census reading only the Tier-1 list is blind to every
  * module that reaches the plane through a server config — which is what left both WAL daemons uncounted.
  * @type {String[]}
@@ -104,7 +104,8 @@ export const OPENER_SEARCH_TREES = ['ai', 'buildScripts', 'src', 'apps'];
 export const PLANE_MEMBER_CONFIGS = [
     'ai/configBase.mjs',
     'ai/mcp/server/memory-core/configBase.mjs',
-    'ai/mcp/server/knowledge-base/configBase.mjs'
+    'ai/mcp/server/knowledge-base/configBase.mjs',
+    'ai/mcp/server/neural-link/configBase.mjs'
 ];
 
 /**
@@ -117,7 +118,7 @@ export const PLANE_MEMBER_CONFIGS = [
  * whose argument is unobtainable here is a covering clause, not a usable one.
  *
  * So this reads the declared list instead of re-deriving it, and the list is not trusted on faith:
- * `planeConfig.spec.mjs` asserts `derivePlaneMemberPaths(...)` EQUALS `PLANE_MEMBER_PATHS` for all three
+ * `planeConfig.spec.mjs` asserts `derivePlaneMemberPaths(...)` EQUALS `PLANE_MEMBER_PATHS` for all four
  * configs, and `derivePlaneMemberPaths` itself throws on a plane-anchored leaf with no membership
  * decision. Declared, derived, and anchored therefore cannot drift apart without a red spec — which is
  * what lets a diagnostic that stays node-builtins + acorn still read the real contract.

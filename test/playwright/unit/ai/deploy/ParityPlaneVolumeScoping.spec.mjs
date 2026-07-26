@@ -178,6 +178,8 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 
         // ...and the anchor is the single place the root is declared.
         expect(compose['x-plane-env'].NEO_PLANE_DATA_ROOT).toBe('/app/.neo-ai-data-parity');
+        expect(compose['x-plane-env'].NEO_NL_LOG_PATH)
+            .toBe(`${compose['x-plane-env'].NEO_PLANE_DATA_ROOT}/logs`);
 
         // Runtime access scoped to THIS project, so a parity orchestrator can never address the
         // native stack's containers. Both sites alias the same `&plane-id` scalar, so this asserts
