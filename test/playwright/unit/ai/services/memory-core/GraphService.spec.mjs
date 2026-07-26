@@ -1350,8 +1350,10 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(true);
         expect(GraphService.db.nodes.has('frontier')).toBe(true);
 
-        // Manifest-EQUAL, not merely present: the description must be the canonical one, never
-        // the drifted copy the extractor used to declare inline.
+        // DECLARED-FIELD compliant, not merely present: the description must be the canonical one,
+        // never the drifted copy the extractor used to declare inline. Deliberately not "manifest-
+        // equal" — the open contract preserves undeclared runtime fields, so the full-manifest
+        // fingerprint predicate can still read fresh:false on a compliant row.
         const restored  = GraphService.db.nodes.get('frontier'),
               canonical = getGraphBootSeedNodeSpec('frontier');
 
