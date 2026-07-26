@@ -232,7 +232,17 @@
     --dock-edge-band-right-inline-size: clamp(13.75rem, 25cqi, 20rem);
     --dock-edge-band-bottom-block-size: clamp(8.75rem, 28cqb, 12.5rem);
 
-    padding: 12px;
+    padding : 12px;
+    position: relative;
+
+    // Persistent drag affordances share this host's local geometry. The preview sits below the
+    // indicator menu and stays pointer-transparent so the sort-zone drag remains the sole owner.
+    > .neo-dock-preview {
+        inset         : 0;
+        pointer-events: none;
+        position      : absolute;
+        z-index       : 25;
+    }
 }
 
 // The generic overflow button is a floating direct-body child. Scope its cockpit skin to
