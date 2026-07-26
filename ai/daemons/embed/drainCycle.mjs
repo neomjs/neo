@@ -6,7 +6,7 @@ import {
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
 import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
-import {PROVIDER_TIMEOUT_CODE}                       from '../../provider/createTimeoutError.mjs';
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -50,6 +50,22 @@ import {PROVIDER_TIMEOUT_CODE}                       from '../../provider/create
 export const MAX_RECORD_COOLDOWN_MS = 3600000;
 
 /**
+ * Wall-clock ceiling for one `embedBatch` call, so the worst case is derivable HERE rather than
+ * from the product of a local attempt count and an attempt duration owned by another service.
+ *
+ * **Derivation, not a taste value:** the memory WAL drain polls every `pollIntervalMs` (5s default).
+ * A single batch that runs past two minutes has already starved ~24 polls of a queue it shares with
+ * every agent's `add_memory`, so the ceiling is one order of magnitude above the cadence it must not
+ * monopolise. It is a ceiling, never a target — healthy batches finish in well under a second.
+ *
+ * **Retirement trigger:** `pollIntervalMs` is not currently threaded into `embedBatch`. Once it is,
+ * derive this as a multiple of the live cadence and delete the constant — a derived bound cannot
+ * drift from the loop it protects, whereas this one can.
+ * @type {Number}
+ */
+export const DEFAULT_MAX_IN_CYCLE_MS = 120000;
+
+/**
  * @summary Computes the exponential backoff delay for a retry attempt.
  *
  * `base * 2^attempt`, capped at {@link MAX_RECORD_COOLDOWN_MS}. Pure; shared by the in-cycle
@@ -74,19 +90,18 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
  * (that file pins its own log string verbatim precisely because its regex reads it). Duplicating
  * the coupled half here would split a matched pair across modules; duplicating the codes does not.
  *
- * **Asymmetry, deliberate and worth knowing:** `PROVIDER_TIMEOUT` is IMPORTED from its owner, so a
- * rename there is a compile-visible event here. `OPENAI_COMPATIBLE_REQUEST_TIMEOUT` has no exported
- * constant — it is assigned inline in `TextEmbeddingService`, whose module ends in `Neo.setupClass`
- * and therefore cannot be imported by this pure core. So that one literal CAN go stale silently: a
- * rename at the source would stop contention being recognised and the amplification would return
- * with no test failing. Exporting it beside its `err.code` assignment is the fix; until then this
- * comment is the only thing standing between a rename and a silent regression.
+ * **Both codes are IMPORTED from their single owner** (`ai/provider/createTimeoutError.mjs`), so a
+ * rename at the source is a compile-visible event in this classifier rather than a silent behaviour
+ * change. That matters more here than tidiness: while the value was repeated at the producer and at
+ * each consumer, a coordinated producer-plus-producer-test rename could have left this classifier
+ * and its fixtures green while restoring the exact retry amplification the classifier exists to
+ * prevent. Independently-pinned literals cannot detect coordinated drift; a shared import can.
  * @type {Set<String>}
  */
 const PROVIDER_CONTENTION_CODES = Object.freeze(new Set([
     'ESOCKETTIMEDOUT',
     'ETIMEDOUT',
-    'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
     PROVIDER_TIMEOUT_CODE
 ]));
 
@@ -119,6 +134,14 @@ export function isProviderContentionError(error) {
  * Empirical anchor: one batch consumed ~21 minutes as six 300s attempts against a provider that was
  * serving the whole time (a 129-deep embedding queue), and only an operator restart cleared it.
  *
+ * **Local wall-clock bound.** Attempt COUNT is declared here (`maxRetries`) while attempt
+ * DURATION is declared in another service (`openAiCompatible.batchEmbeddingTimeoutMs`), so the worst
+ * case is the product of two leaves neither owner can see. `maxInCycleMs` re-localises it: no NEW
+ * attempt starts once the budget is spent. The bound deliberately does NOT race an in-flight
+ * `collection.add` — abandoning a write that may still land is how a timeout turns into a duplicate
+ * — so the honest guarantee is *"at most one externally-bounded attempt after the budget expires"*,
+ * which is derivable from this file alone.
+ *
  * @param {Object}   options
  * @param {Object}   options.collection    Content-store collection (`add({ids, metadatas, documents})`).
  * @param {Object[]} options.records       Pending WAL records (`{id, metadata, document, segmentKey}`).
@@ -128,14 +151,28 @@ export function isProviderContentionError(error) {
  * @param {Function} options.log           `(level, message)` sink.
  * @param {Function} [options.isContentionError=isProviderContentionError] Saturation classifier
  *     (injected so the pure core stays free of the Neo-class provider module).
+ * @param {Number}   [options.maxInCycleMs=DEFAULT_MAX_IN_CYCLE_MS] Wall-clock ceiling for one batch.
+ * @param {Function} [options.now=Date.now] Clock seam (injected for deterministic specs).
  * @returns {Promise<{succeeded: Object[], failed: Array<{record: Object, error: Error}>}>}
  */
-export async function embedBatch({collection, records, maxRetries, backoffBaseMs, sleep, log, isContentionError = isProviderContentionError}) {
+export async function embedBatch({
+    collection,
+    records,
+    maxRetries,
+    backoffBaseMs,
+    sleep,
+    log,
+    isContentionError = isProviderContentionError,
+    maxInCycleMs      = DEFAULT_MAX_IN_CYCLE_MS,
+    now               = Date.now
+}) {
     const payload = {
-        ids      : records.map(record => record.id),
-        metadatas: records.map(record => record.metadata),
-        documents: records.map(record => record.document)
-    };
+            ids      : records.map(record => record.id),
+            metadatas: records.map(record => record.metadata),
+            documents: records.map(record => record.document)
+        },
+        startedAt = now(),
+        budgetSpent = () => Number.isFinite(maxInCycleMs) && maxInCycleMs > 0 && now() - startedAt >= maxInCycleMs;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -148,6 +185,16 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
                 // with escalating spacing, so the backlog survives and the provider gets room.
                 log('INFO', `Batch embed hit provider contention (${error.message}) — deferring ` +
                     `${records.length} record(s) to a later cycle without retry`);
+
+                return {succeeded: [], failed: records.map(record => ({record, error}))};
+            }
+
+            if (budgetSpent()) {
+                // The wall-clock ceiling is spent. Stop before starting anything new — including the
+                // isolation pass, which would otherwise add `records.length` more externally-bounded
+                // attempts to a cycle that has already overrun.
+                log('ERROR', `Batch embed exceeded its ${maxInCycleMs}ms in-cycle budget after ` +
+                    `${attempt + 1} attempt(s) (${error.message}) — deferring ${records.length} record(s)`);
 
                 return {succeeded: [], failed: records.map(record => ({record, error}))};
             }
@@ -168,6 +215,13 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
     const failed    = [];
 
     for (const record of records) {
+        if (budgetSpent()) {
+            // Mid-pass exhaustion: the remaining records are deferred rather than attempted, so the
+            // ceiling bounds the isolation pass too and not merely the whole-batch loop.
+            failed.push({record, error: new Error(`in-cycle budget of ${maxInCycleMs}ms exhausted before isolation`)});
+            continue;
+        }
+
         try {
             await collection.add({ids: [record.id], metadatas: [record.metadata], documents: [record.document]});
             succeeded.push(record);

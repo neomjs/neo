@@ -18,6 +18,7 @@ import {
     MAX_RECORD_COOLDOWN_MS
 } from '../../../../../../ai/daemons/embed/drainCycle.mjs';
 import {createDrainDispositionTracker} from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * Embed-daemon drain cycle (`ai/daemons/embed/drainCycle.mjs`) — falsifier coverage for the
@@ -390,7 +391,7 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
             addCalls++;
             const error = new Error('openAiCompatible request timed out after 300000ms');
 
-            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            error.code = OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE;
             throw error;
         };
 
@@ -411,7 +412,7 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         // Deferred, not dropped: the caller spaces these via the cross-cycle retryState cooldown.
         expect(succeeded).toHaveLength(0);
         expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
-        expect(failed[0].error.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(failed[0].error.code).toBe(OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE);
     });
 
     test('embedBatch: native-Ollama PROVIDER_TIMEOUT is the same contention class (#16012)', async () => {
@@ -467,6 +468,70 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         // Without this control the fix could trade amplification for a silently-skipped retry path.
         expect(batchCalls).toBe(3);
         expect(slept).toBe(2);
+        expect(succeeded.map(r => r.id)).toEqual(['x']);
+        expect(failed.map(entry => entry.record.id)).toEqual(['y']);
+    });
+
+    test('embedBatch: the in-cycle wall-clock budget stops new attempts AND the isolation pass (#16012 AC4)', async () => {
+        const records    = ['x', 'y', 'z'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   clock      = 0;
+
+        // Each attempt "costs" 1200ms of wall clock against a 1000ms budget, so the FIRST failure
+        // exhausts it — the loop must stop rather than spend maxRetries more externally-bounded calls.
+        // (900ms would not exhaust it and retrying would be correct; the fixture has to overshoot.)
+        collection.onAdd = () => {
+            addCalls++;
+            clock += 1200;
+            throw new Error('provider unreachable (spec) — not a timeout code');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {},
+            maxInCycleMs : 1000,
+            now          : () => clock
+        });
+
+        // One attempt, then the budget check stops everything: no further batch attempts and no
+        // 3-record isolation pass. Without the bound this is 6 + 3 = 9 externally-bounded calls.
+        expect(addCalls).toBe(1);
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
+    });
+
+    test('embedBatch: an unlimited budget leaves the retry+isolation path unchanged (control, #16012 AC4)', async () => {
+        const records    = ['x', 'y'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   batchCalls = 0;
+
+        collection.onAdd = ({ids}) => {
+            if (ids.length > 1) {
+                batchCalls++;
+                throw new Error('batch failure (spec)');
+            }
+
+            if (ids.includes('y')) throw new Error('y is poison (spec)');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 2,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {},
+            maxInCycleMs : 0,          // disabled
+            now          : () => 0
+        });
+
+        // A disabled budget must not silently change behaviour for anyone who does not opt in.
+        expect(batchCalls).toBe(3);
         expect(succeeded.map(r => r.id)).toEqual(['x']);
         expect(failed.map(entry => entry.record.id)).toEqual(['y']);
     });
