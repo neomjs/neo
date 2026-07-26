@@ -17,8 +17,10 @@
  * last good backup is pruned. `safetyFactor` defaults to 2 (detect within half the window).
  *
  * This module is the **verdict-half** (pure, no I/O) — it computes the SLA verdict from
- * explicit inputs. The **wiring-half** (reading the detect-signal's live cadence config +
- * the live backup-retention config and failing CI on a breach) is the gated next slice.
+ * explicit inputs. The wiring now exists alongside it: `detectionRetentionSlaInputs.mjs` adapts the
+ * live config shapes into these two durations, and `checkDetectionRetentionSla.mjs` reads the config
+ * SSOT and fails CI on a breach. Keep this module free of config shape and of process exits — that
+ * separation is why its verdict stays unit-testable against explicit inputs.
  */
 
 /**
