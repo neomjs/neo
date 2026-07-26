@@ -428,7 +428,8 @@ class GraphService extends Base {
                 ? `[GraphService] boot-seed node "${id}" existed but violated its manifest invariants ` +
                   `(${divergent}) and has been repaired. A pre-existing divergent row is usually a locally ` +
                   'declared copy: a tenant-stamped or drifted seed is invisible or non-manifest-equal to ' +
-                  'other tenants, so edges naming this hub were silently culled by the linkNodes FK guard.'
+                  'other tenants. Note the failure is on the READ, not the write: linkNodes\' endpoint check is ' +
+                  'RLS-blind, so those edges were written and then skipped by the structural-support read.'
                 : `[GraphService] boot-seed node "${id}" was absent and has been restored from the canonical ` +
                   'manifest. Boot or fresh-target recovery left the persisted graph non-manifest-equal — fix ' +
                   'the boot path. Until then any edge naming this hub was silently culled by the FK guard.'
@@ -438,14 +439,29 @@ class GraphService extends Base {
     }
 
     /**
-     * @summary Names the first manifest invariant an existing boot-seed row violates, or `null`
-     * when the row is already manifest-equal and global.
+     * @summary Names the first boot-seed reconciliation invariant an existing row violates, or
+     * `null` when the row already complies.
      *
-     * Compares against `createGraphBootSeedNodeRecord`'s projection rather than a hand-listed
-     * field set, so the invariant tracks the manifest's own persisted shape and cannot drift
-     * away from it. `userId` is checked explicitly because it is the invariant that makes the
-     * row reachable across tenants at all — a private seed is present-but-useless to everyone
-     * except its creator.
+     * **The reconciliation contract is OPEN, not closed, and that is deliberate.** A boot-seed
+     * row is reconciled on two axes only:
+     *
+     * 1. **Tenancy** — `properties.userId` MUST be `null`. This is the load-bearing invariant:
+     *    it is what makes the row readable by tenants other than its creator. A tenant-stamped
+     *    seed is present-but-invisible to everyone else, and note that the write path cannot
+     *    detect that — `linkNodes`' endpoint check is `SELECT count(*) FROM Nodes WHERE id IN (?, ?)`,
+     *    which is RLS-blind, so the edge is written and the loss appears later on the READ path.
+     * 2. **Canonical declared fields** — `label` plus every property the manifest itself declares
+     *    for this seed, compared against `createGraphBootSeedNodeRecord`'s projection rather than
+     *    a hand-listed field set, so the check cannot drift from the manifest's persisted shape.
+     *
+     * Properties the manifest does NOT declare are **runtime-owned and preserved untouched**:
+     * `semanticVectorId`, `state` and `updatedAt` are written by embedding and lifecycle paths, and
+     * a populated `semanticVectorId` is legitimate enrichment rather than drift. Reconciliation
+     * therefore never asserts on them and never removes them — which is also the honest contract,
+     * because {@link GraphService#upsertNode} MERGES (`Object.assign` over current properties and
+     * overwrite only what is defined), so a repair physically cannot strip an undeclared leftover.
+     * A stale `semanticVectorId: null` from an older local declaration survives repair by design;
+     * it is inert, and claiming otherwise would be a promise the write path cannot keep.
      *
      * @param {Object} existing Persisted node record.
      * @param {Object} record Canonical projection from the boot-seed manifest.
@@ -463,6 +479,7 @@ class GraphService extends Base {
             return `label is ${JSON.stringify(existing.label)}, expected ${JSON.stringify(record.label)}`
         }
 
+        // Declared fields only. Undeclared keys are runtime-owned; see the contract above.
         for (const [key, expected] of Object.entries(record.properties)) {
             if (key !== 'userId' && properties[key] !== expected) {
                 return `${key} is ${JSON.stringify(properties[key])}, expected ${JSON.stringify(expected)}`

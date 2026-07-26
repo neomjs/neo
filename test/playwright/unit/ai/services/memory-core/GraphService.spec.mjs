@@ -1429,7 +1429,85 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         }
     });
 
-    test('the restored hub is GLOBAL, so a second identity can link to it without FK culling (#15985)', async () => {
+    test('a tenant-stamped hub loses support on the RLS READ path, not to an unwritten edge (#15985)', async () => {
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        let   mockIdentity  = '@identity-a';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+            }
+
+            // Identity A leaves the pre-fix shape behind: a TENANT-STAMPED hub.
+            GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'Active Context Frontier'});
+
+            // Identity B links from it. This is the distinction the earlier prose got wrong:
+            // linkNodes' endpoint check is `SELECT count(*) FROM Nodes WHERE id IN (?, ?)` — RLS-BLIND —
+            // so a tenant-invisible hub still satisfies it and the edge IS written.
+            mockIdentity = '@identity-b';
+            GraphService.upsertNode({id: 'discussion-rls', type: 'DISCUSSION', name: 'B target'});
+            GraphService.linkNodes('frontier', 'discussion-rls', 'GUIDES', 5);
+
+            const writtenEdges = GraphService.db.edges.getByIndex('target', 'discussion-rls')
+                .filter(edge => edge.type === 'GUIDES' && edge.source === 'frontier');
+
+            expect(writtenEdges.length).toBe(1);
+
+            // …and it is the READ that drops it: getInboundStructuralSupport skips any edge whose
+            // SOURCE node fails the RLS predicate, so support reads zero despite the edge existing.
+            expect(GraphService.getInboundStructuralSupport({id: 'discussion-rls'}).totalWeight).toBe(0);
+
+            // Repair the hub to global. No new edge is written — the same edge becomes readable.
+            expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(true);
+
+            const afterEdges = GraphService.db.edges.getByIndex('target', 'discussion-rls')
+                .filter(edge => edge.type === 'GUIDES' && edge.source === 'frontier');
+
+            expect(afterEdges.length).toBe(1);
+            expect(GraphService.getInboundStructuralSupport({id: 'discussion-rls'}).totalWeight).toBeGreaterThan(0);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
+    test('a disk-present cache-cold rich row is warmed and preserved, never stubbed over (#15985)', async () => {
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+
+        if (GraphService.db.storage?.db) {
+            await GraphService.db.storage.clear();
+        }
+
+        // A compliant hub carrying RUNTIME-OWNED enrichment the manifest does not declare.
+        GraphService.upsertGlobalNode({
+            id              : 'frontier',
+            type            : 'SYSTEM_ANCHOR',
+            name            : 'Active Context Frontier',
+            description     : 'The shifting focal point of the active Neo OS agent session.',
+            semanticVectorId: 'vec-runtime-owned'
+        });
+
+        // Drop RAM without deleting from SQLite — the cold-cache case upsertNode's own comment warns about.
+        GraphService.db.nodes.clearSilent();
+        GraphService.db.vicinityLoadedNodes.clear();
+
+        // The warm read must find it, so this is a NO-OP rather than a stub overwrite.
+        expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(false);
+
+        // Runtime-owned enrichment survives: the reconciliation contract is OPEN on undeclared fields.
+        expect(GraphService.db.nodes.get('frontier').properties.semanticVectorId).toBe('vec-runtime-owned');
+    });
+
+    test('the restored hub is GLOBAL, so a second identity sees its GUIDES support (#15985)', async () => {
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
         GraphService.db.nodes.clear();
@@ -1452,8 +1530,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             GraphService.ensureGlobalBootSeedNode('frontier');
             expect(GraphService.db.nodes.get('frontier').properties.userId).toBe(null);
 
-            // Identity B now writes a GUIDES edge FROM that hub. Pre-fix, a tenant-stamped hub
-            // would be RLS-invisible here and linkNodes' FK guard would cull the edge silently.
+            // Identity B now writes a GUIDES edge FROM that hub. Pre-fix, a tenant-stamped hub would
+            // be RLS-invisible to B — the edge would still be WRITTEN (the endpoint check is RLS-blind)
+            // and then skipped by the structural-support read. See the dedicated RLS-read test below.
             mockIdentity = '@identity-b';
 
             GraphService.upsertNode({id: 'discussion-b', type: 'DISCUSSION', name: 'B-owned target'});
