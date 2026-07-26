@@ -1256,6 +1256,31 @@ async function persistReceiptEdge(edge) {
 }
 
 /**
+ * Durably persists a receipt mutation already applied to a direct-DM `MESSAGE` node, and reports
+ * whether the durable write actually ran.
+ *
+ * Direct messages intentionally carry read/archive state on their shared node rather than a
+ * per-recipient `DELIVERED_TO` edge. This writes that existing carrier directly because
+ * `GraphService.upsertNode` gates storage on `autoSave` and returns no durability signal;
+ * receipt mutations are user-originated writes, never load echoes that `autoSave` may suppress.
+ *
+ * @param {Object} node `MESSAGE` node carrying the already-applied receipt property.
+ * @returns {Promise<Boolean>} `true` when the durable write ran; `false` when there was no storage.
+ */
+async function persistReceiptNode(node) {
+    const db = GraphService.db;
+
+    if (!db?.storage) {
+        return false;
+    }
+
+    await db.storage.addNodes([node]);
+    db.acknowledgeLocalMutations?.();
+
+    return true;
+}
+
+/**
  * Builds the receipt a mailbox lifecycle tool returns, degrading it honestly when the durable
  * write did not run.
  *
@@ -1307,6 +1332,22 @@ async function setDeliveryEdgeReadAt(edge, readAt) {
 }
 
 /**
+ * Sets the read timestamp on a direct-DM `MESSAGE` node and reports whether that mutation reached
+ * durable storage.
+ *
+ * @param {Object} node Direct-DM `MESSAGE` node.
+ * @param {String} readAt ISO timestamp.
+ * @returns {Promise<Boolean>} `true` when the read state was persisted durably.
+ */
+async function setMessageNodeReadAt(node, readAt) {
+    // MESSAGE records expose a reference-stable properties object. Preserve that object so
+    // existing consumers holding it observe the same mutation, matching the established DM path.
+    getRecordProperties(node).readAt = readAt;
+
+    return persistReceiptNode(node);
+}
+
+/**
  * Sets the archive timestamp on a per-recipient DELIVERED_TO edge for broadcast
  * messages. Mirrors `setDeliveryEdgeReadAt` exactly — both delegate to
  * `persistReceiptEdge`, so broadcast archive state participates in the same durability
@@ -1325,6 +1366,20 @@ async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
     });
 
     return persistReceiptEdge(edge);
+}
+
+/**
+ * Sets the archive timestamp on a direct-DM `MESSAGE` node and reports whether that mutation
+ * reached durable storage.
+ *
+ * @param {Object} node Direct-DM `MESSAGE` node.
+ * @param {String} archivedAt ISO timestamp.
+ * @returns {Promise<Boolean>} `true` when the archive state was persisted durably.
+ */
+async function setMessageNodeArchivedAt(node, archivedAt) {
+    getRecordProperties(node).archivedAt = archivedAt;
+
+    return persistReceiptNode(node);
 }
 
 function linkOptionalMailboxEdge(source, target, type, weight, properties) {
@@ -2343,7 +2398,8 @@ class MailboxService extends Base {
      * never fails the batch, so a bulk drain cannot abort on one stale entry.
      * @param {Object} args
      * @param {String|String[]} args.messageId The ID of the message to mark read, or an array of IDs
-     * @returns {Promise<Object>} Single form: `{messageId, readAt, status}`; array form: `{results: [...]}`.
+     * @returns {Promise<Object>} Single form: `{messageId, readAt, status}` (plus
+     *   `{durable: false, warning}` when storage is absent); array form: `{results: [...]}`.
      */
     async markRead({ messageId }) {
         if (Array.isArray(messageId)) {
@@ -2452,11 +2508,11 @@ class MailboxService extends Base {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
 
-        // Trigger an upsert to save to file backing store and notify listeners
-        messageNode.properties.readAt = new Date().toISOString();
-        GraphService.upsertNode(messageNode);
+        const readAt = new Date().toISOString();
 
-        return { messageId, readAt: messageNode.properties.readAt, status: 'read' };
+        const durable = await setMessageNodeReadAt(messageNode, readAt);
+
+        return receiptWithDurability({ messageId, readAt, status: 'read' }, durable, 'mark_read');
     }
 
     /**
@@ -2478,7 +2534,8 @@ class MailboxService extends Base {
      *
      * @param {Object} args
      * @param {String} args.messageId The ID of the message to archive.
-     * @returns {Promise<Object>} `{messageId, archivedAt, status: 'archived'}`.
+     * @returns {Promise<Object>} `{messageId, archivedAt, status: 'archived'}` (plus
+     *   `{durable: false, warning}` when storage is absent).
      */
     async archiveMessage({ messageId }) {
         const boundIdentity = RequestContextService.getAgentIdentityNodeId();
@@ -2532,11 +2589,11 @@ class MailboxService extends Base {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
 
-        // Direct DM path: stamp on the MESSAGE node + upsert (same shape as markRead's direct-DM branch).
-        messageNode.properties.archivedAt = new Date().toISOString();
-        GraphService.upsertNode(messageNode);
+        const archivedAt = new Date().toISOString();
 
-        return { messageId, archivedAt: messageNode.properties.archivedAt, status: 'archived' };
+        const durable = await setMessageNodeArchivedAt(messageNode, archivedAt);
+
+        return receiptWithDurability({ messageId, archivedAt, status: 'archived' }, durable, 'archive_message');
     }
 
     /**
