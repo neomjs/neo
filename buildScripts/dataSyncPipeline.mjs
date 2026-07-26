@@ -186,6 +186,36 @@ async function git(execute, cwd, args, {capture = true, env = process.env} = {})
 }
 
 /**
+ * @summary Runs a git command that talks to `origin`, supplying the PUBLISHER credential for that
+ * one invocation instead of relying on one persisted in `.git/config`.
+ *
+ * `actions/checkout` defaults to `persist-credentials: true`, which writes the token into git config
+ * as an `http.extraheader` for the whole job. Under that default, stripping credentials from a
+ * stage's ENVIRONMENT isolates nothing at the git layer — any collection stage could still push as
+ * the Publisher, the one identity permitted to bypass the code-scanning ruleset. So the checkout now
+ * persists nothing, and the two commands that genuinely need network auth carry it themselves.
+ *
+ * `-c http.extraheader=` is passed as an ARGUMENT rather than written to config: it applies to this
+ * process only and leaves nothing behind for a later stage to inherit.
+ * @param {Function} execute Child-process executor.
+ * @param {String}   cwd Repository root.
+ * @param {String[]} args Git arguments.
+ * @param {Object}   [options]
+ * @returns {Promise<{stderr: String, stdout: String}>}
+ */
+async function gitAuthenticated(execute, cwd, args, options = {}) {
+    const token = process.env.DATA_SYNC_PUBLISHER_TOKEN;
+
+    if (!token) {
+        return git(execute, cwd, args, options)
+    }
+
+    const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
+
+    return git(execute, cwd, ['-c', `http.extraheader=${header}`, ...args], options)
+}
+
+/**
  * @summary Reads one git revision as a normalized SHA.
  * @param {Function} execute Child-process executor.
  * @param {String}   cwd Repository root.
@@ -205,7 +235,7 @@ async function readSha(execute, cwd, ref) {
  * @returns {Promise<String>}
  */
 async function fetchRemoteDev(execute, cwd) {
-    await git(execute, cwd, ['fetch', 'origin', `dev:${remoteDevRef}`]);
+    await gitAuthenticated(execute, cwd, ['fetch', 'origin', `dev:${remoteDevRef}`]);
 
     return readSha(execute, cwd, 'origin/dev')
 }
@@ -478,7 +508,7 @@ export async function runDataSyncPipeline({
         }
 
         try {
-            await git(execute, cwd, ['push', 'origin', 'HEAD:dev'], {capture: false})
+            await gitAuthenticated(execute, cwd, ['push', 'origin', 'HEAD:dev'], {capture: false})
         } catch (error) {
             currentSha = await fetchRemoteDev(execute, cwd);
             await restoreRemoteDev(execute, cwd);

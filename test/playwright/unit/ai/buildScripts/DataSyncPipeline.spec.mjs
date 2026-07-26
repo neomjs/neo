@@ -260,10 +260,24 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         );
 
         expect(workflow).toContain('node ./buildScripts/dataSyncPipeline.mjs');
-        expect(workflow).toContain('ref: dev');
         expect(workflow).toContain('fetch-depth: 0');
         expect(workflow).not.toContain('git pull origin dev --rebase');
-        expect(workflow).not.toContain('git push origin dev')
+        expect(workflow).not.toContain('git push origin dev');
+
+        // The publishing paths stay pinned to `dev`; only a preflight-only dispatch follows the
+        // dispatched ref. This replaced a literal `ref: dev`, which could not express that a
+        // pipeline change was untestable before merge — the defect the conditional fixes.
+        expect(workflow).toContain("inputs.preflight_only) && github.ref || 'dev'");
+
+        // The credential must not survive in `.git/config`: with the checkout default, stripping a
+        // stage's ENV isolates nothing at the git layer, and any collection stage could push as the
+        // ruleset-bypass identity.
+        expect(workflow).toContain('persist-credentials: false');
+
+        // A preflight-only dispatch must not reach the pages push. Without this guard it did —
+        // 167 files to `pages/main` while the run logged "skipping collection and publish", because
+        // a short-circuit inside the pipeline step cannot bound the steps after it.
+        expect(workflow).toContain("if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}")
     })
 });
 

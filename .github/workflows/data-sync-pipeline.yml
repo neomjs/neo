@@ -66,6 +66,14 @@ jobs:
           # they publish, and publishing must never emit from an unmerged branch.
           ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.preflight_only) && github.ref || 'dev' }}
           fetch-depth: 0
+          # `actions/checkout` defaults this to TRUE, writing the token into `.git/config` as an
+          # http.extraheader that survives for the whole job. Stripping credentials from a stage's
+          # ENV therefore isolates nothing at the git layer: any collection stage could still push
+          # as the Publisher — the one identity permitted to bypass the code-scanning ruleset.
+          #
+          # The publish path does not need it either: `dataSyncPipeline.mjs` pushes through its own
+          # remote, so the credential can be absent from git config entirely and supplied per-command.
+          persist-credentials: false
           # The publish push runs through the checkout credential, so it must be the Publisher
           # identity — the only actor permitted to bypass the code-scanning ruleset.
           token: ${{ steps.publisher-token.outputs.token }}
@@ -85,7 +93,14 @@ jobs:
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
 
+      # Guarded on the SAME input the pipeline reads. Without this, a preflight-only dispatch
+      # short-circuited the pipeline and then fell straight into this step, which pushed 167 files
+      # to `pages/main` (commit 189b7b8055) while the run reported "skipping collection and publish".
+      # The side-effect-free claim was made about the pipeline and was silently false about the JOB:
+      # a short-circuit inside one step cannot bound the steps after it, and the step list said
+      # `success Push Data to neomjs/pages` in plain sight the whole time.
       - name: Push Data to neomjs/pages
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}
         env:
           PAGES_DEPLOY_PAT: ${{ secrets.PAGES_DEPLOY_PAT }}
         run: |
