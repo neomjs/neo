@@ -2,13 +2,13 @@
 
 Use this audit when the concise workflow-map trigger points here:
 
-- `ideation-sandbox-workflow.md` §5.1 for high-blast-radius Discussion graduation.
+- ideation-sandbox-workflow.md §5.1 for high-blast-radius Discussion graduation.
 - `ticket-create-workflow.md` §1c for high-blast-radius tickets citing ungraduated Discussions.
 - `epic-review-workflow.md` Stage 2 for Discussion-origin Epic backstops.
 
 ## Why This Exists
 
-`ideation-sandbox-workflow.md` §1 already names the rubber-stamp anti-pattern, but the old §5 mechanics still optimized for convergence: proposal -> OQ resolution -> graduation. PR #11095 added the Double Diamond guard so the divergent half of design is visible before convergence is locked.
+ideation-sandbox-workflow.md §1 already names the rubber-stamp anti-pattern, but the old §5 mechanics still optimized for convergence: proposal -> OQ resolution -> graduation. PR #11095 added the Double Diamond guard so the divergent half of design is visible before convergence is locked.
 
 Empirical anchors:
 
@@ -31,7 +31,9 @@ Each option (incl. later-rejected ones) requires at least one falsifying source:
 
 **Valid options only (reject-at-entry).** A matrix row must be a plausible/valid candidate. Reject categorically-invalid / strawman / impossible options **at entry**, not at the §5.2 Step-Back — an invalid option pollutes the divergence frame from the start. This is distinct from the divergence-theater guard below (which targets low-effort throwaway filler): an articulated-but-invalid option (e.g. "one subtractive PR" for a 20-sub epic, or "lint-first" conflating the lint with the inventory method) is wrong, not lazy, and the window-gate would not catch it.
 
-**Divergence window, not per-peer count.** Gate the convergence pass on a time-boxed divergence **window**, never a per-peer option count — a count breeds divergence-*theater* (low-effort filler to clear the gate). Quality is enforced at the §5.2 Step-Back. Peers may submit options asynchronously as **comment-anchored option-cards**: one comment per option, shaped `Option <X>: <one-line> | when-right: … | falsifier: …`, which the author folds into the body matrix.
+**Divergence window, not per-peer count.** Gate the convergence pass on a divergence **window**, never a per-peer option count — a count breeds divergence-*theater* (low-effort filler to clear the gate). Quality is enforced at the §5.2 Step-Back.
+
+**Closure is evidence-state, not a clock (#15996)** — a clock, like a count, cannot be shortened by evidence. *When* the window closes lives in ideation-sandbox-workflow.md §5.1; this file keeps only *why*, so neither carries competing semantics. That file's exhaustion trigger is not the count rejected here: the rejected count is an **entry gate** satisfied by adding a row (hence filler), whereas an exhaustion trigger forces a decision once evidence stops arriving and a new row **resets** it. Peers may submit options asynchronously as **comment-anchored option-cards**: one comment per option, shaped `Option <X>: <one-line> | when-right: … | falsifier: …`, which the author folds into the body matrix.
 
 **Correlation-ceiling.** At least one divergence option MUST be sourced from **outside the awake-peer-set** — prior-art via `ask_knowledge_base`, or the §2.2 precedent sweep elevated to a required option-source. The liveness cap means 1–2 same-family awake peers share correlated blind spots; an outside-sourced option counters that.
 
@@ -64,7 +66,7 @@ If a Discussion-origin Epic lacks the required upstream matrix or peer cycle, re
 
 ## Disposition
 
-- `ideation-sandbox-workflow.md` §5.1: `compress-to-trigger`
+- ideation-sandbox-workflow.md §5.1: `compress-to-trigger`
 - `ticket-create-workflow.md` §1c: `compress-to-trigger`
 - `epic-review-workflow.md` Stage 2 backstop: `compress-to-trigger`
 - This file: `move`
