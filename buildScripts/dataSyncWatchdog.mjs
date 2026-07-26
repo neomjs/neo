@@ -51,6 +51,13 @@ const
     DEFAULT_MAX_CORPUS_AGE_HOURS     = 48,
     DEFAULT_CORPUS_PATH              = 'resources/content',
     DEFAULT_WORKFLOW                 = 'data-sync-pipeline.yml',
+    /**
+     * The branch every axis measures. ONE declaration feeds both the run-history query and the
+     * corpus commit queries, because the two axes must certify the same branch: a run axis scoped
+     * differently from the corpus axis would report health for a branch nobody deploys.
+     * @type {String}
+     */
+    DEFAULT_BRANCH                   = 'dev',
     RUNS_PER_PAGE                    = 30,
     /**
      * Facet definitions: name → subpaths under `resources/content` that form ONE semantic
@@ -225,6 +232,53 @@ export function parseFacetNames({name, raw, fallback}) {
 }
 
 /**
+ * Parses the measured-branch env var with the same loud discipline as `parseThreshold` and
+ * `parseFacetNames`: absent or empty falls back, but a PRESENT value that resolves to nothing
+ * (whitespace-only) fails LOUD. A silently-empty override would drop the `branch=` filter and
+ * widen the run axis back to EVERY branch — the exact defect this parameter exists to close,
+ * where one feature-branch success truncates the default branch's failure streak and the alarm
+ * goes quiet while the branch it guards is still red.
+ *
+ * @param {Object} options
+ * @param {String} options.name Env var name (for the error message).
+ * @param {String|undefined} options.raw Raw env value.
+ * @param {String} options.fallback Used only when the var is absent or empty.
+ * @returns {String}
+ */
+export function parseBranchName({name, raw, fallback}) {
+    if (raw === undefined || raw === '') return fallback;
+
+    const branch = raw.trim();
+
+    if (branch === '') {
+        throw new Error(`dataSyncWatchdog: ${name} resolved to an empty branch from '${raw}' — refusing to widen the run axis to every branch (omit the var to measure '${fallback}')`)
+    }
+
+    return branch
+}
+
+/**
+ * Builds the run-history query. Extracted so the branch scope is assertable: the defect this
+ * closes was an unscoped query, and an inline template literal leaves that invariant with no
+ * witness. `branch` is REQUIRED — there is deliberately no default here, because a default
+ * would let a caller reintroduce the unscoped form by omission.
+ *
+ * @param {Object} options
+ * @param {String} options.repository `owner/name`.
+ * @param {String} options.workflow Workflow file name.
+ * @param {String} options.branch Branch to measure.
+ * @param {Number} [options.perPage=RUNS_PER_PAGE]
+ * @returns {String} API path including the `branch` filter.
+ */
+export function buildRunsQuery({repository, workflow, branch, perPage = RUNS_PER_PAGE}) {
+    if (typeof branch !== 'string' || branch.trim() === '') {
+        throw new Error('dataSyncWatchdog.buildRunsQuery: branch is required — an unscoped run query mixes feature-branch runs into the guarded branch\'s streak')
+    }
+
+    return `/repos/${repository}/actions/workflows/${workflow}/runs?branch=${encodeURIComponent(branch)}&per_page=${perPage}`
+}
+
+/**
  * @param {Object} options
  * @param {String|null} options.latestConclusion Conclusion of the newest completed run.
  * @param {Boolean} options.breached Whether ANY axis is breaching (a green run axis never
@@ -287,7 +341,7 @@ export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCom
  * @param {Boolean} [options.forced=false] True when a dispatch dry-run forced the branch.
  * @returns {String}
  */
-export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, forced=false}) {
+export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, branch, forced=false}) {
     const corpusLine = corpusFacets
         ? [
             '**Corpus facets** (committed `dev`; a green pipeline cannot attest to this backlog):',
@@ -305,7 +359,7 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         '**Standing alarm — one per breach episode.** This issue is maintained by `dataSyncWatchdog.mjs`:',
         'the body is refreshed on every breach evaluation and the issue closes automatically on recovery.',
         '',
-        `**Streak:** ${consecutiveFailures} consecutive failures.`,
+        `**Streak:** ${consecutiveFailures} consecutive failures${branch ? ` on \`${branch}\`` : ''}.`,
         `**Last success:** ${lastSuccess ? `[${lastSuccess.created_at}](${lastSuccess.html_url})` : `none in the last ${RUNS_PER_PAGE} completed runs`}.`,
         `**Latest failure:** ${latestFailure ? `[run ${latestFailure.id}](${latestFailure.html_url})` : 'n/a'}.`,
         corpusLine,
@@ -376,6 +430,7 @@ async function main() {
         token                  = process.env.GITHUB_TOKEN,
         repository             = process.env.GITHUB_REPOSITORY || 'neomjs/neo',
         workflow               = process.env.WATCHDOG_WORKFLOW || DEFAULT_WORKFLOW,
+        branch                 = parseBranchName({name: 'WATCHDOG_BRANCH', raw: process.env.WATCHDOG_BRANCH, fallback: DEFAULT_BRANCH}),
         corpusPath             = process.env.WATCHDOG_CORPUS_PATH || DEFAULT_CORPUS_PATH,
         maxConsecutiveFailures = parseThreshold({name: 'WATCHDOG_MAX_CONSECUTIVE_FAILURES', raw: process.env.WATCHDOG_MAX_CONSECUTIVE_FAILURES, fallback: DEFAULT_MAX_CONSECUTIVE_FAILURES}),
         maxSuccessAgeHours     = parseThreshold({name: 'WATCHDOG_MAX_SUCCESS_AGE_HOURS', raw: process.env.WATCHDOG_MAX_SUCCESS_AGE_HOURS, fallback: DEFAULT_MAX_SUCCESS_AGE_HOURS}),
@@ -390,7 +445,11 @@ async function main() {
     }
 
     const runsResponse = await api(
-        `/repos/${repository}/actions/workflows/${workflow}/runs?per_page=${RUNS_PER_PAGE}`,
+        // Branch-SCOPED deliberately. Unscoped, this list mixes feature-branch runs with the
+        // branch being guarded, and computeStreak breaks on the first success it meets — so one
+        // passing branch run truncates the real streak and can hand `lastSuccess` a run from a
+        // branch nobody deploys. The corpus axis has always pinned the branch; this axis must too.
+        buildRunsQuery({repository, workflow, branch}),
         {token}
     );
 
@@ -414,7 +473,7 @@ async function main() {
     const corpusFacets = await Promise.all(facetNames.map(async facet => {
         const subpaths = FACET_PATHS[facet] ?? [facet],
               commits  = await Promise.all(subpaths.map(subpath =>
-                  api(`/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${subpath}`)}&sha=dev&per_page=1`, {token})));
+                  api(`/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${subpath}`)}&sha=${encodeURIComponent(branch)}&per_page=1`, {token})));
 
         const lastCommitAt = latestCommitDate(commits),
               ageHours     = lastCommitAt
@@ -480,7 +539,7 @@ async function main() {
     }
 
     const title = buildAlarmTitle({consecutiveFailures, lastSuccess, staleFacets, forced: forceBreach}),
-          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusFacets, forced: forceBreach});
+          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusFacets, branch, forced: forceBreach});
 
     if (alarm) {
         const comment = buildBreachComment({consecutiveFailures, latestFailure: latest});
