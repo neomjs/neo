@@ -4,10 +4,10 @@ import Base     from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
 
 import {
-    DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
     acquireHeavyMaintenanceLease,
     inspectHeavyMaintenanceLease,
     releaseHeavyMaintenanceLease,
+    resolveHeavyMaintenanceLeasePath,
     shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease
 } from './heavyMaintenanceLeasePrimitives.mjs';
@@ -42,11 +42,13 @@ export class HeavyMaintenanceLeaseService extends Base {
          */
         singleton: true,
         /**
-         * @member {String} leasePath_='.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json'
+         * Optional explicit lease-file override. When absent, each operation resolves the path from
+         * the current `AiConfig.orchestrator.dataDir` value at its use site.
+         * @member {String|null} leasePath_=null
          * @protected
          * @reactive
          */
-        leasePath_: DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+        leasePath_: null,
         /**
          * @member {Number} staleAfterMs_=AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
          * @protected
@@ -54,7 +56,7 @@ export class HeavyMaintenanceLeaseService extends Base {
          */
         staleAfterMs_: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
         /**
-         * Bound on continuous LIVE-holder lease hold before a cooperative yield (#14144 lease-fairness):
+         * Bound on continuous LIVE-holder lease hold before a cooperative yield:
          * consumed by `shouldYield()` so a long heavy task (e.g. a multi-hour KB re-embed) releases the lease
          * at a resumable checkpoint, letting a starved heavy peer interleave. Distinct from `staleAfterMs`
          * (dead-holder reclaim); kept the smaller so a live holder yields before it would be stale-reclaimed.
@@ -79,7 +81,7 @@ export class HeavyMaintenanceLeaseService extends Base {
      */
     inspect(options = {}) {
         return inspectHeavyMaintenanceLease({
-            leasePath : options.leasePath ?? this.leasePath,
+            leasePath : this.resolveLeasePath(options),
             fsModule  : options.fsModule  ?? this.fsModule,
             now       : options.now       ?? new Date(),
             isPidAlive: options.isPidAlive
@@ -94,7 +96,7 @@ export class HeavyMaintenanceLeaseService extends Base {
     acquire(options = {}) {
         return acquireHeavyMaintenanceLease({
             ...options,
-            leasePath   : options.leasePath    ?? this.leasePath,
+            leasePath   : this.resolveLeasePath(options),
             fsModule    : options.fsModule     ?? this.fsModule,
             staleAfterMs: options.staleAfterMs ?? this.staleAfterMs
         });
@@ -108,16 +110,31 @@ export class HeavyMaintenanceLeaseService extends Base {
     release(options = {}) {
         return releaseHeavyMaintenanceLease({
             ...options,
-            leasePath: options.leasePath ?? this.leasePath,
+            leasePath: this.resolveLeasePath(options),
             fsModule : options.fsModule  ?? this.fsModule
+        });
+    }
+
+    /**
+     * Resolves the lease path for one operation. An explicit per-call or service override wins;
+     * otherwise the current reactive AiConfig leaf supplies the orchestrator directory.
+     *
+     * @param {Object} [options] Path-resolution inputs.
+     * @param {String|null} [options.leasePath] Per-call lease-file override.
+     * @returns {String}
+     */
+    resolveLeasePath(options = {}) {
+        return resolveHeavyMaintenanceLeasePath({
+            leasePath: options.leasePath ?? this.leasePath,
+            dataDir  : AiConfig.orchestrator.dataDir
         });
     }
 
     /**
      * Decides whether a LIVE lease holder should cooperatively yield (release at the next resumable
      * checkpoint) because it has held the lease past the fairness bound — a thin wrapper over the pure
-     * `shouldYieldHeavyMaintenanceLease` primitive with the reactive `maxActiveHoldMs` injected (#14144).
-     * Consumed by long heavy tasks between batches (e.g. kbSync `embedViaShadowSwap`, #14186).
+     * `shouldYieldHeavyMaintenanceLease` primitive with the reactive `maxActiveHoldMs` injected.
+     * Consumed by long heavy tasks between batches (e.g. kbSync `embedViaShadowSwap`).
      * @param {Object|null} lease The current lease payload (reads `acquiredAt`).
      * @param {Object} [options] Overrides.
      * @param {Date}   [options.now=new Date()] Clock injection for tests.
@@ -140,7 +157,7 @@ export class HeavyMaintenanceLeaseService extends Base {
     withLease(task, options = {}) {
         return withHeavyMaintenanceLease(task, {
             ...options,
-            leasePath   : options.leasePath    ?? this.leasePath,
+            leasePath   : this.resolveLeasePath(options),
             fsModule    : options.fsModule     ?? this.fsModule,
             staleAfterMs: options.staleAfterMs ?? this.staleAfterMs
         });

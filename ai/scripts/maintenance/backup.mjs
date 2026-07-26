@@ -23,7 +23,10 @@ import {
     Memory_LifecycleService
 } from '../../services.mjs';
 
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {
     buildBackupReceipt,
     buildSyncChildEnv,
@@ -714,7 +717,13 @@ export async function runBackupWithOffHostSync({
         }
 
         return result
-    }, {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}});
+    }, {
+        leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+        owner       : 'backup',
+        reason      : 'manual-cli',
+        staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+        metadata    : {script: 'ai/scripts/maintenance/backup.mjs'}
+    });
     // Held: no backup ran — no receipt. Completed: sync + receipt already ran inside the lease.
 }
 

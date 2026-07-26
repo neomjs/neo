@@ -32,7 +32,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  */
 test.describe('Manual heavy-maintenance script lease adoption', () => {
     const scriptsRoot = path.resolve(process.cwd(), 'ai/scripts');
-    const scriptPath  = file => path.join(scriptsRoot, file === 'runSandman.mjs' ? 'runners' : 'maintenance', file);
+    const scriptPath  = file => path.join(scriptsRoot, file);
 
     /**
      * Maps each script to its expected lease `owner` string. Owner strings are stable
@@ -40,35 +40,91 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
      * task names — keep these in sync with `MaintenanceBackpressureService.mjs` DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES.
      */
     const SCRIPTS = [
-        {file: 'runSandman.mjs',           owner: 'sandman',            invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
-        {file: 'syncKnowledgeBase.mjs',    owner: 'kbSync',             invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/},
-        {file: 'defragChromaDB.mjs',       owner: 'defrag',             invocation: 'withLease(',                 heldExitPattern: /exit\(0\)/},
-        {file: 'backup.mjs',               owner: 'backup',             invocation: 'withLeaseImpl ?? withHeavyMaintenanceLease', heldExitPattern: /process\.exit\(0\)/},
-        {file: 'syncGithubWorkflow.mjs',   owner: 'syncGithubWorkflow', invocation: 'withHeavyMaintenanceLease(', heldExitPattern: /process\.exit\(0\)/}
+        {
+            file           : 'runners/runSandman.mjs',
+            owner          : 'sandman',
+            invocation     : 'withLease(',
+            heldExitPattern: /exit\(0\)/
+        },
+        {
+            file                 : 'lifecycle/backfill-memory-summaries.mjs',
+            owner                : 'memory-summary-backfill',
+            invocation           : 'withHeavyMaintenanceLease(',
+            heldExitPattern      : /process\.exit\(0\)/,
+            heldDiagnosticPattern: /heavy-maintenance-lease-held/
+        },
+        {
+            file           : 'maintenance/syncKnowledgeBase.mjs',
+            owner          : 'kbSync',
+            invocation     : 'withHeavyMaintenanceLease(',
+            heldExitPattern: /process\.exit\(0\)/
+        },
+        {
+            file           : 'maintenance/defragChromaDB.mjs',
+            owner          : 'defrag',
+            invocation     : 'withLease(',
+            heldExitPattern: /exit\(0\)/
+        },
+        {
+            file           : 'maintenance/backup.mjs',
+            owner          : 'backup',
+            invocation     : 'withLeaseImpl ?? withHeavyMaintenanceLease',
+            heldExitPattern: /process\.exit\(0\)/
+        },
+        {
+            file           : 'maintenance/syncGithubWorkflow.mjs',
+            owner          : 'syncGithubWorkflow',
+            invocation     : 'withHeavyMaintenanceLease(',
+            heldExitPattern: /process\.exit\(0\)/
+        },
+        {
+            file           : 'maintenance/ingestTenant.mjs',
+            owner          : 'kbIngest',
+            invocation     : 'withHeavyMaintenanceLease(',
+            heldExitPattern: /process\.exit\(0\)/
+        }
     ];
 
-    for (const {file, owner, invocation, heldExitPattern} of SCRIPTS) {
+    for (const {file, owner, invocation, heldExitPattern, heldDiagnosticPattern = /Deferred:.*lease held by/i} of SCRIPTS) {
         test(`${file}: imports withHeavyMaintenanceLease`, async () => {
-            const source = await fs.readFile(scriptPath(file), 'utf-8');
-            expect(source).toMatch(/import\s*\{[^}]*withHeavyMaintenanceLease[^}]*\}\s*from\s*['"]\.\.\/\.\.\/daemons\/orchestrator\/services\/HeavyMaintenanceLeaseService\.mjs['"]/);
+            const source          = await fs.readFile(scriptPath(file), 'utf-8');
+            const canonicalImport = /import\s*\{[^}]*\}\s*from\s*['"]\.\.\/\.\.\/daemons\/orchestrator\/services\/HeavyMaintenanceLeaseService\.mjs['"]/;
+
+            expect(source).toMatch(canonicalImport);
+            expect(source.match(canonicalImport)[0]).toContain('withHeavyMaintenanceLease');
+            expect(source.match(canonicalImport)[0]).toContain('resolveHeavyMaintenanceLeasePath');
         });
 
         test(`${file}: wraps heavy work with withHeavyMaintenanceLease + correct owner '${owner}'`, async () => {
             const source = await fs.readFile(scriptPath(file), 'utf-8');
             // Assert the wrapper is INVOKED (not just imported)
-            expect(source).toContain(invocation);
-            // Assert the correct owner string is passed
-            expect(source).toMatch(new RegExp(`owner\\s*:\\s*['"]${owner}['"]`));
-            // Assert the manual-cli reason tag is in place (distinguishes CLI invocations from orchestrator-spawned ones in lease telemetry)
-            expect(source).toMatch(/reason\s*:\s*['"]manual-cli['"]/);
+            const invocationIndex = source.indexOf(invocation);
+            expect(invocationIndex).toBeGreaterThanOrEqual(0);
+
+            // Scope all wiring assertions to the actual wrapper-options object. A leasePath
+            // occurrence elsewhere in the file must not self-confirm this caller contract.
+            const leasePathMatch = /leasePath\s*:\s*resolveHeavyMaintenanceLeasePath\(\{dataDir\s*:\s*AiConfig\.orchestrator\.dataDir\}\)/g;
+            leasePathMatch.lastIndex = invocationIndex;
+            const leasePathWiring = leasePathMatch.exec(source);
+            expect(leasePathWiring, `${file}: configured leasePath must follow the wrapper invocation`).not.toBeNull();
+
+            const optionsStart = source.lastIndexOf('{', leasePathWiring.index);
+            expect(optionsStart, `${file}: wrapper options must begin before leasePath`).toBeGreaterThan(invocationIndex);
+
+            const wrapperOptions = source.slice(optionsStart);
+            expect(wrapperOptions).toMatch(new RegExp(
+                `^\\{\\s*leasePath\\s*:\\s*resolveHeavyMaintenanceLeasePath\\(\\{dataDir\\s*:\\s*AiConfig\\.orchestrator\\.dataDir\\}\\)\\s*,` +
+                `\\s*owner\\s*:\\s*['"]${owner}['"]\\s*,\\s*reason\\s*:\\s*['"]manual-cli['"]`
+            ));
         });
 
         test(`${file}: handles 'held' outcome with non-error exit + diagnostic message`, async () => {
             const source = await fs.readFile(scriptPath(file), 'utf-8');
             // Assert the held-status branch exists
             expect(source).toMatch(/status\s*===\s*['"]held['"]/);
-            // Assert the deferred message names the active owner (so the user sees who holds the lease)
-            expect(source).toMatch(/Deferred:.*lease held by/i);
+            // Interactive CLIs emit prose naming the holder; supervised children emit the structured
+            // heavy-maintenance-lease-held outcome consumed by the orchestrator.
+            expect(source).toMatch(heldDiagnosticPattern);
             // Assert process.exit(0) is called on held — non-error semantics per AC2
             expect(source).toMatch(heldExitPattern);
         });
@@ -84,7 +140,7 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
         // Fix: exit(1) directly in the catch block to short-circuit before the canonical REM cycle.
         // This test pins the fail-closed contract via source inspection (subprocess test would require
         // heavy Neo + LifecycleService bootstrap; content-grep matches this spec's existing pattern).
-        const source = await fs.readFile(scriptPath('runSandman.mjs'), 'utf-8');
+        const source = await fs.readFile(scriptPath('runners/runSandman.mjs'), 'utf-8');
 
         // Find the catch block that handles withHeavyMaintenanceLease acquisition failure.
         const acquisitionCatchMatch = source.match(/\}\s*catch\s*\([^)]+\)\s*\{[^}]*REM cycle lease acquisition failed[\s\S]*?\n\s{4}\}/);
@@ -117,7 +173,7 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
         // the REM call MUST appear before the wrapper's owner-config trailer AND before any
         // post-wrapper outcome handling — both of which mark the boundary where the lease has
         // already been released by the wrapper.
-        const source = await fs.readFile(scriptPath('runSandman.mjs'), 'utf-8');
+        const source = await fs.readFile(scriptPath('runners/runSandman.mjs'), 'utf-8');
 
         const remCallMatch = source.match(/dreamService\.executeRemCycle\(\{[\s\S]*?includeDecay\s*:\s*true[\s\S]*?\}\)/);
         expect(remCallMatch, 'DreamService.executeRemCycle({includeDecay:true}) call must exist in runSandman.mjs').not.toBeNull();
@@ -125,7 +181,9 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
         // The wrapper's options trailer `}, {owner: 'sandman', ...})` marks the end of the
         // async-task argument. The REM cycle must appear textually BEFORE this trailer to be inside
         // the wrapped task.
-        const wrapperOptionsMatch = source.match(/\}\s*,\s*\{\s*owner\s*:\s*['"]sandman['"]/);
+        const wrapperOptionsMatch = source.match(
+            /\}\s*,\s*\{\s*leasePath\s*:\s*resolveHeavyMaintenanceLeasePath\([^)]*\)\s*,\s*owner\s*:\s*['"]sandman['"]/
+        );
         expect(wrapperOptionsMatch, "withHeavyMaintenanceLease wrapper's owner-config trailer must exist").not.toBeNull();
         expect(
             remCallMatch.index,
