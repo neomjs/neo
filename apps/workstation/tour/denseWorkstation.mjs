@@ -3,9 +3,10 @@
  *
  * Twenty live items prove workstation density rather than catalog density. The dominant
  * scale grid and the live feed remain mounted as the screenplay resizes a real split,
- * opens the real overflow menu, scrolls the 100k grid, promotes a heavy tab through the
- * shipped `splitNode` descriptor, returns it through `addTab`, and flips both themes.
- * Surface cues are visual actions; the three document operations remain deterministic.
+ * opens the real overflow menu, scrolls the 100k grid, drives one tab across two live
+ * dropzone placements, promotes a heavy tab through the shipped `splitNode` descriptor,
+ * returns it through `addTab`, and flips both themes. Surface cues are visual actions;
+ * every document-tier operation remains deterministic.
  */
 
 /**
@@ -51,8 +52,9 @@ export const initialDocument = Object.freeze({
 });
 
 /**
- * The three-beat dense-workstation story. `promote` is prose only: the executable
- * vocabulary is the shipped `splitNode` + `addTab` pair.
+ * The four-scene dense-workstation story. `promote` is prose only: the executable
+ * vocabulary is the shipped `splitNode` + `addTab` pair; cross-zone choreography is
+ * a real-input surface cue over the same preview-operation pipeline.
  * @type {Object}
  */
 export const workstationTourScript = Object.freeze({
@@ -94,6 +96,34 @@ export const workstationTourScript = Object.freeze({
             ms     : 1400,
             cue    : {type: 'scroll', index: 50000},
             caption: 'the 100k grid crosses its midpoint without a blank frame'
+        }]
+    }, {
+        id     : 's-cross-zone',
+        title  : 'Dropzone choreography — every target answers the pointer',
+        caption: 'One live tab crosses two foreign zones; an edge split and a center merge answer with distinct previews before release.',
+        steps  : [{
+            type: 'pause',
+            ms  : 1600,
+            cue : {
+                type        : 'cross-zone-showcase',
+                itemId      : 'audit',
+                sourceNodeId: 'right-top-tabs',
+                terminal    : 'commit',
+                dwells      : [{
+                    targetNodeId : 'scale-tabs',
+                    placementKind: 'edge-bottom'
+                }, {
+                    targetNodeId : 'right-bottom-tabs',
+                    placementKind: 'tab-into'
+                }],
+                options: {
+                    dwellDelay: 700,
+                    moveDelay : 24,
+                    moveSteps : 18,
+                    showCursor: true
+                }
+            },
+            caption: 'Audit crosses the matrix split preview, then joins Commits through the live center target'
         }]
     }, {
         id     : 's2',
