@@ -417,15 +417,20 @@ class SyncService extends Base {
             return false;
         }
 
-        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
-
-        if (onlyMetaChanged) {
-            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
-            await this.execGit('git restore resources/content/.sync-metadata.json', cwd);
-            return false;
-        }
-
-        logger.info('[SyncService] Detected real content changes. Committing and pushing.');
+        // A metadata-only diff is SEMANTIC state, not churn, so it is delivered like any other change.
+        //
+        // Telemetry suppression has exactly one owner: `MetadataManager.save()` returns without writing
+        // when the only difference is root-level `lastSync` / `releasesLastFetched`. So a dirty
+        // `.sync-metadata.json` differs in something beyond telemetry BY CONSTRUCTION — a facet
+        // high-water mark, a rebucketed path, a content hash. A second guard here that rolled the file
+        // back could only ever discard that, and it did: the rollback predates the `save()` suppression
+        // and was never retired once the suppression subsumed its purpose.
+        //
+        // The case it stranded is not an edge case, it is the FIRST run of any new high-water field. The
+        // corpus is already current, so no Markdown moves and the metadata carries the whole advance
+        // alone — a metadata-only diff. Rolling it back means the next run recomputes the cutoff from
+        // nothing and re-pages the entire history, forever, because every run reproduces that state.
+        logger.info(`[SyncService] Detected ${lines.length} generated-content change(s). Committing and pushing.`);
         await this.execGit(`git add ${generatedSyncStatusPaths}`, cwd);
         const {stdout: stagedStdout} = await this.execGit('git diff --cached --name-only', cwd);
         const nonSyncFiles           = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>

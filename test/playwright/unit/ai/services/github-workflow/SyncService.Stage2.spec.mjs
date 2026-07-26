@@ -747,4 +747,43 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(error.message).not.toMatch(/discussions \(/);
         expect(error.message).toMatch(/integrity is not clean/);
     });
+
+    test('a metadata-only diff is DELIVERED, never rolled back — the first-run high-water case', async () => {
+        const commands = [];
+
+        SyncService.execGit = async (command) => {
+            commands.push(command);
+
+            // The whole point of this fixture: the corpus is already current, so the metadata file is the
+            // ONLY dirty path. That is not a contrived edge case — it is the first run of any new
+            // high-water field, when the advance lives entirely in metadata.
+            if (command.startsWith('git status --porcelain ')) {
+                return {stdout: ' M resources/content/.sync-metadata.json\n', stderr: ''};
+            }
+
+            if (command === 'git diff --cached --name-only') {
+                return {stdout: 'resources/content/.sync-metadata.json\n', stderr: ''};
+            }
+
+            return {stdout: '', stderr: ''};
+        };
+
+        const pushed = await SyncService.commitRebaseAndPushGeneratedContent('/tmp/does-not-matter');
+
+        // Discriminates on TWO independent axes, because the rollback failed on both: it discarded the
+        // file AND reported "nothing delivered". Reinstating `git restore` + `return false` fails here
+        // twice over, and no weaker fixture (one with Markdown churn) can fail at all — content changes
+        // took the delivery path even before this fix.
+        expect(commands.some(command => command.includes('git restore'))).toBe(false);
+        expect(pushed).toBe(true);
+
+        // And it must be delivered as a real commit, not merely "not restored" — a path that staged the
+        // file and then silently skipped the commit would satisfy both assertions above.
+        // `includes` rather than `startsWith` for the commit: the real invocation carries an env prefix
+        // (`NEO_SKIP_TICKET_ARCHAEOLOGY=1 git commit --no-verify …`), so a prefix matcher silently misses
+        // it and the assertion would fail against correct code.
+        expect(commands.some(command => command.startsWith('git add '))).toBe(true);
+        expect(commands.some(command => command.includes('git commit'))).toBe(true);
+        expect(commands.some(command => command.includes('git push'))).toBe(true);
+    });
 });

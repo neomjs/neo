@@ -467,6 +467,15 @@ class DiscussionSyncer extends Base {
                 await fs.unlink(this.#resolvePath(cachedPath)).catch(() => {});
             }
             quarantineRemovals.push({type: 'discussions', id: number});
+
+            // Removed EXPLICITLY. Containment clears three surfaces — the file above, the content-index
+            // entry via `quarantineRemovals`, and this metadata row — and the row used to disappear only
+            // as a side effect of the repopulation wiping the whole cache. That made the wipe do two
+            // unrelated jobs, and converting it to a merge silently left quarantined discussions holding
+            // a live metadata entry. Naming the removal here is what keeps containment complete
+            // independently of how the cache is rebuilt.
+            delete metadata.discussions[number];
+
             logger.warn(`🛡️ Discussion #${number} is denylisted (containment); quarantined + excluded from sync.`);
         }
 
@@ -534,7 +543,14 @@ class DiscussionSyncer extends Base {
         }
 
         // Cache for the main orchestrator to merge
-        metadata.discussions = {};
+        // MERGED into the existing cache, never replaced. `allDiscussions` is only what THIS run
+        // fetched, so replacing dropped every entry the delta skipped. That was harmless while the
+        // cutoff was stuck at 0 and the fetch was therefore the whole corpus — and it becomes a
+        // corpus-churn bug the moment the cutoff works, because an untouched discussion would lose
+        // its `path` and `contentHash`, miss the unchanged-content shortcut, and be rewritten on
+        // every subsequent run. The two changes are one change: persisting `updatedAt` below without
+        // this merge would trade a loud failure for a permanent non-empty generated diff.
+        metadata.discussions ??= {};
         const indexEntries = [];
 
         allDiscussions.forEach(d => {
@@ -543,7 +559,14 @@ class DiscussionSyncer extends Base {
                 closed     : d.closed,
                 closedAt   : d.closedAt,
                 contentHash: d.contentHash,
-                path       : d.relativeOutputPath
+                path       : d.relativeOutputPath,
+                // The delta cutoff reads THIS field and nothing else. It was never written here, so
+                // `Date.parse(undefined)` produced NaN for every cached entry, the date list came back
+                // empty, `sinceCutoff` resolved to 0, and the `UPDATED_AT`-descending early break could
+                // never fire — every run re-paged the entire discussion history and paid full GraphQL
+                // cost for a corpus that had not changed. The issue syncer has always persisted it;
+                // this is the discussion side catching up.
+                updatedAt  : d.updatedAt
             };
 
             const plan = planBuckets.get(d.number);
@@ -637,12 +660,19 @@ class DiscussionSyncer extends Base {
                 stats.refetched.discussions.push(discussionNumber);
                 logger.debug(`✅ Refetched discussion #${discussionNumber}`);
 
+                // `updatedAt` belongs here too, because this write OVERWRITES the row rather than
+                // patching it. The delta cutoff is computed from this field across cached entries, so a
+                // recovery pass that omitted it would silently strip the high-water mark from every
+                // discussion it repaired — lowering the cutoff, or zeroing it once enough rows lost the
+                // field, and re-paging the whole history again. A recovery path that reintroduces the
+                // defect it recovered from is worse than no recovery path.
                 metadata.discussions[discussionNumber] = {
-                    number  : discussion.number,
-                    closed  : discussion.closed,
-                    closedAt: discussion.closedAt,
+                    number   : discussion.number,
+                    closed   : discussion.closed,
+                    closedAt : discussion.closedAt,
                     contentHash,
-                    path    : this.#relativePath(targetPath)
+                    path     : this.#relativePath(targetPath),
+                    updatedAt: discussion.updatedAt
                 };
 
                 if (indexMutations) {
