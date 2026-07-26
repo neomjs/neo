@@ -306,6 +306,12 @@ class Workspace extends Container {
 
         me.dockModel   = DockZoneModel.clone(initialDocument);
         me.dockService = Neo.create(DockService, {});
+
+        // Cross-window hit testing reads manager.Window as its one geometry authority. Movement
+        // snapshots alone go stale after a main-window resize, so this render target publishes
+        // live extents from construction just like every admitted vessel does on connect.
+        Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId: me.windowId});
+
         me.tourRunner  = Neo.create(TourRunner, {
             componentId: me.id,
             dockService: me.dockService,
@@ -727,6 +733,36 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Retries an exact retained vessel retirement before admitting a successor tear-out.
+     *
+     * A strict close refusal keeps both lifecycle owners so recovery remains possible. The next
+     * boundary exit must retire that generation and clear its park owner before opening another
+     * popup; a second refusal ends the newly armed window drag instead of leaving it wedged.
+     * @param {Object} data
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async onDockTearOutExit(data) {
+        let me     = this,
+            active = me.tearOutHandlers.activeVessel;
+
+        if (active) {
+            const retired = await me.tearOutHandlers.retireActiveVessel(active);
+
+            if (!retired) {
+                data.sortZone?.endWindowDrag();
+                return false
+            }
+
+            me.vesselParkHandlers.onVesselRetired({itemId: active.itemId, retirement: true})
+        }
+
+        await me.tearOutHandlers.onDockTearOutExit(data);
+
+        return true
+    }
+
+    /**
      * Projects the committed document with instance-bound reducer/view callbacks.
      * @param {Function|null} [resolveComponentRef=null] Optional staging resolver.
      * @returns {Object}
@@ -754,7 +790,7 @@ class Workspace extends Container {
             onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
             onDockTearOutCancel      : data => me.tearOutHandlers.onDockTearOutCancel(data),
             onDockTearOutEntry       : data => me.tearOutHandlers.onDockTearOutEntry(data),
-            onDockTearOutExit        : data => me.tearOutHandlers.onDockTearOutExit(data),
+            onDockTearOutExit        : data => me.onDockTearOutExit(data),
             onDockTearOutTerminal    : data => me.tearOutHandlers.onDockTearOutTerminal(data),
             onDockVesselConversionIn : data => {
                 me.vesselConversionTargetWindowId = data.targetId ?? null;
@@ -774,7 +810,8 @@ class Workspace extends Container {
             resolveComponentRef           : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef        : (componentRef, item, itemId) => me.resolvePane(itemId, item),
-            resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data)
+            resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
+            workspaceId                      : Workspace.MAIN_WORKSPACE_ID
         })
     }
 
@@ -1994,6 +2031,7 @@ class Workspace extends Container {
                     itemId,
                     windowName
                 });
+                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
                 me.tearOutRetirements.delete(itemId);
                 delete me.tearOutPanes[itemId];
@@ -2024,6 +2062,7 @@ class Workspace extends Container {
                     itemId,
                     windowName
                 });
+                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
                 me.tearOutRetirements.delete(itemId);
                 return
@@ -2045,6 +2084,7 @@ class Workspace extends Container {
                     itemId,
                     windowName
                 });
+                me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.reintegrateTearOutItem(itemId);
                 break
             }

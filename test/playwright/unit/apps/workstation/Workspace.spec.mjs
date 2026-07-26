@@ -226,6 +226,134 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('cross-window source projection publishes stable workspace identity and conversion ownership', () => {
+        const
+            originalWindowPosition = Neo.main.addon.WindowPosition,
+            windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true),
+            originalSetConfigs     = windowPosition.setConfigs,
+            resizeCalls            = [];
+        let workspace;
+
+        try {
+            windowPosition.setConfigs = data => resizeCalls.push(data);
+            workspace = Neo.create(Workspace, {});
+
+            const chrome = readTabChrome(workspace);
+
+            expect(resizeCalls).toEqual([{
+                observeResize: true,
+                windowId     : workspace.windowId
+            }]);
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
+
+            chrome.forEach(({bar}, nodeId) => {
+                expect(bar.sortZoneConfig, `${nodeId} joins the one cross-window source group`).toMatchObject({
+                    dockWorkspaceId       : Workspace.MAIN_WORKSPACE_ID,
+                    enableVesselConversion: true,
+                    sortGroup             : Workspace.CROSS_WINDOW_SORT_GROUP
+                })
+            })
+        } finally {
+            workspace?.destroy();
+            if (originalWindowPosition) {
+                originalSetConfigs
+                    ? windowPosition.setConfigs = originalSetConfigs
+                    : delete windowPosition.setConfigs
+            } else {
+                delete Neo.main.addon.WindowPosition
+            }
+        }
+    });
+
+    test('physical vessel death clears both tear-out and park lifecycle owners', () => {
+        const
+            workspace       = Neo.create(Workspace, {}),
+            originalTearOut = workspace.tearOutHandlers,
+            originalPark    = workspace.vesselParkHandlers,
+            calls           = [];
+
+        try {
+            workspace.tearOutConnects.alerts = {
+                admissionToken: 7,
+                generation    : 3,
+                windowId      : 'tear-child'
+            };
+            workspace.tearOutHandlers = {
+                onVesselRetired: data => calls.push(['tear-out', data])
+            };
+            workspace.vesselParkHandlers = {
+                onVesselRetired: data => calls.push(['park', data])
+            };
+
+            workspace.onWindowDisconnect({windowId: 'tear-child'});
+
+            expect(workspace.tearOutConnects.alerts).toBeUndefined();
+            expect(calls).toEqual([
+                ['tear-out', {
+                    admissionToken: 7,
+                    generation    : 3,
+                    itemId        : 'alerts',
+                    windowName    : 'tearout-alerts'
+                }],
+                ['park', {itemId: 'alerts', retirement: true}]
+            ])
+        } finally {
+            workspace.tearOutHandlers  = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
+            workspace.destroy()
+        }
+    });
+
+    test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
+        const
+            workspace       = Neo.create(Workspace, {}),
+            originalTearOut = workspace.tearOutHandlers,
+            originalPark    = workspace.vesselParkHandlers,
+            active          = {itemId: 'alerts', windowName: 'tearout-alerts'},
+            calls           = [];
+        let admitRetirement = true;
+
+        workspace.tearOutHandlers = {
+            activeVessel     : active,
+            onDockTearOutExit: async data => {
+                calls.push(['exit', data]);
+                return true
+            },
+            retireActiveVessel: async data => {
+                calls.push(['retire', data]);
+                return admitRetirement
+            }
+        };
+        workspace.vesselParkHandlers = {
+            onVesselRetired: data => calls.push(['park-retired', data])
+        };
+
+        const data = {sortZone: {endWindowDrag: () => calls.push('end')}};
+
+        try {
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(true);
+            expect(calls).toEqual([
+                ['retire', active],
+                ['park-retired', {itemId: 'alerts', retirement: true}],
+                ['exit', data]
+            ]);
+
+            calls.length    = 0;
+            admitRetirement = false;
+
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(false);
+            expect(calls).toEqual([
+                ['retire', active],
+                'end'
+            ])
+        } finally {
+            workspace.tearOutHandlers  = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
+            workspace.destroy()
+        }
+    });
+
     test('previewLanguage maps to the dock-host modifier: initial, live swap, null reset, open values', () => {
         const workspace = Neo.create(Workspace, {previewLanguage: 'signal'});
 
