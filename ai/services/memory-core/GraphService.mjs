@@ -75,6 +75,9 @@ function isValidGraphNodeId(id) {
 export const PROTECTED_EDGE_TYPES = Object.freeze([
     'ADVANCED_BY',   // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
     'ATTRIBUTED_TO', // direction layer: motion→direction attribution is measurement substrate — a velocity number built on decaying edges rots invisibly; fact-class per the direction contract (ai/graph/directionSchema.mjs)
+    'DELIVERED_TO',  // mailbox layer: per-recipient broadcast read/archive carrier — readAt/archivedAt live ON this edge (ai/services/memory-core/MailboxService.mjs markRead/archive); pruning it resurfaces read messages as unread
+    'SENT_TO',       // mailbox layer: recipiency authorization — markRead/archive resolve "is this mine?" by walking it; deletion erases who a message was for, which never becomes less true with age
+    'SENT_BY',       // mailbox layer: sender provenance — record, not scent; the decay floor sits below the prune threshold, so an unprotected carrier is a countdown, not an equilibrium
     'IMPLEMENTS',
     'EXTENDS',
     'SYSTEM_TENET',

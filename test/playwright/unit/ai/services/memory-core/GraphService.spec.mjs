@@ -274,6 +274,61 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(edgeRow.get('ScentSource', 'ScentTarget', 'RELATES_TO')).toBeUndefined();
     });
 
+    test('decayGlobalTopology preserves mailbox read/authorization carriers — read state is record, not scent (#15973)', async () => {
+        await GraphService.upsertNode({id: 'MESSAGE:decay-proof', type: 'MESSAGE'});
+        await GraphService.upsertNode({id: '@decay-recipient',    type: 'AGENT_IDENTITY'});
+        await GraphService.upsertNode({id: '@decay-sender',       type: 'AGENT_IDENTITY'});
+        await GraphService.upsertNode({id: 'MailScentSource',     type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'MailScentTarget',     type: 'TEST_NODE'});
+
+        // Seed every mailbox carrier at a weight ALREADY below the prune threshold — the exact
+        // state the countdown produces. Read/archive state ride ON the per-recipient broadcast
+        // edge (MailboxService markRead / archiveMessage), so survival must mean "with
+        // properties intact", not merely "row exists".
+        GraphService.linkNodes('MESSAGE:decay-proof', '@decay-recipient', 'DELIVERED_TO', 0.05, {
+            archivedAt: '2026-07-02T00:00:00.000Z',
+            readAt    : '2026-07-01T00:00:00.000Z'
+        });
+        GraphService.linkNodes('MESSAGE:decay-proof', '@decay-recipient', 'SENT_TO', 0.05);
+        GraphService.linkNodes('MESSAGE:decay-proof', '@decay-sender',    'SENT_BY', 0.05);
+
+        // Control: an unprotected edge at the same weight must still be pruned, so this spec
+        // cannot pass by disabling decay itself.
+        GraphService.linkNodes('MailScentSource', 'MailScentTarget', 'RELATES_TO', 0.05);
+
+        // Storage read-back, not cache read-back: a durability assertion must be answered by
+        // the durable store on principle. (decayGlobalTopology does call syncCache(), so the
+        // cache is not known-stale here — which is precisely why cache agreement would prove
+        // nothing on its own.)
+        const edgeRow = GraphService.db.storage.db.prepare(`
+            SELECT data
+            FROM Edges
+            WHERE source = ?
+              AND target = ?
+              AND type = ?
+        `);
+
+        // Self-validating seed: prove the read state landed in storage BEFORE decay runs,
+        // so a green survival assertion cannot be a seeding artifact.
+        const seededProps = JSON.parse(edgeRow.get('MESSAGE:decay-proof', '@decay-recipient', 'DELIVERED_TO').data).properties;
+        expect(seededProps.readAt).toBe('2026-07-01T00:00:00.000Z');
+
+        GraphService.decayGlobalTopology(0.5, 0.2, true);
+
+        const deliveredRow = edgeRow.get('MESSAGE:decay-proof', '@decay-recipient', 'DELIVERED_TO');
+        expect(deliveredRow).toBeTruthy();
+
+        const deliveredProps = JSON.parse(deliveredRow.data).properties;
+        expect(deliveredProps.readAt).toBe('2026-07-01T00:00:00.000Z');
+        expect(deliveredProps.archivedAt).toBe('2026-07-02T00:00:00.000Z');
+        expect(deliveredProps.weight).toBe(0.05);
+
+        expect(edgeRow.get('MESSAGE:decay-proof', '@decay-recipient', 'SENT_TO')).toBeTruthy();
+        expect(edgeRow.get('MESSAGE:decay-proof', '@decay-sender',    'SENT_BY')).toBeTruthy();
+
+        expect(edgeRow.get('MailScentSource', 'MailScentTarget', 'RELATES_TO')).toBeUndefined();
+    });
+
     test('getNodeRecord returns the properties blob that getNode strips (#11637)', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         await GraphService.upsertNode({
