@@ -441,7 +441,10 @@ class Workspace extends Container {
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
-            items : [{
+            // The boot containment chain asserts tourbar→statusbar→dock-host adjacency
+            // via component-id rects — the bar needs a stable reference to be one of them.
+            reference: 'tour-bar',
+            items    : [{
                 cls      : ['workstation-tour-play'],
                 handler  : () => me.startTour(),
                 iconCls  : 'fa fa-play',
