@@ -40,6 +40,36 @@ const
     composePath = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
     compose     = yamlLoad(fs.readFileSync(composePath, 'utf8'));
 
+/*
+ * The service sets below are DERIVED from the compose file, never listed. A hardcoded roster
+ * silently excludes whatever is added next: against the earlier
+ * `['kb-server','mc-server','orchestrator']` form, a phantom fourth plane service was added to this
+ * profile and every assertion still passed — the probe could not see the service class it exists to
+ * protect, because the roster decided membership instead of the artifact.
+ *
+ * Each derivation is chosen to be INDEPENDENT of the property its test asserts. That independence
+ * is the whole point and it is easy to lose: deriving "the services that have a healthcheck" would
+ * let a service leave the domain by losing the very healthcheck the test asserts on — the domain
+ * absorbing its own counterexample, which passes green and looks like a derivation.
+ */
+
+/** Services built from our Dockerfile as an MCP server — marked by `TARGET_SERVER`, orthogonal to healthchecks. */
+const mcpServices = Object.entries(compose.services ?? {})
+    .filter(([, service]) => service?.build?.args?.TARGET_SERVER)
+    .map(([name]) => name);
+
+/** Services binding the plane via the shared `<<: *plane-env` anchor — orthogonal to what they mount. */
+const planeEnvServices = Object.entries(compose.services ?? {})
+    .filter(([, service]) => Object.keys(service?.environment ?? {}).includes('<<'))
+    .map(([name]) => name);
+
+/** Services mounting the plane root — orthogonal to how they bind their environment. */
+const planeMountServices = Object.entries(compose.services ?? {})
+    .filter(([, service]) => (service?.volumes ?? []).some(mount =>
+        (typeof mount === 'string' ? mount : `${mount.source}:${mount.target}`)
+            .endsWith(`:${compose['x-plane-env']?.NEO_PLANE_DATA_ROOT}`)))
+    .map(([name]) => name);
+
 test.describe('parity profile — volume scoping is the isolation mechanism', () => {
     test('every declared volume is Compose-MANAGED: no explicit name, no external', () => {
         const volumes = compose.volumes ?? {};
@@ -77,7 +107,12 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         // 8100 slot collided with a host ssh listener, so a port probe reported a healthy stack
         // while nothing of ours was running there. A connectivity check cannot tell which process
         // answered; only asking the process to name its plane can.
-        for (const service of ['kb-server', 'mc-server']) {
+        // Domain: services carrying `build.args.TARGET_SERVER`. A service that DROPS its healthcheck
+        // stays in this domain and fails here — which is exactly what deriving "services that have a
+        // healthcheck" would have destroyed.
+        expect(mcpServices.length, 'no MCP service derived from the compose file — an empty domain passes every assertion below').toBeGreaterThan(0);
+
+        for (const service of mcpServices) {
             const probe = compose.services?.[service]?.healthcheck?.test;
 
             expect(probe, `${service} has no healthcheck — an unprobed server is worse than a connectivity-probed one`).toBeTruthy();
@@ -95,7 +130,12 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         // the property the election decided is how a partial fix looks complete.
         const planeRoot = compose['x-plane-env'].NEO_PLANE_DATA_ROOT;
 
-        for (const service of ['kb-server', 'mc-server', 'orchestrator']) {
+        // Domain: services binding the plane through the shared anchor. Independent of what they
+        // MOUNT, which is the property asserted below — so a plane consumer that forgets the volume
+        // stays in the domain and fails.
+        expect(planeEnvServices.length, 'no plane-env service derived — an empty domain passes every assertion below').toBeGreaterThan(0);
+
+        for (const service of planeEnvServices) {
             const mounts = compose.services[service].volumes.map(mount =>
                 typeof mount === 'string' ? mount : `${mount.source}:${mount.target}`);
 
@@ -124,7 +164,14 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         // to the same string and passes, while being exactly the second-source defect this profile
         // exists to remove. js-yaml leaves the `<<` merge key literal, which is what makes the
         // structural check available at all.
-        for (const service of ['kb-server', 'mc-server', 'orchestrator']) {
+        // Domain: services MOUNTING the plane root — deliberately the mirror of the test above,
+        // which derives from anchor-membership and asserts the mount. Cross-derived so neither is
+        // vacuous, and together they pin the biconditional: the set that merges the anchor and the
+        // set that mounts the plane are the same set. A service in one and not the other fails one
+        // of the two, which a single roster could never express.
+        expect(planeMountServices.length, 'no plane-mounting service derived — an empty domain passes every assertion below').toBeGreaterThan(0);
+
+        for (const service of planeMountServices) {
             expect(Object.keys(compose.services[service].environment), `${service} restates the plane binding instead of merging the shared anchor`)
                 .toContain('<<');
         }
