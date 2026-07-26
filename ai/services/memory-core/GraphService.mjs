@@ -1,14 +1,16 @@
-import path                          from 'path';
-import aiConfig                      from '../../mcp/server/memory-core/config.mjs';
-import logger                        from '../../mcp/server/memory-core/logger.mjs';
-import Base                          from '../../../src/core/Base.mjs';
-import CoreDatabase                  from '../../../ai/graph/Database.mjs';
-import SQLite                        from '../../../ai/graph/storage/SQLite.mjs';
-import { IDENTITIES }                from '../../../ai/graph/identityRoots.mjs';
-import {createGraphBootSeedManifest} from '../../../ai/graph/bootSeedManifest.mjs';
-import { normalizeUserId }           from '../../mcp/server/shared/services/RequestContextService.mjs';
-import fsExtra                       from 'fs-extra';
-import {projectNode}                 from './nodeProjection.mjs';
+import path                            from 'path';
+import aiConfig                        from '../../mcp/server/memory-core/config.mjs';
+import logger                          from '../../mcp/server/memory-core/logger.mjs';
+import Base                            from '../../../src/core/Base.mjs';
+import CoreDatabase                    from '../../../ai/graph/Database.mjs';
+import SQLite                          from '../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES }                  from '../../../ai/graph/identityRoots.mjs';
+import {createGraphBootSeedManifest}   from '../../../ai/graph/bootSeedManifest.mjs';
+import {createGraphBootSeedNodeRecord} from '../../../ai/graph/bootSeedManifest.mjs';
+import {getGraphBootSeedNodeSpec}      from '../../../ai/graph/bootSeedManifest.mjs';
+import { normalizeUserId }             from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fsExtra                         from 'fs-extra';
+import {projectNode}                   from './nodeProjection.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -378,6 +380,120 @@ class GraphService extends Base {
      */
     upsertGlobalNode(spec) {
         this.upsertNode({...spec, properties: {...spec.properties, userId: null}});
+    }
+
+    /**
+     * Guarantees one fixed boot-seed node is **manifest-declared-field compliant and global**,
+     * restoring or repairing it from the canonical {@link module:ai/graph/bootSeedManifest}
+     * declaration rather than a hand-written copy, and reporting loudly when it had to heal.
+     *
+     * Deliberately NOT "manifest-equal": the open contract below preserves undeclared runtime
+     * fields, so a repaired row can carry a legacy `semanticVectorId: null` that makes the
+     * full-manifest fingerprint predicate (`evaluateGraphBootSeedFreshness`) report `fresh: false`.
+     * That predicate is the authority on whole-graph freshness and is intentionally untouched
+     * here; this method's guarantee is narrower and must not be described in its terms.
+     *
+     * @summary Anchor & Echo: `linkNodes` culls an edge whose endpoint does not exist and
+     * returns no error, so a caller that names a shared hub (`frontier`) loses its write in
+     * silence when the hub is missing. Callers therefore ensure the hub before linking — via
+     * this method, never by declaring the spec locally. Two prior copies of the `frontier`
+     * spec had already drifted in description AND tenancy: one used plain
+     * {@link GraphService#upsertNode}, which stamps the caller's identity and produces the
+     * per-tenant invisibility this class's own {@link GraphService#upsertGlobalNode} docs warn
+     * about. Healing is deliberately noisy: an absent boot seed means boot or fresh-target
+     * recovery left the persisted graph non-manifest-equal, which is a defect to fix at the
+     * boot path, not a condition to paper over on every read.
+     *
+     * The SQLite warm-read mirrors {@link GraphService#upsertNode}'s cold-cache discipline —
+     * without it a node present on disk but absent from the in-memory map would be re-upserted
+     * from the manifest stub, overwriting a richer persisted row and emitting a false warning.
+     *
+     * @param {String} id Fixed boot-seed node id, e.g. `'frontier'`.
+     * @returns {Boolean} `true` **iff a write occurred** — the row was absent and restored, OR
+     * present and repaired. `false` when the existing row already complied and nothing was written.
+     * Callers may surface the `true` case; none should depend on it.
+     */
+    ensureGlobalBootSeedNode(id) {
+        // Resolve the spec BEFORE any early return. An unrelated row already sitting under an
+        // unknown id must not let the caller skip the fail-loud unknown-id contract.
+        const record = createGraphBootSeedNodeRecord(getGraphBootSeedNodeSpec(id));
+
+        // Lazy-load from SQLite before inspecting, for the reason upsertNode states.
+        this.db.getAdjacentNodes(id, 'both');
+
+        const existing  = this.db.nodes.get(id),
+              divergent = existing ? this.#bootSeedDivergence(existing, record) : null;
+
+        if (existing && !divergent) {
+            return false
+        }
+
+        this.upsertGlobalNode(getGraphBootSeedNodeSpec(id));
+
+        logger.warn(
+            existing
+                ? `[GraphService] boot-seed node "${id}" existed but violated its manifest invariants ` +
+                  `(${divergent}) and has been repaired. A pre-existing divergent row is usually a locally ` +
+                  'declared copy: a tenant-stamped or drifted seed is invisible or non-manifest-equal to ' +
+                  'other tenants. Note the failure is on the READ, not the write: linkNodes\' endpoint check is ' +
+                  'RLS-blind, so those edges were written and then skipped by the structural-support read.'
+                : `[GraphService] boot-seed node "${id}" was absent and has been restored from the canonical ` +
+                  'manifest. Boot or fresh-target recovery left the persisted graph non-manifest-equal — fix ' +
+                  'the boot path. Until then any edge naming this hub was silently culled by the FK guard.'
+        );
+
+        return true
+    }
+
+    /**
+     * @summary Names the first boot-seed reconciliation invariant an existing row violates, or
+     * `null` when the row already complies.
+     *
+     * **The reconciliation contract is OPEN, not closed, and that is deliberate.** A boot-seed
+     * row is reconciled on two axes only:
+     *
+     * 1. **Tenancy** — `properties.userId` MUST be `null`. This is the load-bearing invariant:
+     *    it is what makes the row readable by tenants other than its creator. A tenant-stamped
+     *    seed is present-but-invisible to everyone else, and note that the write path cannot
+     *    detect that — `linkNodes`' endpoint check is `SELECT count(*) FROM Nodes WHERE id IN (?, ?)`,
+     *    which is RLS-blind, so the edge is written and the loss appears later on the READ path.
+     * 2. **Canonical declared fields** — `label` plus every property the manifest itself declares
+     *    for this seed, compared against `createGraphBootSeedNodeRecord`'s projection rather than
+     *    a hand-listed field set, so the check cannot drift from the manifest's persisted shape.
+     *
+     * Properties the manifest does NOT declare are **runtime-owned and preserved untouched**:
+     * `semanticVectorId`, `state` and `updatedAt` are written by embedding and lifecycle paths, and
+     * a populated `semanticVectorId` is legitimate enrichment rather than drift. Reconciliation
+     * therefore never asserts on them and never removes them — which is also the honest contract,
+     * because {@link GraphService#upsertNode} MERGES (`Object.assign` over current properties and
+     * overwrite only what is defined), so a repair physically cannot strip an undeclared leftover.
+     * A stale `semanticVectorId: null` from an older local declaration survives repair by design;
+     * it is inert, and claiming otherwise would be a promise the write path cannot keep.
+     *
+     * @param {Object} existing Persisted node record.
+     * @param {Object} record Canonical projection from the boot-seed manifest.
+     * @returns {String|null} Human-readable violation, or `null` when compliant.
+     * @private
+     */
+    #bootSeedDivergence(existing, record) {
+        const properties = existing.properties || {};
+
+        if (properties.userId !== null) {
+            return `userId is ${JSON.stringify(properties.userId ?? null)}, expected null (global)`
+        }
+
+        if (existing.label !== record.label) {
+            return `label is ${JSON.stringify(existing.label)}, expected ${JSON.stringify(record.label)}`
+        }
+
+        // Declared fields only. Undeclared keys are runtime-owned; see the contract above.
+        for (const [key, expected] of Object.entries(record.properties)) {
+            if (key !== 'userId' && properties[key] !== expected) {
+                return `${key} is ${JSON.stringify(properties[key])}, expected ${JSON.stringify(expected)}`
+            }
+        }
+
+        return null
     }
 
     /**

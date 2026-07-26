@@ -810,15 +810,13 @@ class SemanticGraphExtractor extends Base {
     async commitTriVectorPayload(payload, session) {
         const artifact = payload.session_artifact;
 
-        if (!GraphService.db.nodes.has('frontier')) {
-            GraphService.upsertNode({
-                id              : 'frontier',
-                type            : 'SYSTEM_ANCHOR',
-                name            : 'Active Context Frontier',
-                description     : 'The actively tracked development front for the current project scope.',
-                semanticVectorId: null
-            });
-        }
+        // Was a hand-written `frontier` spec upserted through plain upsertNode, which carried
+        // two defects: the local description had drifted from the boot manifest, making the
+        // persisted graph non-manifest-equal so the fresh-target recovery predicate fails
+        // closed; and plain upsertNode stamps the caller's identity, leaving the restored hub
+        // tenant-scoped where the manifest requires global — the per-tenant invisibility that
+        // GraphService#upsertGlobalNode's own docs warn about for shared sentinels.
+        GraphService.ensureGlobalBootSeedNode('frontier');
 
         const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
 

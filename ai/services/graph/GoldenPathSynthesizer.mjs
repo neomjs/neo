@@ -1409,6 +1409,14 @@ class GoldenPathSynthesizer extends Base {
                       scored: entry
                   }));
 
+            // The GUIDES edges below all originate at the shared `frontier` hub. linkNodes
+            // culls an edge whose endpoint is missing and reports no error, so an absent hub
+            // drops every reinforcement write in silence — inbound structural support reads
+            // zero while this method still reports success. Ensure once, from the boot manifest,
+            // before the loop; the edges stay tenant-scoped because Golden Path reinforcement
+            // is per-tenant learning.
+            GraphService.ensureGlobalBootSeedNode('frontier');
+
             renderedRows.forEach(row => {
                 GraphService.linkNodes('frontier', row.id, 'GUIDES', row.scored?.score ?? row.score ?? 0);
 

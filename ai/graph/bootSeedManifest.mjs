@@ -70,6 +70,36 @@ export function createGraphBootSeedManifest({identities = IDENTITIES} = {}) {
 }
 
 /**
+ * @summary Returns a detached clone of one fixed boot-seed node spec by id.
+ *
+ * Exists so a runtime consumer that must guarantee a boot-seed node is present can
+ * reuse THIS module's declaration instead of hand-writing a second copy. A hand-written
+ * copy is not merely duplication: it drifts (description text, `semanticVectorId`), and
+ * because the module header makes this manifest the completeness predicate for
+ * fresh-target recovery, a divergent copy makes that predicate fail closed.
+ *
+ * Fixed specs only — identity roots are not addressable here, because they are supplied
+ * per-call to {@link createGraphBootSeedManifest} and are not a fixed part of the manifest.
+ *
+ * @param {String} id Fixed boot-seed node id, e.g. `'frontier'`.
+ * @returns {Object} Detached spec clone, suitable for `GraphService.upsertGlobalNode()`.
+ * @throws {Error} When `id` names no fixed boot-seed node — an unknown id is a contract
+ * breach by the caller, never a silent miss that would reintroduce a hand-written spec.
+ */
+export function getGraphBootSeedNodeSpec(id) {
+    const spec = FIXED_NODE_SPECS.find(candidate => candidate.id === id);
+
+    if (!spec) {
+        throw new Error(
+            `getGraphBootSeedNodeSpec: "${id}" is not a fixed boot-seed node. ` +
+            `Known ids: ${FIXED_NODE_SPECS.map(candidate => candidate.id).join(', ')}.`
+        )
+    }
+
+    return cloneJsonValue(spec)
+}
+
+/**
  * @summary Projects one boot node input spec into its exact persisted graph
  * record shape.
  *
