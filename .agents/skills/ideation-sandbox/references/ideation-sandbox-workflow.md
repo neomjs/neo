@@ -65,26 +65,19 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 | Option | When this would be right | Evidence / falsifier (≥1 source per option) |
 |---|---|---|
 
-- **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to a separate **gated convergence pass** after the divergence window closes.
+- **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to the **gated convergence pass**.
 
-**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options); the **gated convergence pass** opens when the window closes.
+**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options).
 
-**Closure is evidence-state, never a clock (#15996).** A non-author comment is a **cycle** if it adds an option row, a falsifier, or a stated blocker; every other non-author comment (ack, question, restatement, signal) is a **pass**. The window closes when **(a)** ≥1 cycle has landed **and (b)** the two most recent non-author comments are passes — then open the convergence pass on present evidence or split, recording which. A new cycle resets (b). Passes are what make closure reachable and rows cannot satisfy it, so this ends divergence without rewarding filler. No invented `until <ts>`: a clock cannot be shortened by evidence, so only an operator-set bound is valid, cited as theirs.
+**Closure is an author fold marker — never a clock, never a count (#15996, D#15998).** After ≥1 substantive non-author cycle the author dispositions **every** live option / falsifier / blocker, then posts **`[DIVERGENCE_FOLDED @ <last-substantive-comment-id>]`**. **The gated convergence pass opens on that marker.** A later option / falsifier / blocker **reopens** divergence for that delta, **pre-graduation only** — afterwards use §6.5 dissent / liveness + `revalidationTrigger`, or a successor Discussion. **An unsupported marker leaves divergence open** (§5.2 point 1 checks it). Forbidden: an invented `until <ts>` — only an operator-set bound, cited as theirs — and any comment / fold / pass count.
 
 **Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 and `ticket-create-workflow.md` §1c (substantive-rationale exception documented there). **Per §6 (high-blast only)**, graduation is ALSO blocked when the Signal Ledger lacks §6.2 quorum or carries unresolved DEFERRED/VETO.
 
-The full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
+Rationale for the closure rule (why a clock, a count, and a consecutive-passes predicate all fail), the full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
 ### 5.1.1. Reflective Pause Trigger (Friction-Driven Proposals)
 
-**Trigger:** If the Discussion originates from friction (e.g., test failures, build errors, tool limitations) rather than a planned feature, you MUST apply a **Reflective Pause**. You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant") where you want to fix the immediate symptom. You must explicitly counteract this regression drift.
-
-**Gate:** Before drafting the Double Diamond matrix or proposing graduation, you MUST:
-1. **Halt reactive code generation:** Do not propose a code fix for the immediate friction.
-2. **Root-Cause Falsification:** Execute falsifying tool calls (e.g., `grep_search`, `ask_knowledge_base`) to empirically validate whether the friction is a symptom of a deeper architectural misalignment or missing primitive.
-3. **Document the Pivot:** The Double Diamond matrix MUST include at least one option that addresses the root cause (not just the symptom) and explicitly reference the falsifying evidence.
-
-**Graduation Block:** If the Double Diamond matrix only addresses the immediate friction symptom without evidence of a root-cause sweep, graduation is blocked.
+**Trigger:** a Discussion originating from **friction** (test failures, build errors, tool limitations) rather than a planned feature MUST apply a **Reflective Pause** before drafting the matrix — halt the reactive fix, run root-cause falsification, and carry ≥1 root-cause option with its evidence. **Graduation is blocked on a symptom-only matrix.** Full gate: [`../audits/reflective-pause-trigger.md`](../audits/reflective-pause-trigger.md).
 
 ### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
 
@@ -102,7 +95,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 **8-point cross-substrate sweep checklist** (canonical; adopted from Discussion `#11188` OQ4):
 
-1. **Authority sweep** — Which artifact is canonical: discussion body, latest comment, epic body, ticket AC, or ADR? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation. ADR handling records `Decision Record: REQUIRED|OPTIONAL|NOT_NEEDED`.
+1. **Authority sweep** — Which artifact is canonical: discussion body, latest comment, epic body, ticket AC, or ADR? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation. ADR handling records `Decision Record: REQUIRED|OPTIONAL|NOT_NEEDED`. **Fold completeness (§5.1):** every pre-marker live option, falsifier, and blocker maps to an explicit disposition in the folded body — a *different* question from canonical-and-consistent.
 2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
 3. **Path determinism sweep** — Can the path/key be computed from stable identity alone? If not, name the metadata/index/search contract explicitly.
 4. **State mutability sweep** — Which fields decide lifecycle placement (`closedAt`, `mergedAt`, `answerChosenAt`, etc.)? Are they enforced by substrate, mutable, or only socially expected?
