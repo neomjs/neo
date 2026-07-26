@@ -319,6 +319,8 @@ class DockLayoutAdapter extends Base {
      * re-projection loop) with no error surfacing anywhere.
      * @param {Object} model
      * @param {Object} [options={}]
+     * @param {String|String[]|null} [options.dockTearOutBoundaryContainerId] Main-thread DOM
+     *     boundary whose exit starts a tear-out; omitted values retain the tab-toolbar boundary.
      * @param {Boolean} [options.enableVesselConversion=false] Arms the optional source-owned
      *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
@@ -373,6 +375,7 @@ class DockLayoutAdapter extends Base {
             // tab.Container. The HOST owns vessel acquisition + the `detachItem` commit at the
             // terminal; the projection only threads the opt-in + the closure seams. Absent = fully
             // in-window, the unchanged default.
+            dockTearOutBoundaryContainerId   : options.dockTearOutBoundaryContainerId ?? null,
             enableDockTearOut                : options.enableDockTearOut === true,
             enableVesselConversion           : options.enableVesselConversion === true,
             items                            : model.items || {},
@@ -842,7 +845,13 @@ class DockLayoutAdapter extends Base {
                 // new model state: a menu selection routes through the tab.Container's existing activeIndex.
                 plugins       : [{module: TabOverflowPlugin}],
                 sortZoneConfig: {
-                    module          : DockTabSortZone,
+                    module: DockTabSortZone,
+                    // A dock host spans multiple tab strips. Its composition can therefore name
+                    // the app/window boundary whose EXIT means tear-out; retaining the toolbar
+                    // fallback keeps consumers that omit the option byte-identical.
+                    ...(context.dockTearOutBoundaryContainerId
+                        ? {boundaryContainerId: context.dockTearOutBoundaryContainerId}
+                        : null),
                     dockGroupNodeId : nodeId === context.stackDragNodeId ? nodeId : null,
                     dockItemIds     : items,
                     dockSourceNodeId: nodeId,

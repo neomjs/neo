@@ -674,19 +674,21 @@ class Workspace extends Container {
         let me = this;
 
         return DockLayoutAdapter.project(me.dockModel, {
-            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
-            // Tear-out opt-in (§2.8): arms the window-boundary hysteresis + overdrag on every
-            // projected tabs zone; the gesture handlers below route through the tear-out machine.
-            enableDockTearOut        : true,
-            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
-            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
-            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
-            onDockTearOutCancel      : data => me.tearOutHandlers.onDockTearOutCancel(data),
-            onDockTearOutEntry       : data => me.tearOutHandlers.onDockTearOutEntry(data),
-            onDockTearOutExit        : data => me.tearOutHandlers.onDockTearOutExit(data),
-            onDockTearOutTerminal    : data => me.tearOutHandlers.onDockTearOutTerminal(data),
-            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef      : resolveComponentRef
+            applyDockZoneOperation: me.applyDockZoneOperation.bind(me),
+            // Tear-out opt-in (§2.8): every tab zone shares the Workstation root as its physical
+            // window boundary. Exiting a source toolbar remains ordinary cross-zone motion; only
+            // leaving this app/window root enters the vessel outcome machine.
+            dockTearOutBoundaryContainerId: me.id,
+            enableDockTearOut             : true,
+            onDockCrossZoneDragCancel     : data => me.dragAffordances.onDragCancel(data),
+            onDockCrossZoneDragMove       : data => me.dragAffordances.onDragMove(data),
+            onDockCrossZoneDrop           : data => me.dragAffordances.onDrop(data),
+            onDockTearOutCancel           : data => me.tearOutHandlers.onDockTearOutCancel(data),
+            onDockTearOutEntry            : data => me.tearOutHandlers.onDockTearOutEntry(data),
+            onDockTearOutExit             : data => me.tearOutHandlers.onDockTearOutExit(data),
+            onDockTearOutTerminal         : data => me.tearOutHandlers.onDockTearOutTerminal(data),
+            onDockZoneDocumentChange      : me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef           : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef  : (componentRef, item, itemId) => me.resolvePane(itemId, item)
         })
