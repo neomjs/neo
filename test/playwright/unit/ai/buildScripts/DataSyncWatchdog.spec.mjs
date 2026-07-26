@@ -11,6 +11,7 @@ import {
     evaluateBreach,
     isRecovered,
     latestCommitDate,
+    parseFacetNames,
     parseThreshold,
     selectAlarmIssue
 } from '../../../../../buildScripts/dataSyncWatchdog.mjs';
@@ -135,6 +136,19 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(() => parseThreshold({name: 'X', raw: 'fourty', fallback: 48})).toThrow(/positive number/);
         expect(() => parseThreshold({name: 'X', raw: '0', fallback: 48})).toThrow(/positive number/);
         expect(() => parseThreshold({name: 'X', raw: '-5', fallback: 48})).toThrow(/positive number/)
+    });
+
+    test('parseFacetNames: absent falls back; a comma/whitespace-only value fails LOUD (never a silent off-switch for the axis)', () => {
+        expect(parseFacetNames({name: 'X', raw: undefined, fallback: ['issues']})).toEqual(['issues']);
+        expect(parseFacetNames({name: 'X', raw: '', fallback: ['issues']})).toEqual(['issues']);
+        expect(parseFacetNames({name: 'X', raw: 'issues,pulls', fallback: []})).toEqual(['issues', 'pulls']);
+        expect(parseFacetNames({name: 'X', raw: ' issues , pulls ', fallback: []})).toEqual(['issues', 'pulls']);
+
+        // The reachable defect: an unset-vars composition (`${{ vars.A }},${{ vars.B }}`)
+        // renders a comma-only value, which must never silently empty the corpus axis.
+        expect(() => parseFacetNames({name: 'X', raw: ' ', fallback: ['issues']})).toThrow(/zero facets/);
+        expect(() => parseFacetNames({name: 'X', raw: ',', fallback: ['issues']})).toThrow(/zero facets/);
+        expect(() => parseFacetNames({name: 'X', raw: ',,', fallback: ['issues']})).toThrow(/zero facets/)
     });
 
     test('selectAlarmIssue: body marker wins over title, PRs are excluded, marker beats prefix', () => {

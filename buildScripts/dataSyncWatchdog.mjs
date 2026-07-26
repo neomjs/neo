@@ -95,6 +95,11 @@ export function computeStreak({runs}) {
  * across every subpath of one semantic corpus, or null when no subpath has a visible
  * commit. Newest-wins is the contract for multi-path facets (`issues` = active + archive):
  * an archive-only repair is maintenance, and a healthy archive cadence is not a breach.
+ * Measured on the live history: archive-commit cadence gaps run 1–8 days, so the
+ * alternatives (min-wins, or the archive as its own 48h facet) would false-breach
+ * routinely; in ~2.5 months exactly one archive-only commit class (a hand-authored
+ * redaction repair) refreshed the `issues` clock while the active tree was untouched —
+ * the accepted price for not false-breaching.
  *
  * @param {Object[][]} commitLists One list of commit entries per subpath.
  * @returns {String|null} ISO date of the newest commit, or null.
@@ -185,6 +190,38 @@ export function parseThreshold({name, raw, fallback}) {
     }
 
     return value
+}
+
+/**
+ * Parses the facet-list env var with the same loud discipline as `parseThreshold`:
+ * absent or empty falls back to the default set, but a PRESENT value that resolves to
+ * zero names (comma/whitespace-only — the realistic shape of an unset-vars composition
+ * like `${{ vars.A }},${{ vars.B }}`) fails LOUD. A resolved-empty list would empty the
+ * corpus axis itself: `evaluateBreach` over `[]` is indistinguishable from the axis
+ * never having been measured, which is the certified-silence class this tool exists to
+ * break — a watchdog must never carry a quiet off-switch for its own guard.
+ *
+ * Unknown names fall through to a single subpath equal to the name BY DESIGN: the
+ * override is the extension point for future independently-synced trees, with no code
+ * change required. A typo then surfaces at evaluation time as a "no commit visible"
+ * breach for that facet — the loud direction as well (never silence).
+ *
+ * @param {Object} options
+ * @param {String} options.name Env var name (for the error message).
+ * @param {String|undefined} options.raw Raw env value.
+ * @param {String[]} options.fallback Used only when the var is absent or empty.
+ * @returns {String[]}
+ */
+export function parseFacetNames({name, raw, fallback}) {
+    if (raw === undefined || raw === '') return fallback;
+
+    const facets = raw.split(',').map(facet => facet.trim()).filter(Boolean);
+
+    if (facets.length === 0) {
+        throw new Error(`dataSyncWatchdog: ${name} resolved to zero facets from '${raw}' — refusing to silently disable the corpus axis (omit the var to use the default set)`)
+    }
+
+    return facets
 }
 
 /**
@@ -372,10 +409,7 @@ async function main() {
     // Multi-path facets (`issues` = active + archive, one semantic corpus for consumers)
     // take the NEWEST commit across their subpaths: an archive-only repair is maintenance.
     // Measured from the COMMITTED default branch, never a working tree.
-    const facetNames = (process.env.WATCHDOG_CORPUS_FACETS || DEFAULT_CORPUS_FACETS.join(','))
-        .split(',')
-        .map(facet => facet.trim())
-        .filter(Boolean);
+    const facetNames = parseFacetNames({name: 'WATCHDOG_CORPUS_FACETS', raw: process.env.WATCHDOG_CORPUS_FACETS, fallback: DEFAULT_CORPUS_FACETS});
 
     const corpusFacets = await Promise.all(facetNames.map(async facet => {
         const subpaths = FACET_PATHS[facet] ?? [facet],
