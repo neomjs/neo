@@ -18,6 +18,15 @@
  * Being an entrypoint is what licenses the `Neo` / `AiConfig` imports below; the two pure halves stay
  * importable by tests without pulling the config tree in.
  *
+ * ## Why the CANONICAL template, not the operator overlay
+ *
+ * This reads `ai/config.template.mjs` rather than `ai/config.mjs`. The overlay is **gitignored and
+ * generated**, so it does not exist in a fresh checkout — a guard importing it fails before reaching
+ * its own logic, which is a red build that says nothing about the invariant. It is also the wrong
+ * source on purpose: this gate asserts the invariant the **repository declares**, not a value some
+ * machine happens to override locally. Env bindings still apply, because they are declared on the
+ * leaves themselves, so an operator can still reproduce a breach verdict from the shell.
+ *
  * ## Why this guard is expected to be GREEN, and why that is not a reason to skip it
  *
  * On shipped config the verdict passes with a wide margin (hourly detect against a 30-day window
@@ -36,7 +45,7 @@
 
 import {pathToFileURL} from 'url';
 import Neo             from '../../../src/Neo.mjs';
-import AiConfig        from '../../config.mjs';
+import AiConfig        from '../../config.template.mjs';
 
 import {evaluateDetectionRetentionSla}   from './detectionRetentionSla.mjs';
 import {resolveDetectionRetentionInputs} from './detectionRetentionSlaInputs.mjs';
