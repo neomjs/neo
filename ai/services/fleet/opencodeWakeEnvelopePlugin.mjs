@@ -58,12 +58,14 @@
  *   envelope is a degraded result, never a silent success.
  *
  * NOTE: the envelope is written on `session.created` and re-bound on the first qualifying
- * `session.updated` of a restored session; a session already open when the plugin is first
- * planted re-writes it at the next session start (or immediately on restart of the seat).
- * Within one plugin lifetime the server's port cannot change, so a once-written-or-adopted
- * session id is the whole freshness check the frequent `session.updated` events need.
+ * `session.updated` of a restored session. A session already open when the plugin is first
+ * planted re-writes it at the next session start; after a desktop restart with a restored
+ * session, the write lands on that session's first qualifying update event (restores do
+ * not fire `session.created`). Within one plugin lifetime the server's port cannot change,
+ * so a once-written session id is the whole freshness check the frequent `session.updated`
+ * events need.
  *
- * @summary OpenCode plugin that writes the wake-daemon seat envelope on operator-seat session.created.
+ * @summary OpenCode plugin that writes the wake-daemon seat envelope on operator-seat session.created and re-binds it on a restored session's first qualifying session.updated, with a load-time armament log.
  * @see ai/daemons/wake/daemon.mjs deliverViaOpencodeServer (the consuming route)
  */
 export const NeoWakeEnvelope = async (ctx) => {
@@ -201,24 +203,13 @@ export const NeoWakeEnvelope = async (ctx) => {
         await getSession(options);
     };
 
-    /**
-     * Reads the on-disk envelope for the adoption check. A missing or malformed file is
-     * not an error — it simply means there is nothing to adopt.
-     *
-     * @returns {Promise<Object|null>} The parsed envelope, or null.
-     */
-    const readEnvelope = async () => {
-        try {
-            return JSON.parse(await fs.readFile(envelopePath, 'utf8'));
-        } catch (_) {
-            return null;
-        }
-    };
-
-    // The (sessionId, port) pair this plugin instance already wrote or adopted. Within one
+    // The (sessionId, port) pair this plugin instance already wrote this boot. Within one
     // plugin lifetime the server's port cannot change, so a sessionId hit alone is proof the
     // envelope is current — this keeps the high-frequency `session.updated` path fetch-free
-    // and lsof-free in the common case.
+    // and lsof-free in the common case. Note there is deliberately NO on-disk adoption
+    // shortcut: two matching cached fields are not route authority (stale credentials,
+    // project, directory, or file mode could ride along), so a first-seen session always
+    // pays the full validate-write-probe sequence exactly once.
     let lastTarget = null;
 
     // Sessions already identified as child/subagent sessions. A busy subagent fires
@@ -288,18 +279,10 @@ export const NeoWakeEnvelope = async (ctx) => {
             try {
                 const port = await resolvePort();
 
-                // Adopt an already-current envelope (e.g. a plugin reload within one
-                // server life) instead of rewriting it.
-                const existing = await readEnvelope();
-
-                if (existing?.sessionId === sessionId && existing?.port === port) {
-                    lastTarget = {sessionId, port};
-                    await log('debug', `envelope already targets session ${sessionId} (port ${port}) — adopted`);
-                    return;
-                }
-
                 // The updated event does not reliably carry parentage; the server's own
                 // session resource is the authoritative source for the child filter.
+                // On-disk envelope state is never consulted: matching cached coordinates
+                // are not authority over credentials, project, directory, or file mode.
                 const session = await getSession({port, sessionId});
 
                 if (session?.parentID ?? session?.parent_id) {

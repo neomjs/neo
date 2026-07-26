@@ -11,8 +11,9 @@ import { NeoWakeEnvelope } from '../../../../../../ai/services/fleet/opencodeWak
  * probe outcomes (`written-probed` only on an end-to-end route check of the envelope's own
  * coordinates; `written-probe-failed` loud with the envelope still written), the load-time
  * armament log line (the loaded-vs-silent instrument), and the `session.updated` restore
- * path (re-bind after a restart with a restored session; on-disk adoption; closure dedup;
- * authoritative parentage from the server's own session resource).
+ * path (re-bind after a restart with a restored session; NO on-disk adoption — cached
+ * coordinates are never route authority; closure dedup; authoritative parentage from the
+ * server's own session resource).
  */
 test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
     let tmpRoot, savedEnv, logs, fetchCalls, realFetch;
@@ -342,7 +343,7 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
         expect(logs.find(entry => entry.message?.startsWith('wake envelope written-probed for restored session ses_restored_write'))).toBeTruthy();
     });
 
-    test('session.updated adopts an already-current on-disk envelope — no rewrite, no fetch', async () => {
+    test('a matching on-disk envelope with ROTATED credentials is rewritten and probed — cached coordinates are not authority', async () => {
         process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
 
         const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
@@ -350,7 +351,63 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
         fs.writeJsonSync(envelopePath, {
             hostname : '127.0.0.1',
             port     : 41012,
-            sessionId: 'ses_already_bound',
+            sessionId: 'ses_rotated',
+            projectId: 'proj-STALE',
+            directory: '/tmp/STALE',
+            username : 'opencode',
+            password : 'STALE-SECRET',
+            updatedAt: '2026-07-25T00:00:00.000Z'
+        }, {spaces: 2});
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41012] }));
+        await fireSessionUpdated(hooks, { id: 'ses_rotated' });
+
+        const envelope = fs.readJsonSync(envelopePath);
+        // every stale field is refreshed from the current environment, not trusted from disk
+        expect(envelope.password).toBe('test-secret');
+        expect(envelope.projectId).toBe('proj-test');
+        expect(envelope.directory).toBe('/tmp/proj-test');
+        expect(envelope.updatedAt).not.toBe('2026-07-25T00:00:00.000Z');
+        // authoritative parentage fetch + post-write probe — zero-fetch adoption does not exist
+        expect(fetchCalls.map(call => call.url)).toEqual([
+            'http://127.0.0.1:41012/session/ses_rotated',
+            'http://127.0.0.1:41012/session/ses_rotated'
+        ]);
+    });
+
+    test('a matching on-disk envelope with permissive mode is repaired to 0600', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        fs.ensureDirSync(path.dirname(envelopePath));
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : 41013,
+            sessionId: 'ses_permissive',
+            projectId: 'proj-test',
+            directory: '/tmp/proj-test',
+            username : 'opencode',
+            password : 'test-secret',
+            updatedAt: '2026-07-25T00:00:00.000Z'
+        }, {spaces: 2});
+        fs.chmodSync(envelopePath, 0o644);
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41013] }));
+        await fireSessionUpdated(hooks, { id: 'ses_permissive' });
+
+        expect(fs.statSync(envelopePath).mode & 0o777).toBe(0o600);
+        expect(fetchCalls.length).toBe(2);
+    });
+
+    test('a pre-existing child-target envelope is never adopted — authoritative parentage filters first', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        fs.ensureDirSync(path.dirname(envelopePath));
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : 41014,
+            sessionId: 'ses_child_target',
             projectId: 'proj-test',
             directory: '/tmp/proj-test',
             username : 'opencode',
@@ -358,13 +415,25 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
             updatedAt: '2026-07-25T00:00:00.000Z'
         }, {spaces: 2});
 
-        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41012] }));
-        await fireSessionUpdated(hooks, { id: 'ses_already_bound' });
+        globalThis.fetch = async (input) => {
+            const url = String(input);
+            fetchCalls.push({url});
 
-        // adopted, not rewritten: the file keeps its original updatedAt, and no probe fires
+            return new Response(JSON.stringify({id: url.split('/').pop(), parentID: 'ses_operator'}), {
+                status : 200,
+                headers: {'Content-Type': 'application/json'}
+            });
+        };
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41014] }));
+        await fireSessionUpdated(hooks, { id: 'ses_child_target' });
+        await fireSessionUpdated(hooks, { id: 'ses_child_target' });
+
+        // the poisoned envelope is neither trusted (adopted) nor refreshed (written):
+        // the child filter fires before any write path, and its result is cached
         expect(fs.readJsonSync(envelopePath).updatedAt).toBe('2026-07-25T00:00:00.000Z');
-        expect(fetchCalls.length).toBe(0);
-        expect(logs.find(entry => entry.message?.includes('adopted') && entry.message?.includes('ses_already_bound'))).toBeTruthy();
+        expect(fetchCalls.length).toBe(1);
+        expect(logs.find(entry => entry.message?.includes('adopted'))).toBeFalsy();
     });
 
     test('repeated session.updated events for the same session cost one write total (closure dedup)', async () => {
