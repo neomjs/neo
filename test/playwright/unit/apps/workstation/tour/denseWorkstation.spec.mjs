@@ -74,9 +74,25 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
         expect(Object.entries(initialDocument.items)
             .filter(([, item]) => item.autoHidden === true)
             .map(([itemId]) => itemId)).toEqual(['graph', 'inspector']);
-        expect(cues).toEqual(['overflow', 'scroll', 'canvas-update', 'theme', 'theme']);
+        expect(cues).toEqual([
+            'overflow',
+            'scroll',
+            'cross-zone-showcase',
+            'canvas-update',
+            'theme',
+            'theme'
+        ]);
         expect(workstationTourScript.scenes.flatMap(scene => scene.steps)
             .find(step => step.cue?.type === 'overflow').cue.itemId).toBe('security');
+        expect(workstationTourScript.scenes.flatMap(scene => scene.steps)
+            .find(step => step.cue?.type === 'cross-zone-showcase').cue.dwells)
+            .toEqual([{
+                targetNodeId : 'scale-tabs',
+                placementKind: 'edge-bottom'
+            }, {
+                targetNodeId : 'right-bottom-tabs',
+                placementKind: 'tab-into'
+            }]);
         expect(operations).toEqual(['resizeSplit', 'splitNode', 'addTab']);
         operations.forEach(operation => expect(DockZoneModel.operations).toContain(operation));
         expect(operations).not.toContain('promote')

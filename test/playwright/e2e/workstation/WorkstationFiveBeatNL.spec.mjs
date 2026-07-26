@@ -54,7 +54,9 @@ import {test, expect} from '../../fixtures.mjs';
 // nothing but a worse error.
 const
     filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake ? {birthAttempts: 240, curve: 0.18, moveDelay: 33, moveSteps: 24, showCursor: true} : {};
+    filmPace = filmTake
+        ? {birthAttempts: 240, curve: 0.18, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
+        : {};
 
 /**
  * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
@@ -507,6 +509,99 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // the determinism AC: two scripted runs replay the identical structural beat log
         expect(logs[1], 'two runs must replay the identical beat log').toEqual(logs[0]);
         expect(pageErrors, 'the journey must be error-free').toEqual([])
+    });
+
+    test('showcase beat — one drag crosses two live dropzones; cancel and commit stay deterministic', async ({page, neuralLink}) => {
+        const
+            cancelLogs    = [],
+            commitLogs    = [],
+            pageErrorRuns = [],
+            gesture       = {
+                itemId      : 'audit',
+                sourceNodeId: 'right-top-tabs',
+                dwells      : [{
+                    targetNodeId : 'scale-tabs',
+                    placementKind: 'edge-bottom'
+                }, {
+                    targetNodeId : 'right-bottom-tabs',
+                    placementKind: 'tab-into'
+                }]
+            };
+
+        for (let run = 0; run < 2; run++) {
+            const
+                ctx            = await boot({page, neuralLink}),
+                {app, wsId}    = ctx,
+                documentBefore = await readDocument(app, wsId),
+                heartbeatStart = await readHeartbeat(app, wsId),
+                paneId         = await app.callMethod(wsId, 'getPaneIdentity', ['audit']);
+
+            pageErrorRuns.push(ctx.pageErrors);
+
+            const cancelled = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+                ...gesture,
+                terminal: 'cancel'
+            }, filmPace]);
+
+            expect(cancelled.errors).toEqual([]);
+            expect(cancelled.cancelled, 'Escape settles the in-window gesture as cancel').toBe(true);
+            expect(cancelled.proof.documentsUnchanged, 'cancel commits no document mutation').toBe(true);
+            expect(cancelled.proof.overlaysRetired, 'cancel retires geometry, menu, selection, and preview').toBe(true);
+            expect(cancelled.proof.popupConfig.restored,
+                'cancel restores the exact popup-conversion setting before resolving').toBe(true);
+            expect(cancelled.proof.popupConfig.after).toBe(cancelled.proof.popupConfig.before);
+            expect(await readDocument(app, wsId), 'fresh worker truth remains byte-identical after cancel')
+                .toEqual(documentBefore);
+
+            const committed = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+                ...gesture,
+                terminal: 'commit'
+            }, filmPace]);
+
+            expect(committed.errors).toEqual([]);
+            expect(committed.applied, 'release commits the exact active preview').toBe(true);
+            expect(committed.proof.documentMatchesPreview,
+                'the committed document equals previewToOperation(preview) applied to pre-gesture truth').toBe(true);
+            expect(committed.proof.overlaysRetired, 'commit retires geometry, menu, selection, and preview').toBe(true);
+            expect(committed.proof.popupConfig.restored,
+                'commit restores the exact popup-conversion setting before resolving').toBe(true);
+            expect(committed.proof.popupConfig.after).toBe(committed.proof.popupConfig.before);
+            expect(committed.proof.descriptor).toEqual({
+                operation : 'addTab',
+                itemId    : 'audit',
+                tabsNodeId: 'right-bottom-tabs',
+                index     : null
+            });
+
+            const documentAfter = await readDocument(app, wsId);
+
+            expect(documentAfter, 'independent App Worker truth equals the executor expected document')
+                .toEqual(committed.proof.expectedDocument);
+            expect(documentAfter.nodes['right-top-tabs'].items,
+                'the source stays alive with its sibling').toEqual(['metrics']);
+            expect(documentAfter.nodes['right-bottom-tabs'].items,
+                'the final center target owns the dragged item').toEqual(['commits', 'audit']);
+            expect(committed.beatLog.map(({placementKind, targetNodeId}) => ({placementKind, targetNodeId})))
+                .toEqual([
+                    {placementKind: 'edge-bottom', targetNodeId: 'scale-tabs'},
+                    {placementKind: 'tab-into',    targetNodeId: 'right-bottom-tabs'}
+                ]);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the same pane instance crosses the workspace').toBe(paneId);
+            expect(await readHeartbeat(app, wsId), 'living content advances through both gestures')
+                .toBeGreaterThan(heartbeatStart);
+
+            cancelLogs.push(cancelled.beatLog);
+            commitLogs.push(committed.beatLog);
+
+            if (run === 0) {
+                await page.reload()
+            }
+        }
+
+        expect(cancelLogs[1], 'two cancel drives produce identical semantic dwell logs').toEqual(cancelLogs[0]);
+        expect(commitLogs[1], 'two commit drives produce identical semantic dwell logs').toEqual(commitLogs[0]);
+        expect(pageErrorRuns.flat(), 'both live gesture-time error streams stay empty').toEqual([])
     });
 
     // ── beats 3-4: contracted legs — activate as the cross-window docking wiring lands ──

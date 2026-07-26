@@ -1490,11 +1490,38 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBe(true);
         expect(tourReceipt.errors).toEqual([]);
         expect(tourReceipt.cueReceipts.map(entry => entry.cue.type))
-            .toEqual(['overflow', 'scroll', 'canvas-update', 'theme', 'theme']);
+            .toEqual([
+                'overflow',
+                'scroll',
+                'cross-zone-showcase',
+                'canvas-update',
+                'theme',
+                'theme'
+            ]);
         expect(tourReceipt.cueReceipts.find(entry => entry.cue.type === 'overflow').receipt)
             .toMatchObject({activatedItemId: 'security'});
         expect(tourReceipt.cueReceipts.find(entry => entry.cue.type === 'overflow').receipt.menuItemCount)
             .toBeGreaterThan(0);
+        const crossZoneReceipt = tourReceipt.cueReceipts
+            .find(entry => entry.cue.type === 'cross-zone-showcase').receipt;
+
+        expect(crossZoneReceipt.errors).toEqual([]);
+        expect(crossZoneReceipt.applied, 'the visible tour commits the final live candidate').toBe(true);
+        expect(crossZoneReceipt.beatLog.map(({placementKind, targetNodeId}) => ({placementKind, targetNodeId})))
+            .toEqual([
+                {placementKind: 'edge-bottom', targetNodeId: 'scale-tabs'},
+                {placementKind: 'tab-into',    targetNodeId: 'right-bottom-tabs'}
+            ]);
+        expect(crossZoneReceipt.proof.descriptor).toEqual({
+            operation : 'addTab',
+            itemId    : 'audit',
+            tabsNodeId: 'right-bottom-tabs',
+            index     : null
+        });
+        expect(crossZoneReceipt.proof.documentMatchesPreview,
+            'the visible drop equals the captured preview operation').toBe(true);
+        expect(crossZoneReceipt.proof.overlaysRetired,
+            'the drop leaves no indicator, preview, or geometry residue').toBe(true);
         expect(tourReceipt.cueReceipts.find(entry => entry.cue.type === 'canvas-update').receipt.componentId)
             .toBeTruthy();
         expect(tourReceipt.cueReceipts.filter(entry => entry.cue.type === 'theme').map(entry => entry.receipt))
@@ -1515,6 +1542,8 @@ test.describe('Workstation — dense living-data composition', () => {
             'alerts', 'activity', 'topology', 'runtime', 'traces', 'logs',
             'console', 'builds', 'deploys', 'memory', 'files', 'security'
         ]);
+        expect(tourReceipt.document.nodes['right-top-tabs'].items).toEqual(['metrics']);
+        expect(tourReceipt.document.nodes['right-bottom-tabs'].items).toEqual(['commits', 'audit']);
         expect(tourReceipt.document.nodes['split-main'].sizes, 'the visible tour demonstrates resizeSplit')
             .toEqual([0.52, 0.48]);
 
@@ -1609,10 +1638,26 @@ test.describe('Workstation — dense living-data composition', () => {
             intervals: [50, 100]
         }).toBe(true);
 
-        const postTourChrome = await readTabChromeIdentity(app, workspaceId);
+        const
+            postTourChrome         = await readTabChromeIdentity(app, workspaceId),
+            expectedPostTourChrome = {
+                ...beforeChrome,
+                'right-top-tabs': {
+                    ...beforeChrome['right-top-tabs'],
+                    buttons: {metrics: beforeChrome['right-top-tabs'].buttons.metrics}
+                },
+                'right-bottom-tabs': {
+                    ...beforeChrome['right-bottom-tabs'],
+                    buttons: {
+                        ...beforeChrome['right-bottom-tabs'].buttons,
+                        audit: beforeChrome['right-top-tabs'].buttons.audit
+                    }
+                }
+            };
 
-        expect(postTourChrome, 'split + return preserves the complete opening tab-chrome identity matrix')
-            .toEqual(beforeChrome);
+        expect(postTourChrome,
+            'cross-zone + split/return preserve every chrome identity while Audit changes owner')
+            .toEqual(expectedPostTourChrome);
 
         const indicatorSetup = await page.evaluate(receipt => {
             const
@@ -1676,7 +1721,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(afterIdentity, 'workspace, heavy pane, data panes, Provider, and stores survive all transformations')
             .toEqual(beforeIdentity);
         expect(afterChrome, 'ordinary active-tab input also preserves every tab-chrome component identity')
-            .toEqual(beforeChrome);
+            .toEqual(postTourChrome);
         expect(scaleSparklinesAfter.length, 'the viewport-bounded scale component pool remains live')
             .toBeGreaterThan(0);
         expect(stableScaleComponentIds.every(id => scaleSparklinesAfter.some(entry => entry.id === id)),

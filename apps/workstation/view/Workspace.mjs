@@ -17,6 +17,7 @@ import StateProvider                            from '../../../src/state/Provide
 import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
 import {createDockTearOutHandlers}              from '../../../src/dashboard/DockTearOut.mjs';
 import {createDockVesselEmbodiment}             from '../../../src/dashboard/DockVesselEmbodiment.mjs';
+import {previewToOperation}                     from '../../../src/dashboard/dockPreviewContract.mjs';
 import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
 import '../../../src/button/Base.mjs';
 import '../../../src/tab/Container.mjs';
@@ -491,6 +492,8 @@ class Workspace extends Container {
             case 'canvas-update':
                 await this.refreshPromise;
                 return this.pulseScaleSparkline()
+            case 'cross-zone-showcase':
+                return this.executeCrossZoneShowcaseStep(cue, cue.options)
             case 'theme':
                 return this.setWorkspaceTheme(cue.theme)
             default:
@@ -1809,6 +1812,430 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Creates the film-only cursor that rides one gesture executor's own coordinates.
+     *
+     * CDP-dispatched pointer events move no OS cursor, so an unassisted take reads as
+     * UI-moving-itself. The create shape carries the required `className`, floating-component
+     * mount pair, stable `document.body` parent, and owning `windowId` for every subsequent
+     * style delta.
+     * @param {Number} clientX
+     * @param {Number} clientY
+     * @returns {Neo.component.Base}
+     * @protected
+     */
+    createFilmCursorDot(clientX, clientY) {
+        let me        = this,
+            cursorDot = Neo.create({
+                className    : 'Neo.component.Base',
+                appName      : me.appName,
+                autoInitVnode: true,
+                autoMount    : true,
+                parentId     : 'document.body',
+                windowId     : me.windowId,
+                cls          : ['film-cursor'],
+                style        : {
+                    backgroundColor: 'rgba(255, 90, 0, 0.92)',
+                    borderRadius   : '50%',
+                    boxShadow      : '0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85)',
+                    display        : 'block',
+                    height         : '16px',
+                    left           : `${clientX - 8}px`,
+                    pointerEvents  : 'none',
+                    position       : 'fixed',
+                    top            : `${clientY - 8}px`,
+                    width          : '16px',
+                    zIndex         : 99999
+                }
+            });
+
+        cursorDot.mountedPromise.then(() => {
+            console.log(`[film-cursor] dot mounted at client (${clientX}, ${clientY})`)
+        });
+
+        return cursorDot
+    }
+
+    /**
+     * @summary Drives the in-window showcase beat through real simulated pointer input.
+     *
+     * One live tab crosses at least two foreign zones and two placement kinds. Each dwell first
+     * seeds the target zone's indicator menu, then aims at the indicator component's OWN computed
+     * geometry; the receipt comes from `DockDragAffordances`' live `activeCandidate.preview`, never
+     * a parallel DOM or pointer inference. Commit compares the resulting document with the exact
+     * preview operation applied to the pre-gesture document. Cancel proves byte-identical document
+     * truth and fully retired overlay/session state.
+     * @param {Object} step
+     * @param {Object[]} step.dwells Ordered `{targetNodeId, placementKind}` dwell requests.
+     * @param {String} step.itemId The live dock item to drag.
+     * @param {String} step.sourceNodeId The tabs node currently holding it.
+     * @param {'commit'|'cancel'} [step.terminal='commit']
+     * @param {Object} [options={}]
+     * @param {Number} [options.dwellDelay=120] Milliseconds each accepted preview stays visible.
+     * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
+     * @param {Number} [options.moveSteps=12] Samples per path leg.
+     * @param {Number} [options.safetyMargin=48] Required inset from every window edge.
+     * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
+     * @returns {Promise<Object>}
+     */
+    async executeCrossZoneShowcaseStep(step, {dwellDelay=120, moveDelay=16, moveSteps=12, safetyMargin=48, showCursor=false}={}) {
+        let me = this,
+            {dwells=[], itemId, sourceNodeId, terminal='commit'} = step || {},
+            document                                 = me.dockModel,
+            sourceNode                               = document?.nodes?.[sourceNodeId],
+            button                                   = null,
+            cursorDot                                = null,
+            lastPoint                                = null,
+            proxyPopupEnabled                        = null,
+            restoreProxyPopupConfig                  = () => {
+                if (!sortZone || sortZone.isDestroyed || proxyPopupEnabled === null) {
+                    return {after: null, before: proxyPopupEnabled, restored: false}
+                }
+
+                sortZone.enableProxyToPopup = proxyPopupEnabled;
+
+                return {
+                    after   : sortZone.enableProxyToPopup,
+                    before  : proxyPopupEnabled,
+                    restored: sortZone.enableProxyToPopup === proxyPopupEnabled
+                }
+            },
+            sortZone                                 = null,
+            tabs                                     = null,
+            windowRect                               = null;
+
+        if (!itemId || sourceNode?.type !== 'tabs' || !sourceNode.items.includes(itemId)) {
+            return {applied: false, errors: ['cross-zone showcase must name a live item held by its source tabs node']}
+        }
+
+        if (!Array.isArray(dwells) || dwells.length < 2
+            || new Set(dwells.map(dwell => dwell?.targetNodeId)).size < 2
+            || new Set(dwells.map(dwell => dwell?.placementKind)).size < 2
+            || dwells.some(dwell => !dwell?.targetNodeId || !dwell?.placementKind || dwell.targetNodeId === sourceNodeId)) {
+            return {applied: false, errors: ['cross-zone showcase requires two distinct foreign zones and two distinct placement kinds']}
+        }
+
+        if (!['commit', 'cancel'].includes(terminal)) {
+            return {applied: false, errors: [`unsupported cross-zone terminal '${terminal}'`]}
+        }
+
+        try {
+            await me.refreshPromise;
+
+            let host          = me.getReference('dock-host'),
+                itemIndex     = sourceNode.items.indexOf(itemId),
+                WindowManager = (await import('../../../src/manager/Window.mjs')).default;
+
+            tabs     = host?.down({dockNodeId: sourceNodeId});
+            sortZone = tabs?.getTabBar()?.sortZone;
+            button   = tabs?.getTabAtIndex(itemIndex);
+
+            let window       = WindowManager.get(button?.windowId),
+                [buttonRect] = button ? await button.getDomRect([button.id], button.windowId) : [];
+
+            if (!button || !sortZone || !buttonRect || !window?.innerRect) {
+                return {applied: false, errors: ['cross-zone gesture surfaces are not ready']}
+            }
+
+            windowRect        = window.innerRect;
+            proxyPopupEnabled = sortZone.enableProxyToPopup;
+            // Tear-out hysteresis is measured against the SOURCE TOOLBAR, not the browser edge:
+            // an ordinary cross-zone path necessarily leaves that strip. Disarm only the popup
+            // conversion branch for this gesture; `finally` restores the live config on every
+            // terminal. The window inset below remains a visual-stage safety rule.
+            sortZone.enableProxyToPopup = false;
+
+            let documentBefore = DockZoneModel.clone(document),
+                startX         = buttonRect.x + buttonRect.width / 2,
+                startY         = buttonRect.y + buttonRect.height / 2,
+                directionX     = startX > window.innerRect.width  / 2 ? -1 : 1,
+                directionY     = startY > window.innerRect.height / 2 ? -1 : 1,
+                opt            = (clientX, clientY, buttons) => ({
+                    bubbles   : true,
+                    button    : 0,
+                    buttons,
+                    cancelable: true,
+                    clientX,
+                    clientY,
+                    screenX   : window.innerRect.x + clientX,
+                    screenY   : window.innerRect.y + clientY
+                }),
+                safe           = ({x, y}) => Number.isFinite(x) && Number.isFinite(y)
+                    && x >= safetyMargin && y >= safetyMargin
+                    && x <= window.innerRect.width  - safetyMargin
+                    && y <= window.innerRect.height - safetyMargin,
+                releaseAt      = point => ({
+                    clientX: point?.x ?? startX,
+                    clientY: point?.y ?? startY,
+                    screenX: window.innerRect.x + (point?.x ?? startX),
+                    screenY: window.innerRect.y + (point?.y ?? startY)
+                }),
+                waitUntil      = async (predicate, attempts=120) => {
+                    for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                        if (predicate()) return true;
+
+                        attempt < attempts && await me.timeout(16)
+                    }
+
+                    return Boolean(predicate())
+                },
+                moveTo         = (x, y) => {
+                    if (cursorDot) {
+                        cursorDot.style = {...cursorDot.style, left: `${x - 8}px`, top: `${y - 8}px`}
+                    }
+
+                    return me.interactionService.simulateEvent({events: [{
+                        delay  : moveDelay,
+                        // Once the sort starts, its render can replace the source button DOM identity.
+                        // Native drag sensors are document-global after arming, so keep the synthetic
+                        // stream on the same stable owner instead of addressing a stale source node.
+                        targetId: 'document.body',
+                        type    : 'mousemove',
+                        windowId: button.windowId,
+                        options : opt(x, y, 1)
+                    }]})
+                },
+                walkTo         = async point => {
+                    if (!safe(point)) {
+                        throw new Error(`cross-zone path point violates the ${safetyMargin}px window-edge margin`)
+                    }
+
+                    let from     = lastPoint,
+                        distance = from ? Math.hypot(point.x - from.x, point.y - from.y) : 0,
+                        steps    = distance < 1 ? 1 : Math.max(2, Math.floor(moveSteps));
+
+                    for (let index = 1; index <= steps; index++) {
+                        let ratio = index / steps;
+
+                        await moveTo(
+                            Math.round(from.x + (point.x - from.x) * ratio),
+                            Math.round(from.y + (point.y - from.y) * ratio)
+                        )
+                    }
+
+                    lastPoint = point
+                },
+                overlaysRetired = () => !me.dragAffordances.dragGeometry
+                    && !me.dragAffordances.indicators?.candidateSet
+                    && !me.dragAffordances.indicators?.activeCandidate
+                    && !me.dragAffordances.preview?.dockPreview;
+
+            if (!safe({x: startX, y: startY})) {
+                return {applied: false, errors: [`source tab violates the ${safetyMargin}px window-edge margin`]}
+            }
+
+            let armOne = {x: startX + directionX * 8,  y: startY + directionY * 2},
+                armTwo = {x: startX + directionX * 16, y: startY + directionY * 24};
+
+            if (![armOne, armTwo].every(safe)) {
+                return {applied: false, errors: [`drag-arming path violates the ${safetyMargin}px window-edge margin`]}
+            }
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: button.id,
+                type    : 'mousedown',
+                windowId: button.windowId,
+                options : opt(startX, startY, 1)
+            }, {
+                delay   : 120,
+                targetId: button.id,
+                type    : 'mousemove',
+                windowId: button.windowId,
+                options : opt(armOne.x, armOne.y, 1)
+            }]});
+
+            lastPoint = armOne;
+
+            if (!await me.waitForTearOutDragArmed(sortZone)) {
+                let cancellation = await me.cancelTearOutGesture(
+                    button,
+                    releaseAt(lastPoint),
+                    {sortZone, targetId: 'document.body'}
+                );
+
+                return {applied: false, errors: ['cross-zone drag did not arm'], proof: {cancellation}}
+            }
+
+            // The first threshold-crossing move can replace the source tab DOM. Only after the
+            // sensor reports its document-global ownership do we advance on the stable carrier.
+            await moveTo(armTwo.x, armTwo.y);
+            lastPoint = armTwo;
+
+            showCursor && (cursorDot = me.createFilmCursorDot(lastPoint.x, lastPoint.y));
+
+            let geometry = await me.dragAffordances.ensureGeometry();
+
+            if (!geometry) {
+                throw new Error('cross-zone geometry did not become measurable')
+            }
+
+            let beats        = [],
+                finalPreview = null;
+
+            for (let [index, dwell] of dwells.entries()) {
+                let zone = geometry.zones.find(entry => entry.nodeId === dwell.targetNodeId);
+
+                if (!zone) {
+                    throw new Error(`cross-zone target '${dwell.targetNodeId}' is not measurable`)
+                }
+
+                let seedPoint = {
+                    x: Math.round(zone.rect.x + zone.rect.width  / 2),
+                    y: Math.round(zone.rect.y + zone.rect.height / 2)
+                };
+
+                await walkTo(seedPoint);
+
+                let candidateSetReady = await waitUntil(() =>
+                    me.dragAffordances.indicators?.candidateSet?.zone?.nodeId === dwell.targetNodeId);
+
+                if (!candidateSetReady) {
+                    throw new Error(
+                        `indicator set did not settle on '${dwell.targetNodeId}' — ` +
+                        `current=${me.dragAffordances.indicators?.candidateSet?.zone?.nodeId ?? 'null'} ` +
+                        `seed=(${seedPoint.x},${seedPoint.y}) zones=${geometry.zones.map(entry => entry.nodeId).join(',')} ` +
+                        `dragProxy=${Boolean(sortZone.dragProxy)} startIndex=${sortZone.startIndex} currentIndex=${sortZone.currentIndex}`
+                    )
+                }
+
+                let indicators = me.dragAffordances.indicators,
+                    candidate  = indicators.candidateSet.cross
+                        .find(entry => entry.preview?.placement?.kind === dwell.placementKind),
+                    indicator  = candidate && indicators.items
+                        .find(item => item.candidateKey === `cross-${candidate.position}`),
+                    hostRect   = indicators.hostRect,
+                    left       = Number.parseFloat(indicator?.style?.left),
+                    top        = Number.parseFloat(indicator?.style?.top),
+                    width      = Number.parseFloat(indicator?.style?.width),
+                    height     = Number.parseFloat(indicator?.style?.height);
+
+                if (!candidate || !hostRect || [left, top, width, height].some(value => !Number.isFinite(value))) {
+                    throw new Error(`indicator geometry is unavailable for '${dwell.placementKind}'`)
+                }
+
+                let indicatorPoint = {
+                    x: Math.round(hostRect.x + left + width  / 2),
+                    y: Math.round(hostRect.y + top  + height / 2)
+                };
+
+                await walkTo(indicatorPoint);
+
+                let candidateActive = await waitUntil(() =>
+                    indicators.activeCandidate?.preview?.previewId === candidate.preview.previewId);
+
+                if (!candidateActive) {
+                    throw new Error(`indicator '${candidate.preview.previewId}' never became active`)
+                }
+
+                dwellDelay > 0 && await me.timeout(dwellDelay);
+
+                let preview = indicators.activeCandidate.preview;
+
+                finalPreview = JSON.parse(JSON.stringify(preview));
+                beats.push({
+                    dwell        : index + 1,
+                    placementKind: preview.placement.kind,
+                    previewId    : preview.previewId,
+                    targetNodeId : preview.target.nodeId
+                })
+            }
+
+            if (terminal === 'cancel') {
+                let cancellation = await me.cancelTearOutGesture(
+                        button,
+                        releaseAt(lastPoint),
+                        {sortZone, targetId: 'document.body'}
+                    ),
+                    retired      = await waitUntil(overlaysRetired),
+                    documentAfter = DockZoneModel.clone(me.dockModel),
+                    unchanged     = JSON.stringify(documentAfter) === JSON.stringify(documentBefore),
+                    popupConfig   = restoreProxyPopupConfig();
+
+                return {
+                    applied  : false,
+                    beatLog  : beats,
+                    cancelled: true,
+                    errors   : cancellation.settled && retired && unchanged
+                        ? []
+                        : ['cross-zone cancel left drag, document, or overlay residue'],
+                    proof : {
+                        cancellation,
+                        documentAfter,
+                        documentBefore,
+                        documentsUnchanged: unchanged,
+                        overlaysRetired   : retired,
+                        popupConfig
+                    }
+                }
+            }
+
+            let descriptor     = previewToOperation(finalPreview),
+                expectedResult = descriptor && DockZoneModel.applyOperation(
+                    DockZoneModel.clone(documentBefore),
+                    descriptor
+                );
+
+            if (!descriptor || !expectedResult || expectedResult.errors?.length || !expectedResult.document) {
+                throw new Error('final active preview did not resolve to one valid document operation')
+            }
+
+            let expectedDocument   = DockZoneModel.clone(expectedResult.document),
+                expectedSerialized = JSON.stringify(expectedDocument);
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: 'document.body',
+                type    : 'mouseup',
+                windowId: button.windowId,
+                options : opt(lastPoint.x, lastPoint.y, 0)
+            }]});
+
+            let settled = await waitUntil(() => JSON.stringify(me.dockModel) === expectedSerialized);
+
+            settled && await me.refreshPromise;
+
+            let documentAfter          = DockZoneModel.clone(me.dockModel),
+                documentMatchesPreview = JSON.stringify(documentAfter) === expectedSerialized,
+                retired                = await waitUntil(overlaysRetired),
+                popupConfig            = restoreProxyPopupConfig(),
+                applied                = settled && documentMatchesPreview && retired && popupConfig.restored;
+
+            return {
+                applied,
+                beatLog: beats,
+                errors : applied ? [] : ['cross-zone commit did not equal the previewed operation or retire its overlays'],
+                proof  : {
+                    descriptor,
+                    documentAfter,
+                    documentBefore,
+                    documentMatchesPreview,
+                    expectedDocument,
+                    finalPreview,
+                    overlaysRetired: retired,
+                    popupConfig
+                }
+            }
+        } catch (error) {
+            let clientX = lastPoint?.x ?? 0,
+                clientY = lastPoint?.y ?? 0;
+
+            button && await me.cancelTearOutGesture(
+                button,
+                {
+                    clientX,
+                    clientY,
+                    screenX: (windowRect?.x ?? 0) + clientX,
+                    screenY: (windowRect?.y ?? 0) + clientY
+                },
+                {sortZone, targetId: 'document.body'}
+            ).catch(() => {});
+
+            return {applied: false, errors: [error?.message || String(error)]}
+        } finally {
+            restoreProxyPopupConfig();
+            cursorDot?.destroy()
+        }
+    }
+
+    /**
      * @summary The app-owned tear-out journey executor — scene 2's real-pointer drive.
      *
      * Arms a tab drag, flings the proxy past the window boundary so
@@ -1929,48 +2356,8 @@ class Workspace extends Container {
                 return {applied: false, errors: ['tear-out drag did not arm'], proof: {armed: false, cancellation, documentBefore}}
             }
 
-            // Film mode only: the visible synthetic cursor. CDP-dispatched pointer events move no
-            // OS cursor, so an unassisted take reads as UI-moving-itself. The dot rides the SAME
-            // coordinates the executor logs (single source of truth — it never re-derives a
-            // position), stays pointer-events:none, and never enters the dock document (worker
-            // truth is blind to it by construction: it is a presentation layer for the camera).
-            // The create shape carries four keys, each earned by a real failure in this lane:
-            // `className` (a bare `ntype` object config makes Neo.create return null), the
-            // autoInitVnode+autoMount pair (the floating-component idiom — parentId alone
-            // registers, it never renders), `parentId: 'document.body'` (the DragZone
-            // proxyParentId precedent — no re-rendering ancestor can strand the node), and
-            // `windowId` (null-windowId vdom deltas misroute in a multi-window app: the mount
-            // render lands, every subsequent style delta is lost).
             if (showCursor) {
-                cursorDot = Neo.create({
-                    className    : 'Neo.component.Base',
-                    appName      : me.appName,
-                    autoInitVnode: true,
-                    autoMount    : true,
-                    parentId     : 'document.body',
-                    windowId     : me.windowId,
-                    cls          : ['film-cursor'],
-                    style        : {
-                        backgroundColor: 'rgba(255, 90, 0, 0.92)',
-                        borderRadius   : '50%',
-                        boxShadow      : '0 0 10px rgba(255, 90, 0, 0.95), 0 0 3px rgba(255, 255, 255, 0.85)',
-                        display        : 'block',
-                        height         : '16px',
-                        left           : `${startX - 8}px`,
-                        pointerEvents  : 'none',
-                        position       : 'fixed',
-                        top            : `${startY - 8}px`,
-                        width          : '16px',
-                        zIndex         : 99999
-                    }
-                });
-
-                // The text receipt beside the frame receipt: assertions stay byte-identical
-                // (AC4), so observability is the only guard against a silent camera-truth
-                // regression (a green suite cannot see the dot).
-                cursorDot.mountedPromise.then(() => {
-                    console.log(`[film-cursor] dot mounted at client (${startX}, ${startY})`)
-                })
+                cursorDot = me.createFilmCursorDot(startX, startY)
             }
 
             // Pre-birth entry sentinels: a curved outward path can transiently re-cover the strip
@@ -2267,29 +2654,48 @@ class Workspace extends Container {
      * consumes) followed by a settling mouseup.
      * @param {Neo.component.Base} button The dragged tab button.
      * @param {Object} release `{clientX, clientY, screenX, screenY}` the release point.
+     * @param {Object} [options={}]
+     * @param {Neo.draggable.container.SortZone|null} [options.sortZone=null] Zone whose idle facts gate settlement.
+     * @param {String} [options.targetId=button.id] Stable DOM owner for both terminal events.
      * @returns {Promise<Object>}
      * @protected
      */
-    async cancelTearOutGesture(button, release) {
+    async cancelTearOutGesture(button, release, {sortZone=null, targetId=button?.id}={}) {
         let me = this;
 
-        if (!button) return {escapeDispatched: false, releaseDispatched: false, settled: false};
+        if (!button || !targetId) return {escapeDispatched: false, releaseDispatched: false, settled: false};
 
         let {clientX=0, clientY=0, screenX=0, screenY=0} = release || {},
             escapeDispatched = await me.interactionService.dispatch({
-                id      : button.id,
+                id      : targetId,
                 type    : 'keydown',
                 windowId: button.windowId,
                 options : {bubbles: true, cancelable: true, code: 'Escape', key: 'Escape'}
             }),
             releaseDispatched = await me.interactionService.dispatch({
-                id      : button.id,
+                id      : targetId,
                 type    : 'mouseup',
                 windowId: button.windowId,
                 options : {bubbles: true, button: 0, buttons: 0, cancelable: true, clientX, clientY, screenX, screenY}
             });
 
-        return {escapeDispatched, releaseDispatched, settled: true}
+        if (!sortZone) {
+            return {escapeDispatched, releaseDispatched, settled: true}
+        }
+
+        for (let attempt = 0; attempt <= 60 && !me.isDestroyed; attempt++) {
+            let settled = sortZone.owner?.cls?.includes?.('neo-is-dragging') !== true
+                && sortZone.dragEndActive !== true
+                && sortZone.data == null
+                && !sortZone.dragPlaceholder
+                && !sortZone.dragProxy;
+
+            if (settled) return {escapeDispatched, releaseDispatched, settled: true};
+
+            attempt < 60 && await me.timeout(16)
+        }
+
+        return {escapeDispatched, releaseDispatched, settled: false}
     }
 
     /**
