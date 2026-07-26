@@ -92,14 +92,16 @@ export async function detectFlickerFrames({frames, width, height, fps, times = n
         }
     });
 
-    // The ~0.1s human read: a VIEW over the spike list, never a filter on it. Elapsed source
-    // time when native time is present; frame distance only on the fps-fallback path.
+    // The ~0.1s human read: a VIEW over the spike list, never a filter on it. The fusion window
+    // is the ADJACENT gap on both paths — the new spike against the last fused boundary
+    // (last.endSec / last.endFrame) — so native and CFR paths report the same event count for
+    // equivalent timing; a start-anchored window would change the count by path choice alone.
     const events = [];
 
     for (const spike of spikes) {
         const last = events[events.length - 1],
               fuse = last && (times
-                  ? spike.sec - last.startSec <= pairGapSec
+                  ? spike.sec - last.endSec <= pairGapSec
                   : spike.frame - last.endFrame <= pairGapMax);
 
         if (fuse) {

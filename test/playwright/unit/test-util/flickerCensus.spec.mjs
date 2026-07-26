@@ -113,6 +113,25 @@ test.describe('flickerCensus — the isolation matrix instrument (#15947)', () =
         expect(census.events).toHaveLength(0)
     });
 
+    test('pure detector: the three-spike chain reports the SAME count on native and CFR paths', async () => {
+        // The fusion contract is the ADJACENT gap, never the event's start. Blanks at 0/4/8
+        // produce boundary spikes at frames 1,4,5,8,9 — all adjacent gaps inside the window —
+        // so both paths chain them into ONE event. A start-anchored native window would read
+        // the fourth spike (0.24s from the event's 0.03s start, past the 0.1s window) as a
+        // second event while CFR still reports one.
+        const frames = grayFrames({frames: 60, blanks: [0, 4, 8]}),
+              cfr    = await detectFlickerFrames({frames, width: W, height: H, fps: FPS}),
+              native = await detectFlickerFrames({
+                  frames, width: W, height: H, fps: FPS,
+                  times: frames.map((_, i) => i * 0.03)
+              });
+
+        expect(cfr.events).toHaveLength(1);
+        expect(native.events).toHaveLength(1);
+        expect(native.events[0].startFrame).toBeLessThanOrEqual(1);
+        expect(native.events[0].endFrame).toBeGreaterThanOrEqual(9)
+    });
+
     test('pure detector: native PTS drives timestamps and the fusion window, never index/fps', async () => {
         // VFR timing: dense 0.01s spacing, with a 0.4s source gap between frame 11 and 12.
         // The dip+return pairs fuse on their own time; the 0.4s gap must keep the pairs apart —
