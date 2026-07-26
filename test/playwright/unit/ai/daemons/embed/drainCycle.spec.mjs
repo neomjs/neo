@@ -18,6 +18,7 @@ import {
     MAX_RECORD_COOLDOWN_MS
 } from '../../../../../../ai/daemons/embed/drainCycle.mjs';
 import {createDrainDispositionTracker} from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * Embed-daemon drain cycle (`ai/daemons/embed/drainCycle.mjs`) — falsifier coverage for the
@@ -378,6 +379,193 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         expect(failed).toHaveLength(1);
         expect(failed[0].record.id).toBe('y');
         expect(failed[0].error.message).toContain('poison');
+    });
+
+    test('embedBatch: provider contention yields the cycle — one attempt, no isolation pass (#16012)', async () => {
+        const records    = ['x', 'y', 'z'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   slept      = 0;
+
+        collection.onAdd = () => {
+            addCalls++;
+            const error = new Error('openAiCompatible request timed out after 300000ms');
+
+            error.code = OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE;
+            throw error;
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => { slept++; },
+            log          : () => {}
+        });
+
+        // Pre-fix this was 6 whole-batch attempts plus a 3-record isolation pass = 9 offered
+        // requests to a provider whose queue was already the reason the first one timed out.
+        expect(addCalls).toBe(1);
+        expect(slept).toBe(0);
+
+        // Deferred, not dropped: the caller spaces these via the cross-cycle retryState cooldown.
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
+        expect(failed[0].error.code).toBe(OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE);
+    });
+
+    test('embedBatch: native-Ollama PROVIDER_TIMEOUT is the same contention class (#16012)', async () => {
+        const records    = [{...record('a', Date.now()), segmentKey: 'unused'}];
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+
+        collection.onAdd = () => {
+            addCalls++;
+            const error = new Error('embedding request timed out');
+
+            error.code = 'PROVIDER_TIMEOUT';
+            throw error;
+        };
+
+        await embedBatch({
+            collection,
+            records,
+            maxRetries   : 3,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {}
+        });
+
+        // The classifier must not be OpenAI-compatible-only, or the native provider keeps amplifying.
+        expect(addCalls).toBe(1);
+    });
+
+    test('embedBatch: a NON-contention failure still retries and still isolates (control, #16012)', async () => {
+        const records    = ['x', 'y'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   batchCalls = 0;
+        let   slept      = 0;
+
+        collection.onAdd = ({ids}) => {
+            if (ids.length > 1) {
+                batchCalls++;
+                throw new Error('malformed payload (spec) — not a timeout');
+            }
+
+            if (ids.includes('y')) throw new Error('y is poison (spec)');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 2,
+            backoffBaseMs: 1,
+            sleep        : async () => { slept++; },
+            log          : () => {}
+        });
+
+        // Without this control the fix could trade amplification for a silently-skipped retry path.
+        expect(batchCalls).toBe(3);
+        expect(slept).toBe(2);
+        expect(succeeded.map(r => r.id)).toEqual(['x']);
+        expect(failed.map(entry => entry.record.id)).toEqual(['y']);
+    });
+
+    test('embedBatch: the in-cycle wall-clock budget stops new attempts AND the isolation pass (#16012 AC4)', async () => {
+        const records    = ['x', 'y', 'z'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   clock      = 0;
+
+        // Each attempt "costs" 1200ms of wall clock against a 1000ms budget, so the FIRST failure
+        // exhausts it — the loop must stop rather than spend maxRetries more externally-bounded calls.
+        // (900ms would not exhaust it and retrying would be correct; the fixture has to overshoot.)
+        collection.onAdd = () => {
+            addCalls++;
+            clock += 1200;
+            throw new Error('provider unreachable (spec) — not a timeout code');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {},
+            maxInCycleMs : 1000,
+            now          : () => clock
+        });
+
+        // One attempt, then the budget check stops everything: no further batch attempts and no
+        // 3-record isolation pass. Without the bound this is 6 + 3 = 9 externally-bounded calls.
+        expect(addCalls).toBe(1);
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
+    });
+
+    test('embedBatch: a backoff that crosses the budget boundary starts no further attempt (#16012 AC4)', async () => {
+        const records    = [{...record('a', Date.now()), segmentKey: 'unused'}];
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   clock      = 0;
+
+        // @neo-gpt's cycle-2 falsifier, verbatim: the attempt itself finishes INSIDE the budget
+        // (900 < 1000), so a post-failure-only guard passes — and then the sleep advances the clock
+        // past the boundary. Without a post-sleep re-check the loop starts a second external request
+        // from beyond the budget: observed {calls: 2, clock: 2000} at e9d3bf4702.
+        collection.onAdd = () => {
+            addCalls++;
+            clock += 900;
+            throw new Error('provider unreachable (spec) — not a timeout code');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => { clock += 200; },  // 900 + 200 = 1100 > 1000
+            log          : () => {},
+            maxInCycleMs : 1000,
+            now          : () => clock
+        });
+
+        expect(addCalls).toBe(1);
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['a']);
+    });
+
+    test('embedBatch: an unlimited budget leaves the retry+isolation path unchanged (control, #16012 AC4)', async () => {
+        const records    = ['x', 'y'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
+        const collection = createFakeCollection();
+        let   batchCalls = 0;
+
+        collection.onAdd = ({ids}) => {
+            if (ids.length > 1) {
+                batchCalls++;
+                throw new Error('batch failure (spec)');
+            }
+
+            if (ids.includes('y')) throw new Error('y is poison (spec)');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 2,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {},
+            maxInCycleMs : 0,          // disabled
+            now          : () => 0
+        });
+
+        // A disabled budget must not silently change behaviour for anyone who does not opt in.
+        expect(batchCalls).toBe(3);
+        expect(succeeded.map(r => r.id)).toEqual(['x']);
+        expect(failed.map(entry => entry.record.id)).toEqual(['y']);
     });
 
     test('getBackoffDelayMs caps at MAX_RECORD_COOLDOWN_MS', () => {

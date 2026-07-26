@@ -9,7 +9,7 @@ import OllamaProvider from '../../provider/Ollama.mjs';
 import {
     withLmsEmbeddingInputSuffix
 }                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
-import {PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -144,7 +144,7 @@ function describeEmbeddingAbortReason(error) {
     if ([
         'ABORT_ERR',
         'EMBEDDING_PROBE_TIMEOUT',
-        'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+        OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
         'PROVIDER_TIMEOUT'
     ].includes(error?.code)) {
         return error.code;
@@ -196,7 +196,7 @@ export function isOpenAiCompatibleContentionTimeoutError(error) {
     const message = error?.message || '',
           code    = error?.code    || '';
 
-    return code === 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT' ||
+    return code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
         code === 'ETIMEDOUT' ||
         code === 'ESOCKETTIMEDOUT' ||
         OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE.test(message);
@@ -755,7 +755,7 @@ class TextEmbeddingService extends Base {
             req.on('error', err => rejectOnce(isCallerAbortError(err, signal) ? getEmbeddingAbortError(signal, operationLabel) : err));
             req.on('timeout', () => {
                 const err = new Error(`openAiCompatible request timed out after ${describeOpenAiCompatibleTimeout(requestTimeoutMs)}`);
-                err.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+                err.code = OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE;
                 rejectOnce(err);
                 if (!req.destroyed) {
                     req.destroy(err);
