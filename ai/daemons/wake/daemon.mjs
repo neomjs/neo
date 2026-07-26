@@ -1932,7 +1932,11 @@ const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, id
  * duplicate-delivery defect this set exists to close.
  * @type {Readonly<Set<String>>}
  */
-const SIGNAL_HONOURING_ADAPTERS = Object.freeze(new Set([OPENCODE_SERVER_ADAPTER, KIMI_SERVER_ADAPTER]));
+const SIGNAL_HONOURING_ADAPTERS = Object.freeze(new Set([
+    OPENCODE_SERVER_ADAPTER,
+    KIMI_SERVER_ADAPTER,
+    'test-hang-abortable'
+]));
 
 /**
  * @summary Whether a timed-out attempt against this subscription's route carries information.
@@ -2370,6 +2374,29 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
             writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
             throw new Error('test-fail adapter: simulated delivery failure');
+        } else if (adapter === 'test-hang') {
+            // Deterministic LATE-COMPLETING attempt: stands in for a spawn that outlives the bound
+            // and then succeeds anyway — the real orphan, which finishes typing into the seat after
+            // the daemon stopped waiting. It ignores `abortSignal` (a spawn cannot be cancelled),
+            // which is the property under test.
+            //
+            // It must SETTLE, not hang forever: an attempt that never returns keeps the GLOBAL
+            // adapter mutex and no retry can follow, so a never-settling fixture cannot exhibit the
+            // duplicate at all — it would test a permanent wedge instead of a late delivery.
+            writeLog('INFO', `[Wake Daemon Test-Hang Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
+            await new Promise(resolve => setTimeout(resolve, Number(process.env.WAKE_TEST_HANG_MS) || 3000));
+        } else if (adapter === 'test-hang-abortable') {
+            // The signal-honouring counterpart: hangs until the bound aborts, then rejects like a
+            // cancelled fetch. Proves the retry path is preserved where the abort is real, so the
+            // unknown-outcome branch cannot silently swallow genuine failures.
+            writeLog('INFO', `[Wake Daemon Test-Hang-Abortable Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
+            await new Promise((resolve, reject) => {
+                abortSignal?.addEventListener(
+                    'abort',
+                    () => reject(new Error('test-hang-abortable adapter: aborted by attempt bound')),
+                    {once: true}
+                );
+            });
         } else {
             // Pre-outcome-enum, this branch FELL THROUGH to the delivered return — an unknown
             // adapter counted as a successful dispatch. It is a refusal: nothing reached a seat.

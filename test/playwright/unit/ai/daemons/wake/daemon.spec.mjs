@@ -586,6 +586,145 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toMatch(/wakeSubmitNonce=[0-9a-f-]{36}/);
     });
 
+    test('a timed-out UN-ABORTABLE attempt resolves UNKNOWN: not retried, never reported as dropped', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-unknown';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId, label: 'AGENT', properties: { name: 'Test Agent Unknown' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status       : 'active',
+                trigger      : 'SENT_TO_ME',
+                // test-hang never settles and ignores the abort signal — a spawn that outlives the
+                // bound. The daemon cannot observe whether the digest reached the seat.
+                harnessTargetMetadata: { adapter: 'test-hang', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1',
+                WAKE_MAX_DELIVERY_RETRIES       : '2'
+            }
+        });
+
+        let output = '';
+
+        // Settle on EITHER signature so the red lands on the defect rather than on the absence of a
+        // log line the fix itself introduced: pre-fix the bound resolves 'failed' and the retry path
+        // re-offers the identical digest, so the SECOND adapter attempt is what appears — and the
+        // `attemptCount` assertion below then fails on the duplicate, which is the actual bug.
+        const unknownPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Neither an UNKNOWN outcome nor a re-offer appeared within timeout')), 20000);
+            const onData  = data => {
+                output += data.toString();
+                const reOffered = (output.match(/\[Wake Daemon Test-Hang Adapter\] Attempted/g) || []).length > 1;
+                if (output.includes('outcome UNKNOWN, not retried') || reOffered) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Unknown Outcome Probe'});
+
+        await unknownPromise;
+
+        // Sampled at the instant the UNKNOWN line lands: before the fix the bound resolved 'failed',
+        // the retry path re-offered the same digest, and this count was 2 within the same second.
+        const logContents  = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+        const attemptCount = (logContents.match(/\[Wake Daemon Test-Hang Adapter\] Attempted/g) || []).length;
+
+        expect(attemptCount).toBe(1);
+        expect(logContents).toContain('outcome UNKNOWN, not retried');
+        // The terminal drop asserts a loss nobody observed — it must never fire for an unknown.
+        expect(logContents).not.toContain(`Giving up wake delivery for ${subId}`);
+        // An unknown attempt is not a confirmed delivery either: nothing may count on the surface.
+        expect(logContents).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+    });
+
+    test('a timed-out SIGNAL-HONOURING attempt still resolves failed and still retries to the cap', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-abortable';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId, label: 'AGENT', properties: { name: 'Test Agent Abortable' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status       : 'active',
+                trigger      : 'SENT_TO_ME',
+                // test-hang-abortable rejects when the bound aborts it — the abort is REAL, so the
+                // timeout genuinely proves non-delivery and the retry path must be preserved.
+                harnessTargetMetadata: { adapter: 'test-hang-abortable', coalesceWindow: 1 }
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1',
+                WAKE_MAX_DELIVERY_RETRIES       : '2'
+            }
+        });
+
+        let output = '';
+
+        const terminalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Abortable route did not reach the retry cap within timeout')), 30000);
+            const onData  = data => {
+                output += data.toString();
+                if (output.includes(`Giving up wake delivery for ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Abortable Failure Probe'});
+
+        await terminalPromise;
+
+        const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+
+        // The control: this route must NOT be diverted into the unknown branch, or a genuine
+        // failure would stop being retried and the fix would trade a duplicate for a silent loss.
+        expect(logContents).toContain('resolved as failed (retry path)');
+        expect(logContents).not.toContain('outcome UNKNOWN, not retried');
+        expect((logContents.match(/\[Wake Daemon Test-Hang-Abortable Adapter\] Attempted/g) || []).length).toBeGreaterThan(1);
+    });
+
     test('#13077: a failed wake delivery is retried, then capped with a terminal error', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-retry';
