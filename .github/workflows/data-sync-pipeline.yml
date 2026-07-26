@@ -37,6 +37,18 @@ jobs:
       # actual defect. Removing write is the verified fix; removing read as well would be an
       # unverified extra claim, which is the shape of error this PR has already made twice.
       contents: read
+      # The run above asked for has now happened, 30 consecutive times: the `content indexes and
+      # SEO` stage pages this repository's labels over GraphQL and had no credential that could,
+      # so `dev` was red from 2026-07-17 until this grant. NEITHER App can serve it — the Intake
+      # installation does not exist on this repository, and the Publisher holds `contents` while
+      # labels are `issues` scope — so the implicit token is the only identity that fits.
+      #
+      # This does NOT reintroduce a third credential. The implicit token is already reachable in
+      # this job per the note above; `issues: read` widens what it may read and leaves it unable
+      # to write anything. `contents` stays `read`, and the two-App split is untouched: that split
+      # exists so the intake identity cannot publish and the publisher cannot mutate the intake
+      # repos, which a read-only grant here does not weaken.
+      issues: read
 
     steps:
       # Two identities, because they hold different authority and `create-github-app-token` scopes
@@ -106,14 +118,19 @@ jobs:
         with:
           node-version: '24'
 
-      # Both tokens are handed to the runner, never to the stages. `scopedStageEnv` strips BOTH
-      # source variables and re-injects only the one a stage is entitled to, so the publisher
+      # All three tokens are handed to the runner, never to the stages. `scopedStageEnv` strips EVERY
+      # source variable and re-injects only the one a stage is entitled to, so the publisher
       # credential is absent from every data-collection child rather than merely unused by it.
+      #
+      # `DATA_SYNC_READER_TOKEN` is passed under its own name rather than as `GITHUB_TOKEN`: the
+      # scoping function strips `GITHUB_TOKEN`/`GH_TOKEN` from every child by design, so a token
+      # arriving under either of those names would be discarded before any stage could read it.
       - name: Run bounded Data Sync emission and publish
         env:
           DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}
           DATA_SYNC_PREFLIGHT_ONLY: ${{ inputs.preflight_only }}
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          DATA_SYNC_READER_TOKEN: ${{ github.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
 
       # Guarded on the SAME input the pipeline reads. Without this, a preflight-only dispatch

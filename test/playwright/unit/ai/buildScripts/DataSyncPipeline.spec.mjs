@@ -310,7 +310,8 @@ test.describe('emission-stage credential scoping', () => {
         GH_TOKEN                 : 'ambient-gh',
         GITHUB_TOKEN             : 'ambient-default',
         DATA_SYNC_INTAKE_TOKEN   : 'INTAKE-secret',
-        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret'
+        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret',
+        DATA_SYNC_READER_TOKEN   : 'READER-secret'
     };
 
     const values = env => Object.values(env);
@@ -337,11 +338,33 @@ test.describe('emission-stage credential scoping', () => {
         expect(env.GH_TOKEN).toBeUndefined();
         expect(values(env)).not.toContain('ambient-default');
         expect(values(env)).not.toContain('INTAKE-secret');
-        expect(values(env)).not.toContain('PUBLISHER-secret')
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        // The reader source joins the strip set by DERIVATION, not by a second hand-maintained list.
+        // A scope whose source is added to the vocabulary but forgotten in the strip list leaks
+        // silently into every other stage — the exact failure the publisher variable had first time.
+        expect(values(env)).not.toContain('READER-secret')
+    });
+
+    test('a reader stage sees ONLY the reader credential — neither App token reaches it', () => {
+        const env = scopedStageEnv('reader', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('READER-secret');
+        expect(env.GH_TOKEN).toBe('READER-secret');
+        expect(values(env)).not.toContain('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('an intake or publisher stage cannot see the reader credential either', () => {
+        // The grant is read-only, which makes it the easiest one to be careless with. It is still a
+        // credential, and a stage granted a DIFFERENT identity must not find it lying around.
+        for (const scope of ['intake', 'publisher']) {
+            expect(values(scopedStageEnv(scope, parentEnv)), scope).not.toContain('READER-secret')
+        }
     });
 
     test('non-credential environment is preserved for every scope', () => {
-        for (const scope of ['none', 'intake', 'publisher']) {
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
             expect(scopedStageEnv(scope, parentEnv).PATH, scope).toBe('/usr/bin')
         }
     });
@@ -389,9 +412,26 @@ test.describe('tokenScope validation fails closed', () => {
         }
     });
 
-    test('the three declared scopes are accepted', () => {
-        for (const scope of ['none', 'intake', 'publisher']) {
+    test('the four declared scopes are accepted', () => {
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
             expect(() => scopedStageEnv(scope, {}), scope).not.toThrow()
+        }
+    });
+
+    test('an INHERITED object property is not a declared scope', () => {
+        // The vocabulary is an object now, so membership must be `Object.hasOwn` and not `in`:
+        // `'toString' in stageTokenSources` is true, which would accept a scope nobody declared and
+        // resolve its source to a FUNCTION. This test is what separates the two implementations.
+        for (const scope of ['toString', 'constructor', 'hasOwnProperty', '__proto__']) {
+            expect(() => scopedStageEnv(scope, {}), scope).toThrow(/must declare one of/)
+        }
+    });
+
+    test('the failure names every scope a stage may declare, including the newest', () => {
+        // The message is the only place a stage author learns the vocabulary. A hardcoded list drifts
+        // from the real one silently — this asserts the message is derived from it.
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
+            expect(() => scopedStageEnv('nope', {}), scope).toThrow(new RegExp(scope))
         }
     });
 
@@ -405,6 +445,34 @@ test.describe('tokenScope validation fails closed', () => {
             log      : () => {},
             preflight: async () => {}
         })).resolves.toBeUndefined()
+    });
+
+    test('the label-reading stage declares a credentialled scope, NOT `none` (#15993)', async () => {
+        // THE defect, asserted against the shipped table rather than a fixture. `content indexes and
+        // SEO` runs `rebuildContentIndexesAndSeo.mjs --include-labels`, which pages this repository's
+        // labels over GraphQL — a credentialled read. It declared `none`, so `scopedStageEnv` handed
+        // it a child with no token and it failed on its own missing-auth path, correctly and for nine
+        // days. Reverting the declaration to `none` fails here.
+        //
+        // Read from the emitted LOG rather than the child env: the log line is what the stage table
+        // declares, whereas the env additionally depends on which secrets the runner exported — a
+        // machine with no `DATA_SYNC_READER_TOKEN` would make an env assertion pass for the wrong
+        // reason.
+        const lines = [];
+
+        await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => {},
+            log      : line => lines.push(line),
+            preflight: async () => {}
+        });
+
+        const labelStage = lines.find(line => line.includes('stage=content indexes and SEO'));
+
+        expect(labelStage, 'the label stage must still be in the shipped table').toBeTruthy();
+        expect(labelStage).toContain('credential=reader');
+        expect(labelStage).not.toContain('credential=none')
     });
 
     test('a failing stage names the scope it was granted, not just the child error', async () => {
