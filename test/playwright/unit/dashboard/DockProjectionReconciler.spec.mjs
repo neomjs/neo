@@ -29,6 +29,80 @@ const createRootTabsModel = () => ({
     }
 });
 
+const createSplitModel = () => ({
+    schema: 'neo.harness.dockZone.v1',
+    root  : 'root-split',
+    items : {
+        alpha: {componentRef: 'alpha', kind: 'panel', title: 'Alpha'},
+        beta : {componentRef: 'beta',  kind: 'panel', title: 'Beta'}
+    },
+    nodes: {
+        'alpha-tabs': {activeItemId: 'alpha', items: ['alpha'], type: 'tabs'},
+        'beta-tabs' : {activeItemId: 'beta', items: ['beta'], type: 'tabs'},
+        'root-split': {
+            children   : ['alpha-tabs', 'beta-tabs'],
+            orientation: 'horizontal',
+            sizes      : [0.6, 0.4],
+            type       : 'split'
+        }
+    }
+});
+
+const createThreeChildSplitModel = () => {
+    const model = createSplitModel();
+
+    model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+    model.nodes['gamma-tabs'] = {activeItemId: 'gamma', items: ['gamma'], type: 'tabs'};
+    model.nodes['root-split'].children.push('gamma-tabs');
+    model.nodes['root-split'].sizes = [0.4, 0.35, 0.25];
+
+    return model
+};
+
+const reconcileModel = async (model, mutate, {geometryOnly=false}={}) => {
+    const
+        panes = Object.fromEntries(Object.entries(model.items)
+            .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
+        host = Neo.create(Container, {
+            items: [DockLayoutAdapter.project(model, {
+                resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+            })]
+        }),
+        oldShell     = host.items[0],
+        nextModel    = structuredClone(model),
+        placeholders = new Map();
+
+    mutate(nextModel);
+
+    const nextConfig = DockLayoutAdapter.project(nextModel, {
+        resolveComponentRef(_componentRef, item, itemId) {
+            const placeholder = Neo.create(Component, {
+                header: {text: item.title},
+                hidden: true
+            });
+
+            placeholders.set(itemId, placeholder);
+
+            return placeholder
+        }
+    });
+
+    let stagedCount = 0;
+
+    const result = await DockProjectionReconciler.reconcileProjection({
+        geometryOnly,
+        host,
+        nextConfig,
+        placeholders,
+        resolveItem: itemId => panes[itemId],
+        onProjectionStaged() {
+            stagedCount++
+        }
+    });
+
+    return {host, nextModel, oldShell, result, stagedCount}
+};
+
 test.describe('Neo.dashboard.DockProjectionReconciler', () => {
     test('keys retained tab chrome and reserves only its projected destination', () => {
         const
@@ -217,6 +291,124 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
         } finally {
             host.destroy()
         }
+    });
+
+    test('updates stable split geometry in place without moving retained tab chrome', async () => {
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                })]
+            }),
+            oldShell     = host.items[0],
+            currentTabs  = DockProjectionReconciler.collectProjectedTabs(oldShell),
+            alphaTab     = currentTabs.get('alpha-tabs'),
+            betaTab      = currentTabs.get('beta-tabs'),
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        nextModel.nodes['root-split'].sizes = [0.52, 0.48];
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_componentRef, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            const result = await DockProjectionReconciler.reconcileProjection({
+                geometryOnly: true,
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem : itemId => panes[itemId]
+            });
+
+            expect(result.nextShell).toBe(oldShell);
+            expect(host.items).toEqual([oldShell]);
+            expect(DockProjectionReconciler.collectProjectedTabs(oldShell))
+                .toEqual(currentTabs);
+            expect(currentTabs.get('alpha-tabs')).toBe(alphaTab);
+            expect(currentTabs.get('beta-tabs')).toBe(betaTab);
+            expect(alphaTab.flex).toBe(0.52);
+            expect(betaTab.flex).toBe(0.48);
+            expect(alphaTab.wrapperStyle.flex).toBe(0.52);
+            expect(betaTab.wrapperStyle.flex).toBe(0.48);
+            expect(placeholders.size).toBe(0)
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test('keeps same-topology non-geometry refreshes on the staged transaction by default', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.items.alpha.title = 'Renamed'
+        });
+
+        try {
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('falls back when a geometry-only projection changes split orientation', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].orientation = 'vertical'
+        }, {geometryOnly: true});
+
+        try {
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(String(receipt.result.nextShell.layout.ntype).replace(/^layout-/, '')).toBe('vbox')
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('falls back when a geometry-only projection reorders three split children', async () => {
+        const receipt = await reconcileModel(createThreeChildSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].children = ['gamma-tabs', 'alpha-tabs', 'beta-tabs']
+        }, {geometryOnly: true});
+
+        try {
+            const childNodeIds = receipt.result.nextShell.items
+                .filter(item => item.dockNodeType !== 'splitter')
+                .map(item => item.dockNodeId);
+
+            expect(receipt.stagedCount).toBe(1);
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(childNodeIds).toEqual(['gamma-tabs', 'alpha-tabs', 'beta-tabs'])
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('fails closed on duplicate structural projection identities', () => {
+        expect(DockProjectionReconciler.collectProjectionTopology({
+            dockNodeId  : 'root-split',
+            dockNodeType: 'split',
+            items       : [{
+                dockNodeId  : 'duplicate-tabs',
+                dockNodeType: 'tabs'
+            }, {
+                dockNodeId  : 'duplicate-tabs',
+                dockNodeType: 'tabs'
+            }]
+        })).toBeNull()
     });
 
     test('retires a pane and button that are absent from every projected tab exactly once', async () => {
