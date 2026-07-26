@@ -50,13 +50,15 @@ import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../
 export const MAX_RECORD_COOLDOWN_MS = 3600000;
 
 /**
- * Wall-clock ceiling for one `embedBatch` call, so the worst case is derivable HERE rather than
- * from the product of a local attempt count and an attempt duration owned by another service.
+ * Wall-clock budget after which `embedBatch` admits no further attempt. It removes the attempt-count
+ * multiplier — the pre-bound worst case was a local count times a duration owned by another service —
+ * but it is NOT a ceiling on the call: an attempt already in flight when the budget expires runs to
+ * its own external deadline, so a single batch can still exceed this number.
  *
  * **Derivation, not a taste value:** the memory WAL drain polls every `pollIntervalMs` (5s default).
- * A single batch that runs past two minutes has already starved ~24 polls of a queue it shares with
- * every agent's `add_memory`, so the ceiling is one order of magnitude above the cadence it must not
- * monopolise. It is a ceiling, never a target — healthy batches finish in well under a second.
+ * A batch still admitting new attempts two minutes in has already starved ~24 polls of a queue it
+ * shares with every agent's `add_memory`, so the budget sits one order of magnitude above the cadence
+ * it must not monopolise. Healthy batches finish in well under a second and never reach it.
  *
  * **Retirement trigger:** `pollIntervalMs` is not currently threaded into `embedBatch`. Once it is,
  * derive this as a multiple of the live cadence and delete the constant — a derived bound cannot
@@ -155,7 +157,8 @@ export function isProviderContentionError(error) {
  * @param {Function} options.log           `(level, message)` sink.
  * @param {Function} [options.isContentionError=isProviderContentionError] Saturation classifier
  *     (injected so the pure core stays free of the Neo-class provider module).
- * @param {Number}   [options.maxInCycleMs=DEFAULT_MAX_IN_CYCLE_MS] Wall-clock ceiling for one batch.
+ * @param {Number}   [options.maxInCycleMs=DEFAULT_MAX_IN_CYCLE_MS] Wall-clock budget after which no
+ *     further attempt is admitted; an in-flight attempt still runs to its own external deadline.
  * @param {Function} [options.now=Date.now] Clock seam (injected for deterministic specs).
  * @returns {Promise<{succeeded: Object[], failed: Array<{record: Object, error: Error}>}>}
  */
