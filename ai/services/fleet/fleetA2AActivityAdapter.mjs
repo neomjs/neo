@@ -2,7 +2,8 @@ import {
     createFleetCockpitEvent,
     FLEET_COCKPIT_SOURCES
 } from '../../../src/ai/fleet/fleetCockpitStatus.mjs'
-import {redactCredentials} from './redactCredentials.mjs'
+import {collisionPreventionTag} from '../shared/a2aCollisionTags.mjs'
+import {redactCredentials}      from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetA2AActivityAdapter
@@ -12,11 +13,14 @@ import {redactCredentials} from './redactCredentials.mjs'
  * singleton directly, so callers keep ownership of identity binding and read permissions. It never
  * copies full message bodies into the cockpit DTO; the operator surface gets sender, recipient class,
  * subject/status metadata, related ticket ids, timestamps, and a source label only.
+ *
+ * Lane-claim detection rides the shared structural reader (`a2aCollisionTags`) — the same definition
+ * the wake guard uses, so the two surfaces can never drift again. The adapter's question stays NARROW:
+ * only `lane-claim` sets the flag; the wider collision class (`review-claim`, `claim-corrected`,
+ * `drive-claimed`) is the guard's business, not the activity projection's.
  */
 
 export const DEFAULT_FLEET_A2A_ACTIVITY_EVENT_LIMIT = 50
-
-const LANE_CLAIM_SUBJECT = /^\s*\[lane-claim\]/i
 
 /**
  * @summary Read recent A2A mailbox summaries through a Memory Core-owned read path and map them into
@@ -188,7 +192,10 @@ function normalizeA2AMessage(message, capturedAt) {
         taskState          : message.task?.state || null,
         wakeSuppressed     : Boolean(message.wakeSuppressed),
         occurredAt         : toIsoString(message.sentAt || message.createdAt, capturedAt),
-        isLaneClaim        : LANE_CLAIM_SUBJECT.test(subject || '')
+        // Classify the RAW subject: the display form above is whitespace-collapsed and truncated,
+        // and the reader's grammar is segments and length — normalizing the evidence first can
+        // erase a claim that opens a later line or lands past the display boundary.
+        isLaneClaim        : collisionPreventionTag({subject: message.subject, taggedConcepts: message.taggedConcepts}) === 'lane-claim'
     }
 }
 
