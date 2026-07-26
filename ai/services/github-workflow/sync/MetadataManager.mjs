@@ -154,14 +154,20 @@ class MetadataManager extends Base {
             };
         }
 
-        // Prune discussions
+        // Prune discussions.
+        //
+        // `updatedAt` is persisted because the discussion delta cutoff is computed from it. Omitting
+        // it here meant the field could not survive a save/load round trip, so every run read an
+        // empty date list, fell back to a zero cutoff and re-paged the whole discussion history —
+        // symmetric with the issue prune above, which has always carried it.
         for (const [key, value] of Object.entries(metadata.discussions || {})) {
             prunedMetadata.discussions[key] = {
                 number     : value.number,
                 path       : value.path,
                 closed     : value.closed,
                 closedAt   : value.closedAt,
-                contentHash: value.contentHash
+                contentHash: value.contentHash,
+                updatedAt  : value.updatedAt
             };
         }
 

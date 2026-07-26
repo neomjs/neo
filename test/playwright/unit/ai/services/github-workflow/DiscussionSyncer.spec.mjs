@@ -114,6 +114,52 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^conversationComplete: true$/m);
     });
 
+    test('a delta run MERGES into the cache and persists `updatedAt` — the matched pair (#16001)', async () => {
+        // Two defects that only make sense fixed together.
+        //
+        // `updatedAt` was never written into the cache entry, so the delta cutoff — computed as
+        // `Date.parse(d.updatedAt)` over cached entries — saw NaN for every one, produced an empty date
+        // list and resolved to 0. The `UPDATED_AT`-descending early break could therefore never fire and
+        // every run re-paged the entire discussion history at full GraphQL cost.
+        //
+        // The repopulation also REPLACED `metadata.discussions` wholesale, which was harmless only
+        // BECAUSE that zero cutoff made the fetch the whole corpus. Persisting `updatedAt` without
+        // converting the replace to a merge would start dropping every entry the delta skipped: each
+        // would lose its `path` and `contentHash`, miss the unchanged-content shortcut, and be rewritten
+        // on every subsequent run — a permanently non-empty diff in a tracked generated corpus, which is
+        // worse than the loud failure it replaced.
+        const fetched   = buildDiscussion(24101, {closed: false}),
+              untouched = {
+                  number     : 24100,
+                  path       : 'resources/content/discussions/chunk-1/discussion-24100.md',
+                  closed     : false,
+                  closedAt   : null,
+                  contentHash: 'UNTOUCHED-HASH',
+                  updatedAt  : '2026-04-01T00:00:00Z'
+              };
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes   : [fetched],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        // `24100` is deliberately absent from the fetch — it is what a working delta legitimately skips.
+        const metadata = {discussions: {24100: {...untouched}}, lastSync: '2026-05-01T00:00:00Z'};
+
+        await DiscussionSyncer.syncDiscussions(metadata);
+
+        // MERGE: the skipped entry survives field-for-field. A wholesale replace drops it entirely.
+        expect(metadata.discussions[24100]).toEqual(untouched);
+
+        // And the fetched entry carries the field the cutoff is computed from, so the NEXT run can
+        // actually break early instead of paging everything again.
+        expect(metadata.discussions[24101].updatedAt).toBe('2026-05-02T00:00:00Z');
+    });
+
     test('COMPLETE-membership red-proof: a new discussion ranks PAST the marooned on-disk backlog into chunk-2 (#15452)', async () => {
         // The discriminating witness for the complete-membership fix. Two discussions already on disk are NOT in metadata (the
         // marooned backlog). With a chunk size of 2, a NEW discussion's ordinal MUST count them — landing it

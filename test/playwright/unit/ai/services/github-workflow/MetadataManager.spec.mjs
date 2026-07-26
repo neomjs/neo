@@ -93,6 +93,7 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
                     closed                  : true,
                     closedAt                : '2026-05-13T00:00:00Z',
                     contentHash             : 'hash2',
+                    updatedAt               : '2026-05-14T09:30:00Z',
                     extraFieldShouldBePruned: true
                 },
                 '457': {
@@ -151,6 +152,12 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         expect(loaded.discussions['456'].closed).toBe(true);
         expect(loaded.discussions['456'].closedAt).toBe('2026-05-13T00:00:00Z');
         expect(loaded.discussions['456'].contentHash).toBe('hash2');
+        // `updatedAt` must survive the round trip because the discussion DELTA CUTOFF is computed
+        // from it: `DiscussionSyncer` maps cached entries through `Date.parse(d.updatedAt)`, and a
+        // pruned-away field yields NaN for every entry, an empty date list, and a cutoff of 0 — which
+        // silently re-pages the entire discussion history on every run at full GraphQL cost. The
+        // issue prune has always carried this field; asserting it here keeps the two symmetric.
+        expect(loaded.discussions['456'].updatedAt).toBe('2026-05-14T09:30:00Z');
 
         // Backward compat
         expect(loaded.discussions['457'].path).toBeUndefined();
