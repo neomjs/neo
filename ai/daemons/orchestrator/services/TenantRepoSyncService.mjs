@@ -1279,39 +1279,25 @@ class TenantRepoSyncService extends Base {
      * the prior direct `aiConfig.tenantRepos` read so the documented bootstrap / graph tiers are
      * actually honored on the pull path.
      *
-     * Then materializes per-repo `mirrorRoot` via a defensive fallback chain when the per-repo
-     * override is absent:
-     *
-     *   1. `tier1MirrorRoot` (test seam — full short-circuit)
-     *   2. `orchestratorConfig.tenantRepoMirrorRoot` (canonical path; Tier-1 env-bound default)
-     *   3. `env.NEO_TENANT_REPO_MIRROR_ROOT` (defensive — covers stale-overlay deployments
-     *      where the operator's gitignored `ai/config.mjs` predates the new
-     *      `tenantRepoMirrorRoot` key + envBindings entry, so the Tier-1 lookup misses)
-     *   4. `'/app/.neo-ai-data'` (hardcoded final fallback)
-     *
-     * The (3) layer is the "stale gitignored overlay copied into deploy image" defense:
-     * `ai/deploy/Dockerfile` does `COPY . .` before `initServerConfigs.mjs` runs in
-     * warn-only mode, so an older operator overlay survives into the container with no
-     * `tenantRepoMirrorRoot` key — but the env var is still injected via compose, so
-     * a direct `process.env` read keeps the resolver behavior correct regardless.
-     *
-     * Test seams: `ingestionService` injects a stub KB service (bypasses the live singleton
-     * lookup); `tier1MirrorRoot` short-circuits the mirrorRoot chain; `orchestratorConfig`
-     * stubs the AiConfig.orchestrator section; `env` stubs `process.env`.
+     * Then materializes an absent per-repo `mirrorRoot` from the resolved
+     * `AiConfig.orchestrator.tenantRepoMirrorRoot` leaf. That leaf owns both the cloud default
+     * and its env binding; this consumer must not re-resolve either one. `tier1MirrorRoot`
+     * remains an explicit test seam and full short-circuit.
      *
      * @param {Object} [options]
      * @param {String} [options.tier1MirrorRoot] Pre-resolved Tier-1 mirrorRoot default (test seam).
-     * @param {Object} [options.orchestratorConfig=AiConfig.orchestrator] Stub for the AiConfig.orchestrator section (test seam).
-     * @param {Object} [options.env=process.env] Stub for the env-var lookup (test seam).
      * @param {Object} [options.ingestionService] Stub KB ingestion service (test seam); defaults to the live singleton.
      * @returns {Promise<{tenantRepos: Array<Object>, configDiagnostics: Object}>} Effective repos with
      *     the Knowledge Base resolver's bounded config diagnostics preserved unchanged.
+     * @throws {TypeError} When the resolved Tier-1 mirror root is not a non-empty string.
      */
-    async resolveTenantReposConfig({tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env, ingestionService} = {}) {
-        const tier1Default = tier1MirrorRoot
-            ?? orchestratorConfig?.tenantRepoMirrorRoot
-            ?? env.NEO_TENANT_REPO_MIRROR_ROOT
-            ?? '/app/.neo-ai-data';
+    async resolveTenantReposConfig({tier1MirrorRoot, ingestionService} = {}) {
+        const tier1Default = tier1MirrorRoot ?? AiConfig.orchestrator.tenantRepoMirrorRoot;
+
+        if (typeof tier1Default !== 'string' || tier1Default.trim() === '') {
+            throw new TypeError('AiConfig.orchestrator.tenantRepoMirrorRoot must resolve to a non-empty string.');
+        }
+
         const kbService  = ingestionService || await this.resolveIngestionService();
         const normalized = await kbService.listConfiguredTenantRepos();
 
