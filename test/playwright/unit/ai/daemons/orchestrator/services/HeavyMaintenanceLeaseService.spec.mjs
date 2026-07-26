@@ -17,6 +17,7 @@ import {
     releaseHeavyMaintenanceLeaseSync,
     renewHeavyMaintenanceLease,
     renewHeavyMaintenanceLeaseSync,
+    resolveHeavyMaintenanceLeasePath,
     shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease as _rawWithHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
@@ -43,6 +44,65 @@ function createLeasePath(name) {
 }
 
 test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', () => {
+    test('#16027: pure path resolution requires an explicit path or absolute injected dataDir', () => {
+        const dataDir = path.join(process.cwd(), 'tmp', 'relocated-orchestrator');
+
+        expect(resolveHeavyMaintenanceLeasePath({
+            leasePath: 'caller-owned-relative-override.json',
+            dataDir  : 'relative-data-dir'
+        })).toBe('caller-owned-relative-override.json');
+        expect(resolveHeavyMaintenanceLeasePath({dataDir}))
+            .toBe(path.join(dataDir, 'heavy-maintenance-lease.json'));
+        expect(() => resolveHeavyMaintenanceLeasePath()).toThrow(/leasePath or an absolute dataDir is required/);
+        expect(() => resolveHeavyMaintenanceLeasePath({dataDir: 'relative-data-dir'}))
+            .toThrow(/leasePath or an absolute dataDir is required/);
+    });
+
+    test('#16027: every pure operation rejects a missing path before filesystem access', async () => {
+        const fsNever = new Proxy({}, {
+            get() {
+                throw new Error('filesystem access occurred before path validation');
+            }
+        });
+        const pathError = /leasePath or an absolute dataDir is required/;
+
+        await expect(inspectHeavyMaintenanceLease({fsModule: fsNever})).rejects.toThrow(pathError);
+        expect(() => inspectHeavyMaintenanceLeaseSync({fsModule: fsNever})).toThrow(pathError);
+        await expect(_rawAcquireHeavyMaintenanceLease({
+            fsModule    : fsNever,
+            owner       : 'summary',
+            staleAfterMs: TEST_LEASE_STALE_MS
+        })).rejects.toThrow(pathError);
+        expect(() => _rawAcquireHeavyMaintenanceLeaseSync({
+            fsModule    : fsNever,
+            owner       : 'summary',
+            staleAfterMs: TEST_LEASE_STALE_MS
+        })).toThrow(pathError);
+        await expect(releaseHeavyMaintenanceLease({
+            fsModule: fsNever,
+            token   : 'missing-path'
+        })).rejects.toThrow(pathError);
+        expect(() => releaseHeavyMaintenanceLeaseSync({
+            fsModule: fsNever,
+            token   : 'missing-path'
+        })).toThrow(pathError);
+        await expect(renewHeavyMaintenanceLease({
+            fsModule    : fsNever,
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            token       : 'missing-path'
+        })).rejects.toThrow(pathError);
+        expect(() => renewHeavyMaintenanceLeaseSync({
+            fsModule    : fsNever,
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            token       : 'missing-path'
+        })).toThrow(pathError);
+        await expect(_rawWithHeavyMaintenanceLease(() => 'never-runs', {
+            fsModule    : fsNever,
+            owner       : 'summary',
+            staleAfterMs: TEST_LEASE_STALE_MS
+        })).rejects.toThrow(pathError);
+    });
+
     test('#14205: buildLeasePayload requires staleAfterMs — the Neo/Base-free primitive fails loudly with no default', async () => {
         const leasePath = createLeasePath('staleAfterMs-required-guard');
         await expect(_rawAcquireHeavyMaintenanceLease({
@@ -541,6 +601,63 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         }
     });
 
+    test('#16027: inherited-token matching follows a relocated orchestrator dataDir', async () => {
+        const dataDir = path.join(
+            process.cwd(),
+            'tmp',
+            `relocated-heavy-maintenance-${process.pid}-${Date.now()}-${Math.random()}`
+        );
+        const leasePath = resolveHeavyMaintenanceLeasePath({dataDir});
+        const now       = new Date('2026-07-26T20:00:00.000Z');
+
+        expect(leasePath).toBe(path.join(dataDir, 'heavy-maintenance-lease.json'));
+
+        const parent = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'primary-dev-sync',
+            now,
+            staleAfterMs: TEST_LEASE_STALE_MS,
+            token       : 'relocated-parent-token'
+        });
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = parent.lease.token;
+
+        try {
+            const result = await withHeavyMaintenanceLease(() => 'relocated-child-ran', {
+                leasePath,
+                owner: 'kbSync',
+                now,
+                token: 'relocated-child-token'
+            });
+
+            expect(result).toMatchObject({
+                status  : 'inherited',
+                acquired: false,
+                result  : 'relocated-child-ran',
+                lease   : {
+                    owner: 'primary-dev-sync',
+                    token: 'relocated-parent-token'
+                }
+            });
+            await expect(inspectHeavyMaintenanceLease({leasePath, now})).resolves.toMatchObject({
+                status: 'active',
+                lease : {token: 'relocated-parent-token'}
+            });
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            try {
+                await releaseHeavyMaintenanceLease({leasePath, token: parent.lease.token, now});
+            } finally {
+                await fs.remove(dataDir);
+            }
+        }
+    });
+
     test('#11519 AC8a: env-token without active lease file falls through to normal acquire', async () => {
         // Env-var token set but lease file missing → inspectHeavyMaintenanceLease returns
         // status='missing' → no token to match → withHeavyMaintenanceLease falls through to
@@ -851,8 +968,8 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
-            leasePath_   : leasePath,
-            staleAfterMs_: 60000
+            leasePath,
+            staleAfterMs: 60000
         });
 
         const acquired = await service.acquire({
@@ -870,6 +987,24 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token: 'service-token',
             now  : new Date('2026-05-16T20:00:00.000Z')
         })).resolves.toMatchObject({status: 'released'});
+    });
+
+    test('#16027: service resolves AiConfig dataDir inside each operation without a second injection seam', async () => {
+        const servicePath = path.resolve(
+            process.cwd(),
+            'ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs'
+        );
+        const source      = await fs.readFile(servicePath, 'utf8');
+        const methodMatch = source.match(
+            /resolveLeasePath\(options = \{\}\) \{([\s\S]*?)\n {4}\}/
+        );
+
+        expect(methodMatch, 'resolveLeasePath method must remain present').not.toBeNull();
+        expect(methodMatch[1]).toContain('dataDir  : AiConfig.orchestrator.dataDir');
+        expect(methodMatch[1]).not.toContain('options.dataDir');
+        expect(source).not.toMatch(
+            /^(?:const|let|var)\s+\w*(?:lease|dataDir)\w*\s*=\s*AiConfig\.orchestrator\.dataDir/m
+        );
     });
 
     test('stale takeover is identity-preserving — two reclaimers cannot both acquire (#15763)', async () => {

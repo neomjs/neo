@@ -148,6 +148,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         expect(exitCode).toBe(0);
         expect(leaseOptions).toEqual({
+            leasePath   : path.join(aiConfig.orchestrator.dataDir, 'heavy-maintenance-lease.json'),
             owner       : 'sandman',
             reason      : 'manual-cli',
             staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
@@ -2337,6 +2338,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(exitCodes).toEqual([0]);
         expect(calls).toEqual([
             ['withLease', {
+                leasePath   : path.join(aiConfig.orchestrator.dataDir, 'heavy-maintenance-lease.json'),
                 owner       : 'sandman',
                 reason      : 'manual-cli',
                 staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,

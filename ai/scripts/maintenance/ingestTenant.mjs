@@ -1,18 +1,21 @@
 // Neo namespace bootstrap (entry-point invariant) — KB data-plane CLI.
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required for any consumer of the Neo singleton API.
-import Neo                         from '../../../src/Neo.mjs';
-import AiConfig                    from '../../config.mjs';
-import * as core                   from '../../../src/core/_export.mjs';
-import InstanceManager             from '../../../src/manager/Instance.mjs';
-import fs                          from 'fs';
-import readline                    from 'readline';
-import {pathToFileURL}             from 'url';
-import KB_Config                   from '../../mcp/server/knowledge-base/config.mjs';
-import KB_ChromaManager            from '../../services/knowledge-base/ChromaManager.mjs';
-import KB_IngestionService         from '../../services/knowledge-base/IngestionService.mjs';
-import KB_LifecycleService         from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import Neo                 from '../../../src/Neo.mjs';
+import AiConfig            from '../../config.mjs';
+import * as core           from '../../../src/core/_export.mjs';
+import InstanceManager     from '../../../src/manager/Instance.mjs';
+import fs                  from 'fs';
+import readline            from 'readline';
+import {pathToFileURL}     from 'url';
+import KB_Config           from '../../mcp/server/knowledge-base/config.mjs';
+import KB_ChromaManager    from '../../services/knowledge-base/ChromaManager.mjs';
+import KB_IngestionService from '../../services/knowledge-base/IngestionService.mjs';
+import KB_LifecycleService from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module ai/scripts/maintenance/ingestTenant
@@ -211,7 +214,13 @@ async function ingestTenant() {
                     )
                 });
             },
-            {owner: 'kbIngest', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/ingestTenant.mjs', tenantId: args.tenantId}}
+            {
+                leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+                owner       : 'kbIngest',
+                reason      : 'manual-cli',
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+                metadata    : {script: 'ai/scripts/maintenance/ingestTenant.mjs', tenantId: args.tenantId}
+            }
         );
     } catch (error) {
         console.error('❌ ai:ingest-tenant failed:', error);

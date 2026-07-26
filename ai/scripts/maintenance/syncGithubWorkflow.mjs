@@ -1,6 +1,9 @@
 import {GH_Config, GH_SyncService} from '../../services.mjs';
 import AiConfig                    from '../../config.mjs';
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {pathToFileURL}             from 'url';
 import {
     buildSyncGithubWorkflowDevBranchGuard,
@@ -87,7 +90,13 @@ async function syncGithubWorkflow() {
     try {
         outcome = await withHeavyMaintenanceLease(
             async () => GH_SyncService.runFullSync(),
-            {owner: 'syncGithubWorkflow', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}}
+            {
+                leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+                owner       : 'syncGithubWorkflow',
+                reason      : 'manual-cli',
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+                metadata    : {script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}
+            }
         );
     } catch (e) {
         console.error('❌ Sync failed:', e);

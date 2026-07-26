@@ -12,9 +12,12 @@ import {
     recordProviderReadinessFailure,
     waitForProvider
 } from '../../services/graph/providerReadinessHelper.mjs';
-import LifecycleService            from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {pathToFileURL}             from 'url';
+import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {pathToFileURL} from 'url';
 
 /**
  * @module ai/scripts/runners/runSandman
@@ -118,7 +121,13 @@ export async function runSandman({
                 mode        : 'cli',
                 includeDecay: true
             });
-        }, {owner: 'sandman', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/runners/runSandman.mjs'}});
+        }, {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+            owner       : 'sandman',
+            reason      : 'manual-cli',
+            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/runners/runSandman.mjs'}
+        });
     } catch (e) {
         // If lease acquisition fails, fail closed rather than mutating Memory Core graph state
         // without concurrency protection.

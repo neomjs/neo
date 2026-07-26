@@ -1,15 +1,19 @@
 // Neo namespace bootstrap (entry-point invariant) — orchestrator spawn-child.
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required for any consumer of the Neo singleton API.
-import Neo                                                           from '../../../src/Neo.mjs';
-import AiConfig                                                      from '../../config.mjs';
-import * as core                                                     from '../../../src/core/_export.mjs';
-import InstanceManager                                               from '../../../src/manager/Instance.mjs';
-import KB_Config                                                     from '../../mcp/server/knowledge-base/config.mjs';
-import KB_DatabaseService                                            from '../../services/knowledge-base/DatabaseService.mjs';
-import KB_ChromaManager                                              from '../../services/knowledge-base/ChromaManager.mjs';
-import KB_LifecycleService                                           from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
-import {withHeavyMaintenanceLease, shouldYieldHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import Neo                 from '../../../src/Neo.mjs';
+import AiConfig            from '../../config.mjs';
+import * as core           from '../../../src/core/_export.mjs';
+import InstanceManager     from '../../../src/manager/Instance.mjs';
+import KB_Config           from '../../mcp/server/knowledge-base/config.mjs';
+import KB_DatabaseService  from '../../services/knowledge-base/DatabaseService.mjs';
+import KB_ChromaManager    from '../../services/knowledge-base/ChromaManager.mjs';
+import KB_LifecycleService from '../../services/knowledge-base/DatabaseLifecycleService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    shouldYieldHeavyMaintenanceLease,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {fileURLToPath}                                               from 'node:url';
 
 /**
@@ -117,7 +121,13 @@ async function syncKnowledgeBase() {
                     shouldYield: buildLeaseYieldPredicate(acquisition)
                 });
             },
-            {owner: 'kbSync', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}}
+            {
+                leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+                owner       : 'kbSync',
+                reason      : 'manual-cli',
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+                metadata    : {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}
+            }
         );
     } catch (e) {
         console.error('❌ Synchronization Failed:', e);

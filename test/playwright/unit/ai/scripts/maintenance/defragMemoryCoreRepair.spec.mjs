@@ -568,6 +568,7 @@ test.describe('runDefragChromaDBCli (#14020)', () => {
 
         expect(calls.run).toBe(1);
         expect(calls.lease).toEqual([{
+            leasePath   : path.join(AiConfig.orchestrator.dataDir, 'heavy-maintenance-lease.json'),
             owner       : 'defrag',
             reason      : 'manual-cli',
             staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,

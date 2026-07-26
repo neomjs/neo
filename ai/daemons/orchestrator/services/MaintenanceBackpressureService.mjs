@@ -1,10 +1,10 @@
-import path     from 'path';
 import Neo      from '../../../../src/Neo.mjs';
 import Base     from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
-    releaseHeavyMaintenanceLeaseSync
+    releaseHeavyMaintenanceLeaseSync,
+    resolveHeavyMaintenanceLeasePath as resolveLeasePath
 } from './HeavyMaintenanceLeaseService.mjs';
 
 /**
@@ -176,8 +176,10 @@ export function getActiveGoldenPathDependencyTask({
  * @returns {String}
  */
 export function resolveHeavyMaintenanceLeasePath({heavyMaintenanceLeasePath, dataDir}) {
-    if (heavyMaintenanceLeasePath) return heavyMaintenanceLeasePath;
-    return path.join(dataDir || AiConfig.orchestrator.dataDir, 'heavy-maintenance-lease.json');
+    return resolveLeasePath({
+        leasePath: heavyMaintenanceLeasePath,
+        dataDir  : dataDir || AiConfig.orchestrator.dataDir
+    });
 }
 
 // ============================================================================
