@@ -675,6 +675,58 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(vesselTokens.stripBg, 'the vessel must bridge tab tokens onto the Workstation palette')
             .toBe(vesselTokens.panel2);
 
+        // Tokens are one of TWO reachability gates, and asserting only this one is how the pane stayed
+        // visibly unskinned through a green suite. Cross-window CSS needs BOTH:
+        //   1. SHEET    — the owning component's generated stylesheet must LOAD in this window.
+        //   2. SELECTOR — a rule in a loaded sheet must MATCH the pane that was transferred.
+        // The block above proves neither: it reads variables off the viewport, which resolve from the
+        // viewport's own sheet, so it passed while `Workspace.css` — carrying every pane-skin rule —
+        // never entered this window at all. Re-scoping a selector cannot repair that; the FILE has to
+        // move. Read the REAL transferred pane, never an injected stand-in: an injected element proves
+        // a moved selector can match something, not that the hosted pane consumes it.
+        const paneSkin = await popup.evaluate(() => {
+            const pane = document.querySelector('.workstation-placeholder'),
+                  card = document.querySelector('.workstation-resident-card'),
+                  read = (el, prop) => el ? getComputedStyle(el).getPropertyValue(prop).trim() : null;
+
+            return {
+                sheets       : [...document.styleSheets].map(sheet => sheet.href || '').filter(Boolean),
+                hasWorkspace : !!document.querySelector('.workstation-workspace'),
+                paneFound    : !!pane,
+                cardFound    : !!card,
+                cardDisplay  : read(card, 'display'),
+                cardDirection: read(card, 'flex-direction'),
+                cardPadding  : parseFloat(read(card, 'padding-top') || '0'),
+                paneRadius   : parseFloat(read(pane, 'border-top-left-radius') || '0'),
+                paneBorder   : parseFloat(read(pane, 'border-top-width') || '0')
+            }
+        });
+
+        // Gate 1, stated as the boundary rather than as a file list: the vessel mounts no workspace,
+        // so a rule that needs `Workspace.css` is unreachable here BY CONSTRUCTION — which is exactly
+        // why pane-owned skin has to live in the sheet both boot modes load.
+        expect(paneSkin.hasWorkspace, 'the popup must be a workspace-less vessel — otherwise this proves nothing about the boundary').toBe(false);
+        expect(paneSkin.sheets.some(href => /workstation\/Workspace\.css/.test(href)),
+            'Workspace.css must NOT load in a vessel; any pane skin left in it is unreachable no matter how it is scoped').toBe(false);
+
+        // Gate 2, on the pane the vessel ACTUALLY hosts. Every value below was the browser default
+        // before the fix, because no rule matched: `display: block`, zero padding, zero radius, no
+        // border. That is what "dark but unskinned" was on the operator's frame.
+        expect(paneSkin.paneFound, 'the transferred resident pane must be present to measure').toBe(true);
+        expect(paneSkin.cardFound, 'the resident card is the pane content that rendered as raw stacked text').toBe(true);
+        expect(paneSkin.cardDisplay, 'the card must lay out as a flex column, not as an unstyled block').toBe('flex');
+        expect(paneSkin.cardDirection).toBe('column');
+        expect(paneSkin.paneBorder, 'the pane must carry its own frame').toBeGreaterThan(0);
+        expect(paneSkin.paneRadius, 'the pane must carry its own corner radius').toBeGreaterThan(0);
+
+        // Responsive values are asserted as a RANGE, never byte-equal against the main window. The
+        // padding is `clamp(12px, 2vw, 24px)`, so a vessel and its parent legitimately differ by
+        // viewport width — pinning the number would make the suite fail on a resized window while
+        // still passing on a pane with no rules at all, which is the wrong test in both directions.
+        expect(paneSkin.cardPadding, 'padding must resolve inside the declared clamp, not to the unstyled 0')
+            .toBeGreaterThanOrEqual(12);
+        expect(paneSkin.cardPadding).toBeLessThanOrEqual(24);
+
         // …and the skin must keep reaching it AFTER it is open. A theme is a class an ancestor
         // carries, written by `afterSetTheme` onto the component it was set on — so a workspace-
         // local flip reaches this window and no other, and the vessel's own `body` still carries
