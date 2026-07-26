@@ -8,10 +8,10 @@ import {workstationTourScript} from '../../../../apps/workstation/tour/denseWork
  * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
- * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
- * themes, host-relative edge bands, visible real splitters, user-driven semantic resize,
- * pane-owned chrome, replacement-chrome motion containment, sequential clip-safe fixed staging,
- * and identity preservation.
+ * Canvas-worker value change (plus pixel change under the film profile), DevIndex-sized chart
+ * geometry, honest progress paints, both themes, host-relative edge bands, visible real splitters,
+ * user-driven semantic resize, pane-owned chrome, replacement-chrome motion containment,
+ * sequential clip-safe fixed staging, and identity preservation.
  *
  * Run: NEO_E2E_PORT=8124 npx playwright test workstation/WorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -36,7 +36,16 @@ const initialTabNodeIds = [
     'right-top-tabs', 'right-bottom-tabs', 'bottom-tabs'
 ];
 
-const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
+const asArray  = value => Array.isArray(value) ? value : value ? [value] : [],
+      filmTake = Boolean(process.env.NEO_FILM_TAKE);
+
+/**
+ * @summary Captures the exact Canvas pixels when the film profile presents frames on glass.
+ *
+ * @param {import('@playwright/test').Locator} canvas
+ * @returns {Promise<String>} Base64-encoded PNG for the current Canvas pixels.
+ */
+const readCanvasPixels = async canvas => (await canvas.screenshot()).toString('base64');
 
 /**
  * @param {Object} app Neural Link fixture app handle.
@@ -1148,18 +1157,24 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await page.waitForTimeout(150);
 
+        // The benchmark profile deliberately includes --disable-frame-rate-limit: its worker truth
+        // stays live, but the capture-profile contract exposes no presented frame to screenshots.
+        // Film mode drops that flag and therefore adds the independent on-glass pixel receipt.
         const targetCanvas = page.locator(`[id="${pulseTarget.id}"]`),
-              beforePixels = (await targetCanvas.screenshot()).toString('base64'),
+              beforePixels = filmTake ? await readCanvasPixels(targetCanvas) : null,
               beforeValues = pulseTarget.properties.values,
               pulseReceipt = await app.callMethod(workspaceId, 'pulseScaleSparkline', [pulseTarget.id]);
 
         expect(pulseReceipt.componentId).toBe(pulseTarget.id);
         expect(pulseReceipt.recordId).toBeTruthy();
-        await expect.poll(async () => (await targetCanvas.screenshot()).toString('base64'), {
-            message  : 'the exact scale canvas changes after its worker receives new data',
-            timeout  : 10000,
-            intervals: [100, 250]
-        }).not.toBe(beforePixels);
+
+        if (filmTake) {
+            await expect.poll(() => readCanvasPixels(targetCanvas), {
+                message  : 'the exact scale Canvas changes after its worker receives new data',
+                timeout  : 10000,
+                intervals: [100, 250]
+            }).not.toBe(beforePixels)
+        }
 
         const pulseTargetAfter = (await readScaleSparklines(app, page))
             .find(entry => entry.id === pulseTarget.id);
