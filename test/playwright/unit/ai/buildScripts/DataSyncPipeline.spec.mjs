@@ -533,4 +533,46 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
         expect(seenArgs).toEqual(['fetch', 'origin']);
         expect(seenEnv?.GIT_CONFIG_COUNT).toBeUndefined()
     });
+
+    test('the child env is SCOPED, not augmented — no raw credential survives the boundary', async () => {
+        // The tests above proved the credential left argv. They could not see that it also arrived,
+        // raw and in quadruplicate, through the env: spreading `options.env` and appending the header
+        // made the boundary ADDITIVE. `scopedStageEnv` already strips exactly these for emission
+        // stages; a git invocation is not exempt because its credential takes a different route.
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['push', 'origin', 'HEAD:dev'],
+            {
+                env: {
+                    DATA_SYNC_INTAKE_TOKEN   : 'ghs_INTAKE_RAW',
+                    DATA_SYNC_PUBLISHER_TOKEN: secret,
+                    GH_TOKEN                 : 'ghs_AMBIENT_GH',
+                    GITHUB_TOKEN             : 'ghs_AMBIENT_DEFAULT',
+                    PATH                     : '/usr/bin'
+                }
+            }
+        );
+
+        // By VALUE across the whole child env, not by key absence: a key that survives holding a
+        // different token is the same leak wearing a different name.
+        const leaked = Object.entries(seenEnv).filter(([key, value]) =>
+            key !== 'GIT_CONFIG_VALUE_0' &&
+            typeof value === 'string' &&
+            /^ghs_/.test(value));
+
+        expect(leaked).toEqual([]);
+        expect(seenEnv.DATA_SYNC_INTAKE_TOKEN).toBeUndefined();
+        expect(seenEnv.DATA_SYNC_PUBLISHER_TOKEN).toBeUndefined();
+        expect(seenEnv.GH_TOKEN).toBeUndefined();
+        expect(seenEnv.GITHUB_TOKEN).toBeUndefined();
+
+        // Unrelated env survives, and the ONE derived credential still gets through.
+        expect(seenEnv.PATH).toBe('/usr/bin');
+        expect(seenEnv.GIT_CONFIG_VALUE_0).toContain(Buffer.from(`x-access-token:${secret}`).toString('base64'))
+    });
 });

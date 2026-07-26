@@ -6,6 +6,9 @@ import {
     REQUIRED_REPOSITORIES
 } from '../../../../../buildScripts/dataSyncPreflight.mjs';
 
+/** Collapses the retry backoff so budget-spending tests stay fast; shared by every describe below. */
+const noWait = async () => {};
+
 /**
  * `Resource not accessible by integration` is returned for two conditions that share one string:
  * genuine GitHub-side flakiness, and a permanently missing App installation. No message inspection
@@ -13,9 +16,11 @@ import {
  * for the first, catastrophic for the second. This pipeline spent eight days and sixty consecutive
  * scheduled runs retrying a permanent misconfiguration, each failure looking like bad luck.
  *
- * The discriminator is not the message but the TIMING. These probes carry no retry budget and run
- * before any collection stage, so a denial here is the installation answering. That is what makes
- * fail-fast safe without breaking the retry budget the flaky class genuinely needs.
+ * The discriminator is not the message but WHEN plus HOW OFTEN. These probes run before any
+ * collection stage AND spend a small retry budget of their own, so a failure that survives both is
+ * neither mid-batch contention nor one unlucky first call — it is the installation answering. Timing
+ * alone was not enough: it rules out contention but not a single blip, and aborting a scheduled run
+ * on one blip is its own outage.
  */
 test.describe('Data Sync access preflight (#15744)', () => {
     const respond = payload => async () => ({status: 200, json: async () => payload});
@@ -90,6 +95,84 @@ test.describe('Data Sync access preflight (#15744)', () => {
 
         expect(threw.message).toContain('unreachable');
         expect(threw.message).not.toContain('PERSISTENT authorization failure')
+    });
+
+    test('a THROWN transport failure becomes a reason instead of escaping the probe', async () => {
+        // ECONNRESET/DNS/TLS is the most common transient class AND the only one that arrives as an
+        // exception rather than an `errors` array. Awaiting `fetchFn` outside a catch let it escape
+        // `probeRepository`, the retry loop, and `assertDataSyncAccess` alike — so the bounded retry
+        // could not see the failure mode it exists for.
+        const result = await probeRepository({
+            fetchFn: async () => {throw new Error('ECONNRESET')},
+            name   : 'devindex-opt-in',
+            owner  : 'neomjs',
+            token  : 't'
+        });
+
+        expect(result).toEqual({ok: false, reason: 'ECONNRESET'})
+    });
+
+    test('a transport throw on the FIRST call recovers on retry — the budget can now reach it', async () => {
+        let calls = 0;
+
+        const flakyTransport = async () => {
+            calls++;
+            if (calls === 1) throw new Error('ECONNRESET');
+            return {status: 200, json: async () => ({data: {repository: {id: 'R_kgDO'}}})}
+        };
+
+        await expect(assertDataSyncAccess({
+            fetchFn: flakyTransport, log: () => {}, token: 't', waitFn: noWait
+        })).resolves.toBeUndefined();
+
+        // 3 calls: opt-in throws then succeeds, opt-out succeeds first try. Before the catch this
+        // rejected with a raw ECONNRESET at calls=1, naming no repository.
+        expect(calls).toBe(3)
+    });
+
+    test('a persistent transport fault names the repository and does NOT blame the installation', async () => {
+        let threw = null;
+
+        await assertDataSyncAccess({
+            fetchFn: async () => {throw new Error('ECONNRESET')},
+            log    : () => {},
+            token  : 't',
+            waitFn : noWait
+        }).catch(error => {threw = error});
+
+        expect(threw.message).toContain('neomjs/devindex-opt-in');
+        expect(threw.message).toContain('ECONNRESET');
+        expect(threw.message).toContain('Transport or availability fault');
+        expect(threw.message).not.toContain('PERSISTENT authorization failure')
+    });
+
+    test('MIXED failures are classified per repository, not by one global verdict', async () => {
+        // The defect this pins: `failures.some(DENIAL_PATTERN)` labelled the WHOLE aggregate a
+        // persistent authorization failure as soon as one repository denied, instructing the operator
+        // to fix an App installation on a repository whose credential was never rejected.
+        let threw = null;
+
+        await assertDataSyncAccess({
+            fetchFn: async (_url, options) => {
+                if (JSON.parse(options.body).variables.name === 'devindex-opt-in') {
+                    return {status: 200, json: async () => ({errors: [{message: 'Resource not accessible by integration'}]})}
+                }
+                throw new Error('ECONNRESET')
+            },
+            log   : () => {},
+            token : 't',
+            waitFn: noWait
+        }).catch(error => {threw = error});
+
+        const
+            optIn  = threw.message.slice(threw.message.indexOf('devindex-opt-in'), threw.message.indexOf('devindex-opt-out')),
+            optOut = threw.message.slice(threw.message.indexOf('devindex-opt-out'));
+
+        // Each verdict sits on the line whose cause produced it — and, decisively, NOT on the other.
+        expect(optIn).toContain('PERSISTENT authorization failure');
+        expect(optIn).not.toContain('Transport or availability fault');
+        expect(optOut).toContain('Transport or availability fault');
+        expect(optOut).not.toContain('PERSISTENT authorization failure')
     });
 });
 
@@ -180,8 +263,7 @@ test.describe('preflight-only dispatch mode', () => {
  */
 test.describe('preflight retry budget', () => {
     const denialBody    = {errors: [{message: 'Resource not accessible by integration'}]},
-          reachableBody = {data: {repository: {id: 'R_kgDO'}}},
-          noWait        = async () => {};
+          reachableBody = {data: {repository: {id: 'R_kgDO'}}};
 
     test('a flaky first call recovers instead of being reported permanent', async () => {
         let calls = 0;

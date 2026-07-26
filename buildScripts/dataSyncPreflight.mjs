@@ -47,19 +47,31 @@ const DENIAL_PATTERN = /resource not accessible by integration|not accessible|ba
  * @returns {Promise<{ok: Boolean, reason: String|null}>}
  */
 export async function probeRepository({owner, name, token, fetchFn = fetch}) {
-    const response = await fetchFn('https://api.github.com/graphql', {
-        method : 'POST',
-        headers: {
-            Authorization : `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            query    : 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){id}}',
-            variables: {name, owner}
-        })
-    });
+    let response, body;
 
-    const body = await response.json().catch(() => ({}));
+    // A transport failure — ECONNRESET, DNS, TLS — is the single most common transient class, and it
+    // is the one shape that arrives as a THROWN exception rather than an `errors` array. Uncaught, it
+    // escaped this function, escaped the caller's retry loop, and escaped `assertDataSyncAccess`
+    // entirely: the bounded retry could not see the failure mode it exists for, and the operator got
+    // a raw stack trace naming no repository. Converting it to the same `{ok, reason}` shape here
+    // rather than in the loop keeps the contract true for every caller, not just that one.
+    try {
+        response = await fetchFn('https://api.github.com/graphql', {
+            method : 'POST',
+            headers: {
+                Authorization : `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                query    : 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){id}}',
+                variables: {name, owner}
+            })
+        });
+
+        body = await response.json().catch(() => ({}))
+    } catch (error) {
+        return {ok: false, reason: error?.message || String(error)}
+    }
 
     // A GraphQL denial arrives as HTTP 200 with an `errors` array, so status alone is not the test.
     const message = body?.errors?.map(error => error.message).join('; ') || '';
@@ -132,21 +144,30 @@ export async function assertDataSyncAccess({
         return
     }
 
+    // Classified PER REPOSITORY, never in aggregate. A global `failures.some(DENIAL_PATTERN)` labels
+    // the whole run a persistent authorization failure the moment ONE repository denies — so an
+    // opt-in denial plus an opt-out connection reset told the operator to go fix an App installation
+    // on a repository whose credential was never rejected. That is a false instruction, and it costs
+    // a debugging session on the one repository that was working. Each line carries its own verdict
+    // because each line has its own cause.
+    //
+    // "Persistent" means EXHAUSTED, not merely early: pre-work timing rules out mid-batch contention,
+    // and the spent retry budget rules out a single unlucky first call. Neither claim suffices alone.
     const detail = failures
-        .map(({name, owner, purpose, reason}) => `  - ${owner}/${name} (${purpose}): ${reason}`)
+        .map(({name, owner, purpose, reason}) => {
+            const remedy = DENIAL_PATTERN.test(reason)
+                ? 'PERSISTENT authorization failure — the credential was rejected on every attempt. ' +
+                  'Verify the intake App is installed on THIS repository with `Issues: Read and write` ' +
+                  'and `Metadata: Read`.'
+                : 'Transport or availability fault — the credential was never rejected here, so the ' +
+                  'installation is not implicated.';
+
+            return `  - ${owner}/${name} (${purpose}): ${reason}\n      ${remedy}`
+        })
         .join('\n');
 
-    // Persistent by EXHAUSTION, not by timing alone: every probe above ran before any collection
-    // AND survived its full retry budget. Pre-work timing rules out mid-batch contention; the
-    // bounded retries rule out a single unlucky first call. Neither claim is sufficient alone.
-    const denial = failures.some(({reason}) => DENIAL_PATTERN.test(reason));
-
     throw new Error(
-        `[DataSync preflight] ${failures.length} required repository/repositories unreachable:\n${detail}\n` +
-        (denial
-            ? 'This is a PERSISTENT authorization failure, not a transient read: every probe above ran ' +
-              'before any collection AND exhausted its full retry budget. Verify the intake App is ' +
-              'installed on each repository above with `Issues: Read and write` and `Metadata: Read`.'
-            : 'Probes failed before any collection stage; treat as a configuration or connectivity fault.')
+        `[DataSync preflight] ${failures.length} required repository/repositories unreachable, ` +
+        `each probed before any collection stage and given its full retry budget:\n${detail}`
     );
 }

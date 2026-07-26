@@ -226,8 +226,14 @@ async function git(execute, cwd, args, {capture = true, env = process.env} = {})
  * the Publisher, the one identity permitted to bypass the code-scanning ruleset. So the checkout now
  * persists nothing, and the two commands that genuinely need network auth carry it themselves.
  *
- * `-c http.extraheader=` is passed as an ARGUMENT rather than written to config: it applies to this
- * process only and leaves nothing behind for a later stage to inherit.
+ * The credential is delivered through git's ENV config channel (`GIT_CONFIG_*`), never argv and never
+ * `.git/config` — see the implementation note below for why each of those two was rejected.
+ *
+ * The child env is SCOPED, not merely augmented. Spreading the caller's env and adding the header
+ * leaves every raw credential in the child: both source tokens plus any ambient `GH_TOKEN` /
+ * `GITHUB_TOKEN`. That is the same additive-boundary defect {@link #scopedStageEnv} exists to prevent
+ * for emission stages; a git invocation is not exempt from it just because its credential arrives by
+ * a different route.
  * @param {Function} execute Child-process executor.
  * @param {String}   cwd Repository root.
  * @param {String[]} args Git arguments.
@@ -255,10 +261,18 @@ export async function gitAuthenticated(execute, cwd, args, options = {}) {
     // where a later stage would inherit it.
     const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
 
+    // Every raw credential is stripped BEFORE the derived header goes in. Spreading the caller's env
+    // and appending made the boundary additive: the git child still received both source tokens and
+    // any ambient GH_TOKEN/GITHUB_TOKEN, so moving the header out of argv narrowed one exposure while
+    // leaving four untouched. `git` needs none of them — it reads the header and nothing else.
+    const {
+        DATA_SYNC_INTAKE_TOKEN, DATA_SYNC_PUBLISHER_TOKEN, GH_TOKEN, GITHUB_TOKEN, ...scoped
+    } = options.env ?? process.env;
+
     return git(execute, cwd, args, {
         ...options,
         env: {
-            ...(options.env ?? process.env),
+            ...scoped,
             GIT_CONFIG_COUNT  : '1',
             GIT_CONFIG_KEY_0  : 'http.extraheader',
             GIT_CONFIG_VALUE_0: header
