@@ -275,7 +275,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
 
         // The credential must not survive in `.git/config`: with the checkout default, stripping a
         // stage's ENV isolates nothing at the git layer, and any collection stage could push as the
-        // ruleset-bypass identity.
+        // repository-write identity.
         expect(workflow).toContain('persist-credentials: false');
 
         // The job's IMPLICIT token must not carry write. It is not merely unused: an action can
@@ -297,8 +297,8 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
  *
  * The pipeline carries two identities with different authority: an INTAKE credential that may read
  * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may write
- * this repository and bypass the code-scanning ruleset. The runner previously handed `process.env`
- * to every stage, so the ruleset-bypass identity was in scope during arbitrary data collection.
+ * CONTENTS to this repository. The runner previously handed `process.env`
+ * to every stage, so the repository-write identity was in scope during arbitrary data collection.
  *
  * Every assertion below checks by VALUE across the whole environment rather than by reading one key.
  * That distinction is not stylistic: the first implementation stripped `GH_TOKEN`/`GITHUB_TOKEN` and
@@ -506,7 +506,7 @@ test.describe('tokenScope validation fails closed', () => {
  * had left it for the whole job) and into a `-c http.extraheader=...` argument — which made it
  * worse in a way config never was: argv is visible in `ps`, and this module interpolates
  * `args.join(' ')` into its failure message, so a failed push would PRINT a working
- * ruleset-bypass credential into the CI log.
+ * repository-write credential into the CI log.
  *
  * Base64 is not redaction. GitHub Actions masks the literal secret string, so a transformed secret
  * does not match its own mask — the leak would have been plain, decodable and public. Masking

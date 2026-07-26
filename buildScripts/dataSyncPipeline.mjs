@@ -111,11 +111,15 @@ const
  * that stage is entitled to and nothing else.
  *
  * The pipeline holds three credentials with different authority: an INTAKE App that may read and
- * comment on the DevIndex opt-in/opt-out repositories, a PUBLISHER App that may write to this
- * repository and bypass the code-scanning ruleset, and a READER — the implicit Actions token — that
- * may only read this repository. Passing `process.env` wholesale — as this runner did — handed every
- * stage whichever token happened to be set, so the ruleset-bypass identity was in scope during
- * arbitrary data collection.
+ * comment on the DevIndex opt-in/opt-out repositories, a PUBLISHER App that may write CONTENTS to
+ * this repository, and a READER — the implicit Actions token — that may only read this repository.
+ * Passing `process.env` wholesale — as this runner did — handed every stage whichever token happened
+ * to be set, so the repository-write identity was in scope during arbitrary data collection.
+ *
+ * PUBLISHER is described by what it holds (`contents: write`) rather than as a ruleset-bypass
+ * identity. It was documented that way here and it is not true: a branch-ruleset bypass exists only
+ * if the ruleset's own bypass list names the App, and that list was verified empty. Naming a
+ * capability the credential does not have made a repository-settings dependency look satisfied.
  *
  * READER is the narrowest of the three and is not an App at all. It exists because neither App can
  * read this repository's labels: INTAKE has no installation here, and PUBLISHER holds `contents`
@@ -158,7 +162,7 @@ export function scopedStageEnv(tokenScope, env = process.env) {
     const
         // EVERY source variable is stripped, not merely the consumed one. Removing only
         // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in an intake stage's
-        // environment, so the bypass credential stays one `process.env` lookup away from every
+        // environment, so the repository-write credential stays one `process.env` lookup away from every
         // data-collection child — the isolation would be nominal, not real. DERIVED from the
         // vocabulary, so a scope cannot be added without its source joining the strip set.
         stripped = new Set(rawCredentialNames),

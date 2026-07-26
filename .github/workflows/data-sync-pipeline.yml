@@ -53,11 +53,16 @@ jobs:
     steps:
       # Two identities, because they hold different authority and `create-github-app-token` scopes
       # ONE permission set across a whole repository set — a single App spanning all three repos
-      # would let the ruleset-bypass identity mutate the intake repos and let the intake identity
-      # publish here. The default GITHUB_TOKEN can do neither job: it is scoped to this repository,
-      # so it has no installation at all on the DevIndex intake repos (absent, not underprivileged),
-      # and a token that cannot bypass the code-scanning ruleset cannot publish a fresh commit,
-      # because that commit has no prior CodeQL result and only a push could produce one.
+      # would let the publishing identity mutate the intake repos and let the intake identity
+      # publish here. That mutation-authority separation is the whole rationale and it stands on
+      # its own. The default GITHUB_TOKEN cannot do the intake job at all: it is scoped to this
+      # repository, so it has no installation on the DevIndex intake repos — absent, not merely
+      # underprivileged.
+      #
+      # It deliberately does NOT say the Publisher can bypass this repository's branch rulesets.
+      # That was asserted here and is not true: the ruleset bypass list is a repository setting and
+      # was verified empty, so no identity holds it and a fresh generated commit is rejected
+      # regardless of who pushes. See the note on the checkout token below.
       - name: Mint Publisher installation token
         id: publisher-token
         uses: actions/create-github-app-token@v3
