@@ -80,8 +80,13 @@ networks:
   neo-parity-network:
     # The no-egress contract, enforced at the network layer rather than asserted as
     # prose: containers on an internal network cannot route to external destinations
-    # at all. Published ports (host-side probes) are ingress and keep working; the
-    # mock endpoint, Chroma, and the servers all resolve in-network. The dev file
-    # keeps its egress-capable bridge for local seats — isolation is a CI concern,
-    # same as the mock wiring.
+    # at all. MEASURED trade: an internal network silently drops the dev file's
+    # published port bindings (`docker port` returns empty; host curl connects to
+    # nothing) — so the lane's probes run IN-CONTAINER via `docker compose exec`,
+    # never through a host port. That also retires the wrong-process-on-a-host-port
+    # class (the profile's 8100 ssh-collision lesson) in CI by construction: no host
+    # port exists for a foreign process to squat on. The mock endpoint, Chroma, and
+    # the servers resolve by compose DNS inside the network. The dev file keeps its
+    # egress-capable bridge + working published ports for local seats — isolation is
+    # a CI concern, same as the mock wiring.
     internal: true

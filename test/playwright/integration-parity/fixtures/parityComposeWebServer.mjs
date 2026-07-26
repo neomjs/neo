@@ -191,7 +191,7 @@ async function waitForServices() {
                 state.servicesReady = true;
                 state.readyAt       = new Date().toISOString();
                 state.bootMs        = Date.parse(state.readyAt) - Date.parse(state.bootStartedAt);
-                state.reason        = 'Parity stack is ready: complete plane healthy, served identity verified host-side.';
+                state.reason        = 'Parity stack is ready: complete plane healthy, served identity verified by in-container probe.';
 
                 console.log(`[parityComposeWebServer] ready in ${state.bootMs}ms (project=${projectName})`);
                 return;

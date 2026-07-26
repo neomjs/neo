@@ -141,13 +141,13 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
             run_components : 'true',
             run_integration: 'true',
             run_unit       : 'true',
-            run_parity     : 'false'
+            run_parity     : 'true'
         });
         expect(Object.fromEntries(push.outputs)).toMatchObject({
             run_components : 'true',
             run_integration: 'true',
             run_unit       : 'true',
-            run_parity     : 'false'
+            run_parity     : 'true'
         });
     });
 
@@ -181,14 +181,20 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
 
         // The lane boots MC, KB, and the orchestrator. A change to any direct runtime
         // dependency of those processes must trip the witness — a filter that admits
-        // `ai/deploy/**` but skips the services the stack actually runs would be a
-        // completeness claim the dependency graph falsifies.
+        // `ai/` but skips the engine hemisphere the servers extend (src/core/Base,
+        // src/state/Provider) or the shared integration fixture would be a completeness
+        // claim the dependency graph falsifies. The lane inherits the integration
+        // suite's boundary, so these all admit it.
         const runtimeDependencies = [
             'ai/services/memory-core/MemoryService.mjs',
             'ai/services/knowledge-base/HealthService.mjs',
             'ai/config.mjs',
             'ai/ConfigProvider.mjs',
-            'ai/planeConfig.mjs'
+            'ai/planeConfig.mjs',
+            'src/Neo.mjs',
+            'src/core/Base.mjs',
+            'src/state/Provider.mjs',
+            'test/playwright/integration/fixtures/mcpClient.mjs'
         ];
 
         for (const file of runtimeDependencies) {

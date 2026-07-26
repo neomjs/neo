@@ -167,22 +167,19 @@ jobs:
             // overlay) on an overlay planeId and asserts topology + the mock-embedding
             // contract, FAILING CLOSED when docker is absent (never best-effort).
             //
-            // Completeness source, made explicit per review: the lane boots MC, KB, and
-            // the orchestrator — a runtime whose import closure spans ai/services/**,
-            // ai/mcp/**, ai/daemons/**, and the config chain. Deriving that closure
-            // per-PR would be a second, hand-maintained dependency graph (the exact
-            // drift class this lane exists to kill), and at a measured 2m02s cold the
-            // lane is cheap enough to run on the CONSERVATIVE ROOT instead: all of ai/.
-            // Any ai/ change can affect the booted stack; none may skip the witness.
-            // The suite itself, its config, dep manifests, and this workflow round out
-            // the set. Non-ai paths (src/, learn/, resources/) never trigger it.
+            // Boundary, not a new list: the booted stack's runtime closure is the SAME
+            // one the integration suite already treats as bootable — src/ (the engine
+            // hemisphere the servers extend), ai/ (services, config chain, daemons,
+            // deploy), the integration fixtures + harness. Parity relevance therefore
+            // INHERITS isIntegrationRelevantPath and adds only the lane's own files.
+            // One boundary, one owner: a future runtime import the integration
+            // whitelist learns about is inherited here automatically; an invented
+            // subset would drift the moment the stack crosses it (it already crosses
+            // into src/state/Provider, src/core/Base, and the shared mcpClient fixture).
             const isParityRelevantPath = file =>
-              file.startsWith('ai/') ||
+              isIntegrationRelevantPath(file) ||
               file.startsWith('test/playwright/integration-parity/') ||
-              file === 'test/playwright/playwright.config.integration-parity.mjs' ||
-              file === 'package.json' ||
-              file === 'package-lock.json' ||
-              file === '.github/workflows/test.yml';
+              file === 'test/playwright/playwright.config.integration-parity.mjs';
 
             const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
