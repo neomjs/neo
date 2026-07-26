@@ -202,6 +202,19 @@ test.describe('planePlacementCensus — the classification rules the election is
         expect(source.test('this.logPath')).toBe(false);
     });
 
+    test('a member carrying a regex metacharacter is matched LITERALLY, not interpreted', () => {
+        // CodeQL's catch on this PR, and it is not hypothetical: `$` is legal in a JS identifier, so a leaf
+        // named `$foo` is a real declaration. Escaping only the dot separator left `$` as an end-anchor, and
+        // the matcher then silently stopped matching the member it had just been built from — the exact
+        // silent-false-negative class this census exists to remove, reintroduced by its own builder.
+        const source = buildPlanePathSource(['fleet.$instanceRoot', 'plain.leaf']);
+
+        expect(source.test('AiConfig.fleet.$instanceRoot')).toBe(true);
+        expect(source.test('AiConfig.plain.leaf')).toBe(true);
+        // The dot is still a separator, never a wildcard — `plainXleaf` is a different identifier.
+        expect(source.test('AiConfig.plainXleaf')).toBe(false);
+    });
+
     test('reconciliation is BIDIRECTIONAL — a member removed from the contract stops being counted', () => {
         // The half a purely additive fix would miss: the matcher is BUILT from the set, so shrinking the
         // set shrinks the matcher. Asserted on a fixture, because asserting it on the live contract would

@@ -222,7 +222,13 @@ export function buildPlanePathSource(memberPaths) {
         throw new Error('planePlacementCensus.buildPlanePathSource: refusing to build a matcher from an empty member set — it would silently report a plausible, much smaller census.');
     }
 
-    const declared = memberPaths.map(member => member.replace(/\./g, '\\.')).join('|');
+    // Escape EVERY regex metacharacter, not just the dot separator. `$` is legal in a JS identifier, so a
+    // leaf named `$foo` is a real declaration — and left unescaped it becomes an end-anchor, producing a
+    // matcher that silently stops matching the very member it was built from. A silent false negative is
+    // precisely the class this census exists to remove, so it must not be reintroduced by its own builder.
+    // A metacharacter that instead makes the pattern invalid throws in the RegExp constructor, which is the
+    // acceptable half of this failure; the silent half is not.
+    const declared = memberPaths.map(member => member.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
     return new RegExp(`storagePaths\\.|\\b[A-Za-z0-9_$]*[Cc]onfig\\.(?:${declared})\\b|\\.neo-ai-data|NEO_AI_DATA|aiDataRoot`)
 }
