@@ -13,12 +13,15 @@
  * @see ai/services/memory-core/MemoryService.backfillMiniSummaries
  * @see ai/scripts/lifecycle/summarize-sessions.mjs
  */
-import Neo                         from '../../../src/Neo.mjs';
-import AiConfig                    from '../../config.mjs';
-import * as core                   from '../../../src/core/_export.mjs';
-import {withHeavyMaintenanceLease} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import LifecycleService            from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import MemoryService               from '../../services/memory-core/MemoryService.mjs';
+import Neo       from '../../../src/Neo.mjs';
+import AiConfig  from '../../config.mjs';
+import * as core from '../../../src/core/_export.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import MemoryService    from '../../services/memory-core/MemoryService.mjs';
 
 async function main() {
     const outcome = await withHeavyMaintenanceLease(
@@ -27,6 +30,7 @@ async function main() {
             return MemoryService.backfillMiniSummaries();
         },
         {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
             owner       : 'memory-summary-backfill',
             reason      : 'manual-cli',
             staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,

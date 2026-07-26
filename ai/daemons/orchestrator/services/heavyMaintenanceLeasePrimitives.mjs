@@ -2,7 +2,31 @@ import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
 
-export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = '.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json';
+/**
+ * @summary Resolves the shared heavy-maintenance lease path without importing Agent OS config.
+ *
+ * The explicit lease-path override wins and is preserved as caller-owned input for compatibility.
+ * Otherwise the caller must inject an absolute orchestrator data directory. Keeping this helper
+ * config-free lets subprocess consumers use the primitives without creating a second AiConfig
+ * resolution path or deriving placement from the current working directory.
+ *
+ * @param {Object} options
+ * @param {String|null|undefined} [options.leasePath] Explicit lease-file override.
+ * @param {String|null|undefined} [options.dataDir] Resolved orchestrator data directory.
+ * @returns {String}
+ */
+export function resolveHeavyMaintenanceLeasePath({leasePath, dataDir} = {}) {
+    if (leasePath) return leasePath;
+
+    if (typeof dataDir !== 'string' || !dataDir.trim() || !path.isAbsolute(dataDir)) {
+        throw new TypeError(
+            'resolveHeavyMaintenanceLeasePath: leasePath or an absolute dataDir is required — inject the resolved ' +
+            'AiConfig.orchestrator.dataDir at the AiConfig-aware boundary; this pure primitive carries no cwd-relative default.'
+        );
+    }
+
+    return path.join(dataDir, 'heavy-maintenance-lease.json');
+}
 
 /**
  * @summary Converts supported time inputs into epoch milliseconds.
@@ -181,17 +205,19 @@ export function buildLeasePayload({
  * @summary Reads and classifies the current heavy-maintenance lease file.
  *
  * @param {Object} [options]
- * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {String} options.leasePath Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @returns {Promise<Object>}
  */
 export async function inspectHeavyMaintenanceLease({
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
+
     let raw;
 
     try {
@@ -586,11 +612,13 @@ function exitLifecycleGuardSync({ownerFilePath, fsModule}) {
  * @returns {Object}
  */
 export function inspectHeavyMaintenanceLeaseSync({
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     isPidAlive: isPidAliveFn = isPidAlive
 } = {}) {
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
+
     let raw;
 
     try {
@@ -633,7 +661,7 @@ export function acquireHeavyMaintenanceLeaseSync({
     owner,
     reason       = 'manual',
     metadata     = {},
-    leasePath    = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule     = fs,
     now          = new Date(),
     pid          = process.pid,
@@ -645,6 +673,8 @@ export function acquireHeavyMaintenanceLeaseSync({
     if (!owner) {
         throw new Error('Heavy-maintenance lease owner is required.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     const lease = buildLeasePayload({owner, reason, metadata, pid, staleAfterMs, now, token});
 
@@ -726,7 +756,7 @@ export function acquireHeavyMaintenanceLeaseSync({
  */
 export function releaseHeavyMaintenanceLeaseSync({
     token,
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     guardStaleAfterMs,
@@ -735,6 +765,8 @@ export function releaseHeavyMaintenanceLeaseSync({
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     const guardEntry = enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs});
 
@@ -774,7 +806,7 @@ export function releaseHeavyMaintenanceLeaseSync({
 export function renewHeavyMaintenanceLeaseSync({
     token,
     staleAfterMs,
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     guardStaleAfterMs,
@@ -783,6 +815,8 @@ export function renewHeavyMaintenanceLeaseSync({
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
         throw new TypeError('renewHeavyMaintenanceLeaseSync: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
@@ -850,7 +884,7 @@ export function renewHeavyMaintenanceLeaseSync({
  * @param {String} options.owner Stable owner label.
  * @param {String} [options.reason='manual'] Acquisition reason.
  * @param {Object} [options.metadata={}] Diagnostic metadata.
- * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {String} options.leasePath Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.pid=process.pid] Owning process ID.
@@ -863,7 +897,7 @@ export async function acquireHeavyMaintenanceLease({
     owner,
     reason       = 'manual',
     metadata     = {},
-    leasePath    = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule     = fs,
     now          = new Date(),
     pid          = process.pid,
@@ -875,6 +909,8 @@ export async function acquireHeavyMaintenanceLease({
     if (!owner) {
         throw new Error('Heavy-maintenance lease owner is required.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     const lease = buildLeasePayload({owner, reason, metadata, pid, staleAfterMs, now, token});
 
@@ -958,7 +994,7 @@ export async function acquireHeavyMaintenanceLease({
  *
  * @param {Object} options
  * @param {String} options.token Owner token returned by acquire.
- * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {String} options.leasePath Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
@@ -966,7 +1002,7 @@ export async function acquireHeavyMaintenanceLease({
  */
 export async function releaseHeavyMaintenanceLease({
     token,
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     guardStaleAfterMs,
@@ -975,6 +1011,8 @@ export async function releaseHeavyMaintenanceLease({
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for release.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     // Token validation and removal execute inside ONE guarded section: a
     // replacement owner appearing between an unguarded check and the unlink can
@@ -1028,7 +1066,7 @@ export async function releaseHeavyMaintenanceLease({
  * @param {Object} options
  * @param {String} options.token Owner token returned by acquire.
  * @param {Number} options.staleAfterMs Renewed TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
- * @param {String} [options.leasePath=DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH] Lease file path.
+ * @param {String} options.leasePath Lease file path.
  * @param {Object} [options.fsModule=fs] File-system implementation seam.
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Number} [options.guardStaleAfterMs] Lifecycle-guard crash-recovery age override.
@@ -1037,7 +1075,7 @@ export async function releaseHeavyMaintenanceLease({
 export async function renewHeavyMaintenanceLease({
     token,
     staleAfterMs,
-    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    leasePath,
     fsModule  = fs,
     now       = new Date(),
     guardStaleAfterMs,
@@ -1046,6 +1084,8 @@ export async function renewHeavyMaintenanceLease({
     if (!token) {
         throw new Error('Heavy-maintenance lease token is required for renewal.');
     }
+
+    leasePath = resolveHeavyMaintenanceLeasePath({leasePath});
 
     if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
         throw new TypeError('renewHeavyMaintenanceLease: staleAfterMs (positive ms) is required — resolve it from AiConfig at the boundary; this Neo/Base-free primitive carries no TTL default by design.');
@@ -1197,6 +1237,7 @@ export async function renewHeavyMaintenanceLease({
  *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
+ * @param {String} [options.leasePath] Explicit lease-file path. Required for this config-free primitive; config-aware callers resolve it from the active orchestrator `dataDir`.
  * @param {Function} [options.onInheritedTokenStale] Observability hook fired once when this child inherited a token (`NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`) but the live lease no longer carries it (the parent released before the child checked). Default: a stderr warn (`warnInheritedTokenStale`) — a deliberately loud default, because per-caller wiring across the 6+ maintenance callers is the exact discipline whose lapse caused the original silent-skip regression; override with a no-op for silence. The deferral is ALSO surfaced structurally via the `previousStatus` return marker below, independent of this hook.
  * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention. When a set inherited token was found stale, the return additionally carries `previousStatus: 'inherited-token-stale'` (on either the held or completed shape) — the structural guarantee that a lost-inheritance deferral can never be misread as an ordinary success.
  * @see acquireHeavyMaintenanceLease

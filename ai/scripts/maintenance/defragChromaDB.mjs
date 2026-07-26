@@ -1,13 +1,16 @@
-import {program}                                                     from 'commander';
-import {ChromaClient}                                                from 'chromadb';
-import {execSync}                                                    from 'child_process';
-import crypto                                                        from 'crypto';
-import fs                                                            from 'fs-extra';
-import path                                                          from 'path';
-import {fileURLToPath, pathToFileURL}                                from 'url';
-import Neo                                                           from '../../../src/Neo.mjs';
-import AiConfig                                                      from '../../config.mjs';
-import {withHeavyMaintenanceLease}                                   from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {program}                      from 'commander';
+import {ChromaClient}                 from 'chromadb';
+import {execSync}                     from 'child_process';
+import crypto                         from 'crypto';
+import fs                             from 'fs-extra';
+import path                           from 'path';
+import {fileURLToPath, pathToFileURL} from 'url';
+import Neo                            from '../../../src/Neo.mjs';
+import AiConfig                       from '../../config.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {registerNeoChromaEmbeddingFunctions}                         from '../../services/shared/vector/chromaClientPrimitives.mjs';
 import {auditChromaVectorCoverage}                                   from './checkChromaIntegrity.mjs';
 import {extractMemoryCoreCollectionData, truncateToEmbedTokenBudget} from './repairMemoryCoreStoredEmbeddings.mjs';
@@ -1848,7 +1851,13 @@ export async function runDefragChromaDBCli({
     try {
         outcome = await withLease(
             () => runDefrag(),
-            {owner: 'defrag', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}}
+            {
+                leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+                owner       : 'defrag',
+                reason      : 'manual-cli',
+                staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+                metadata    : {script: 'ai/scripts/maintenance/defragChromaDB.mjs'}
+            }
         );
     } catch (error) {
         output.error('❌ Defrag lease acquisition failed:', error);
