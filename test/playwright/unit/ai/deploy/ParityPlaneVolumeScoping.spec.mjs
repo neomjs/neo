@@ -86,6 +86,30 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('the PLANE ROOT rides a named volume in every service, not the repo bind', () => {
+        // The original assertion covered only Chroma — the one service whose mount I converted —
+        // so it passed while the rest of the plane (WAL dirs, daemon state, sqlite) sat under the
+        // `../..:/app` bind. A bind is PATH-ADDRESSED: two parity projects resolve it to the same
+        // host directory, which is precisely the duplicate-stacks-on-one-plane failure the
+        // named-volume election was chosen to prevent. Asserting the service I changed instead of
+        // the property the election decided is how a partial fix looks complete.
+        const planeRoot = compose['x-plane-env'].NEO_PLANE_DATA_ROOT;
+
+        for (const service of ['kb-server', 'mc-server', 'orchestrator']) {
+            const mounts = compose.services[service].volumes.map(mount =>
+                typeof mount === 'string' ? mount : `${mount.source}:${mount.target}`);
+
+            const planeMount = mounts.find(mount => mount.endsWith(`:${planeRoot}`));
+
+            expect(planeMount, `${service} does not mount ${planeRoot} at all — it inherits the repo bind`).toBeTruthy();
+
+            const source = planeMount.split(':')[0];
+
+            expect(source, `${service} mounts the plane root from a host path — binds are not project-scoped`).not.toMatch(/^[.\/~]/);
+            expect(Object.keys(compose.volumes), `${service} mounts "${source}", which is not a declared volume`).toContain(source)
+        }
+    });
+
     test('the orchestrator rides the SAME plane — a stack without its writer is not a plane', () => {
         // The orchestrator is the third Tier-1 consumer and the only one that writes on a timer:
         // backups, dream artifacts, golden-path handoffs, recovery ledgers. A profile without it
