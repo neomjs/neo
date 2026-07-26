@@ -522,6 +522,92 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — credential res
      * service; that is a deliberate API cost and is left unclaimed here rather than smuggled in as a
      * test-only mutator.
      */
+    /**
+     * The cache-dependent branches, proven in an ISOLATED CHILD PROCESS.
+     *
+     * These three cannot be asserted in-worker: a successful `gh auth token` populates the service's
+     * private `#authToken`, which has no reset seam, so the credential would leak into every later
+     * test. The seam is a child process, not a production reset API — cache state cannot escape a
+     * process that exits. Lifted from the repository's existing
+     * `spawnSync(process.execPath, ['--input-type=module', '-e', …])` pattern.
+     *
+     * One child proves all three, because the ordering itself is the contract: the `gh` stub emits a
+     * DIFFERENT token per invocation, so a reused cache and a second shell-out are distinguishable.
+     *
+     *   1. call with no env       → CLI resolves, caching `cli-token-1`
+     *   2. call again, no env     → still `cli-token-1` ⇒ the cache was reused (no 2nd shell-out)
+     *   3. set `GH_TOKEN`, call   → `env-token` ⇒ env outranks a POPULATED cache
+     *
+     * Step 3 is the one the in-worker suite structurally cannot reach: every case there starts from
+     * an empty cache, so none of them can prove environment-OVER-cache rather than merely
+     * environment-when-empty.
+     */
+    test('env outranks a populated cache, and the CLI result is cached — proven in an isolated child', async () => {
+        const
+            {spawnSync} = await import('child_process'),
+            fs          = await import('fs'),
+            os          = await import('os'),
+            path        = await import('path'),
+            repoRoot    = path.resolve(import.meta.dirname, '../../../../../..'),
+            shimDir     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-gh-seq-')),
+            counter     = path.join(shimDir, 'n');
+
+        // a `gh` that returns a new token on every invocation, so cache reuse is observable
+        fs.writeFileSync(counter, '0');
+        fs.writeFileSync(path.join(shimDir, 'gh'),
+            `#!/bin/sh\nn=$(cat ${counter})\nn=$((n+1))\necho $n > ${counter}\necho cli-token-$n\n`,
+            {mode: 0o755}
+        );
+
+        const code = `
+            const root = ${JSON.stringify(repoRoot)};
+            await import(root + '/src/Neo.mjs');
+            await import(root + '/src/core/_export.mjs');
+            const {default: GraphqlService} = await import(root + '/ai/services/github-workflow/GraphqlService.mjs');
+
+            const seen = [];
+            globalThis.fetch = async (url, options) => {
+                seen.push(new Headers(options.headers).get('authorization'));
+                return new Response(JSON.stringify({data: {viewer: {login: 'x'}}}), {
+                    status : 200,
+                    headers: {'content-type': 'application/json'}
+                });
+            };
+
+            const QUERY = 'query T { viewer { login } }';
+
+            delete process.env.GH_TOKEN;
+            delete process.env.GITHUB_TOKEN;
+
+            await GraphqlService.query(QUERY);            // 1: CLI resolves + caches
+            await GraphqlService.query(QUERY);            // 2: cache reused?
+            process.env.GH_TOKEN = 'env-token';
+            await GraphqlService.query(QUERY);            // 3: env vs populated cache
+
+            console.log('RESULT ' + JSON.stringify(seen));
+        `;
+
+        const child = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+            cwd     : repoRoot,
+            encoding: 'utf8',
+            env     : {...process.env, PATH: `${shimDir}${path.delimiter}${process.env.PATH}`}
+        });
+
+        try {
+            const line = child.stdout.split('\n').find(l => l.startsWith('RESULT '));
+
+            expect(line, child.stdout + child.stderr).toBeTruthy();
+
+            const [first, second, third] = JSON.parse(line.slice('RESULT '.length));
+
+            expect(first,  'call 1 resolves through the gh CLI').toContain('cli-token-1');
+            expect(second, 'call 2 reuses the cached CLI token instead of shelling out again').toContain('cli-token-1');
+            expect(third,  'call 3 prefers GH_TOKEN over the already-populated cache').toContain('env-token');
+        } finally {
+            fs.rmSync(shimDir, {force: true, recursive: true});
+        }
+    });
+
     test('names the env vars it looked for when no credential exists anywhere', async () => {
         const
             fs           = await import('fs'),
