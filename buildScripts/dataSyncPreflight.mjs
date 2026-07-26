@@ -84,8 +84,10 @@ export async function probeRepository({owner, name, token, fetchFn = fetch}) {
 export async function assertDataSyncAccess({
     token,
     repositories = REQUIRED_REPOSITORIES,
+    attempts     = 3,
     fetchFn      = fetch,
-    log          = console.log
+    log          = console.log,
+    waitFn       = ms => new Promise(resolve => setTimeout(resolve, ms))
 } = {}) {
     if (!token) {
         throw new Error(
@@ -98,7 +100,26 @@ export async function assertDataSyncAccess({
     const failures = [];
 
     for (const {name, owner, purpose} of repositories) {
-        const {ok, reason} = await probeRepository({fetchFn, name, owner, token});
+        // BOUNDED, not single-shot. The timing argument this preflight rests on separates
+        // mid-batch flakiness from a pre-work denial — it does NOT rule out a flaky FIRST call.
+        // Declaring one denial permanently authorized because of when it happened would trade a
+        // permanent-misread-as-transient bug for a transient-misread-as-permanent one, and a
+        // scheduled run aborted on a single blip is its own outage.
+        //
+        // Three attempts still resolves in seconds, so the fail-fast property survives intact:
+        // the case this exists for produced the SAME denial sixty consecutive times.
+        let ok = false, reason = null;
+
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            ({ok, reason} = await probeRepository({fetchFn, name, owner, token}));
+
+            if (ok) break;
+
+            if (attempt < attempts) {
+                log(`[DataSync preflight] ${owner}/${name} attempt ${attempt}/${attempts} failed (${reason}); retrying`);
+                await waitFn(attempt * 500)
+            }
+        }
 
         log(`[DataSync preflight] ${owner}/${name} ${ok ? 'reachable' : 'DENIED'} (${purpose})`);
 
@@ -115,8 +136,9 @@ export async function assertDataSyncAccess({
         .map(({name, owner, purpose, reason}) => `  - ${owner}/${name} (${purpose}): ${reason}`)
         .join('\n');
 
-    // Persistent by construction: these probes carry no retry budget and ran before any collection,
-    // so a denial here is the installation answering, not a transient read.
+    // Persistent by EXHAUSTION, not by timing alone: every probe above ran before any collection
+    // AND survived its full retry budget. Pre-work timing rules out mid-batch contention; the
+    // bounded retries rule out a single unlucky first call. Neither claim is sufficient alone.
     const denial = failures.some(({reason}) => DENIAL_PATTERN.test(reason));
 
     throw new Error(

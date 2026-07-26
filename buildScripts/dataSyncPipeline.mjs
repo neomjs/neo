@@ -89,6 +89,19 @@ const
  * @returns {Object} A copy carrying at most one GitHub credential.
  */
 export function scopedStageEnv(tokenScope, env = process.env) {
+    // Fail closed VISIBLY on an unrecognised scope. `undefined` previously fell through to the
+    // `none` branch, so a stage added without a `tokenScope` silently ran credential-less — which
+    // either fails somewhere confusing or, worse, looks deliberate. A spec comment claimed this
+    // made omission visible; it did not, because nothing distinguished "declared none" from
+    // "forgot to declare".
+    if (!['intake', 'publisher', 'none'].includes(tokenScope)) {
+        throw new Error(
+            `dataSyncPipeline: emission stage declares tokenScope=${JSON.stringify(tokenScope)}. ` +
+            'Every stage must declare one of `intake`, `publisher` or `none` — an undeclared scope ' +
+            'is an unanswered question about which identity that stage is entitled to, not a default.'
+        );
+    }
+
     const
         // The SOURCE variables are stripped alongside the consumed ones. Removing only
         // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in an intake stage's
@@ -408,6 +421,15 @@ export async function runDataSyncPipeline({
 
         log(`[DataSync] attempt=${attempt}/${maxAttempts} base=${baseSha}`);
         await emit({attempt, baseSha, cwd, execute, log});
+
+        // TERMINAL, not merely quiet. Returning early from `emit` ended the emission loop and then
+        // fell straight through to the publish path below, which only stayed harmless because an
+        // empty emission produces no staged changes. That is a safety property borrowed from a
+        // coincidence: any future change making the publish path act on an unchanged tree would
+        // turn a configuration check into a publication. The check exits the pipeline here.
+        if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
+            return {attempts: attempt, baseSha, changed: false, preflightOnly: true, pushed: false}
+        }
 
         let currentSha = await fetchRemoteDev(execute, cwd);
 

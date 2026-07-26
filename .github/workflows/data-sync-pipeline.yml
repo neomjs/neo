@@ -40,6 +40,12 @@ jobs:
         with:
           app-id: ${{ secrets.DATA_SYNC_PUBLISHER_APP_ID }}
           private-key: ${{ secrets.DATA_SYNC_PUBLISHER_PRIVATE_KEY }}
+          # Requested EXPLICITLY: without this, v3 mints a token carrying every permission the
+          # installation holds. The App is scoped narrowly, so the practical delta is small — but
+          # then the least-privilege property lives in a setting nobody reads at review time, and
+          # widening the App silently widens this token. Stating it here makes the grant reviewable
+          # in the diff and caps it independently of how the installation drifts.
+          permission-contents: write
 
       # Installed on the DevIndex repos, not this one, so the installation must be named explicitly.
       - name: Mint Intake installation token
@@ -52,6 +58,11 @@ jobs:
           repositories: |
             devindex-opt-in
             devindex-opt-out
+          # OptIn reads stargazers (metadata); OptOut comments on and closes issues. Nothing here
+          # needs `contents`, and this token must never be able to write code anywhere — the
+          # publisher/intake split exists precisely so the intake identity cannot publish.
+          permission-issues: write
+          permission-metadata: read
 
       - name: Checkout repository
         uses: actions/checkout@v6

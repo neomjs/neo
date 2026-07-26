@@ -165,3 +165,53 @@ test.describe('preflight-only dispatch mode', () => {
         })).rejects.toThrow('denied')
     });
 });
+
+/**
+ * The bounded budget, added on @neo-gpt-emmy's review challenge.
+ *
+ * The original design claimed timing alone separated persistent denial from transient: a probe
+ * before any collection cannot be mid-batch flakiness. True — but it does not rule out a flaky
+ * FIRST call, so declaring one denial permanently authorized because of WHEN it happened traded a
+ * permanent-misread-as-transient bug for a transient-misread-as-permanent one. A scheduled run
+ * aborted on a single blip is its own outage.
+ *
+ * Persistence is now established by EXHAUSTION as well as timing. The fail-fast property survives:
+ * the case this exists for produced the same denial sixty consecutive times.
+ */
+test.describe('preflight retry budget', () => {
+    const denialBody    = {errors: [{message: 'Resource not accessible by integration'}]},
+          reachableBody = {data: {repository: {id: 'R_kgDO'}}},
+          noWait        = async () => {};
+
+    test('a flaky first call recovers instead of being reported permanent', async () => {
+        let calls = 0;
+
+        const flaky = async () => {
+            calls++;
+            return {status: 200, json: async () => (calls <= 2 ? denialBody : reachableBody)}
+        };
+
+        await expect(assertDataSyncAccess({
+            fetchFn: flaky, log: () => {}, token: 't', waitFn: noWait
+        })).resolves.toBeUndefined();
+
+        expect(calls).toBeGreaterThan(2)
+    });
+
+    test('a persistent denial still fails, and only after the budget is spent', async () => {
+        let calls = 0;
+
+        const denied = async () => {
+            calls++;
+            return {status: 200, json: async () => denialBody}
+        };
+
+        await expect(assertDataSyncAccess({
+            attempts: 3, fetchFn: denied, log: () => {}, token: 't', waitFn: noWait
+        })).rejects.toThrow('PERSISTENT authorization failure');
+
+        // 2 repositories x 3 attempts. A single-shot probe would have spent 2 — the distinction
+        // between "denied once" and "denied every time" is the whole classification.
+        expect(calls).toBe(6)
+    });
+});

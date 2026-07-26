@@ -365,3 +365,35 @@ test.describe('emission-stage credential scoping', () => {
         expect(calls.every(call => call.token !== 'PUBLISHER-secret')).toBe(true)
     });
 });
+
+/**
+ * An undeclared `tokenScope` is an unanswered question about which identity a stage is entitled
+ * to, not a default. It previously fell through to the `none` branch, so a stage added without one
+ * ran credential-less and looked deliberate — and a spec comment asserted this was visible when
+ * nothing distinguished "declared none" from "forgot to declare".
+ */
+test.describe('tokenScope validation fails closed', () => {
+    test('an unrecognised or missing scope throws rather than defaulting', () => {
+        for (const scope of [undefined, null, '', 'publishr', 'PUBLISHER']) {
+            expect(() => scopedStageEnv(scope, {}), String(scope)).toThrow(/must declare one of/)
+        }
+    });
+
+    test('the three declared scopes are accepted', () => {
+        for (const scope of ['none', 'intake', 'publisher']) {
+            expect(() => scopedStageEnv(scope, {}), scope).not.toThrow()
+        }
+    });
+
+    test('every shipped emission stage declares a valid scope', async () => {
+        // Reaches the real stage table: a stage added without `tokenScope` now fails here rather
+        // than at runtime in CI, where it would present as an opaque auth error.
+        await expect(emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => {},
+            log      : () => {},
+            preflight: async () => {}
+        })).resolves.toBeUndefined()
+    });
+});
