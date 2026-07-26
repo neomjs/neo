@@ -11,7 +11,8 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {
     buildChromaHealthUrl,
-    buildTaskDefinitions
+    buildTaskDefinitions,
+    classifyChromaHealth
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 import os                                           from 'os';
@@ -764,6 +765,63 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             .toBe('http://[::1]:8000/api/v2/healthcheck');
         expect(buildChromaHealthUrl({host: 'localhost:9999', port: 8000}))
             .toBe('http://localhost:8000/api/v2/heartbeat');
+    });
+
+    test('classifies Chroma unhealthy only after sustained failures (#16017)', () => {
+        expect(classifyChromaHealth({
+            healthy            : false,
+            consecutiveFailures: 0,
+            threshold          : 3
+        })).toEqual({
+            alive              : true,
+            consecutiveFailures: 1,
+            sustainedFailure   : false
+        });
+        expect(classifyChromaHealth({
+            healthy            : false,
+            consecutiveFailures: 2,
+            threshold          : 3
+        })).toEqual({
+            alive              : false,
+            consecutiveFailures: 0,
+            sustainedFailure   : true
+        });
+        expect(classifyChromaHealth({
+            healthy            : true,
+            consecutiveFailures: 2,
+            threshold          : 3
+        })).toEqual({
+            alive              : true,
+            consecutiveFailures: 0,
+            sustainedFailure   : false
+        });
+    });
+
+    test('Chroma health probing survives transient faults and resets on success (#16017)', async () => {
+        const outcomes        = ['timeout', 'timeout', 'healthy', 'timeout', 'timeout', 'timeout'];
+        const taskDefinitions = buildTaskDefinitions({
+            scriptDir          : '/repo/ai/scripts',
+            nodeBin            : '/node',
+            chromaHost         : 'localhost',
+            chromaPort         : 8000,
+            chromaHealthFetchFn: async () => {
+                const outcome = outcomes.shift();
+
+                if (outcome === 'timeout') {
+                    throw new Error('probe timed out');
+                }
+
+                return {ok: true};
+            }
+        });
+
+        expect(taskDefinitions.chroma.healthStartupGraceMs).toBe(60000);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(true);
+        await expect(taskDefinitions.chroma.healthProbe()).resolves.toBe(false);
     });
 
     test('defines the local dev-server task without browser auto-open (#13482)', () => {
