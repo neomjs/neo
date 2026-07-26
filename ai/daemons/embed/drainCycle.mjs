@@ -6,6 +6,7 @@ import {
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
 import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
+import {PROVIDER_TIMEOUT_CODE}                       from '../../provider/createTimeoutError.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -72,13 +73,21 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
  * the classification in `TextEmbeddingService` is coupled to a message THIS module never sees
  * (that file pins its own log string verbatim precisely because its regex reads it). Duplicating
  * the coupled half here would split a matched pair across modules; duplicating the codes does not.
+ *
+ * **Asymmetry, deliberate and worth knowing:** `PROVIDER_TIMEOUT` is IMPORTED from its owner, so a
+ * rename there is a compile-visible event here. `OPENAI_COMPATIBLE_REQUEST_TIMEOUT` has no exported
+ * constant — it is assigned inline in `TextEmbeddingService`, whose module ends in `Neo.setupClass`
+ * and therefore cannot be imported by this pure core. So that one literal CAN go stale silently: a
+ * rename at the source would stop contention being recognised and the amplification would return
+ * with no test failing. Exporting it beside its `err.code` assignment is the fix; until then this
+ * comment is the only thing standing between a rename and a silent regression.
  * @type {Set<String>}
  */
 const PROVIDER_CONTENTION_CODES = Object.freeze(new Set([
     'ESOCKETTIMEDOUT',
     'ETIMEDOUT',
     'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
-    'PROVIDER_TIMEOUT'
+    PROVIDER_TIMEOUT_CODE
 ]));
 
 /**
