@@ -134,13 +134,17 @@ export function isProviderContentionError(error) {
  * Empirical anchor: one batch consumed ~21 minutes as six 300s attempts against a provider that was
  * serving the whole time (a 129-deep embedding queue), and only an operator restart cleared it.
  *
- * **Local wall-clock bound.** Attempt COUNT is declared here (`maxRetries`) while attempt
- * DURATION is declared in another service (`openAiCompatible.batchEmbeddingTimeoutMs`), so the worst
- * case is the product of two leaves neither owner can see. `maxInCycleMs` re-localises it: no NEW
- * attempt starts once the budget is spent. The bound deliberately does NOT race an in-flight
- * `collection.add` — abandoning a write that may still land is how a timeout turns into a duplicate
- * — so the honest guarantee is *"at most one externally-bounded attempt after the budget expires"*,
- * which is derivable from this file alone.
+ * **Local ADMISSION bound — not a total wall-clock bound.** Attempt COUNT is declared here
+ * (`maxRetries`) while attempt DURATION is declared in another service
+ * (`openAiCompatible.batchEmbeddingTimeoutMs`), so the pre-bound worst case was the PRODUCT of two
+ * leaves neither owner could see. `maxInCycleMs` removes the multiplier: once the budget is spent no
+ * NEW attempt is admitted, whether the boundary was crossed by an attempt or by a backoff.
+ *
+ * It deliberately does NOT race an in-flight `collection.add` — abandoning a write that may still
+ * land is how a timeout turns into a duplicate — so **a single call may still run arbitrarily long
+ * as far as this module is concerned**, and the total duration is therefore NOT derivable here.
+ * What is derivable here is the attempt COUNT. State it that way: the product is gone, one external
+ * duration remains, and pretending otherwise would be a comment that outruns its code.
  *
  * @param {Object}   options
  * @param {Object}   options.collection    Content-store collection (`add({ids, metadatas, documents})`).
