@@ -1035,6 +1035,44 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         expect(started).toEqual([{taskName: 'chroma', reason: 'supervisor-restart'}]);
     });
 
+    test('superviseTask does not probe a running task during its startup grace (#16017)', async () => {
+        const {service} = createTestService();
+        const killed    = [];
+        let   probes    = 0;
+
+        service.taskStateService.getTaskState = () => ({
+            running  : true,
+            pid      : 4242,
+            lastRunAt: 1_000_000
+        });
+        service.taskDefinitions = {
+            chroma: {
+                label               : 'chroma daemon',
+                healthStartupGraceMs: 60000,
+                healthProbe         : async () => {
+                    probes++;
+                    return false;
+                }
+            }
+        };
+        service.killTask = (taskName, reason) => killed.push({reason, taskName});
+
+        service.superviseTask('chroma', 1_030_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(probes).toBe(0);
+        expect(killed).toEqual([]);
+
+        service.superviseTask('chroma', 1_061_000, 15000);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(probes).toBe(1);
+        expect(killed).toEqual([{
+            reason  : 'supervisor-health-recycle',
+            taskName: 'chroma'
+        }]);
+    });
+
     test('superviseTask leaves a RUNNING task healthy per its healthProbe (no recycle)', async () => {
         const {service} = createTestService();
         const killed    = [];

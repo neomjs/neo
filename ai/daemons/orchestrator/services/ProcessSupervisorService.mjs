@@ -875,6 +875,17 @@ export class ProcessSupervisorService extends Base {
         // never reaches the down-only liveness path.
         if (state.running) {
             if (typeof task?.healthProbe === 'function') {
+                const startupGraceMs = Number(task.healthStartupGraceMs);
+
+                if (
+                    state.lastRunAt > 0
+                    && Number.isFinite(startupGraceMs)
+                    && startupGraceMs > 0
+                    && now - state.lastRunAt < startupGraceMs
+                ) {
+                    return;
+                }
+
                 this.gateRecycleOnHealthProbe(taskName, task, now, cooldownMs);
             }
             return;
@@ -912,9 +923,9 @@ export class ProcessSupervisorService extends Base {
      * Mirrors {@link gateRestartOnLivenessProbe}'s confirmed-at + in-flight de-dup (at most one
      * probe per cooldown, no overlap), but acts on the RUNNING-child surface: a healthy result is
      * silent; an unhealthy result `killTask`s the child (recycle → respawn next poll). The task owns
-     * the actual "is it serving" check via `healthProbe()` and may implement its own hysteresis
-     * (the Ollama stuck-runner path does; Chroma's heartbeat probe intentionally does not); this
-     * method only schedules the probe and acts on the boolean.
+     * the actual "is it serving" check via `healthProbe()` and may implement its own hysteresis;
+     * this method only schedules the probe and acts on the boolean. A task-level startup grace is
+     * enforced by `superviseTask` before this method is reached.
      *
      * A THROWN probe is treated as healthy (no recycle): unlike the liveness path, the child is
      * already running, so a probe fault must never kill a working process.
