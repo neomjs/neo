@@ -750,16 +750,17 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     });
 
     test.describe('tear-out projection threading — opt-in flag + the clone-safe gesture seams', () => {
-        test('enableDockTearOut arms enableProxyToPopup on every projected tab sort zone and threads the four gesture seams', () => {
+        test('enableDockTearOut arms the app-boundary popup grammar on every projected tab sort zone and threads the four gesture seams', () => {
             const captured = {cancel: [], entry: [], exit: [], terminal: []};
 
             const result = DockLayoutAdapter.project(createModel(), {
-                enableDockTearOut    : true,
-                onDockTearOutCancel  : data => captured.cancel.push(data),
-                onDockTearOutEntry   : data => captured.entry.push(data),
-                onDockTearOutExit    : data => captured.exit.push(data),
-                onDockTearOutTerminal: data => captured.terminal.push(data),
-                resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                dockTearOutBoundaryContainerId: 'workstation-root',
+                enableDockTearOut             : true,
+                onDockTearOutCancel           : data => captured.cancel.push(data),
+                onDockTearOutEntry            : data => captured.entry.push(data),
+                onDockTearOutExit             : data => captured.exit.push(data),
+                onDockTearOutTerminal         : data => captured.terminal.push(data),
+                resolveComponentRef           : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
             });
 
             const mainTabs = result.items[0];
@@ -767,7 +768,10 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             // The serializable flag rides the sortZoneConfig; the closures live on the tab.Container
             // listeners block — the projection's proven clone-safe closure home. A function inside
             // sortZoneConfig would not survive config cloning; this split is the load-bearing shape.
-            expect(mainTabs.headerToolbar.sortZoneConfig.enableProxyToPopup).toBe(true);
+            expect(mainTabs.headerToolbar.sortZoneConfig).toMatchObject({
+                boundaryContainerId: 'workstation-root',
+                enableProxyToPopup : true
+            });
 
             for (const [listener, bucket] of [
                 ['dockTearOutCancel', 'cancel'], ['dockTearOutEntry', 'entry'],
