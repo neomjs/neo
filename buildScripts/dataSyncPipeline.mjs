@@ -234,7 +234,7 @@ async function git(execute, cwd, args, {capture = true, env = process.env} = {})
  * @param {Object}   [options]
  * @returns {Promise<{stderr: String, stdout: String}>}
  */
-async function gitAuthenticated(execute, cwd, args, options = {}) {
+export async function gitAuthenticated(execute, cwd, args, options = {}) {
     const token = process.env.DATA_SYNC_PUBLISHER_TOKEN;
 
     if (!token) {
@@ -401,7 +401,7 @@ export async function emitGeneratedData({
     preflight = assertDataSyncAccess
 }) {
     // Before any expensive stage: prove the intake identity can actually reach the repositories the
-    // collection stages depend on. A denial here carries no retry budget and precedes all work, so
+    // collection stages depend on. A denial here survives its full retry budget AND precedes all work, so
     // it is the installation answering rather than a transient read — the distinction the shared
     // message string cannot make, and the one whose absence cost sixty silent scheduled runs.
     await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN});

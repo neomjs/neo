@@ -10,6 +10,7 @@ import {
     executeCommand,
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
+    gitAuthenticated,
     runDataSyncPipeline,
     scopedStageEnv
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
@@ -454,5 +455,75 @@ test.describe('credential never reaches argv or failure output', () => {
         expect(message).toContain('push');
         expect(message).toContain('origin');
         expect(message).not.toContain('<redacted>')
+    });
+});
+
+/**
+ * The ACTUAL argv witness.
+ *
+ * The redaction tests above call `executeCommand` with synthetic arguments, so they prove the
+ * failure message is scrubbed and nothing else. A regression that put the credential back into
+ * `-c http.extraheader=<secret>` would still pass them — redaction would hide it in the message
+ * while `ps` exposure silently returned. A test that cannot fail on the defect it exists to prevent
+ * is not coverage.
+ *
+ * These assert the real `gitAuthenticated` boundary instead: the credential must be ABSENT from
+ * every argument and PRESENT only in the child environment.
+ */
+test.describe('gitAuthenticated keeps the credential out of argv', () => {
+    const secret = 'ghs_ARGV_WITNESS_SECRET';
+
+    test.afterEach(() => {
+        delete process.env.DATA_SYNC_PUBLISHER_TOKEN
+    });
+
+    test('no argument contains the raw OR derived credential', async () => {
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenArgs = null, seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenArgs = args; seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['push', 'origin', 'HEAD:dev']
+        );
+
+        const argv    = seenArgs.join(' '),
+              derived = Buffer.from(`x-access-token:${secret}`).toString('base64');
+
+        expect(argv).not.toContain(secret);
+        // The base64 form is the one Actions masking would MISS, so it is the one that matters.
+        expect(argv).not.toContain(derived);
+        expect(argv).not.toContain('http.extraheader');
+        expect(seenArgs).toEqual(['push', 'origin', 'HEAD:dev'])
+    });
+
+    test('the credential arrives only through the child environment', async () => {
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['fetch', 'origin']
+        );
+
+        expect(seenEnv.GIT_CONFIG_COUNT).toBe('1');
+        expect(seenEnv.GIT_CONFIG_KEY_0).toBe('http.extraheader');
+        expect(seenEnv.GIT_CONFIG_VALUE_0).toContain(Buffer.from(`x-access-token:${secret}`).toString('base64'))
+    });
+
+    test('with no publisher token it degrades to a plain git call, adding no config', async () => {
+        let seenArgs = null, seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenArgs = args; seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['fetch', 'origin']
+        );
+
+        expect(seenArgs).toEqual(['fetch', 'origin']);
+        expect(seenEnv?.GIT_CONFIG_COUNT).toBeUndefined()
     });
 });

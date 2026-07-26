@@ -14,7 +14,7 @@
  * luck. This pipeline spent eight days and sixty consecutive scheduled runs in exactly that state.
  *
  * The discriminator is not the message, it is WHEN the denial happens. A denial on a minimal probe
- * issued before any work — one cheap query per repository, no retry budget — cannot be mid-batch
+ * issued before any work — one cheap query per repository, bounded by a small retry budget — cannot be mid-batch
  * flakiness; it is the configuration answering. A denial later, after probes passed, is the
  * transient class the retry budget exists for.
  *
@@ -144,9 +144,9 @@ export async function assertDataSyncAccess({
     throw new Error(
         `[DataSync preflight] ${failures.length} required repository/repositories unreachable:\n${detail}\n` +
         (denial
-            ? 'This is a PERSISTENT authorization failure, not a transient read: the probes carry no retry ' +
-              'budget and ran before any collection. Verify the intake App is installed on each repository ' +
-              'above with `Issues: Read and write` and `Metadata: Read`.'
+            ? 'This is a PERSISTENT authorization failure, not a transient read: every probe above ran ' +
+              'before any collection AND exhausted its full retry budget. Verify the intake App is ' +
+              'installed on each repository above with `Issues: Read and write` and `Metadata: Read`.'
             : 'Probes failed before any collection stage; treat as a configuration or connectivity fault.')
     );
 }
