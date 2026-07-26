@@ -23,6 +23,43 @@ export const GENERATED_DATA_PATHS = [
     'apps/portal/llms.txt'
 ];
 
+/**
+ * The scope vocabulary AND the env var each scope draws from, in ONE place. Three hand-maintained
+ * lists stood here — the validator's whitelist, the resolver's ternary chain, and the strip list in
+ * the destructure — so adding a scope meant editing three, and a miss in the strip list is the
+ * dangerous one: it leaves a credential readable in a child that was never granted it, which is
+ * silent rather than loud.
+ *
+ * `reader` is the implicit Actions token, not an App: it reads this repository and writes nothing.
+ * It exists because NO App identity can read this repo's labels — `intake` is installed only on the
+ * DevIndex repos and `publisher` holds `contents`, while labels are `issues` scope. See the
+ * `permissions:` block in `data-sync-pipeline.yml`.
+ * @type {Object<String,String|null>}
+ * @private
+ */
+const stageTokenSources = {
+    intake   : 'DATA_SYNC_INTAKE_TOKEN',
+    none     : null,
+    publisher: 'DATA_SYNC_PUBLISHER_TOKEN',
+    reader   : 'DATA_SYNC_READER_TOKEN'
+};
+
+/**
+ * Every raw credential-source variable this pipeline can carry, DERIVED from the scope vocabulary
+ * rather than restated. Both consumers read this one list: the per-stage scoping in
+ * `scopedStageEnv` and the Git-child scrub in `gitAuthenticated`.
+ *
+ * It is one list because two hand-maintained deny-lists is exactly how a new source reaches a child
+ * that was never granted it — the selection site gets the new source and the scrub site does not, and
+ * that failure is OPEN and silent. A centralized vocabulary is only a boundary if *selection* and
+ * *scrubbing* both derive from it; deriving only selection buys the appearance of one.
+ * Exported so the boundary tests can DERIVE their fixtures from it rather than hand-listing the
+ * variables they think exist. A hand-listed fixture goes stale the same way a hand-listed deny-list
+ * does, and then the test reports green about a source it never supplied.
+ * @type {String[]}
+ */
+export const rawCredentialNames = ['GH_TOKEN', 'GITHUB_TOKEN', ...Object.values(stageTokenSources).filter(Boolean)];
+
 const
     commitMessage    = 'chore(data): Hourly data sync pipeline update [skip ci]',
     remoteDevRef     = 'refs/remotes/origin/dev',
@@ -58,10 +95,14 @@ const
             tokenScope: 'intake'
         },
         {
+            // `--include-labels` reaches `LabelService.listLabels`, which pages this repository's
+            // labels over GraphQL. That is a credentialled read, so `none` was a mis-declaration —
+            // not a deliberate denial — and it failed exactly as `scopedStageEnv` promises a
+            // mis-declared stage will.
             args      : ['./buildScripts/docs/rebuildContentIndexesAndSeo.mjs', '--include-labels'],
             command   : process.execPath,
             label     : 'content indexes and SEO',
-            tokenScope: 'none'
+            tokenScope: 'reader'
         }
     ];
 
@@ -69,13 +110,24 @@ const
  * @summary Builds the child environment for one emission stage, carrying exactly the credential
  * that stage is entitled to and nothing else.
  *
- * The pipeline holds two identities with different authority: an INTAKE credential that may read
- * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may
- * write to this repository and bypass the code-scanning ruleset. Passing `process.env` wholesale
- * — as this runner did — handed every stage whichever token happened to be set, so the ruleset-
- * bypass identity was in scope during arbitrary data collection.
+ * The pipeline holds three credentials with different authority: an INTAKE App that may read and
+ * comment on the DevIndex opt-in/opt-out repositories, a PUBLISHER App that may write CONTENTS to
+ * this repository, and a READER — the implicit Actions token — that may only read this repository.
+ * Passing `process.env` wholesale — as this runner did — handed every stage whichever token happened
+ * to be set, so the repository-write identity was in scope during arbitrary data collection.
  *
- * Both token variables are STRIPPED first, then only the scoped one is re-injected as
+ * PUBLISHER is described by what it holds (`contents: write`) rather than as a ruleset-bypass
+ * identity. It was documented that way here and it is not true: a branch-ruleset bypass exists only
+ * if the ruleset's own bypass list names the App, and that list was verified empty. Naming a
+ * capability the credential does not have made a repository-settings dependency look satisfied.
+ *
+ * READER is the narrowest of the three and is not an App at all. It exists because neither App can
+ * read this repository's labels: INTAKE has no installation here, and PUBLISHER holds `contents`
+ * while labels are `issues` scope. Granting it does NOT add a credential to the job — the implicit
+ * token is already present under `permissions:` — it widens an existing one from `contents: read`
+ * to also carry `issues: read`, which is why it does not disturb the two-App split's rationale.
+ *
+ * Every token variable is STRIPPED first, then only the scoped one is re-injected as
  * `GITHUB_TOKEN` (and `GH_TOKEN`, which the DevIndex GitHub service prefers). Stripping is the
  * load-bearing half: without it a stage marked `none` would silently inherit whatever the parent
  * process carried, which is the exact leak the scope annotation claims to prevent.
@@ -84,7 +136,7 @@ const
  * to need one fails loudly on its own missing-auth path rather than quietly succeeding on a more
  * privileged identity than it was granted.
  *
- * @param {String} tokenScope One of `intake`, `publisher`, `none`.
+ * @param {String} tokenScope A key of `stageTokenSources` — `intake`, `publisher`, `reader` or `none`.
  * @param {Object} [env=process.env] Parent environment.
  * @returns {Object} A copy carrying at most one GitHub credential.
  */
@@ -94,29 +146,36 @@ export function scopedStageEnv(tokenScope, env = process.env) {
     // either fails somewhere confusing or, worse, looks deliberate. A spec comment claimed this
     // made omission visible; it did not, because nothing distinguished "declared none" from
     // "forgot to declare".
-    if (!['intake', 'publisher', 'none'].includes(tokenScope)) {
+    //
+    // `Object.hasOwn` rather than `in`, because the vocabulary is an object now: `'toString' in
+    // stageTokenSources` is true, which would accept a scope nobody declared and resolve its source
+    // to a function. `hasOwn` also admits `none`, whose source is deliberately `null`.
+    if (!Object.hasOwn(stageTokenSources, tokenScope)) {
         throw new Error(
             `dataSyncPipeline: emission stage declares tokenScope=${JSON.stringify(tokenScope)}. ` +
-            'Every stage must declare one of `intake`, `publisher` or `none` — an undeclared scope ' +
-            'is an unanswered question about which identity that stage is entitled to, not a default.'
+            `Every stage must declare one of ${Object.keys(stageTokenSources).join(', ')} — an ` +
+            'undeclared scope is an unanswered question about which identity that stage is ' +
+            'entitled to, not a default.'
         );
     }
 
     const
-        // The SOURCE variables are stripped alongside the consumed ones. Removing only
+        // EVERY source variable is stripped, not merely the consumed one. Removing only
         // GH_TOKEN/GITHUB_TOKEN leaves `DATA_SYNC_PUBLISHER_TOKEN` readable in an intake stage's
-        // environment, so the bypass credential stays one `process.env` lookup away from every
-        // data-collection child — the isolation would be nominal, not real.
-        {GH_TOKEN, GITHUB_TOKEN, DATA_SYNC_INTAKE_TOKEN, DATA_SYNC_PUBLISHER_TOKEN, ...rest} = env,
-        token = tokenScope === 'intake'    ? DATA_SYNC_INTAKE_TOKEN
-              : tokenScope === 'publisher' ? DATA_SYNC_PUBLISHER_TOKEN
-              : null;
+        // environment, so the repository-write credential stays one `process.env` lookup away from every
+        // data-collection child — the isolation would be nominal, not real. DERIVED from the
+        // vocabulary, so a scope cannot be added without its source joining the strip set.
+        stripped = new Set(rawCredentialNames),
+        source   = stageTokenSources[tokenScope],
+        // Read from `env`, never the stripped copy — the value must not depend on statement order.
+        token    = source ? env[source] : null,
+        scoped   = Object.fromEntries(Object.entries(env).filter(([name]) => !stripped.has(name)));
 
     if (!token) {
-        return rest
+        return scoped
     }
 
-    return {...rest, GH_TOKEN: token, GITHUB_TOKEN: token}
+    return {...scoped, GH_TOKEN: token, GITHUB_TOKEN: token}
 }
 
 /**
@@ -223,8 +282,9 @@ async function git(execute, cwd, args, {capture = true, env = process.env} = {})
  * `actions/checkout` defaults to `persist-credentials: true`, which writes the token into git config
  * as an `http.extraheader` for the whole job. Under that default, stripping credentials from a
  * stage's ENVIRONMENT isolates nothing at the git layer — any collection stage could still push as
- * the Publisher, the one identity permitted to bypass the code-scanning ruleset. So the checkout now
- * persists nothing, and the two commands that genuinely need network auth carry it themselves.
+ * the Publisher, the identity this pipeline intends to be the only one able to publish here. So the
+ * checkout now persists nothing, and the two commands that genuinely need network auth carry it
+ * themselves.
  *
  * The credential is delivered through git's ENV config channel (`GIT_CONFIG_*`), never argv and never
  * `.git/config` — see the implementation note below for why each of those two was rejected.
@@ -265,9 +325,16 @@ export async function gitAuthenticated(execute, cwd, args, options = {}) {
     // and appending made the boundary additive: the git child still received both source tokens and
     // any ambient GH_TOKEN/GITHUB_TOKEN, so moving the header out of argv narrowed one exposure while
     // leaving four untouched. `git` needs none of them — it reads the header and nothing else.
-    const {
-        DATA_SYNC_INTAKE_TOKEN, DATA_SYNC_PUBLISHER_TOKEN, GH_TOKEN, GITHUB_TOKEN, ...scoped
-    } = options.env ?? process.env;
+    //
+    // DERIVED from `rawCredentialNames`, never restated. This was a hand-written destructuring list and
+    // it fell behind the vocabulary the moment a scope was added: the new source was stripped from every
+    // STAGE child and still reached every GIT child, because the two strip sets had no relationship. A
+    // deny-list that must be remembered is a deny-list that will be forgotten.
+    const
+        stripped = new Set(rawCredentialNames),
+        scoped   = Object.fromEntries(
+            Object.entries(options.env ?? process.env).filter(([name]) => !stripped.has(name))
+        );
 
     return git(execute, cwd, args, {
         ...options,

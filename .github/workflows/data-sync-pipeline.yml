@@ -37,15 +37,32 @@ jobs:
       # actual defect. Removing write is the verified fix; removing read as well would be an
       # unverified extra claim, which is the shape of error this PR has already made twice.
       contents: read
+      # The run above asked for has now happened: the `content indexes and SEO` stage pages this
+      # repository's labels over GraphQL and had no credential that could, so every scheduled run
+      # since the per-stage scoping landed has failed at that stage. NEITHER App can serve it — the
+      # Intake installation does not exist on this repository, and the Publisher holds `contents`
+      # while labels are `issues` scope — so the implicit token is the only identity that fits.
+      #
+      # This does NOT reintroduce a third credential. The implicit token is already reachable in
+      # this job per the note above; `issues: read` widens what it may read and leaves it unable
+      # to write anything. `contents` stays `read`, and the two-App split is untouched: that split
+      # exists so the intake identity cannot publish and the publisher cannot mutate the intake
+      # repos, which a read-only grant here does not weaken.
+      issues: read
 
     steps:
       # Two identities, because they hold different authority and `create-github-app-token` scopes
       # ONE permission set across a whole repository set — a single App spanning all three repos
-      # would let the ruleset-bypass identity mutate the intake repos and let the intake identity
-      # publish here. The default GITHUB_TOKEN can do neither job: it is scoped to this repository,
-      # so it has no installation at all on the DevIndex intake repos (absent, not underprivileged),
-      # and a token that cannot bypass the code-scanning ruleset cannot publish a fresh commit,
-      # because that commit has no prior CodeQL result and only a push could produce one.
+      # would let the publishing identity mutate the intake repos and let the intake identity
+      # publish here. That mutation-authority separation is the whole rationale and it stands on
+      # its own. The default GITHUB_TOKEN cannot do the intake job at all: it is scoped to this
+      # repository, so it has no installation on the DevIndex intake repos — absent, not merely
+      # underprivileged.
+      #
+      # It deliberately does NOT say the Publisher can bypass this repository's branch rulesets.
+      # That was asserted here and is not true: the ruleset bypass list is a repository setting and
+      # was verified empty, so no identity holds it and a fresh generated commit is rejected
+      # regardless of who pushes. See the note on the checkout token below.
       - name: Mint Publisher installation token
         id: publisher-token
         uses: actions/create-github-app-token@v3
@@ -92,13 +109,20 @@ jobs:
           # `actions/checkout` defaults this to TRUE, writing the token into `.git/config` as an
           # http.extraheader that survives for the whole job. Stripping credentials from a stage's
           # ENV therefore isolates nothing at the git layer: any collection stage could still push
-          # as the Publisher — the one identity permitted to bypass the code-scanning ruleset.
+          # as the Publisher — the identity this job intends to be the only one able to publish here.
           #
           # The publish path does not need it either: `dataSyncPipeline.mjs` pushes through its own
           # remote, so the credential can be absent from git config entirely and supplied per-command.
           persist-credentials: false
           # The publish push runs through the checkout credential, so it must be the Publisher
-          # identity — the only actor permitted to bypass the code-scanning ruleset.
+          # identity.
+          #
+          # NOT a claim that it can bypass the branch rulesets: those are repository configuration,
+          # and a bypass only exists if the ruleset's own bypass list names this App. Verified empty at
+          # the time of writing, which is why a fresh generated commit — having no code-scanning result
+          # yet, since only a push can produce one — is rejected with `GH013` no matter which identity
+          # pushes it. Publishing therefore depends on a repository-settings grant this workflow cannot
+          # make for itself, and describing the identity as already permitted hid that dependency.
           token: ${{ steps.publisher-token.outputs.token }}
 
       - name: Setup Node.js
@@ -106,14 +130,19 @@ jobs:
         with:
           node-version: '24'
 
-      # Both tokens are handed to the runner, never to the stages. `scopedStageEnv` strips BOTH
-      # source variables and re-injects only the one a stage is entitled to, so the publisher
+      # All three tokens are handed to the runner, never to the stages. `scopedStageEnv` strips EVERY
+      # source variable and re-injects only the one a stage is entitled to, so the publisher
       # credential is absent from every data-collection child rather than merely unused by it.
+      #
+      # `DATA_SYNC_READER_TOKEN` is passed under its own name rather than as `GITHUB_TOKEN`: the
+      # scoping function strips `GITHUB_TOKEN`/`GH_TOKEN` from every child by design, so a token
+      # arriving under either of those names would be discarded before any stage could read it.
       - name: Run bounded Data Sync emission and publish
         env:
           DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}
           DATA_SYNC_PREFLIGHT_ONLY: ${{ inputs.preflight_only }}
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          DATA_SYNC_READER_TOKEN: ${{ github.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
 
       # Guarded on the SAME input the pipeline reads. Without this, a preflight-only dispatch
