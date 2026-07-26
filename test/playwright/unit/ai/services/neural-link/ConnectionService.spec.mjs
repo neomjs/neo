@@ -20,7 +20,7 @@ import * as core                 from '../../../../../../src/core/_export.mjs';
 import {STALE_BRIDGE_ERROR_CODE} from '../../../../../../ai/mcp/server/neural-link/BridgeProtocol.mjs';
 
 /**
- * @summary Unit coverage for the Neural Link ConnectionService freshness gate.
+ * @summary Unit coverage for Neural Link connection freshness and Bridge process boundaries.
  *
  * These tests deliberately stub `connectToBridge` / `spawnBridge` rather than opening a WebSocket:
  * importing the singleton is safe because `unitTestMode` suppresses auto-connect, and the branch logic
@@ -71,27 +71,55 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
         expect(url).toBe('ws://127.0.0.1:19081/?role=agent&id=agent-test&token=token+with+spaces');
     });
 
-    test('resolves Bridge stdio logs under the configured Neural Link log directory (#13899)', () => {
+    test('resolves Bridge stdio logs only under the injected Neural Link log directory', () => {
         const logDir = path.resolve(os.tmpdir(), `nl-bridge-stdio-path-${process.pid}`);
 
         expect(getBridgeStdioLogPath({logPath: logDir}))
             .toBe(path.join(logDir, 'neural-link-bridge-stdio.log'));
-        expect(getBridgeStdioLogPath({logPath: '', neoRootDir: '/repo'}))
-            .toBe(path.join('/repo', '.neo-ai-data/logs/neural-link-bridge-stdio.log'));
+        expect(() => getBridgeStdioLogPath({
+            cwd       : '/repo',
+            logPath   : '',
+            neoRootDir: '/repo'
+        })).toThrow(/aiConfig\.logPath/);
+        expect(() => getBridgeStdioLogPath({logPath: '  '})).toThrow(/aiConfig\.logPath/);
     });
 
-    test('creates the configured Bridge stdio log directory before opening the file (#13899)', () => {
-        const logDir  = path.join(os.tmpdir(), `nl-bridge-stdio-open-${process.pid}-${Date.now()}`);
-        const logPath = getBridgeStdioLogPath({logPath: logDir});
-        const fd      = ConnectionService.openBridgeLogFile(logPath);
+    test('fails before opening or spawning when the injected log directory is absent', async () => {
+        let opened = false, spawned = false;
+
+        ConnectionService.openBridgeLogFile = () => {
+            opened = true;
+        };
+        ConnectionService.spawnBridgeProcess = () => {
+            spawned = true;
+        };
+
+        await expect(ConnectionService.spawnBridge({
+            logPath       : '',
+            neoRootDir    : '/real-seat',
+            startupDelayMs: 0
+        })).rejects.toThrow(/aiConfig\.logPath/);
+
+        expect(opened).toBe(false);
+        expect(spawned).toBe(false);
+    });
+
+    test('writes Bridge stdio only inside an injected overlay path on a real-dir seat', () => {
+        const
+            seatRoot         = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-bridge-real-seat-')),
+            canonicalLogPath = path.join(seatRoot, '.neo-ai-data', 'logs'),
+            overlayLogDir    = path.join(seatRoot, '.neo-ai-data-overlay', 'logs'),
+            overlayLogPath   = getBridgeStdioLogPath({logPath: overlayLogDir}),
+            fd               = ConnectionService.openBridgeLogFile(overlayLogPath);
 
         fs.closeSync(fd);
 
         try {
-            expect(fs.existsSync(logDir)).toBe(true);
-            expect(fs.existsSync(logPath)).toBe(true);
+            expect(fs.existsSync(overlayLogDir)).toBe(true);
+            expect(fs.existsSync(overlayLogPath)).toBe(true);
+            expect(fs.existsSync(canonicalLogPath)).toBe(false);
         } finally {
-            fs.rmSync(logDir, {recursive: true, force: true});
+            fs.rmSync(seatRoot, {recursive: true, force: true});
         }
     });
 
