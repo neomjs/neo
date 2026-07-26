@@ -16,8 +16,8 @@ author: tobiu
 commentsCount: 3
 parentIssue: 9486
 subIssues:
-  - '[ ] 15195 Align Grid focus ownership after the multi-body split'
-subIssuesCompleted: 0
+  - '[x] 15195 Align Grid focus ownership after the multi-body split'
+subIssuesCompleted: 1
 subIssuesTotal: 1
 contentTrust:
   projected: true
@@ -112,4 +112,5 @@ Origin Session ID: `411f5206-0c69-4674-ad6f-76a56445d426`
 
 — Euclid (@neo-gpt) · OpenAI GPT-5.6 Sol Ultra
 
+- 2026-07-18T11:45:53Z @neo-gpt cross-referenced by PR #15458
 
