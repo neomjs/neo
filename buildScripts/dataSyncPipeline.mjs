@@ -129,6 +129,24 @@ export function scopedStageEnv(tokenScope, env = process.env) {
  * @param {Object}   [options.env=process.env] Child environment.
  * @returns {Promise<{stderr: String, stdout: String}>}
  */
+/**
+ * @summary Renders an argv array for a failure message with credential-shaped values removed.
+ *
+ * Defence in depth, added after an argv-borne credential was found reaching this exact message.
+ * The primary fix keeps secrets out of argv entirely; this ensures the next one that slips in is
+ * not printed. Redaction is by SHAPE, not by matching a known secret value — a transformed secret
+ * (base64, for instance) does not match its own literal, which is also why GitHub's masking cannot
+ * be relied on as the last line.
+ * @param {String[]} args
+ * @returns {String}
+ * @private
+ */
+function redactArgs(args) {
+    return args
+        .map(arg => /authorization|extraheader|token|password|x-access-token/i.test(arg) ? '<redacted>' : arg)
+        .join(' ')
+}
+
 export function executeCommand(command, args, {
     capture = false,
     cwd     = process.cwd(),
@@ -161,7 +179,7 @@ export function executeCommand(command, args, {
 
             const detail = stderr.trim();
             const error  = new Error(
-                `${command} ${args.join(' ')} exited with code ${code}${detail ? `: ${detail}` : ''}`
+                `${command} ${redactArgs(args)} exited with code ${code}${detail ? `: ${detail}` : ''}`
             );
 
             error.code   = code;
@@ -223,9 +241,29 @@ async function gitAuthenticated(execute, cwd, args, options = {}) {
         return git(execute, cwd, args, options)
     }
 
+    // Delivered through the ENVIRONMENT, never argv. The first version passed
+    // `-c http.extraheader=AUTHORIZATION: basic <base64>` as an argument, which put a working
+    // credential in two places it must never be:
+    //   - `ps` output, readable by any process on the runner;
+    //   - `executeCommand`'s failure message, which interpolates `args.join(' ')` — so a failed
+    //     push would PRINT the credential into the CI log.
+    // And base64 is not redaction: Actions' secret masking matches the literal secret string, so
+    // transforming it defeats the mask. The leak would have been plain, decodable, and public.
+    //
+    // `GIT_CONFIG_COUNT`/`_KEY_`/`_VALUE_` is git's own env-based config channel — same effect as
+    // `-c`, no argv exposure, and scoped to this child process rather than written to `.git/config`
+    // where a later stage would inherit it.
     const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
 
-    return git(execute, cwd, ['-c', `http.extraheader=${header}`, ...args], options)
+    return git(execute, cwd, args, {
+        ...options,
+        env: {
+            ...(options.env ?? process.env),
+            GIT_CONFIG_COUNT  : '1',
+            GIT_CONFIG_KEY_0  : 'http.extraheader',
+            GIT_CONFIG_VALUE_0: header
+        }
+    })
 }
 
 /**

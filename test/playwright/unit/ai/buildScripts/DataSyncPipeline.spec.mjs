@@ -397,3 +397,62 @@ test.describe('tokenScope validation fails closed', () => {
         })).resolves.toBeUndefined()
     });
 });
+
+/**
+ * Credential exposure through argv and failure logs.
+ *
+ * An earlier fix moved the Publisher credential OUT of `.git/config` (where `persist-credentials`
+ * had left it for the whole job) and into a `-c http.extraheader=...` argument — which made it
+ * worse in a way config never was: argv is visible in `ps`, and this module interpolates
+ * `args.join(' ')` into its failure message, so a failed push would PRINT a working
+ * ruleset-bypass credential into the CI log.
+ *
+ * Base64 is not redaction. GitHub Actions masks the literal secret string, so a transformed secret
+ * does not match its own mask — the leak would have been plain, decodable and public. Masking
+ * therefore cannot be the last line, which is why redaction here is by SHAPE rather than by
+ * matching a known value.
+ */
+test.describe('credential never reaches argv or failure output', () => {
+    test('a failing command redacts credential-shaped arguments', async () => {
+        const secret = 'ghs_TESTSECRET_should_never_print',
+              header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${secret}`).toString('base64')}`;
+
+        let message = '';
+
+        await executeCommand('git', ['-c', `http.extraheader=${header}`, 'push'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toBeTruthy();
+        expect(message).not.toContain(secret);
+        // The base64 form is the one masking would miss, so it is the one worth asserting on.
+        expect(message).not.toMatch(/basic [A-Za-z0-9+/=]{10,}/);
+        expect(message).toContain('<redacted>')
+    });
+
+    test('redaction keys on shape, so an unknown future secret is covered too', async () => {
+        let message = '';
+
+        await executeCommand('git', ['-c', 'http.extraheader=Authorization: bearer whatever', 'push'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toContain('<redacted>');
+        expect(message).not.toContain('whatever')
+    });
+
+    test('ordinary arguments are still shown — redaction must not blind the diagnostic', async () => {
+        let message = '';
+
+        await executeCommand('git', ['push', 'origin', 'HEAD:dev'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toContain('push');
+        expect(message).toContain('origin');
+        expect(message).not.toContain('<redacted>')
+    });
+});
