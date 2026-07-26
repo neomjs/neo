@@ -61,3 +61,27 @@ services:
     depends_on:
       embedding-server:
         condition: service_healthy
+
+  orchestrator:
+    environment:
+      # Same mock binding as the MCP servers — the orchestrator's SessionService
+      # initializes a generation model at boot, and the CI contract is NO real-model
+      # calls anywhere in the profile, not only on the servers the specs call.
+      NEO_MODEL_PROVIDER: openAiCompatible
+      NEO_EMBEDDING_PROVIDER: openAiCompatible
+      NEO_OPENAI_COMPATIBLE_HOST: http://embedding-server:11434
+      NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: text-embedding-qwen3-embedding-8b
+      NEO_OPENAI_COMPATIBLE_API_KEY: neo-parity-ci-key
+    depends_on:
+      embedding-server:
+        condition: service_healthy
+
+networks:
+  neo-parity-network:
+    # The no-egress contract, enforced at the network layer rather than asserted as
+    # prose: containers on an internal network cannot route to external destinations
+    # at all. Published ports (host-side probes) are ingress and keep working; the
+    # mock endpoint, Chroma, and the servers all resolve in-network. The dev file
+    # keeps its egress-capable bridge for local seats — isolation is a CI concern,
+    # same as the mock wiring.
+    internal: true

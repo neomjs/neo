@@ -175,6 +175,33 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         });
     });
 
+    test('the Tests classifier cannot skip the lane for the booted stack\'s runtime dependencies', async () => {
+        const workflow = readWorkflow('test.yml'),
+              script   = workflow.jobs.changes.steps.find(step => step.id === 'scope').with.script;
+
+        // The lane boots MC, KB, and the orchestrator. A change to any direct runtime
+        // dependency of those processes must trip the witness — a filter that admits
+        // `ai/deploy/**` but skips the services the stack actually runs would be a
+        // completeness claim the dependency graph falsifies.
+        const runtimeDependencies = [
+            'ai/services/memory-core/MemoryService.mjs',
+            'ai/services/knowledge-base/HealthService.mjs',
+            'ai/config.mjs',
+            'ai/ConfigProvider.mjs',
+            'ai/planeConfig.mjs'
+        ];
+
+        for (const file of runtimeDependencies) {
+            const runtime = createRuntime({ eventHead: 'current-head', files: [file] });
+
+            await executeScript(script, runtime);
+
+            expect(Object.fromEntries(runtime.outputs), `${file} must trip the parity lane — the booted stack imports it`).toMatchObject({
+                run_parity: 'true'
+            });
+        }
+    });
+
     test('failed-job reruns recheck the live head before every expensive step', async () => {
         const workflow   = readWorkflow('test.yml'),
               steps      = workflow.jobs.test.steps,

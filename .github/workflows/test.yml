@@ -165,20 +165,19 @@ jobs:
             // Whitelist (#15807): the parity lane is the single-reality witness for the
             // phase-3 stack — it boots ai/deploy/docker-compose.dev.yml (+ the parity-ci
             // overlay) on an overlay planeId and asserts topology + the mock-embedding
-            // contract, FAILING CLOSED when docker is absent (never best-effort). The
-            // filter covers: the deploy surface (compose files, Dockerfile, mocks), the
-            // plane subtree (planeConfig + the config bases declaring PLANE_MEMBER_PATHS),
-            // the MCP server/transport seams, the orchestrator boot walk, the
-            // served-identity probe, and the parity suite itself. Keep this COMPLETE —
-            // a missed path silently skips the witness (false-negative). Non-parity PRs
-            // are unaffected: the suite only runs for these paths.
+            // contract, FAILING CLOSED when docker is absent (never best-effort).
+            //
+            // Completeness source, made explicit per review: the lane boots MC, KB, and
+            // the orchestrator — a runtime whose import closure spans ai/services/**,
+            // ai/mcp/**, ai/daemons/**, and the config chain. Deriving that closure
+            // per-PR would be a second, hand-maintained dependency graph (the exact
+            // drift class this lane exists to kill), and at a measured 2m02s cold the
+            // lane is cheap enough to run on the CONSERVATIVE ROOT instead: all of ai/.
+            // Any ai/ change can affect the booted stack; none may skip the witness.
+            // The suite itself, its config, dep manifests, and this workflow round out
+            // the set. Non-ai paths (src/, learn/, resources/) never trigger it.
             const isParityRelevantPath = file =>
-              file.startsWith('ai/deploy/') ||
-              file === 'ai/planeConfig.mjs' ||
-              file === 'ai/configBase.mjs' ||
-              file.startsWith('ai/mcp/server/') ||
-              file.startsWith('ai/daemons/orchestrator/') ||
-              file === 'ai/scripts/diagnostics/mcpHealthcheck.mjs' ||
+              file.startsWith('ai/') ||
               file.startsWith('test/playwright/integration-parity/') ||
               file === 'test/playwright/playwright.config.integration-parity.mjs' ||
               file === 'package.json' ||

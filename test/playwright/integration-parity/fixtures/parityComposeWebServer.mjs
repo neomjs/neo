@@ -3,15 +3,14 @@ import http               from 'node:http';
 import path               from 'node:path';
 import {fileURLToPath}    from 'node:url';
 
-import {runHealthcheck}   from '../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../..');
 
 // The parity lane boots the phase-3 stack (docker-compose.dev.yml) plus the CI overlay
 // (docker-compose.parity-ci.yml): the dev file carries the plane, the overlay wires the
-// deterministic mock embedding contract. Order matters — later files merge over earlier ones.
+// deterministic mock embedding contract and marks the network internal. Order matters —
+// later files merge over earlier ones.
 const composeFiles = [
     path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
     path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml')
@@ -24,8 +23,15 @@ const projectName = process.env.NEO_PARITY_COMPOSE_PROJECT || 'neo-parity-ci';
 const readyPort   = Number(process.env.NEO_PARITY_READY_PORT || 13095);
 
 const PLANE_DATA_ROOT = '/app/.neo-ai-data-parity';
-const KB_URL          = process.env.NEO_PARITY_KB_URL || 'http://127.0.0.1:3100';
-const MC_URL          = process.env.NEO_PARITY_MC_URL || 'http://127.0.0.1:3101';
+
+// In-container probe targets. The overlay's internal network publishes NO host ports,
+// so there is no host-side endpoint to probe — the identity check rides the network
+// namespace itself (service loopback), where the wrong-process-on-a-host-port class is
+// inexpressible by construction.
+const PROBES = [
+    {service: 'kb-server', url: 'http://127.0.0.1:3000'},
+    {service: 'mc-server', url: 'http://127.0.0.1:3001'}
+];
 
 const state = {
     dockerAvailable: null,
@@ -136,31 +142,32 @@ function readComposeServices() {
 }
 
 /**
- * @summary Served-identity gate: asks BOTH MCP servers to name their plane through the
- * published host ports.
+ * @summary Served-identity gate: asks BOTH MCP servers to name their plane, executed
+ * INSIDE the network by a fresh probe process per service.
  *
- * The in-container healthchecks already assert identity network-namespace-locally; this
- * host-side re-probe is the end-to-end arm. The 8100 ssh collision (the parity profile's
- * own field evidence) proved a listening host port can belong to a foreign process —
- * container-local green is not host-side green. Ports are a property of the host;
- * identity is a property of the process.
+ * The CI overlay's internal network has no host-published ports, so the probe cannot
+ * ride the host — and need not: the container-local arm is the honest one here. A
+ * host-port probe exists to catch a foreign process squatting a published port (the
+ * profile's 8100 ssh-collision lesson), and with no published ports that class is
+ * inexpressible. What remains worth asserting independently — rather than trusting
+ * each container's own healthcheck process — is the same contract from a second
+ * process: `mcpHealthcheck.mjs` with the expected plane id + root, exec'd fresh.
  * @returns {Promise<void>} Resolves only when both servers prove the expected plane.
  */
 async function assertServedIdentity() {
-    await Promise.all([
-        runHealthcheck({
-            url                  : KB_URL,
-            clientName           : 'neo-parity-ci-readiness-kb',
-            expectedPlaneId      : projectName,
-            expectedPlaneDataRoot: PLANE_DATA_ROOT
-        }),
-        runHealthcheck({
-            url                  : MC_URL,
-            clientName           : 'neo-parity-ci-readiness-mc',
-            expectedPlaneId      : projectName,
-            expectedPlaneDataRoot: PLANE_DATA_ROOT
-        })
-    ]);
+    for (const {service, url} of PROBES) {
+        const result = dockerCompose(['exec', '-T', service,
+            'node', 'ai/scripts/diagnostics/mcpHealthcheck.mjs',
+            '--url', url,
+            '--client-name', `neo-parity-ci-readiness-${service}`,
+            '--expected-plane-id', projectName,
+            '--expected-plane-data-root', PLANE_DATA_ROOT
+        ]);
+
+        if (result.status !== 0) {
+            throw new Error(`served-identity probe failed for ${service}: ${(result.stderr || result.stdout || '').trim().slice(-400)}`);
+        }
+    }
 }
 
 async function waitForServices() {

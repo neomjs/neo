@@ -1,14 +1,45 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}  from '@playwright/test';
+import {spawnSync}     from 'node:child_process';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
 
-import {runHealthcheck}                                      from '../../../ai/scripts/diagnostics/mcpHealthcheck.mjs';
-import {callHealthcheck, callJsonTool, createIdentityClient} from '../integration/fixtures/mcpClient.mjs';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const repoRoot   = path.resolve(__dirname, '../../..');
 
-const KB_URL              = process.env.NEO_PARITY_KB_URL || 'http://127.0.0.1:3100';
-const MC_URL              = process.env.NEO_PARITY_MC_URL || 'http://127.0.0.1:3101';
+const KB_INTERNAL_URL     = 'http://127.0.0.1:3000';
+const MC_INTERNAL_URL     = 'http://127.0.0.1:3001';
 const PLANE_ID            = process.env.NEO_PARITY_COMPOSE_PROJECT || 'neo-parity-ci';
 const PLANE_DATA_ROOT     = '/app/.neo-ai-data-parity';
 const CANONICAL_DATA_ROOT = '/app/.neo-ai-data';
 const DEFAULT_READY_URL   = process.env.NEO_PARITY_READY_URL || 'http://127.0.0.1:13095/ready';
+
+/**
+ * @summary Runs a docker compose invocation against the same project + file set the
+ * lane's fixture booted, returning the spawnSync result for assertion.
+ * @param {String[]} args Compose arguments after the project/file flags.
+ * @returns {Object} The spawnSync result ({status, stdout, stderr, error}).
+ */
+function compose(args) {
+    return spawnSync('docker', [
+        'compose', '-p', PLANE_ID,
+        '-f', 'ai/deploy/docker-compose.dev.yml',
+        '-f', 'ai/deploy/docker-compose.parity-ci.yml',
+        ...args
+    ], {cwd: repoRoot, encoding: 'utf8', timeout: 150000});
+}
+
+/**
+ * @summary Executes a node probe inside a running service container. The CI overlay's
+ * internal network publishes no host ports, so network-dependent assertions run where
+ * the network is: inside it.
+ * @param {String} service Compose service name.
+ * @param {String[]} nodeArgs Arguments after `node`.
+ * @returns {Object} The spawnSync result.
+ */
+function execProbe(service, nodeArgs) {
+    return compose(['exec', '-T', service, 'node', ...nodeArgs]);
+}
 
 /**
  * @summary Reads the parity fixture readiness endpoint.
@@ -44,12 +75,22 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
     });
 
     test('served identity: both servers prove the overlay plane, never the durable root', async () => {
-        const [kb, mc] = await Promise.all([
-            runHealthcheck({url: KB_URL, clientName: 'neo-parity-ci-spec-kb', expectedPlaneId: PLANE_ID, expectedPlaneDataRoot: PLANE_DATA_ROOT}),
-            runHealthcheck({url: MC_URL, clientName: 'neo-parity-ci-spec-mc', expectedPlaneId: PLANE_ID, expectedPlaneDataRoot: PLANE_DATA_ROOT})
-        ]);
+        for (const {service, url} of [
+            {service: 'kb-server', url: KB_INTERNAL_URL},
+            {service: 'mc-server', url: MC_INTERNAL_URL}
+        ]) {
+            const probe = execProbe(service, [
+                'ai/scripts/diagnostics/mcpHealthcheck.mjs',
+                '--url', url,
+                '--client-name', `neo-parity-ci-spec-${service}`,
+                '--expected-plane-id', PLANE_ID,
+                '--expected-plane-data-root', PLANE_DATA_ROOT
+            ]);
 
-        for (const served of [kb, mc]) {
+            expect(probe.status, `served-identity probe failed for ${service}: ${(probe.stderr || '').slice(-400)}`).toBe(0);
+
+            const served = JSON.parse(probe.stdout.trim().split('\n').pop());
+
             expect(served.plane.id).toBe(PLANE_ID);
             expect(served.plane.dataRoot).toBe(PLANE_DATA_ROOT);
             // The isolation arm, stated positively: whatever the overlay serves, it is
@@ -59,66 +100,102 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
         }
     });
 
-    test('fail-closed: foreign plane expectations are rejected at the wire', async () => {
-        // The durable-root fail-closed invariant, exercised at the served-identity boundary:
-        // the booted process refuses to masquerade as a different plane — a responder that
-        // cannot prove the expected identity is a failed check, never a pass.
-        await expect(runHealthcheck({
-            url            : MC_URL,
-            clientName     : 'neo-parity-ci-spec-foreign-id',
-            expectedPlaneId: 'neo-canonical-durable-plane'
-        })).rejects.toThrow(/Served plane id/);
+    test('served-identity probe: foreign plane expectations are rejected at the wire', async () => {
+        // The CLIENT-side contract: the probe refuses a responder that cannot prove the
+        // expected identity — the wrong-process arm (the profile's 8100 ssh-collision
+        // lesson). This complements, and does not replace, the server-side boot refusal
+        // asserted two tests below: a probe that never rejects would rubber-stamp a
+        // foreign process even when the boot walk did its job.
+        const foreignId = execProbe('mc-server', [
+            'ai/scripts/diagnostics/mcpHealthcheck.mjs',
+            '--url', MC_INTERNAL_URL,
+            '--client-name', 'neo-parity-ci-spec-foreign-id',
+            '--expected-plane-id', 'neo-canonical-durable-plane'
+        ]);
 
-        await expect(runHealthcheck({
-            url                  : MC_URL,
-            clientName           : 'neo-parity-ci-spec-foreign-root',
-            expectedPlaneId      : PLANE_ID,
-            expectedPlaneDataRoot: CANONICAL_DATA_ROOT
-        })).rejects.toThrow(/dataRoot/);
+        expect(foreignId.status).not.toBe(0);
+        expect(`${foreignId.stdout}\n${foreignId.stderr}`).toMatch(/Served plane id/);
+
+        const foreignRoot = execProbe('mc-server', [
+            'ai/scripts/diagnostics/mcpHealthcheck.mjs',
+            '--url', MC_INTERNAL_URL,
+            '--client-name', 'neo-parity-ci-spec-foreign-root',
+            '--expected-plane-id', PLANE_ID,
+            '--expected-plane-data-root', CANONICAL_DATA_ROOT
+        ]);
+
+        expect(foreignRoot.status).not.toBe(0);
+        expect(`${foreignRoot.stdout}\n${foreignRoot.stderr}`).toMatch(/dataRoot/);
+    });
+
+    test('the durable-root invariant: an overlay that resolves the canonical root is REFUSED at boot', async () => {
+        // The SERVER-side arm (the F-invariant itself): force a non-canonical plane id
+        // (the project-derived NEO_PLANE_ID still holds) onto the canonical data root
+        // and prove the process refuses to serve — `assertPlaneCoherence` fires at the
+        // boot walk, the container exits, and the failure names the collision. A fast
+        // exit is the witness; a hanging server would mean the invariant did not fire.
+        const bad = compose(['run', '--rm', '--no-deps',
+            '-e', `NEO_PLANE_DATA_ROOT=${CANONICAL_DATA_ROOT}`,
+            'kb-server'
+        ]);
+
+        const output = `${bad.stdout}\n${bad.stderr}`;
+
+        expect(bad.error?.code, `boot refusal must be fast — a timeout means the server kept running:\n${output.slice(-2000)}`).not.toBe('ETIMEDOUT');
+        expect(output).toMatch(/resolves the durable root/);
+    });
+
+    test('no egress: external destinations are unreachable from inside the parity network', async () => {
+        // The no-external-network contract, falsified at the network layer: the CI
+        // overlay marks the parity network internal, so an outbound fetch from inside
+        // a running service container cannot resolve/route anywhere. EGRESS-OPEN in
+        // the output would mean the isolation mechanism failed — the mock contract
+        // would no longer be the only model path.
+        const probe = compose(['exec', '-T', 'kb-server', 'node', '-e',
+            `fetch('https://api.github.com', {signal: AbortSignal.timeout(8000)})` +
+            `.then(r => console.log('EGRESS-OPEN', r.status))` +
+            `.catch(() => console.log('EGRESS-BLOCKED'))`
+        ]);
+
+        const output = `${probe.stdout}\n${probe.stderr}`;
+
+        expect(output).toContain('EGRESS-BLOCKED');
+        expect(output).not.toContain('EGRESS-OPEN');
     });
 
     test('mock-embedding contract: deterministic provider, semantic recall end to end', async () => {
-        const [kbHealth, mcHealth] = await Promise.all([
-            callHealthcheck(KB_URL, {clientName: 'neo-parity-ci-spec-kb-health'}),
-            callHealthcheck(MC_URL, {clientName: 'neo-parity-ci-spec-mc-health'})
-        ]);
-
         // The mock wiring, asserted at the served config surface: the active embedding
         // provider is the OpenAI-compatible mock (compose-internal, no real model host,
         // no external network) — never a real-provider fallback.
-        expect(mcHealth.providers.embedding.active).toBe('openAiCompatible');
-        expect(mcHealth.providers.embedding.error).toBeUndefined();
+        const mcProviders = execProbe('mc-server', [
+            'test/playwright/integration-parity/fixtures/parityProbe.mjs', 'providers', MC_INTERNAL_URL
+        ]);
+
+        expect(mcProviders.status, (mcProviders.stderr || '').slice(-400)).toBe(0);
+
+        const mcHealth = JSON.parse(mcProviders.stdout.trim().split('\n').pop());
+
+        expect(mcHealth.embedding.active).toBe('openAiCompatible');
+        expect(mcHealth.embedding.error).toBeUndefined();
+
+        const kbProviders = execProbe('kb-server', [
+            'test/playwright/integration-parity/fixtures/parityProbe.mjs', 'providers', KB_INTERNAL_URL
+        ]);
+
+        expect(kbProviders.status, (kbProviders.stderr || '').slice(-400)).toBe(0);
+
+        const kbHealth = JSON.parse(kbProviders.stdout.trim().split('\n').pop());
+
         expect(kbHealth.features.embedding).toBe(true);
 
         // The end-to-end arm: a memory written through the MCP boundary is embedded by the
         // mock, drained by the in-process WAL loop, and retrievable by semantic recall —
         // the whole embedding path exercised, not just a config value.
-        const token  = `parity-ci-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const client = await createIdentityClient({baseUrl: MC_URL, clientName: 'neo-parity-ci-spec-memory', identity: 'neo-parity-ci-spec'});
+        const recall = execProbe('mc-server', [
+            'test/playwright/integration-parity/fixtures/parityProbe.mjs', 'recall', MC_INTERNAL_URL
+        ]);
 
-        try {
-            await callJsonTool(client, 'add_memory', {
-                prompt  : `Parity CI probe prompt ${token}`,
-                thought : `Parity CI probe thought ${token}`,
-                response: `Parity CI probe response ${token}`
-            });
-
-            let   found    = false;
-            const deadline = Date.now() + 30000;
-
-            while (!found && Date.now() < deadline) {
-                const result = await callJsonTool(client, 'query_raw_memories', {query: token, nResults: 5});
-
-                found = JSON.stringify(result).includes(token);
-
-                if (!found) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-            }
-
-            expect(found, `semantic recall never surfaced the probe memory (token=${token}) — the embedding path (mock provider, WAL drain, chroma write) is broken`).toBe(true);
-        } finally {
-            await client.close();
-        }
+        expect(recall.status, (recall.stderr || '').slice(-600)).toBe(0);
+        expect(recall.stdout).toContain('RECALL-OK');
     });
 });
