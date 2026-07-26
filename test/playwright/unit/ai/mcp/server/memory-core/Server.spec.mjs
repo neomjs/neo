@@ -965,4 +965,43 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             serverInstance.destroy();
         }
     });
+
+    test('the unhealthy-boot tip names the RESOLVED chroma target, never invented fallbacks (#16003)', async () => {
+        const aiConfig              = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
+              logger                = (await import('../../../../../../../ai/mcp/server/memory-core/logger.mjs')).default,
+              {dataDir, host, port} = aiConfig.engines.chroma,
+              serverInstance        = await createServerWithoutBoot(),
+              originalWarn          = logger.warn,
+              lines                 = [];
+
+        logger.warn = message => lines.push(String(message));
+
+        try {
+            // The exact shape the outage produced: server up, chroma process not owned/running.
+            serverInstance.logStartupStatus({
+                status  : 'unhealthy',
+                details : ['Embedding write canary failed'],
+                database: {process: {running: false}}
+            });
+        } finally {
+            logger.warn = originalWarn;
+            serverInstance.destroy();
+        }
+
+        const tip = lines.join('\n');
+
+        // Resolved truth, not guesses: the operator is told where THIS server dials.
+        expect(tip).toContain(`${host}:${port}`);
+        expect(tip).toContain(dataDir);
+        expect(tip).toContain(`--path ${dataDir}`);
+        expect(tip).toContain(`--port ${port}`);
+
+        // The invented fallbacks the predecessor printed — a path this plane never uses.
+        expect(tip).not.toContain('./data/chroma');
+
+        // The bind-family hint is the diagnosis a 127.0.0.1-vs-[::1] outage needs; without it the
+        // tip is silent on the one failure mode where the service is up and the client still fails.
+        expect(tip).toMatch(/IPv6-only|bind family/i);
+        expect(tip).toContain(`lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+    });
 });

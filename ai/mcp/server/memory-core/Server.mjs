@@ -775,8 +775,17 @@ class Server extends BaseServer {
             health.details.forEach(detail => logger.warn(`    ${detail}`));
 
             if (!health.database?.process?.running) {
-                logger.warn('    💡 Tip: Start ChromaDB manually, for example:');
-                logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
+                // Print the RESOLVED target this server actually dials, never invented env fallbacks:
+                // a tip that guesses can send an operator to the wrong path while the real endpoint is
+                // one line away. The bind-family hint is not decoration — a listener bound to `[::1]`
+                // only refuses an IPv4 client (and vice versa), which presents as a dead service to
+                // every `127.0.0.1` probe while `localhost` answers fine.
+                const {dataDir, host, port} = aiConfig.engines.chroma;
+
+                logger.warn(`    💡 Tip: this server expects ChromaDB at ${host}:${port} (persist dir: ${dataDir}).`);
+                logger.warn(`       Start it with: chroma run --path ${dataDir} --port ${port}`);
+                logger.warn(`       Already running? Check the bind family — an IPv6-only listener refuses`);
+                logger.warn(`       an IPv4 client: lsof -nP -iTCP:${port} -sTCP:LISTEN`);
             }
             logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
         } else if (health.status === 'degraded') {
