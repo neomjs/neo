@@ -6,6 +6,7 @@ import {
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
 import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -49,6 +50,24 @@ import {createDrainDispositionTracker}               from '../shared/drainDispos
 export const MAX_RECORD_COOLDOWN_MS = 3600000;
 
 /**
+ * Wall-clock budget after which `embedBatch` admits no further attempt. It removes the attempt-count
+ * multiplier — the pre-bound worst case was a local count times a duration owned by another service —
+ * but it is NOT a ceiling on the call: an attempt already in flight when the budget expires runs to
+ * its own external deadline, so a single batch can still exceed this number.
+ *
+ * **Derivation, not a taste value:** the memory WAL drain polls every `pollIntervalMs` (5s default).
+ * A batch still admitting new attempts two minutes in has already starved ~24 polls of a queue it
+ * shares with every agent's `add_memory`, so the budget sits one order of magnitude above the cadence
+ * it must not monopolise. Healthy batches finish in well under a second and never reach it.
+ *
+ * **Retirement trigger:** `pollIntervalMs` is not currently threaded into `embedBatch`. Once it is,
+ * derive this as a multiple of the live cadence and delete the constant — a derived bound cannot
+ * drift from the loop it protects, whereas this one can.
+ * @type {Number}
+ */
+export const DEFAULT_MAX_IN_CYCLE_MS = 120000;
+
+/**
  * @summary Computes the exponential backoff delay for a retry attempt.
  *
  * `base * 2^attempt`, capped at {@link MAX_RECORD_COOLDOWN_MS}. Pure; shared by the in-cycle
@@ -63,12 +82,71 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
 }
 
 /**
+ * @summary Typed provider error codes meaning "the provider is BUSY", never "the request was bad".
+ *
+ * Both local inference providers stamp a code on their own timeout: the OpenAI-compatible transport
+ * emits `OPENAI_COMPATIBLE_REQUEST_TIMEOUT`, native Ollama owns the shared `PROVIDER_TIMEOUT` shape,
+ * and the socket layer contributes the two `*TIMEDOUT` codes. Keyed on `error.code` rather than on
+ * message text: codes are a provider-owned protocol constant, whereas the message-shaped half of
+ * the classification in `TextEmbeddingService` is coupled to a message THIS module never sees
+ * (that file pins its own log string verbatim precisely because its regex reads it). Duplicating
+ * the coupled half here would split a matched pair across modules; duplicating the codes does not.
+ *
+ * **Both codes are IMPORTED from their single owner** (`ai/provider/createTimeoutError.mjs`), so a
+ * rename at the source is a compile-visible event in this classifier rather than a silent behaviour
+ * change. That matters more here than tidiness: while the value was repeated at the producer and at
+ * each consumer, a coordinated producer-plus-producer-test rename could have left this classifier
+ * and its fixtures green while restoring the exact retry amplification the classifier exists to
+ * prevent. Independently-pinned literals cannot detect coordinated drift; a shared import can.
+ * @type {Set<String>}
+ */
+const PROVIDER_CONTENTION_CODES = Object.freeze(new Set([
+    'ESOCKETTIMEDOUT',
+    'ETIMEDOUT',
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE
+]));
+
+/**
+ * @summary Default contention predicate — is this failure the provider being saturated?
+ * @param {Error} error Failure raised by `collection.add`.
+ * @returns {Boolean}
+ */
+export function isProviderContentionError(error) {
+    return PROVIDER_CONTENTION_CODES.has(error?.code);
+}
+
+/**
  * @summary Embeds one batch of WAL records via `collection.add`, retrying transient failures.
  *
  * Whole-batch first (one round-trip for the common case), with `maxRetries` exponential-backoff
  * attempts for transient outages. If the batch still fails, falls back to per-record adds so a
  * single poison record cannot hold the rest of the backlog hostage — per-record failures are
  * reported back for cross-cycle cooldown bookkeeping rather than retried inline.
+ *
+ * **Contention is not an outage, and the two need opposite responses.** A transient outage resolves
+ * while you wait, so backoff is correct: the cost of the failure is the INTERVAL. Under saturation
+ * the provider is up and its queue IS the failure, so the cost is the ATTEMPT — re-offering the same
+ * batch adds load to the exact queue that caused the timeout, and the per-record pass would then
+ * multiply the offered requests by `records.length` at the worst possible moment. A saturated
+ * provider is not a poison record. So a contention failure returns IMMEDIATELY, skipping both the
+ * retry loop and isolation; the records come back as `failed`, which the caller already spaces out
+ * via the cross-cycle `retryState` cooldown — deferred, never dropped.
+ *
+ * Empirical anchor: one batch consumed ~21 minutes as six 300s attempts against a provider that was
+ * serving the whole time (a 129-deep embedding queue), and only an operator restart cleared it.
+ *
+ * **Local ADMISSION bound — not a total wall-clock bound.** Attempt COUNT is declared here
+ * (`maxRetries`) while attempt DURATION is declared in another service
+ * (`openAiCompatible.batchEmbeddingTimeoutMs`), so the pre-bound worst case was the PRODUCT of two
+ * leaves neither owner could see. `maxInCycleMs` removes the multiplier: once the budget is spent no
+ * NEW attempt is admitted, whether the boundary was crossed by an attempt or by a backoff.
+ *
+ * It deliberately does NOT race an in-flight `collection.add` — abandoning a write that may still
+ * land is how a timeout turns into a duplicate — so **a single call may still run arbitrarily long
+ * as far as this module is concerned**, and the total duration is therefore NOT derivable here.
+ * What is derivable here is the attempt COUNT. State it that way: the product is gone, one external
+ * duration remains, and pretending otherwise would be a comment that outruns its code.
  *
  * @param {Object}   options
  * @param {Object}   options.collection    Content-store collection (`add({ids, metadatas, documents})`).
@@ -77,24 +155,71 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
  * @param {Number}   options.backoffBaseMs Exponential backoff base for in-cycle retries.
  * @param {Function} options.sleep         `ms => Promise` delay primitive (injected for specs).
  * @param {Function} options.log           `(level, message)` sink.
+ * @param {Function} [options.isContentionError=isProviderContentionError] Saturation classifier
+ *     (injected so the pure core stays free of the Neo-class provider module).
+ * @param {Number}   [options.maxInCycleMs=DEFAULT_MAX_IN_CYCLE_MS] Wall-clock budget after which no
+ *     further attempt is admitted; an in-flight attempt still runs to its own external deadline.
+ * @param {Function} [options.now=Date.now] Clock seam (injected for deterministic specs).
  * @returns {Promise<{succeeded: Object[], failed: Array<{record: Object, error: Error}>}>}
  */
-export async function embedBatch({collection, records, maxRetries, backoffBaseMs, sleep, log}) {
+export async function embedBatch({
+    collection,
+    records,
+    maxRetries,
+    backoffBaseMs,
+    sleep,
+    log,
+    isContentionError = isProviderContentionError,
+    maxInCycleMs      = DEFAULT_MAX_IN_CYCLE_MS,
+    now               = Date.now
+}) {
     const payload = {
-        ids      : records.map(record => record.id),
-        metadatas: records.map(record => record.metadata),
-        documents: records.map(record => record.document)
-    };
+            ids      : records.map(record => record.id),
+            metadatas: records.map(record => record.metadata),
+            documents: records.map(record => record.document)
+        },
+        startedAt = now(),
+        budgetSpent = () => Number.isFinite(maxInCycleMs) && maxInCycleMs > 0 && now() - startedAt >= maxInCycleMs;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             await collection.add(payload);
             return {succeeded: [...records], failed: []};
         } catch (error) {
+            if (isContentionError(error)) {
+                // Yield the whole cycle: no in-cycle retry, and no isolation pass either. Both would
+                // re-offer work to the queue that just timed out. `retryState` defers these records
+                // with escalating spacing, so the backlog survives and the provider gets room.
+                log('INFO', `Batch embed hit provider contention (${error.message}) — deferring ` +
+                    `${records.length} record(s) to a later cycle without retry`);
+
+                return {succeeded: [], failed: records.map(record => ({record, error}))};
+            }
+
+            if (budgetSpent()) {
+                // The wall-clock ceiling is spent. Stop before starting anything new — including the
+                // isolation pass, which would otherwise add `records.length` more externally-bounded
+                // attempts to a cycle that has already overrun.
+                log('ERROR', `Batch embed exceeded its ${maxInCycleMs}ms in-cycle budget after ` +
+                    `${attempt + 1} attempt(s) (${error.message}) — deferring ${records.length} record(s)`);
+
+                return {succeeded: [], failed: records.map(record => ({record, error}))};
+            }
+
             if (attempt < maxRetries) {
                 const delay = getBackoffDelayMs(backoffBaseMs, attempt);
                 log('INFO', `Batch embed attempt ${attempt + 1}/${maxRetries + 1} failed (${error.message}) — backing off ${delay}ms`);
                 await sleep(delay);
+
+                // Re-check AFTER the backoff, not only after the failure: the sleep itself can cross
+                // the boundary, and a guard that only runs post-failure would let the next iteration
+                // start an external request from beyond the budget it was meant to bound.
+                if (budgetSpent()) {
+                    log('ERROR', `Batch embed exhausted its ${maxInCycleMs}ms in-cycle budget during backoff after ` +
+                        `${attempt + 1} attempt(s) — deferring ${records.length} record(s)`);
+
+                    return {succeeded: [], failed: records.map(record => ({record, error}))};
+                }
             } else {
                 log('ERROR', `Batch embed exhausted ${maxRetries + 1} attempts (${error.message}) — isolating per record`);
             }
@@ -107,6 +232,13 @@ export async function embedBatch({collection, records, maxRetries, backoffBaseMs
     const failed    = [];
 
     for (const record of records) {
+        if (budgetSpent()) {
+            // Mid-pass exhaustion: the remaining records are deferred rather than attempted, so the
+            // ceiling bounds the isolation pass too and not merely the whole-batch loop.
+            failed.push({record, error: new Error(`in-cycle budget of ${maxInCycleMs}ms exhausted before isolation`)});
+            continue;
+        }
+
         try {
             await collection.add({ids: [record.id], metadatas: [record.metadata], documents: [record.document]});
             succeeded.push(record);

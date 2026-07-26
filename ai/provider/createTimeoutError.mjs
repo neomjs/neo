@@ -21,6 +21,20 @@
 const PROVIDER_TIMEOUT_CODE = 'PROVIDER_TIMEOUT';
 
 /**
+ * The OpenAI-compatible EMBEDDING transport's own timeout code.
+ *
+ * It is deliberately not `PROVIDER_TIMEOUT`: that transport stamps its socket-level `req.on('timeout')`
+ * directly rather than routing through {@link createTimeoutError}, so the two codes are distinct facts
+ * about which layer gave up, and collapsing them would erase that. What matters is that BOTH live
+ * here, because the identity is consumed by parties that never see the producer — a drain-loop
+ * classifier that treats saturation differently from an outage, and its fixtures. While the literal
+ * was repeated at the producer and each consumer, a coordinated rename could keep every test green
+ * while silently restoring the retry amplification the classifier exists to prevent.
+ * @type {String}
+ */
+const OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+
+/**
  * @summary The shared provider-request options contract honored by local providers.
  *
  * @typedef {Object} ProviderTimeoutOptions
@@ -57,4 +71,4 @@ function createTimeoutError({provider, operationLabel, timeoutMs, host, modelNam
     return error;
 }
 
-export {PROVIDER_TIMEOUT_CODE, createTimeoutError};
+export {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE, createTimeoutError};
