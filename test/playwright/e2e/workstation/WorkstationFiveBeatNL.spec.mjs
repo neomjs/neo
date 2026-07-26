@@ -54,8 +54,10 @@ import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeome
 // inside the window; birth is absence-not-slowness when it fails, so a longer gate buys
 // nothing but a worse error.
 const
-    filmTake = Boolean(process.env.NEO_FILM_TAKE),
-    filmPace = filmTake
+    filmTake    = Boolean(process.env.NEO_FILM_TAKE),
+    journeyRuns = filmTake ? 1 : 2,
+    themeDwell  = filmTake ? 3200 : 0,
+    filmPace    = filmTake
         ? {birthAttempts: 240, curve: 0.18, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
         : {};
 
@@ -446,11 +448,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
     }
 
-    test('scene 1 — the room is alive: two runs, identical beat logs, heartbeat never resets', async ({page, neuralLink}, testInfo) => {
+    test('scene 1 — the room is alive: resize and theme preserve continuity', async ({page, neuralLink}, testInfo) => {
         const logs       = [],
               pageErrors = [];
 
-        for (let run = 0; run < 2; run++) {
+        for (let run = 0; run < journeyRuns; run++) {
             const ctx     = await boot({page, neuralLink}),
                   {app}   = ctx,
                   {wsId}  = ctx,
@@ -548,6 +550,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 timeout: 10000
             }).toBe('neo-theme-neo-light');
 
+            // The poll above is the correctness gate. This fixed wait is presentation pacing only:
+            // B-03's light-theme beat must remain readable for at least three seconds on film.
+            themeDwell && await page.waitForTimeout(themeDwell);
+
             await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
 
             await expect.poll(async () =>
@@ -572,13 +578,17 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             logs.push(beatLog);
 
             // zero-residue between takes: a fresh boot must reproduce the identical beat log
-            if (run === 0) {
+            if (run < journeyRuns - 1) {
                 await page.reload()
             }
         }
 
-        // the determinism AC: two scripted runs replay the identical structural beat log
-        expect(logs[1], 'two runs must replay the identical beat log').toEqual(logs[0]);
+        // The normal proof profile retains its two-run equality contract. Film mode records one
+        // presentation pass and therefore never puts the determinism reload seam on camera.
+        if (!filmTake) {
+            expect(logs[1], 'two runs must replay the identical beat log').toEqual(logs[0])
+        }
+
         expect(pageErrors, 'the journey must be error-free').toEqual([])
     });
 
@@ -599,7 +609,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 }]
             };
 
-        for (let run = 0; run < 2; run++) {
+        for (let run = 0; run < journeyRuns; run++) {
             const
                 ctx            = await boot({page, neuralLink}),
                 {app, wsId}    = ctx,
@@ -665,14 +675,17 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             cancelLogs.push(cancelled.beatLog);
             commitLogs.push(committed.beatLog);
 
-            if (run === 0) {
+            if (run < journeyRuns - 1) {
                 await page.reload()
             }
         }
 
-        expect(cancelLogs[1], 'two cancel drives produce identical semantic dwell logs').toEqual(cancelLogs[0]);
-        expect(commitLogs[1], 'two commit drives produce identical semantic dwell logs').toEqual(commitLogs[0]);
-        expect(pageErrorRuns.flat(), 'both live gesture-time error streams stay empty').toEqual([])
+        if (!filmTake) {
+            expect(cancelLogs[1], 'two cancel drives produce identical semantic dwell logs').toEqual(cancelLogs[0]);
+            expect(commitLogs[1], 'two commit drives produce identical semantic dwell logs').toEqual(commitLogs[0])
+        }
+
+        expect(pageErrorRuns.flat(), 'all live gesture-time error streams stay empty').toEqual([])
     });
 
     /**
