@@ -366,3 +366,265 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — rest() authent
         expect(callCount).toBe(1);
     });
 });
+
+/**
+ * Credential resolution order.
+ *
+ * The only source `#getAuthToken` once consulted was `gh auth token`, and **every describe block
+ * above sets `authTokenOverride`** — so the resolution path itself was never exercised. That is how
+ * a CI consumer could depend on an authenticated `gh` CLI unnoticed until scheduled runs failed on
+ * it, reporting a missing credential as advice to run an interactive login CI cannot perform.
+ *
+ * These cover the override and environment branches: override → `GH_TOKEN` → `GITHUB_TOKEN`.
+ *
+ * **Scope limit, stated rather than implied:** the cached-CLI and CLI-shell-out branches are NOT
+ * covered here, so this suite pins the *environment* precedence, not the full resolution order. A
+ * bare `gh auth token` assertion succeeds on a developer machine and fails on CI, which would pin the
+ * environment instead of the code. Covering them needs a deterministic CLI seam.
+ *
+ * Env-before-cache is intentional, but for **cost and staleness**, not isolation: an env read is free
+ * so memoizing it buys nothing while adding a staleness window for long-lived in-process consumers
+ * whose credential is re-pointed between calls. It is *not* justified by `dataSyncPipeline`'s
+ * per-stage scoping — that pipeline spawns a fresh child process per stage, so a singleton cache
+ * cannot cross stages there at all.
+ */
+test.describe('Neo.ai.services.github-workflow.GraphqlService — credential resolution order (#15986)', () => {
+    let GraphqlService;
+    let originalAuthTokenOverride;
+    let originalFetch;
+    let originalGhToken;
+    let originalGithubToken;
+
+    const QUERY = 'query TestQuery { viewer { login } }';
+
+    /**
+     * Stubs `fetch` and captures the Authorization header the service actually sent.
+     * @returns {Object} A holder whose `value` is populated by the next call.
+     */
+    const captureAuthHeader = () => {
+        const seen = {value: null};
+
+        globalThis.fetch = async (url, options) => {
+            seen.value = new Headers(options.headers).get('authorization');
+
+            return new Response(JSON.stringify({data: {viewer: {login: 'neo-opus-grace'}}}), {
+                status : 200,
+                headers: {'content-type': 'application/json'}
+            });
+        };
+
+        return seen
+    };
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalAuthTokenOverride = GraphqlService.authTokenOverride;
+        originalFetch             = globalThis.fetch;
+        originalGhToken           = process.env.GH_TOKEN;
+        originalGithubToken       = process.env.GITHUB_TOKEN;
+
+        GraphqlService.authTokenOverride = null;
+
+        delete process.env.GH_TOKEN;
+        delete process.env.GITHUB_TOKEN;
+    });
+
+    test.afterEach(() => {
+        globalThis.fetch = originalFetch;
+
+        GraphqlService.authTokenOverride = originalAuthTokenOverride;
+
+        if (originalGhToken === undefined) {
+            delete process.env.GH_TOKEN;
+        } else {
+            process.env.GH_TOKEN = originalGhToken;
+        }
+
+        if (originalGithubToken === undefined) {
+            delete process.env.GITHUB_TOKEN;
+        } else {
+            process.env.GITHUB_TOKEN = originalGithubToken;
+        }
+    });
+
+    test('reads GH_TOKEN from the environment when no override is set', async () => {
+        process.env.GH_TOKEN = 'env-gh-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-gh-token');
+    });
+
+    test('falls back to GITHUB_TOKEN when GH_TOKEN is absent', async () => {
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-github-token');
+    });
+
+    test('prefers GH_TOKEN over GITHUB_TOKEN when both are set', async () => {
+        process.env.GH_TOKEN     = 'env-gh-token';
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-gh-token');
+        expect(seen.value).not.toContain('env-github-token');
+    });
+
+    test('an explicit override still outranks the environment', async () => {
+        GraphqlService.authTokenOverride = 'override-token';
+        process.env.GH_TOKEN             = 'env-gh-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('override-token');
+        expect(seen.value).not.toContain('env-gh-token');
+    });
+
+    test('treats a whitespace-only credential as absent rather than sending it', async () => {
+        process.env.GH_TOKEN     = '   ';
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-github-token');
+        expect(seen.value).not.toContain('   ');
+    });
+
+    /**
+     * The no-credential error path, driven through a deterministic `gh` stand-in.
+     *
+     * A `PATH`-prepended stub makes the CLI branch fail on demand without depending on whether the
+     * host has a real `gh` login — the same seam used to red-prove this change, and the reason the
+     * red proof could not simply unset the token: on an authenticated developer machine the real CLI
+     * would have returned a live credential into the assertion diff.
+     *
+     * **Only the failing CLI branch is exercised here, deliberately.** A *successful* CLI call
+     * populates the service's private `#authToken` cache, which has no reset seam, so asserting it
+     * would leave a resolved credential on the singleton and silently change what every later test in
+     * the worker resolves — order-dependent pollution. The failure path caches nothing, so it is
+     * order-independent. Covering the cached and CLI-success branches needs a cache-reset seam on the
+     * service; that is a deliberate API cost and is left unclaimed here rather than smuggled in as a
+     * test-only mutator.
+     */
+    /**
+     * The cache-dependent branches, proven in an ISOLATED CHILD PROCESS.
+     *
+     * These three cannot be asserted in-worker: a successful `gh auth token` populates the service's
+     * private `#authToken`, which has no reset seam, so the credential would leak into every later
+     * test. The seam is a child process, not a production reset API — cache state cannot escape a
+     * process that exits. Lifted from the repository's existing
+     * `spawnSync(process.execPath, ['--input-type=module', '-e', …])` pattern.
+     *
+     * One child proves all three, because the ordering itself is the contract: the `gh` stub emits a
+     * DIFFERENT token per invocation, so a reused cache and a second shell-out are distinguishable.
+     *
+     *   1. call with no env       → CLI resolves, caching `cli-token-1`
+     *   2. call again, no env     → still `cli-token-1` ⇒ the cache was reused (no 2nd shell-out)
+     *   3. set `GH_TOKEN`, call   → `env-token` ⇒ env outranks a POPULATED cache
+     *
+     * Step 3 is the one the in-worker suite structurally cannot reach: every case there starts from
+     * an empty cache, so none of them can prove environment-OVER-cache rather than merely
+     * environment-when-empty.
+     */
+    test('env outranks a populated cache, and the CLI result is cached — proven in an isolated child', async () => {
+        const
+            {spawnSync} = await import('child_process'),
+            fs          = await import('fs'),
+            os          = await import('os'),
+            path        = await import('path'),
+            repoRoot    = path.resolve(import.meta.dirname, '../../../../../..'),
+            shimDir     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-gh-seq-')),
+            counter     = path.join(shimDir, 'n');
+
+        // a `gh` that returns a new token on every invocation, so cache reuse is observable
+        fs.writeFileSync(counter, '0');
+        fs.writeFileSync(path.join(shimDir, 'gh'),
+            `#!/bin/sh\nn=$(cat ${counter})\nn=$((n+1))\necho $n > ${counter}\necho cli-token-$n\n`,
+            {mode: 0o755}
+        );
+
+        const code = `
+            const root = ${JSON.stringify(repoRoot)};
+            await import(root + '/src/Neo.mjs');
+            await import(root + '/src/core/_export.mjs');
+            const {default: GraphqlService} = await import(root + '/ai/services/github-workflow/GraphqlService.mjs');
+
+            const seen = [];
+            globalThis.fetch = async (url, options) => {
+                seen.push(new Headers(options.headers).get('authorization'));
+                return new Response(JSON.stringify({data: {viewer: {login: 'x'}}}), {
+                    status : 200,
+                    headers: {'content-type': 'application/json'}
+                });
+            };
+
+            const QUERY = 'query T { viewer { login } }';
+
+            delete process.env.GH_TOKEN;
+            delete process.env.GITHUB_TOKEN;
+
+            await GraphqlService.query(QUERY);            // 1: CLI resolves + caches
+            await GraphqlService.query(QUERY);            // 2: cache reused?
+            process.env.GH_TOKEN = 'env-token';
+            await GraphqlService.query(QUERY);            // 3: env vs populated cache
+
+            console.log('RESULT ' + JSON.stringify(seen));
+        `;
+
+        const child = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+            cwd     : repoRoot,
+            encoding: 'utf8',
+            env     : {...process.env, PATH: `${shimDir}${path.delimiter}${process.env.PATH}`}
+        });
+
+        try {
+            const line = child.stdout.split('\n').find(l => l.startsWith('RESULT '));
+
+            expect(line, child.stdout + child.stderr).toBeTruthy();
+
+            const [first, second, third] = JSON.parse(line.slice('RESULT '.length));
+
+            expect(first,  'call 1 resolves through the gh CLI').toContain('cli-token-1');
+            expect(second, 'call 2 reuses the cached CLI token instead of shelling out again').toContain('cli-token-1');
+            expect(third,  'call 3 prefers GH_TOKEN over the already-populated cache').toContain('env-token');
+        } finally {
+            fs.rmSync(shimDir, {force: true, recursive: true});
+        }
+    });
+
+    test('names the env vars it looked for when no credential exists anywhere', async () => {
+        const
+            fs           = await import('fs'),
+            os           = await import('os'),
+            path         = await import('path'),
+            shimDir      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-gh-shim-')),
+            originalPath = process.env.PATH;
+
+        fs.writeFileSync(path.join(shimDir, 'gh'), '#!/bin/sh\nexit 1\n', {mode: 0o755});
+
+        process.env.PATH = `${shimDir}${path.delimiter}${originalPath}`;
+
+        try {
+            await expect(GraphqlService.query(QUERY)).rejects.toThrow(/GH_TOKEN.*GITHUB_TOKEN/s);
+        } finally {
+            process.env.PATH = originalPath;
+            fs.rmSync(shimDir, {force: true, recursive: true});
+        }
+    });
+});

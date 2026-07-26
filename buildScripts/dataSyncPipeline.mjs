@@ -430,7 +430,26 @@ export async function emitGeneratedData({
 
     for (const {args, command, label, tokenScope} of emissionCommands) {
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
-        await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})
+
+        try {
+            await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})
+        } catch (error) {
+            // The scope annotation is the only thing that knows which identity this stage was
+            // entitled to; the failing child does not. So a bare child failure reads as "the tool
+            // is broken" when the finding is "this stage was granted `none` and needs a credential".
+            // That misreading has already cost several scheduled runs, because a child's own
+            // missing-auth message can advise an interactive login that CI cannot perform.
+            //
+            // Deliberately NOT a per-stage `requiresCredential` flag: that would be a second
+            // hand-maintained declaration beside `tokenScope`, free to drift from it, with nothing
+            // deriving either from what the stage actually does. Annotating the failure is derived
+            // from observed behaviour and cannot disagree with itself.
+            error.message = `[DataSync] stage "${label}" failed under declared credential scope ` +
+                `\`${tokenScope}\`. If this is an authentication failure, the stage requires a scope ` +
+                `that grants it — never an ambient credential.\n${error.message}`;
+
+            throw error
+        }
     }
 }
 

@@ -406,6 +406,28 @@ test.describe('tokenScope validation fails closed', () => {
             preflight: async () => {}
         })).resolves.toBeUndefined()
     });
+
+    test('a failing stage names the scope it was granted, not just the child error', async () => {
+        // A bare child failure reads as "the tool is broken" when the finding is "this stage was
+        // granted `none` and needs a credential". That misreading cost a nine-day outage: the
+        // child's own missing-auth message advised an interactive login CI cannot perform, so the
+        // declared-scope context is the part that makes the failure diagnosable at all.
+        //
+        // The annotation must therefore carry BOTH the stage label and its declared scope --
+        // asserting only that the original error survives would pass without the annotation.
+        const failure = new Error('child exited with code 1');
+
+        await expect(emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => { throw failure },
+            log      : () => {},
+            preflight: async () => {}
+        })).rejects.toThrow(/stage "install dependencies" failed under declared credential scope `none`/);
+
+        // the child's own message is preserved, not replaced -- the annotation prefixes context
+        expect(failure.message).toContain('child exited with code 1')
+    });
 });
 
 /**
