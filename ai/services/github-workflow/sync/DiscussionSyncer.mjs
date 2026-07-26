@@ -660,12 +660,19 @@ class DiscussionSyncer extends Base {
                 stats.refetched.discussions.push(discussionNumber);
                 logger.debug(`✅ Refetched discussion #${discussionNumber}`);
 
+                // `updatedAt` belongs here too, because this write OVERWRITES the row rather than
+                // patching it. The delta cutoff is computed from this field across cached entries, so a
+                // recovery pass that omitted it would silently strip the high-water mark from every
+                // discussion it repaired — lowering the cutoff, or zeroing it once enough rows lost the
+                // field, and re-paging the whole history again. A recovery path that reintroduces the
+                // defect it recovered from is worse than no recovery path.
                 metadata.discussions[discussionNumber] = {
-                    number  : discussion.number,
-                    closed  : discussion.closed,
-                    closedAt: discussion.closedAt,
+                    number   : discussion.number,
+                    closed   : discussion.closed,
+                    closedAt : discussion.closedAt,
                     contentHash,
-                    path    : this.#relativePath(targetPath)
+                    path     : this.#relativePath(targetPath),
+                    updatedAt: discussion.updatedAt
                 };
 
                 if (indexMutations) {

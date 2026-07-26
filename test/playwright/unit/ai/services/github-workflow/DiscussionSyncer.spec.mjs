@@ -781,7 +781,8 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
                     closed     : false,
                     closedAt   : null,
                     contentHash: 'STALE-HASH',
-                    path       : `resources/content/discussions/chunk-1/discussion-${discussionNumber}.md`
+                    path       : `resources/content/discussions/chunk-1/discussion-${discussionNumber}.md`,
+                    updatedAt  : '2026-03-01T00:00:00Z'
                 }
             }
         };
@@ -815,6 +816,14 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         // Metadata refreshed with the live hash (no longer the stale one) + the resolved path.
         expect(metadata.discussions[discussionNumber].contentHash).not.toBe('STALE-HASH');
         expect(metadata.discussions[discussionNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+
+        // This write OVERWRITES the row, so the high-water field has to be re-emitted or recovery
+        // strips it. The delta cutoff is computed from `updatedAt` across cached entries: a repair pass
+        // that dropped it would lower the cutoff, and once enough rows lost it the cutoff falls to zero
+        // and the whole discussion history is re-paged again. A recovery path must not reintroduce the
+        // defect it recovered from, so this asserts the LIVE value replaced the stale cached one rather
+        // than merely being present.
+        expect(metadata.discussions[discussionNumber].updatedAt).toBe('2026-05-02T00:00:00Z');
     });
 
     test('refetchDiscussionsByNumber skips a discussion that no longer exists on GitHub (#13794)', async () => {
