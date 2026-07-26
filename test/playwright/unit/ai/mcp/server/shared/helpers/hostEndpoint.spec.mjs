@@ -12,8 +12,18 @@ import {formatHostEndpoint} from '../../../../../../../../ai/mcp/server/shared/h
 test.describe('formatHostEndpoint', () => {
     test('brackets a bare IPv6 literal — the naive template produces a malformed authority', () => {
         expect(formatHostEndpoint('::1', 8000)).toBe('[::1]:8000');
-        expect(formatHostEndpoint('fe80::1%eth0', 8000)).toBe('[fe80::1%eth0]:8000');
         expect(formatHostEndpoint('2001:db8::dead:beef', 443)).toBe('[2001:db8::dead:beef]:443');
+    });
+
+    test('a ZONE-SCOPED address is bracketed for display but is NOT a valid URL authority', () => {
+        // Pinning the documented limit rather than asserting support this helper does not provide.
+        // A zone ID cannot appear in a URL authority: Node rejects both the raw and percent-encoded
+        // forms, so bracketing cannot rescue it and a zone-ID parser does not belong in a logging
+        // helper. Bracketing is still the right DISPLAY form, so the output stays readable — the
+        // claim is narrowed, the behaviour is unchanged.
+        expect(formatHostEndpoint('fe80::1%eth0', 8000)).toBe('[fe80::1%eth0]:8000');
+        expect(() => new URL('http://[fe80::1%eth0]:8000')).toThrow();
+        expect(() => new URL('http://[fe80::1%25eth0]:8000')).toThrow();
     });
 
     test('the bracketed form is a parseable URL authority and the bare form is NOT', () => {

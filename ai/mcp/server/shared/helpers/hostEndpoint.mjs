@@ -1,7 +1,8 @@
 /**
  * @module ai/mcp/server/shared/helpers/hostEndpoint
  * @summary Renders a configured host + port as an endpoint string an operator can paste, bracketing
- * bare IPv6 literals so the result stays a valid authority.
+ * bare IPv6 literals so the result stays a valid authority for DNS, IPv4, and unscoped IPv6 hosts
+ * (zone-scoped addresses are bracketed for display only — see the scope limit below).
  *
  * A naive `${host}:${port}` template is correct for DNS names and IPv4 but produces a **malformed**
  * endpoint for an IPv6 literal: `::1` + `8000` yields `::1:8000`, which `new URL('http://::1:8000')`
@@ -19,6 +20,15 @@
  * cannot be a DNS name or IPv4 address, so it is an IPv6 literal. An already-bracketed host is
  * passed through untouched, so the function is idempotent and safe to apply to config that may
  * already carry brackets.
+ *
+ * ## Scope, stated as a limit rather than left implied
+ *
+ * The output is a valid URL authority for **DNS names, IPv4, and unscoped IPv6 literals**. It is
+ * deliberately NOT one for a **zone-scoped** address: `fe80::1%eth0` cannot appear in a URL
+ * authority at all, and Node rejects both the raw and the percent-encoded form, so bracketing cannot
+ * rescue it. Such a host is still bracketed — that is the conventional display form and keeps the log
+ * line readable — but the result is for human eyes, not for `new URL`. Teaching this helper to encode
+ * zone IDs would put an address parser inside a logging path, which is the wrong home for it.
  */
 
 /**
