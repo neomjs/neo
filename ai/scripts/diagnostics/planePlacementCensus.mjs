@@ -26,6 +26,11 @@ import * as acorn      from 'acorn';
  * acorn's `onComment` ranges — this is not a nicety: a naive line match counted doc-comment *mentions*
  * of plane paths as code paths and inflated the count by roughly 20% (61 → 52 at first measurement).
  *
+ * "Resolves a plane path" is defined by the **config contract**, not by this file: the member set is read
+ * from the declaring configs' `PLANE_MEMBER_PATHS` (`readDeclaredPlaneMembers`). The census holds no
+ * opinion about what a plane member *is* — only about which modules reference one. Its predecessor did
+ * hold one, a `*Path`/`*Dir` name shape, and it was wrong in both directions at once.
+ *
  * The split that actually prices the branch is **host-side runners** (scripts, daemons, buildScripts —
  * invoked directly on the host) versus **in-server modules** (services and MCP servers, loaded inside a
  * server process). On macOS a named volume is VM-interior and host-invisible, so a host-side runner needs
@@ -89,24 +94,154 @@ export const PLANE_DIR_NAME = '.neo-ai-data';
 export const OPENER_SEARCH_TREES = ['ai', 'buildScripts', 'src', 'apps'];
 
 /**
- * Matches an expression that resolves a plane path.
+ * The config modules that DECLARE plane membership, each exporting a frozen `PLANE_MEMBER_PATHS`.
  *
- * Three shapes, because the plane is reached three ways and an earlier version saw only the first:
- *   1. `storagePaths.<leaf>` — the DB-path subtree.
- *   2. A `*Path` / `*Dir` leaf read off the config singleton (`AiConfig.backupPath`, `aiConfig.logPath`,
- *      `…wakeDaemonHeartbeatAlivePath`, `…hierarchyPath`, …). `configBase.mjs` declares a whole family of
- *      these and matching only `storagePaths` silently dropped every module that reached the plane through
- *      another one — the miss @neo-gpt-emmy found on `SwarmHeartbeatService`.
- *   3. A literal `.neo-ai-data` / `NEO_AI_DATA` / `aiDataRoot` reference.
+ * All three, not just Tier 1: the two MCP server configs declare their own members (`memoryWal.*`,
+ * `remRunStateDir`, `hookProjectionRoot`, …) and a census reading only the Tier-1 list is blind to every
+ * module that reaches the plane through a server config — which is what left both WAL daemons uncounted.
+ * @type {String[]}
+ */
+export const PLANE_MEMBER_CONFIGS = [
+    'ai/configBase.mjs',
+    'ai/mcp/server/memory-core/configBase.mjs',
+    'ai/mcp/server/knowledge-base/configBase.mjs'
+];
+
+/**
+ * Reads the declared plane-member paths out of the config modules, by STATIC PARSE — never by import.
  *
- * This is a SHAPE proxy for the config contract, not the contract itself: it recognises the *form* of a
- * config plane-path read without importing the singleton into a diagnostic. A leaf whose name does not end
- * in `Path`/`Dir` would still be missed — the durable fix is to reconcile against the config module's
- * declared plane-member set rather than a name shape, and this JSDoc states that limit rather than
- * implying completeness.
+ * The import is not merely heavy, it does not work: every config module ends in `Neo.setupClass(...)`, so
+ * `import('ai/configBase.mjs')` outside a Neo entrypoint throws `Neo is not defined`. A named import does
+ * not help — the module body still evaluates. `derivePlaneMemberPaths` (`ai/planeConfig.mjs`) is pure and
+ * Neo-free, but its INPUT is `ConfigBase.config.data`, which only exists after that boot; a pure function
+ * whose argument is unobtainable here is a covering clause, not a usable one.
+ *
+ * So this reads the declared list instead of re-deriving it, and the list is not trusted on faith:
+ * `planeConfig.spec.mjs` asserts `derivePlaneMemberPaths(...)` EQUALS `PLANE_MEMBER_PATHS` for all three
+ * configs, and `derivePlaneMemberPaths` itself throws on a plane-anchored leaf with no membership
+ * decision. Declared, derived, and anchored therefore cannot drift apart without a red spec — which is
+ * what lets a diagnostic that stays node-builtins + acorn still read the real contract.
+ *
+ * FAILS LOUD by design. A missing export or a non-literal array yields no members, and a census whose
+ * member set silently empties would report a plausible, much smaller total — the failure mode a
+ * measurement instrument must never have.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.projectRoot=PROJECT_ROOT] Repo root.
+ * @param {String[]} [options.configs=PLANE_MEMBER_CONFIGS] Declaring config modules, repo-relative.
+ * @returns {String[]} Sorted union of every declared member path (dotted, relative to each config's data).
+ */
+export function readDeclaredPlaneMembers({projectRoot = PROJECT_ROOT, configs = PLANE_MEMBER_CONFIGS} = {}) {
+    const members = new Set();
+
+    for (const file of configs) {
+        const source = fs.readFileSync(path.join(projectRoot, file), 'utf8'),
+              ast    = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
+
+        let found = false;
+
+        for (const node of ast.body) {
+            if (node.type !== 'ExportNamedDeclaration' || node.declaration?.type !== 'VariableDeclaration') {
+                continue
+            }
+
+            for (const declarator of node.declaration.declarations) {
+                if (declarator.id.name !== 'PLANE_MEMBER_PATHS') {
+                    continue
+                }
+
+                // `Object.freeze([...])` — unwrap to the array literal it froze.
+                const init = declarator.init?.type === 'CallExpression' ? declarator.init.arguments[0] : declarator.init;
+
+                if (init?.type !== 'ArrayExpression') {
+                    throw new Error(`planePlacementCensus: ${file} exports PLANE_MEMBER_PATHS as a non-literal — the census reads it statically and cannot evaluate it.`);
+                }
+
+                for (const element of init.elements) {
+                    if (element?.type !== 'Literal' || typeof element.value !== 'string') {
+                        throw new Error(`planePlacementCensus: ${file} has a non-string-literal PLANE_MEMBER_PATHS entry — a member the census cannot read is a member it would silently drop.`);
+                    }
+
+                    members.add(element.value);
+                }
+
+                found = true;
+            }
+        }
+
+        if (!found) {
+            throw new Error(`planePlacementCensus: ${file} exports no PLANE_MEMBER_PATHS — the census reconciles against the declared contract and must not fall back to guessing.`);
+        }
+    }
+
+    return [...members].sort()
+}
+
+/**
+ * Builds the plane-path matcher from a declared member set.
+ *
+ * Three shapes, because the plane is reached three ways:
+ *   1. `storagePaths.<leaf>` — the memory-core DB-path subtree. Kept as a literal branch on purpose: its
+ *      `graphProd` leaf declares `planeMember: false` whose own reason states the decision is OPEN rather
+ *      than settled, so it is absent from the derived set while the graph SQLite is still, factually, the
+ *      plane's core artifact under the plane root. Dropping it would un-count ~10 graph consumers on the
+ *      strength of a placeholder. Retirement trigger: when that membership is decided, this branch either
+ *      becomes redundant (member) or is deleted with the leaf (non-member) — read the leaf's
+ *      `planeMemberReason` for the ticket that owns it.
+ *      ticket-ref-ok: none cited — the reason string on the leaf is the live pointer, so this branch's
+ *      sunset condition cannot rot when that ticket closes or is renamed.
+ *   2. A DECLARED member path read through a config object — `AiConfig.fleet.instanceRoot`,
+ *      `memoryCoreConfig.memoryWal.daemonDataDir`, `loggerConfig.logPath`. The leaf set comes from the
+ *      contract; only the *carrier* is matched by shape, and it is any identifier ending `Config`/`config`
+ *      rather than `AiConfig` alone — the WAL daemons and the shared logger read theirs under other names.
+ *   3. A literal `.neo-ai-data` / `NEO_AI_DATA` / `aiDataRoot` reference — a module resolving the plane
+ *      ROOT directly rather than through a leaf, which is a different signal and stays.
+ *
+ * **What replaced what, and why it moved the numbers in BOTH directions.** The previous branch 2 was
+ * `\b[Aa]iConfig\.[A-Za-z]*(?:Path|Dir)\b` — a name-shape proxy. It was wrong twice over, and only the
+ * first was anticipated:
+ * - **False negatives.** `[A-Za-z]*` cannot cross a dot and the name had to end `Path`/`Dir`, so declared
+ *   members like `fleet.instanceRoot`, `memoryWal.daemonDataDir`, `orchestrator.dataDir` and
+ *   `hookProjectionRoot` were invisible. Six modules opened the plane uncounted — four of them daemons,
+ *   including BOTH WAL daemons, in the host-side bucket the election is priced on.
+ * - **False positives, the larger error.** The shape also matched leaves that merely END in `Path`/`Dir`
+ *   and resolve into the REPO, not the plane: `neoRootDir` (the repo root), `hierarchyPath`
+ *   (`docs/output/class-hierarchy.json`), `handoffFilePath` (`resources/content/…`). Fourteen modules —
+ *   eleven of them knowledge-base sources reading `aiConfig.neoRootDir` — were counted as plane openers
+ *   while touching nothing a volume decision affects.
+ *
+ * The over-count direction the module documents elsewhere (co-occurrence, not data flow) is unchanged and
+ * still deliberate; this removes a class of match that was not over-counting but simply measuring the
+ * wrong tree.
+ *
+ * @param {String[]} memberPaths Declared member paths, dotted.
+ * @returns {RegExp}
+ */
+export function buildPlanePathSource(memberPaths) {
+    if (!Array.isArray(memberPaths) || memberPaths.length === 0) {
+        throw new Error('planePlacementCensus.buildPlanePathSource: refusing to build a matcher from an empty member set — it would silently report a plausible, much smaller census.');
+    }
+
+    // Escape EVERY regex metacharacter, not just the dot separator. `$` is legal in a JS identifier, so a
+    // leaf named `$foo` is a real declaration — and left unescaped it becomes an end-anchor, producing a
+    // matcher that silently stops matching the very member it was built from. A silent false negative is
+    // precisely the class this census exists to remove, so it must not be reintroduced by its own builder.
+    // A metacharacter that instead makes the pattern invalid throws in the RegExp constructor, which is the
+    // acceptable half of this failure; the silent half is not.
+    const declared = memberPaths.map(member => member.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+
+    return new RegExp(`storagePaths\\.|\\b[A-Za-z0-9_$]*[Cc]onfig\\.(?:${declared})\\b|\\.neo-ai-data|NEO_AI_DATA|aiDataRoot`)
+}
+
+/**
+ * Matches an expression that resolves a plane path, reconciled against the declared config contract.
+ *
+ * Built at module scope so the census reads the contract as it stands in the checkout being measured: add a
+ * plane member to any of the three configs and it is counted with no census edit, remove one and it stops
+ * being counted. See `buildPlanePathSource` for the three branches and what the name-shape proxy got wrong.
  * @type {RegExp}
  */
-export const PLANE_PATH_SOURCE = /storagePaths\.|\b[Aa]iConfig\.[A-Za-z]*(?:Path|Dir)\b|\.neo-ai-data|NEO_AI_DATA|aiDataRoot/;
+export const PLANE_PATH_SOURCE = buildPlanePathSource(readDeclaredPlaneMembers());
 
 /**
  * Matches a filesystem operation. Deliberately broad: the axis is "does this module open the plane",
