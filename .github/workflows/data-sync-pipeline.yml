@@ -59,10 +59,10 @@ jobs:
       # repository, so it has no installation on the DevIndex intake repos — absent, not merely
       # underprivileged.
       #
-      # It deliberately does NOT say the Publisher can bypass this repository's branch rulesets.
-      # That was asserted here and is not true: the ruleset bypass list is a repository setting and
-      # was verified empty, so no identity holds it and a fresh generated commit is rejected
-      # regardless of who pushes. See the note on the checkout token below.
+      # It deliberately does NOT describe the Publisher as a ruleset-bypass identity. Whether a bypass
+      # exists is repository configuration this workflow cannot set and an admin can change at any time,
+      # so stating it here as a property of the credential is wrong the moment the ruleset is edited —
+      # in either direction. See the checkout note below for how to read it.
       - name: Mint Publisher installation token
         id: publisher-token
         uses: actions/create-github-app-token@v3
@@ -117,12 +117,19 @@ jobs:
           # The publish push runs through the checkout credential, so it must be the Publisher
           # identity.
           #
-          # NOT a claim that it can bypass the branch rulesets: those are repository configuration,
-          # and a bypass only exists if the ruleset's own bypass list names this App. Verified empty at
-          # the time of writing, which is why a fresh generated commit — having no code-scanning result
-          # yet, since only a push can produce one — is rejected with `GH013` no matter which identity
-          # pushes it. Publishing therefore depends on a repository-settings grant this workflow cannot
-          # make for itself, and describing the identity as already permitted hid that dependency.
+          # Publishing ALSO depends on a branch-ruleset bypass, and that is repository configuration
+          # this workflow cannot grant itself. `code scanning merge protection` requires a code-scanning
+          # result, which a fresh generated commit cannot have — only a push produces one — so without a
+          # bypass every publish is rejected with `GH013` regardless of which identity pushes. The
+          # invariant is that the bypass exists only while the ruleset's own bypass list names this App;
+          # this comment does not record whether it currently does, because that value is not ours.
+          #
+          # Verifying it needs the right instrument. The REST rulesets endpoint OMITS `bypass_actors`
+          # entirely for App-type entries — the key is ABSENT, not empty — so a reader with a `[]`
+          # default reports "nothing can bypass" whatever the truth is. Use GraphQL
+          # `ruleset(databaseId:…).bypassActors.totalCount`, whose `nodes` are permission-shielded to
+          # null while the count stays readable. A comment here cannot be the source of truth for a
+          # setting an admin can change, so this names where to look rather than what it currently says.
           token: ${{ steps.publisher-token.outputs.token }}
 
       - name: Setup Node.js

@@ -116,10 +116,18 @@ const
  * Passing `process.env` wholesale — as this runner did — handed every stage whichever token happened
  * to be set, so the repository-write identity was in scope during arbitrary data collection.
  *
- * PUBLISHER is described by what it holds (`contents: write`) rather than as a ruleset-bypass
- * identity. It was documented that way here and it is not true: a branch-ruleset bypass exists only
- * if the ruleset's own bypass list names the App, and that list was verified empty. Naming a
- * capability the credential does not have made a repository-settings dependency look satisfied.
+ * PUBLISHER is described by what it holds (`contents: write`) and never by a branch-ruleset bypass.
+ * The invariant, which does not go stale: **a bypass exists only while the ruleset's own bypass list
+ * names the App.** That list is REPOSITORY CONFIGURATION this workflow cannot grant itself and an admin
+ * can change at any time, so any comment stating its value — in either direction — is wrong as soon as
+ * it is edited. Publishing a fresh generated commit depends on that grant, because `code scanning merge
+ * protection` requires a code-scanning result the commit cannot have until it is pushed.
+ *
+ * Read it, do not assume it, and use the right instrument: the REST rulesets endpoint OMITS
+ * `bypass_actors` entirely for App-type entries — the key is absent, not empty — so a reader with a `[]`
+ * default reports "nothing can bypass" whatever the truth is. GraphQL
+ * `ruleset(databaseId:…).bypassActors.totalCount` is the surviving probe; its `nodes` are
+ * permission-shielded to null while the count stays readable.
  *
  * READER is the narrowest of the three and is not an App at all. It exists because neither App can
  * read this repository's labels: INTAKE has no installation here, and PUBLISHER holds `contents`
