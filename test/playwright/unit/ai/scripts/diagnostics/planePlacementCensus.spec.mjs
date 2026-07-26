@@ -33,6 +33,7 @@ test.describe('planePlacementCensus — the classification rules the election is
     let stripComments, auditSeatContainment, censusPlaneOpeners, PLANE_DIR_NAME;
     let attributeWalSegment, normalizeSeatIdentity, resolveLatestWalSegment, WAL_DIR_NAME;
     let listCensusFiles, PLANE_PATH_SOURCE, CENSUS_SELF_PATH;
+    let readDeclaredPlaneMembers, buildPlanePathSource, PLANE_MEMBER_CONFIGS;
     let workRoot;
 
     test.beforeAll(async () => {
@@ -47,7 +48,10 @@ test.describe('planePlacementCensus — the classification rules the election is
             PLANE_PATH_SOURCE,
             CENSUS_SELF_PATH,
             PLANE_DIR_NAME,
-            WAL_DIR_NAME
+            WAL_DIR_NAME,
+            readDeclaredPlaneMembers,
+            buildPlanePathSource,
+            PLANE_MEMBER_CONFIGS
         } = await import('../../../../../../ai/scripts/diagnostics/planePlacementCensus.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `plane-census-${process.pid}-${Date.now()}`);
@@ -140,18 +144,126 @@ test.describe('planePlacementCensus — the classification rules the election is
         expect(listCensusFiles()).not.toContain(CENSUS_SELF_PATH);
     });
 
-    test('PLANE_PATH_SOURCE recognises the whole *Path/*Dir config-leaf family, not just storagePaths', () => {
-        // The miss @neo-gpt-emmy found: SwarmHeartbeatService reads AiConfig.wakeDaemonHeartbeatAlivePath, a
-        // plane leaf that is not `storagePaths`, and was silently dropped.
-        expect(PLANE_PATH_SOURCE.test('AiConfig.wakeDaemonHeartbeatAlivePath')).toBe(true);
-        expect(PLANE_PATH_SOURCE.test('aiConfig.backupPath')).toBe(true);
-        expect(PLANE_PATH_SOURCE.test('AiConfig.hierarchyPath')).toBe(true);
-        expect(PLANE_PATH_SOURCE.test('aiConfig.socketDir')).toBe(true);
-        // Still matches the original shapes.
+    // ───────── the matcher reconciles against the declared contract, not a name shape ─────────
+
+    test('EVERY declared plane member matches when read through a config carrier', () => {
+        // The invariant, asserted over the whole live set rather than a pinned example: a member that
+        // stops matching is a module the census stops counting, and the election is priced on that count.
+        const members = readDeclaredPlaneMembers();
+
+        expect(members.length).toBeGreaterThan(0);
+
+        for (const member of members) {
+            expect(PLANE_PATH_SOURCE.test(`AiConfig.${member}`), `declared member "${member}" must match`).toBe(true);
+        }
+    });
+
+    test('the declared set CONTAINS members no Path/Dir name shape could reach — the false negatives', () => {
+        // Why the proxy had to go, proven from the contract instead of from an example that can be edited
+        // away: members exist whose name does not end Path/Dir, or that sit behind a dotted trail the old
+        // `[A-Za-z]*` could not cross. `fleet.instanceRoot` and `memoryWal.daemonDataDir` are both.
+        const members   = readDeclaredPlaneMembers(),
+              nameShape = /^[A-Za-z]*(?:Path|Dir)$/;
+
+        expect(members.some(member => !nameShape.test(member))).toBe(true);
+
+        // And the proxy itself, reconstructed, misses them — so this is the old behaviour, not a guess.
+        const proxy = /\b[Aa]iConfig\.[A-Za-z]*(?:Path|Dir)\b/;
+
+        expect(members.some(member => !proxy.test(`AiConfig.${member}`))).toBe(true);
+    });
+
+    test('a *Path/*Dir leaf that is NOT a declared member is not a plane reference — the false positives', () => {
+        // The larger half of the defect, and the one the ticket did not predict: `neoRootDir` is the REPO
+        // root and `hierarchyPath` is `docs/output/class-hierarchy.json`. Both merely END in Dir/Path, and
+        // the shape proxy counted every module reading them — eleven knowledge-base sources among them —
+        // as plane openers, pricing a volume decision on files a volume decision does not touch.
+        const members = readDeclaredPlaneMembers();
+
+        // Guarded, so a future membership change reports WHY this flipped instead of just going red.
+        expect(members).not.toContain('neoRootDir');
+        expect(members).not.toContain('hierarchyPath');
+
+        expect(PLANE_PATH_SOURCE.test('aiConfig.neoRootDir')).toBe(false);
+        expect(PLANE_PATH_SOURCE.test('AiConfig.hierarchyPath')).toBe(false);
+        expect(PLANE_PATH_SOURCE.test('AiConfig.vectorDimension')).toBe(false);
+    });
+
+    test('the carrier is any *Config identifier, not AiConfig alone', () => {
+        // Both WAL daemons read `memoryCoreConfig.*` and the shared logger reads `loggerConfig.logPath`.
+        // Requiring the AiConfig spelling left all three uncounted while they opened the plane.
+        const source = buildPlanePathSource(['memoryWal.daemonDataDir', 'logPath']);
+
+        expect(source.test('memoryCoreConfig.memoryWal.daemonDataDir')).toBe(true);
+        expect(source.test('loggerConfig.logPath')).toBe(true);
+        expect(source.test('this.aiConfig.logPath')).toBe(true);
+        // The carrier still has to BE a config — a same-named property on anything else is not a plane read.
+        expect(source.test('options.logPath')).toBe(false);
+        expect(source.test('this.logPath')).toBe(false);
+    });
+
+    test('a member carrying a regex metacharacter is matched LITERALLY, not interpreted', () => {
+        // CodeQL's catch on this PR, and it is not hypothetical: `$` is legal in a JS identifier, so a leaf
+        // named `$foo` is a real declaration. Escaping only the dot separator left `$` as an end-anchor, and
+        // the matcher then silently stopped matching the member it had just been built from — the exact
+        // silent-false-negative class this census exists to remove, reintroduced by its own builder.
+        const source = buildPlanePathSource(['fleet.$instanceRoot', 'plain.leaf']);
+
+        expect(source.test('AiConfig.fleet.$instanceRoot')).toBe(true);
+        expect(source.test('AiConfig.plain.leaf')).toBe(true);
+        // The dot is still a separator, never a wildcard — `plainXleaf` is a different identifier.
+        expect(source.test('AiConfig.plainXleaf')).toBe(false);
+    });
+
+    test('reconciliation is BIDIRECTIONAL — a member removed from the contract stops being counted', () => {
+        // The half a purely additive fix would miss: the matcher is BUILT from the set, so shrinking the
+        // set shrinks the matcher. Asserted on a fixture, because asserting it on the live contract would
+        // require removing a real member to prove it.
+        const before = buildPlanePathSource(['alpha.one', 'beta.two']),
+              after  = buildPlanePathSource(['alpha.one']);
+
+        expect(before.test('AiConfig.beta.two')).toBe(true);
+        expect(after.test('AiConfig.beta.two')).toBe(false);
+        expect(after.test('AiConfig.alpha.one')).toBe(true);
+    });
+
+    test('the root-reference and storagePaths branches survive — they are a different signal', () => {
+        // `.neo-ai-data` detects a module resolving the plane ROOT directly rather than through a leaf.
+        // `storagePaths.` stays literal because `graphProd` declares planeMember:false with a reason that
+        // says the decision is still OPEN, while the graph SQLite is the plane's core artifact — dropping
+        // it would un-count ~10 graph consumers on the strength of a placeholder.
         expect(PLANE_PATH_SOURCE.test('config.storagePaths.graph')).toBe(true);
         expect(PLANE_PATH_SOURCE.test("'.neo-ai-data/sqlite'")).toBe(true);
-        // A non-path config read is NOT a plane reference.
-        expect(PLANE_PATH_SOURCE.test('AiConfig.vectorDimension')).toBe(false);
+        expect(PLANE_PATH_SOURCE.test('NEO_AI_DATA')).toBe(true);
+        expect(PLANE_PATH_SOURCE.test('aiDataRoot')).toBe(true);
+    });
+
+    test('the member set is read from ALL declaring configs, not Tier 1 alone', () => {
+        // Reading only `ai/configBase.mjs` is how both WAL daemons stayed invisible: their members are
+        // declared by the memory-core server config.
+        const all   = readDeclaredPlaneMembers(),
+              tier1 = readDeclaredPlaneMembers({configs: ['ai/configBase.mjs']});
+
+        expect(PLANE_MEMBER_CONFIGS.length).toBeGreaterThan(1);
+        expect(all.length).toBeGreaterThan(tier1.length);
+        expect(all).toEqual([...all].sort());
+        // Union, not concatenation — `logPath` is declared by two configs.
+        expect(new Set(all).size).toBe(all.length);
+    });
+
+    test('a config that stops declaring its members FAILS LOUD rather than shrinking the census', () => {
+        // The failure mode a measurement instrument must not have: an empty member set still produces a
+        // perfectly plausible, much smaller total that no reviewer would question.
+        const bare = path.join(workRoot, 'bare-config');
+
+        fs.mkdirSync(path.join(bare, 'ai'), {recursive: true});
+        fs.writeFileSync(path.join(bare, 'ai', 'configBase.mjs'), 'export const SOMETHING_ELSE = 1;\n');
+
+        expect(() => readDeclaredPlaneMembers({projectRoot: bare, configs: ['ai/configBase.mjs']}))
+            .toThrow(/exports no PLANE_MEMBER_PATHS/);
+
+        // And a matcher can never be built from nothing, whatever produced the empty set.
+        expect(() => buildPlanePathSource([])).toThrow(/empty member set/);
     });
 
     test('a symlink that is BOTH escaping AND dangling reports both, not just dangling', async () => {
