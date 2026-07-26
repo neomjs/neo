@@ -13,6 +13,7 @@ import {
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
     gitAuthenticated,
+    rawCredentialNames,
     runDataSyncPipeline,
     scopedStageEnv
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
@@ -274,7 +275,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
 
         // The credential must not survive in `.git/config`: with the checkout default, stripping a
         // stage's ENV isolates nothing at the git layer, and any collection stage could push as the
-        // ruleset-bypass identity.
+        // repository-write identity.
         expect(workflow).toContain('persist-credentials: false');
 
         // The job's IMPLICIT token must not carry write. It is not merely unused: an action can
@@ -296,8 +297,8 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
  *
  * The pipeline carries two identities with different authority: an INTAKE credential that may read
  * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may write
- * this repository and bypass the code-scanning ruleset. The runner previously handed `process.env`
- * to every stage, so the ruleset-bypass identity was in scope during arbitrary data collection.
+ * CONTENTS to this repository. The runner previously handed `process.env`
+ * to every stage, so the repository-write identity was in scope during arbitrary data collection.
  *
  * Every assertion below checks by VALUE across the whole environment rather than by reading one key.
  * That distinction is not stylistic: the first implementation stripped `GH_TOKEN`/`GITHUB_TOKEN` and
@@ -310,7 +311,8 @@ test.describe('emission-stage credential scoping', () => {
         GH_TOKEN                 : 'ambient-gh',
         GITHUB_TOKEN             : 'ambient-default',
         DATA_SYNC_INTAKE_TOKEN   : 'INTAKE-secret',
-        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret'
+        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret',
+        DATA_SYNC_READER_TOKEN   : 'READER-secret'
     };
 
     const values = env => Object.values(env);
@@ -337,11 +339,33 @@ test.describe('emission-stage credential scoping', () => {
         expect(env.GH_TOKEN).toBeUndefined();
         expect(values(env)).not.toContain('ambient-default');
         expect(values(env)).not.toContain('INTAKE-secret');
-        expect(values(env)).not.toContain('PUBLISHER-secret')
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        // The reader source joins the strip set by DERIVATION, not by a second hand-maintained list.
+        // A scope whose source is added to the vocabulary but forgotten in the strip list leaks
+        // silently into every other stage — the exact failure the publisher variable had first time.
+        expect(values(env)).not.toContain('READER-secret')
+    });
+
+    test('a reader stage sees ONLY the reader credential — neither App token reaches it', () => {
+        const env = scopedStageEnv('reader', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('READER-secret');
+        expect(env.GH_TOKEN).toBe('READER-secret');
+        expect(values(env)).not.toContain('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('an intake or publisher stage cannot see the reader credential either', () => {
+        // The grant is read-only, which makes it the easiest one to be careless with. It is still a
+        // credential, and a stage granted a DIFFERENT identity must not find it lying around.
+        for (const scope of ['intake', 'publisher']) {
+            expect(values(scopedStageEnv(scope, parentEnv)), scope).not.toContain('READER-secret')
+        }
     });
 
     test('non-credential environment is preserved for every scope', () => {
-        for (const scope of ['none', 'intake', 'publisher']) {
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
             expect(scopedStageEnv(scope, parentEnv).PATH, scope).toBe('/usr/bin')
         }
     });
@@ -389,9 +413,26 @@ test.describe('tokenScope validation fails closed', () => {
         }
     });
 
-    test('the three declared scopes are accepted', () => {
-        for (const scope of ['none', 'intake', 'publisher']) {
+    test('the four declared scopes are accepted', () => {
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
             expect(() => scopedStageEnv(scope, {}), scope).not.toThrow()
+        }
+    });
+
+    test('an INHERITED object property is not a declared scope', () => {
+        // The vocabulary is an object now, so membership must be `Object.hasOwn` and not `in`:
+        // `'toString' in stageTokenSources` is true, which would accept a scope nobody declared and
+        // resolve its source to a FUNCTION. This test is what separates the two implementations.
+        for (const scope of ['toString', 'constructor', 'hasOwnProperty', '__proto__']) {
+            expect(() => scopedStageEnv(scope, {}), scope).toThrow(/must declare one of/)
+        }
+    });
+
+    test('the failure names every scope a stage may declare, including the newest', () => {
+        // The message is the only place a stage author learns the vocabulary. A hardcoded list drifts
+        // from the real one silently — this asserts the message is derived from it.
+        for (const scope of ['none', 'intake', 'publisher', 'reader']) {
+            expect(() => scopedStageEnv('nope', {}), scope).toThrow(new RegExp(scope))
         }
     });
 
@@ -407,9 +448,37 @@ test.describe('tokenScope validation fails closed', () => {
         })).resolves.toBeUndefined()
     });
 
+    test('the label-reading stage declares a credentialled scope, NOT `none` (#15993)', async () => {
+        // THE defect, asserted against the shipped table rather than a fixture. `content indexes and
+        // SEO` runs `rebuildContentIndexesAndSeo.mjs --include-labels`, which pages this repository's
+        // labels over GraphQL — a credentialled read. It declared `none`, so `scopedStageEnv` handed
+        // it a child with no token and it failed on its own missing-auth path, correctly and for nine
+        // days. Reverting the declaration to `none` fails here.
+        //
+        // Read from the emitted LOG rather than the child env: the log line is what the stage table
+        // declares, whereas the env additionally depends on which secrets the runner exported — a
+        // machine with no `DATA_SYNC_READER_TOKEN` would make an env assertion pass for the wrong
+        // reason.
+        const lines = [];
+
+        await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => {},
+            log      : line => lines.push(line),
+            preflight: async () => {}
+        });
+
+        const labelStage = lines.find(line => line.includes('stage=content indexes and SEO'));
+
+        expect(labelStage, 'the label stage must still be in the shipped table').toBeTruthy();
+        expect(labelStage).toContain('credential=reader');
+        expect(labelStage).not.toContain('credential=none')
+    });
+
     test('a failing stage names the scope it was granted, not just the child error', async () => {
         // A bare child failure reads as "the tool is broken" when the finding is "this stage was
-        // granted `none` and needs a credential". That misreading cost a nine-day outage: the
+        // granted `none` and needs a credential". That misreading cost real diagnosis time: the
         // child's own missing-auth message advised an interactive login CI cannot perform, so the
         // declared-scope context is the part that makes the failure diagnosable at all.
         //
@@ -437,7 +506,7 @@ test.describe('tokenScope validation fails closed', () => {
  * had left it for the whole job) and into a `-c http.extraheader=...` argument — which made it
  * worse in a way config never was: argv is visible in `ps`, and this module interpolates
  * `args.join(' ')` into its failure message, so a failed push would PRINT a working
- * ruleset-bypass credential into the CI log.
+ * repository-write credential into the CI log.
  *
  * Base64 is not redaction. GitHub Actions masks the literal secret string, so a transformed secret
  * does not match its own mask — the leak would have been plain, decodable and public. Masking
@@ -569,15 +638,23 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
         // than all being `ghs_`-shaped. The boundary strips by KEY, so shape is not what it acts on
         // — but a fixture where every value shares one prefix is what let a format-matching
         // assertion look sufficient for as long as it did.
-        const [fineGrained, classic, oauth] = CREDENTIAL_FAMILIES;
+        // The fixture is DERIVED from `rawCredentialNames`, not hand-listed. A hand-listed fixture is how
+        // this test reported green while a newly added source — the reader token — reached every Publisher
+        // git child: the strip set and the fixture were both edited by hand, and neither edit reminded
+        // anyone about the other. Deriving means a scope added to `stageTokenSources` is supplied here
+        // automatically, so the boundary cannot outgrow its own witness.
+        const suppliedEnv = {PATH: '/usr/bin'};
 
-        const suppliedEnv = {
-            DATA_SYNC_INTAKE_TOKEN   : fineGrained.secret,
-            DATA_SYNC_PUBLISHER_TOKEN: secret,
-            GH_TOKEN                 : classic.secret,
-            GITHUB_TOKEN             : oauth.secret,
-            PATH                     : '/usr/bin'
-        };
+        rawCredentialNames.forEach((name, index) => {
+            suppliedEnv[name] = name === 'DATA_SYNC_PUBLISHER_TOKEN'
+                ? secret
+                : CREDENTIAL_FAMILIES[index % CREDENTIAL_FAMILIES.length].secret
+        });
+
+        // Sanity-check the derivation itself: if the module ever stops declaring the sources this test
+        // exists to police, the fixture silently shrinks and every assertion below passes vacuously.
+        expect(Object.keys(suppliedEnv)).toContain('DATA_SYNC_READER_TOKEN');
+        expect(Object.keys(suppliedEnv)).toContain('DATA_SYNC_PUBLISHER_TOKEN');
 
         let seenEnv = null;
 
@@ -604,10 +681,12 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
                   supplied.includes(value));
 
         expect(leaked).toEqual([]);
-        expect(seenEnv.DATA_SYNC_INTAKE_TOKEN).toBeUndefined();
-        expect(seenEnv.DATA_SYNC_PUBLISHER_TOKEN).toBeUndefined();
-        expect(seenEnv.GH_TOKEN).toBeUndefined();
-        expect(seenEnv.GITHUB_TOKEN).toBeUndefined();
+
+        // Key absence for EVERY declared source, derived rather than enumerated — both halves matter: a
+        // surviving key is a leak even when the value assertion above happens to miss it.
+        rawCredentialNames.forEach(name => {
+            expect(seenEnv[name], `${name} must not survive into a git child`).toBeUndefined()
+        });
 
         // Unrelated env survives, and the ONE derived credential still gets through.
         expect(seenEnv.PATH).toBe('/usr/bin');
