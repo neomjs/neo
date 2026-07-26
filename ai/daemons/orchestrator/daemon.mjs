@@ -33,8 +33,21 @@ import {execSync}                            from 'child_process';
 import AiConfig                              from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
 import {assertConfigFresh}                   from '../../scripts/setup/initServerConfigs.mjs';
+import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
+import {
+    assertPlaneCoherence,
+    assertPlaneMemberCoherence,
+    collectPlaneMembers,
+    resolvePlaneDataRoot
+} from '../../planeConfig.mjs';
 
 const ORCHESTRATOR_DAEMON_PATH_TAIL = 'ai/daemons/orchestrator/daemon.mjs';
+
+// The durable-root reference for the fail-closed plane check: THIS checkout's ANCHOR root. The
+// anchor computation reads no env by construction, so it cannot drift with the process
+// environment — which is what makes it usable as the fixed point a declared overlay must not
+// resolve to, whether through env leakage or a symlink layer. Same reference BaseServer uses.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../');
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
 
 /**
@@ -214,6 +227,53 @@ export async function loadLocalAiConfig({
 }
 
 /**
+ * Asserts the orchestrator's plane before it schedules anything — the SAME F-invariant walk
+ * `BaseServer` runs for kb/mc, extended to the third Tier-1 consumer.
+ *
+ * The orchestrator is the one Tier-1 consumer that had no plane assertion, and it is the worst
+ * one to leave unasserted: it does not answer queries, it WRITES — backups, dream artifacts,
+ * golden-path handoffs, recovery ledgers. A server booted onto the wrong plane returns wrong
+ * answers and someone notices; a scheduler booted onto the wrong plane mutates the wrong durable
+ * store on a timer, and the first evidence is data that should not be there.
+ *
+ * Two clauses, matching the server walk exactly:
+ * 1. identity coherence — a non-canonical plane must not resolve the canonical durable root,
+ *    symlink-transparently (identity without isolation).
+ * 2. member coherence — a relocated root with members still on their build-time anchor defaults
+ *    is a partially-moved plane; fail closed rather than split storage across two roots.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Config singleton (injectable for tests).
+ * @param {String} [options.rootDir] Checkout root the canonical anchor derives from.
+ * @returns {Object} Frozen observed `{planeId, dataRoot}`.
+ */
+export function assertOrchestratorPlane({aiConfig = AiConfig, rootDir = REPO_ROOT} = {}) {
+    const {plane} = aiConfig;
+
+    if (!plane) {
+        throw new Error('[Orchestrator] booted without a resolved `plane` subtree — Tier-1 config not loaded?');
+    }
+
+    const observed = assertPlaneCoherence({
+        planeId          : plane.id,
+        dataRoot         : plane.dataRoot,
+        canonicalDataRoot: resolvePlaneDataRoot({rootDir})
+    });
+
+    const members = collectPlaneMembers({
+        memberPaths   : TIER1_PLANE_MEMBER_PATHS,
+        resolvedConfig: aiConfig,
+        descriptorData: Tier1ConfigBase.config.data
+    });
+
+    if (members.length > 0) {
+        assertPlaneMemberCoherence({dataRoot: plane.dataRoot, members});
+    }
+
+    return observed;
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  *
  * Thin process-boot wrapper: PID singleton enforcement, signal handlers, env-file
@@ -233,6 +293,10 @@ export async function startOrchestrator(options = {}) {
     await enforceSingleton();
     setupCleanupHandlers();
     await loadLocalAiConfig();
+
+    // AFTER the config load, BEFORE anything is scheduled: a scheduler that has already started
+    // its lanes has already written. The assertion is only fail-closed if nothing ran first.
+    assertOrchestratorPlane();
 
     return Orchestrator.start({
         dataDir,
