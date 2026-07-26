@@ -26,7 +26,7 @@ function compose(args) {
         '-f', 'ai/deploy/docker-compose.dev.yml',
         '-f', 'ai/deploy/docker-compose.parity-ci.yml',
         ...args
-    ], {cwd: repoRoot, encoding: 'utf8', timeout: 150000});
+    ], {cwd: repoRoot, encoding: 'utf8', env: process.env, timeout: 150000});
 }
 
 /**

@@ -7,13 +7,18 @@ import {resolveFreePortSync} from './resolveFreePort.mjs';
 // reuseExistingServer:false wedges concurrent runs on the shared multi-agent machine
 // (see resolveFreePort.mjs). The parityComposeWebServer fixture reads the same env var,
 // so the derived value is passed down via the webServer env.
-const readyPort = resolveFreePortSync(process.env.NEO_PARITY_READY_PORT);
+const
+    readyPort       = resolveFreePortSync(process.env.NEO_PARITY_READY_PORT),
+    parityAuthToken = 'bmVvLXBhcml0eS1jaS1sb2NhbC1hdXRoLWZpeHR1cmU';
 
 // Write the derived values back into the runner env (the unit config's writeback idiom):
 // test WORKERS inherit this process's env, and the parity specs resolve their readiness
-// endpoint from it.
-process.env.NEO_PARITY_READY_PORT = String(readyPort);
-process.env.NEO_PARITY_READY_URL  = process.env.NEO_PARITY_READY_URL || `http://127.0.0.1:${readyPort}/ready`;
+// endpoint from it. The auth value is a deterministic, nonsecret 32-byte base64url fixture:
+// the webServer and test workers pass it to every Compose child, and Compose materializes
+// the base profile's file-backed secret from the same value.
+process.env.NEO_MCP_HEALTHCHECK_TOKEN = parityAuthToken;
+process.env.NEO_PARITY_READY_PORT     = String(readyPort);
+process.env.NEO_PARITY_READY_URL      = process.env.NEO_PARITY_READY_URL || `http://127.0.0.1:${readyPort}/ready`;
 
 export default defineConfig({
     testDir      : './integration-parity',
@@ -44,7 +49,8 @@ export default defineConfig({
         stderr             : 'pipe',
         env                : {
             ...process.env,
-            NEO_PARITY_READY_PORT: String(readyPort)
+            NEO_MCP_HEALTHCHECK_TOKEN: parityAuthToken,
+            NEO_PARITY_READY_PORT    : String(readyPort)
         },
         gracefulShutdown   : {
             signal : 'SIGTERM',
