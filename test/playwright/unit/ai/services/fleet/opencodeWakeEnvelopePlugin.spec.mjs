@@ -7,9 +7,13 @@ import { NeoWakeEnvelope } from '../../../../../../ai/services/fleet/opencodeWak
 /**
  * Seat-side wake-envelope plugin witnesses: authoritative serverUrl over lsof, per-seat XDG
  * isolation, private temp creation plus final 0600 enforcement, operator-seat-only writes
- * (child/subagent sessions never retarget), credential passthrough, and the mandatory post-write
+ * (child/subagent sessions never retarget), credential passthrough, the mandatory post-write
  * probe outcomes (`written-probed` only on an end-to-end route check of the envelope's own
- * coordinates; `written-probe-failed` loud with the envelope still written).
+ * coordinates; `written-probe-failed` loud with the envelope still written), the load-time
+ * armament log line (the loaded-vs-silent instrument), and the `session.updated` restore
+ * path (re-bind after a restart with a restored session; NO on-disk adoption — cached
+ * coordinates are never route authority; closure dedup; authoritative parentage from the
+ * server's own session resource).
  */
 test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
     let tmpRoot, savedEnv, logs, fetchCalls, realFetch;
@@ -28,6 +32,10 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
 
     const fireSessionCreated = async (hooks, info) => {
         await hooks.event({ event: { type: 'session.created', properties: { info } } });
+    };
+
+    const fireSessionUpdated = async (hooks, info) => {
+        await hooks.event({ event: { type: 'session.updated', properties: { info } } });
     };
 
     test.beforeEach(() => {
@@ -302,5 +310,214 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
         expect(failed.level).toBe('error');
         expect(failed.message).toContain('timed out after 50ms');
         expect(fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json')).sessionId).toBe('ses_probe_hung');
+    });
+
+    test('a load-time log line records the plugin armed — the loaded-vs-silent instrument', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        await NeoWakeEnvelope(mockCtx({}));
+
+        const loaded = logs.find(entry => entry.message?.startsWith('neo-wake-envelope plugin loaded'));
+        expect(loaded).toBeTruthy();
+        expect(loaded.level).toBe('info');
+        expect(loaded.message).toContain('restore coverage armed');
+        // no envelope work at load — armament is observability, not a write path
+        expect(fs.existsSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json'))).toBe(false);
+    });
+
+    test('a restored session (session.updated) writes and probes when the envelope is missing', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41011] }));
+        await fireSessionUpdated(hooks, { id: 'ses_restored_write' });
+
+        const envelope = fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json'));
+        expect(envelope.sessionId).toBe('ses_restored_write');
+        expect(envelope.port).toBe(41011);
+
+        // authoritative parentage fetch + post-write probe, both against the exact id
+        expect(fetchCalls.map(call => call.url)).toEqual([
+            'http://127.0.0.1:41011/session/ses_restored_write',
+            'http://127.0.0.1:41011/session/ses_restored_write'
+        ]);
+        expect(logs.find(entry => entry.message?.startsWith('wake envelope written-probed for restored session ses_restored_write'))).toBeTruthy();
+    });
+
+    test('a matching on-disk envelope with ROTATED credentials is rewritten and probed — cached coordinates are not authority', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        fs.ensureDirSync(path.dirname(envelopePath));
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : 41012,
+            sessionId: 'ses_rotated',
+            projectId: 'proj-STALE',
+            directory: '/tmp/STALE',
+            username : 'opencode',
+            password : 'STALE-SECRET',
+            updatedAt: '2026-07-25T00:00:00.000Z'
+        }, {spaces: 2});
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41012] }));
+        await fireSessionUpdated(hooks, { id: 'ses_rotated' });
+
+        const envelope = fs.readJsonSync(envelopePath);
+        // every stale field is refreshed from the current environment, not trusted from disk
+        expect(envelope.password).toBe('test-secret');
+        expect(envelope.projectId).toBe('proj-test');
+        expect(envelope.directory).toBe('/tmp/proj-test');
+        expect(envelope.updatedAt).not.toBe('2026-07-25T00:00:00.000Z');
+        // authoritative parentage fetch + post-write probe — zero-fetch adoption does not exist
+        expect(fetchCalls.map(call => call.url)).toEqual([
+            'http://127.0.0.1:41012/session/ses_rotated',
+            'http://127.0.0.1:41012/session/ses_rotated'
+        ]);
+    });
+
+    test('a matching on-disk envelope with permissive mode is repaired to 0600', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        fs.ensureDirSync(path.dirname(envelopePath));
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : 41013,
+            sessionId: 'ses_permissive',
+            projectId: 'proj-test',
+            directory: '/tmp/proj-test',
+            username : 'opencode',
+            password : 'test-secret',
+            updatedAt: '2026-07-25T00:00:00.000Z'
+        }, {spaces: 2});
+        fs.chmodSync(envelopePath, 0o644);
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41013] }));
+        await fireSessionUpdated(hooks, { id: 'ses_permissive' });
+
+        expect(fs.statSync(envelopePath).mode & 0o777).toBe(0o600);
+        expect(fetchCalls.length).toBe(2);
+    });
+
+    test('a pre-existing child-target envelope is never adopted — authoritative parentage filters first', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        fs.ensureDirSync(path.dirname(envelopePath));
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : 41014,
+            sessionId: 'ses_child_target',
+            projectId: 'proj-test',
+            directory: '/tmp/proj-test',
+            username : 'opencode',
+            password : 'test-secret',
+            updatedAt: '2026-07-25T00:00:00.000Z'
+        }, {spaces: 2});
+
+        globalThis.fetch = async (input) => {
+            const url = String(input);
+            fetchCalls.push({url});
+
+            return new Response(JSON.stringify({id: url.split('/').pop(), parentID: 'ses_operator'}), {
+                status : 200,
+                headers: {'Content-Type': 'application/json'}
+            });
+        };
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41014] }));
+        await fireSessionUpdated(hooks, { id: 'ses_child_target' });
+        await fireSessionUpdated(hooks, { id: 'ses_child_target' });
+
+        // the poisoned envelope is neither trusted (adopted) nor refreshed (written):
+        // the child filter fires before any write path, and its result is cached
+        expect(fs.readJsonSync(envelopePath).updatedAt).toBe('2026-07-25T00:00:00.000Z');
+        expect(fetchCalls.length).toBe(1);
+        expect(logs.find(entry => entry.message?.includes('adopted'))).toBeFalsy();
+    });
+
+    test('repeated session.updated events for the same session cost one write total (closure dedup)', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41013] }));
+        await fireSessionUpdated(hooks, { id: 'ses_dedup' });
+        await fireSessionUpdated(hooks, { id: 'ses_dedup' });
+        await fireSessionUpdated(hooks, { id: 'ses_dedup' });
+
+        // first update: parentage fetch + probe; the rest are closure hits with zero cost
+        expect(fetchCalls.length).toBe(2);
+        expect(fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json')).sessionId).toBe('ses_dedup');
+    });
+
+    test('session.created followed by session.updated for the same session does not rewrite', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41014] }));
+        await fireSessionCreated(hooks, { id: 'ses_fresh' });
+        await fireSessionUpdated(hooks, { id: 'ses_fresh' });
+
+        // created path probed once; the trailing update is a closure no-op
+        expect(fetchCalls.length).toBe(1);
+        expect(logs.filter(entry => entry.message?.startsWith('wake envelope written-probed')).length).toBe(1);
+    });
+
+    test('a child session.updated never retargets — parentage from the authoritative server payload, cached thereafter', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        globalThis.fetch = async (input) => {
+            const url = String(input);
+            fetchCalls.push({url});
+
+            return new Response(JSON.stringify({id: url.split('/').pop(), parentID: 'ses_operator'}), {
+                status : 200,
+                headers: {'Content-Type': 'application/json'}
+            });
+        };
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41015] }));
+        await fireSessionUpdated(hooks, { id: 'ses_subagent' });
+        await fireSessionUpdated(hooks, { id: 'ses_subagent' });
+
+        expect(fs.existsSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json'))).toBe(false);
+        // one authoritative parentage fetch; the second update is filtered from the cache
+        expect(fetchCalls.length).toBe(1);
+        expect(logs.find(entry => entry.message?.includes('child session ses_subagent ignored'))).toBeTruthy();
+    });
+
+    test('a session.updated the server does not know (404) fails loud and writes nothing', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        globalThis.fetch = async (input) => {
+            fetchCalls.push({url: String(input)});
+            return new Response('not found', {status: 404});
+        };
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41016] }));
+        await fireSessionUpdated(hooks, { id: 'ses_ghost' });
+
+        expect(fs.existsSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json'))).toBe(false);
+        const failed = logs.find(entry => entry.message?.startsWith('restore-target failed for session ses_ghost'));
+        expect(failed).toBeTruthy();
+        expect(failed.level).toBe('error');
+        expect(failed.message).toContain('404');
+    });
+
+    test('an operator switch to a different top-level session retargets the envelope', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const hooks = await NeoWakeEnvelope(mockCtx({ lsofPorts: [41017] }));
+        await fireSessionUpdated(hooks, { id: 'ses_morning' });
+        await fireSessionUpdated(hooks, { id: 'ses_evening' });
+
+        const envelope = fs.readJsonSync(path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json'));
+        expect(envelope.sessionId).toBe('ses_evening');
+
+        // each switch costs its own parentage fetch + probe against its exact id
+        expect(fetchCalls.map(call => call.url)).toEqual([
+            'http://127.0.0.1:41017/session/ses_morning',
+            'http://127.0.0.1:41017/session/ses_morning',
+            'http://127.0.0.1:41017/session/ses_evening',
+            'http://127.0.0.1:41017/session/ses_evening'
+        ]);
     });
 });
