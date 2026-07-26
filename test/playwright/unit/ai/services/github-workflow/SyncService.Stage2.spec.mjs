@@ -582,4 +582,110 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(savedMetadata.discussions).toEqual({});
         expect(savedMetadata.pulls).toEqual({});
     });
+
+    /**
+     * Facet isolation. The chain was a bare sequential `await` list with one save at the end, so one
+     * facet throwing discarded every facet that had already succeeded AND skipped every facet after it.
+     * With a deterministic trigger that is not "slowly falling behind" — it is a corpus frozen while
+     * each facet's own code works correctly, and it is why two content facets were starved by one fault.
+     */
+    test('a failing facet does not skip the facets AFTER it', async () => {
+        let pullSyncCalled = 0;
+
+        DiscussionSyncer.syncDiscussions = async () => { throw new Error('discussion page cost ceiling') };
+        PullRequestSyncer.syncPullRequests = async () => { pullSyncCalled++; return {count: 0} };
+
+        await expect(SyncService.runFullSync()).rejects.toThrow(/did not advance/);
+
+        // The whole point: pull requests are fetched even though discussions threw first. Before
+        // isolation this was 0, and that single fact is why `pulls/` went stale from a discussions bug.
+        expect(pullSyncCalled).toBe(1);
+    });
+
+    test('a failing facet advances NOTHING while the facets that succeeded are persisted', async () => {
+        const saved = [];
+
+        MetadataManager.load = async () => ({
+            issues     : {},
+            releases   : {},
+            discussions: {1: {number: 1, path: 'd-1.md', contentHash: 'PRE-EXISTING'}},
+            pulls      : {}
+        });
+        MetadataManager.save = async md => saved.push(structuredClone(md));
+
+        // The facet mutates the shared accumulator and THEN throws — the ordering that makes per-slice
+        // rollback load-bearing. Without it, this half-write is persisted by the next facet's save.
+        DiscussionSyncer.syncDiscussions = async md => {
+            md.discussions[2] = {number: 2, path: 'd-2.md', contentHash: 'HALF-WRITTEN'};
+            throw new Error('failed after mutating')
+        };
+
+        await expect(SyncService.runFullSync()).rejects.toThrow(/did not advance/);
+
+        expect(saved.length).toBeGreaterThan(0);
+
+        // No save anywhere may carry the failed facet's partial mutation, and the pre-existing entry
+        // must survive: the failed facet keeps its previous high-water mark rather than losing it.
+        saved.forEach((md, index) => {
+            expect(Object.keys(md.discussions), `save #${index}`).toEqual(['1']);
+            expect(md.discussions[1].contentHash, `save #${index}`).toBe('PRE-EXISTING')
+        });
+    });
+
+    test('the aggregate verdict NAMES every facet that did not advance', async () => {
+        // Partial progress is the point, but a partial run must never report as a clean one — exiting 0
+        // would trade total loss for silent loss, where the corpus looks synced while a facet sits stale.
+        DiscussionSyncer.syncDiscussions = async () => { throw new Error('cost ceiling') };
+        ReleaseNotesSyncer.syncNotes = async () => { throw new Error('release notes boom') };
+
+        const error = await SyncService.runFullSync().then(() => null, e => e);
+
+        expect(error).toBeTruthy();
+        expect(error.message).toMatch(/discussions/);
+        expect(error.message).toMatch(/releaseNotes/);
+        expect(error.message).toMatch(/cost ceiling/);
+        expect(error.message).toMatch(/2 of \d+ sync facets/);
+    });
+
+    test('an integrity abort withholds the PULL facet only — sibling facets still advance', async () => {
+        // The narrowed guarantee. A pull corpus measured broken must not advance, and that must no
+        // longer take the discussion facet down with it.
+        const saved = [];
+
+        MetadataManager.save = async md => saved.push(structuredClone(md));
+
+        DiscussionSyncer.syncDiscussions = async md => {
+            md.discussions[7] = {number: 7, path: 'd-7.md', contentHash: 'ADVANCED'};
+            return {count: 1}
+        };
+        PullRequestSyncer.syncPullRequests = async md => {
+            md.pulls[9] = {state: 'MERGED', path: 'p-9.md', contentHash: 'SHOULD-NOT-PERSIST'};
+            return {count: 1}
+        };
+        PullRequestSyncer.verifyCorpusIntegrity = async () => ({
+            ok                      : false,
+            staleIndexEntries       : [{id: 9}],
+            inconsistentIndexEntries: [],
+            duplicateIndexEntryIds  : [],
+            unindexedIds            : [],
+            identicalDuplicateIds   : [],
+            divergentDuplicateIds   : []
+        });
+
+        const error = await SyncService.runFullSync().then(() => null, e => e),
+              last  = saved.at(-1);
+
+        expect(error).toBeTruthy();
+        expect(last.discussions[7]?.contentHash).toBe('ADVANCED');
+        expect(last.pulls).toEqual({});
+
+        // The rollback assertions above hold even under a whole-run abort, so on their own they witness
+        // ROLLBACK rather than ISOLATION. This is the part that separates the two: the failure must be
+        // reported through the per-facet accounting, naming `pulls` as the ONLY facet withheld. A
+        // re-throwing chain surfaces the bare integrity message with no accounting and fails here.
+        expect(error.message).toMatch(/1 of \d+ sync facets did not advance/);
+        expect(error.message).toMatch(/pulls \(/);
+        expect(error.message).not.toMatch(/discussions \(/);
+        expect(error.message).toMatch(/integrity is not clean/);
+    });
 });
