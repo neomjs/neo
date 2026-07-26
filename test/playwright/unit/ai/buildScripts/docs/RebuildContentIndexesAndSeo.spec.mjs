@@ -125,8 +125,22 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/pulls.mjs');
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/discussions.mjs');
         expect(delegatedPipeline).not.toContain('node ./buildScripts/docs/index/tickets.mjs');
-        expect(workflow).toContain(
-            'GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: node ./buildScripts/dataSyncPipeline.mjs'
-        );
+        // The pipeline step receives the two SCOPED credentials and no ambient repository token.
+        // This previously pinned `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` on that step — one
+        // token for cross-repository intake reads AND for the publish push. Those are different
+        // authorization contracts, and the default token satisfies neither: it has no installation
+        // on the DevIndex repos at all, and it cannot bypass the code-scanning ruleset that a
+        // freshly generated commit can never pre-satisfy.
+        expect(workflow).toContain('DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}');
+        expect(workflow).toContain('DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}');
+
+        // The assertion that matters: the ambient repository token is gone from the run step, so a
+        // future edit reinstating it would fail here rather than silently restoring the shared
+        // credential this split exists to remove.
+        expect(workflow).not.toContain('GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}');
+
+        // The publish push runs through the checkout credential, so it must be the publisher —
+        // the only identity permitted to bypass the ruleset.
+        expect(workflow).toContain('token: ${{ steps.publisher-token.outputs.token }}');
     });
 });
