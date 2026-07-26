@@ -10,6 +10,8 @@ import {
     computeStreak,
     evaluateBreach,
     isRecovered,
+    latestCommitDate,
+    parseFacetNames,
     parseThreshold,
     selectAlarmIssue
 } from '../../../../../buildScripts/dataSyncWatchdog.mjs';
@@ -136,6 +138,19 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(() => parseThreshold({name: 'X', raw: '-5', fallback: 48})).toThrow(/positive number/)
     });
 
+    test('parseFacetNames: absent falls back; a comma/whitespace-only value fails LOUD (never a silent off-switch for the axis)', () => {
+        expect(parseFacetNames({name: 'X', raw: undefined, fallback: ['issues']})).toEqual(['issues']);
+        expect(parseFacetNames({name: 'X', raw: '', fallback: ['issues']})).toEqual(['issues']);
+        expect(parseFacetNames({name: 'X', raw: 'issues,pulls', fallback: []})).toEqual(['issues', 'pulls']);
+        expect(parseFacetNames({name: 'X', raw: ' issues , pulls ', fallback: []})).toEqual(['issues', 'pulls']);
+
+        // The reachable defect: an unset-vars composition (`${{ vars.A }},${{ vars.B }}`)
+        // renders a comma-only value, which must never silently empty the corpus axis.
+        expect(() => parseFacetNames({name: 'X', raw: ' ', fallback: ['issues']})).toThrow(/zero facets/);
+        expect(() => parseFacetNames({name: 'X', raw: ',', fallback: ['issues']})).toThrow(/zero facets/);
+        expect(() => parseFacetNames({name: 'X', raw: ',,', fallback: ['issues']})).toThrow(/zero facets/)
+    });
+
     test('selectAlarmIssue: body marker wins over title, PRs are excluded, marker beats prefix', () => {
         const marked   = {number: 10, title: 'renamed alarm', body: `x ${ALARM_MARKER} y`},
               prefixed = {number: 11, title: `${ALARM_TITLE_PREFIX} legacy`, body: 'no marker'},
@@ -245,6 +260,105 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(body).toContain('**Corpus axis:**');
         expect(body).toContain('2026-07-17T07:13:29Z (220.5h old)');
         expect(body).toContain('committed `dev`')
+    });
+
+    test('latestCommitDate: newest-wins across a multi-path semantic corpus (archive-only repair is maintenance)', () => {
+        const entry = date => ({commit: {committer: {date}}});
+
+        // active landed yesterday, archive landed today — the archive repair counts
+        expect(latestCommitDate([[entry('2026-07-25T05:13:29Z')], [entry('2026-07-26T04:00:00Z')]]))
+            .toBe('2026-07-26T04:00:00Z');
+        // the reverse order resolves identically — freshness is the max, not the first path
+        expect(latestCommitDate([[entry('2026-07-26T04:00:00Z')], [entry('2026-07-17T05:13:29Z')]]))
+            .toBe('2026-07-26T04:00:00Z');
+        // no visible commit on ANY subpath is null — the missing-facet breach reason
+        expect(latestCommitDate([[], []])).toBe(null);
+        expect(latestCommitDate([[null], [undefined]])).toBe(null)
+    });
+
+    test('evaluateBreach: per-facet — a single stale facet breaches while the others are fresh', () => {
+        const {breached, reasons} = evaluateBreach({
+            consecutiveFailures: 0,
+            lastSuccessAt      : '2026-07-26T11:30:00Z',
+            now                : NOW,
+            corpusFacets       : [
+                {facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0},
+                {facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8},
+                {facet: 'discussions', lastCommitAt: '2026-07-25T08:00:00Z', ageHours: 28.0}
+            ],
+            maxConsecutiveFailures: 3,
+            maxSuccessAgeHours    : 24,
+            maxCorpusAgeHours     : 48
+        });
+
+        expect(breached).toBe(true);
+        expect(reasons.length).toBe(1);
+        expect(reasons[0]).toContain('facet `pulls`');
+        expect(reasons[0]).toContain('214.8h')
+    });
+
+    test('evaluateBreach: per-facet — a facet with no visible commit breaches as its own reason', () => {
+        const {breached, reasons} = evaluateBreach({
+            consecutiveFailures: 0,
+            lastSuccessAt      : '2026-07-26T11:30:00Z',
+            now                : NOW,
+            corpusFacets       : [
+                {facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0},
+                {facet: 'discussions', lastCommitAt: null, ageHours: null}
+            ],
+            maxConsecutiveFailures: 3,
+            maxSuccessAgeHours    : 24,
+            maxCorpusAgeHours     : 48
+        });
+
+        expect(breached).toBe(true);
+        expect(reasons[0]).toBe('no commit visible for corpus facet `discussions` on the default branch')
+    });
+
+    test('evaluateBreach: per-facet — all facets fresh is healthy (the post-landing recovery shape)', () => {
+        const {breached, reasons} = evaluateBreach({
+            consecutiveFailures: 0,
+            lastSuccessAt      : '2026-07-26T11:30:00Z',
+            now                : NOW,
+            corpusFacets       : [
+                {facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0},
+                {facet: 'pulls', lastCommitAt: '2026-07-26T09:00:00Z', ageHours: 3.0},
+                {facet: 'discussions', lastCommitAt: '2026-07-26T08:00:00Z', ageHours: 4.0}
+            ],
+            maxConsecutiveFailures: 3,
+            maxSuccessAgeHours    : 24,
+            maxCorpusAgeHours     : 48
+        });
+
+        expect(breached).toBe(false);
+        expect(reasons).toEqual([])
+    });
+
+    test('buildAlarmTitle: a per-facet corpus breach names the stale facets, not the tree', () => {
+        expect(buildAlarmTitle({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            staleFacets        : [{facet: 'pulls', ageHours: 214.8}, {facet: 'discussions', ageHours: 214.8}]
+        })).toBe(`${ALARM_TITLE_PREFIX} Data Sync corpus stale: facets \`pulls\`, \`discussions\` (oldest 214.8h)`)
+    });
+
+    test('buildAlarmBody: the per-facet table carries each facet with its own age and status', () => {
+        const body = buildAlarmBody({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['corpus facet `pulls` is 214.8h old (threshold 48h)'],
+            corpusFacets       : [
+                {facet: 'issues', lastCommitAt: '2026-07-26T10:00:00Z', ageHours: 2.0, stale: false},
+                {facet: 'pulls', lastCommitAt: '2026-07-17T05:13:29Z', ageHours: 214.8, stale: true},
+                {facet: 'discussions', lastCommitAt: null, ageHours: null, stale: true}
+            ]
+        });
+
+        expect(body).toContain('**Corpus facets**');
+        expect(body).toContain('| `issues` | 2026-07-26T10:00:00Z | 2.0h | ok |');
+        expect(body).toContain('| `pulls` | 2026-07-17T05:13:29Z | 214.8h | **STALE** |');
+        expect(body).toContain('| `discussions` | none visible | — | **STALE** |')
     });
 
     test('forced dispatch dry-run alarm body discloses its own provenance', () => {

@@ -20,8 +20,17 @@ import process from 'node:process';
  *   The third axis exists because run-status is not independent of the QUESTION: the
  *   generated-markdown corpus advances only via hand-authored commits (never by the
  *   pipeline), so a green pipeline can certify a growing content backlog forever. The
- *   corpus axis is measured from the COMMITTED default branch through the API — never a
- *   working-tree mtime, which can read current in the exact episode it must catch.
+ *   corpus is measured PER FACET (`issues`, `pulls`, `discussions` by default) — the
+ *   facets sync independently and drift apart, so a single tree timestamp would certify
+ *   two stale facets after an issue-only landing: the freshness witness needs the same
+ *   cardinality as the corpus it certifies. The `issues` facet spans BOTH the active tree
+ *   and `archive/issues`, because consumers read them as one semantic corpus
+ *   (`buildScripts/docs/index/tickets.mjs` dual-source) — and the sync lane writes both.
+ *   Its freshness is the NEWEST commit across the two subpaths: an archive-only repair is
+ *   maintenance, and a healthy archive cadence (weekly-ish gaps) is not a breach; the
+ *   breach is the whole lane going quiet. Every facet is measured from the COMMITTED
+ *   default branch through the API — never a working-tree mtime, which can read current
+ *   in the exact episode it must catch.
  *   On breach, open the standing alarm issue — or update the existing open one (fresh
  *   body + a comment naming the latest failed run). N breaches, one issue.
  * - Recovery: the newest completed run succeeds. On recovery, close the standing issue
@@ -42,7 +51,21 @@ const
     DEFAULT_MAX_CORPUS_AGE_HOURS     = 48,
     DEFAULT_CORPUS_PATH              = 'resources/content',
     DEFAULT_WORKFLOW                 = 'data-sync-pipeline.yml',
-    RUNS_PER_PAGE                    = 30;
+    RUNS_PER_PAGE                    = 30,
+    /**
+     * Facet definitions: name → subpaths under `resources/content` that form ONE semantic
+     * corpus. `issues` spans active + archive because consumers dual-source them; its
+     * freshness is the newest commit across both (an archive-only repair is maintenance).
+     * `WATCHDOG_CORPUS_FACETS` overrides the NAME list only; unknown names get a single
+     * subpath equal to their name.
+     * @type {Object<String, String[]>}
+     */
+    FACET_PATHS = {
+        issues     : ['issues', 'archive/issues'],
+        pulls      : ['pulls'],
+        discussions: ['discussions']
+    },
+    DEFAULT_CORPUS_FACETS            = Object.keys(FACET_PATHS);
 
 /**
  * Reduces the newest-first completed run history to the streak facts.
@@ -68,6 +91,28 @@ export function computeStreak({runs}) {
 }
 
 /**
+ * Resolves a facet's freshness from per-subpath commit lists: the NEWEST commit date
+ * across every subpath of one semantic corpus, or null when no subpath has a visible
+ * commit. Newest-wins is the contract for multi-path facets (`issues` = active + archive):
+ * an archive-only repair is maintenance, and a healthy archive cadence is not a breach.
+ * Measured on the live history: archive-commit cadence gaps run 1–8 days, so the
+ * alternatives (min-wins, or the archive as its own 48h facet) would false-breach
+ * routinely; in ~2.5 months exactly one archive-only commit class (a hand-authored
+ * redaction repair) refreshed the `issues` clock while the active tree was untouched —
+ * the accepted price for not false-breaching.
+ *
+ * @param {Object[][]} commitLists One list of commit entries per subpath.
+ * @returns {String|null} ISO date of the newest commit, or null.
+ */
+export function latestCommitDate(commitLists) {
+    const dates = commitLists.flat()
+        .map(entry => entry?.commit?.committer?.date)
+        .filter(Boolean);
+
+    return dates.length ? dates.reduce((a, b) => a > b ? a : b) : null
+}
+
+/**
  * Evaluates the breach thresholds. Boundary semantics: consecutive failures breach at `>=`,
  * success age and corpus age breach strictly past their hour limits.
  *
@@ -81,7 +126,7 @@ export function computeStreak({runs}) {
  * @param {Number} [options.maxCorpusAgeHours=48]
  * @returns {{breached: Boolean, reasons: String[]}}
  */
-export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusLastCommitAt, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS, maxCorpusAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS}) {
+export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusLastCommitAt, corpusFacets, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS, maxCorpusAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS}) {
     const reasons = [];
 
     if (consecutiveFailures >= maxConsecutiveFailures) {
@@ -106,6 +151,16 @@ export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusL
 
             if (corpusAgeHours > maxCorpusAgeHours) {
                 reasons.push(`last \`resources/content/**\` commit is ${corpusAgeHours.toFixed(1)}h old (threshold ${maxCorpusAgeHours}h — deploys, clones, CI and container KB ingestion all build from committed \`dev\`)`)
+            }
+        }
+    }
+
+    if (corpusFacets !== undefined) {
+        for (const {facet, lastCommitAt, ageHours} of corpusFacets) {
+            if (!lastCommitAt) {
+                reasons.push(`no commit visible for corpus facet \`${facet}\` on the default branch`)
+            } else if (ageHours > maxCorpusAgeHours) {
+                reasons.push(`corpus facet \`${facet}\` is ${ageHours.toFixed(1)}h old (threshold ${maxCorpusAgeHours}h)`)
             }
         }
     }
@@ -135,6 +190,38 @@ export function parseThreshold({name, raw, fallback}) {
     }
 
     return value
+}
+
+/**
+ * Parses the facet-list env var with the same loud discipline as `parseThreshold`:
+ * absent or empty falls back to the default set, but a PRESENT value that resolves to
+ * zero names (comma/whitespace-only — the realistic shape of an unset-vars composition
+ * like `${{ vars.A }},${{ vars.B }}`) fails LOUD. A resolved-empty list would empty the
+ * corpus axis itself: `evaluateBreach` over `[]` is indistinguishable from the axis
+ * never having been measured, which is the certified-silence class this tool exists to
+ * break — a watchdog must never carry a quiet off-switch for its own guard.
+ *
+ * Unknown names fall through to a single subpath equal to the name BY DESIGN: the
+ * override is the extension point for future independently-synced trees, with no code
+ * change required. A typo then surfaces at evaluation time as a "no commit visible"
+ * breach for that facet — the loud direction as well (never silence).
+ *
+ * @param {Object} options
+ * @param {String} options.name Env var name (for the error message).
+ * @param {String|undefined} options.raw Raw env value.
+ * @param {String[]} options.fallback Used only when the var is absent or empty.
+ * @returns {String[]}
+ */
+export function parseFacetNames({name, raw, fallback}) {
+    if (raw === undefined || raw === '') return fallback;
+
+    const facets = raw.split(',').map(facet => facet.trim()).filter(Boolean);
+
+    if (facets.length === 0) {
+        throw new Error(`dataSyncWatchdog: ${name} resolved to zero facets from '${raw}' — refusing to silently disable the corpus axis (omit the var to use the default set)`)
+    }
+
+    return facets
 }
 
 /**
@@ -170,9 +257,16 @@ export function selectAlarmIssue(issues) {
  *        (the only path where a zero-streak title can occur).
  * @returns {String}
  */
-export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced=false}) {
+export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, staleFacets, forced=false}) {
     if (forced && consecutiveFailures === 0) {
         return `${ALARM_TITLE_PREFIX} Data Sync Pipeline: forced breach evaluation (workflow_dispatch dry run)`
+    }
+
+    if (consecutiveFailures === 0 && staleFacets?.length) {
+        const ages   = staleFacets.map(f => f.ageHours).filter(age => age !== null),
+              oldest = ages.length ? ` (oldest ${Math.max(...ages).toFixed(1)}h)` : '';
+
+        return `${ALARM_TITLE_PREFIX} Data Sync corpus stale: facet${staleFacets.length > 1 ? 's' : ''} ${staleFacets.map(f => `\`${f.facet}\``).join(', ')}${oldest}`
     }
 
     if (consecutiveFailures === 0 && corpusLastCommitAt) {
@@ -193,7 +287,18 @@ export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCom
  * @param {Boolean} [options.forced=false] True when a dispatch dry-run forced the branch.
  * @returns {String}
  */
-export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, forced=false}) {
+export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, forced=false}) {
+    const corpusLine = corpusFacets
+        ? [
+            '**Corpus facets** (committed `dev`; a green pipeline cannot attest to this backlog):',
+            '',
+            '| facet | last commit on `dev` | age | status |',
+            '|---|---|---|---|',
+            ...corpusFacets.map(({facet, lastCommitAt, ageHours, stale}) =>
+                `| \`${facet}\` | ${lastCommitAt ?? 'none visible'} | ${lastCommitAt ? `${ageHours.toFixed(1)}h` : '—'} | ${stale ? '**STALE**' : 'ok'} |`)
+        ].join('\n')
+        : `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`;
+
     return [
         ALARM_MARKER,
         '',
@@ -203,7 +308,7 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         `**Streak:** ${consecutiveFailures} consecutive failures.`,
         `**Last success:** ${lastSuccess ? `[${lastSuccess.created_at}](${lastSuccess.html_url})` : `none in the last ${RUNS_PER_PAGE} completed runs`}.`,
         `**Latest failure:** ${latestFailure ? `[run ${latestFailure.id}](${latestFailure.html_url})` : 'n/a'}.`,
-        `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`,
+        corpusLine,
         '',
         '**Breach reasons:**',
         ...reasons.map(reason => `- ${reason}`),
@@ -298,26 +403,42 @@ async function main() {
 
     console.log(`watchdog: ${runs.length} completed runs visible; latest=${latest?.conclusion ?? 'none'}; consecutiveFailures=${consecutiveFailures}; lastSuccess=${lastSuccess?.created_at ?? 'none'}`);
 
-    // Corpus axis: the generated-markdown corpus advances only via hand-authored commits —
-    // measure the COMMITTED default branch, never a working tree (which can read current in
-    // the exact episode this axis exists to catch).
-    const corpusCommits = await api(
-        `/repos/${repository}/commits?path=${encodeURIComponent(corpusPath)}&sha=dev&per_page=1`,
-        {token}
-    );
+    // Corpus axis, PER FACET: the corpus advances only via hand-authored commits, and its
+    // facets sync independently — one tree timestamp would certify two stale facets after
+    // a single-facet landing (the freshness witness needs the corpus's own cardinality).
+    // Multi-path facets (`issues` = active + archive, one semantic corpus for consumers)
+    // take the NEWEST commit across their subpaths: an archive-only repair is maintenance.
+    // Measured from the COMMITTED default branch, never a working tree.
+    const facetNames = parseFacetNames({name: 'WATCHDOG_CORPUS_FACETS', raw: process.env.WATCHDOG_CORPUS_FACETS, fallback: DEFAULT_CORPUS_FACETS});
 
-    const corpusLastCommitAt = corpusCommits[0]?.commit?.committer?.date ?? null,
-          corpusAgeHours     = corpusLastCommitAt
-              ? Number(((now.getTime() - new Date(corpusLastCommitAt).getTime()) / 3_600_000).toFixed(1))
-              : null;
+    const corpusFacets = await Promise.all(facetNames.map(async facet => {
+        const subpaths = FACET_PATHS[facet] ?? [facet],
+              commits  = await Promise.all(subpaths.map(subpath =>
+                  api(`/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${subpath}`)}&sha=dev&per_page=1`, {token})));
 
-    console.log(`watchdog: corpus axis — last \`${corpusPath}\` commit on dev: ${corpusLastCommitAt ?? 'none'}${corpusAgeHours !== null ? ` (${corpusAgeHours}h)` : ''}`);
+        const lastCommitAt = latestCommitDate(commits),
+              ageHours     = lastCommitAt
+                  ? (now.getTime() - new Date(lastCommitAt).getTime()) / 3_600_000
+                  : null;
+
+        return {
+            facet,
+            lastCommitAt,
+            ageHours,
+            stale: lastCommitAt === null || ageHours > maxCorpusAgeHours
+        }
+    }));
+
+    const staleFacets = corpusFacets.filter(facet => facet.stale);
+
+    console.log(`watchdog: corpus facets — ${corpusFacets.map(({facet, lastCommitAt, ageHours}) =>
+        `${facet}=${lastCommitAt ?? 'none'}${ageHours !== null ? ` (${ageHours.toFixed(1)}h)` : ''}`).join(', ')}`);
 
     const {breached, reasons} = evaluateBreach({
         consecutiveFailures,
         lastSuccessAt: lastSuccess?.created_at ?? null,
         now,
-        corpusLastCommitAt,
+        corpusFacets,
         maxConsecutiveFailures,
         maxSuccessAgeHours,
         maxCorpusAgeHours
@@ -358,8 +479,8 @@ async function main() {
         return
     }
 
-    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced: forceBreach}),
-          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusLastCommitAt, corpusAgeHours, forced: forceBreach});
+    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, staleFacets, forced: forceBreach}),
+          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusFacets, forced: forceBreach});
 
     if (alarm) {
         const comment = buildBreachComment({consecutiveFailures, latestFailure: latest});
