@@ -59,6 +59,8 @@ export function parseArgs(argv = [], env = process.env) {
         .option('--identity <identity>', 'Trusted proxy identity header value.', env.NEO_MCP_HEALTHCHECK_IDENTITY || 'neo-container-healthcheck')
         .option('--bearer-token-env <name>', 'Environment variable containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_ENV || 'NEO_MCP_HEALTHCHECK_TOKEN')
         .option('--expected-status <status>', 'Expected healthcheck status value.', env.NEO_MCP_HEALTHCHECK_EXPECTED_STATUS || 'healthy')
+        .option('--expected-plane-id <id>', 'Plane identity the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_ID || null)
+        .option('--expected-plane-data-root <path>', 'Plane data root the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_DATA_ROOT || null)
         .option('--client-name <name>', 'MCP client name.', env.NEO_MCP_HEALTHCHECK_CLIENT_NAME || 'neo-container-healthcheck')
         .option('--timeout-ms <ms>', 'Maximum time to wait for MCP connect/tool-call operations.', env.NEO_MCP_HEALTHCHECK_TIMEOUT_MS || String(DEFAULT_TIMEOUT_MS));
 
@@ -67,14 +69,62 @@ export function parseArgs(argv = [], env = process.env) {
     const options = program.opts();
 
     return {
-        url           : options.url,
-        identity      : options.identity,
-        bearerToken   : env[options.bearerTokenEnv] || null,
-        bearerTokenEnv: options.bearerTokenEnv,
-        expectedStatus: options.expectedStatus,
-        clientName    : options.clientName,
-        timeoutMs     : Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS
+        url                  : options.url,
+        identity             : options.identity,
+        bearerToken          : env[options.bearerTokenEnv] || null,
+        bearerTokenEnv       : options.bearerTokenEnv,
+        expectedStatus       : options.expectedStatus,
+        expectedPlaneId      : options.expectedPlaneId      || null,
+        expectedPlaneDataRoot: options.expectedPlaneDataRoot || null,
+        clientName           : options.clientName,
+        timeoutMs            : Number(options.timeoutMs) || DEFAULT_TIMEOUT_MS
     };
+}
+
+/**
+ * @summary Asserts the SERVED plane identity — the check that separates "something answered"
+ * from "the process I meant answered".
+ *
+ * A port probe cannot make that distinction, and the distinction is not theoretical: the parity
+ * profile's provisional 8100 slot collided with a host ssh listener, so a connectivity check
+ * reported a healthy stack while nothing of ours was running there. Ports are a property of the
+ * host; identity is a property of the process.
+ *
+ * Fails closed on an ABSENT `plane` block, not just a mismatched one. A responder that speaks MCP
+ * yet reports no plane is precisely the "wrong process answered" case — treating absence as a pass
+ * would restore the connectivity check under a different name.
+ *
+ * Expectations are opt-in: with neither expected value set this is a no-op, so existing callers
+ * keep their current contract.
+ * @param {Object} health The parsed healthcheck payload.
+ * @param {Object} [options]
+ * @param {String|null} [options.expectedPlaneId] Required identity, or null to skip.
+ * @param {String|null} [options.expectedPlaneDataRoot] Required data root, or null to skip.
+ * @returns {Object|null} The observed `{id, dataRoot}`, or null when no expectation was set.
+ */
+export function assertServedPlane(health, {expectedPlaneId = null, expectedPlaneDataRoot = null} = {}) {
+    if (!expectedPlaneId && !expectedPlaneDataRoot) {
+        return null;
+    }
+
+    const plane = health?.plane;
+
+    if (!plane || typeof plane !== 'object') {
+        throw new Error(
+            'Healthcheck reported no `plane` block, so the responder never identified itself. ' +
+            'A process answering on the expected port is not evidence it is the expected process.'
+        );
+    }
+
+    if (expectedPlaneId && plane.id !== expectedPlaneId) {
+        throw new Error(`Served plane id is '${plane.id || '<missing>'}', expected '${expectedPlaneId}' — a different plane is answering this endpoint.`);
+    }
+
+    if (expectedPlaneDataRoot && plane.dataRoot !== expectedPlaneDataRoot) {
+        throw new Error(`Served plane dataRoot is '${plane.dataRoot || '<missing>'}', expected '${expectedPlaneDataRoot}' — same identity, different storage, which is identity without isolation.`);
+    }
+
+    return {id: plane.id, dataRoot: plane.dataRoot};
 }
 
 /**
@@ -131,13 +181,15 @@ export function readToolJson(result) {
  */
 export async function runHealthcheck({
     url,
-    identity       = 'neo-container-healthcheck',
-    bearerToken    = null,
-    expectedStatus = 'healthy',
-    clientName     = 'neo-container-healthcheck',
-    timeoutMs      = DEFAULT_TIMEOUT_MS,
-    ClientClass    = Client,
-    TransportClass = StreamableHTTPClientTransport
+    identity              = 'neo-container-healthcheck',
+    bearerToken           = null,
+    expectedStatus        = 'healthy',
+    expectedPlaneId       = null,
+    expectedPlaneDataRoot = null,
+    clientName            = 'neo-container-healthcheck',
+    timeoutMs             = DEFAULT_TIMEOUT_MS,
+    ClientClass           = Client,
+    TransportClass        = StreamableHTTPClientTransport
 }) {
     const baseUrl = new URL(url);
     const headers = buildHeaders({identity, bearerToken});
@@ -182,9 +234,12 @@ export async function runHealthcheck({
             throw new Error(`Expected healthcheck status '${expectedStatus}', got '${health.status || '<missing>'}'.`);
         }
 
+        const plane = assertServedPlane(health, {expectedPlaneId, expectedPlaneDataRoot});
+
         return {
             status: health.status,
-            url   : baseUrl.toString()
+            url   : baseUrl.toString(),
+            ...(plane ? {plane} : {})
         };
     } finally {
         await client.close?.();
