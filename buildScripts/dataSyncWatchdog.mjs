@@ -15,9 +15,15 @@ import process from 'node:process';
  *
  * Contract:
  * - Breach: `consecutiveFailures >= WATCHDOG_MAX_CONSECUTIVE_FAILURES` (default 3) OR
- *   `age(lastSuccess) > WATCHDOG_MAX_SUCCESS_AGE_HOURS` (default 24). On breach, open the
- *   standing alarm issue — or update the existing open one (fresh body + a comment naming
- *   the latest failed run). N breaches, one issue.
+ *   `age(lastSuccess) > WATCHDOG_MAX_SUCCESS_AGE_HOURS` (default 24) OR
+ *   `age(last resources/content/** commit on dev) > WATCHDOG_MAX_CORPUS_AGE_HOURS` (default 48).
+ *   The third axis exists because run-status is not independent of the QUESTION: the
+ *   generated-markdown corpus advances only via hand-authored commits (never by the
+ *   pipeline), so a green pipeline can certify a growing content backlog forever. The
+ *   corpus axis is measured from the COMMITTED default branch through the API — never a
+ *   working-tree mtime, which can read current in the exact episode it must catch.
+ *   On breach, open the standing alarm issue — or update the existing open one (fresh
+ *   body + a comment naming the latest failed run). N breaches, one issue.
  * - Recovery: the newest completed run succeeds. On recovery, close the standing issue
  *   with a comment linking the recovering run.
  * - Idempotency is anchored by `ALARM_MARKER` in the issue body, never by title search
@@ -33,6 +39,8 @@ export const ALARM_TITLE_PREFIX = '[DATA-SYNC-ALARM]';
 const
     DEFAULT_MAX_CONSECUTIVE_FAILURES = 3,
     DEFAULT_MAX_SUCCESS_AGE_HOURS    = 24,
+    DEFAULT_MAX_CORPUS_AGE_HOURS     = 48,
+    DEFAULT_CORPUS_PATH              = 'resources/content',
     DEFAULT_WORKFLOW                 = 'data-sync-pipeline.yml',
     RUNS_PER_PAGE                    = 30;
 
@@ -61,17 +69,19 @@ export function computeStreak({runs}) {
 
 /**
  * Evaluates the breach thresholds. Boundary semantics: consecutive failures breach at `>=`,
- * success age breaches strictly past the hour limit.
+ * success age and corpus age breach strictly past their hour limits.
  *
  * @param {Object} options
  * @param {Number} options.consecutiveFailures
  * @param {String|null} options.lastSuccessAt ISO date of the last success, or null when none is visible.
  * @param {Date} options.now
+ * @param {String|null} [options.corpusLastCommitAt] ISO date of the last `resources/content/**` commit on dev.
  * @param {Number} [options.maxConsecutiveFailures=3]
  * @param {Number} [options.maxSuccessAgeHours=24]
+ * @param {Number} [options.maxCorpusAgeHours=48]
  * @returns {{breached: Boolean, reasons: String[]}}
  */
-export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS}) {
+export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusLastCommitAt, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS, maxCorpusAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS}) {
     const reasons = [];
 
     if (consecutiveFailures >= maxConsecutiveFailures) {
@@ -85,6 +95,18 @@ export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, maxCons
 
         if (ageHours > maxSuccessAgeHours) {
             reasons.push(`last success is ${ageHours.toFixed(1)}h old (threshold ${maxSuccessAgeHours}h)`)
+        }
+    }
+
+    if (corpusLastCommitAt !== undefined) {
+        if (!corpusLastCommitAt) {
+            reasons.push('no `resources/content/**` commit visible on the default branch')
+        } else {
+            const corpusAgeHours = (now.getTime() - new Date(corpusLastCommitAt).getTime()) / 3_600_000;
+
+            if (corpusAgeHours > maxCorpusAgeHours) {
+                reasons.push(`last \`resources/content/**\` commit is ${corpusAgeHours.toFixed(1)}h old (threshold ${maxCorpusAgeHours}h — deploys, clones, CI and container KB ingestion all build from committed \`dev\`)`)
+            }
         }
     }
 
@@ -122,9 +144,13 @@ export function selectAlarmIssue(issues) {
  *        (the only path where a zero-streak title can occur).
  * @returns {String}
  */
-export function buildAlarmTitle({consecutiveFailures, lastSuccess, forced=false}) {
+export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced=false}) {
     if (forced && consecutiveFailures === 0) {
         return `${ALARM_TITLE_PREFIX} Data Sync Pipeline: forced breach evaluation (workflow_dispatch dry run)`
+    }
+
+    if (consecutiveFailures === 0 && corpusLastCommitAt) {
+        return `${ALARM_TITLE_PREFIX} Data Sync corpus stale: last \`resources/content/**\` commit ${corpusLastCommitAt} (${corpusAgeHours}h)`
     }
 
     const since = lastSuccess ? ` since ${lastSuccess.created_at}` : ' (no recent success)';
@@ -141,7 +167,7 @@ export function buildAlarmTitle({consecutiveFailures, lastSuccess, forced=false}
  * @param {Boolean} [options.forced=false] True when a dispatch dry-run forced the branch.
  * @returns {String}
  */
-export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, forced=false}) {
+export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, forced=false}) {
     return [
         ALARM_MARKER,
         '',
@@ -151,6 +177,7 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         `**Streak:** ${consecutiveFailures} consecutive failures.`,
         `**Last success:** ${lastSuccess ? `[${lastSuccess.created_at}](${lastSuccess.html_url})` : `none in the last ${RUNS_PER_PAGE} completed runs`}.`,
         `**Latest failure:** ${latestFailure ? `[run ${latestFailure.id}](${latestFailure.html_url})` : 'n/a'}.`,
+        `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`,
         '',
         '**Breach reasons:**',
         ...reasons.map(reason => `- ${reason}`),
@@ -218,8 +245,10 @@ async function main() {
         token                  = process.env.GITHUB_TOKEN,
         repository             = process.env.GITHUB_REPOSITORY || 'neomjs/neo',
         workflow               = process.env.WATCHDOG_WORKFLOW || DEFAULT_WORKFLOW,
+        corpusPath             = process.env.WATCHDOG_CORPUS_PATH || DEFAULT_CORPUS_PATH,
         maxConsecutiveFailures = Number(process.env.WATCHDOG_MAX_CONSECUTIVE_FAILURES) || DEFAULT_MAX_CONSECUTIVE_FAILURES,
         maxSuccessAgeHours     = Number(process.env.WATCHDOG_MAX_SUCCESS_AGE_HOURS) || DEFAULT_MAX_SUCCESS_AGE_HOURS,
+        maxCorpusAgeHours      = Number(process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS) || DEFAULT_MAX_CORPUS_AGE_HOURS,
         dryRun                 = process.env.WATCHDOG_DRY_RUN === 'true' || args.has('--dry-run'),
         forceBreach            = process.env.WATCHDOG_FORCE_BREACH === 'true',
         forceRecovery          = process.env.WATCHDOG_FORCE_RECOVERY === 'true',
@@ -243,13 +272,45 @@ async function main() {
 
     console.log(`watchdog: ${runs.length} completed runs visible; latest=${latest?.conclusion ?? 'none'}; consecutiveFailures=${consecutiveFailures}; lastSuccess=${lastSuccess?.created_at ?? 'none'}`);
 
+    // Corpus axis: the generated-markdown corpus advances only via hand-authored commits —
+    // measure the COMMITTED default branch, never a working tree (which can read current in
+    // the exact episode this axis exists to catch).
+    const corpusCommits = await api(
+        `/repos/${repository}/commits?path=${encodeURIComponent(corpusPath)}&sha=dev&per_page=1`,
+        {token}
+    );
+
+    const corpusLastCommitAt = corpusCommits[0]?.commit?.committer?.date ?? null,
+          corpusAgeHours     = corpusLastCommitAt
+              ? Number(((now.getTime() - new Date(corpusLastCommitAt).getTime()) / 3_600_000).toFixed(1))
+              : null;
+
+    console.log(`watchdog: corpus axis — last \`${corpusPath}\` commit on dev: ${corpusLastCommitAt ?? 'none'}${corpusAgeHours !== null ? ` (${corpusAgeHours}h)` : ''}`);
+
+    const {breached, reasons} = evaluateBreach({
+        consecutiveFailures,
+        lastSuccessAt: lastSuccess?.created_at ?? null,
+        now,
+        corpusLastCommitAt,
+        maxConsecutiveFailures,
+        maxSuccessAgeHours,
+        maxCorpusAgeHours
+    });
+
+    if (forceBreach && !breached) {
+        reasons.unshift('forced via workflow_dispatch (dry-run acceptance path)')
+    }
+
+    // Recovery means NO active breach on any axis: a green run closing the alarm while the
+    // corpus backlog grows is exactly the certified-silence failure this watchdog exists to break.
+    const recovered = forceRecovery || (!forceBreach && isRecovered({latestConclusion: latest?.conclusion}) && !breached);
+
     const openIssues = await api(`/repos/${repository}/issues?state=open&per_page=100`, {token}),
           alarm      = selectAlarmIssue(openIssues);
 
     console.log(`watchdog: standing alarm issue: ${alarm ? `#${alarm.number}` : 'none'}${dryRun ? ' (DRY RUN — no writes)' : ''}`);
 
-    // Recovery branch (forced or natural). A forced breach suppresses a natural recovery.
-    if (forceRecovery || (!forceBreach && isRecovered({latestConclusion: latest?.conclusion}))) {
+    if (recovered) {
         if (alarm) {
             const comment = buildRecoveryComment({recoveringRun: latest, consecutiveFailures});
 
@@ -266,25 +327,13 @@ async function main() {
         return
     }
 
-    const {breached, reasons} = evaluateBreach({
-        consecutiveFailures,
-        lastSuccessAt: lastSuccess?.created_at ?? null,
-        now,
-        maxConsecutiveFailures,
-        maxSuccessAgeHours
-    });
-
-    if (forceBreach && !breached) {
-        reasons.unshift('forced via workflow_dispatch (dry-run acceptance path)')
-    }
-
     if (!breached && !forceBreach) {
         console.log('watchdog: healthy — no breach, nothing to do');
         return
     }
 
-    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, forced: forceBreach}),
-          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, forced: forceBreach});
+    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced: forceBreach}),
+          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusLastCommitAt, corpusAgeHours, forced: forceBreach});
 
     if (alarm) {
         const comment = buildBreachComment({consecutiveFailures, latestFailure: latest});

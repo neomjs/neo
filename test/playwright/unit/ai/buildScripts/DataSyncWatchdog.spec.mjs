@@ -171,6 +171,70 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(recovery).toContain('re-opens on the next breach episode')
     });
 
+    test('evaluateBreach: corpus axis — fresh, strict 48h boundary, stale, and missing-commit cases', () => {
+        const base = {
+            consecutiveFailures   : 0,
+            lastSuccessAt         : '2026-07-26T11:30:00Z',
+            now                   : NOW,
+            maxConsecutiveFailures: 3,
+            maxSuccessAgeHours    : 24,
+            maxCorpusAgeHours     : 48
+        };
+
+        expect(evaluateBreach({...base, corpusLastCommitAt: '2026-07-25T12:30:00Z'}).breached).toBe(false); // 47.5h
+        expect(evaluateBreach({...base, corpusLastCommitAt: '2026-07-24T12:00:00Z'}).breached).toBe(false); // exactly 48h
+        const stale = evaluateBreach({...base, corpusLastCommitAt: '2026-07-17T07:13:29Z'});
+
+        expect(stale.breached).toBe(true);
+        expect(stale.reasons[0]).toContain('resources/content');
+        expect(stale.reasons[0]).toContain('48h');
+
+        const missing = evaluateBreach({...base, corpusLastCommitAt: null});
+
+        expect(missing.breached).toBe(true);
+        expect(missing.reasons[0]).toContain('no `resources/content/**` commit visible')
+    });
+
+    test('evaluateBreach: a green run axis does NOT mask a stale corpus (the certified-silence case)', () => {
+        const {breached, reasons} = evaluateBreach({
+            consecutiveFailures   : 0,
+            lastSuccessAt         : '2026-07-26T00:17:01Z',
+            now                   : NOW,
+            corpusLastCommitAt    : '2026-07-17T07:13:29Z',
+            maxConsecutiveFailures: 3,
+            maxSuccessAgeHours    : 24,
+            maxCorpusAgeHours     : 48
+        });
+
+        expect(breached).toBe(true);
+        expect(reasons.length).toBe(1);
+        expect(reasons[0]).toContain('resources/content')
+    });
+
+    test('buildAlarmTitle: corpus-only breach names the corpus, not a zero streak', () => {
+        expect(buildAlarmTitle({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            corpusLastCommitAt : '2026-07-17T07:13:29Z',
+            corpusAgeHours     : 220.5
+        })).toBe(`${ALARM_TITLE_PREFIX} Data Sync corpus stale: last \`resources/content/**\` commit 2026-07-17T07:13:29Z (220.5h)`)
+    });
+
+    test('buildAlarmBody: carries the corpus axis line with the committed-dev rationale', () => {
+        const body = buildAlarmBody({
+            consecutiveFailures: 0,
+            lastSuccess        : run('success', '2026-07-26T00:17:01Z'),
+            latestFailure      : null,
+            reasons            : ['last `resources/content/**` commit is 220.5h old (threshold 48h)'],
+            corpusLastCommitAt : '2026-07-17T07:13:29Z',
+            corpusAgeHours     : 220.5
+        });
+
+        expect(body).toContain('**Corpus axis:**');
+        expect(body).toContain('2026-07-17T07:13:29Z (220.5h old)');
+        expect(body).toContain('committed `dev`')
+    });
+
     test('forced dispatch dry-run alarm body discloses its own provenance', () => {
         const body = buildAlarmBody({
             consecutiveFailures: 0,
