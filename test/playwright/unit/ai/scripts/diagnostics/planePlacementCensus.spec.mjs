@@ -240,14 +240,24 @@ test.describe('planePlacementCensus — the classification rules the election is
 
     test('the member set is read from ALL declaring configs, not Tier 1 alone', () => {
         // Reading only `ai/configBase.mjs` is how both WAL daemons stayed invisible: their members are
-        // declared by the memory-core server config.
-        const all   = readDeclaredPlaneMembers(),
-              tier1 = readDeclaredPlaneMembers({configs: ['ai/configBase.mjs']});
+        // declared by the memory-core server config. The exact roster keeps a newly-declared config
+        // from being omitted while the union still looks plausible.
+        const all        = readDeclaredPlaneMembers(),
+              tier1      = readDeclaredPlaneMembers({configs: ['ai/configBase.mjs']}),
+              neuralLink = readDeclaredPlaneMembers({
+                  configs: ['ai/mcp/server/neural-link/configBase.mjs']
+              });
 
-        expect(PLANE_MEMBER_CONFIGS.length).toBeGreaterThan(1);
+        expect(PLANE_MEMBER_CONFIGS).toEqual([
+            'ai/configBase.mjs',
+            'ai/mcp/server/memory-core/configBase.mjs',
+            'ai/mcp/server/knowledge-base/configBase.mjs',
+            'ai/mcp/server/neural-link/configBase.mjs'
+        ]);
+        expect(neuralLink).toEqual(['logPath']);
         expect(all.length).toBeGreaterThan(tier1.length);
         expect(all).toEqual([...all].sort());
-        // Union, not concatenation — `logPath` is declared by two configs.
+        // Union, not concatenation — `logPath` is declared by three server configs.
         expect(new Set(all).size).toBe(all.length);
     });
 

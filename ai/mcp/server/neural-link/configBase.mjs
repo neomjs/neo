@@ -92,7 +92,7 @@ class ConfigBase extends ConfigProvider {
              * Per-server file isolation, single tailable directory.
              * @type {string}
              */
-            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_NL_LOG_PATH', 'string'),
+            logPath: leaf(path.resolve(planeDataRoot, 'logs'), 'NEO_NL_LOG_PATH', 'string', {planeMember: true}),
             /**
              * @summary Retention policy for Neural Link MCP diagnostic log files.
              *
@@ -139,4 +139,17 @@ class ConfigBase extends ConfigProvider {
         }
     }
 }
+
+/**
+ * @summary The plane-member paths declared by Neural Link for static census and profile binding.
+ *
+ * Neural Link remains seat-local in the parity topology, but its logger config is imported by
+ * plane processes such as Memory Core and the orchestrator. Declaring the imported log leaf here
+ * keeps the static placement census and `derivePlaneMemberPaths()` completeness proof coupled to
+ * the same config contract.
+ */
+export const PLANE_MEMBER_PATHS = Object.freeze([
+    'logPath'
+]);
+
 export default Neo.setupClass(ConfigBase);
