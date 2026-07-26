@@ -21,6 +21,7 @@ jobs:
       run_integration: ${{ steps.scope.outputs.run_integration }}
       run_unit: ${{ steps.scope.outputs.run_unit }}
       run_components: ${{ steps.scope.outputs.run_components }}
+      run_parity: ${{ steps.scope.outputs.run_parity }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
 
     steps:
@@ -87,6 +88,7 @@ jobs:
               core.setOutput('run_integration', 'false');
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
+              core.setOutput('run_parity', 'false');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -107,6 +109,7 @@ jobs:
               core.setOutput('run_integration', 'true');
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
+              core.setOutput('run_parity', 'true');
               core.setOutput('skip_reason', 'changed files unavailable');
               return;
             }
@@ -159,18 +162,40 @@ jobs:
               file === 'package-lock.json' ||
               file === '.github/workflows/test.yml';
 
+            // Whitelist (#15807): the parity lane is the single-reality witness for the
+            // phase-3 stack — it boots ai/deploy/docker-compose.dev.yml (+ the parity-ci
+            // overlay) on an overlay planeId and asserts topology + the mock-embedding
+            // contract, FAILING CLOSED when docker is absent (never best-effort).
+            //
+            // Boundary, not a new list: the booted stack's runtime closure is the SAME
+            // one the integration suite already treats as bootable — src/ (the engine
+            // hemisphere the servers extend), ai/ (services, config chain, daemons,
+            // deploy), the integration fixtures + harness. Parity relevance therefore
+            // INHERITS isIntegrationRelevantPath and adds only the lane's own files.
+            // One boundary, one owner: a future runtime import the integration
+            // whitelist learns about is inherited here automatically; an invented
+            // subset would drift the moment the stack crosses it (it already crosses
+            // into src/state/Provider, src/core/Base, and the shared mcpClient fixture).
+            const isParityRelevantPath = file =>
+              isIntegrationRelevantPath(file) ||
+              file.startsWith('test/playwright/integration-parity/') ||
+              file === 'test/playwright/playwright.config.integration-parity.mjs';
+
             const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
+            const runParity      = normalizedFiles.some(isParityRelevantPath);
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
             core.info(`run_integration=${runIntegration}`);
             core.info(`run_unit=${runUnit}`);
             core.info(`run_components=${runComponents}`);
+            core.info(`run_parity=${runParity}`);
 
             core.setOutput('run_integration', String(runIntegration));
             core.setOutput('run_unit', String(runUnit));
             core.setOutput('run_components', String(runComponents));
+            core.setOutput('run_parity', String(runParity));
             core.setOutput(
               'skip_reason',
               'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
@@ -194,6 +219,8 @@ jobs:
         include:
           - suite: integration-unified
             run: ${{ needs.changes.outputs.run_integration }}
+          - suite: integration-parity
+            run: ${{ needs.changes.outputs.run_parity }}
           - suite: unit
             run: ${{ needs.changes.outputs.run_unit }}
           - suite: components
