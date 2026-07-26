@@ -3,7 +3,17 @@ name: Data Sync Pipeline
 on:
   schedule:
     - cron: '0 * * * *' # Run hourly
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      preflight_only:
+        # Verifies the credential topology WITHOUT side effects: mints both tokens, probes every
+        # required repository, then stops. The collection stages are the ones that mutate — OptOut
+        # comments on and closes real issues in `devindex-opt-out` — so a configuration check that
+        # has to run them is not a check anyone will repeat. This one is safe to run as often as
+        # needed, which is what makes it usable while an installation is being corrected.
+        description: 'Probe repository access and exit, without collecting or publishing'
+        type: boolean
+        default: false
 
 concurrency:
   group: data-sync-pipeline
@@ -63,6 +73,7 @@ jobs:
       - name: Run bounded Data Sync emission and publish
         env:
           DATA_SYNC_INTAKE_TOKEN: ${{ steps.intake-token.outputs.token }}
+          DATA_SYNC_PREFLIGHT_ONLY: ${{ inputs.preflight_only }}
           DATA_SYNC_PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
         run: node ./buildScripts/dataSyncPipeline.mjs
 

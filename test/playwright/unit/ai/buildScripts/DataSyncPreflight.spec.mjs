@@ -92,3 +92,76 @@ test.describe('Data Sync access preflight (#15744)', () => {
         expect(threw.message).not.toContain('PERSISTENT authorization failure')
     });
 });
+
+/**
+ * Preflight-only dispatch: verifying the credential topology must not require mutating anything.
+ *
+ * The collection stages have side effects — OptOut comments on and closes real issues in
+ * `devindex-opt-out`. A configuration check that can only be performed by running them is a check
+ * nobody repeats while iterating on an installation, which is precisely when it is most needed.
+ */
+test.describe('preflight-only dispatch mode', () => {
+    let emitGeneratedData;
+
+    test.beforeAll(async () => {
+        ({emitGeneratedData} = await import('../../../../../buildScripts/dataSyncPipeline.mjs'))
+    });
+
+    test.afterEach(() => {
+        delete process.env.DATA_SYNC_PREFLIGHT_ONLY
+    });
+
+    test('preflight-only runs the probe and then executes NO stage', async () => {
+        const executed = [];
+
+        process.env.DATA_SYNC_PREFLIGHT_ONLY = 'true';
+
+        let probed = false;
+
+        await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async command => {executed.push(command)},
+            log      : () => {},
+            preflight: async () => {probed = true}
+        });
+
+        expect(probed).toBe(true);
+        expect(executed).toEqual([])
+    });
+
+    test('the flag is opt-in: absent or non-"true" runs the full sequence', async () => {
+        for (const value of [undefined, 'false', '1', 'yes']) {
+            const executed = [];
+
+            value === undefined
+                ? delete process.env.DATA_SYNC_PREFLIGHT_ONLY
+                : process.env.DATA_SYNC_PREFLIGHT_ONLY = value;
+
+            await emitGeneratedData({
+                attempt  : 1,
+                cwd      : '/tmp',
+                execute  : async command => {executed.push(command)},
+                log      : () => {},
+                preflight: async () => {}
+            });
+
+            // Only the exact string 'true' short-circuits. A truthy-ish value silently skipping the
+            // whole pipeline would be a scheduled run that reports success having done nothing —
+            // the same silent-no-op class this ticket exists to remove.
+            expect(executed.length, `flag=${String(value)}`).toBeGreaterThan(0)
+        }
+    });
+
+    test('preflight failure still aborts in preflight-only mode', async () => {
+        process.env.DATA_SYNC_PREFLIGHT_ONLY = 'true';
+
+        await expect(emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => {},
+            log      : () => {},
+            preflight: async () => {throw new Error('[DataSync preflight] denied')}
+        })).rejects.toThrow('denied')
+    });
+});

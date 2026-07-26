@@ -325,6 +325,14 @@ export async function emitGeneratedData({
     // message string cannot make, and the one whose absence cost sixty silent scheduled runs.
     await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN});
 
+    // Credential-topology check with no side effects. The collection stages mutate — OptOut comments
+    // on and closes real issues — so a configuration check that must run them is one nobody repeats
+    // while iterating on an installation. Stopping here keeps it cheap enough to re-run freely.
+    if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
+        log('[DataSync] preflight-only: repository access verified; skipping collection and publish.');
+        return
+    }
+
     for (const {args, command, label, tokenScope} of emissionCommands) {
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
         await execute(command, args, {cwd, env: scopedStageEnv(tokenScope)})
