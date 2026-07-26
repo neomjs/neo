@@ -1365,6 +1365,70 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(() => GraphService.ensureGlobalBootSeedNode('not-a-boot-seed')).toThrow(/not a fixed boot-seed node/);
     });
 
+    test('ensureGlobalBootSeedNode REPAIRS a present-but-invalid seed, not just an absent one (#15985)', async () => {
+        const RequestContextService      = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default,
+              {getGraphBootSeedNodeSpec} = await import('../../../../../../ai/graph/bootSeedManifest.mjs');
+
+        let   mockIdentity  = '@identity-a';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            // Case 1: the exact pre-fix shape an upgraded graph already carries — the old
+            // extractor's local literal, written through plain upsertNode so it is TENANT-STAMPED
+            // and its description has drifted. A presence-only predicate returns early here and
+            // leaves the defect in place, which is what makes this the upgrade-path blocker.
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+            }
+
+            GraphService.upsertNode({
+                id              : 'frontier',
+                type            : 'SYSTEM_ANCHOR',
+                name            : 'Active Context Frontier',
+                description     : 'The actively tracked development front for the current project scope.',
+                semanticVectorId: null
+            });
+
+            expect(GraphService.db.nodes.get('frontier').properties.userId).not.toBe(null);
+
+            // Repaired, and it reports that it healed rather than silently no-opping.
+            expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(true);
+
+            const canonical = getGraphBootSeedNodeSpec('frontier'),
+                  repaired  = GraphService.db.nodes.get('frontier');
+
+            expect(repaired.properties.userId).toBe(null);
+            expect(repaired.properties.description).toBe(canonical.description);
+
+            // Case 2: drifted description on an otherwise-global row is still a violation.
+            GraphService.upsertGlobalNode({
+                id         : 'frontier',
+                type       : 'SYSTEM_ANCHOR',
+                name       : 'Active Context Frontier',
+                description: 'drifted text that is not the manifest declaration'
+            });
+
+            expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(true);
+            expect(GraphService.db.nodes.get('frontier').properties.description).toBe(canonical.description);
+
+            // Case 3: a compliant row is a genuine no-op — the method must not churn writes.
+            expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(false);
+
+            // Case 4: an unrelated row under an unknown id must NOT let the caller skip the
+            // fail-loud contract — the id is validated before any early return.
+            GraphService.upsertNode({id: 'not-a-boot-seed', type: 'TEST', name: 'squatter'});
+            expect(() => GraphService.ensureGlobalBootSeedNode('not-a-boot-seed')).toThrow(/not a fixed boot-seed node/);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
     test('the restored hub is GLOBAL, so a second identity can link to it without FK culling (#15985)', async () => {
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 

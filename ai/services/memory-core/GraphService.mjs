@@ -1,15 +1,16 @@
-import path                          from 'path';
-import aiConfig                      from '../../mcp/server/memory-core/config.mjs';
-import logger                        from '../../mcp/server/memory-core/logger.mjs';
-import Base                          from '../../../src/core/Base.mjs';
-import CoreDatabase                  from '../../../ai/graph/Database.mjs';
-import SQLite                        from '../../../ai/graph/storage/SQLite.mjs';
-import { IDENTITIES }                from '../../../ai/graph/identityRoots.mjs';
-import {createGraphBootSeedManifest} from '../../../ai/graph/bootSeedManifest.mjs';
-import {getGraphBootSeedNodeSpec}    from '../../../ai/graph/bootSeedManifest.mjs';
-import { normalizeUserId }           from '../../mcp/server/shared/services/RequestContextService.mjs';
-import fsExtra                       from 'fs-extra';
-import {projectNode}                 from './nodeProjection.mjs';
+import path                            from 'path';
+import aiConfig                        from '../../mcp/server/memory-core/config.mjs';
+import logger                          from '../../mcp/server/memory-core/logger.mjs';
+import Base                            from '../../../src/core/Base.mjs';
+import CoreDatabase                    from '../../../ai/graph/Database.mjs';
+import SQLite                          from '../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES }                  from '../../../ai/graph/identityRoots.mjs';
+import {createGraphBootSeedManifest}   from '../../../ai/graph/bootSeedManifest.mjs';
+import {createGraphBootSeedNodeRecord} from '../../../ai/graph/bootSeedManifest.mjs';
+import {getGraphBootSeedNodeSpec}      from '../../../ai/graph/bootSeedManifest.mjs';
+import { normalizeUserId }             from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fsExtra                         from 'fs-extra';
+import {projectNode}                   from './nodeProjection.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -406,22 +407,69 @@ class GraphService extends Base {
      * it was already present. Callers may surface the `true` case; none should depend on it.
      */
     ensureGlobalBootSeedNode(id) {
-        // Lazy-load from SQLite before the in-memory check, for the reason upsertNode states.
+        // Resolve the spec BEFORE any early return. An unrelated row already sitting under an
+        // unknown id must not let the caller skip the fail-loud unknown-id contract.
+        const record = createGraphBootSeedNodeRecord(getGraphBootSeedNodeSpec(id));
+
+        // Lazy-load from SQLite before inspecting, for the reason upsertNode states.
         this.db.getAdjacentNodes(id, 'both');
 
-        if (this.db.nodes.has(id)) {
+        const existing  = this.db.nodes.get(id),
+              divergent = existing ? this.#bootSeedDivergence(existing, record) : null;
+
+        if (existing && !divergent) {
             return false
         }
 
         this.upsertGlobalNode(getGraphBootSeedNodeSpec(id));
 
         logger.warn(
-            `[GraphService] boot-seed node "${id}" was absent and has been restored from the canonical manifest. ` +
-            'Boot or fresh-target recovery left the persisted graph non-manifest-equal — fix the boot path. ' +
-            'Until then any edge naming this hub was silently culled by the linkNodes FK guard.'
+            existing
+                ? `[GraphService] boot-seed node "${id}" existed but violated its manifest invariants ` +
+                  `(${divergent}) and has been repaired. A pre-existing divergent row is usually a locally ` +
+                  'declared copy: a tenant-stamped or drifted seed is invisible or non-manifest-equal to ' +
+                  'other tenants, so edges naming this hub were silently culled by the linkNodes FK guard.'
+                : `[GraphService] boot-seed node "${id}" was absent and has been restored from the canonical ` +
+                  'manifest. Boot or fresh-target recovery left the persisted graph non-manifest-equal — fix ' +
+                  'the boot path. Until then any edge naming this hub was silently culled by the FK guard.'
         );
 
         return true
+    }
+
+    /**
+     * @summary Names the first manifest invariant an existing boot-seed row violates, or `null`
+     * when the row is already manifest-equal and global.
+     *
+     * Compares against `createGraphBootSeedNodeRecord`'s projection rather than a hand-listed
+     * field set, so the invariant tracks the manifest's own persisted shape and cannot drift
+     * away from it. `userId` is checked explicitly because it is the invariant that makes the
+     * row reachable across tenants at all — a private seed is present-but-useless to everyone
+     * except its creator.
+     *
+     * @param {Object} existing Persisted node record.
+     * @param {Object} record Canonical projection from the boot-seed manifest.
+     * @returns {String|null} Human-readable violation, or `null` when compliant.
+     * @private
+     */
+    #bootSeedDivergence(existing, record) {
+        const properties = existing.properties || {};
+
+        if (properties.userId !== null) {
+            return `userId is ${JSON.stringify(properties.userId ?? null)}, expected null (global)`
+        }
+
+        if (existing.label !== record.label) {
+            return `label is ${JSON.stringify(existing.label)}, expected ${JSON.stringify(record.label)}`
+        }
+
+        for (const [key, expected] of Object.entries(record.properties)) {
+            if (key !== 'userId' && properties[key] !== expected) {
+                return `${key} is ${JSON.stringify(properties[key])}, expected ${JSON.stringify(expected)}`
+            }
+        }
+
+        return null
     }
 
     /**
