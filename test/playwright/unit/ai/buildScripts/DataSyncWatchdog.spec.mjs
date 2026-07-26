@@ -10,6 +10,7 @@ import {
     computeStreak,
     evaluateBreach,
     isRecovered,
+    latestCommitDate,
     parseThreshold,
     selectAlarmIssue
 } from '../../../../../buildScripts/dataSyncWatchdog.mjs';
@@ -245,6 +246,20 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(body).toContain('**Corpus axis:**');
         expect(body).toContain('2026-07-17T07:13:29Z (220.5h old)');
         expect(body).toContain('committed `dev`')
+    });
+
+    test('latestCommitDate: newest-wins across a multi-path semantic corpus (archive-only repair is maintenance)', () => {
+        const entry = date => ({commit: {committer: {date}}});
+
+        // active landed yesterday, archive landed today — the archive repair counts
+        expect(latestCommitDate([[entry('2026-07-25T05:13:29Z')], [entry('2026-07-26T04:00:00Z')]]))
+            .toBe('2026-07-26T04:00:00Z');
+        // the reverse order resolves identically — freshness is the max, not the first path
+        expect(latestCommitDate([[entry('2026-07-26T04:00:00Z')], [entry('2026-07-17T05:13:29Z')]]))
+            .toBe('2026-07-26T04:00:00Z');
+        // no visible commit on ANY subpath is null — the missing-facet breach reason
+        expect(latestCommitDate([[], []])).toBe(null);
+        expect(latestCommitDate([[null], [undefined]])).toBe(null)
     });
 
     test('evaluateBreach: per-facet — a single stale facet breaches while the others are fresh', () => {

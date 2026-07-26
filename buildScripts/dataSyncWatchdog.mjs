@@ -23,7 +23,12 @@ import process from 'node:process';
  *   corpus is measured PER FACET (`issues`, `pulls`, `discussions` by default) — the
  *   facets sync independently and drift apart, so a single tree timestamp would certify
  *   two stale facets after an issue-only landing: the freshness witness needs the same
- *   cardinality as the corpus it certifies. Every facet is measured from the COMMITTED
+ *   cardinality as the corpus it certifies. The `issues` facet spans BOTH the active tree
+ *   and `archive/issues`, because consumers read them as one semantic corpus
+ *   (`buildScripts/docs/index/tickets.mjs` dual-source) — and the sync lane writes both.
+ *   Its freshness is the NEWEST commit across the two subpaths: an archive-only repair is
+ *   maintenance, and a healthy archive cadence (weekly-ish gaps) is not a breach; the
+ *   breach is the whole lane going quiet. Every facet is measured from the COMMITTED
  *   default branch through the API — never a working-tree mtime, which can read current
  *   in the exact episode it must catch.
  *   On breach, open the standing alarm issue — or update the existing open one (fresh
@@ -44,10 +49,23 @@ const
     DEFAULT_MAX_CONSECUTIVE_FAILURES = 3,
     DEFAULT_MAX_SUCCESS_AGE_HOURS    = 24,
     DEFAULT_MAX_CORPUS_AGE_HOURS     = 48,
-    DEFAULT_CORPUS_FACETS            = ['issues', 'pulls', 'discussions'],
     DEFAULT_CORPUS_PATH              = 'resources/content',
     DEFAULT_WORKFLOW                 = 'data-sync-pipeline.yml',
-    RUNS_PER_PAGE                    = 30;
+    RUNS_PER_PAGE                    = 30,
+    /**
+     * Facet definitions: name → subpaths under `resources/content` that form ONE semantic
+     * corpus. `issues` spans active + archive because consumers dual-source them; its
+     * freshness is the newest commit across both (an archive-only repair is maintenance).
+     * `WATCHDOG_CORPUS_FACETS` overrides the NAME list only; unknown names get a single
+     * subpath equal to their name.
+     * @type {Object<String, String[]>}
+     */
+    FACET_PATHS = {
+        issues     : ['issues', 'archive/issues'],
+        pulls      : ['pulls'],
+        discussions: ['discussions']
+    },
+    DEFAULT_CORPUS_FACETS            = Object.keys(FACET_PATHS);
 
 /**
  * Reduces the newest-first completed run history to the streak facts.
@@ -70,6 +88,23 @@ export function computeStreak({runs}) {
     }
 
     return {latest: runs[0] ?? null, consecutiveFailures, lastSuccess}
+}
+
+/**
+ * Resolves a facet's freshness from per-subpath commit lists: the NEWEST commit date
+ * across every subpath of one semantic corpus, or null when no subpath has a visible
+ * commit. Newest-wins is the contract for multi-path facets (`issues` = active + archive):
+ * an archive-only repair is maintenance, and a healthy archive cadence is not a breach.
+ *
+ * @param {Object[][]} commitLists One list of commit entries per subpath.
+ * @returns {String|null} ISO date of the newest commit, or null.
+ */
+export function latestCommitDate(commitLists) {
+    const dates = commitLists.flat()
+        .map(entry => entry?.commit?.committer?.date)
+        .filter(Boolean);
+
+    return dates.length ? dates.reduce((a, b) => a > b ? a : b) : null
 }
 
 /**
@@ -334,6 +369,8 @@ async function main() {
     // Corpus axis, PER FACET: the corpus advances only via hand-authored commits, and its
     // facets sync independently — one tree timestamp would certify two stale facets after
     // a single-facet landing (the freshness witness needs the corpus's own cardinality).
+    // Multi-path facets (`issues` = active + archive, one semantic corpus for consumers)
+    // take the NEWEST commit across their subpaths: an archive-only repair is maintenance.
     // Measured from the COMMITTED default branch, never a working tree.
     const facetNames = (process.env.WATCHDOG_CORPUS_FACETS || DEFAULT_CORPUS_FACETS.join(','))
         .split(',')
@@ -341,12 +378,11 @@ async function main() {
         .filter(Boolean);
 
     const corpusFacets = await Promise.all(facetNames.map(async facet => {
-        const commits = await api(
-            `/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${facet}`)}&sha=dev&per_page=1`,
-            {token}
-        );
+        const subpaths = FACET_PATHS[facet] ?? [facet],
+              commits  = await Promise.all(subpaths.map(subpath =>
+                  api(`/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${subpath}`)}&sha=dev&per_page=1`, {token})));
 
-        const lastCommitAt = commits[0]?.commit?.committer?.date ?? null,
+        const lastCommitAt = latestCommitDate(commits),
               ageHours     = lastCommitAt
                   ? (now.getTime() - new Date(lastCommitAt).getTime()) / 3_600_000
                   : null;
