@@ -93,6 +93,104 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         await page.waitForTimeout(300)
     }
 
+    /**
+     * Reads the browser's painted overlay geometry while Neural Link owns interaction truth.
+     * @summary Captures the fix-critical containing-block and rect contract without creating a shared helper.
+     * @param {Object} page
+     * @returns {Promise<Object>}
+     */
+    async function readParkedOverlayGeometry(page) {
+        return page.evaluate(() => {
+            const
+                dockHost       = document.querySelector('.workstation-dock-host'),
+                indicatorLayer = document.querySelector('.neo-dashboard-dock-drop-indicators'),
+                previewLayer   = document.querySelector('.neo-dock-preview'),
+                targetZone     = [...document.querySelectorAll('.neo-dashboard-dock-tabs')]
+                    .find(element => element.querySelector('.neo-grid-container')),
+                readRect       = element => {
+                    const rect = element?.getBoundingClientRect();
+
+                    return rect && {
+                        bottom: rect.bottom,
+                        height: rect.height,
+                        left  : rect.left,
+                        right : rect.right,
+                        top   : rect.top,
+                        width : rect.width
+                    }
+                };
+
+            return {
+                dockHost               : readRect(dockHost),
+                dockHostId             : dockHost.id,
+                hostPosition           : getComputedStyle(dockHost).position,
+                indicatorLayer         : readRect(indicatorLayer),
+                indicatorOffsetParentId: indicatorLayer.offsetParent?.id,
+                indicatorZIndex        : Number.parseInt(getComputedStyle(indicatorLayer).zIndex, 10),
+                previewAffordance      : readRect(document.querySelector('.neo-dock-preview-affordance')),
+                previewLayer           : readRect(previewLayer),
+                previewOffsetParentId  : previewLayer.offsetParent?.id,
+                previewPointerEvents   : getComputedStyle(previewLayer).pointerEvents,
+                previewZIndex          : Number.parseInt(getComputedStyle(previewLayer).zIndex, 10),
+                targetZone             : readRect(targetZone),
+                topChip                : readRect(document.querySelector(
+                    '.neo-dashboard-dock-drop-chip-top:not(.neo-dashboard-dock-drop-indicator-off)'
+                )),
+                tourbar          : readRect(document.querySelector('.workstation-tourbar')),
+                visibleIndicators: [...document.querySelectorAll(
+                    '.neo-dashboard-dock-drop-indicator:not(.neo-dashboard-dock-drop-indicator-off),'
+                    + '.neo-dashboard-dock-drop-chip:not(.neo-dashboard-dock-drop-indicator-off)'
+                )].map(readRect)
+            }
+        })
+    }
+
+    test('the parked affordances stay inside the dock positioning host', async ({page, neuralLink}) => {
+        const {app, scaleBox} = await bootFlagship(page, neuralLink);
+        const center          = {x: scaleBox.x + scaleBox.width / 2, y: scaleBox.y + scaleBox.height / 2};
+
+        await parkAuditDrag(page, center);
+
+        const
+            indicators = await app.findInstances({className: 'Neo.dashboard.DockDropIndicators'}, ['id']),
+            indId      = (Array.isArray(indicators) ? indicators[0] : indicators)?.id,
+            indState   = await app.getComponent(indId, ['candidateSet', 'mounted']),
+            geometry   = await readParkedOverlayGeometry(page),
+            within     = (inner, outer) => inner.left >= outer.left - 1
+                && inner.top >= outer.top - 1
+                && inner.right <= outer.right + 1
+                && inner.bottom <= outer.bottom + 1,
+            intersects = (first, second) => first.left < second.right
+                && first.right > second.left
+                && first.top < second.bottom
+                && first.bottom > second.top;
+
+        expect(indState?.candidateSet, 'worker truth built the candidate set before geometry truth').toBeTruthy();
+        expect(geometry.hostPosition, 'the dock host establishes the overlay containing block').toBe('relative');
+        expect(geometry.indicatorOffsetParentId).toBe(geometry.dockHostId);
+        expect(geometry.previewOffsetParentId).toBe(geometry.dockHostId);
+        expect(geometry.indicatorLayer).toEqual(geometry.dockHost);
+        expect(geometry.previewLayer).toEqual(geometry.dockHost);
+        expect(geometry.previewPointerEvents).toBe('none');
+        expect(geometry.previewZIndex).toBeLessThan(geometry.indicatorZIndex);
+        expect(geometry.visibleIndicators.length).toBeGreaterThan(0);
+        expect(geometry.visibleIndicators.every(rect => within(rect, geometry.dockHost)),
+            'every painted indicator stays inside the dock host').toBe(true);
+        expect(within(geometry.previewAffordance, geometry.dockHost),
+            'the painted preview stays inside the dock host').toBe(true);
+        expect(intersects(geometry.topChip, geometry.tourbar),
+            'the top edge chip never overlaps the app header').toBe(false);
+        expect(Math.abs(geometry.previewAffordance.left - geometry.targetZone.left)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.previewAffordance.top - geometry.targetZone.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.previewAffordance.width - geometry.targetZone.width)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.previewAffordance.height - geometry.targetZone.height)).toBeLessThanOrEqual(1);
+
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(120);
+        await page.mouse.up();
+        await page.waitForTimeout(300)
+    });
+
     test('a real drag lights the menu + preview, and the release commits release truth', async ({page, neuralLink}) => {
         const {app, scaleBox, wsId} = await bootFlagship(page, neuralLink);
         const center                = {x: scaleBox.x + scaleBox.width / 2, y: scaleBox.y + scaleBox.height / 2};
