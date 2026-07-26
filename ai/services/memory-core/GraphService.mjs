@@ -6,6 +6,7 @@ import CoreDatabase                  from '../../../ai/graph/Database.mjs';
 import SQLite                        from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES }                from '../../../ai/graph/identityRoots.mjs';
 import {createGraphBootSeedManifest} from '../../../ai/graph/bootSeedManifest.mjs';
+import {getGraphBootSeedNodeSpec}    from '../../../ai/graph/bootSeedManifest.mjs';
 import { normalizeUserId }           from '../../mcp/server/shared/services/RequestContextService.mjs';
 import fsExtra                       from 'fs-extra';
 import {projectNode}                 from './nodeProjection.mjs';
@@ -378,6 +379,49 @@ class GraphService extends Base {
      */
     upsertGlobalNode(spec) {
         this.upsertNode({...spec, properties: {...spec.properties, userId: null}});
+    }
+
+    /**
+     * Guarantees one fixed boot-seed node is present, restoring it from the canonical
+     * {@link module:ai/graph/bootSeedManifest} declaration rather than a hand-written copy,
+     * and reporting loudly when it had to heal.
+     *
+     * @summary Anchor & Echo: `linkNodes` culls an edge whose endpoint does not exist and
+     * returns no error, so a caller that names a shared hub (`frontier`) loses its write in
+     * silence when the hub is missing. Callers therefore ensure the hub before linking — via
+     * this method, never by declaring the spec locally. Two prior copies of the `frontier`
+     * spec had already drifted in description AND tenancy: one used plain
+     * {@link GraphService#upsertNode}, which stamps the caller's identity and produces the
+     * per-tenant invisibility this class's own {@link GraphService#upsertGlobalNode} docs warn
+     * about. Healing is deliberately noisy: an absent boot seed means boot or fresh-target
+     * recovery left the persisted graph non-manifest-equal, which is a defect to fix at the
+     * boot path, not a condition to paper over on every read.
+     *
+     * The SQLite warm-read mirrors {@link GraphService#upsertNode}'s cold-cache discipline —
+     * without it a node present on disk but absent from the in-memory map would be re-upserted
+     * from the manifest stub, overwriting a richer persisted row and emitting a false warning.
+     *
+     * @param {String} id Fixed boot-seed node id, e.g. `'frontier'`.
+     * @returns {Boolean} `true` when the node was absent and has been restored, `false` when
+     * it was already present. Callers may surface the `true` case; none should depend on it.
+     */
+    ensureGlobalBootSeedNode(id) {
+        // Lazy-load from SQLite before the in-memory check, for the reason upsertNode states.
+        this.db.getAdjacentNodes(id, 'both');
+
+        if (this.db.nodes.has(id)) {
+            return false
+        }
+
+        this.upsertGlobalNode(getGraphBootSeedNodeSpec(id));
+
+        logger.warn(
+            `[GraphService] boot-seed node "${id}" was absent and has been restored from the canonical manifest. ` +
+            'Boot or fresh-target recovery left the persisted graph non-manifest-equal — fix the boot path. ' +
+            'Until then any edge naming this hub was silently culled by the linkNodes FK guard.'
+        );
+
+        return true
     }
 
     /**

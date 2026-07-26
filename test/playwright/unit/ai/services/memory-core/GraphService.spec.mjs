@@ -1332,6 +1332,77 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             RequestContextService.getAgentIdentityNodeId = originalGetId;
         }
     });
+
+    test('ensureGlobalBootSeedNode restores an absent hub from the manifest, idempotently (#15985)', async () => {
+        const {getGraphBootSeedNodeSpec} = await import('../../../../../../ai/graph/bootSeedManifest.mjs');
+
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+
+        if (GraphService.db.storage?.db) {
+            await GraphService.db.storage.clear();
+        }
+
+        expect(GraphService.db.nodes.has('frontier')).toBe(false);
+
+        // Heals, and says so, so a caller can surface that boot left the graph non-manifest-equal.
+        expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(true);
+        expect(GraphService.db.nodes.has('frontier')).toBe(true);
+
+        // Manifest-EQUAL, not merely present: the description must be the canonical one, never
+        // the drifted copy the extractor used to declare inline.
+        const restored  = GraphService.db.nodes.get('frontier'),
+              canonical = getGraphBootSeedNodeSpec('frontier');
+
+        expect(restored.properties.description).toBe(canonical.description);
+        expect(restored.properties.description).not.toContain('actively tracked development front');
+
+        // Idempotent: a present hub is not re-upserted and does not re-warn.
+        expect(GraphService.ensureGlobalBootSeedNode('frontier')).toBe(false);
+
+        // Unknown ids fail loud rather than silently inviting a hand-written spec back.
+        expect(() => GraphService.ensureGlobalBootSeedNode('not-a-boot-seed')).toThrow(/not a fixed boot-seed node/);
+    });
+
+    test('the restored hub is GLOBAL, so a second identity can link to it without FK culling (#15985)', async () => {
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+
+        if (GraphService.db.storage?.db) {
+            await GraphService.db.storage.clear();
+        }
+
+        let   mockIdentity  = '@identity-a';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            // Identity A restores the hub. The tenancy claim is the whole point: plain
+            // upsertNode would stamp '@identity-a' here, which is what made the pre-fix
+            // extractor shape invisible to every other tenant.
+            GraphService.ensureGlobalBootSeedNode('frontier');
+            expect(GraphService.db.nodes.get('frontier').properties.userId).toBe(null);
+
+            // Identity B now writes a GUIDES edge FROM that hub. Pre-fix, a tenant-stamped hub
+            // would be RLS-invisible here and linkNodes' FK guard would cull the edge silently.
+            mockIdentity = '@identity-b';
+
+            GraphService.upsertNode({id: 'discussion-b', type: 'DISCUSSION', name: 'B-owned target'});
+            GraphService.linkNodes('frontier', 'discussion-b', 'GUIDES', 7);
+
+            const support = GraphService.getInboundStructuralSupport({id: 'discussion-b'});
+
+            // The edge LANDED rather than being silently culled for a missing source endpoint.
+            expect(support.totalWeight).toBeGreaterThan(0);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
 });
 
 test.describe('GraphService — getLifecycleCensus (#10158)', () => {
