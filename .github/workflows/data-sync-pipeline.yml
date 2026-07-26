@@ -24,7 +24,18 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required to push changes
+      # `contents: read`, NOT write. This said `write # Required to push changes`, and that stopped
+      # being true when checkout and publish moved to the Publisher App token — leaving a THIRD
+      # repository-write credential alive for the whole job while this workflow claims two scoped
+      # identities. The implicit token is not merely unused: GitHub documents that an action can
+      # reach `github.token` even when the workflow never passes `GITHUB_TOKEN`, so an unused
+      # write grant is still a reachable one, and per-stage env scoping cannot revoke it.
+      #
+      # `read` rather than `{}` deliberately: nothing in this job demonstrably needs the implicit
+      # token, but "demonstrably" would require a run to establish and the write authority is the
+      # actual defect. Removing write is the verified fix; removing read as well would be an
+      # unverified extra claim, which is the shape of error this PR has already made twice.
+      contents: read
 
     steps:
       # Two identities, because they hold different authority and `create-github-app-token` scopes

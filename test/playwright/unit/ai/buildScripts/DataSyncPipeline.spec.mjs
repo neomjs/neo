@@ -275,6 +275,13 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         // ruleset-bypass identity.
         expect(workflow).toContain('persist-credentials: false');
 
+        // The job's IMPLICIT token must not carry write. It is not merely unused: an action can
+        // reach `github.token` even when the workflow never passes GITHUB_TOKEN, so an unused write
+        // grant is a reachable one that per-stage env scoping cannot revoke. Leaving it at `write`
+        // meant three repository-write credentials were alive while this workflow claimed two.
+        expect(workflow).toContain('contents: read');
+        expect(workflow).not.toMatch(/permissions:\s*\n\s*#[^\n]*\n(\s*#[^\n]*\n)*\s*contents: write/);
+
         // A preflight-only dispatch must not reach the pages push. Without this guard it did —
         // 167 files to `pages/main` while the run logged "skipping collection and publish", because
         // a short-circuit inside the pipeline step cannot bound the steps after it.
