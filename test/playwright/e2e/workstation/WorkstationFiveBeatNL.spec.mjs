@@ -61,22 +61,23 @@ const
 /**
  * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
  * the instance-addressed placement verb (never AppleScript: two same-bundle Chrome processes make
- * script addressing flip-flop, which is why the boot already fronts via CDP).
+ * script addressing flip-flop, which is why the boot already fronts via CDP). CDP moves the native
+ * window outside Neo's event path, so the adapter republishes only the browser-observed geometry
+ * through the product's existing WindowPosition authority after the landing settles.
  *
  * The stage rule, two paths with different guarantees:
  * - DEFAULT = the window's natural landing position with the size pinned. Natural landing is
  *   HOST- AND CURSOR-CONDITIONAL, not enforced: identical across runs on the author's host
  *   ({22,22} ×4), but cascade drift has been observed (75 vs 74 across one run's two boots) and
- *   the OS can seat the window on a secondary display (a roulette landing at x=1750 = the BenQ,
- *   where the morph leg currently dies — the secondary-display finding filed from this lane).
+ *   the OS can seat the window on either display.
  * - `NEO_FILM_DISPLAY_BOUNDS="left,top,width,height"` = the ENFORCED determinism path, and the
- *   take-night rule: set it explicitly to a primary-display target. Receipted green for
- *   same-display moves: 122,122,1282,880 pinned identically across two boots of the film suite.
- *   A cross-display target stays out of scope until the engine finding is answered.
- * Every landing is logged through `Browser.getWindowBounds`, never silent; a malformed override is
- * warned about and ignored — the log is the AC1 receipt, so it must name what actually ran.
+ *   take-night rule: set it explicitly to the intended capture display. After either a same- or
+ *   cross-display CDP move, the adapter observes the browser's landed geometry and republishes it
+ *   through WindowPosition before any journey gesture runs.
+ * Every landing logs the CDP bounds, browser observation, and App-Worker manager parity; a malformed
+ * override is warned about and ignored — the receipt must name what actually ran.
  * @param {Object} page Playwright page.
- * @returns {Promise<Object>} the verified window bounds
+ * @returns {Promise<Object>} the verified native bounds plus observed Neo-window identity and geometry
  */
 async function pinToCaptureDisplay(page) {
     const session    = await page.context().newCDPSession(page),
@@ -96,10 +97,77 @@ async function pinToCaptureDisplay(page) {
         console.log(`[film-stage] NEO_FILM_DISPLAY_BOUNDS invalid, ignoring: "${raw}"`)
     }
 
+    let observed;
+
+    await expect.poll(async () => {
+        observed = await page.evaluate(() => ({
+            height: globalThis.innerHeight,
+            width : globalThis.innerWidth,
+            x     : globalThis.screenX,
+            y     : globalThis.screenY
+        }));
+
+        return Math.max(Math.abs(observed.x - bounds.left), Math.abs(observed.y - bounds.top))
+    }, {
+        message  : 'the film-stage adapter must observe the requested native-window landing',
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBeLessThanOrEqual(80);
+
+    await expect.poll(() => page.evaluate(() =>
+        Boolean(globalThis.Neo?.main?.addon?.WindowPosition?.publishGeometry)
+    ), {
+        message  : 'the workstation must install its ordinary window-geometry publisher',
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBe(true);
+
+    const neoWindowId = await page.evaluate(() => {
+        globalThis.Neo.main.addon.WindowPosition.publishGeometry();
+
+        return globalThis.Neo.worker.Manager.windowId
+    });
+
     console.log(`[film-stage] window pinned via Browser.setWindowBounds: ${JSON.stringify(bounds)}` +
+        `; observed geometry republished: ${JSON.stringify(observed)}` +
         (valid ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
 
-    return bounds
+    return {bounds, neoWindowId, observed}
+}
+
+/**
+ * @summary Proves the CDP adapter's observed geometry reached the ordinary App-Worker window map.
+ * @param {Object} app Neural Link app wrapper.
+ * @param {Object} stageReceipt Result from {@link pinToCaptureDisplay}.
+ * @returns {Promise<Object>} browser-observed and App-Worker-managed geometry
+ */
+async function assertStageGeometryPublished(app, stageReceipt) {
+    const managers = await app.findInstances({className: 'Neo.manager.Window'}, ['id']),
+          manager  = (Array.isArray(managers) ? managers[0] : managers);
+
+    expect(manager?.id, 'the App Worker must expose its singleton window manager').toBeTruthy();
+
+    let receipt;
+
+    await expect.poll(async () => {
+        const state    = await app.callMethod(manager.id, 'toJSON'),
+              managed  = state.windows.find(item => item.id === stageReceipt.neoWindowId)?.innerRect,
+              observed = stageReceipt.observed,
+              delta    = managed && ['x', 'y', 'width', 'height']
+                  .map(key => Math.abs(managed[key] - observed[key]));
+
+        receipt = {managed, observed};
+
+        return delta ? Math.max(...delta) : Infinity
+    }, {
+        message  : 'the App Worker must consume the browser-observed film-stage geometry',
+        timeout  : 5000,
+        intervals: [25, 50, 100]
+    }).toBeLessThanOrEqual(2);
+
+    console.log(`[film-stage] manager.Window parity: ${JSON.stringify(receipt)}`);
+
+    return receipt
 }
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
@@ -125,6 +193,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     async function boot({page, neuralLink}) {
         const pageErrors = [],
               popupProbe = [];
+        let stageReceipt;
 
         page.on('pageerror', error => {
             let value = String(error?.stack || error?.message || error || '');
@@ -156,7 +225,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // display, so two takes land in the same frame rather than whichever display the OS chose.
         if (filmTake) {
             await page.bringToFront();
-            await pinToCaptureDisplay(page);
+            stageReceipt = await pinToCaptureDisplay(page)
         }
 
         const app        = await neuralLink.connectToApp('Workstation'),
@@ -164,6 +233,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
               wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(wsId, 'the App Worker must own one Workspace').toBeTruthy();
+        stageReceipt && await assertStageGeometryPublished(app, stageReceipt);
 
         return {app, pageErrors, popupProbe, wsId}
     }
