@@ -1,0 +1,55 @@
+name: Data Sync Watchdog
+
+on:
+  schedule:
+    # 20 minutes past the hourly Data Sync Pipeline, so each evaluation sees the
+    # pipeline's own run for the hour settle first.
+    - cron: '20 * * * *'
+  workflow_dispatch:
+    inputs:
+      forceBreach:
+        description: 'Force the breach branch (acceptance dry-run: opens/updates the standing alarm)'
+        type: boolean
+        default: false
+      forceRecovery:
+        description: 'Force the recovery branch (closes the standing alarm)'
+        type: boolean
+        default: false
+      dryRun:
+        description: 'Print planned actions without writing any issue'
+        type: boolean
+        default: true
+
+concurrency:
+  group: data-sync-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read   # read the Data Sync Pipeline's run history
+      issues: write   # maintain the single standing alarm issue
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Evaluate Data Sync staleness
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WATCHDOG_FORCE_BREACH: ${{ inputs.forceBreach }}
+          WATCHDOG_FORCE_RECOVERY: ${{ inputs.forceRecovery }}
+          WATCHDOG_DRY_RUN: ${{ inputs.dryRun }}
+          # Threshold constants — tunable here without a code edit (the script fails loud
+          # on a present-but-unparseable value; it never silently substitutes a default).
+          WATCHDOG_MAX_CONSECUTIVE_FAILURES: '3'
+          WATCHDOG_MAX_SUCCESS_AGE_HOURS: '24'
+          WATCHDOG_MAX_CORPUS_AGE_HOURS: '48'
+        run: node ./buildScripts/dataSyncWatchdog.mjs
