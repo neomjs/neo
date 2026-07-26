@@ -63,9 +63,23 @@ test.afterAll(async () => {
             for (const {agentIdentity, subscriptionId} of wakeRoutes.toReversed()) {
                 const userId = agentIdentity.startsWith('@') ? agentIdentity.slice(1) : agentIdentity;
 
-                await requestContextService.run({agentIdentityNodeId: agentIdentity, source: 'unit-test', userId}, () =>
-                    memoryCallTool('manage_wake_subscription', {action: 'unsubscribe', subscriptionId})
-                );
+                // Tolerant of an ALREADY-ABSENT subscription. `unsubscribe` throws
+                // "Subscription not found" when the backing graph node is gone, and a spec earlier
+                // in the worker can remove it — teardown then threw out of this hook and Playwright
+                // attributed the failure to whichever test happened to be running, which is an
+                // arrival address rather than an attribution.
+                //
+                // Swallowing only THIS condition, not every error: a teardown converges on "the
+                // fixture is gone", and a target that is already gone satisfies that. Any other
+                // failure still escapes, because a teardown that silently eats real errors is the
+                // defect one layer over.
+                try {
+                    await requestContextService.run({agentIdentityNodeId: agentIdentity, source: 'unit-test', userId}, () =>
+                        memoryCallTool('manage_wake_subscription', {action: 'unsubscribe', subscriptionId})
+                    );
+                } catch (error) {
+                    if (!/Subscription not found/.test(error?.message ?? '')) throw error;
+                }
             }
 
             if (chromaFixtureIds.size > 0) {
