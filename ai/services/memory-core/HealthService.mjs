@@ -18,6 +18,13 @@ import {
 import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
 import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
 import {withTimeout}                  from './helpers/withTimeout.mjs';
+import {
+    LOOPBACK_PROBE_HEALTH_KEY,
+    LOOPBACK_PROBE_TIMEOUT_MS,
+    classifyLoopbackObservation,
+    probeLoopbackFamilies,
+    tcpConnectProbe
+} from './helpers/loopbackFamilyProbe.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1006,6 +1013,43 @@ class HealthService extends Base {
     runtimeFreshnessCacheDuration = 30 * 1000;
 
     /**
+     * Connect seam for the boot-time loopback bind-family probe.
+     *
+     * Exposed as a member so a unit spec can substitute a stub and exercise every verdict — including
+     * the IPv6-answered/IPv4-refused asymmetry a single host cannot reproduce on demand — without
+     * opening a real socket.
+     * @member {Function} loopbackConnectProbe
+     */
+    loopbackConnectProbe = tcpConnectProbe;
+
+    /**
+     * Observes which loopback address families answer on the configured Chroma port and classifies
+     * the result, so `logStartupStatus` can name a bind-family mismatch instead of printing an `lsof`
+     * command for the operator to run.
+     *
+     * Wrapped in its own try/catch even though `probeLoopbackFamilies` is contractually
+     * non-throwing: the config read and the classification are also inside this boundary, and this
+     * runs on a path whose entire purpose is reporting a failure. A diagnostic that can itself fail a
+     * boot is worse than no diagnostic.
+     * @returns {Promise<Object>} Classification from `classifyLoopbackObservation`.
+     * @private
+     */
+    async #observeLoopbackFamilies() {
+        try {
+            const {host, port} = aiConfig.engines.chroma;
+
+            return classifyLoopbackObservation(await probeLoopbackFamilies({
+                host,
+                port,
+                timeoutMs: LOOPBACK_PROBE_TIMEOUT_MS,
+                connect  : this.loopbackConnectProbe
+            }));
+        } catch (error) {
+            return {verdict: 'skipped', conclusive: false, reason: `loopback probe unavailable: ${error.message}`};
+        }
+    }
+
+    /**
      * Checks if the active vector and graph databases are running and accessible.
      * @param {Number} chromaProbeTimeoutMs Chroma probe timeout budget.
      * @returns {Promise<Object>} {running: boolean, error: string|undefined, engines: Object}
@@ -1596,6 +1640,14 @@ class HealthService extends Base {
         if (!connectionCheck.running) {
             payload.status = 'unhealthy';
             payload.details.push(connectionCheck.error);
+
+            // Gated to the ALREADY-FAILED path on purpose. `healthcheck()` also serves the MCP
+            // `healthcheck` tool on every invocation, so an ungated dual-family probe would dial two
+            // sockets per call forever to answer a question only a failure asks. Here the connection
+            // has already failed, so the ~2ms buys the one diagnostic that distinguishes "Chroma is
+            // down" from "Chroma is up on the family you did not dial".
+            payload.database.connection[LOOPBACK_PROBE_HEALTH_KEY] = await this.#observeLoopbackFamilies();
+
             return payload;
         }
 

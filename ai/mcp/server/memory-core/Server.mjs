@@ -31,6 +31,7 @@ import {
 } from '../../../daemons/message/drainCycle.mjs';
 import {acquireMessageDrainLock}        from '../../../daemons/message/drainLock.mjs';
 import {getMissingMessageWalLeaves}     from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {LOOPBACK_PROBE_HEALTH_KEY}      from '../../../services/memory-core/helpers/loopbackFamilyProbe.mjs';
 import {TRUST_TIERS}                    from '../../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId}   from '../../../graph/normalizeAgentIdentityNodeId.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
@@ -794,8 +795,15 @@ class Server extends BaseServer {
 
                 logger.warn(`    💡 Tip: this server expects ChromaDB at ${formatHostEndpoint(host, port)} (persist dir: ${dataDir}).`);
                 logger.warn(`       Start it with: chroma run --path ${dataDir} --port ${port}`);
-                logger.warn(`       Already running? Check the bind family — an IPv6-only listener refuses`);
-                logger.warn(`       an IPv4 client: lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+
+                // The `lsof` fallback is printed ONLY when the probe did not answer the question it
+                // asks. When the probe IS conclusive the command is redundant: the requirement is that
+                // a bind-family mismatch be readable from the output alone, which a manual command the
+                // operator still has to run does not satisfy.
+                if (!this.logLoopbackDiagnosis(health.database?.connection?.[LOOPBACK_PROBE_HEALTH_KEY], port)) {
+                    logger.warn(`       Already running? Check the bind family — an IPv6-only listener refuses`);
+                    logger.warn(`       an IPv4 client: lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+                }
             }
             logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
         } else if (health.status === 'degraded') {
@@ -807,6 +815,58 @@ class Server extends BaseServer {
         } else {
             logger.info('✅ [Startup] Memory Core health check passed');
             this.logCollectionStats(health);
+        }
+    }
+
+    /**
+     * @summary Renders the loopback bind-family observation carried on the health payload, and reports
+     * whether it made the `lsof` fallback redundant.
+     *
+     * Purely presentational and synchronous — the observation is taken in
+     * `HealthService.healthcheck()`, whose caller (`BaseServer.runHealthcheckAndLogStatus`) already
+     * awaits. `logStartupStatus` is a hook **six servers override**, so it performs no I/O: making it
+     * async to serve one server's diagnostic would mutate a shared contract for every one of them, and
+     * would silently leave each existing override running sync-in-async-context.
+     * @param {Object|undefined} probe `classifyLoopbackObservation` result, absent on older payloads.
+     * @param {Number|String}    port  Resolved Chroma port, for the no-listener wording.
+     * @returns {Boolean} `true` when the printed result replaces the `lsof` fallback.
+     * @protected
+     */
+    logLoopbackDiagnosis(probe, port) {
+        if (!probe?.conclusive) return false;
+
+        const answering = (probe.answering || []).join(' and ');
+
+        switch (probe.verdict) {
+            case 'mismatch':
+                // The whole point of the ticket: the diagnosis itself, not a command that finds it.
+                logger.warn(`       ⚠️  Bind-family mismatch OBSERVED: this server dials ${probe.dialed}, which refused,`);
+                logger.warn(`       but a listener answered at ${answering}. ChromaDB is running — on the family`);
+                logger.warn(`       this server is not dialing. Rebind it, or point this server at ${answering}.`);
+                return true;
+
+            case 'no-listener':
+                // Equally load-bearing: it rules the mismatch OUT, so the operator stops looking here.
+                logger.warn(`       Probed both loopback families: nothing answered on port ${port} at`);
+                logger.warn(`       127.0.0.1 or [::1], so this is not a bind-family mismatch — ChromaDB is`);
+                logger.warn(`       genuinely not accepting local connections.`);
+                return true;
+
+            case 'listener-reachable':
+                logger.warn(`       A listener answered at ${probe.dialed}, so the port is reachable and this is`);
+                logger.warn(`       not a bind-family mismatch — the fault is above TCP (HTTP, auth, or collections).`);
+                return true;
+
+            case 'ambiguous-host':
+                // `localhost` resolution order is not observable from here, so the families that
+                // answered are reported as facts without asserting which one gets dialed.
+                logger.warn(`       A listener answered at ${answering}. This server dials '${probe.dialed}', whose`);
+                logger.warn(`       address family is chosen by the resolver — so a mismatch is possible but not`);
+                logger.warn(`       proven. Dial the literal above to confirm.`);
+                return true;
+
+            default:
+                return false;
         }
     }
 

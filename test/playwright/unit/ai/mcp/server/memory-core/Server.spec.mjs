@@ -1006,4 +1006,126 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         expect(tip).toMatch(/IPv6-only|bind family/i);
         expect(tip).toContain(`lsof -nP -iTCP:${port} -sTCP:LISTEN`);
     });
+
+    test.describe('#16025: the unhealthy-boot tip reports the OBSERVED loopback family', () => {
+        /**
+         * Drives `logStartupStatus` with a health payload carrying a classified probe result and
+         * returns the captured warn output.
+         *
+         * The probe result is attached under the SHARED key exported by the helper, not a literal, so
+         * this spec breaks if `HealthService` and the `Server` ever disagree about the path — the one
+         * failure mode neither file's own spec can see.
+         */
+        const renderTip = async loopbackProbe => {
+            const {LOOPBACK_PROBE_HEALTH_KEY} = await import('../../../../../../../ai/services/memory-core/helpers/loopbackFamilyProbe.mjs'),
+                  logger                      = (await import('../../../../../../../ai/mcp/server/memory-core/logger.mjs')).default,
+                  serverInstance              = await createServerWithoutBoot(),
+                  originalWarn                = logger.warn,
+                  lines                       = [];
+
+            logger.warn = message => lines.push(String(message));
+
+            let returned;
+
+            try {
+                returned = serverInstance.logStartupStatus({
+                    status  : 'unhealthy',
+                    details : ['Database engine not accessible'],
+                    database: {
+                        process   : {running: false},
+                        connection: {[LOOPBACK_PROBE_HEALTH_KEY]: loopbackProbe}
+                    }
+                });
+            } finally {
+                logger.warn = originalWarn;
+                serverInstance.destroy();
+            }
+
+            return {tip: lines.join('\n'), returned};
+        };
+
+        test('a MISMATCH is stated as an observation, and it REPLACES the lsof fallback', async () => {
+            const {tip} = await renderTip({
+                verdict: 'mismatch', conclusive: true, dialed: '127.0.0.1', answering: ['[::1]'], empty: ['127.0.0.1'], unknown: []
+            });
+
+            // The requirement is readability from the output alone: the operator is told the answer,
+            // not handed a command that would find it.
+            expect(tip).toMatch(/Bind-family mismatch OBSERVED/);
+            expect(tip).toContain('127.0.0.1');
+            expect(tip).toContain('[::1]');
+            expect(tip).toMatch(/ChromaDB is running/);
+
+            // The fallback is now redundant, so it must be GONE — leaving it would mean the tip still
+            // costs the operator the command the AC exists to remove.
+            expect(tip).not.toContain('lsof');
+        });
+
+        test('NO-LISTENER rules the mismatch OUT and also replaces the fallback', async () => {
+            const {tip} = await renderTip({
+                verdict: 'no-listener', conclusive: true, dialed: '127.0.0.1', answering: [], empty: ['127.0.0.1', '[::1]'], unknown: []
+            });
+
+            // Just as useful as the positive verdict: it stops the operator hunting a bind-family
+            // problem that provably is not there.
+            expect(tip).toMatch(/nothing answered/i);
+            expect(tip).toMatch(/not a bind-family mismatch/i);
+            expect(tip).not.toContain('lsof');
+        });
+
+        test('LISTENER-REACHABLE points above TCP instead of at the bind family', async () => {
+            const {tip} = await renderTip({
+                verdict: 'listener-reachable', conclusive: true, dialed: '127.0.0.1', answering: ['127.0.0.1'], empty: ['[::1]'], unknown: []
+            });
+
+            expect(tip).toMatch(/above TCP/);
+            expect(tip).not.toContain('lsof');
+        });
+
+        test('AMBIGUOUS-HOST reports which families answered WITHOUT claiming a mismatch', async () => {
+            const {tip} = await renderTip({
+                verdict: 'ambiguous-host', conclusive: true, dialed: 'localhost', answering: ['[::1]'], empty: ['127.0.0.1'], unknown: []
+            });
+
+            expect(tip).toContain('[::1]');
+            expect(tip).toMatch(/chosen by the resolver/);
+            // The claim is explicitly hedged, because which family `localhost` resolves to is not
+            // observable from here. Asserting a mismatch would be the unverified assertion the whole
+            // helper is built to avoid.
+            expect(tip).toMatch(/not\s+proven/);
+            expect(tip).not.toMatch(/mismatch OBSERVED/);
+        });
+
+        test('an INCONCLUSIVE probe KEEPS the lsof fallback — the operator still needs it', async () => {
+            const {tip} = await renderTip({
+                verdict: 'inconclusive', conclusive: false, dialed: '127.0.0.1', answering: ['[::1]'], empty: [], unknown: ['127.0.0.1'], reason: 'no result for 127.0.0.1'
+            });
+
+            // The AC is conditional in both directions: the fallback goes away ONLY when the printed
+            // result genuinely replaces it. An unknown family replaces nothing.
+            expect(tip).toContain('lsof -nP -iTCP:');
+            expect(tip).not.toMatch(/mismatch OBSERVED/);
+        });
+
+        test('a SKIPPED probe (non-loopback host, e.g. a compose service name) keeps the fallback', async () => {
+            const {tip} = await renderTip({verdict: 'skipped', conclusive: false, reason: 'configured host chroma is not a loopback address'});
+
+            expect(tip).toContain('lsof -nP -iTCP:');
+        });
+
+        test('an ABSENT probe keeps the pre-#16025 wording verbatim (older/cached payloads)', async () => {
+            const {tip} = await renderTip(undefined);
+
+            expect(tip).toContain('lsof -nP -iTCP:');
+            expect(tip).toMatch(/IPv6-only|bind family/i);
+        });
+
+        test('logStartupStatus stays SYNCHRONOUS — it renders, it never probes', async () => {
+            // The hook is overridden by six servers. Returning a promise here would leave every one of
+            // them silently sync-in-async-context, so "returns nothing" is a contract worth pinning.
+            const {returned} = await renderTip({verdict: 'mismatch', conclusive: true, dialed: '127.0.0.1', answering: ['[::1]']});
+
+            expect(returned).toBeUndefined();
+        });
+    });
 });
