@@ -95,7 +95,15 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         // polluter in its own right — it empties the agent roster for every spec that follows in
         // the worker, which is what made this suite fail. Removing only what you created is the
         // opposite operation, not a smaller dose of the same one.
-        try { GraphService?.removeNodes?.([SENDER, RECIPIENT]) } catch (e) {}
+        //
+        // UNGUARDED on purpose. `Database.removeNode` throws only on invalid input; removing an
+        // absent-but-valid id is already a no-op, so there is no expected failure here to tolerate.
+        // A catch would therefore suppress only real faults — invalid input, or a transaction/storage
+        // failure — and each of those leaves two broadcast-eligible AgentIdentity rows in the shared
+        // worker graph, joining every later `AGENT:*` fan-out. That is precisely the ambient-state
+        // pollution this suite was a victim of, so swallowing it here would reintroduce the defect
+        // from the teardown side.
+        GraphService.removeNodes([SENDER, RECIPIENT]);
     });
 
     /** Reads the per-recipient DELIVERED_TO edge back FROM STORAGE, never from the in-memory cache. */
