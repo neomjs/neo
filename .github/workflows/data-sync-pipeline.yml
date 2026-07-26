@@ -59,10 +59,10 @@ jobs:
       # repository, so it has no installation on the DevIndex intake repos — absent, not merely
       # underprivileged.
       #
-      # It deliberately does NOT describe the Publisher as a ruleset-bypass identity. The bypass IS
-      # granted, but it lives in repository configuration this workflow cannot set, so stating it here
-      # as a property of the credential goes stale whenever an admin edits the ruleset — which is
-      # exactly what happened: empty for nine days, granted on 2026-07-26. See the checkout note below.
+      # It deliberately does NOT describe the Publisher as a ruleset-bypass identity. Whether a bypass
+      # exists is repository configuration this workflow cannot set and an admin can change at any time,
+      # so stating it here as a property of the credential is wrong the moment the ruleset is edited —
+      # in either direction. See the checkout note below for how to read it.
       - name: Mint Publisher installation token
         id: publisher-token
         uses: actions/create-github-app-token@v3
@@ -121,12 +121,12 @@ jobs:
           # this workflow cannot grant itself. `code scanning merge protection` requires a code-scanning
           # result, which a fresh generated commit cannot have — only a push produces one — so without a
           # bypass every publish is rejected with `GH013` regardless of which identity pushes. The
-          # Publisher App IS named in that ruleset's bypass list as of 2026-07-26; it was empty from
-          # 2026-07-17, and that gap is what the nine-day `GH013` era was.
+          # invariant is that the bypass exists only while the ruleset's own bypass list names this App;
+          # this comment does not record whether it currently does, because that value is not ours.
           #
           # Verifying it needs the right instrument. The REST rulesets endpoint OMITS `bypass_actors`
           # entirely for App-type entries — the key is ABSENT, not empty — so a reader with a `[]`
-          # default reports "nothing can bypass" for a grant that exists. Use GraphQL
+          # default reports "nothing can bypass" whatever the truth is. Use GraphQL
           # `ruleset(databaseId:…).bypassActors.totalCount`, whose `nodes` are permission-shielded to
           # null while the count stays readable. A comment here cannot be the source of truth for a
           # setting an admin can change, so this names where to look rather than what it currently says.

@@ -116,17 +116,18 @@ const
  * Passing `process.env` wholesale — as this runner did — handed every stage whichever token happened
  * to be set, so the repository-write identity was in scope during arbitrary data collection.
  *
- * PUBLISHER is described by what it holds (`contents: write`) rather than by a branch-ruleset bypass,
- * because the two are configured in different places and drift independently. The bypass IS granted —
- * the `code scanning merge protection` ruleset names this App — but that is REPOSITORY CONFIGURATION
- * this workflow cannot grant itself, so a comment asserting it as a property of the credential goes
- * stale the moment an admin edits the ruleset. It was empty for nine days and pushes were rejected
- * with `GH013`; it was granted on 2026-07-26 and they were not.
+ * PUBLISHER is described by what it holds (`contents: write`) and never by a branch-ruleset bypass.
+ * The invariant, which does not go stale: **a bypass exists only while the ruleset's own bypass list
+ * names the App.** That list is REPOSITORY CONFIGURATION this workflow cannot grant itself and an admin
+ * can change at any time, so any comment stating its value — in either direction — is wrong as soon as
+ * it is edited. Publishing a fresh generated commit depends on that grant, because `code scanning merge
+ * protection` requires a code-scanning result the commit cannot have until it is pushed.
  *
- * Reading it takes care: the REST rulesets endpoint OMITS `bypass_actors` entirely for App-type
- * entries — the key is absent, not empty — so a reader with a `[]` default reports "nothing can
- * bypass" for a configured grant. GraphQL `ruleset(databaseId:…).bypassActors.totalCount` is the
- * surviving probe; its `nodes` are permission-shielded to null while the count stays readable.
+ * Read it, do not assume it, and use the right instrument: the REST rulesets endpoint OMITS
+ * `bypass_actors` entirely for App-type entries — the key is absent, not empty — so a reader with a `[]`
+ * default reports "nothing can bypass" whatever the truth is. GraphQL
+ * `ruleset(databaseId:…).bypassActors.totalCount` is the surviving probe; its `nodes` are
+ * permission-shielded to null while the count stays readable.
  *
  * READER is the narrowest of the three and is not an App at all. It exists because neither App can
  * read this repository's labels: INTAKE has no installation here, and PUBLISHER holds `contents`
