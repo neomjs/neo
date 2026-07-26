@@ -5,6 +5,8 @@ import os             from 'node:os';
 import path           from 'node:path';
 import process        from 'node:process';
 
+import {CREDENTIAL_FAMILIES} from '../../../../../ai/services/fleet/redactCredentials.mjs';
+
 import {
     emitGeneratedData,
     executeCommand,
@@ -541,29 +543,43 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
         // stages; a git invocation is not exempt because its credential takes a different route.
         process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
 
+        // The three ambient values are drawn from DIFFERENT `CREDENTIAL_FAMILIES` entries rather
+        // than all being `ghs_`-shaped. The boundary strips by KEY, so shape is not what it acts on
+        // — but a fixture where every value shares one prefix is what let a format-matching
+        // assertion look sufficient for as long as it did.
+        const [fineGrained, classic, oauth] = CREDENTIAL_FAMILIES;
+
+        const suppliedEnv = {
+            DATA_SYNC_INTAKE_TOKEN   : fineGrained.secret,
+            DATA_SYNC_PUBLISHER_TOKEN: secret,
+            GH_TOKEN                 : classic.secret,
+            GITHUB_TOKEN             : oauth.secret,
+            PATH                     : '/usr/bin'
+        };
+
         let seenEnv = null;
 
         await gitAuthenticated(
             async (command, args, options) => {seenEnv = options.env; return {stderr: '', stdout: ''}},
             '/repo',
             ['push', 'origin', 'HEAD:dev'],
-            {
-                env: {
-                    DATA_SYNC_INTAKE_TOKEN   : 'ghs_INTAKE_RAW',
-                    DATA_SYNC_PUBLISHER_TOKEN: secret,
-                    GH_TOKEN                 : 'ghs_AMBIENT_GH',
-                    GITHUB_TOKEN             : 'ghs_AMBIENT_DEFAULT',
-                    PATH                     : '/usr/bin'
-                }
-            }
+            {env: {...suppliedEnv}}
         );
 
         // By VALUE across the whole child env, not by key absence: a key that survives holding a
         // different token is the same leak wearing a different name.
-        const leaked = Object.entries(seenEnv).filter(([key, value]) =>
-            key !== 'GIT_CONFIG_VALUE_0' &&
-            typeof value === 'string' &&
-            /^ghs_/.test(value));
+        //
+        // The forbidden set is DERIVED from the values this test supplied, never from a credential
+        // FORMAT. The first version tested `/^ghs_/` — one shape out of the seventeen
+        // `CREDENTIAL_FAMILIES` declares — so a fine-grained PAT, a GitLab token or a bearer secret
+        // leaking here produced a GREEN test. That predicate failed correctly on every fixture
+        // written for it and went blind only on the input nobody imagined, which is why no
+        // regression run could reveal it.
+        const supplied = Object.values(suppliedEnv).filter(value => value !== '/usr/bin'),
+              leaked   = Object.entries(seenEnv).filter(([key, value]) =>
+                  key !== 'GIT_CONFIG_VALUE_0' &&
+                  typeof value === 'string' &&
+                  supplied.includes(value));
 
         expect(leaked).toEqual([]);
         expect(seenEnv.DATA_SYNC_INTAKE_TOKEN).toBeUndefined();
