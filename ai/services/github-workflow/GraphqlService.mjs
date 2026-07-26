@@ -9,9 +9,9 @@ const execAsync = promisify(exec);
  * @summary A centralized, singleton service for interacting with the GitHub GraphQL API.
  *
  * This service encapsulates all the logic for making authenticated GraphQL queries and mutations.
- * It handles fetching the auth token from the `gh` CLI, caching it, and attaching it to
- * all outgoing requests. It also provides a generic `query` method for executing
- * GraphQL operations and basic error handling.
+ * It resolves the credential (explicit override → `GH_TOKEN` → `GITHUB_TOKEN` → cached `gh auth
+ * token`; see {@link #getAuthToken}), attaches it to all outgoing requests, and provides a generic
+ * `query` method for executing GraphQL operations plus basic error handling.
  *
  * @class Neo.ai.services.github-workflow.GraphqlService
  * @extends Neo.core.Base
@@ -36,7 +36,7 @@ class GraphqlService extends Base {
          */
         apiUrl: 'https://api.github.com/graphql',
         /**
-         * The GitHub REST API base URL. REST requests share this service's cached `gh auth token`
+         * The GitHub REST API base URL. REST requests share this service's resolved credential
          * and retry machinery (see {@link #rest}), so REST writes run through the same
          * authenticated, retry-equipped path as GraphQL instead of a fresh per-call `spawn('gh')`.
          * @member {String} restApiUrl='https://api.github.com'
@@ -44,8 +44,9 @@ class GraphqlService extends Base {
          */
         restApiUrl: 'https://api.github.com',
         /**
-         * Optional explicit token override for tests or controlled embedded callers.
-         * Normal runtime auth continues to use `gh auth token`.
+         * Optional explicit token override for tests or controlled embedded callers. Outranks every
+         * other source. Absent it, runtime auth reads `GH_TOKEN`/`GITHUB_TOKEN` and falls back to
+         * `gh auth token` for interactive use.
          * @member {String|null} authTokenOverride=null
          * @protected
          */
@@ -90,15 +91,42 @@ class GraphqlService extends Base {
     #authToken = null;
 
     /**
-     * Fetches the GitHub authentication token from the `gh` CLI and caches it.
-     * This is the only method in the service that should interact with the `gh` CLI.
-     * @returns {Promise<string>} The authentication token.
-     * @throws {Error} If the token cannot be fetched.
+     * @summary Resolves the GitHub credential, preferring the ambient environment over the `gh` CLI.
+     *
+     * Precedence: explicit override → `GH_TOKEN` → `GITHUB_TOKEN` → cached CLI token → `gh auth token`.
+     * This is the only method in the service that interacts with the `gh` CLI.
+     *
+     * **Why the env vars come before the CLI.** The CLI shell-out is an interactive-developer
+     * affordance, and it was once the *only* path here. CI runners have no `gh` login, so a missing
+     * credential surfaced as `no oauth token found for github.com` plus advice to run `gh auth login`
+     * — on a machine where that is meaningless, which turned a missing-credential condition into an
+     * apparent tooling fault and hid it through repeated scheduled failures. Reading the environment
+     * first makes that failure mode structurally impossible for every CI consumer of this service,
+     * not just the caller that surfaced it.
+     *
+     * **Why the env value is deliberately NOT cached.** `process.env` is already the cache, and caching
+     * it would defeat mid-process rotation: `buildScripts/dataSyncPipeline.mjs`'s `scopedStageEnv()`
+     * rewrites `GH_TOKEN`/`GITHUB_TOKEN` per stage precisely so an intake stage cannot read the
+     * publisher credential. A cached first-stage token would silently serve the wrong identity to every
+     * later stage — the additive-boundary defect that scoping exists to prevent. Only the CLI result is
+     * cached, because shelling out per call is the cost caching was introduced for.
+     *
+     * **Invariant:** the raw token is never logged. On failure the message names the env vars to set,
+     * because the previous message sent CI operators down an interactive path that cannot exist there.
+     *
+     * @returns {Promise<String>} The authentication token.
+     * @throws {Error} When no credential is available from the override, the environment, or the CLI.
      * @private
      */
     async #getAuthToken() {
         if (this.authTokenOverride) {
             return String(this.authTokenOverride).trim();
+        }
+
+        const envToken = process.env.GH_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim();
+
+        if (envToken) {
+            return envToken;
         }
 
         if (this.#authToken) {
@@ -110,8 +138,8 @@ class GraphqlService extends Base {
             this.#authToken = stdout.trim();
             return this.#authToken;
         } catch (e) {
-            logger.error('Failed to get GitHub auth token from `gh` CLI.', e);
-            throw new Error('Could not authenticate with GitHub. Please ensure you have run `gh auth login`.');
+            logger.error('Failed to get a GitHub token: neither GH_TOKEN nor GITHUB_TOKEN is set, and the `gh` CLI holds no token.', e);
+            throw new Error('Could not authenticate with GitHub. Set GH_TOKEN or GITHUB_TOKEN (CI), or run `gh auth login` (interactive).');
         }
     }
 

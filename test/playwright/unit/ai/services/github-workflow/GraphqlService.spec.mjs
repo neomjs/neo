@@ -366,3 +366,139 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — rest() authent
         expect(callCount).toBe(1);
     });
 });
+
+/**
+ * Credential resolution order.
+ *
+ * The only source `#getAuthToken` once consulted was `gh auth token`, and **every describe block
+ * above sets `authTokenOverride`** — so the resolution path itself was never exercised. That is how
+ * a CI consumer could depend on an authenticated `gh` CLI unnoticed until scheduled runs failed on
+ * it, reporting a missing credential as advice to run an interactive login CI cannot perform.
+ *
+ * These pin the order: override → `GH_TOKEN` → `GITHUB_TOKEN` → cached → CLI.
+ *
+ * The CLI branch is deliberately NOT asserted. `gh auth token` succeeds on a developer machine and
+ * fails on CI, so a test touching it would pin the environment rather than the code — the shape of
+ * false green this suite exists to avoid. Env-before-cache is likewise intentional and load-bearing:
+ * `buildScripts/dataSyncPipeline.mjs` rewrites these variables per stage so an intake stage cannot
+ * read the publisher credential, and a cached first-stage token would silently serve the wrong
+ * identity to every later stage.
+ */
+test.describe('Neo.ai.services.github-workflow.GraphqlService — credential resolution order (#15986)', () => {
+    let GraphqlService;
+    let originalAuthTokenOverride;
+    let originalFetch;
+    let originalGhToken;
+    let originalGithubToken;
+
+    const QUERY = 'query TestQuery { viewer { login } }';
+
+    /**
+     * Stubs `fetch` and captures the Authorization header the service actually sent.
+     * @returns {Object} A holder whose `value` is populated by the next call.
+     */
+    const captureAuthHeader = () => {
+        const seen = {value: null};
+
+        globalThis.fetch = async (url, options) => {
+            seen.value = new Headers(options.headers).get('authorization');
+
+            return new Response(JSON.stringify({data: {viewer: {login: 'neo-opus-grace'}}}), {
+                status : 200,
+                headers: {'content-type': 'application/json'}
+            });
+        };
+
+        return seen
+    };
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalAuthTokenOverride = GraphqlService.authTokenOverride;
+        originalFetch             = globalThis.fetch;
+        originalGhToken           = process.env.GH_TOKEN;
+        originalGithubToken       = process.env.GITHUB_TOKEN;
+
+        GraphqlService.authTokenOverride = null;
+
+        delete process.env.GH_TOKEN;
+        delete process.env.GITHUB_TOKEN;
+    });
+
+    test.afterEach(() => {
+        globalThis.fetch = originalFetch;
+
+        GraphqlService.authTokenOverride = originalAuthTokenOverride;
+
+        if (originalGhToken === undefined) {
+            delete process.env.GH_TOKEN;
+        } else {
+            process.env.GH_TOKEN = originalGhToken;
+        }
+
+        if (originalGithubToken === undefined) {
+            delete process.env.GITHUB_TOKEN;
+        } else {
+            process.env.GITHUB_TOKEN = originalGithubToken;
+        }
+    });
+
+    test('reads GH_TOKEN from the environment when no override is set', async () => {
+        process.env.GH_TOKEN = 'env-gh-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-gh-token');
+    });
+
+    test('falls back to GITHUB_TOKEN when GH_TOKEN is absent', async () => {
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-github-token');
+    });
+
+    test('prefers GH_TOKEN over GITHUB_TOKEN when both are set', async () => {
+        process.env.GH_TOKEN     = 'env-gh-token';
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-gh-token');
+        expect(seen.value).not.toContain('env-github-token');
+    });
+
+    test('an explicit override still outranks the environment', async () => {
+        GraphqlService.authTokenOverride = 'override-token';
+        process.env.GH_TOKEN             = 'env-gh-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('override-token');
+        expect(seen.value).not.toContain('env-gh-token');
+    });
+
+    test('treats a whitespace-only credential as absent rather than sending it', async () => {
+        process.env.GH_TOKEN     = '   ';
+        process.env.GITHUB_TOKEN = 'env-github-token';
+
+        const seen = captureAuthHeader();
+
+        await GraphqlService.query(QUERY);
+
+        expect(seen.value).toContain('env-github-token');
+        expect(seen.value).not.toContain('   ');
+    });
+});
