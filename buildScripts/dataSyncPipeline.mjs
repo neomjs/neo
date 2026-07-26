@@ -44,6 +44,22 @@ const stageTokenSources = {
     reader   : 'DATA_SYNC_READER_TOKEN'
 };
 
+/**
+ * Every raw credential-source variable this pipeline can carry, DERIVED from the scope vocabulary
+ * rather than restated. Both consumers read this one list: the per-stage scoping in
+ * `scopedStageEnv` and the Git-child scrub in `gitAuthenticated`.
+ *
+ * It is one list because two hand-maintained deny-lists is exactly how a new source reaches a child
+ * that was never granted it — the selection site gets the new source and the scrub site does not, and
+ * that failure is OPEN and silent. A centralized vocabulary is only a boundary if *selection* and
+ * *scrubbing* both derive from it; deriving only selection buys the appearance of one.
+ * Exported so the boundary tests can DERIVE their fixtures from it rather than hand-listing the
+ * variables they think exist. A hand-listed fixture goes stale the same way a hand-listed deny-list
+ * does, and then the test reports green about a source it never supplied.
+ * @type {String[]}
+ */
+export const rawCredentialNames = ['GH_TOKEN', 'GITHUB_TOKEN', ...Object.values(stageTokenSources).filter(Boolean)];
+
 const
     commitMessage    = 'chore(data): Hourly data sync pipeline update [skip ci]',
     remoteDevRef     = 'refs/remotes/origin/dev',
@@ -145,8 +161,7 @@ export function scopedStageEnv(tokenScope, env = process.env) {
         // environment, so the bypass credential stays one `process.env` lookup away from every
         // data-collection child — the isolation would be nominal, not real. DERIVED from the
         // vocabulary, so a scope cannot be added without its source joining the strip set.
-        sources  = Object.values(stageTokenSources).filter(Boolean),
-        stripped = new Set(['GH_TOKEN', 'GITHUB_TOKEN', ...sources]),
+        stripped = new Set(rawCredentialNames),
         source   = stageTokenSources[tokenScope],
         // Read from `env`, never the stripped copy — the value must not depend on statement order.
         token    = source ? env[source] : null,
@@ -263,8 +278,9 @@ async function git(execute, cwd, args, {capture = true, env = process.env} = {})
  * `actions/checkout` defaults to `persist-credentials: true`, which writes the token into git config
  * as an `http.extraheader` for the whole job. Under that default, stripping credentials from a
  * stage's ENVIRONMENT isolates nothing at the git layer — any collection stage could still push as
- * the Publisher, the one identity permitted to bypass the code-scanning ruleset. So the checkout now
- * persists nothing, and the two commands that genuinely need network auth carry it themselves.
+ * the Publisher, the identity this pipeline intends to be the only one able to publish here. So the
+ * checkout now persists nothing, and the two commands that genuinely need network auth carry it
+ * themselves.
  *
  * The credential is delivered through git's ENV config channel (`GIT_CONFIG_*`), never argv and never
  * `.git/config` — see the implementation note below for why each of those two was rejected.
@@ -305,9 +321,16 @@ export async function gitAuthenticated(execute, cwd, args, options = {}) {
     // and appending made the boundary additive: the git child still received both source tokens and
     // any ambient GH_TOKEN/GITHUB_TOKEN, so moving the header out of argv narrowed one exposure while
     // leaving four untouched. `git` needs none of them — it reads the header and nothing else.
-    const {
-        DATA_SYNC_INTAKE_TOKEN, DATA_SYNC_PUBLISHER_TOKEN, GH_TOKEN, GITHUB_TOKEN, ...scoped
-    } = options.env ?? process.env;
+    //
+    // DERIVED from `rawCredentialNames`, never restated. This was a hand-written destructuring list and
+    // it fell behind the vocabulary the moment a scope was added: the new source was stripped from every
+    // STAGE child and still reached every GIT child, because the two strip sets had no relationship. A
+    // deny-list that must be remembered is a deny-list that will be forgotten.
+    const
+        stripped = new Set(rawCredentialNames),
+        scoped   = Object.fromEntries(
+            Object.entries(options.env ?? process.env).filter(([name]) => !stripped.has(name))
+        );
 
     return git(execute, cwd, args, {
         ...options,

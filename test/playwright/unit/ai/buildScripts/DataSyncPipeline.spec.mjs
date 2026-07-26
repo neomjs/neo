@@ -13,6 +13,7 @@ import {
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
     gitAuthenticated,
+    rawCredentialNames,
     runDataSyncPipeline,
     scopedStageEnv
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
@@ -477,7 +478,7 @@ test.describe('tokenScope validation fails closed', () => {
 
     test('a failing stage names the scope it was granted, not just the child error', async () => {
         // A bare child failure reads as "the tool is broken" when the finding is "this stage was
-        // granted `none` and needs a credential". That misreading cost a nine-day outage: the
+        // granted `none` and needs a credential". That misreading cost real diagnosis time: the
         // child's own missing-auth message advised an interactive login CI cannot perform, so the
         // declared-scope context is the part that makes the failure diagnosable at all.
         //
@@ -637,15 +638,23 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
         // than all being `ghs_`-shaped. The boundary strips by KEY, so shape is not what it acts on
         // — but a fixture where every value shares one prefix is what let a format-matching
         // assertion look sufficient for as long as it did.
-        const [fineGrained, classic, oauth] = CREDENTIAL_FAMILIES;
+        // The fixture is DERIVED from `rawCredentialNames`, not hand-listed. A hand-listed fixture is how
+        // this test reported green while a newly added source — the reader token — reached every Publisher
+        // git child: the strip set and the fixture were both edited by hand, and neither edit reminded
+        // anyone about the other. Deriving means a scope added to `stageTokenSources` is supplied here
+        // automatically, so the boundary cannot outgrow its own witness.
+        const suppliedEnv = {PATH: '/usr/bin'};
 
-        const suppliedEnv = {
-            DATA_SYNC_INTAKE_TOKEN   : fineGrained.secret,
-            DATA_SYNC_PUBLISHER_TOKEN: secret,
-            GH_TOKEN                 : classic.secret,
-            GITHUB_TOKEN             : oauth.secret,
-            PATH                     : '/usr/bin'
-        };
+        rawCredentialNames.forEach((name, index) => {
+            suppliedEnv[name] = name === 'DATA_SYNC_PUBLISHER_TOKEN'
+                ? secret
+                : CREDENTIAL_FAMILIES[index % CREDENTIAL_FAMILIES.length].secret
+        });
+
+        // Sanity-check the derivation itself: if the module ever stops declaring the sources this test
+        // exists to police, the fixture silently shrinks and every assertion below passes vacuously.
+        expect(Object.keys(suppliedEnv)).toContain('DATA_SYNC_READER_TOKEN');
+        expect(Object.keys(suppliedEnv)).toContain('DATA_SYNC_PUBLISHER_TOKEN');
 
         let seenEnv = null;
 
@@ -672,10 +681,12 @@ test.describe('gitAuthenticated keeps the credential out of argv', () => {
                   supplied.includes(value));
 
         expect(leaked).toEqual([]);
-        expect(seenEnv.DATA_SYNC_INTAKE_TOKEN).toBeUndefined();
-        expect(seenEnv.DATA_SYNC_PUBLISHER_TOKEN).toBeUndefined();
-        expect(seenEnv.GH_TOKEN).toBeUndefined();
-        expect(seenEnv.GITHUB_TOKEN).toBeUndefined();
+
+        // Key absence for EVERY declared source, derived rather than enumerated — both halves matter: a
+        // surviving key is a leak even when the value assertion above happens to miss it.
+        rawCredentialNames.forEach(name => {
+            expect(seenEnv[name], `${name} must not survive into a git child`).toBeUndefined()
+        });
 
         // Unrelated env survives, and the ONE derived credential still gets through.
         expect(seenEnv.PATH).toBe('/usr/bin');
