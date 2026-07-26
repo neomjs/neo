@@ -505,6 +505,38 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         expect(failed.map(entry => entry.record.id)).toEqual(['x', 'y', 'z']);
     });
 
+    test('embedBatch: a backoff that crosses the budget boundary starts no further attempt (#16012 AC4)', async () => {
+        const records    = [{...record('a', Date.now()), segmentKey: 'unused'}];
+        const collection = createFakeCollection();
+        let   addCalls   = 0;
+        let   clock      = 0;
+
+        // @neo-gpt's cycle-2 falsifier, verbatim: the attempt itself finishes INSIDE the budget
+        // (900 < 1000), so a post-failure-only guard passes — and then the sleep advances the clock
+        // past the boundary. Without a post-sleep re-check the loop starts a second external request
+        // from beyond the budget: observed {calls: 2, clock: 2000} at e9d3bf4702.
+        collection.onAdd = () => {
+            addCalls++;
+            clock += 900;
+            throw new Error('provider unreachable (spec) — not a timeout code');
+        };
+
+        const {succeeded, failed} = await embedBatch({
+            collection,
+            records,
+            maxRetries   : 5,
+            backoffBaseMs: 1,
+            sleep        : async () => { clock += 200; },  // 900 + 200 = 1100 > 1000
+            log          : () => {},
+            maxInCycleMs : 1000,
+            now          : () => clock
+        });
+
+        expect(addCalls).toBe(1);
+        expect(succeeded).toHaveLength(0);
+        expect(failed.map(entry => entry.record.id)).toEqual(['a']);
+    });
+
     test('embedBatch: an unlimited budget leaves the retry+isolation path unchanged (control, #16012 AC4)', async () => {
         const records    = ['x', 'y'].map(id => ({...record(id, Date.now()), segmentKey: 'unused'}));
         const collection = createFakeCollection();

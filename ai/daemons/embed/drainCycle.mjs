@@ -203,6 +203,16 @@ export async function embedBatch({
                 const delay = getBackoffDelayMs(backoffBaseMs, attempt);
                 log('INFO', `Batch embed attempt ${attempt + 1}/${maxRetries + 1} failed (${error.message}) — backing off ${delay}ms`);
                 await sleep(delay);
+
+                // Re-check AFTER the backoff, not only after the failure: the sleep itself can cross
+                // the boundary, and a guard that only runs post-failure would let the next iteration
+                // start an external request from beyond the budget it was meant to bound.
+                if (budgetSpent()) {
+                    log('ERROR', `Batch embed exhausted its ${maxInCycleMs}ms in-cycle budget during backoff after ` +
+                        `${attempt + 1} attempt(s) — deferring ${records.length} record(s)`);
+
+                    return {succeeded: [], failed: records.map(record => ({record, error}))};
+                }
             } else {
                 log('ERROR', `Batch embed exhausted ${maxRetries + 1} attempts (${error.message}) — isolating per record`);
             }
