@@ -1406,6 +1406,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             expect(repaired.properties.userId).toBe(null);
             expect(repaired.properties.description).toBe(canonical.description);
 
+            // The open contract, witnessed: the legacy UNDECLARED field seeded above SURVIVES the
+            // repair. upsertNode merges, so a repair cannot strip it — which is also why this
+            // method promises declared-field compliance rather than full manifest equality.
+            expect(repaired.properties.semanticVectorId).toBe(null);
+
             // Case 2: drifted description on an otherwise-global row is still a violation.
             GraphService.upsertGlobalNode({
                 id         : 'frontier',

@@ -383,9 +383,15 @@ class GraphService extends Base {
     }
 
     /**
-     * Guarantees one fixed boot-seed node is present, restoring it from the canonical
-     * {@link module:ai/graph/bootSeedManifest} declaration rather than a hand-written copy,
-     * and reporting loudly when it had to heal.
+     * Guarantees one fixed boot-seed node is **manifest-declared-field compliant and global**,
+     * restoring or repairing it from the canonical {@link module:ai/graph/bootSeedManifest}
+     * declaration rather than a hand-written copy, and reporting loudly when it had to heal.
+     *
+     * Deliberately NOT "manifest-equal": the open contract below preserves undeclared runtime
+     * fields, so a repaired row can carry a legacy `semanticVectorId: null` that makes the
+     * full-manifest fingerprint predicate (`evaluateGraphBootSeedFreshness`) report `fresh: false`.
+     * That predicate is the authority on whole-graph freshness and is intentionally untouched
+     * here; this method's guarantee is narrower and must not be described in its terms.
      *
      * @summary Anchor & Echo: `linkNodes` culls an edge whose endpoint does not exist and
      * returns no error, so a caller that names a shared hub (`frontier`) loses its write in
@@ -403,8 +409,9 @@ class GraphService extends Base {
      * from the manifest stub, overwriting a richer persisted row and emitting a false warning.
      *
      * @param {String} id Fixed boot-seed node id, e.g. `'frontier'`.
-     * @returns {Boolean} `true` when the node was absent and has been restored, `false` when
-     * it was already present. Callers may surface the `true` case; none should depend on it.
+     * @returns {Boolean} `true` **iff a write occurred** — the row was absent and restored, OR
+     * present and repaired. `false` when the existing row already complied and nothing was written.
+     * Callers may surface the `true` case; none should depend on it.
      */
     ensureGlobalBootSeedNode(id) {
         // Resolve the spec BEFORE any early return. An unrelated row already sitting under an
