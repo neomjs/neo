@@ -67,9 +67,11 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 - **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to a separate **gated convergence pass** after the divergence window closes.
 
-**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options); the **gated convergence pass** opens only after the window closes.
+**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options); the **gated convergence pass** opens when the window closes.
 
-**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks the §6.2 quorum (floor-2 active families with signal + ≥ 1 non-author family APPROVED; Tier-2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC) or has unresolved DEFERRED/VETO; see §6 below for full 2-axis substrate.
+**Closure is evidence-state, never a clock (#15996):** the window closes when the mandatory non-author cycle has landed AND the latest cycle added no new option row or falsifier. **No invented wall-clock deadline** (`until <ts>`); only an operator-set bound is valid, citing them — a clock cannot be shortened by evidence. **Volume ceiling:** past 40 comments or 8 folds with no graduated artifact, open convergence on present evidence or split — record which. **Anchor freeze:** after convergence opens, only a decision-changing delta reopens signals; strengthening that discharges a gate does not.
+
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 and `ticket-create-workflow.md` §1c (substantive-rationale exception documented there). **Per §6 (high-blast only)**, graduation is ALSO blocked when the Signal Ledger lacks §6.2 quorum or carries unresolved DEFERRED/VETO.
 
 The full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
@@ -134,7 +136,7 @@ Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-
 
 ### 6.2 Signal Patterns + Quorum Rule (high-blast only)
 
-**Quorum rule** (per Epic `#11796` / Discussion `#11793` — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic. Family-keying replaces the prior hardcoded "3× cross-family signals" because active membership is variable (operator-benched families, same-family siblings); same-family aggregation (§6.4) resolves multi-identity families. Full rationale + background: [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
+**Quorum rule** (`#11796` / D`#11793` — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with any signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) also requires an explicit `## Unresolved Liveness` entry per benched family + a capability-grounded `revalidationTrigger` AC in the graduating Epic. §6.4 aggregates multi-identity families. Rationale (incl. why family-keying replaced fixed signal counts): [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
 
 **Four signal patterns** (full definitions + VETO collapse rule: [`audits/consensus-mandate.md §signal-patterns-table`](../audits/consensus-mandate.md)):
 
@@ -193,7 +195,7 @@ Axis 1 (this section, §6) is the Discussion-graduation gate; Axis 2 is the PR-m
 
 ### 6.9 Empirical Anchors
 
-Empirical anchors for §6 consensus-mandate behavior — including the original `#11216` graduation (the rule's own dogfooded recursion), the `#11210` → `#11213` + PR `#11212` / `#11215` axis-1+2 enforcement cases, the `#11214` → `#11218` dogfood example, the `#11782` → `#11731` first-empirical-hit-of-hardcoded-3× failure mode, and the Epic `#11796` / Discussion `#11793` family-keyed-quorum extension (recursive substrate validation depth-2) — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
+Empirical anchors for §6 consensus-mandate behavior — the `#11216` self-dogfooded graduation, the `#11210`/`#11214` enforcement and dogfood cases, the `#11782` → `#11731` hardcoded-3× failure, and the `#11796` family-keyed extension — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
 
 ### 6.10 30-Day Post-Merge Validation (AC10)
 
