@@ -106,13 +106,6 @@ export const AI_CONFIG_IMPLEMENTATION_BASELINE = Object.freeze([
         text  : 'primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,',
         ticket: '#13939',
         reason: 'Existing entrypoint injection boundary; cleanup belongs to the #12456 fan-out.'
-    },
-    {
-        file  : 'ai/daemons/orchestrator/services/TenantRepoSyncService.mjs',
-        kind  : 'config-parameter-default',
-        text  : 'async resolveTenantReposConfig({tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env, ingestionService} = {}) {',
-        ticket: '#13939',
-        reason: 'Existing test seam; cleanup belongs to the #12456 fan-out.'
     }
 ]);
 

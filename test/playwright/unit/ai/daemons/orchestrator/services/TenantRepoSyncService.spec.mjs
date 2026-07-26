@@ -2578,7 +2578,7 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
     });
 });
 
-test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorRoot fallback (#12036 Bug C)', () => {
+test.describe('TenantRepoSyncService.resolveTenantReposConfig — Provider mirrorRoot SSOT (#16014)', () => {
     /*
      * Materialization of per-repo `mirrorRoot` from the Tier-1
      * `aiConfig.orchestrator.tenantRepoMirrorRoot` default when the per-repo
@@ -2661,7 +2661,7 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
         expect(mirrorPath).not.toContain('tenant-repos/tenant-repos');
     });
 
-    test('stale-overlay defense: missing orchestratorConfig.tenantRepoMirrorRoot falls back to env var (#12036 cycle-2 RA1)', async () => {
+    test('an absent explicit seam reads the resolved Tier-1 Provider leaf', async () => {
         const ingestionStub = {
             listConfiguredTenantRepos: async () => ({tenantRepos: [
                 {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
@@ -2669,28 +2669,29 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
         };
 
         const result = await TenantRepoSyncService.resolveTenantReposConfig({
-            ingestionService  : ingestionStub,
-            orchestratorConfig: {},  // simulate stale operator overlay (no tenantRepoMirrorRoot key)
-            env               : {NEO_TENANT_REPO_MIRROR_ROOT: '/env-bound/root'}
-        });
-
-        expect(result.tenantRepos[0].mirrorRoot).toBe('/env-bound/root');
-    });
-
-    test('stale-overlay defense: missing orchestratorConfig AND no env var → hardcoded /app/.neo-ai-data (#12036 cycle-2 RA1)', async () => {
-        const ingestionStub = {
-            listConfiguredTenantRepos: async () => ({tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
-            ]})
-        };
-
-        const result = await TenantRepoSyncService.resolveTenantReposConfig({
-            ingestionService  : ingestionStub,
-            orchestratorConfig: {},
-            env               : {}
+            ingestionService: ingestionStub
         });
 
         expect(result.tenantRepos[0].mirrorRoot).toBe('/app/.neo-ai-data');
+    });
+
+    test('blank explicit roots fail before config enumeration', async () => {
+        let   enumerationCount = 0;
+        const ingestionStub    = {
+            listConfiguredTenantRepos: async () => {
+                enumerationCount++;
+                return {tenantRepos: []};
+            }
+        };
+
+        for (const tier1MirrorRoot of ['', '   ']) {
+            await expect(TenantRepoSyncService.resolveTenantReposConfig({
+                ingestionService: ingestionStub,
+                tier1MirrorRoot
+            })).rejects.toThrow('AiConfig.orchestrator.tenantRepoMirrorRoot must resolve to a non-empty string.');
+        }
+
+        expect(enumerationCount).toBe(0);
     });
 });
 
