@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}                                                                       from '../../fixtures.mjs';
+import {assertAffordanceContainment, assertBootContainmentChain, assertChipHeaderExclusion} from '../utils/dockGeometry.mjs';
 
 /**
  * Whitebox-e2e: the FLAGSHIP's drag-affordance journey — the durable real-pointer proof
@@ -184,6 +185,52 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         expect(Math.abs(geometry.previewAffordance.top - geometry.targetZone.top)).toBeLessThanOrEqual(1);
         expect(Math.abs(geometry.previewAffordance.width - geometry.targetZone.width)).toBeLessThanOrEqual(1);
         expect(Math.abs(geometry.previewAffordance.height - geometry.targetZone.height)).toBeLessThanOrEqual(1);
+
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(120);
+        await page.mouse.up();
+        await page.waitForTimeout(300)
+    });
+
+    /**
+     * The systematic rect layer's flagship home — the boot containment chain and the
+     * per-child affordance families, read through component ids (restyle-proof), complementing
+     * the fix-critical class-selector witness above rather than replacing it.
+     */
+    test('the flagship chrome tiles the window, and every affordance child stays contained by component-id truth', async ({page, neuralLink}) => {
+        const {app, scaleBox} = await bootFlagship(page, neuralLink);
+
+        const readId = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null);
+
+        const [tourBar, statusBar, dockHost] = await Promise.all([
+                app.queryComponent({reference: 'tour-bar'},   ['id']),
+                app.queryComponent({reference: 'status-bar'}, ['id']),
+                app.queryComponent({reference: 'dock-host'},  ['id'])
+            ]),
+            ids = {dockHostId: readId(dockHost), statusBarId: readId(statusBar), tourBarId: readId(tourBar)};
+
+        expect(ids.tourBarId,   'the tour bar must expose a component id (reference: tour-bar)').toBeTruthy();
+        expect(ids.statusBarId, 'the status bar must expose a component id').toBeTruthy();
+        expect(ids.dockHostId,  'the dock host must expose a component id').toBeTruthy();
+
+        // Family 1 — the boot containment chain: chrome bands tile without gaps, host owns the rest
+        await assertBootContainmentChain(app, ids, {viewportHeight: await page.evaluate(() => globalThis.innerHeight)});
+
+        // Families 2 + 4 — mid-gesture: every seeded affordance child contained, none over the header
+        const center = {x: scaleBox.x + scaleBox.width / 2, y: scaleBox.y + scaleBox.height / 2};
+
+        await parkAuditDrag(page, center);
+
+        const candidateKeys = ['cross-center', 'cross-top', 'cross-right', 'cross-bottom', 'cross-left',
+                'chip-top', 'chip-right', 'chip-bottom', 'chip-left'],
+            children = await Promise.all(candidateKeys.map(candidateKey =>
+                app.queryComponent({candidateKey}, ['id']))),
+            indicatorIds = children.map(readId).filter(Boolean);
+
+        expect(indicatorIds.length, 'the nine seeded affordance children must resolve').toBe(9);
+
+        await assertAffordanceContainment(app, {dockHostId: ids.dockHostId, indicatorIds});
+        await assertChipHeaderExclusion(app, {tourBarId: ids.tourBarId, indicatorIds});
 
         await page.keyboard.press('Escape');
         await page.waitForTimeout(120);

@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}                                   from '../../fixtures.mjs';
+import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeometry.mjs';
 
 /**
  * @summary The five-beat multi-window journey witness for the flagship workstation — the
@@ -672,6 +673,96 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(cancelLogs[1], 'two cancel drives produce identical semantic dwell logs').toEqual(cancelLogs[0]);
         expect(commitLogs[1], 'two commit drives produce identical semantic dwell logs').toEqual(commitLogs[0]);
         expect(pageErrorRuns.flat(), 'both live gesture-time error streams stay empty').toEqual([])
+    });
+
+    /**
+     * The showcase beat's dwell previews must ALIGN with their target zones — the
+     * systematic rect layer's second consumer. Dwell detection rides the preview contract
+     * object (worker truth); the painted rect is read by component DOM id (never class
+     * selectors); the gesture ends in cancel, so the document is untouched.
+     */
+    test('showcase dwell previews align with their zones — component-id rect truth', async ({page, neuralLink}) => {
+        const
+            rectPace    = {birthAttempts: 240, curve: 0.18, dwellDelay: 900, moveDelay: 33, moveSteps: 24, showCursor: false},
+            {app, wsId} = await boot({page, neuralLink}),
+            readId      = result => result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null),
+            zoneIds     = {};
+
+        for (const nodeId of ['scale-tabs', 'right-bottom-tabs']) {
+            zoneIds[nodeId] = readId(await app.queryComponent({dockNodeId: nodeId}, ['id']));
+
+            expect(zoneIds[nodeId], `zone ${nodeId} must resolve a component id`).toBeTruthy()
+        }
+
+        const dockHostId = readId(await app.queryComponent({reference: 'dock-host'}, ['id'])),
+              previewId  = readId(await app.queryComponent({reference: 'dock-preview'}, ['id']));
+
+        expect(dockHostId, 'the dock host must resolve').toBeTruthy();
+        expect(previewId,  'the dock preview overlay must resolve').toBeTruthy();
+
+        const readPaintedPreview = async () => {
+            const [state, host] = await Promise.all([
+                    app.getComponent(previewId, ['dockPreview']),
+                    readComponentRects(app, [dockHostId]).then(rects => rects[dockHostId])
+                ]),
+                dockPreview = state?.properties?.dockPreview ?? state?.dockPreview;
+
+            if (!dockPreview?.target?.nodeId) return null;
+
+            const style = await page.evaluate(id => {
+                const el = document.getElementById(id)?.firstElementChild;
+
+                return el?.style && {height: el.style.height, left: el.style.left, top: el.style.top, width: el.style.width}
+            }, previewId);
+
+            if (!style || !Number.parseFloat(style.width)) return null;
+
+            const num  = value => Number.parseFloat(value) || 0,
+                  left = host.left + num(style.left),
+                  top  = host.top  + num(style.top);
+
+            return {
+                dockPreview,
+                rect: {
+                    bottom: top + num(style.height),
+                    height: num(style.height),
+                    left,
+                    right : left + num(style.width),
+                    top,
+                    width : num(style.width)
+                }
+            }
+        };
+
+        const stepPromise = app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+            dwells: [
+                {placementKind: 'edge-bottom', targetNodeId: 'scale-tabs'},
+                {placementKind: 'tab-into',    targetNodeId: 'right-bottom-tabs'}
+            ],
+            itemId      : 'audit',
+            sourceNodeId: 'right-top-tabs',
+            terminal    : 'cancel'
+        }, rectPace]);
+
+        // Dwell 1 — the edge band must hug the scale zone's bottom edge inside its budget
+        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
+            .toMatchObject({dockPreview: {placement: {kind: 'edge-bottom'}, target: {nodeId: 'scale-tabs'}}});
+
+        const dwell1 = await readPaintedPreview();
+
+        await assertPreviewZoneAlignment(app, {kind: 'edge-bottom', previewRect: dwell1.rect, zoneId: zoneIds['scale-tabs']});
+
+        // Dwell 2 — the tab-into preview must equal the right-bottom zone rect
+        await expect.poll(readPaintedPreview, {intervals: [50, 100, 200], timeout: 15000})
+            .toMatchObject({dockPreview: {placement: {kind: 'tab-into'}, target: {nodeId: 'right-bottom-tabs'}}});
+
+        const dwell2 = await readPaintedPreview();
+
+        await assertPreviewZoneAlignment(app, {kind: 'tab-into', previewRect: dwell2.rect, zoneId: zoneIds['right-bottom-tabs']});
+
+        const result = await stepPromise;
+
+        expect(result.cancelled, 'the gesture ends as a clean cancel — zero document mutation').toBe(true)
     });
 
     // ── beats 3-4: contracted legs — activate as the cross-window docking wiring lands ──
