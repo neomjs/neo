@@ -104,12 +104,18 @@ class GraphqlService extends Base {
      * first makes that failure mode structurally impossible for every CI consumer of this service,
      * not just the caller that surfaced it.
      *
-     * **Why the env value is deliberately NOT cached.** `process.env` is already the cache, and caching
-     * it would defeat mid-process rotation: `buildScripts/dataSyncPipeline.mjs`'s `scopedStageEnv()`
-     * rewrites `GH_TOKEN`/`GITHUB_TOKEN` per stage precisely so an intake stage cannot read the
-     * publisher credential. A cached first-stage token would silently serve the wrong identity to every
-     * later stage — the additive-boundary defect that scoping exists to prevent. Only the CLI result is
-     * cached, because shelling out per call is the cost caching was introduced for.
+     * **Why the env value is deliberately NOT cached.** `process.env` is already the cache — re-reading
+     * it costs nothing, so memoizing it buys no performance while adding a staleness window. The
+     * asymmetry with the CLI branch is therefore about cost, not safety: shelling out is expensive, so
+     * that result is cached; an env read is not, so it is not.
+     *
+     * The staleness window matters for **long-lived in-process consumers** whose credential can be
+     * re-pointed between calls — an embedded caller swapping identity, or a rotated token in a
+     * persistent server. A memoized env value would keep serving the pre-rotation credential for the
+     * lifetime of the process. This is NOT justified by the per-stage scoping in
+     * `buildScripts/dataSyncPipeline.mjs`: that pipeline spawns a **fresh child process per stage**
+     * (`executeCommand()`), so a singleton cache cannot cross stages there and its isolation does not
+     * depend on this choice.
      *
      * **Invariant:** the raw token is never logged. On failure the message names the env vars to set,
      * because the previous message sent CI operators down an interactive path that cannot exist there.

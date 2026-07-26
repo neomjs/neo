@@ -375,14 +375,18 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — rest() authent
  * a CI consumer could depend on an authenticated `gh` CLI unnoticed until scheduled runs failed on
  * it, reporting a missing credential as advice to run an interactive login CI cannot perform.
  *
- * These pin the order: override → `GH_TOKEN` → `GITHUB_TOKEN` → cached → CLI.
+ * These cover the override and environment branches: override → `GH_TOKEN` → `GITHUB_TOKEN`.
  *
- * The CLI branch is deliberately NOT asserted. `gh auth token` succeeds on a developer machine and
- * fails on CI, so a test touching it would pin the environment rather than the code — the shape of
- * false green this suite exists to avoid. Env-before-cache is likewise intentional and load-bearing:
- * `buildScripts/dataSyncPipeline.mjs` rewrites these variables per stage so an intake stage cannot
- * read the publisher credential, and a cached first-stage token would silently serve the wrong
- * identity to every later stage.
+ * **Scope limit, stated rather than implied:** the cached-CLI and CLI-shell-out branches are NOT
+ * covered here, so this suite pins the *environment* precedence, not the full resolution order. A
+ * bare `gh auth token` assertion succeeds on a developer machine and fails on CI, which would pin the
+ * environment instead of the code. Covering them needs a deterministic CLI seam.
+ *
+ * Env-before-cache is intentional, but for **cost and staleness**, not isolation: an env read is free
+ * so memoizing it buys nothing while adding a staleness window for long-lived in-process consumers
+ * whose credential is re-pointed between calls. It is *not* justified by `dataSyncPipeline`'s
+ * per-stage scoping — that pipeline spawns a fresh child process per stage, so a singleton cache
+ * cannot cross stages there at all.
  */
 test.describe('Neo.ai.services.github-workflow.GraphqlService — credential resolution order (#15986)', () => {
     let GraphqlService;
@@ -500,5 +504,41 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — credential res
 
         expect(seen.value).toContain('env-github-token');
         expect(seen.value).not.toContain('   ');
+    });
+
+    /**
+     * The no-credential error path, driven through a deterministic `gh` stand-in.
+     *
+     * A `PATH`-prepended stub makes the CLI branch fail on demand without depending on whether the
+     * host has a real `gh` login — the same seam used to red-prove this change, and the reason the
+     * red proof could not simply unset the token: on an authenticated developer machine the real CLI
+     * would have returned a live credential into the assertion diff.
+     *
+     * **Only the failing CLI branch is exercised here, deliberately.** A *successful* CLI call
+     * populates the service's private `#authToken` cache, which has no reset seam, so asserting it
+     * would leave a resolved credential on the singleton and silently change what every later test in
+     * the worker resolves — order-dependent pollution. The failure path caches nothing, so it is
+     * order-independent. Covering the cached and CLI-success branches needs a cache-reset seam on the
+     * service; that is a deliberate API cost and is left unclaimed here rather than smuggled in as a
+     * test-only mutator.
+     */
+    test('names the env vars it looked for when no credential exists anywhere', async () => {
+        const
+            fs           = await import('fs'),
+            os           = await import('os'),
+            path         = await import('path'),
+            shimDir      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-gh-shim-')),
+            originalPath = process.env.PATH;
+
+        fs.writeFileSync(path.join(shimDir, 'gh'), '#!/bin/sh\nexit 1\n', {mode: 0o755});
+
+        process.env.PATH = `${shimDir}${path.delimiter}${originalPath}`;
+
+        try {
+            await expect(GraphqlService.query(QUERY)).rejects.toThrow(/GH_TOKEN.*GITHUB_TOKEN/s);
+        } finally {
+            process.env.PATH = originalPath;
+            fs.rmSync(shimDir, {force: true, recursive: true});
+        }
     });
 });
