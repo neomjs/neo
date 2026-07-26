@@ -10,6 +10,7 @@ import {
     computeStreak,
     evaluateBreach,
     isRecovered,
+    parseThreshold,
     selectAlarmIssue
 } from '../../../../../buildScripts/dataSyncWatchdog.mjs';
 
@@ -118,10 +119,21 @@ test.describe('dataSyncWatchdog (#15948)', () => {
         expect(reasons[0]).toContain('no successful run visible')
     });
 
-    test('isRecovered: only a success conclusion counts', () => {
-        expect(isRecovered({latestConclusion: 'success'})).toBe(true);
-        expect(isRecovered({latestConclusion: 'failure'})).toBe(false);
-        expect(isRecovered({latestConclusion: null})).toBe(false)
+    test('isRecovered: success with no active breach; a breach on ANY axis blocks recovery', () => {
+        expect(isRecovered({latestConclusion: 'success', breached: false})).toBe(true);
+        expect(isRecovered({latestConclusion: 'success', breached: true})).toBe(false); // certified-silence guard, in-contract
+        expect(isRecovered({latestConclusion: 'failure', breached: false})).toBe(false);
+        expect(isRecovered({latestConclusion: null, breached: false})).toBe(false)
+    });
+
+    test('parseThreshold: absent falls back; valid strings parse; unparseable or non-positive fails LOUD', () => {
+        expect(parseThreshold({name: 'X', raw: undefined, fallback: 48})).toBe(48);
+        expect(parseThreshold({name: 'X', raw: '', fallback: 48})).toBe(48);
+        expect(parseThreshold({name: 'X', raw: '12', fallback: 48})).toBe(12);
+        // a silence-detector must never silently substitute a threshold nobody chose
+        expect(() => parseThreshold({name: 'X', raw: 'fourty', fallback: 48})).toThrow(/positive number/);
+        expect(() => parseThreshold({name: 'X', raw: '0', fallback: 48})).toThrow(/positive number/);
+        expect(() => parseThreshold({name: 'X', raw: '-5', fallback: 48})).toThrow(/positive number/)
     });
 
     test('selectAlarmIssue: body marker wins over title, PRs are excluded, marker beats prefix', () => {

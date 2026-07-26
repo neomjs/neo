@@ -114,12 +114,38 @@ export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusL
 }
 
 /**
+ * Parses a threshold env var. A present-but-unparseable or non-positive value fails LOUD:
+ * `Number(raw) || fallback` would silently substitute the default for a typo or a zero,
+ * and a silence-detector whose threshold silently reverts reports healthy against a
+ * threshold nobody chose — the precise failure mode this tool exists to catch.
+ *
+ * @param {Object} options
+ * @param {String} options.name Env var name (for the error message).
+ * @param {String|undefined} options.raw Raw env value.
+ * @param {Number} options.fallback Used only when the var is absent.
+ * @returns {Number}
+ */
+export function parseThreshold({name, raw, fallback}) {
+    if (raw === undefined || raw === '') return fallback;
+
+    const value = Number(raw);
+
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new Error(`dataSyncWatchdog: ${name} must be a positive number, got '${raw}' — refusing to silently substitute ${fallback}`)
+    }
+
+    return value
+}
+
+/**
  * @param {Object} options
  * @param {String|null} options.latestConclusion Conclusion of the newest completed run.
- * @returns {Boolean} True when the pipeline recovered.
+ * @param {Boolean} options.breached Whether ANY axis is breaching (a green run axis never
+ *        masks a stale corpus — that is the certified-silence case this watchdog exists to break).
+ * @returns {Boolean} True when the pipeline recovered on every axis.
  */
-export function isRecovered({latestConclusion}) {
-    return latestConclusion === 'success'
+export function isRecovered({latestConclusion, breached}) {
+    return latestConclusion === 'success' && !breached
 }
 
 /**
@@ -246,9 +272,9 @@ async function main() {
         repository             = process.env.GITHUB_REPOSITORY || 'neomjs/neo',
         workflow               = process.env.WATCHDOG_WORKFLOW || DEFAULT_WORKFLOW,
         corpusPath             = process.env.WATCHDOG_CORPUS_PATH || DEFAULT_CORPUS_PATH,
-        maxConsecutiveFailures = Number(process.env.WATCHDOG_MAX_CONSECUTIVE_FAILURES) || DEFAULT_MAX_CONSECUTIVE_FAILURES,
-        maxSuccessAgeHours     = Number(process.env.WATCHDOG_MAX_SUCCESS_AGE_HOURS) || DEFAULT_MAX_SUCCESS_AGE_HOURS,
-        maxCorpusAgeHours      = Number(process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS) || DEFAULT_MAX_CORPUS_AGE_HOURS,
+        maxConsecutiveFailures = parseThreshold({name: 'WATCHDOG_MAX_CONSECUTIVE_FAILURES', raw: process.env.WATCHDOG_MAX_CONSECUTIVE_FAILURES, fallback: DEFAULT_MAX_CONSECUTIVE_FAILURES}),
+        maxSuccessAgeHours     = parseThreshold({name: 'WATCHDOG_MAX_SUCCESS_AGE_HOURS', raw: process.env.WATCHDOG_MAX_SUCCESS_AGE_HOURS, fallback: DEFAULT_MAX_SUCCESS_AGE_HOURS}),
+        maxCorpusAgeHours      = parseThreshold({name: 'WATCHDOG_MAX_CORPUS_AGE_HOURS', raw: process.env.WATCHDOG_MAX_CORPUS_AGE_HOURS, fallback: DEFAULT_MAX_CORPUS_AGE_HOURS}),
         dryRun                 = process.env.WATCHDOG_DRY_RUN === 'true' || args.has('--dry-run'),
         forceBreach            = process.env.WATCHDOG_FORCE_BREACH === 'true',
         forceRecovery          = process.env.WATCHDOG_FORCE_RECOVERY === 'true',
@@ -303,7 +329,7 @@ async function main() {
 
     // Recovery means NO active breach on any axis: a green run closing the alarm while the
     // corpus backlog grows is exactly the certified-silence failure this watchdog exists to break.
-    const recovered = forceRecovery || (!forceBreach && isRecovered({latestConclusion: latest?.conclusion}) && !breached);
+    const recovered = forceRecovery || (!forceBreach && isRecovered({latestConclusion: latest?.conclusion, breached}));
 
     const openIssues = await api(`/repos/${repository}/issues?state=open&per_page=100`, {token}),
           alarm      = selectAlarmIssue(openIssues);

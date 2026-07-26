@@ -47,4 +47,9 @@ jobs:
           WATCHDOG_FORCE_BREACH: ${{ inputs.forceBreach }}
           WATCHDOG_FORCE_RECOVERY: ${{ inputs.forceRecovery }}
           WATCHDOG_DRY_RUN: ${{ inputs.dryRun }}
+          # Threshold constants — tunable here without a code edit (the script fails loud
+          # on a present-but-unparseable value; it never silently substitutes a default).
+          WATCHDOG_MAX_CONSECUTIVE_FAILURES: '3'
+          WATCHDOG_MAX_SUCCESS_AGE_HOURS: '24'
+          WATCHDOG_MAX_CORPUS_AGE_HOURS: '48'
         run: node ./buildScripts/dataSyncWatchdog.mjs

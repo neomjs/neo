@@ -1,5 +1,6 @@
 name: Data Sync Pipeline
 
+# Watched by data-sync-watchdog.yml (staleness alarm over run-status + committed-corpus axes).
 on:
   schedule:
     - cron: '0 * * * *' # Run hourly
