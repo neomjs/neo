@@ -22,18 +22,17 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 /**
  * A read receipt must not out-claim its durable write.
  *
- * `mark_read` / `archive_message` mutate the in-memory `DELIVERED_TO` edge unconditionally, then
- * persisted only when `db.autoSave` was set — while the tool returned `status: 'read'` either way.
- * An acknowledged write that was never persisted is a false receipt: the mark survives until the
- * process restarts and then silently reverts to unread.
+ * `mark_read` / `archive_message` carry broadcast state on the per-recipient `DELIVERED_TO` edge
+ * and direct-DM state on the shared `MESSAGE` node. Both mutations happen in memory first; their
+ * receipts may claim unqualified success only after the matching carrier reached storage.
  *
  * These specs assert durability **against storage**, not against a spy: after the call they read
- * the edge back through `storage.loadNodeVicinitySync` (bypassing the in-memory cache the mutation
- * always updates), which is the only way to tell "persisted" from "looked persisted".
+ * the matching node or edge back through `storage.loadNodeVicinitySync` (bypassing the in-memory
+ * cache the mutation always updates), the only way to tell "persisted" from "looked persisted".
  */
 test.describe.configure({mode: 'serial'});
 
-test.describe('MailboxService — receipt durability cannot outrun the durable write (#15821)', () => {
+test.describe('MailboxService — receipt durability cannot outrun the durable write (#15821, #15957)', () => {
     let MailboxService, GraphService, LifecycleService;
     let originalAutoSave;
 
@@ -84,8 +83,16 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         }) || null;
     };
 
-    const propertiesOf = edge => {
-        const raw = edge?.properties ?? edge?.data?.properties;
+    /** Reads the direct-DM MESSAGE node back FROM STORAGE, never from the in-memory cache. */
+    const readMessageFromStorage = messageId => {
+        const vicinity = GraphService.db.storage.loadNodeVicinitySync([messageId]),
+              nodes    = vicinity?.nodes || [];
+
+        return nodes.find(node => (node.id ?? node?.data?.id) === messageId) || null;
+    };
+
+    const propertiesOf = record => {
+        const raw = record?.properties ?? record?.data?.properties;
 
         return typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
     };
@@ -94,6 +101,14 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
     const sendBroadcast = async subject => {
         const sent = await RequestContextService.run({agentIdentityNodeId: SENDER}, () =>
             MailboxService.addMessage({to: 'AGENT:*', subject, body: 'receipt durability fixture'}));
+
+        return sent.messageId;
+    };
+
+    /** Sends a direct message whose read/archive state rides the shared MESSAGE node. */
+    const sendDirect = async subject => {
+        const sent = await RequestContextService.run({agentIdentityNodeId: SENDER}, () =>
+            MailboxService.addMessage({to: RECIPIENT, subject, body: 'direct receipt durability fixture'}));
 
         return sent.messageId;
     };
@@ -184,6 +199,70 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
 
             expect(receipt.durable).toBe(false);
             expect(receipt.warning).toMatch(/archive_message/);
+        } finally {
+            GraphService.db.storage = realStorage;
+        }
+    });
+
+    test('direct-DM mark_read persists with autoSave OFF and keeps the legacy receipt shape', async () => {
+        const messageId = await sendDirect('durability: direct mark autoSave off');
+
+        GraphService.db.autoSave = false;
+
+        try {
+            const receipt = await asRecipient(() => MailboxService.markRead({messageId}));
+
+            expect(Object.keys(receipt).sort()).toEqual(['messageId', 'readAt', 'status']);
+            expect(propertiesOf(readMessageFromStorage(messageId)).readAt).toBe(receipt.readAt);
+        } finally {
+            GraphService.db.autoSave = originalAutoSave;
+        }
+    });
+
+    test('direct-DM mark_read degrades honestly with no storage', async () => {
+        const messageId   = await sendDirect('durability: direct mark no storage');
+        const realStorage = GraphService.db.storage;
+
+        try {
+            GraphService.db.storage = null;
+
+            const receipt = await asRecipient(() => MailboxService.markRead({messageId}));
+
+            expect(receipt.status).toBe('read');
+            expect(receipt.durable).toBe(false);
+            expect(receipt.warning).toMatch(/mark_read.*NOT persisted/);
+        } finally {
+            GraphService.db.storage = realStorage;
+        }
+    });
+
+    test('direct-DM archive_message persists with autoSave OFF and keeps the legacy receipt shape', async () => {
+        const messageId = await sendDirect('durability: direct archive autoSave off');
+
+        GraphService.db.autoSave = false;
+
+        try {
+            const receipt = await asRecipient(() => MailboxService.archiveMessage({messageId}));
+
+            expect(Object.keys(receipt).sort()).toEqual(['archivedAt', 'messageId', 'status']);
+            expect(propertiesOf(readMessageFromStorage(messageId)).archivedAt).toBe(receipt.archivedAt);
+        } finally {
+            GraphService.db.autoSave = originalAutoSave;
+        }
+    });
+
+    test('direct-DM archive_message degrades honestly with no storage', async () => {
+        const messageId   = await sendDirect('durability: direct archive no storage');
+        const realStorage = GraphService.db.storage;
+
+        try {
+            GraphService.db.storage = null;
+
+            const receipt = await asRecipient(() => MailboxService.archiveMessage({messageId}));
+
+            expect(receipt.status).toBe('archived');
+            expect(receipt.durable).toBe(false);
+            expect(receipt.warning).toMatch(/archive_message.*NOT persisted/);
         } finally {
             GraphService.db.storage = realStorage;
         }
