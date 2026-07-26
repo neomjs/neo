@@ -20,8 +20,12 @@ import process from 'node:process';
  *   The third axis exists because run-status is not independent of the QUESTION: the
  *   generated-markdown corpus advances only via hand-authored commits (never by the
  *   pipeline), so a green pipeline can certify a growing content backlog forever. The
- *   corpus axis is measured from the COMMITTED default branch through the API — never a
- *   working-tree mtime, which can read current in the exact episode it must catch.
+ *   corpus is measured PER FACET (`issues`, `pulls`, `discussions` by default) — the
+ *   facets sync independently and drift apart, so a single tree timestamp would certify
+ *   two stale facets after an issue-only landing: the freshness witness needs the same
+ *   cardinality as the corpus it certifies. Every facet is measured from the COMMITTED
+ *   default branch through the API — never a working-tree mtime, which can read current
+ *   in the exact episode it must catch.
  *   On breach, open the standing alarm issue — or update the existing open one (fresh
  *   body + a comment naming the latest failed run). N breaches, one issue.
  * - Recovery: the newest completed run succeeds. On recovery, close the standing issue
@@ -40,6 +44,7 @@ const
     DEFAULT_MAX_CONSECUTIVE_FAILURES = 3,
     DEFAULT_MAX_SUCCESS_AGE_HOURS    = 24,
     DEFAULT_MAX_CORPUS_AGE_HOURS     = 48,
+    DEFAULT_CORPUS_FACETS            = ['issues', 'pulls', 'discussions'],
     DEFAULT_CORPUS_PATH              = 'resources/content',
     DEFAULT_WORKFLOW                 = 'data-sync-pipeline.yml',
     RUNS_PER_PAGE                    = 30;
@@ -81,7 +86,7 @@ export function computeStreak({runs}) {
  * @param {Number} [options.maxCorpusAgeHours=48]
  * @returns {{breached: Boolean, reasons: String[]}}
  */
-export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusLastCommitAt, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS, maxCorpusAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS}) {
+export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusLastCommitAt, corpusFacets, maxConsecutiveFailures=DEFAULT_MAX_CONSECUTIVE_FAILURES, maxSuccessAgeHours=DEFAULT_MAX_SUCCESS_AGE_HOURS, maxCorpusAgeHours=DEFAULT_MAX_CORPUS_AGE_HOURS}) {
     const reasons = [];
 
     if (consecutiveFailures >= maxConsecutiveFailures) {
@@ -106,6 +111,16 @@ export function evaluateBreach({consecutiveFailures, lastSuccessAt, now, corpusL
 
             if (corpusAgeHours > maxCorpusAgeHours) {
                 reasons.push(`last \`resources/content/**\` commit is ${corpusAgeHours.toFixed(1)}h old (threshold ${maxCorpusAgeHours}h — deploys, clones, CI and container KB ingestion all build from committed \`dev\`)`)
+            }
+        }
+    }
+
+    if (corpusFacets !== undefined) {
+        for (const {facet, lastCommitAt, ageHours} of corpusFacets) {
+            if (!lastCommitAt) {
+                reasons.push(`no commit visible for corpus facet \`${facet}\` on the default branch`)
+            } else if (ageHours > maxCorpusAgeHours) {
+                reasons.push(`corpus facet \`${facet}\` is ${ageHours.toFixed(1)}h old (threshold ${maxCorpusAgeHours}h)`)
             }
         }
     }
@@ -170,9 +185,16 @@ export function selectAlarmIssue(issues) {
  *        (the only path where a zero-streak title can occur).
  * @returns {String}
  */
-export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced=false}) {
+export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, staleFacets, forced=false}) {
     if (forced && consecutiveFailures === 0) {
         return `${ALARM_TITLE_PREFIX} Data Sync Pipeline: forced breach evaluation (workflow_dispatch dry run)`
+    }
+
+    if (consecutiveFailures === 0 && staleFacets?.length) {
+        const ages   = staleFacets.map(f => f.ageHours).filter(age => age !== null),
+              oldest = ages.length ? ` (oldest ${Math.max(...ages).toFixed(1)}h)` : '';
+
+        return `${ALARM_TITLE_PREFIX} Data Sync corpus stale: facet${staleFacets.length > 1 ? 's' : ''} ${staleFacets.map(f => `\`${f.facet}\``).join(', ')}${oldest}`
     }
 
     if (consecutiveFailures === 0 && corpusLastCommitAt) {
@@ -193,7 +215,18 @@ export function buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCom
  * @param {Boolean} [options.forced=false] True when a dispatch dry-run forced the branch.
  * @returns {String}
  */
-export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, forced=false}) {
+export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure, reasons, corpusLastCommitAt, corpusAgeHours, corpusFacets, forced=false}) {
+    const corpusLine = corpusFacets
+        ? [
+            '**Corpus facets** (committed `dev`; a green pipeline cannot attest to this backlog):',
+            '',
+            '| facet | last commit on `dev` | age | status |',
+            '|---|---|---|---|',
+            ...corpusFacets.map(({facet, lastCommitAt, ageHours, stale}) =>
+                `| \`${facet}\` | ${lastCommitAt ?? 'none visible'} | ${lastCommitAt ? `${ageHours.toFixed(1)}h` : '—'} | ${stale ? '**STALE**' : 'ok'} |`)
+        ].join('\n')
+        : `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`;
+
     return [
         ALARM_MARKER,
         '',
@@ -203,7 +236,7 @@ export function buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure,
         `**Streak:** ${consecutiveFailures} consecutive failures.`,
         `**Last success:** ${lastSuccess ? `[${lastSuccess.created_at}](${lastSuccess.html_url})` : `none in the last ${RUNS_PER_PAGE} completed runs`}.`,
         `**Latest failure:** ${latestFailure ? `[run ${latestFailure.id}](${latestFailure.html_url})` : 'n/a'}.`,
-        `**Corpus axis:** last \`resources/content/**\` commit on \`dev\`: ${corpusLastCommitAt ? `${corpusLastCommitAt} (${corpusAgeHours}h old)` : 'not measured'}. Deploys, fresh clones, CI, and container KB ingestion all build from committed \`dev\` — a green pipeline cannot attest to this backlog.`,
+        corpusLine,
         '',
         '**Breach reasons:**',
         ...reasons.map(reason => `- ${reason}`),
@@ -298,26 +331,44 @@ async function main() {
 
     console.log(`watchdog: ${runs.length} completed runs visible; latest=${latest?.conclusion ?? 'none'}; consecutiveFailures=${consecutiveFailures}; lastSuccess=${lastSuccess?.created_at ?? 'none'}`);
 
-    // Corpus axis: the generated-markdown corpus advances only via hand-authored commits —
-    // measure the COMMITTED default branch, never a working tree (which can read current in
-    // the exact episode this axis exists to catch).
-    const corpusCommits = await api(
-        `/repos/${repository}/commits?path=${encodeURIComponent(corpusPath)}&sha=dev&per_page=1`,
-        {token}
-    );
+    // Corpus axis, PER FACET: the corpus advances only via hand-authored commits, and its
+    // facets sync independently — one tree timestamp would certify two stale facets after
+    // a single-facet landing (the freshness witness needs the corpus's own cardinality).
+    // Measured from the COMMITTED default branch, never a working tree.
+    const facetNames = (process.env.WATCHDOG_CORPUS_FACETS || DEFAULT_CORPUS_FACETS.join(','))
+        .split(',')
+        .map(facet => facet.trim())
+        .filter(Boolean);
 
-    const corpusLastCommitAt = corpusCommits[0]?.commit?.committer?.date ?? null,
-          corpusAgeHours     = corpusLastCommitAt
-              ? Number(((now.getTime() - new Date(corpusLastCommitAt).getTime()) / 3_600_000).toFixed(1))
-              : null;
+    const corpusFacets = await Promise.all(facetNames.map(async facet => {
+        const commits = await api(
+            `/repos/${repository}/commits?path=${encodeURIComponent(`${corpusPath}/${facet}`)}&sha=dev&per_page=1`,
+            {token}
+        );
 
-    console.log(`watchdog: corpus axis — last \`${corpusPath}\` commit on dev: ${corpusLastCommitAt ?? 'none'}${corpusAgeHours !== null ? ` (${corpusAgeHours}h)` : ''}`);
+        const lastCommitAt = commits[0]?.commit?.committer?.date ?? null,
+              ageHours     = lastCommitAt
+                  ? (now.getTime() - new Date(lastCommitAt).getTime()) / 3_600_000
+                  : null;
+
+        return {
+            facet,
+            lastCommitAt,
+            ageHours,
+            stale: lastCommitAt === null || ageHours > maxCorpusAgeHours
+        }
+    }));
+
+    const staleFacets = corpusFacets.filter(facet => facet.stale);
+
+    console.log(`watchdog: corpus facets — ${corpusFacets.map(({facet, lastCommitAt, ageHours}) =>
+        `${facet}=${lastCommitAt ?? 'none'}${ageHours !== null ? ` (${ageHours.toFixed(1)}h)` : ''}`).join(', ')}`);
 
     const {breached, reasons} = evaluateBreach({
         consecutiveFailures,
         lastSuccessAt: lastSuccess?.created_at ?? null,
         now,
-        corpusLastCommitAt,
+        corpusFacets,
         maxConsecutiveFailures,
         maxSuccessAgeHours,
         maxCorpusAgeHours
@@ -358,8 +409,8 @@ async function main() {
         return
     }
 
-    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, corpusLastCommitAt, corpusAgeHours, forced: forceBreach}),
-          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusLastCommitAt, corpusAgeHours, forced: forceBreach});
+    const title = buildAlarmTitle({consecutiveFailures, lastSuccess, staleFacets, forced: forceBreach}),
+          body  = buildAlarmBody({consecutiveFailures, lastSuccess, latestFailure: latest?.conclusion === 'failure' ? latest : null, reasons, corpusFacets, forced: forceBreach});
 
     if (alarm) {
         const comment = buildBreachComment({consecutiveFailures, latestFailure: latest});
