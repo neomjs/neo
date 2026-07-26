@@ -16,8 +16,10 @@ const __dirname  = path.dirname(__filename);
  */
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
-const DEFAULT_CHROMA_HEALTH_ENDPOINT   = '/api/v2/heartbeat';
-const DEFAULT_CHROMA_HEALTH_TIMEOUT_MS = 1000;
+const DEFAULT_CHROMA_HEALTH_ENDPOINT          = '/api/v2/heartbeat';
+const DEFAULT_CHROMA_HEALTH_FAILURE_THRESHOLD = 3;
+const DEFAULT_CHROMA_HEALTH_STARTUP_GRACE_MS  = 60000;
+const DEFAULT_CHROMA_HEALTH_TIMEOUT_MS        = 5000;
 
 /**
  * @summary Probes whether a local TCP port is accepting connections.
@@ -106,7 +108,7 @@ export function buildChromaHealthUrl({
  * @param {Object} options
  * @param {String} [options.host='localhost'] Configured Chroma host.
  * @param {String|Number} options.port Configured Chroma port.
- * @param {Number} [options.timeoutMs=1000] Request timeout in milliseconds.
+ * @param {Number} [options.timeoutMs=5000] Request timeout in milliseconds.
  * @param {String} [options.endpoint='/api/v2/heartbeat'] Chroma health endpoint.
  * @param {Function} [options.fetchFn=globalThis.fetch] Fetch implementation seam.
  * @returns {Promise<Boolean>}
@@ -141,6 +143,48 @@ export async function probeChromaHttpHealth({
     } finally {
         clearTimeout(timeoutId);
     }
+}
+
+/**
+ * @summary Classifies a Chroma heartbeat result with a consecutive-failure budget.
+ *
+ * One failed heartbeat is advisory: a busy or freshly-started Chroma can exceed one
+ * probe window while remaining recoverable. Only the configured sustained-failure
+ * threshold authorizes the supervisor to recycle the process.
+ *
+ * @param {Object} options
+ * @param {Boolean} options.healthy Latest heartbeat result.
+ * @param {Number} [options.consecutiveFailures=0] Failures immediately preceding this result.
+ * @param {Number} [options.threshold=3] Consecutive failures required for an unhealthy verdict.
+ * @returns {{alive: Boolean, consecutiveFailures: Number, sustainedFailure: Boolean}}
+ */
+export function classifyChromaHealth({
+    healthy,
+    consecutiveFailures = 0,
+    threshold           = DEFAULT_CHROMA_HEALTH_FAILURE_THRESHOLD
+} = {}) {
+    if (healthy) {
+        return {
+            alive              : true,
+            consecutiveFailures: 0,
+            sustainedFailure   : false
+        };
+    }
+
+    const normalizedFailures = Number.isFinite(Number(consecutiveFailures))
+              ? Math.max(0, Math.floor(Number(consecutiveFailures)))
+              : 0,
+          normalizedThreshold = Number.isFinite(Number(threshold))
+              ? Math.max(1, Math.floor(Number(threshold)))
+              : DEFAULT_CHROMA_HEALTH_FAILURE_THRESHOLD,
+          nextFailures        = normalizedFailures + 1,
+          sustainedFailure    = nextFailures >= normalizedThreshold;
+
+    return {
+        alive              : !sustainedFailure,
+        consecutiveFailures: sustainedFailure ? 0 : nextFailures,
+        sustainedFailure
+    };
 }
 
 /**
@@ -232,7 +276,9 @@ export function buildOllamaServeEnv({host, keepAlive, contextLength, requirePara
  * @param {String|Number} [options.chromaPort] Chroma daemon port — used for the `--port` arg and as the chroma task's `singletonPort` (the port the orchestrator reaps duplicate listeners on).
  * @param {String} [options.chromaDataDir] Chroma persist dir for the `--path` arg — the configured builder passes the resolved `engines.chroma.dataDir` leaf so env-shifted profiles (`UNIT_TEST_MODE` isolation) move the DATA with the port; the literal default keeps direct callers launch-resilient.
  * @param {String} [options.chromaHost='localhost'] Chroma daemon host for HTTP service-health probes.
- * @param {Number} [options.chromaHealthProbeTimeoutMs=1000] Chroma HTTP health probe timeout.
+ * @param {Number} [options.chromaHealthProbeTimeoutMs=5000] Chroma HTTP health probe timeout.
+ * @param {Number} [options.chromaHealthFailureThreshold=3] Consecutive failed probes required before recycle.
+ * @param {Number} [options.chromaHealthStartupGraceMs=60000] Delay before probing a newly-started Chroma.
  * @param {Function} [options.chromaHealthFetchFn] Optional fetch implementation seam for tests.
  * @param {String|Number} [options.devServerPort] Local webpack dev-server port — used for the `--port` arg, singleton detection, and TCP liveness probe.
  * @param {Number} [options.devServerLivenessTimeoutMs] TCP liveness probe timeout.
@@ -246,15 +292,18 @@ export function buildTaskDefinitions({
     chromaDataDir = '.neo-ai-data/chroma/unified',
     chromaHost    = 'localhost',
     chromaPort,
-    chromaHealthProbeTimeoutMs = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    chromaHealthProbeTimeoutMs    = DEFAULT_CHROMA_HEALTH_TIMEOUT_MS,
+    chromaHealthFailureThreshold  = DEFAULT_CHROMA_HEALTH_FAILURE_THRESHOLD,
+    chromaHealthStartupGraceMs    = DEFAULT_CHROMA_HEALTH_STARTUP_GRACE_MS,
     chromaHealthFetchFn,
     devServerPort,
     devServerLivenessTimeoutMs,
     neuralLinkBridgePort,
     neuralLinkBridgeLivenessTimeoutMs
 } = {}) {
-    const hasDevServerPort        = devServerPort !== undefined && devServerPort !== null;
-    const hasNeuralLinkBridgePort = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
+    const hasDevServerPort                = devServerPort !== undefined && devServerPort !== null;
+    const hasNeuralLinkBridgePort         = neuralLinkBridgePort !== undefined && neuralLinkBridgePort !== null;
+    let   consecutiveChromaHealthFailures = 0;
 
     const tasks = {
         chroma: {
@@ -265,16 +314,28 @@ export function buildTaskDefinitions({
             // env-shifted profile MUST move the data with the port, or a test-port launch serves the
             // production persist dir (empirically observed: a second server on the live store). The
             // parameter default keeps direct callers launch-resilient against a stale config.mjs.
-            args           : ['run', '--path', chromaDataDir, '--port', String(chromaPort)],
-            pidFileName    : 'chroma.pid',
-            expectedCommand: 'chroma',
-            singletonPort  : chromaPort,
-            healthProbe    : () => probeChromaHttpHealth({
-                host     : chromaHost,
-                port     : chromaPort,
-                timeoutMs: chromaHealthProbeTimeoutMs,
-                fetchFn  : chromaHealthFetchFn
-            })
+            args                : ['run', '--path', chromaDataDir, '--port', String(chromaPort)],
+            pidFileName         : 'chroma.pid',
+            expectedCommand     : 'chroma',
+            singletonPort       : chromaPort,
+            healthStartupGraceMs: chromaHealthStartupGraceMs,
+            healthProbe         : async () => {
+                const healthy = await probeChromaHttpHealth({
+                    host     : chromaHost,
+                    port     : chromaPort,
+                    timeoutMs: chromaHealthProbeTimeoutMs,
+                    fetchFn  : chromaHealthFetchFn
+                });
+                const verdict = classifyChromaHealth({
+                    healthy,
+                    consecutiveFailures: consecutiveChromaHealthFailures,
+                    threshold          : chromaHealthFailureThreshold
+                });
+
+                consecutiveChromaHealthFailures = verdict.consecutiveFailures;
+
+                return verdict.alive;
+            }
         },
         // `bridgeDaemon` lane id is a frozen lane-taxonomy / continuousTasks wire constant —
         // kept verbatim on the wake-daemon rename so the orchestrator keeps scheduling the lane.
