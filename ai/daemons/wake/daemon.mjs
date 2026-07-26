@@ -989,6 +989,10 @@ async function flushSubscription(subId) {
 
     const events = {messages, tasks, permissions, heartbeats};
 
+    // Hoisted so the watermark advance below can see an UNKNOWN attempt: an un-abortable transport
+    // that timed out may or may not have reached the seat, so its events must not be marked handled.
+    let flushOutcome = null;
+
     if (pendingDeliveryRetries.has(subId)) {
         // Merge-don't-stack: an undelivered digest for this subscription is still pending retry —
         // the seat has NOT seen that block, so dispatching a second one would stack two [WAKE]
@@ -1017,6 +1021,8 @@ async function flushSubscription(subId) {
             deliveryInFlight.delete(subId);
         }
 
+        flushOutcome = deliveryOutcome;
+
         if (deliveryOutcome === 'failed') {
             enqueueDeliveryRetry(subscription, identity, events);
         } else if (deliveryOutcome === 'delivered') {
@@ -1025,6 +1031,15 @@ async function flushSubscription(subId) {
                 `[Wake Dispatch] ${identity || subId}: outcome=delivered priority=${getHighestWakePriority(messages)} ` +
                 `messages=${messages.length} tasks=${tasks.length} permissions=${permissions.length} heartbeats=${heartbeats.length}`
             );
+        } else if (deliveryOutcome === 'unknown') {
+            // Arm the refractory WITHOUT advancing the watermark. The two carry different claims:
+            // the refractory says "do not wake this seat again soon" — prudent, because the attempt
+            // may have landed; the watermark says "these events are handled" — unproven, and
+            // asserting it would silently drop the wake if the orphan never arrived. Never retried
+            // here: an immediate re-offer is what produced the observed 8-second duplicates. The
+            // events survive below and re-enter a later flush only while they are still unread, so
+            // an orphan that did land self-heals into silence once the seat reads it.
+            lastFlushAtBySub[subId] = Date.now();
         }
     }
 
@@ -1033,7 +1048,7 @@ async function flushSubscription(subId) {
     // (append-only GraphLog), so genuinely-new events always land strictly above this mark.
     const deliveredMax = maxLogId([...consumedMessages, ...tasks, ...permissions, ...consumedHeartbeats]);
     let   stateChanged = messages.some(message => Boolean(message.messageId));
-    if (deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
+    if (flushOutcome !== 'unknown' && deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
         wokenWatermark[subId] = deliveredMax;
         stateChanged = true;
     }
@@ -1906,22 +1921,66 @@ const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 
 const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
 
 /**
+ * @summary The adapters whose transport receives — and therefore honours — the attempt-bound
+ * `AbortSignal`. For these, aborting genuinely cancels the in-flight request, so a timeout IS
+ * evidence the digest did not reach the seat and the retry path is correct.
+ *
+ * Membership must mirror {@link deliverDigest}'s dispatch: an adapter belongs here if and only if
+ * its branch there threads `abortSignal` into the call. Adding a signal-capable branch without
+ * adding it here understates verifiability (a real failure is treated as unknown — safe but
+ * lossy); adding it here without threading the signal overstates it and re-opens the
+ * duplicate-delivery defect this set exists to close.
+ * @type {Readonly<Set<String>>}
+ */
+const SIGNAL_HONOURING_ADAPTERS = Object.freeze(new Set([
+    OPENCODE_SERVER_ADAPTER,
+    KIMI_SERVER_ADAPTER,
+    'test-hang-abortable'
+]));
+
+/**
+ * @summary Whether a timed-out attempt against this subscription's route carries information.
+ * `webhookUrl` routes abort their `fetch`; {@link SIGNAL_HONOURING_ADAPTERS} abort theirs. Every
+ * other route — `osascript`, `tmux`, `codex-app-server`, `kimi-pull-bridge` — is a spawn or an
+ * un-signalled call that keeps running after the bound elapses, so its timeout says only that we
+ * stopped waiting.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @returns {Boolean} `true` when a timeout proves non-delivery.
+ * @private
+ */
+function isTimeoutVerifiable(subscription) {
+    const meta           = subscription.properties?.harnessTargetMetadata || {};
+    const {addressType}  = resolveInstanceAddress(meta);
+    const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
+
+    return addressType === 'webhookUrl' || SIGNAL_HONOURING_ADAPTERS.has(meta.adapter || defaultAdapter);
+}
+
+/**
  * @summary Races one adapter attempt against the `wakeDispatch.attemptTimeoutSeconds` bound —
  * every delivery call site goes through here, so a hung transport can hold the per-subscription
- * delivery owner (and therefore the flush queue behind it) at most one bound before resolving as
- * a FAILED attempt on the retry path. Without it, an unresponsive adapter starves the queue
- * behind the in-flight reservation indefinitely and defeats the hard cap's latency guarantee.
+ * delivery owner (and therefore the flush queue behind it) at most one bound before resolving.
+ * Without it, an unresponsive adapter starves the queue behind the in-flight reservation
+ * indefinitely and defeats the hard cap's latency guarantee.
  *
- * The timeout ABORTS the transport where it supports a signal (the webhook fetch). Spawn-based
- * adapters (osascript/tmux) cannot be aborted from here: a late-completing orphan attempt is
- * possible after a timeout, its outcome discarded — the refractory plus the stable per-message
- * wake claims bound the duplicate-delivery risk of that rare class, and the orphan still holds
- * the GLOBAL adapter mutex until it truly settles (focus-collision safety is preserved; only the
- * per-subscription owner is released).
+ * **A timeout resolves to `failed` only where the abort is real** ({@link isTimeoutVerifiable}).
+ * Everywhere else it resolves `unknown`: `AbortController` cannot stop a spawn, so the attempt may
+ * have already landed in the seat and its outcome is unobservable from here. Feeding that case to
+ * the retry path re-delivered digests the seat had already received — the observed duplicate-wake
+ * defect. The prior JSDoc asserted the refractory bounded that risk; it did not, and it
+ * also undercounted the affected routes as osascript/tmux when `codex-app-server` and
+ * `kimi-pull-bridge` pass no signal either.
+ *
+ * `unknown` is deliberately NOT re-attempted and NOT counted as a loss. A wake digest is derived
+ * from current unread state rather than from a queued payload, so the next natural flush re-includes
+ * anything still unread and omits whatever the orphan actually delivered — the self-healing path is
+ * strictly safer than a blind re-offer. A late-completing orphan still holds the GLOBAL adapter
+ * mutex until it settles, so focus-collision safety is unchanged; only the per-subscription owner
+ * is released.
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {Object} [deliveryEvidence={}] Scenario/count evidence for Codex validation logs.
- * @returns {Promise<('delivered'|'skipped'|'failed')>}
+ * @returns {Promise<('delivered'|'skipped'|'failed'|'unknown')>}
  */
 async function deliverDigestBounded(subscription, digest, deliveryEvidence = {}) {
     const timeoutMs  = AiConfig.orchestrator.wakeDispatch.attemptTimeoutSeconds * 1000;
@@ -1931,11 +1990,25 @@ async function deliverDigestBounded(subscription, digest, deliveryEvidence = {})
     const timeout = new Promise(resolve => {
         timer = setTimeout(() => {
             controller.abort();
-            writeLog('ERROR',
-                `[Wake Daemon] Delivery attempt for ${subscription.id} exceeded ${timeoutMs}ms — ` +
-                'resolved as failed (retry path); a hung transport must not starve the queue.'
-            );
-            resolve('failed');
+
+            // Classified INSIDE the timeout, never on the hot path: the common case never elapses
+            // the bound, and resolving the route eagerly ran address resolution on every delivery —
+            // observable co-scheduled (the kimi-pull-bridge outbox-escape spec went red only in a
+            // full-suite run, green in isolation).
+            if (isTimeoutVerifiable(subscription)) {
+                writeLog('ERROR',
+                    `[Wake Daemon] Delivery attempt for ${subscription.id} exceeded ${timeoutMs}ms — ` +
+                    'resolved as failed (retry path); the abort cancelled the in-flight request.'
+                );
+                resolve('failed');
+            } else {
+                writeLog('WARN',
+                    `[Wake Daemon] Delivery attempt for ${subscription.id} exceeded ${timeoutMs}ms on an ` +
+                    'un-abortable transport — outcome UNKNOWN, not retried: the attempt may already have ' +
+                    'reached the seat. Still-unread events re-enter the next flush.'
+                );
+                resolve('unknown');
+            }
         }, timeoutMs);
     });
 
@@ -2301,6 +2374,29 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
             // Log the attempted digest first so the coalesced retry content is observable, then throw.
             writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
             throw new Error('test-fail adapter: simulated delivery failure');
+        } else if (adapter === 'test-hang') {
+            // Deterministic LATE-COMPLETING attempt: stands in for a spawn that outlives the bound
+            // and then succeeds anyway — the real orphan, which finishes typing into the seat after
+            // the daemon stopped waiting. It ignores `abortSignal` (a spawn cannot be cancelled),
+            // which is the property under test.
+            //
+            // It must SETTLE, not hang forever: an attempt that never returns keeps the GLOBAL
+            // adapter mutex and no retry can follow, so a never-settling fixture cannot exhibit the
+            // duplicate at all — it would test a permanent wedge instead of a late delivery.
+            writeLog('INFO', `[Wake Daemon Test-Hang Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
+            await new Promise(resolve => setTimeout(resolve, Number(process.env.WAKE_TEST_HANG_MS) || 3000));
+        } else if (adapter === 'test-hang-abortable') {
+            // The signal-honouring counterpart: hangs until the bound aborts, then rejects like a
+            // cancelled fetch. Proves the retry path is preserved where the abort is real, so the
+            // unknown-outcome branch cannot silently swallow genuine failures.
+            writeLog('INFO', `[Wake Daemon Test-Hang-Abortable Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
+            await new Promise((resolve, reject) => {
+                abortSignal?.addEventListener(
+                    'abort',
+                    () => reject(new Error('test-hang-abortable adapter: aborted by attempt bound')),
+                    {once: true}
+                );
+            });
         } else {
             // Pre-outcome-enum, this branch FELL THROUGH to the delivered return — an unknown
             // adapter counted as a successful dispatch. It is a refusal: nothing reached a seat.
@@ -2514,6 +2610,26 @@ async function attemptDeliveryRetries() {
             } else {
                 pendingDeliveryRetries.delete(subId);
             }
+        } else if (outcome === 'unknown') {
+            // The bound elapsed on an un-abortable transport: the snapshot may already be in the
+            // seat, and nothing here can tell. Restore it (a loss is worse than a late re-offer),
+            // arm the refractory (it may have landed), and — critically — do NOT increment
+            // `attempts`. An unknown outcome is not a failure, so counting it would march the entry
+            // toward the terminal "wake dropped" line below, which asserts a loss that was never
+            // observed. Back off harder than a known failure: if the orphan did land, the seat
+            // reads those messages and they leave `liveMessages` on their own before we try again.
+            entry.events = {
+                messages   : [...liveMessages,         ...entry.events.messages],
+                tasks      : [...snapshot.tasks,       ...entry.events.tasks],
+                permissions: [...snapshot.permissions, ...entry.events.permissions],
+                heartbeats : [...snapshot.heartbeats,  ...entry.events.heartbeats]
+            };
+            lastFlushAtBySub[subId] = Date.now();
+            entry.nextAttemptAt     = now + POLL_INTERVAL_MS * (entry.attempts + 2);
+            writeLog('WARN',
+                `[Wake Daemon] Retry for ${subId} returned UNKNOWN (un-abortable transport timed out); ` +
+                'events retained, attempt NOT counted, next offer deferred — the attempt may already have landed.'
+            );
         } else {
             // 'skipped': the route refused fail-closed (stale presence, bad metadata) — the
             // refusal's branch-local log carries why, nothing counts, no refractory. Events
