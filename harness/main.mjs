@@ -63,6 +63,16 @@ const
     APP_URL      = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode            = process.env.NEO_HARNESS_SMOKE === '1',
     lifecycleWitnessMode = process.env.NEO_HARNESS_LIFECYCLE_WITNESS === '1',
+    // The label each cockpit adapter state renders, mirrored from the components that own them:
+    // `FleetGrid` (`adapterState === 'stale' ? … : adapterState === 'sample' ? … : ''`) and
+    // `ActivityStream` (`{sample, stale}[state] ?? '● streaming'`). Held here so the witness can
+    // check state-vs-label AGREEMENT for every state instead of pinning one expected state.
+    ROSTER_STATE_LABELS = {live: '', sample: 'static roster · offline', stale: 'stale — reconnecting', degraded: ''},
+    STREAM_STATE_LABELS = {live: '● streaming', sample: 'sample · live feed pending', stale: 'stale — reconnecting', degraded: '● streaming'},
+    // `unknown` is admitted through the sanitizer on purpose so it reaches the coherence check and
+    // fails there with a named state, rather than being rejected as a malformed payload — an upstream
+    // state nobody mapped should read as "unverified", not as "the renderer sent garbage".
+    ADAPTER_STATE_NAMES = [...Object.keys(ROSTER_STATE_LABELS), 'unknown'],
     diagnosticMode       = smokeMode || lifecycleWitnessMode,
     // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
     // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
@@ -111,6 +121,31 @@ function getSecureWebPreferences() {
         sandbox             : true,
         webSecurity         : true
     }
+}
+
+/**
+ * @summary True when a cockpit adapter head renders a recognised state AND a label that agrees with it.
+ *
+ * Deliberately state-AGNOSTIC. Pinning one expected label made the smoke assert the cockpit was still
+ * on sample data, so wiring it to the live fleet — the actual cornerstone goal — would have turned the
+ * witness red. Checking agreement instead keeps the guard real (a `live` head showing the sample label
+ * is still a genuine defect) while letting every honest state pass.
+ *
+ * `unknown` fails closed: an adapter state added upstream without teaching this map must surface as a
+ * failure rather than silently pass, since a state nobody mapped is a state nobody verified.
+ * @param {String|null} state Observed `is-<state>`, `'unknown'`, or `null` when the head is absent.
+ * @param {String|null} label Observed label text.
+ * @param {Object} expectedLabels state → canonical label.
+ * @returns {Boolean}
+ */
+function isAdapterRenderCoherent(state, label, expectedLabels) {
+    // Head absent ⇒ the cockpit did not render it; distinct from any rendered state, and not a pass.
+    if (!state || !Object.hasOwn(expectedLabels, state)) return false;
+
+    const expected = expectedLabels[state];
+
+    // An empty canonical label may render as an empty node or none at all; both are honest.
+    return expected === '' ? (label === '' || label === null) : label === expected;
 }
 
 /**
@@ -445,10 +480,16 @@ function sanitizeBootReport(report) {
  * @returns {Object|null}
  */
 function sanitizeFirstPaintReport(report) {
-    const boundedText = value => value === null || (typeof value === 'string' && value.length <= 100);
+    const
+        boundedText   = value => value === null || (typeof value === 'string' && value.length <= 100),
+        // `null` = head absent. Any other value must be one of the states the witness knows how to
+        // check, so an unmapped state cannot arrive as a plausible-looking string and pass silently.
+        adapterState  = value => value === null || (typeof value === 'string' && ADAPTER_STATE_NAMES.includes(value));
 
     if (
         !report ||
+        !adapterState(report.rosterState) ||
+        !adapterState(report.streamState) ||
         !boundedText(report.activityLabel) ||
         !Number.isInteger(report.cardCount) ||
         report.cardCount < 0 ||
@@ -469,6 +510,8 @@ function sanitizeFirstPaintReport(report) {
         firstPaintMs        : report.rendererFirstPaintMs === null ? null : Math.round(process.uptime() * 1000),
         rendererFirstPaintMs: report.rendererFirstPaintMs,
         rosterLabel         : report.rosterLabel,
+        rosterState         : report.rosterState,
+        streamState         : report.streamState,
         timedOut            : report.timedOut === true,
         tourControlCount    : report.tourControlCount
     }
@@ -1224,21 +1267,41 @@ app.whenReady().then(async () => {
             boot2.viewportId &&
             boot1.viewportId !== boot2.viewportId
         ),
+        // The cockpit must render a RECOGNISED adapter state whose label agrees with it — NOT one
+        // specific state. The predecessor gate required `rosterLabel === 'static roster · offline'`
+        // and `activityLabel === 'sample · live feed pending'`, so the smoke passed only while the
+        // cockpit was showing sample data and would have gone RED the moment the cockpit was wired
+        // to the live fleet — i.e. it asserted the product was unfinished, and a witness that fails
+        // on success cannot guard a release gate. `tourControlCount` is likewise reported rather than
+        // pinned to 0: the release gate WANTS deterministic tour modes, so asserting their absence
+        // would make delivering them a test failure.
+        adaptersCoherent = isAdapterRenderCoherent(firstPaint.rosterState, firstPaint.rosterLabel, ROSTER_STATE_LABELS) &&
+            isAdapterRenderCoherent(firstPaint.streamState, firstPaint.activityLabel, STREAM_STATE_LABELS),
         firstPaintPassed = firstPaint.cockpitVisible === true &&
             firstPaint.cardCount > 0 &&
-            firstPaint.rosterLabel === 'static roster · offline' &&
-            firstPaint.activityLabel === 'sample · live feed pending' &&
-            firstPaint.tourControlCount === 0 &&
+            adaptersCoherent &&
             firstPaint.firstPaintMs !== null &&
             firstPaint.firstPaintMs <= 60000 &&
             firstPaint.timedOut === false,
+        // Naming the unmet conjuncts, because a bare `productWitnessPassed: false` on an otherwise
+        // healthy boot reads as a product defect. It is normally just `packagedMode`: no npm script
+        // runs the packaged app, so this stays false from `npm run smoke` by construction.
+        productWitnessUnmet = [
+            !packagedMode      && 'packagedMode (run the packaged app, not `npm run smoke`)',
+            !brain.mode        && 'brainMode (use `npm run smoke:brain`)',
+            brain.mode && brain.up !== true && 'brainUp',
+            !firstPaintPassed  && 'firstPaint',
+            !adaptersCoherent  && 'adapterRenderCoherent'
+        ].filter(Boolean),
         firstPaintReceipt = {
             ...firstPaint,
+            adaptersCoherent,
             brainMode,
             brainUp             : brain.mode ? brain.up === true : null,
             packagedMode,
             passed              : firstPaintPassed,
-            productWitnessPassed: packagedMode && brain.mode && brain.up === true && firstPaintPassed
+            productWitnessPassed: packagedMode && brain.mode && brain.up === true && firstPaintPassed,
+            productWitnessUnmet
         },
         results = {
             assetFailures,
