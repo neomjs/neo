@@ -76,18 +76,18 @@ export const getBridgePayloadByteLength = payload => {
  * @summary Resolves the detached Bridge process stdout/stderr log file.
  * @param {Object} [options={}]
  * @param {String} [options.logPath=aiConfig.logPath]
- * @param {String} [options.neoRootDir=aiConfig.neoRootDir]
- * @param {String} [options.cwd=process.cwd()]
  * @returns {String}
  */
 export const getBridgeStdioLogPath = ({
-    logPath   = aiConfig.logPath,
-    neoRootDir = aiConfig.neoRootDir,
-    cwd       = process.cwd()
+    logPath = aiConfig.logPath
 } = {}) => {
-    const logDir = logPath || path.resolve(neoRootDir || cwd, '.neo-ai-data/logs');
+    if (typeof logPath !== 'string' || logPath.trim() === '') {
+        throw new Error(
+            'Missing aiConfig.logPath: Neural Link Bridge stdio requires an injected log directory'
+        )
+    }
 
-    return path.join(logDir, 'neural-link-bridge-stdio.log')
+    return path.join(logPath, 'neural-link-bridge-stdio.log')
 };
 
 /**
@@ -734,14 +734,13 @@ class ConnectionService extends Base {
      * Spawns the Bridge process.
      * @param {Object} [options={}]
      * @param {String} [options.logPath=aiConfig.logPath] Directory for spawned Bridge stdout/stderr.
-     * @param {String} [options.neoRootDir=aiConfig.neoRootDir] Repo root fallback for log path resolution.
      * @param {Number} [options.startupDelayMs=2000] Delay before resolving after spawning.
      * @returns {Promise<void>}
      */
-    async spawnBridge({logPath = aiConfig.logPath, neoRootDir = aiConfig.neoRootDir, startupDelayMs = 2000} = {}) {
+    async spawnBridge({logPath = aiConfig.logPath, startupDelayMs = 2000} = {}) {
         return new Promise(resolve => {
             const args    = ['run', 'ai:server-neural-link'];
-            const file    = getBridgeStdioLogPath({logPath, neoRootDir});
+            const file    = getBridgeStdioLogPath({logPath});
             const logFile = this.openBridgeLogFile(file);
             const port    = aiConfig.port;
 
