@@ -55,6 +55,15 @@ future maintainer needs to know why a review changed direction, the message is
 part of the same Memory Core world as the memories, summaries, issues, reviews,
 and concept graph.
 
+The wake convention follows from that separation: quiet is the default for
+status broadcasts, and a wake is reserved for action the recipient must take.
+Claim-class broadcasts (`lane-claim`, `review-claim`, `claim-corrected`,
+`drive-claimed`) default to `wakeSuppressed` at the acceptance layer — peers
+read them at their next natural intake, and claim collisions stay fail-closed
+at the claim surfaces (the assignee gate plus intake's claim-race re-check). A
+contested-lane resolution that genuinely must interrupt is a sender election
+via explicit `wakeSuppressed: false`, never a default.
+
 ## How A Message Moves
 
 The implemented path is deliberately boring in the best way. `add_message`

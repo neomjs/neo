@@ -50,11 +50,12 @@ const
         /\blane-override\b/i
     ];
 
-// Collision-prevention substrate: the wake IS the point — a mid-session peer learns "don't take this"
-// only if the signal wakes them. None of these is ever an allowed wake suppression (broadcast OR
-// direct); plain lane-progress / FYI / ack broadcasts stay suppressible. The tag vocabulary and the
-// structural reader live in `ai/services/shared/a2aCollisionTags.mjs` — one definition for every
-// consumer (this guard fires on ANY class member; narrower surfaces compare the returned tag name).
+// Collision-class substrate: claim signals are STATUS, not interrupts — their broadcasts default to
+// quiet at the `addMessage` resolution seam (operator-directed 2026-07-26; peers read claims at their
+// next natural wake, and collisions stay fail-closed at the claim surfaces via the `requireUnassigned`
+// assignee gate + intake's claim-race re-check). The tag vocabulary and the structural reader live in
+// `ai/services/shared/a2aCollisionTags.mjs` — one definition for every consumer (the default-quiet
+// seam fires on ANY class member; narrower surfaces compare the returned tag name).
 
 /**
  * The principal classes an AgentIdentity node may carry in `properties.accountType`. Anything
@@ -333,10 +334,6 @@ function resolveSenderPrincipalClass(db, sentBy) {
  * @private
  */
 function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
-    // A collision-prevention signal is never a safe suppression — the wake is its whole purpose. This
-    // MUST precede the `AGENT:*` allow below, which would otherwise green-light a suppressed broadcast.
-    if (collisionPreventionTag({subject, taggedConcepts})) return false;
-
     if (to === 'AGENT:*') return true;
 
     if (taggedConcepts.some(tag => WAKE_SUPPRESSION_ALLOWED_TAGS.has(tag))) {
@@ -349,9 +346,16 @@ function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
 /**
  * @summary Returns the wake-suppression-risk reason for an A2A message, or `null` when `wakeSuppressed`
  * is safe. `wakeSuppressed` is honored downstream by the wake substrate; this guard sits at message
- * acceptance so known-actionable messages — actionable DIRECT subjects, high-priority/task direct
- * messages, AND the collision-prevention CLASS (broadcast or direct) — cannot silently become
- * mailbox-only. See `ai/services/shared/a2aCollisionTags.mjs` for the class; it is deliberately not one tag.
+ * acceptance so known-actionable DIRECT messages — actionable lifecycle subjects, high-priority or
+ * task-bearing DMs — cannot silently become mailbox-only.
+ *
+ * The collision-prevention class is deliberately NOT in this guard anymore. Its wake-mandatory
+ * polarity (claims must wake, broadcast or direct) taxed every active seat with a full-context
+ * wake per claim, and the collision defense it bought already exists at the claim surfaces
+ * themselves: the `requireUnassigned` assignee gate at claim time plus the mandatory claim-race
+ * live re-check at ticket intake/create. Claim-class broadcasts now default to quiet at the
+ * resolution seam in `addMessage` instead (operator-directed 2026-07-26); a contested-lane
+ * resolution that must wake is a sender election via explicit `wakeSuppressed: false`.
  * @param {Object} args
  * @param {Boolean} args.wakeSuppressed
  * @param {String} args.to
@@ -368,14 +372,6 @@ function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
 function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'normal', taggedConcepts = [], task, senderPrincipalClass = 'unclassified'}) {
     if (!wakeSuppressed || senderPrincipalClass === 'human' || isAllowedWakeSuppression({subject, taggedConcepts, to})) {
         return null;
-    }
-
-    // A collision-prevention signal must wake — broadcast OR direct. This precedes the @-direct-only
-    // gate below, because the exact collision class this guards is a wake-suppressed `AGENT:*` claim.
-    const collisionTag = collisionPreventionTag({subject, taggedConcepts});
-
-    if (collisionTag) {
-        return `collision-prone [${collisionTag}]`;
     }
 
     if (!to?.startsWith('@')) {
@@ -950,10 +946,10 @@ export function getWakeDeliverySeries({since = null, until = null} = {}) {
     return {
         window: {since, until},
         totals: {
-            sends     : sendRow?.sends      ?? 0,
-            broadcasts: sendRow?.broadcasts ?? 0,
+            sends              : sendRow?.sends      ?? 0,
+            broadcasts         : sendRow?.broadcasts ?? 0,
             broadcastDeliveries: rows.reduce((sum, row) => sum + row.deliveries, 0),
-            suppressed: rows.reduce((sum, row) => sum + (row.suppressed ?? 0), 0)
+            suppressed         : rows.reduce((sum, row) => sum + (row.suppressed ?? 0), 0)
         },
         perRecipient: rows.map(row => ({
             recipient          : row.recipient,
@@ -1508,7 +1504,13 @@ class MailboxService extends Base {
               operatorSteering     = senderPrincipalClass === 'human';
 
         priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
-        wakeSuppressed = wakeSuppressed ?? operatorSteering;
+        // Claim-class broadcasts are quiet by default (operator-directed 2026-07-26, superseding the
+        // wake-mandatory polarity): a claim's collision defense lives at the claim surfaces (the
+        // `requireUnassigned` assignee gate + intake's claim-race re-check), while a forced wake
+        // taxed every active seat per claim. Explicit `wakeSuppressed: false` still wakes — the
+        // contested-lane escalation stays a sender election, never a default. Scoped to `AGENT:*`
+        // fan-out; direct messages keep the plain default.
+        wakeSuppressed = wakeSuppressed ?? (operatorSteering || (to === 'AGENT:*' && !!collisionPreventionTag({subject, taggedConcepts})));
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
         // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.
@@ -1614,7 +1616,7 @@ class MailboxService extends Base {
         const wakeSuppressionRisk = getWakeSuppressionRisk({wakeSuppressed, to, subject, priority, taggedConcepts, task, senderPrincipalClass});
 
         if (wakeSuppressionRisk) {
-            throw new Error(`Cannot suppress wake for ${wakeSuppressionRisk}. Omit wakeSuppressed or set it to false; mailbox-only suppression is reserved for awareness/FYI, session-sunset handover, lead-role baton, and audit-alert messages.`);
+            throw new Error(`Cannot suppress wake for ${wakeSuppressionRisk}. Omit wakeSuppressed or set it to false; action-required direct messages must wake.`);
         }
 
         // 1. Build the accepted Message intent
