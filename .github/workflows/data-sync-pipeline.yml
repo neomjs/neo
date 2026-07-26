@@ -56,7 +56,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: dev
+          # A dispatch resolves the WORKFLOW FILE from the chosen ref but this step decided the
+          # SOURCE, and it was pinned to `dev` — so dispatching from a branch ran that branch's
+          # workflow against dev's code. Every change to the pipeline was therefore untestable
+          # before merge, which is a poor property for the script that publishes to dev.
+          #
+          # A preflight-only dispatch checks out the dispatched ref, because verifying a change
+          # is the entire point of it. Scheduled runs and full dispatches stay pinned to `dev`:
+          # they publish, and publishing must never emit from an unmerged branch.
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.preflight_only) && github.ref || 'dev' }}
           fetch-depth: 0
           # The publish push runs through the checkout credential, so it must be the Publisher
           # identity — the only actor permitted to bypass the code-scanning ruleset.
