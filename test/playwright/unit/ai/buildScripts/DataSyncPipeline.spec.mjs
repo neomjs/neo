@@ -10,7 +10,9 @@ import {
     executeCommand,
     GENERATED_DATA_PATHS,
     isGeneratedDataPath,
-    runDataSyncPipeline
+    gitAuthenticated,
+    runDataSyncPipeline,
+    scopedStageEnv
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
 
 const generatedFile = 'apps/devindex/resources/data/users.jsonl';
@@ -106,7 +108,11 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
                 calls.push({args, command, options});
                 return {stderr: '', stdout: ''}
             },
-            log: () => {}
+            log: () => {},
+            // This test owns stage ORDER, not repository access. The real preflight makes a network
+            // call and fails closed without an intake token, which is its job — so it is stubbed
+            // here rather than weakened there.
+            preflight: async () => {}
         });
 
         expect(calls.map(({args, command}) => [command, ...args])).toEqual([
@@ -255,9 +261,318 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         );
 
         expect(workflow).toContain('node ./buildScripts/dataSyncPipeline.mjs');
-        expect(workflow).toContain('ref: dev');
         expect(workflow).toContain('fetch-depth: 0');
         expect(workflow).not.toContain('git pull origin dev --rebase');
-        expect(workflow).not.toContain('git push origin dev')
+        expect(workflow).not.toContain('git push origin dev');
+
+        // The publishing paths stay pinned to `dev`; only a preflight-only dispatch follows the
+        // dispatched ref. This replaced a literal `ref: dev`, which could not express that a
+        // pipeline change was untestable before merge — the defect the conditional fixes.
+        expect(workflow).toContain("inputs.preflight_only) && github.ref || 'dev'");
+
+        // The credential must not survive in `.git/config`: with the checkout default, stripping a
+        // stage's ENV isolates nothing at the git layer, and any collection stage could push as the
+        // ruleset-bypass identity.
+        expect(workflow).toContain('persist-credentials: false');
+
+        // The job's IMPLICIT token must not carry write. It is not merely unused: an action can
+        // reach `github.token` even when the workflow never passes GITHUB_TOKEN, so an unused write
+        // grant is a reachable one that per-stage env scoping cannot revoke. Leaving it at `write`
+        // meant three repository-write credentials were alive while this workflow claimed two.
+        expect(workflow).toContain('contents: read');
+        expect(workflow).not.toMatch(/permissions:\s*\n\s*#[^\n]*\n(\s*#[^\n]*\n)*\s*contents: write/);
+
+        // A preflight-only dispatch must not reach the pages push. Without this guard it did —
+        // 167 files to `pages/main` while the run logged "skipping collection and publish", because
+        // a short-circuit inside the pipeline step cannot bound the steps after it.
+        expect(workflow).toContain("if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.preflight_only) }}")
     })
+});
+
+/**
+ * Credential scoping across emission stages.
+ *
+ * The pipeline carries two identities with different authority: an INTAKE credential that may read
+ * and comment on the DevIndex opt-in/opt-out repositories, and a PUBLISHER credential that may write
+ * this repository and bypass the code-scanning ruleset. The runner previously handed `process.env`
+ * to every stage, so the ruleset-bypass identity was in scope during arbitrary data collection.
+ *
+ * Every assertion below checks by VALUE across the whole environment rather than by reading one key.
+ * That distinction is not stylistic: the first implementation stripped `GH_TOKEN`/`GITHUB_TOKEN` and
+ * left `DATA_SYNC_PUBLISHER_TOKEN` in place, so a per-key check reported perfect isolation while the
+ * publisher credential sat one `process.env` lookup away from every intake child.
+ */
+test.describe('emission-stage credential scoping', () => {
+    const parentEnv = {
+        PATH                     : '/usr/bin',
+        GH_TOKEN                 : 'ambient-gh',
+        GITHUB_TOKEN             : 'ambient-default',
+        DATA_SYNC_INTAKE_TOKEN   : 'INTAKE-secret',
+        DATA_SYNC_PUBLISHER_TOKEN: 'PUBLISHER-secret'
+    };
+
+    const values = env => Object.values(env);
+
+    test('an intake stage cannot see the publisher credential ANYWHERE in its environment', () => {
+        const env = scopedStageEnv('intake', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret');
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('a publisher stage cannot see the intake credential', () => {
+        const env = scopedStageEnv('publisher', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBe('PUBLISHER-secret');
+        expect(values(env)).not.toContain('INTAKE-secret')
+    });
+
+    test('a `none` stage runs with NO github credential — ambient tokens do not survive', () => {
+        const env = scopedStageEnv('none', parentEnv);
+
+        expect(env.GITHUB_TOKEN).toBeUndefined();
+        expect(env.GH_TOKEN).toBeUndefined();
+        expect(values(env)).not.toContain('ambient-default');
+        expect(values(env)).not.toContain('INTAKE-secret');
+        expect(values(env)).not.toContain('PUBLISHER-secret')
+    });
+
+    test('non-credential environment is preserved for every scope', () => {
+        for (const scope of ['none', 'intake', 'publisher']) {
+            expect(scopedStageEnv(scope, parentEnv).PATH, scope).toBe('/usr/bin')
+        }
+    });
+
+    test('a missing scoped token yields no credential rather than falling back to ambient', () => {
+        // Fail closed: an unconfigured intake secret must not silently run on whatever the runner
+        // happened to export, which is how the single-token pipeline masked its own boundary.
+        const env = scopedStageEnv('intake', {PATH: '/usr/bin', GITHUB_TOKEN: 'ambient-default'});
+
+        expect(env.GITHUB_TOKEN).toBeUndefined();
+        expect(values(env)).not.toContain('ambient-default')
+    });
+
+    test('every declared emission stage carries an explicit scope, and only intake/none collect data', async () => {
+        // Guards the annotation itself: a new stage added without `tokenScope` would inherit
+        // `undefined`, land in the `none` branch, and look deliberate. This makes omission visible.
+        const calls = [];
+
+        await emitGeneratedData({
+            attempt: 1,
+            cwd    : '/tmp',
+            execute: async (command, args, {env}) => {
+                calls.push({command, token: env.GITHUB_TOKEN ?? null})
+            },
+            log      : () => {},
+            preflight: async () => {}
+        });
+
+        expect(calls.length).toBeGreaterThan(0);
+        // No emission stage may run with the publisher credential; publication is a separate phase.
+        expect(calls.every(call => call.token !== 'PUBLISHER-secret')).toBe(true)
+    });
+});
+
+/**
+ * An undeclared `tokenScope` is an unanswered question about which identity a stage is entitled
+ * to, not a default. It previously fell through to the `none` branch, so a stage added without one
+ * ran credential-less and looked deliberate — and a spec comment asserted this was visible when
+ * nothing distinguished "declared none" from "forgot to declare".
+ */
+test.describe('tokenScope validation fails closed', () => {
+    test('an unrecognised or missing scope throws rather than defaulting', () => {
+        for (const scope of [undefined, null, '', 'publishr', 'PUBLISHER']) {
+            expect(() => scopedStageEnv(scope, {}), String(scope)).toThrow(/must declare one of/)
+        }
+    });
+
+    test('the three declared scopes are accepted', () => {
+        for (const scope of ['none', 'intake', 'publisher']) {
+            expect(() => scopedStageEnv(scope, {}), scope).not.toThrow()
+        }
+    });
+
+    test('every shipped emission stage declares a valid scope', async () => {
+        // Reaches the real stage table: a stage added without `tokenScope` now fails here rather
+        // than at runtime in CI, where it would present as an opaque auth error.
+        await expect(emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async () => {},
+            log      : () => {},
+            preflight: async () => {}
+        })).resolves.toBeUndefined()
+    });
+});
+
+/**
+ * Credential exposure through argv and failure logs.
+ *
+ * An earlier fix moved the Publisher credential OUT of `.git/config` (where `persist-credentials`
+ * had left it for the whole job) and into a `-c http.extraheader=...` argument — which made it
+ * worse in a way config never was: argv is visible in `ps`, and this module interpolates
+ * `args.join(' ')` into its failure message, so a failed push would PRINT a working
+ * ruleset-bypass credential into the CI log.
+ *
+ * Base64 is not redaction. GitHub Actions masks the literal secret string, so a transformed secret
+ * does not match its own mask — the leak would have been plain, decodable and public. Masking
+ * therefore cannot be the last line, which is why redaction here is by SHAPE rather than by
+ * matching a known value.
+ */
+test.describe('credential never reaches argv or failure output', () => {
+    test('a failing command redacts credential-shaped arguments', async () => {
+        const secret = 'ghs_TESTSECRET_should_never_print',
+              header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${secret}`).toString('base64')}`;
+
+        let message = '';
+
+        await executeCommand('git', ['-c', `http.extraheader=${header}`, 'push'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toBeTruthy();
+        expect(message).not.toContain(secret);
+        // The base64 form is the one masking would miss, so it is the one worth asserting on.
+        expect(message).not.toMatch(/basic [A-Za-z0-9+/=]{10,}/);
+        expect(message).toContain('<redacted>')
+    });
+
+    test('redaction keys on shape, so an unknown future secret is covered too', async () => {
+        let message = '';
+
+        await executeCommand('git', ['-c', 'http.extraheader=Authorization: bearer whatever', 'push'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toContain('<redacted>');
+        expect(message).not.toContain('whatever')
+    });
+
+    test('ordinary arguments are still shown — redaction must not blind the diagnostic', async () => {
+        let message = '';
+
+        await executeCommand('git', ['push', 'origin', 'HEAD:dev'], {
+            capture: true,
+            cwd    : os.tmpdir()
+        }).catch(error => {message = error.message});
+
+        expect(message).toContain('push');
+        expect(message).toContain('origin');
+        expect(message).not.toContain('<redacted>')
+    });
+});
+
+/**
+ * The ACTUAL argv witness.
+ *
+ * The redaction tests above call `executeCommand` with synthetic arguments, so they prove the
+ * failure message is scrubbed and nothing else. A regression that put the credential back into
+ * `-c http.extraheader=<secret>` would still pass them — redaction would hide it in the message
+ * while `ps` exposure silently returned. A test that cannot fail on the defect it exists to prevent
+ * is not coverage.
+ *
+ * These assert the real `gitAuthenticated` boundary instead: the credential must be ABSENT from
+ * every argument and PRESENT only in the child environment.
+ */
+test.describe('gitAuthenticated keeps the credential out of argv', () => {
+    const secret = 'ghs_ARGV_WITNESS_SECRET';
+
+    test.afterEach(() => {
+        delete process.env.DATA_SYNC_PUBLISHER_TOKEN
+    });
+
+    test('no argument contains the raw OR derived credential', async () => {
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenArgs = null, seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenArgs = args; seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['push', 'origin', 'HEAD:dev']
+        );
+
+        const argv    = seenArgs.join(' '),
+              derived = Buffer.from(`x-access-token:${secret}`).toString('base64');
+
+        expect(argv).not.toContain(secret);
+        // The base64 form is the one Actions masking would MISS, so it is the one that matters.
+        expect(argv).not.toContain(derived);
+        expect(argv).not.toContain('http.extraheader');
+        expect(seenArgs).toEqual(['push', 'origin', 'HEAD:dev'])
+    });
+
+    test('the credential arrives only through the child environment', async () => {
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['fetch', 'origin']
+        );
+
+        expect(seenEnv.GIT_CONFIG_COUNT).toBe('1');
+        expect(seenEnv.GIT_CONFIG_KEY_0).toBe('http.extraheader');
+        expect(seenEnv.GIT_CONFIG_VALUE_0).toContain(Buffer.from(`x-access-token:${secret}`).toString('base64'))
+    });
+
+    test('with no publisher token it degrades to a plain git call, adding no config', async () => {
+        let seenArgs = null, seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenArgs = args; seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['fetch', 'origin']
+        );
+
+        expect(seenArgs).toEqual(['fetch', 'origin']);
+        expect(seenEnv?.GIT_CONFIG_COUNT).toBeUndefined()
+    });
+
+    test('the child env is SCOPED, not augmented — no raw credential survives the boundary', async () => {
+        // The tests above proved the credential left argv. They could not see that it also arrived,
+        // raw and in quadruplicate, through the env: spreading `options.env` and appending the header
+        // made the boundary ADDITIVE. `scopedStageEnv` already strips exactly these for emission
+        // stages; a git invocation is not exempt because its credential takes a different route.
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = secret;
+
+        let seenEnv = null;
+
+        await gitAuthenticated(
+            async (command, args, options) => {seenEnv = options.env; return {stderr: '', stdout: ''}},
+            '/repo',
+            ['push', 'origin', 'HEAD:dev'],
+            {
+                env: {
+                    DATA_SYNC_INTAKE_TOKEN   : 'ghs_INTAKE_RAW',
+                    DATA_SYNC_PUBLISHER_TOKEN: secret,
+                    GH_TOKEN                 : 'ghs_AMBIENT_GH',
+                    GITHUB_TOKEN             : 'ghs_AMBIENT_DEFAULT',
+                    PATH                     : '/usr/bin'
+                }
+            }
+        );
+
+        // By VALUE across the whole child env, not by key absence: a key that survives holding a
+        // different token is the same leak wearing a different name.
+        const leaked = Object.entries(seenEnv).filter(([key, value]) =>
+            key !== 'GIT_CONFIG_VALUE_0' &&
+            typeof value === 'string' &&
+            /^ghs_/.test(value));
+
+        expect(leaked).toEqual([]);
+        expect(seenEnv.DATA_SYNC_INTAKE_TOKEN).toBeUndefined();
+        expect(seenEnv.DATA_SYNC_PUBLISHER_TOKEN).toBeUndefined();
+        expect(seenEnv.GH_TOKEN).toBeUndefined();
+        expect(seenEnv.GITHUB_TOKEN).toBeUndefined();
+
+        // Unrelated env survives, and the ONE derived credential still gets through.
+        expect(seenEnv.PATH).toBe('/usr/bin');
+        expect(seenEnv.GIT_CONFIG_VALUE_0).toContain(Buffer.from(`x-access-token:${secret}`).toString('base64'))
+    });
 });
