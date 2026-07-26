@@ -1641,45 +1641,65 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         )).toHaveLength(0);
     });
 
-    test('addMessage rejects wakeSuppressed [lane-claim] broadcasts AND direct claims (collision-prevention, #14100)', async () => {
+    test('addMessage defaults claim-class broadcasts to wakeSuppressed (#15987 — supersedes the #14100 polarity)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
-            // The core collision case: a wake-suppressed lane-claim BROADCAST. isAllowedWakeSuppression
-            // used to green-light every AGENT:* broadcast, so the claim never woke a mid-session peer.
-            await expect(MailboxService.addMessage({
-                to            : 'AGENT:*',
-                subject       : '[lane-claim] #99999 — extract the foo helper',
-                body          : 'Claiming the foo leaf.',
-                wakeSuppressed: true
-            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+        const ids = {};
 
-            // A direct lane-claim is equally collision-prone — the guard is subject-based, not broadcast-only.
-            await expect(MailboxService.addMessage({
-                to            : '@bob',
-                subject       : '[lane-claim] #99998 — the bar leaf',
-                body          : 'Claiming bar.',
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            // The default flip, red-proved: a claim BROADCAST with the flag OMITTED resolves to
+            // quiet. Pre-flip this persisted false (fleet-wide wake); the collision defense lives
+            // at the claim surfaces (assignee gate + intake claim-race re-check), not in the wake.
+            ({messageId: ids.omittedBroadcast} = await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: '[lane-claim] #99999 — extract the foo helper',
+                body   : 'Claiming the foo leaf.'
+            }));
+
+            // Explicit suppression is ACCEPTED — pre-flip the guard threw `collision-prone` here.
+            ({messageId: ids.explicitBroadcast} = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[review-claim] PR #99998 — cross-family seat taken',
+                body          : 'Seat claim.',
                 wakeSuppressed: true
-            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+            }));
+
+            // The contested-lane escalation survives as a sender ELECTION: explicit false wakes.
+            ({messageId: ids.contested} = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : '[lane-claim] #99997 — contested-lane resolution, do not re-file',
+                body          : 'First-claim-timestamp-wins resolution; this one must wake.',
+                wakeSuppressed: false
+            }));
+
+            // Direct claims are NOT fan-out noise: the quiet default is scoped to `AGENT:*`,
+            // so a DM keeps the plain default (wakes) while explicit suppression is now legal.
+            ({messageId: ids.directOmitted} = await MailboxService.addMessage({
+                to     : '@bob',
+                subject: '[lane-claim] #99996 — the bar leaf',
+                body   : 'Claiming bar, direct.'
+            }));
         });
 
-        expect(GraphService.db.nodes.items.filter(node =>
-            node.label === 'MESSAGE' &&
-            node.properties?.wakeSuppressed === true
-        )).toHaveLength(0);
+        expect(GraphService.db.nodes.get(ids.omittedBroadcast).properties.wakeSuppressed).toBe(true);
+        expect(GraphService.db.nodes.get(ids.explicitBroadcast).properties.wakeSuppressed).toBe(true);
+        expect(GraphService.db.nodes.get(ids.contested).properties.wakeSuppressed).toBe(false);
+        expect(GraphService.db.nodes.get(ids.directOmitted).properties.wakeSuppressed).toBe(false);
     });
 
     /**
-     * @summary The guard covers the collision CLASS, and only where a tag is structural.
+     * @summary The quiet-by-default seam covers the collision CLASS, and only where a tag is structural.
      *
      * Every subject below is VERBATIM from the live `AGENT:*` corpus (2026-07-24T21:46Z →
      * 2026-07-25T13:07Z). That is deliberate: the predecessor `/^\s*\[lane-claim\]/i` passed every
      * hand-written fixture anyone had thought to author, while 8 of 15 real claims walked past it
-     * because the fleet writes `[ticket-created][lane-claim][#N]`. The corpus is the reproducer.
+     * because the fleet writes `[ticket-created][lane-claim][#N]`. The corpus is the reproducer —
+     * the same subjects that once proved the wake-mandatory guard's coverage now prove the
+     * default-quiet seam's coverage (the polarity flipped; the matcher did not).
      */
-    test('#15905 rejects wake-suppressed collision signals in NON-LEADING tag positions and across the class', async () => {
+    test('#15905 corpus: collision signals default to suppressed in NON-LEADING tag positions and across the class (#15987)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             // The 8 real subjects the `^`-anchored predecessor let through, plus the wider class.
             const collisionSubjects = [
@@ -1700,61 +1720,71 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             ];
 
             for (const subject of collisionSubjects) {
-                await expect(MailboxService.addMessage({
-                    to            : 'AGENT:*',
+                // Flag OMITTED on purpose: the seam must derive quiet from the structural tag alone.
+                const {messageId} = await MailboxService.addMessage({
+                    to  : 'AGENT:*',
                     subject,
-                    body          : 'collision signal',
-                    wakeSuppressed: true
-                }), subject).rejects.toThrow(/Cannot suppress wake for collision-prone \[/);
+                    body: 'collision signal'
+                });
+
+                expect(GraphService.db.nodes.get(messageId).properties.wakeSuppressed, subject).toBe(true);
             }
         });
-
-        expect(GraphService.db.nodes.items.filter(node =>
-            node.label === 'MESSAGE' &&
-            node.properties?.wakeSuppressed === true
-        )).toHaveLength(0);
     });
 
-    test('#15905 a message that MENTIONS a collision tag in prose stays suppressible', async () => {
-        // The naive repair — dropping the `^` anchor — passes the test above and breaks these. All three
-        // are real sends from the wake-routing divergence; two were sent `wakeSuppressed: true` and a
-        // substring matcher would have rejected them. Discussing the guard must not trip the guard.
+    test('#15905 a message that MENTIONS a collision tag in prose is NOT default-suppressed (and stays suppressible)', async () => {
+        // The matcher's negative arm, now guarding the DEFAULT: a substring matcher would silently
+        // quiet every message *discussing* claims. All three subjects are real sends from the
+        // wake-routing divergence. Explicit suppression stays legal; omission must NOT flip.
         const metaSubjects = [
             '[falsifier-positive][D#15904] the [lane-claim] guard is ^-anchored — 53% of LIVE lane-claims bypass #14100',
             '[evidence][wake-routing] the guard ALREADY exempts broadcasts — why [lane-claim] must never be suppressible',
             '[census-delivered][D#15904] the collision class is WIDER than lane-claims — 71% unguarded'
         ];
 
-        const ids = [];
+        const explicit = [];
+        const omitted  = [];
 
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             for (const subject of metaSubjects) {
-                const {messageId} = await MailboxService.addMessage({
+                const sentExplicit = await MailboxService.addMessage({
                     to            : 'AGENT:*',
                     subject,
                     body          : 'meta-discussion about the collision class',
                     wakeSuppressed: true
                 });
-                ids.push(messageId);
+                explicit.push(sentExplicit.messageId);
+
+                const sentOmitted = await MailboxService.addMessage({
+                    to     : 'AGENT:*',
+                    subject: `${subject} (omitted-flag twin)`,
+                    body   : 'meta-discussion about the collision class'
+                });
+                omitted.push(sentOmitted.messageId);
             }
         });
 
-        for (const id of ids) {
+        for (const id of explicit) {
             expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, 'meta subject must stay suppressible').toBe(true);
+        }
+
+        for (const id of omitted) {
+            expect(GraphService.db.nodes.get(id).properties.wakeSuppressed, 'prose mention must not default-suppress').toBe(false);
         }
     });
 
-    test('#15905 taggedConcepts is the structural signal — it wins with no tag in the subject at all', async () => {
+    test('#15905 taggedConcepts is the structural signal — the quiet default fires with no tag in the subject at all', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             // The preferred contract: declared data, not prose a parser must interpret. A sender that
-            // labels the message structurally is guarded even with a subject carrying no bracket run.
-            await expect(MailboxService.addMessage({
+            // labels the message structurally gets the quiet default even with a bare subject.
+            const {messageId} = await MailboxService.addMessage({
                 to            : 'AGENT:*',
                 subject       : 'taking the foo leaf',
                 body          : 'no bracket tags anywhere in this subject',
-                taggedConcepts: ['lane-claim'],
-                wakeSuppressed: true
-            })).rejects.toThrow(/Cannot suppress wake for collision-prone \[lane-claim\]/);
+                taggedConcepts: ['lane-claim']
+            });
+
+            expect(GraphService.db.nodes.get(messageId).properties.wakeSuppressed).toBe(true);
         });
     });
 
