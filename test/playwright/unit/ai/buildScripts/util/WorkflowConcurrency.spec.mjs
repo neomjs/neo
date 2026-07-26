@@ -118,6 +118,7 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
             run_integration: 'false',
             run_unit       : 'false',
             run_components : 'false',
+            run_parity     : 'false',
             skip_reason    : 'stale workflow head stale-head; live PR head is current-head'
         });
         expect(runtime.summary.join(' ')).toContain('Stale workflow attempt');
@@ -139,13 +140,72 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         expect(Object.fromEntries(current.outputs)).toMatchObject({
             run_components : 'true',
             run_integration: 'true',
-            run_unit       : 'true'
+            run_unit       : 'true',
+            run_parity     : 'true'
         });
         expect(Object.fromEntries(push.outputs)).toMatchObject({
             run_components : 'true',
             run_integration: 'true',
-            run_unit       : 'true'
+            run_unit       : 'true',
+            run_parity     : 'true'
         });
+    });
+
+    test('the Tests classifier routes the parity surface to its lane (and only for those paths)', async () => {
+        const workflow = readWorkflow('test.yml'),
+              script   = workflow.jobs.changes.steps.find(step => step.id === 'scope').with.script,
+              parity   = createRuntime({ eventHead: 'current-head', files: ['ai/deploy/docker-compose.dev.yml'] }),
+              docsOnly = createRuntime({ eventHead: 'current-head', files: ['learn/guides/README.md'] });
+
+        await executeScript(script, parity);
+        await executeScript(script, docsOnly);
+
+        // The parity lane runs BESIDE the suites its surface already trips (`ai/` also
+        // admits integration; non-docs admits unit) — it is an additional witness, never
+        // a replacement.
+        expect(Object.fromEntries(parity.outputs)).toMatchObject({
+            run_integration: 'true',
+            run_unit       : 'true',
+            run_parity     : 'true'
+        });
+
+        // Non-parity PRs stay unaffected: no witness, no runner spent.
+        expect(Object.fromEntries(docsOnly.outputs)).toMatchObject({
+            run_parity: 'false'
+        });
+    });
+
+    test('the Tests classifier cannot skip the lane for the booted stack\'s runtime dependencies', async () => {
+        const workflow = readWorkflow('test.yml'),
+              script   = workflow.jobs.changes.steps.find(step => step.id === 'scope').with.script;
+
+        // The lane boots MC, KB, and the orchestrator. A change to any direct runtime
+        // dependency of those processes must trip the witness — a filter that admits
+        // `ai/` but skips the engine hemisphere the servers extend (src/core/Base,
+        // src/state/Provider) or the shared integration fixture would be a completeness
+        // claim the dependency graph falsifies. The lane inherits the integration
+        // suite's boundary, so these all admit it.
+        const runtimeDependencies = [
+            'ai/services/memory-core/MemoryService.mjs',
+            'ai/services/knowledge-base/HealthService.mjs',
+            'ai/config.mjs',
+            'ai/ConfigProvider.mjs',
+            'ai/planeConfig.mjs',
+            'src/Neo.mjs',
+            'src/core/Base.mjs',
+            'src/state/Provider.mjs',
+            'test/playwright/integration/fixtures/mcpClient.mjs'
+        ];
+
+        for (const file of runtimeDependencies) {
+            const runtime = createRuntime({ eventHead: 'current-head', files: [file] });
+
+            await executeScript(script, runtime);
+
+            expect(Object.fromEntries(runtime.outputs), `${file} must trip the parity lane — the booted stack imports it`).toMatchObject({
+                run_parity: 'true'
+            });
+        }
     });
 
     test('failed-job reruns recheck the live head before every expensive step', async () => {
