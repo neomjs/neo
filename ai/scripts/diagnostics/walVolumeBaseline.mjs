@@ -1,0 +1,192 @@
+/**
+ * @module ai/scripts/diagnostics/walVolumeBaseline
+ * @summary Measures WAL write volume over a window and decides the pilot's write-disposition posture
+ * (fork-then-replay vs dual-journal) from that measurement rather than from taste.
+ *
+ * ## Why the decision needs a script and not a judgement
+ *
+ * A parity pilot accumulates real writes on a forked plane. At promotion or demotion those writes need
+ * a disposition, and the honest fork is: **fork-then-replay** if the accumulated corpus fits one forward
+ * pass, or a **dual-journal** design if it does not. That is a question about a number, and the number is
+ * observable today — the WAL segments are already on disk and are already the replay substrate.
+ *
+ * ## The constant is DEFERRED, on purpose
+ *
+ * This module does **not** invent a megabyte threshold. `replayBudgetMb` is a required caller input with
+ * no default, because the only honest source for it is a measured replay throughput — which is a
+ * *different* acceptance criterion of the same ticket, not something to guess here. Shipping a plausible
+ * constant would encode one observation as a calibrated bound; that exact move was withdrawn once
+ * already this cycle after peers falsified it. So: this half supplies the volume, that half supplies the
+ * budget, and the decision is their comparison.
+ *
+ * ## An empty observation is a REFUSAL, never a zero
+ *
+ * The measurement that produced this module first reported *"0 files in 7 days"* — on a plane that had
+ * been written to minutes earlier. The cause was the instrument: `find` on the host was `bfs`, which
+ * rejected `-newermt`, printed its error into the head of a pipe, and left an exit code of 0. An empty
+ * result read as a finding.
+ *
+ * So a zero-file window is treated as an **unreliable measurement** and refuses, rather than reporting
+ * `0 MB/day` and driving the posture toward "trivially replayable". The failure direction matters: a
+ * fabricated zero argues for the *cheaper* posture, which is precisely the wrong way for a guard to
+ * fail. This module also scans with `node:fs` rather than shelling out, so there is no `find` dialect to
+ * be wrong about.
+ */
+
+import fs   from 'node:fs/promises';
+import path from 'node:path';
+
+const BYTES_PER_MB = 1024 * 1024;
+
+/**
+ * @summary True for a finite number strictly greater than zero.
+ * @param {*} value
+ * @returns {Boolean}
+ */
+function isPositiveFinite(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * @summary Walks a WAL tree RECURSIVELY and returns one record per regular file, following symlinks.
+ *
+ * Two properties, both load-bearing, both learned by getting them wrong:
+ *
+ * **Recursive.** The message WAL lives in a `messages/` subdirectory (`NEO_MESSAGE_WAL_DIR` is
+ * `…/memory-wal/messages`), so a top-level-only scan silently drops it. On the reference plane that
+ * was **65 of 159 segments — 41% of the corpus invisible.** Caught only because an independent
+ * measurement disagreed with the scan; the undercount would otherwise have looked like a clean result.
+ *
+ * **Symlink-following.** In the multi-clone topology a seat's `.neo-ai-data/memory-wal` is a *symlink*
+ * to the canonical clone's plane, so a scan that skipped links would measure an empty directory.
+ *
+ * Both failures push volume DOWN, and a lower volume argues for fork-then-replay — the cheaper
+ * posture. An undercounting scanner therefore fails in the one direction a guard must not.
+ * @param {String} dir WAL directory (relative or absolute).
+ * @returns {Promise<Object[]>} `[{name, bytes, mtimeMs}]` with `name` relative to `dir`.
+ */
+export async function readWalSegments(dir) {
+    const segments = [];
+
+    const walk = async (current, prefix) => {
+        const entries = await fs.readdir(current, {withFileTypes: true});
+
+        for (const entry of entries) {
+            const full = path.join(current, entry.name),
+                  name = prefix ? `${prefix}/${entry.name}` : entry.name,
+                  // `stat`, never `lstat`: a symlinked segment or directory must report its TARGET.
+                  // `isDirectory()`/`isFile()` on the Dirent would classify a symlink as neither.
+                  info = await fs.stat(full);
+
+            if (info.isDirectory()) {
+                await walk(full, name);
+            } else if (info.isFile()) {
+                segments.push({name, bytes: info.size, mtimeMs: info.mtimeMs});
+            }
+        }
+    };
+
+    await walk(dir, '');
+
+    return segments;
+}
+
+/**
+ * @summary Reduces segments to a volume baseline over a trailing window, including the peak single day.
+ *
+ * The peak matters as much as the mean. The observation behind this module had a most-recent day at
+ * **3.2x** the 7-day mean, so a posture sized against the mean would be sized against a quiet week.
+ * @param {Object} spec
+ * @param {Object[]} spec.segments   From {@link readWalSegments}.
+ * @param {Number}   spec.windowDays Trailing window in days.
+ * @param {Number}   spec.nowMs      Clock reading; injected so the reduction stays pure and testable.
+ * @returns {Object} `{ok, reason?, windowDays, fileCount, totalBytes, meanMbPerDay, peakDayMb, peakDay}`
+ */
+export function reduceWalWindow({segments, windowDays, nowMs} = {}) {
+    const refuse = reason => ({ok: false, reason});
+
+    if (!Array.isArray(segments))      return refuse('segments must be an array');
+    if (!isPositiveFinite(windowDays)) return refuse(`windowDays must be a positive finite number, received ${JSON.stringify(windowDays)}`);
+    if (!isPositiveFinite(nowMs))      return refuse(`nowMs must be a positive finite number, received ${JSON.stringify(nowMs)}`);
+
+    const cutoff  = nowMs - windowDays * 86400000,
+          inRange = segments.filter(segment => segment.mtimeMs >= cutoff);
+
+    // An empty window is an INSTRUMENT verdict, not a data point — see the module summary. Reporting
+    // 0 MB/day here would argue for the cheaper posture off a measurement that never happened.
+    if (inRange.length === 0) {
+        return refuse(
+            `no WAL segments modified within ${windowDays}d (scanned ${segments.length} total). ` +
+            'Treated as an unreliable measurement, not as zero write volume: a plane with a corpus and ' +
+            'no recent writes means the scan, the clock, or the path is wrong. Verify the WAL path ' +
+            'resolves through its symlink and that the window covers real activity.'
+        );
+    }
+
+    const totalBytes = inRange.reduce((sum, segment) => sum + segment.bytes, 0),
+          perDay     = new Map();
+
+    for (const segment of inRange) {
+        const day = new Date(segment.mtimeMs).toISOString().slice(0, 10);
+
+        perDay.set(day, (perDay.get(day) ?? 0) + segment.bytes);
+    }
+
+    const [peakDay, peakBytes] = [...perDay.entries()].sort((a, b) => b[1] - a[1])[0];
+
+    return {
+        ok          : true,
+        windowDays,
+        fileCount   : inRange.length,
+        scannedCount: segments.length,
+        totalBytes,
+        meanMbPerDay: totalBytes / BYTES_PER_MB / windowDays,
+        peakDayMb   : peakBytes / BYTES_PER_MB,
+        peakDay
+    };
+}
+
+/**
+ * @summary Decides the write-disposition posture by comparing the projected pilot corpus to the
+ * caller-supplied replay budget.
+ *
+ * **Projects from the PEAK day, not the mean** — a pilot sized on a quiet week is sized wrong, and the
+ * failure direction of under-projecting is choosing fork-then-replay for a corpus that cannot replay.
+ * The mean is reported alongside so the gap between them is visible rather than hidden by the choice.
+ * @param {Object} spec
+ * @param {Object} spec.baseline       An `ok` {@link reduceWalWindow} result.
+ * @param {Number} spec.pilotDays      Planned pilot duration.
+ * @param {Number} spec.replayBudgetMb Corpus size one forward replay pass can absorb. REQUIRED — no
+ *                                     default, because only a measured replay throughput may set it.
+ * @returns {Object} `{ok, reason?, posture, projectedMb, projectedFromMeanMb, headroomMb, rationale}`
+ */
+export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
+    const refuse = reason => ({ok: false, reason});
+
+    if (!baseline?.ok)                     return refuse(`baseline is not a successful measurement: ${baseline?.reason ?? 'absent'}`);
+    if (!isPositiveFinite(pilotDays))      return refuse(`pilotDays must be a positive finite number, received ${JSON.stringify(pilotDays)}`);
+    if (!isPositiveFinite(replayBudgetMb)) {
+        return refuse(
+            `replayBudgetMb must be a positive finite number, received ${JSON.stringify(replayBudgetMb)}. ` +
+            'It has no default on purpose: the only honest source is a measured replay throughput ' +
+            '(the replay-proof AC), never a plausible-looking constant chosen here.'
+        );
+    }
+
+    const projectedMb         = baseline.peakDayMb * pilotDays,
+          projectedFromMeanMb = baseline.meanMbPerDay * pilotDays,
+          withinBudget        = projectedMb <= replayBudgetMb;
+
+    return {
+        ok        : true,
+        posture   : withinBudget ? 'fork-then-replay' : 'dual-journal',
+        projectedMb,
+        projectedFromMeanMb,
+        headroomMb: replayBudgetMb - projectedMb,
+        rationale : withinBudget
+            ? `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d fits the ${replayBudgetMb}MB replay budget; ` +
+              'the WAL segments are already the append-only replay substrate, so a second write path buys nothing'
+            : `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d exceeds the ${replayBudgetMb}MB replay budget; ` +
+              'one forward pass cannot absorb the pilot corpus, so the disposition needs a dual journal'
+    };
+}
