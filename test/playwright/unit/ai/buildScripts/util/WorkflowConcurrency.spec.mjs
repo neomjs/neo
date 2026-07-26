@@ -118,6 +118,7 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
             run_integration: 'false',
             run_unit       : 'false',
             run_components : 'false',
+            run_parity     : 'false',
             skip_reason    : 'stale workflow head stale-head; live PR head is current-head'
         });
         expect(runtime.summary.join(' ')).toContain('Stale workflow attempt');
@@ -139,12 +140,38 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         expect(Object.fromEntries(current.outputs)).toMatchObject({
             run_components : 'true',
             run_integration: 'true',
-            run_unit       : 'true'
+            run_unit       : 'true',
+            run_parity     : 'false'
         });
         expect(Object.fromEntries(push.outputs)).toMatchObject({
             run_components : 'true',
             run_integration: 'true',
-            run_unit       : 'true'
+            run_unit       : 'true',
+            run_parity     : 'false'
+        });
+    });
+
+    test('the Tests classifier routes the parity surface to its lane (and only for those paths)', async () => {
+        const workflow = readWorkflow('test.yml'),
+              script   = workflow.jobs.changes.steps.find(step => step.id === 'scope').with.script,
+              parity   = createRuntime({ eventHead: 'current-head', files: ['ai/deploy/docker-compose.dev.yml'] }),
+              docsOnly = createRuntime({ eventHead: 'current-head', files: ['learn/guides/README.md'] });
+
+        await executeScript(script, parity);
+        await executeScript(script, docsOnly);
+
+        // The parity lane runs BESIDE the suites its surface already trips (`ai/` also
+        // admits integration; non-docs admits unit) — it is an additional witness, never
+        // a replacement.
+        expect(Object.fromEntries(parity.outputs)).toMatchObject({
+            run_integration: 'true',
+            run_unit       : 'true',
+            run_parity     : 'true'
+        });
+
+        // Non-parity PRs stay unaffected: no witness, no runner spent.
+        expect(Object.fromEntries(docsOnly.outputs)).toMatchObject({
+            run_parity: 'false'
         });
     });
 
