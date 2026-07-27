@@ -217,6 +217,14 @@ identities, clone URLs, credentials, tokens, stacks, and raw filesystem/parser m
 
 For pull-mode deployments with configured `tenantRepos[]`, call `inspect_deployment` or `get_deployment_state_snapshot` and inspect the `tenantRepoSync` section before taking manual action. It distinguishes disabled, true no-configured-repos, not-due, running, completed, failed, and degraded/unreadable state without exposing credentials or raw logs. A degraded config-read error means the graph/YAML/default config resolver could not prove the effective `tenantRepos`; treat that differently from a real empty config. If the task is configured but has not advanced, use the stable reason code and per-repo hashed state there to decide whether to wait for the next due sweep, fix credentials/config, or run `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>` inside the orchestrator container. When `lastErrorCode` is `KB_TENANT_REPO_SYNC_SYNC_FAILED`, check `lastSourceErrorCode`: `KB_GITMIRROR_CREDENTIAL_REF_INVALID`, `KB_GITMIRROR_CLONE_FAILED`, or `KB_GITMIRROR_FETCH_FAILED` points to the credential/ref/upstream access path before generic ingestion debugging. `KB_VECTOR_EMBED_FAILED` means the repository fetch and envelope reached the ingestion layer but vector writes failed; correct the embedding path before retrying.
 
+`credentialRef: none` is genuinely anonymous: GitMirror does not consult the
+orchestrator account's Git config, URL rewrites, helpers, `.netrc`, SSH config,
+agent, or default keys. Configure `env:`, `file:`, or `ssh:` explicitly when the
+remote is private. SSH endpoints should carry their non-secret login name (for
+example `ssh://git@host/org/repo.git`); the key remains in `credentialRef`.
+GitMirror preserves TOFU continuity in
+`<mirrorRoot>/.gitmirror-ssh/known_hosts`, not in the host user's home.
+
 Read `tenantRepoSync.accessReadiness` before waiting for cadence. `ready` means every enabled
 repo passed the process-local credential check and bounded remote capability probe; `degraded`
 means at least one proved failure; `unknown` means the current process has not produced valid
@@ -236,9 +244,18 @@ required repos. Inspection reads cached evidence and never triggers network work
 | `KB_TENANT_REPO_ACCESS_SYNC_FAILED` | A later authoritative clone/fetch failed after or without the cached probe. | Use `lastSourceErrorCode` and the normal GitMirror acquisition runbook; clone/fetch supersedes older probe evidence. |
 
 Current releases accept a tenant-repo ingest as successful only when the returned summary contains
-an array-valued, empty `errors` field. A failed attempt keeps the last known-good revision. If the
+an array-valued, empty `errors` field. Under checkpoint contract v2, a manifest-bearing bootstrap,
+non-linear fallback, manual full replay, or legacy revalidation must also persist an attempt-bound
+graph receipt for a positive safe-integer `ingested` or `deleted` count. The one zero-effect
+exception is checkpoint recovery: when the matching receipt is still unacknowledged because the
+prior local checkpoint write failed or crashed, the next run settles it before repeating KB
+mutation. An acknowledged receipt cannot be reused by a later manual full replay. The receipt is
+pull-internal; `ingest_source_files` cannot submit or receive it. Otherwise
+`KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` preserves the last known-good revision. Incremental
+no-op remains valid, as does a full reconciliation whose only effect is deletion. A failed attempt
+keeps the last known-good revision. If the
 deployment was upgraded after an older release had already advanced its checkpoint on an
-error-bearing summary, the stored head has no current success proof. The periodic lane classifies
+error-bearing or zero-effect v1 summary, the stored head has no current success proof. The periodic lane classifies
 that repo as `checkpointStatus: pending` and performs one bounded null-base replay automatically.
 Only `concurrencyLimit` legacy checkpoints are admitted per one-minute scheduler sweep; failures
 become `checkpointStatus: failed`, preserve the old head, and retry through normal backoff.
@@ -260,8 +277,10 @@ node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>
 ```
 
 `--full` is rejected without an explicit repo selector. It does not delete the stored checkpoint:
-a failed replay preserves it, while an error-free replay advances it to the current head and writes
-the current success-contract marker.
+a failed or fresh zero-effect replay preserves it, while an error-free replay with a positive
+ingest/delete effect advances it to the current head and writes the current success-contract
+marker. A zero-effect retry can advance only when it settles the matching unacknowledged receipt
+from an interrupted post-ingest checkpoint commit before repeating Knowledge Base mutation.
 
 The CLI and the daemon's periodic sweep serialize through a cross-process lease next to the
 revisions manifest. Exit code `4` (reason `KB_TENANT_REPO_SYNC_LEASE_HELD`) means another sync is

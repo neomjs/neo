@@ -67,7 +67,8 @@ The push-based MVP path is credential-free from the KB server's perspective:
 - The tenant push client reads local files and sends content or parsed chunks.
 - The KB server receives ingestion payloads, not Git credentials.
 - The repo-push automation identity token authorizes the tenant to call the KB MCP endpoint; it is not a Git credential and is never folded into `repoSlug`, manifests, or chunk metadata.
-- Optional server-side pull config uses `tenantRepos[]` entries with clean `cloneUrl`, reference-only `credentialRef`, and normalized `repoSlug` (#11787). Credential-bearing `userinfo@` clone URLs are rejected before graph persistence; credential injection belongs to the `GitMirror` primitive (#11788). `GitMirror` resolves the credential reference only for the git subprocess invocation (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH) and keeps mirror contents on the deployment `tenant-repo-mirrors` volume mounted at `NEO_TENANT_REPO_MIRROR_ROOT`.
+- Optional server-side pull config uses `tenantRepos[]` entries with clean `cloneUrl`, reference-only `credentialRef`, and normalized `repoSlug` (#11787). Credential-bearing HTTP userinfo is rejected before graph persistence; a non-secret SSH login name (`ssh://git@host/...` or `git@host:path`) remains endpoint metadata, while key injection belongs to the `GitMirror` primitive (#11788). `GitMirror` resolves the credential reference only for the git subprocess invocation (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH) and keeps mirror contents on the deployment `tenant-repo-mirrors` volume mounted at `NEO_TENANT_REPO_MIRROR_ROOT`.
+- `credentialRef: none` means anonymous access, never “inherit the orchestrator account.” Every pull-path Git subprocess ignores system/global Git config, URL rewrites, credential helpers, `.netrc`, user SSH config, agents, and default identities; the selected `env`, `file`, or `ssh` authority is added back explicitly. SSH host-key continuity is kept separately in the GitMirror-owned mirror-volume ledger rather than in the host user's home.
 - For the pull-based follow-up path, `TenantRepoIngestEnvelopeBuilder` adapts the Git mirror into the same ingestion service envelope (#11789). Linear history advances emit raw-file `files`, explicit `deleted` tombstones, `baseRevision`, and `headRevision`; bootstrap, missing-baseline, and non-linear history cases emit a full `files` snapshot plus `manifestSnapshot` so `KnowledgeBaseIngestionService.ingestSourceFiles()` can reconcile the claimed live file set without re-pointing the local `kbSync` lane.
 - Pull-mode **file selection** comes from the git mirror itself (`git ls-tree` / revision diff in `TenantRepoIngestEnvelopeBuilder`) and is independent of `kb-config.yaml`'s Source/Parser registration. In particular, `sourcePaths.RawRepoSource.root` is **not** honored on the pull path — the whole tracked tree is ingested. `rawRepoSource` / `sourcePaths` drive the full-corpus Source build (`kbSync` lane / `npm run ai:sync-kb`), a different path from pull mode.
 
@@ -193,7 +194,7 @@ The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConf
 {
     tenantId      : 'neomjs',                           // server-derived; must match the authenticated tenant for stamping
     repoSlug      : 'neomjs/create-app',                // tenant-owned, namespaced, never credential-bearing
-    cloneUrl      : 'https://github.com/neomjs/create-app.git',  // clean URL; no userinfo@
+    cloneUrl      : 'https://github.com/neomjs/create-app.git',  // clean URL; SSH may carry a non-secret login name
     credentialRef : 'file:/run/secrets/neomjs_repo_token', // env:VAR and ssh:/path remain supported
     branchRef     : 'dev',                              // optional; git ref (branch/tag/sha) to ingest from. Default: 'HEAD' = remote default branch
     rootKind      : 'external-source',                  // 'neo-workspace' | 'bare-repo' | 'external-source'
@@ -202,7 +203,7 @@ The orchestrator's pull-mode sync (`TenantRepoSyncService.resolveTenantReposConf
 }
 ```
 
-**Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** The `credentialRef` is a reference that uses one shared grammar: `none`, `env:NAME`, `file:/path`, or `ssh:/path` (a legacy bare environment-variable name remains accepted). The same normalized grammar feeds `GitMirror`; unknown schemes such as `helper:*` fail during effective-config resolution rather than becoming delayed environment lookups. `GitMirror` resolves credential material only at its local validation or git-subprocess boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
+**Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** A clean SSH login name is not credential material and may remain in the endpoint (`ssh://git@host/org/repo.git` or `git@host:org/repo.git`); this keeps the remote user deterministic after ambient SSH config is removed. The `credentialRef` is a reference that uses one shared grammar: `none`, `env:NAME`, `file:/path`, or `ssh:/path` (a legacy bare environment-variable name remains accepted). The same normalized grammar feeds `GitMirror`; unknown schemes such as `helper:*` fail during effective-config resolution rather than becoming delayed environment lookups. `none` is deliberately anonymous. `GitMirror` resolves explicit credential material only at its local validation or isolated git-subprocess boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
 
 Use `file:/run/secrets/<name>` when the deployment mounts Git credentials through Docker `secrets:` or a Kubernetes Secret volume. `GitMirror` reads and trims the file at resolution time, then feeds the value through the same transient `GIT_ASKPASS` path as `env:` credentials; empty, missing, or unreadable files fail before git runs. `ssh:` references likewise require a present, readable, non-empty key before Git constructs `GIT_SSH_COMMAND`.
 
@@ -267,7 +268,7 @@ Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-con
 
 The env var names the **parent** of `tenant-repos/`; `deriveTenantRepoMirrorPath` appends the `tenant-repos/<tenant>/<repo>` segment so the same root can host other gitignored substrate-data subdirs. Per-repo `tenantRepos[].mirrorRoot` overrides this Tier-1 default when present.
 
-The mirror directory is a deployment cache, not authoritative state. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
+The repository mirrors are deployment caches, not authoritative corpus state. The same durable volume also carries `.gitmirror-ssh/known_hosts`, GitMirror's isolated SSH host-key ledger; probe, clone, and fetch share it so `accept-new` remains TOFU rather than accepting a new key on every process. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
 
 Two invariants protect that manifest. First, every sync — the daemon's periodic
 sweep and the manual CLI alike — must acquire the dedicated cross-process lease
@@ -298,10 +299,28 @@ every repo's checkpoint and backoff state untouched, and never commits a
 partial sweep.
 
 Each checkpoint also carries `ingestContractVersion`, written together with the
-head only after the Knowledge Base returns an explicit error-free summary, and
-`lastAttemptedIngestContractVersion`, which records a failed revalidation
-attempt without advancing the head. A head without the current success marker
-has unknown historical validity and is never used as an incremental base.
+head only after the Knowledge Base returns an explicit error-free summary. The
+current v2 contract makes every manifest-bearing full materialization
+(bootstrap, non-linear fallback, manual full replay, or legacy revalidation)
+write an attempt-bound positive-effect receipt into the tenant manifest graph
+before the local checkpoint acknowledges that attempt id. A fresh full attempt
+must report a positive safe-integer `ingested` or `deleted` effect. The check
+runs after ingestion so an empty manifest can still delete stale rows; a
+delete-only full reconciliation is valid.
+
+If the Knowledge Base effect and graph receipt succeeded but the later local
+checkpoint write crashed, the next run settles the matching unacknowledged
+receipt before re-running Knowledge Base mutation. Its bookkeeping result is
+therefore `ingested=0, deleted=0`. Once a checkpoint acknowledges the attempt
+id, that receipt is stale and cannot excuse a later manual full replay at the
+same head. The receipt field is pull-internal: the public `ingest_source_files`
+facade strips caller-supplied attempts and never returns graph receipts. A
+current incremental envelope may legitimately report `ingested=0, deleted=0`.
+`lastAttemptedIngestContractVersion` records a failed revalidation attempt
+without advancing the head. A head without the current v2 success marker has
+unknown historical validity and is never used as an incremental base; v1
+checkpoints therefore receive the same bounded null-base revalidation as older
+unversioned records.
 
 After an upgrade, the periodic lane automatically replays such legacy
 checkpoints from a null base. It admits at most `concurrencyLimit` legacy
@@ -386,8 +405,9 @@ Per-repo failures carry a stable `lastErrorCode` field on the health payload; op
 | Code | Where it surfaces | Trigger |
 |---|---|---|
 | `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | Underlying clone/fetch/envelope/ingest failure (wraps the original error after secret redaction at the GitMirror boundary) |
+| `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | A manifest-bearing full materialization returned an error-free summary but proved neither a fresh positive ingest/delete effect nor a matching unacknowledged retry receipt. The previous checkpoint is retained. |
 | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | Manual CLI requested a `--repo-slug` that is not present in `tenantRepos[]` config. CLI exits with code `3`. |
-| `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure. Next cycle re-detects the same diff and retries idempotently — no manual recovery needed if the underlying filesystem issue is resolved. |
+| `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure. Next cycle settles the matching unacknowledged graph receipt without repeating KB mutation — no manual recovery needed if the underlying filesystem issue is resolved. |
 | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | Future `--tenant-id` CLI flag; no current emitter. |
 | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | Future concurrency-limit gate (tracked in [#11942](https://github.com/neomjs/neo/issues/11942) AC2); no current emitter. |
 
@@ -413,6 +433,7 @@ When a repo enters `quarantined`, the lane stops attempting it on periodic cycle
 3. Common cases:
    - `lastSourceErrorCode: KB_GITMIRROR_CREDENTIAL_REF_INVALID` → confirm the env var or secret file named by `credentialRef` exists and is non-empty.
    - `lastSourceErrorCode: KB_GITMIRROR_CLONE_FAILED` / `KB_GITMIRROR_FETCH_FAILED` → verify upstream access, token read scope, repo path, and network egress.
+   - `lastErrorCode: KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` → inspect parser/ingestion output. A fresh full attempt needs a positive ingest/delete effect; only an interrupted checkpoint commit may recover through its matching unacknowledged graph receipt.
    - Persistent network/DNS error → the deployment can't reach the upstream remote; verify network egress.
    - Repository deleted / renamed upstream → update the `tenantRepos[]` config or remove the entry.
 4. Once the underlying issue is resolved, retry via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. Current releases preserve the last known-good checkpoint on any returned ingestion error.
@@ -446,7 +467,7 @@ A single `repoSlug` can be served by both surfaces, but the operational rules ar
 - **Deployment compose / volume:** add `tenant-repo-mirrors` to the `cloud` profile and mount at `NEO_TENANT_REPO_MIRROR_ROOT`. See [`DeploymentCookbook.md`](../DeploymentCookbook.md) for the canonical compose shape.
 - **Tenant config storage:** `tenantRepos[]` is persisted via `KnowledgeBaseIngestionService.setTenantConfig({tenantId, config})` when a tenant-config operator tool is added. Cross-tenant writes remain rejected by the existing RLS gate; missing/invalid `credentialRef` or credential-bearing `cloneUrl` surfaces stable rejection errors at normalization.
 - **Parser/source-family dispatch:** pull-mode files enter the same parser/source-family model as push/bulk ingestion. No new parser contract is introduced by server-side git acquisition; the [Parser Dispatch](#parser-dispatch) and [Source-Family Inventory](#source-family-inventory) tables above apply unchanged. Unsupported source families use [`CustomSources.md`](./CustomSources.md) / [`CustomParsers.md`](./CustomParsers.md) guidance, not a pull-specific path.
-- **Deletion telemetry:** the `lastSyncDeletedCount` health field surfaces the per-cycle deletion count from the ingestion summary. The pull caller accepts only a summary with an array-valued, empty `errors` field; partial ingest, malformed summary, or manifest update failure leaves `lastIngestedRev` unchanged so the next cycle re-detects and retries deletion idempotently.
+- **Deletion telemetry:** the `lastSyncDeletedCount` health field surfaces the per-cycle deletion count from the ingestion summary. The pull caller accepts only a summary with an array-valued, empty `errors` field; a fresh full materialization additionally requires an attempt-bound positive safe-integer ingest/delete receipt. Partial ingest, malformed or fresh zero-effect full summary leaves `lastIngestedRev` unchanged. A post-ingest checkpoint-write failure also leaves the local head unchanged, but its unacknowledged graph receipt lets the next cycle settle the already-applied deletion idempotently.
 
 ## Evidence Boundary
 

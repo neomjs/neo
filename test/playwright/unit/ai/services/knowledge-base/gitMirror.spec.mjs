@@ -1,10 +1,11 @@
 import {test, expect} from '@playwright/test';
 
-import fs          from 'fs-extra';
-import os          from 'os';
-import path        from 'path';
-import {execFile}  from 'child_process';
-import {promisify} from 'util';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {execFile}      from 'child_process';
+import {promisify}     from 'util';
+import {pathToFileURL} from 'url';
 
 import GitMirror, {
     cloneIfMissing,
@@ -93,8 +94,13 @@ test.describe('GitMirror (#11788)', () => {
         await fs.writeFile(gitPath, `#!/bin/sh
 {
     printf '%s\\n' "GIT_ASKPASS=$GIT_ASKPASS"
+    printf '%s\\n' "GIT_CONFIG_GLOBAL=$GIT_CONFIG_GLOBAL"
+    printf '%s\\n' "GIT_CONFIG_NOSYSTEM=$GIT_CONFIG_NOSYSTEM"
+    printf '%s\\n' "GIT_SSH_COMMAND=$GIT_SSH_COMMAND"
+    printf '%s\\n' "HOME=$HOME"
     printf '%s\\n' "NEO_GITMIRROR_PASSWORD=$NEO_GITMIRROR_PASSWORD"
     printf '%s\\n' "NEO_GITMIRROR_USERNAME=$NEO_GITMIRROR_USERNAME"
+    printf '%s\\n' "USERPROFILE=$USERPROFILE"
 } > ${JSON.stringify(capturePath)}
 printf 'fatal: token %s\\n' "$NEO_GITMIRROR_PASSWORD" >&2
 exit 1
@@ -339,17 +345,158 @@ exit 1
         });
     });
 
+    test('ignores ambient HOME authority for probe, clone, and fetch (#16045)', async () => {
+        const
+            source          = await createSourceRepo(),
+            ambientHome     = path.join(root, 'ambient-home'),
+            ambientConfig   = path.join(ambientHome, '.gitconfig'),
+            fakeCloneUrl    = 'https://127.0.0.1:1/private.git',
+            sourceUrl       = pathToFileURL(source).href,
+            originalHome    = process.env.HOME,
+            originalProfile = process.env.USERPROFILE;
+
+        await fs.ensureDir(ambientHome);
+        await git([
+            'config',
+            '--file',
+            ambientConfig,
+            `url.${sourceUrl}.insteadOf`,
+            fakeCloneUrl
+        ], root);
+
+        process.env.HOME        = ambientHome;
+        process.env.USERPROFILE = ambientHome;
+
+        try {
+            await expect(probeRemoteAccess({
+                cloneUrl     : fakeCloneUrl,
+                credentialRef: 'none',
+                ref          : 'main',
+                timeoutMs    : 1000
+            })).resolves.toMatchObject({
+                status: 'degraded',
+                code  : TenantRepoAccessCode.TRANSPORT_FAILED
+            });
+
+            await expect(cloneIfMissing({
+                cloneUrl     : fakeCloneUrl,
+                credentialRef: 'none',
+                mirrorRoot   : path.join(root, 'ambient-clone-mirrors'),
+                repoSlug     : 'ambient/clone',
+                tenantId     : 'tenant-a'
+            })).rejects.toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
+
+            const fetchOptions = {
+                cloneUrl     : source,
+                credentialRef: 'none',
+                mirrorRoot   : path.join(root, 'ambient-fetch-mirrors'),
+                repoSlug     : 'ambient/fetch',
+                tenantId     : 'tenant-a'
+            };
+            const {mirrorPath} = await cloneIfMissing(fetchOptions);
+
+            await git(['remote', 'set-url', 'origin', fakeCloneUrl], mirrorPath);
+            await expect(fetch(fetchOptions))
+                .rejects.toMatchObject({code: 'KB_GITMIRROR_FETCH_FAILED'});
+        } finally {
+            if (originalHome === undefined) {
+                delete process.env.HOME;
+            } else {
+                process.env.HOME = originalHome;
+            }
+
+            if (originalProfile === undefined) {
+                delete process.env.USERPROFILE;
+            } else {
+                process.env.USERPROFILE = originalProfile;
+            }
+        }
+    });
+
+    test('redacts isolated-environment setup failures before they cross GitMirror (#16045)', async () => {
+        const
+            source            = await createSourceRepo(),
+            originalWriteFile = fs.writeFile;
+        let leakedHomePath;
+        let setupError;
+
+        fs.writeFile = async (filePath, ...args) => {
+            if (String(filePath).includes('neo-gitmirror-home-')) {
+                leakedHomePath = path.dirname(String(filePath));
+                throw new Error(`injected setup failure at ${filePath}`);
+            }
+
+            return originalWriteFile.call(fs, filePath, ...args)
+        };
+
+        try {
+            await cloneIfMissing(mirrorOptions(source));
+        } catch (error) {
+            setupError = error;
+        } finally {
+            fs.writeFile = originalWriteFile;
+        }
+
+        expect(setupError).toMatchObject({
+            code   : 'KB_GITMIRROR_ENVIRONMENT_FAILED',
+            message: 'GitMirror failed to prepare its isolated subprocess environment'
+        });
+        expect(leakedHomePath).toContain('neo-gitmirror-home-');
+        expect(setupError.message).not.toContain(leakedHomePath);
+        expect(setupError.cause?.message || '').not.toContain(leakedHomePath);
+        await expect(fs.pathExists(leakedHomePath)).resolves.toBe(false);
+    });
+
+    test('bounds cleanup-only failures and preserves an earlier Git failure (#16045)', async () => {
+        const
+            source         = await createSourceRepo(),
+            originalRemove = fs.remove,
+            isolatedHomes  = [];
+
+        fs.remove = async targetPath => {
+            if (String(targetPath).includes('neo-gitmirror-home-')) {
+                isolatedHomes.push(String(targetPath));
+                throw new Error(`injected cleanup failure at ${targetPath}`);
+            }
+
+            return originalRemove.call(fs, targetPath)
+        };
+
+        try {
+            await expect(cloneIfMissing({
+                ...mirrorOptions(source),
+                repoSlug: 'cleanup/success'
+            })).rejects.toMatchObject({
+                code   : 'KB_GITMIRROR_CLEANUP_FAILED',
+                message: 'GitMirror failed to remove its isolated subprocess environment'
+            });
+
+            await expect(cloneIfMissing({
+                ...mirrorOptions(path.join(root, 'missing-source')),
+                repoSlug: 'cleanup/primary-failure'
+            })).rejects.toMatchObject({
+                code   : 'KB_GITMIRROR_CLONE_FAILED',
+                message: 'GitMirror clone failed'
+            });
+        } finally {
+            fs.remove = originalRemove;
+            await Promise.all(isolatedHomes.map(homePath => fs.remove(homePath)));
+        }
+
+        expect(isolatedHomes).toHaveLength(2);
+    });
+
     test('classifies denied, transport, and timeout probe failures without returning Git prose', async () => {
         const cases = [
             {
                 script : "printf '%s\\n' 'fatal: Authentication failed for https://example.invalid/private.git' >&2\nexit 128",
                 code   : TenantRepoAccessCode.DENIED_OR_NOT_FOUND,
-                timeout: 1000
+                timeout: 3000
             },
             {
                 script : "printf '%s\\n' 'fatal: Could not resolve host: example.invalid' >&2\nexit 128",
                 code   : TenantRepoAccessCode.TRANSPORT_FAILED,
-                timeout: 1000
+                timeout: 3000
             },
             {
                 script : 'sleep 1\nexit 0',
@@ -391,9 +538,23 @@ exit 1
                 expect(error).toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
                 expect(error.stderr).toContain('[REDACTED]');
                 expect(error.stderr).not.toContain('file-secret-token');
+                expect(captured.GIT_CONFIG_NOSYSTEM).toBe('1');
+                expect(captured.GIT_CONFIG_GLOBAL).toBe(path.join(captured.HOME, '.gitconfig'));
+                expect(captured.GIT_SSH_COMMAND).toContain('IdentitiesOnly=yes');
+                expect(captured.GIT_SSH_COMMAND).toContain('IdentityAgent=none');
+                expect(captured.GIT_SSH_COMMAND).toContain('IdentityFile=none');
+                expect(captured.GIT_SSH_COMMAND).toContain(
+                    path.join(root, 'mirrors', '.gitmirror-ssh', 'known_hosts')
+                );
+                expect(captured.HOME).not.toBe(process.env.HOME);
+                expect(captured.USERPROFILE).toBe(captured.HOME);
                 expect(captured.NEO_GITMIRROR_PASSWORD).toBe('file-secret-token');
                 expect(captured.NEO_GITMIRROR_USERNAME).toBe('x-access-token');
                 await expect(fs.pathExists(path.dirname(captured.GIT_ASKPASS))).resolves.toBe(false);
+                await expect(fs.pathExists(captured.HOME)).resolves.toBe(false);
+                await expect(fs.pathExists(
+                    path.join(root, 'mirrors', '.gitmirror-ssh', 'known_hosts')
+                )).resolves.toBe(true);
                 return;
             }
 
@@ -420,6 +581,26 @@ exit 1
 
             expect(captured.NEO_GITMIRROR_PASSWORD).toBe('object-secret-token');
             expect(captured.NEO_GITMIRROR_USERNAME).toBe('deploy-token');
+        });
+    });
+
+    test('passes only the explicit SSH key through the isolated runner (#16045)', async () => {
+        const keyPath = path.join(root, 'tenant-ssh-key');
+
+        await fs.writeFile(keyPath, '-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----\n');
+
+        await withFakeGitCapture(async capturePath => {
+            await expect(cloneIfMissing({
+                ...mirrorOptions('ssh://git@example.com/tenant/repo.git'),
+                credentialRef: `ssh:${keyPath}`
+            })).rejects.toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
+
+            const captured = parseCapturedEnv(await fs.readFile(capturePath, 'utf-8'));
+
+            expect(captured.GIT_SSH_COMMAND).toContain('IdentityAgent=none');
+            expect(captured.GIT_SSH_COMMAND).toContain('IdentityFile=none');
+            expect(captured.GIT_SSH_COMMAND).toContain(`-i '${keyPath}'`);
+            expect(captured.GIT_SSH_COMMAND).not.toContain(process.env.HOME);
         });
     });
 

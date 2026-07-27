@@ -4,20 +4,26 @@
  * for the orchestrator-owned tenant-repo ingestion lane.
  *
  * A persisted repository head is trusted as an incremental base only when
- * `ingestContractVersion` proves it was written after an error-free ingestion
- * summary. Older records remain usable recovery evidence, but require one
- * bounded null-base replay before they become current.
+ * `ingestContractVersion` proves it was written after the current ingestion
+ * commit contract. Older records remain usable recovery evidence, but require
+ * one bounded null-base replay before they become current.
+ *
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 
 /**
  * @summary Current success contract for tenant-repo ingestion checkpoints.
  *
- * Version 1 means the persisted head advanced only after
- * `assertErrorFreeIngestionSummary()` accepted the Knowledge Base result.
+ * Version 1 means the persisted head advanced after an error-free Knowledge Base
+ * summary. Version 2 additionally requires a durable positive-effect receipt for
+ * manifest-bearing full materializations; the checkpoint acknowledges its opaque
+ * attempt id so an interrupted commit can retry without stale-proof reuse.
  *
  * @type {Number}
  */
-export const TENANT_REPO_INGEST_CONTRACT_VERSION = 1;
+export const TENANT_REPO_INGEST_CONTRACT_VERSION = 2;
+
+const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
 
 /**
  * @summary Internal checkpoint-revalidation classifications.
@@ -51,11 +57,12 @@ export const TenantRepoCheckpointStatus = Object.freeze({
 export function normalizeTenantRepoCheckpointState(value) {
     if (typeof value === 'string') {
         return {
-            lastIngestedRev                   : value || null,
-            lastRunAttemptAt                  : 0,
-            consecutiveFailures               : 0,
-            ingestContractVersion             : null,
-            lastAttemptedIngestContractVersion: null
+            lastIngestedRev                      : value || null,
+            lastRunAttemptAt                     : 0,
+            consecutiveFailures                  : 0,
+            ingestContractVersion                : null,
+            lastAttemptedIngestContractVersion   : null,
+            lastCommittedMaterializationAttemptId: null
         };
     }
 
@@ -63,7 +70,7 @@ export function normalizeTenantRepoCheckpointState(value) {
         return null;
     }
 
-    if (hasMalformedContractVersion(value)) {
+    if (hasMalformedContractVersion(value) || hasMalformedMaterializationAttemptId(value)) {
         return null;
     }
 
@@ -71,10 +78,13 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastIngestedRev                    : typeof value.lastIngestedRev === 'string' && value.lastIngestedRev
             ? value.lastIngestedRev
             : null,
-        lastRunAttemptAt                  : normalizeNonNegativeNumber(value.lastRunAttemptAt),
-        consecutiveFailures               : normalizeFailureCount(value.consecutiveFailures),
-        ingestContractVersion             : normalizeContractVersion(value.ingestContractVersion),
-        lastAttemptedIngestContractVersion: normalizeContractVersion(value.lastAttemptedIngestContractVersion)
+        lastRunAttemptAt                     : normalizeNonNegativeNumber(value.lastRunAttemptAt),
+        consecutiveFailures                  : normalizeFailureCount(value.consecutiveFailures),
+        ingestContractVersion                : normalizeContractVersion(value.ingestContractVersion),
+        lastAttemptedIngestContractVersion   : normalizeContractVersion(value.lastAttemptedIngestContractVersion),
+        lastCommittedMaterializationAttemptId: normalizeMaterializationAttemptId(
+            value.lastCommittedMaterializationAttemptId
+        )
     };
 }
 
@@ -90,7 +100,7 @@ export function normalizeTenantRepoCheckpointState(value) {
  * @returns {String} One `TenantRepoCheckpointStatus` value.
  */
 export function classifyTenantRepoCheckpoint(state) {
-    if (hasMalformedContractVersion(state)) {
+    if (hasMalformedContractVersion(state) || hasMalformedMaterializationAttemptId(state)) {
         return TenantRepoCheckpointStatus.INVALID;
     }
 
@@ -101,8 +111,9 @@ export function classifyTenantRepoCheckpoint(state) {
     }
 
     const
-        ingestVersion  = normalizedState?.ingestContractVersion ?? null,
-        attemptVersion = normalizedState?.lastAttemptedIngestContractVersion ?? null;
+        ingestVersion                     = normalizedState?.ingestContractVersion ?? null,
+        attemptVersion                    = normalizedState?.lastAttemptedIngestContractVersion ?? null,
+        committedMaterializationAttemptId = normalizedState?.lastCommittedMaterializationAttemptId ?? null;
 
     if (
         ingestVersion > TENANT_REPO_INGEST_CONTRACT_VERSION
@@ -115,7 +126,10 @@ export function classifyTenantRepoCheckpoint(state) {
         return TenantRepoCheckpointStatus.UNINITIALIZED;
     }
 
-    if (ingestVersion === TENANT_REPO_INGEST_CONTRACT_VERSION) {
+    if (
+        ingestVersion === TENANT_REPO_INGEST_CONTRACT_VERSION
+        && committedMaterializationAttemptId
+    ) {
         return TenantRepoCheckpointStatus.COMPLETE;
     }
 
@@ -166,12 +180,39 @@ function hasMalformedContractVersion(state) {
 }
 
 /**
+ * @summary Detects a present-but-invalid full-materialization receipt acknowledgement.
+ * @param {*} state Candidate persisted checkpoint state.
+ * @returns {Boolean}
+ */
+function hasMalformedMaterializationAttemptId(state) {
+    return Boolean(
+        state
+        && typeof state === 'object'
+        && !Array.isArray(state)
+        && Object.hasOwn(state, 'lastCommittedMaterializationAttemptId')
+        && state.lastCommittedMaterializationAttemptId !== null
+        && normalizeMaterializationAttemptId(state.lastCommittedMaterializationAttemptId) === null
+    );
+}
+
+/**
  * @summary Accepts only positive integer checkpoint-contract versions.
  * @param {*} value Candidate persisted version.
  * @returns {Number|null}
  */
 function normalizeContractVersion(value) {
     return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+/**
+ * @summary Accepts only bounded opaque ids emitted for full-materialization attempts.
+ * @param {*} value Candidate attempt id.
+ * @returns {String|null}
+ */
+function normalizeMaterializationAttemptId(value) {
+    return typeof value === 'string' && MATERIALIZATION_ATTEMPT_ID_PATTERN.test(value)
+        ? value
+        : null;
 }
 
 /**

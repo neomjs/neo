@@ -30,10 +30,12 @@ export {
  *
  * @see https://github.com/neomjs/neo/issues/11788
  * @see https://github.com/neomjs/neo/issues/11787
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 
 const GIT_TERMINAL_PROMPT_DISABLED = '0';
 const ACCESS_PROBE_TIMEOUT_MS      = 15_000;
+const GIT_MAX_OUTPUT_BYTES         = 50 * 1024 * 1024;
 const CREDENTIAL_FINGERPRINT_KEY   = randomBytes(32);
 const ASKPASS_SCRIPT               = `#!/bin/sh
 case "$1" in
@@ -69,24 +71,42 @@ function createGitMirrorError(code, message, details = {}) {
     }
 
     if (details.cause) {
-        error.cause = details.cause;
+        const causeMessage = details.cause instanceof Error
+            ? details.cause.message
+            : String(details.cause);
+        const cause = new Error(redactTenantRepoSecrets(causeMessage, {secretHints}));
+
+        if (typeof details.cause.code === 'string' && /^[A-Z0-9_]+$/u.test(details.cause.code)) {
+            cause.code = details.cause.code;
+        }
+
+        error.cause = cause;
     }
 
     return error;
 }
 
 /**
- * @summary Returns a narrow subprocess environment instead of inheriting credential-bearing shell state.
- * @param {Object} overrides Git-specific environment overrides.
+ * @summary Returns a narrow subprocess environment rooted in a disposable home directory.
+ * @param {Object} options
+ * @param {String} options.homePath Disposable process home.
+ * @param {String} options.sshCommand Deterministic SSH command for this invocation.
+ * @param {Object} [options.overrides={}] Explicit credential-mode overrides.
  * @returns {Object}
  * @private
  */
-function createGitEnv(overrides = {}) {
+function createGitEnv({homePath, sshCommand, overrides = {}} = {}) {
     const env = {
-        GIT_TERMINAL_PROMPT: GIT_TERMINAL_PROMPT_DISABLED
+        GIT_CONFIG_GLOBAL  : path.join(homePath, '.gitconfig'),
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_SSH_COMMAND    : sshCommand,
+        GIT_TERMINAL_PROMPT: GIT_TERMINAL_PROMPT_DISABLED,
+        HOME               : homePath,
+        USERPROFILE        : homePath,
+        XDG_CONFIG_HOME    : path.join(homePath, '.config')
     };
 
-    for (const key of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'SystemRoot', 'USERPROFILE']) {
+    for (const key of ['PATH', 'TMPDIR', 'TEMP', 'SystemRoot']) {
         if (process.env[key]) {
             env[key] = process.env[key];
         }
@@ -142,6 +162,44 @@ function shellQuote(value) {
 }
 
 /**
+ * @summary Builds an SSH command that cannot consult ambient config, agents, or default identities.
+ * @param {Object} options
+ * @param {String} options.homePath Disposable process home.
+ * @param {String} options.knownHostsPath GitMirror-owned persistent host-key ledger.
+ * @param {String} [options.identityPath] Explicit `ssh:` credential key.
+ * @returns {String}
+ * @private
+ */
+function createIsolatedSshCommand({homePath, knownHostsPath, identityPath} = {}) {
+    const sshDir = path.join(homePath, '.ssh');
+    const tokens = [
+        'ssh',
+        '-F',
+        shellQuote(path.join(sshDir, 'config')),
+        '-o',
+        'BatchMode=yes',
+        '-o',
+        'IdentitiesOnly=yes',
+        '-o',
+        'IdentityAgent=none',
+        '-o',
+        'IdentityFile=none',
+        '-o',
+        'StrictHostKeyChecking=accept-new',
+        '-o',
+        shellQuote(`UserKnownHostsFile=${knownHostsPath}`),
+        '-o',
+        'GlobalKnownHostsFile=none'
+    ];
+
+    if (identityPath) {
+        tokens.push('-i', shellQuote(identityPath));
+    }
+
+    return tokens.join(' ');
+}
+
+/**
  * @summary Builds the transient askpass environment for HTTPS git credentials.
  * @param {Object} options
  * @param {String} options.secret Resolved credential material.
@@ -150,21 +208,39 @@ function shellQuote(value) {
  * @private
  */
 async function createAskPassCredentialEnvironment({secret, username = 'x-access-token'} = {}) {
-    const askPassDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-gitmirror-askpass-'));
-    const askPassPath = path.join(askPassDir, 'askpass.sh');
-    const gitUsername = username || 'x-access-token';
+    let askPassDir;
 
-    await fs.writeFile(askPassPath, ASKPASS_SCRIPT, {mode: 0o700});
+    try {
+        askPassDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-gitmirror-askpass-'));
 
-    return {
-        env: {
-            GIT_ASKPASS           : askPassPath,
-            NEO_GITMIRROR_PASSWORD: secret,
-            NEO_GITMIRROR_USERNAME: gitUsername
-        },
-        secretHints: [secret],
-        cleanup    : () => fs.remove(askPassDir)
-    };
+        const
+            askPassPath = path.join(askPassDir, 'askpass.sh'),
+            gitUsername = username || 'x-access-token';
+
+        await fs.writeFile(askPassPath, ASKPASS_SCRIPT, {mode: 0o700});
+
+        return {
+            env: {
+                GIT_ASKPASS           : askPassPath,
+                NEO_GITMIRROR_PASSWORD: secret,
+                NEO_GITMIRROR_USERNAME: gitUsername
+            },
+            secretHints: [secret, askPassDir],
+            cleanup    : () => fs.remove(askPassDir)
+        };
+    } catch {
+        if (askPassDir) {
+            try {
+                await fs.remove(askPassDir);
+            } catch {}
+        }
+
+        throw createGitMirrorError(
+            'KB_GITMIRROR_ENVIRONMENT_FAILED',
+            'GitMirror failed to prepare its isolated credential environment',
+            {secretHints: [secret, askPassDir]}
+        )
+    }
 }
 
 /**
@@ -217,7 +293,7 @@ async function resolveCredentialMaterial({credentialRef} = {}) {
             throw createGitMirrorError(
                 'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
                 'GitMirror file credentialRef could not be resolved',
-                {cause: error}
+                {cause: error, secretHints: [ref.filePath]}
             );
         }
 
@@ -245,7 +321,7 @@ async function resolveCredentialMaterial({credentialRef} = {}) {
             throw createGitMirrorError(
                 'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
                 'GitMirror ssh credentialRef could not be resolved',
-                {cause: error}
+                {cause: error, secretHints: [ref.keyPath]}
             );
         }
 
@@ -271,10 +347,13 @@ async function resolveCredentialMaterial({credentialRef} = {}) {
 /**
  * @summary Builds transient Git environment overrides from already-validated credential material.
  * @param {Object} material Resolved credential material.
+ * @param {Object} options
+ * @param {String} options.homePath Disposable process home.
+ * @param {String} options.knownHostsPath GitMirror-owned persistent host-key ledger.
  * @returns {Promise<{env: Object, secretHints: String[], cleanup: Function}>}
  * @private
  */
-async function createCredentialEnvironment(material) {
+async function createCredentialEnvironment(material, {homePath, knownHostsPath} = {}) {
     const {ref, secret} = material;
 
     if (!ref || ref.type === 'none') {
@@ -287,19 +366,106 @@ async function createCredentialEnvironment(material) {
 
     return {
         env: {
-            GIT_SSH_COMMAND: [
-                'ssh',
-                '-i',
-                shellQuote(ref.keyPath),
-                '-o',
-                'IdentitiesOnly=yes',
-                '-o',
-                'StrictHostKeyChecking=accept-new'
-            ].join(' ')
+            GIT_SSH_COMMAND: createIsolatedSshCommand({
+                homePath,
+                knownHostsPath,
+                identityPath: ref.keyPath
+            })
         },
-        secretHints: [],
+        secretHints: [ref.keyPath],
         cleanup    : async () => {}
     };
+}
+
+/**
+ * @summary Creates and later removes one fully isolated Git subprocess environment.
+ * @param {Object} material Resolved credential material.
+ * @param {Object} options={}
+ * @param {String} [options.knownHostsPath] Durable GitMirror-owned host-key ledger.
+ * @returns {Promise<{env: Object, secretHints: String[], cleanup: Function}>}
+ * @private
+ */
+async function createGitExecutionEnvironment(material, {knownHostsPath} = {}) {
+    let homePath;
+    let credential;
+
+    try {
+        homePath = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-gitmirror-home-'));
+
+        const
+            sshDir                  = path.join(homePath, '.ssh'),
+            effectiveKnownHostsPath = knownHostsPath || path.join(sshDir, 'known_hosts');
+
+        await fs.ensureDir(sshDir);
+        await fs.ensureDir(path.dirname(effectiveKnownHostsPath));
+        await Promise.all([
+            fs.writeFile(path.join(homePath, '.gitconfig'), ''),
+            fs.writeFile(path.join(sshDir, 'config'), ''),
+            fs.ensureFile(effectiveKnownHostsPath)
+        ]);
+        await fs.chmod(effectiveKnownHostsPath, 0o600);
+
+        credential = await createCredentialEnvironment(material, {
+            homePath,
+            knownHostsPath: effectiveKnownHostsPath
+        });
+
+        return {
+            env: createGitEnv({
+                homePath,
+                sshCommand: createIsolatedSshCommand({
+                    homePath,
+                    knownHostsPath: effectiveKnownHostsPath
+                }),
+                overrides : credential.env
+            }),
+            secretHints: [
+                ...credential.secretHints,
+                homePath,
+                ...(knownHostsPath ? [knownHostsPath] : [])
+            ],
+            cleanup    : async () => {
+                const results = await Promise.allSettled([
+                    Promise.resolve().then(() => credential.cleanup()),
+                    Promise.resolve().then(() => fs.remove(homePath))
+                ]);
+
+                if (results.some(result => result.status === 'rejected')) {
+                    throw createGitMirrorError(
+                        'KB_GITMIRROR_CLEANUP_FAILED',
+                        'GitMirror failed to remove its isolated subprocess environment'
+                    )
+                }
+            }
+        };
+    } catch (error) {
+        try {
+            await credential?.cleanup?.();
+        } catch {}
+
+        if (homePath) {
+            try {
+                await fs.remove(homePath);
+            } catch {}
+        }
+
+        if (error.code?.startsWith?.('KB_GITMIRROR_')) {
+            throw error
+        }
+
+        throw createGitMirrorError(
+            'KB_GITMIRROR_ENVIRONMENT_FAILED',
+            'GitMirror failed to prepare its isolated subprocess environment',
+            {
+                secretHints: [
+                    homePath,
+                    knownHostsPath,
+                    material?.ref?.filePath,
+                    material?.ref?.keyPath
+                ]
+            }
+        )
+    }
 }
 
 /**
@@ -316,22 +482,31 @@ async function runGit(args, {
     credentialMaterial,
     failureCode = 'KB_GITMIRROR_GIT_FAILED',
     failureMessage = 'GitMirror git command failed',
+    knownHostsPath,
+    maxOutputBytes = GIT_MAX_OUTPUT_BYTES,
+    outputLimitCode = 'KB_GITMIRROR_OUTPUT_LIMIT',
+    outputLimitMessage = 'GitMirror git command exceeded its output limit',
     timeoutCode = 'KB_GITMIRROR_GIT_TIMEOUT',
     timeoutMessage = 'GitMirror git command timed out',
     timeoutMs = 0
 } = {}) {
-    const material   = credentialMaterial || await resolveCredentialMaterial({credentialRef});
-    const credential = await createCredentialEnvironment(material);
+    let execution;
+    let primaryError;
 
     try {
+        const material = credentialMaterial || await resolveCredentialMaterial({credentialRef});
+
+        execution = await createGitExecutionEnvironment(material, {knownHostsPath});
+
         const result = await new Promise((resolve, reject) => {
-            const child = spawn('git', args, {
+            const child = spawn('git', ['-c', 'credential.helper=', ...args], {
                 cwd,
-                env  : createGitEnv(credential.env),
+                env  : execution.env,
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             let stdout = '';
             let stderr = '';
+            let outputBytes = 0;
             let settled = false;
             let timeoutId;
 
@@ -350,13 +525,40 @@ async function runGit(args, {
             };
             const resolveOnce = settle(resolve);
             const rejectOnce  = settle(reject);
+            const appendOutput = (current, data) => {
+                const nextBytes = Buffer.byteLength(data);
+
+                if (
+                    Number.isFinite(maxOutputBytes)
+                    && maxOutputBytes > 0
+                    && outputBytes + nextBytes > maxOutputBytes
+                ) {
+                    try {
+                        child.kill('SIGKILL');
+                    } catch {}
+
+                    rejectOnce(createGitMirrorError(outputLimitCode, outputLimitMessage, {
+                        secretHints: execution.secretHints
+                    }));
+
+                    return current;
+                }
+
+                outputBytes += nextBytes;
+
+                return current + data;
+            };
 
             child.stdout.on('data', data => {
-                stdout += data;
+                if (!settled) {
+                    stdout = appendOutput(stdout, data);
+                }
             });
 
             child.stderr.on('data', data => {
-                stderr += data;
+                if (!settled) {
+                    stderr = appendOutput(stderr, data);
+                }
             });
 
             child.on('error', rejectOnce);
@@ -369,7 +571,7 @@ async function runGit(args, {
                     } catch {}
 
                     rejectOnce(createGitMirrorError(timeoutCode, timeoutMessage, {
-                        secretHints: credential.secretHints
+                        secretHints: execution.secretHints
                     }));
                 }, timeoutMs);
             }
@@ -378,26 +580,39 @@ async function runGit(args, {
         if (!acceptedExitCodes.includes(result.exitCode)) {
             throw createGitMirrorError(failureCode, failureMessage, {
                 ...result,
-                secretHints: credential.secretHints
+                secretHints: execution.secretHints
             });
         }
 
         return {
             exitCode: result.exitCode,
-            stdout  : redactTenantRepoSecrets(result.stdout, {secretHints: credential.secretHints}),
-            stderr  : redactTenantRepoSecrets(result.stderr, {secretHints: credential.secretHints})
+            stdout  : redactTenantRepoSecrets(result.stdout, {secretHints: execution.secretHints}),
+            stderr  : redactTenantRepoSecrets(result.stderr, {secretHints: execution.secretHints})
         };
     } catch (error) {
-        if (error.code?.startsWith?.('KB_GITMIRROR_')) {
-            throw error;
-        }
+        primaryError = error.code?.startsWith?.('KB_GITMIRROR_')
+            ? error
+            : createGitMirrorError(failureCode, failureMessage, {
+                cause      : error,
+                secretHints: execution?.secretHints || []
+            });
 
-        throw createGitMirrorError(failureCode, failureMessage, {
-            cause      : error,
-            secretHints: credential.secretHints
-        });
+        throw primaryError
     } finally {
-        await credential.cleanup();
+        if (execution) {
+            try {
+                await execution.cleanup();
+            } catch (cleanupError) {
+                if (!primaryError) {
+                    throw cleanupError.code?.startsWith?.('KB_GITMIRROR_')
+                        ? cleanupError
+                        : createGitMirrorError(
+                            'KB_GITMIRROR_CLEANUP_FAILED',
+                            'GitMirror failed to remove its isolated subprocess environment'
+                        )
+                }
+            }
+        }
     }
 }
 
@@ -472,6 +687,7 @@ export async function inspectCredentialReadiness({credentialRef} = {}) {
  * @param {String} options.cloneUrl Clean repository URL.
  * @param {String|Object|null} options.credentialRef Durable credential reference.
  * @param {String} [options.ref='HEAD'] Configured branch, tag, or ref.
+ * @param {String} [options.mirrorRoot] Durable mirror root for SSH host-key continuity.
  * @param {Number} [options.timeoutMs=15000] Positive subprocess deadline.
  * @returns {Promise<{status: String, code: String, checkedAt: String, cacheFingerprint: String|null}>}
  */
@@ -479,6 +695,7 @@ export async function probeRemoteAccess({
     cloneUrl,
     credentialRef,
     ref = 'HEAD',
+    mirrorRoot,
     timeoutMs = ACCESS_PROBE_TIMEOUT_MS
 } = {}) {
     const checkedAt = new Date().toISOString();
@@ -525,6 +742,7 @@ export async function probeRemoteAccess({
             credentialMaterial: material,
             failureCode      : 'KB_GITMIRROR_ACCESS_PROBE_FAILED',
             failureMessage   : 'GitMirror repository access probe failed',
+            ...(mirrorRoot ? {knownHostsPath: getKnownHostsPath(mirrorRoot)} : {}),
             timeoutCode      : 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT',
             timeoutMessage   : 'GitMirror repository access probe timed out',
             timeoutMs        : effectiveTimeoutMs
@@ -590,6 +808,16 @@ function getMirrorPath({mirrorRoot, tenantId, repoSlug} = {}) {
             {cause: error}
         );
     }
+}
+
+/**
+ * @summary Returns the durable GitMirror-owned SSH host-key ledger beside mirror data.
+ * @param {String} mirrorRoot Root directory for tenant repo mirrors.
+ * @returns {String}
+ * @private
+ */
+function getKnownHostsPath(mirrorRoot) {
+    return path.join(path.resolve(mirrorRoot), '.gitmirror-ssh', 'known_hosts');
 }
 
 /**
@@ -705,7 +933,8 @@ export async function cloneIfMissing({mirrorRoot, tenantId, repoSlug, cloneUrl, 
     await runGit(['clone', '--mirror', cleanCloneUrl, mirrorPath], {
         credentialRef,
         failureCode   : 'KB_GITMIRROR_CLONE_FAILED',
-        failureMessage: 'GitMirror clone failed'
+        failureMessage: 'GitMirror clone failed',
+        knownHostsPath: getKnownHostsPath(mirrorRoot)
     });
 
     return {mirrorPath, cloned: true};
@@ -727,7 +956,8 @@ export async function fetch({mirrorRoot, tenantId, repoSlug, credentialRef} = {}
         cwd           : mirrorPath,
         credentialRef,
         failureCode   : 'KB_GITMIRROR_FETCH_FAILED',
-        failureMessage: 'GitMirror fetch failed'
+        failureMessage: 'GitMirror fetch failed',
+        knownHostsPath: getKnownHostsPath(mirrorRoot)
     });
 
     const after = await listRefs(mirrorPath);
@@ -847,13 +1077,65 @@ export async function diffRevisions({mirrorRoot, tenantId, repoSlug, baseRevisio
     };
 }
 
+/**
+ * @summary Lists all repo-relative paths present at one mirror revision.
+ * @param {Object} options
+ * @param {String} options.mirrorRoot Root directory for tenant repo mirrors.
+ * @param {String} options.tenantId Tenant id.
+ * @param {String} options.repoSlug Repository slug.
+ * @param {String} options.revision Resolved revision.
+ * @returns {Promise<Array<String>>}
+ */
+export async function listRevisionPaths({mirrorRoot, tenantId, repoSlug, revision} = {}) {
+    const mirrorPath = getMirrorPath({mirrorRoot, tenantId, repoSlug});
+
+    const result = await runGit(['ls-tree', '-r', '-z', '--name-only', revision], {
+        cwd           : mirrorPath,
+        failureCode   : 'KB_GITMIRROR_LIST_FAILED',
+        failureMessage: 'GitMirror failed to list revision paths'
+    });
+
+    return result.stdout.split('\0').filter(Boolean).sort();
+}
+
+/**
+ * @summary Reads one text file from a mirror revision.
+ * @param {Object} options
+ * @param {String} options.mirrorRoot Root directory for tenant repo mirrors.
+ * @param {String} options.tenantId Tenant id.
+ * @param {String} options.repoSlug Repository slug.
+ * @param {String} options.revision Resolved revision.
+ * @param {String} options.sourcePath Repo-relative source path.
+ * @returns {Promise<String>}
+ */
+export async function readRevisionFile({mirrorRoot, tenantId, repoSlug, revision, sourcePath} = {}) {
+    if (!sourcePath || sourcePath.includes('\0')) {
+        throw createGitMirrorError(
+            'KB_GITMIRROR_PATH_INVALID',
+            'GitMirror received an invalid sourcePath'
+        );
+    }
+
+    const mirrorPath = getMirrorPath({mirrorRoot, tenantId, repoSlug});
+
+    const result = await runGit(['show', `${revision}:${sourcePath}`], {
+        cwd           : mirrorPath,
+        failureCode   : 'KB_GITMIRROR_FILE_READ_FAILED',
+        failureMessage: 'GitMirror failed to read a revision file'
+    });
+
+    return result.stdout;
+}
+
 const GitMirror = {
     cloneIfMissing,
     diffRevisions,
     fetch,
     inspectCredentialReadiness,
     isAncestor,
+    listRevisionPaths,
     probeRemoteAccess,
+    readRevisionFile,
     resolveHead
 };
 

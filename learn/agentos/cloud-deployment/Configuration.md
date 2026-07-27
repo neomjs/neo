@@ -111,7 +111,7 @@ tenants:
     customParsers: [...]
     sourcePaths: {...}
     tenantRepos:
-      - cloneUrl: https://github.com/neomjs/create-app.git  # clean URL; no userinfo@
+      - cloneUrl: https://github.com/neomjs/create-app.git  # SSH may carry a non-secret login name
         credentialRef: env:GIT_TOKEN                          # reference-only pointer; token lives outside the repo
         branchRef: dev                                        # optional; defaults to 'HEAD' = remote default branch
 ```
@@ -123,6 +123,9 @@ legacy bare environment-variable name). The object equivalents use `type: none|e
 with `name`, `filePath`, or `keyPath`; `env` and `file` may also specify a non-empty
 `username`. An unknown scheme such as `helper:*` is rejected during effective-config
 resolution instead of being reinterpreted as an environment-variable name.
+`none` is anonymous and never inherits host-user Git/SSH authority. For `ssh:`, put the
+non-secret remote login name in the clean endpoint (`ssh://git@host/org/repo.git` or
+`git@host:org/repo.git`); passwords and tokens remain forbidden in `cloneUrl`.
 
 The YAML is bootstrap-only — the graph node is canonical once written. Runtime resolution stays
 fail-soft: a missing, empty, unreadable, malformed, or invalid-shape file cannot block a valid graph

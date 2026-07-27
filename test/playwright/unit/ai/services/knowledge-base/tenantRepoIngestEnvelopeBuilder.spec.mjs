@@ -1,21 +1,22 @@
 import {test, expect} from '@playwright/test';
 
-import fs             from 'fs-extra';
-import os             from 'os';
-import path           from 'path';
-import {execFile}     from 'child_process';
-import {promisify}    from 'util';
+import fs          from 'fs-extra';
+import os          from 'os';
+import path        from 'path';
+import {execFile}  from 'child_process';
+import {promisify} from 'util';
 
 import {cloneIfMissing, fetch, resolveHead}
                        from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
 import TenantRepoIngestEnvelopeBuilder, {
-    buildIngestEnvelope
+    buildIngestEnvelope,
+    createTenantRepoMaterializationDigest
 } from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 
 const execFileAsync = promisify(execFile);
 
 /**
- * @summary Contract tests for the tenant GitMirror to KB ingest envelope adapter (#11789).
+ * @summary Contract tests for the tenant GitMirror to KB ingest envelope adapter.
  *
  * The builder emits the live `KnowledgeBaseIngestionService.ingestSourceFiles()`
  * payload shape: `files`, `deleted`, `manifestSnapshot`, `baseRevision`, and
@@ -58,6 +59,40 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
         return source;
     }
 
+    test('materialization digest is order-stable and head/parser bound (#16045)', () => {
+        const envelope = {
+            repoSlug        : 'org/repo',
+            headRevision    : 'head-a',
+            manifestSnapshot: {
+                repoSlug      : 'org/repo',
+                pathsAfterPush: ['src/b.js', 'src/a.js', 'src/a.js']
+            },
+            files: [
+                {sourcePath: 'src/b.js', rootKind: 'bare-repo', parserId: 'beta', parserVersion: '2'},
+                {sourcePath: 'src/a.js', rootKind: 'bare-repo', parserId: 'alpha', parserVersion: '1'}
+            ]
+        };
+        const digest = createTenantRepoMaterializationDigest(envelope);
+
+        expect(digest).toMatch(/^[a-f0-9]{64}$/u);
+        expect(createTenantRepoMaterializationDigest({
+            ...envelope,
+            manifestSnapshot: {
+                ...envelope.manifestSnapshot,
+                pathsAfterPush: ['src/a.js', 'src/b.js']
+            },
+            files: [...envelope.files].reverse()
+        })).toBe(digest);
+        expect(createTenantRepoMaterializationDigest({...envelope, headRevision: 'head-b'})).not.toBe(digest);
+        expect(createTenantRepoMaterializationDigest({
+            ...envelope,
+            files: [{...envelope.files[0], parserVersion: '3'}, envelope.files[1]]
+        })).not.toBe(digest);
+        expect(TenantRepoIngestEnvelopeBuilder.createTenantRepoMaterializationDigest).toBe(
+            createTenantRepoMaterializationDigest
+        );
+    });
+
     async function commitSecondRevision(source) {
         await fs.writeFile(path.join(source, 'alpha.txt'), 'alpha v2\n');
         await fs.writeFile(path.join(source, 'beta.txt'), 'beta\n');
@@ -80,9 +115,9 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
     }
 
     test('builds a manifest-carrying full envelope when no baseline exists', async () => {
-        const source  = await createSourceRepo();
-        const options = await createMirror(source);
-        const newHead = await resolveHead({...options, ref: 'main'});
+        const source   = await createSourceRepo();
+        const options  = await createMirror(source);
+        const newHead  = await resolveHead({...options, ref: 'main'});
         const envelope = await buildIngestEnvelope({
             ...options,
             newHead,
@@ -90,9 +125,9 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
         });
 
         expect(envelope).toMatchObject({
-            tenantId    : 'tenant-a',
-            repoSlug    : 'local/source',
-            headRevision: newHead,
+            tenantId        : 'tenant-a',
+            repoSlug        : 'local/source',
+            headRevision    : newHead,
             manifestSnapshot: {
                 repoSlug      : 'local/source',
                 pathsAfterPush: ['alpha.txt', 'docs/guide.md', 'remove-me.txt']
@@ -104,13 +139,74 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
         expect(envelope.files.find(file => file.sourcePath === 'docs/guide.md')).toMatchObject({
             repoSlug: 'local/source',
             rootKind: 'bare-repo',
-            content: '# Guide\n'
+            content : '# Guide\n'
         });
     });
 
+    test('routes revision reads through the isolated GitMirror subprocess boundary (#16045)', async () => {
+        const
+            source                  = await createSourceRepo(),
+            options                 = await createMirror(source),
+            ambientHome             = path.join(root, 'host-home'),
+            capturePath             = path.join(root, 'git-environments.tsv'),
+            binDir                  = path.join(root, 'capture-bin'),
+            wrapperPath             = path.join(binDir, 'git'),
+            originalPath            = process.env.PATH,
+            originalHome            = process.env.HOME,
+            originalProfile         = process.env.USERPROFILE,
+            {stdout: gitPathOutput} = await execFileAsync('which', ['git']),
+            realGitPath             = gitPathOutput.trim();
+
+        await fs.ensureDir(ambientHome);
+        await fs.ensureDir(binDir);
+        await fs.writeFile(wrapperPath, `#!/bin/sh
+printf '%s\\t%s\\t%s\\t%s\\n' "$HOME" "$GIT_CONFIG_GLOBAL" "$GIT_CONFIG_NOSYSTEM" "$GIT_SSH_COMMAND" >> ${JSON.stringify(capturePath)}
+exec ${JSON.stringify(realGitPath)} "$@"
+`);
+        await fs.chmod(wrapperPath, 0o755);
+
+        process.env.PATH        = `${binDir}${path.delimiter}${originalPath}`;
+        process.env.HOME        = ambientHome;
+        process.env.USERPROFILE = ambientHome;
+
+        try {
+            await buildIngestEnvelope({...options, newHead: 'main'});
+        } finally {
+            process.env.PATH = originalPath;
+
+            if (originalHome === undefined) {
+                delete process.env.HOME;
+            } else {
+                process.env.HOME = originalHome;
+            }
+
+            if (originalProfile === undefined) {
+                delete process.env.USERPROFILE;
+            } else {
+                process.env.USERPROFILE = originalProfile;
+            }
+        }
+
+        const observations = (await fs.readFile(capturePath, 'utf-8'))
+            .trim()
+            .split('\n')
+            .map(line => line.split('\t'));
+
+        expect(observations.length).toBeGreaterThan(0);
+
+        for (const [home, globalConfig, noSystem, sshCommand] of observations) {
+            expect(home).not.toBe(ambientHome);
+            expect(globalConfig).toBe(path.join(home, '.gitconfig'));
+            expect(noSystem).toBe('1');
+            expect(sshCommand).toContain('IdentityAgent=none');
+            expect(sshCommand).toContain('IdentityFile=none');
+            await expect(fs.pathExists(home)).resolves.toBe(false);
+        }
+    });
+
     test('builds a bounded delta envelope for linear history advances', async () => {
-        const source  = await createSourceRepo();
-        const options = await createMirror(source);
+        const source       = await createSourceRepo();
+        const options      = await createMirror(source);
         const baseRevision = await resolveHead({...options, ref: 'main'});
 
         await commitSecondRevision(source);
@@ -126,11 +222,11 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
         });
 
         expect(envelope).toMatchObject({
-            tenantId    : 'tenant-a',
-            repoSlug    : 'local/source',
+            tenantId: 'tenant-a',
+            repoSlug: 'local/source',
             baseRevision,
             headRevision,
-            deleted: [{sourcePath: 'remove-me.txt', repoSlug: 'local/source'}]
+            deleted : [{sourcePath: 'remove-me.txt', repoSlug: 'local/source'}]
         });
         expect(envelope.manifestSnapshot).toBeUndefined();
         expect(envelope.files.map(file => [file.sourcePath, file.content])).toEqual([
@@ -144,8 +240,8 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
     });
 
     test('falls back to a full manifest snapshot when history is non-linear', async () => {
-        const source  = await createSourceRepo();
-        const options = await createMirror(source);
+        const source       = await createSourceRepo();
+        const options      = await createMirror(source);
         const baseRevision = await resolveHead({...options, ref: 'main'});
 
         await commitSecondRevision(source);

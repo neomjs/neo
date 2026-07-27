@@ -29,6 +29,8 @@ import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
+import {createTenantRepoMaterializationDigest}
+    from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {
     LIFECYCLE_GUARD_SUFFIX,
     acquireHeavyMaintenanceLease,
@@ -87,7 +89,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         };
     }
 
-    function makeFakeEnvelopeBuilder({captureCalls = []} = {}) {
+    function makeFakeEnvelopeBuilder({captureCalls = [], includeManifest = false} = {}) {
         return async function buildIngestEnvelope(args) {
             captureCalls.push({op: 'buildIngestEnvelope', args});
             return {
@@ -96,21 +98,32 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 files       : [{sourcePath: 'fake.txt', repoSlug: args.repoSlug, content: 'x'}],
                 deleted     : [],
                 headRevision: `sha-head-${args.repoSlug}`,
+                ...(includeManifest ? {
+                    manifestSnapshot: {
+                        repoSlug      : args.repoSlug,
+                        pathsAfterPush: ['fake.txt']
+                    }
+                } : {}),
                 ...(args.lastIngestedRev ? {baseRevision: args.lastIngestedRev} : {})
             };
         };
     }
 
     function makeFakeIngestionService({captureCalls = [], summaryFactory} = {}) {
+        const materializationReceipts = new Map();
+
         return {
+            async getTenantManifest({tenantId, repoSlug}) {
+                return {
+                    tenantId,
+                    repoSlug,
+                    materializationReceipt: materializationReceipts.get(`${tenantId}/${repoSlug}`) || null
+                }
+            },
             async ingestSourceFiles(payload) {
                 captureCalls.push({op: 'ingestSourceFiles', payload});
 
-                if (summaryFactory) {
-                    return summaryFactory(payload)
-                }
-
-                return {
+                const summary = summaryFactory ? await summaryFactory(payload) : {
                     ingested           : payload.files?.length || 0,
                     deleted            : payload.deleted?.length || 0,
                     embeddingsGenerated: 0,
@@ -118,6 +131,38 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                     tenantId           : payload.tenantId,
                     durationMs         : 1
                 };
+
+                if (payload.manifestSnapshot) {
+                    const
+                        key            = `${payload.tenantId}/${payload.repoSlug}`,
+                        envelopeDigest = createTenantRepoMaterializationDigest(payload),
+                        existing       = materializationReceipts.get(key),
+                        hasEffect      = Array.isArray(summary.errors)
+                            && summary.errors.length === 0
+                            && [summary.ingested, summary.deleted]
+                                .some(value => Number.isSafeInteger(value) && value > 0);
+
+                    if (payload.materializationAttempt && hasEffect) {
+                        const receipt = {
+                            ...payload.materializationAttempt,
+                            envelopeDigest,
+                            recordedAt: Date.now()
+                        };
+
+                        materializationReceipts.set(key, receipt);
+                        summary.materializationReceipt = receipt;
+                    } else if (
+                        payload.materializationAttempt
+                        && existing?.ingestContractVersion === payload.materializationAttempt.ingestContractVersion
+                        && existing.envelopeDigest === envelopeDigest
+                    ) {
+                        summary.materializationReceipt = existing;
+                    } else if (!payload.materializationAttempt) {
+                        materializationReceipts.delete(key);
+                    }
+                }
+
+                return summary
             }
         };
     }
@@ -227,11 +272,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             filePath : revisionsFile,
             revisions: {
                 'tenant-a/private/repo': {
-                    lastIngestedRev                   : 'abcdef1234567890',
-                    lastRunAttemptAt                  : Date.now(),
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'abcdef1234567890',
+                    lastRunAttemptAt                     : Date.now(),
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'f'.repeat(32)
                 }
             }
         });
@@ -516,16 +562,17 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/seeded'});
 
         // Seed the revisions file with a checkpoint proved by the current
-        // error-free ingestion contract.
+        // ingestion commit contract.
         await fs.ensureDir(path.dirname(revisionsFile));
         await fs.writeJson(revisionsFile, {
             revisions: {
                 't1/org/seeded': {
-                    lastIngestedRev                   : 'sha-prior-run',
-                    lastRunAttemptAt                  : 0,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'sha-prior-run',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'f'.repeat(32)
                 }
             }
         });
@@ -572,6 +619,391 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(result.status).toBe('completed');
         expect(capturedLastIngestedRev).toBe('sha-prior-run');
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/org/seeded']).toMatchObject({
+            lastIngestedRev                   : 'sha-new-head',
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        });
+    });
+
+    for (const scenario of [
+        {
+            label        : 'bootstrap',
+            fullReplay   : false,
+            priorState   : null,
+            expectedBase : null,
+            manifestPaths: []
+        },
+        {
+            label     : 'non-linear fallback',
+            fullReplay: false,
+            priorState: {
+                lastIngestedRev                      : 'sha-nonlinear-good',
+                lastRunAttemptAt                     : 0,
+                consecutiveFailures                  : 0,
+                ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastCommittedMaterializationAttemptId: 'a'.repeat(32)
+            },
+            expectedBase : 'sha-nonlinear-good',
+            manifestPaths: ['README.md']
+        },
+        {
+            label     : 'manual full replay',
+            fullReplay: true,
+            priorState: {
+                lastIngestedRev                      : 'sha-full-good',
+                lastRunAttemptAt                     : 0,
+                consecutiveFailures                  : 0,
+                ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastCommittedMaterializationAttemptId: 'b'.repeat(32)
+            },
+            expectedBase : null,
+            manifestPaths: ['README.md']
+        },
+        {
+            label     : 'legacy revalidation',
+            fullReplay: false,
+            priorState: {
+                lastIngestedRev    : 'sha-legacy-good',
+                lastRunAttemptAt   : 0,
+                consecutiveFailures: 0
+            },
+            expectedBase : null,
+            manifestPaths: ['README.md']
+        },
+        {
+            label     : 'v1 checkpoint migration',
+            fullReplay: false,
+            priorState: {
+                lastIngestedRev                   : 'sha-v1-good',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : 1,
+                lastAttemptedIngestContractVersion: 1
+            },
+            expectedBase : null,
+            manifestPaths: ['README.md']
+        },
+        {
+            label     : 'v2 checkpoint without receipt acknowledgement',
+            fullReplay: false,
+            priorState: {
+                lastIngestedRev                   : 'sha-v2-unproved',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            },
+            expectedBase : null,
+            manifestPaths: ['README.md']
+        }
+    ]) {
+        test(`${scenario.label} fails closed when full materialization has zero effect (#16045)`, async () => {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                repoSlug         = `org/${scenario.label.replaceAll(' ', '-')}`,
+                envelopeCalls    = [],
+                healthCalls      = [];
+
+            if (scenario.priorState) {
+                await fs.writeJson(revisionsFile, {
+                    revisions: {
+                        [`t1/${repoSlug}`]: scenario.priorState
+                    }
+                });
+            }
+
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+            const result = await TenantRepoSyncService.runTask({
+                reason           : 'manual',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/private.git'
+                }]},
+                gitMirror      : makeFakeGitMirror(),
+                envelopeBuilder: async args => {
+                    envelopeCalls.push(args);
+
+                    return {
+                        tenantId: args.tenantId,
+                        repoSlug: args.repoSlug,
+                        files   : scenario.manifestPaths.map(sourcePath => ({
+                            sourcePath,
+                            repoSlug: args.repoSlug,
+                            content : 'source exists but parser materialized nothing'
+                        })),
+                        headRevision    : `sha-empty-${scenario.label}`,
+                        manifestSnapshot: {
+                            repoSlug      : args.repoSlug,
+                            pathsAfterPush: scenario.manifestPaths
+                        }
+                    };
+                },
+                knowledgeBaseIngestionService: makeFakeIngestionService({
+                    summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
+                }),
+                healthService: {
+                    recordTaskOutcome(...args) {
+                        healthCalls.push(args)
+                    }
+                },
+                onlyRepoSlugs    : [repoSlug],
+                fullReplay       : scenario.fullReplay,
+                revisionsFilePath: revisionsFile,
+                seedBootstrap    : false
+            });
+
+            expect(result.status).toBe('failed');
+            expect(result.details.completedCount).toBe(0);
+            expect(result.details.failedCount).toBe(1);
+            expect(result.details.repos[0]).toMatchObject({
+                status             : 'degraded',
+                lastErrorCode      : 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION',
+                consecutiveFailures: 1
+            });
+            expect(envelopeCalls).toHaveLength(1);
+            expect(envelopeCalls[0].lastIngestedRev).toBe(scenario.expectedBase);
+            expect(JSON.stringify(result)).not.toContain('example.invalid');
+            expect(healthCalls.some(([, outcome, details]) =>
+                outcome === 'failed'
+                && details.code === 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION'
+            )).toBe(true);
+
+            const persisted = await fs.readJson(revisionsFile);
+            expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
+                lastIngestedRev                   : scenario.priorState?.lastIngestedRev || null,
+                consecutiveFailures               : 1,
+                ingestContractVersion             : scenario.priorState?.ingestContractVersion ?? null,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            });
+        });
+    }
+
+    test('zero-effect full materialization cannot echo the current attempt as durable proof (#16045)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/echoed-current-receipt';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/echoed.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [{sourcePath: 'README.md', repoSlug: args.repoSlug, content: 'source'}],
+                headRevision    : 'sha-echoed-receipt',
+                manifestSnapshot: {
+                    repoSlug      : args.repoSlug,
+                    pathsAfterPush: ['README.md']
+                }
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory(payload) {
+                    return {
+                        ingested              : 0,
+                        deleted               : 0,
+                        errors                : [],
+                        materializationReceipt: {
+                            ...payload.materializationAttempt,
+                            envelopeDigest: createTenantRepoMaterializationDigest(payload),
+                            recordedAt    : Date.now()
+                        }
+                    }
+                }
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            revisionsFilePath: revisionsFile,
+            seedBootstrap    : false
+        });
+
+        expect(result).toMatchObject({
+            status : 'failed',
+            details: {
+                completedCount: 0,
+                failedCount   : 1,
+                repos         : [{
+                    lastErrorCode: 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION'
+                }]
+            }
+        });
+    });
+
+    test('full delete-only reconciliation remains a successful checkpoint effect (#16045)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/delete-only-full';
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : 'sha-before-delete',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                }
+            }
+        });
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/delete-only.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [],
+                headRevision    : 'sha-after-delete',
+                manifestSnapshot: {
+                    repoSlug      : args.repoSlug,
+                    pathsAfterPush: []
+                }
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 0, deleted: 1, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+        expect(result.details.repos[0]).toMatchObject({
+            status              : 'active',
+            lastIngestedRev     : 'sha-afte',
+            checkpointStatus    : 'complete',
+            lastSyncDeletedCount: 1
+        });
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${repoSlug}`].lastIngestedRev).toBe('sha-after-delete');
+    });
+
+    test('delete-only full replay settles an unacknowledged receipt after checkpoint-write failure exactly once (#16045)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/delete-only-retry',
+            ingestCalls      = [];
+        let ingestAttempt = 0;
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                      : 'sha-before-delete',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'e'.repeat(32)
+                }
+            }
+        });
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const options = {
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/delete-only-retry.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [],
+                headRevision    : 'sha-after-delete',
+                manifestSnapshot: {
+                    repoSlug      : args.repoSlug,
+                    pathsAfterPush: []
+                }
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                captureCalls: ingestCalls,
+                summaryFactory() {
+                    ingestAttempt++;
+                    return {
+                        ingested: 0,
+                        deleted : ingestAttempt === 1 ? 1 : 0,
+                        errors  : []
+                    };
+                }
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile,
+            seedBootstrap    : false
+        };
+
+        const originalWritePersistedRevisions = TenantRepoSyncService.writePersistedRevisions;
+        TenantRepoSyncService.writePersistedRevisions = async () => {
+            const error = new Error('injected post-ingest checkpoint failure');
+            error.code  = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
+            throw error;
+        };
+
+        let interrupted;
+        try {
+            interrupted = await TenantRepoSyncService.runTask(options);
+        } finally {
+            TenantRepoSyncService.writePersistedRevisions = originalWritePersistedRevisions;
+        }
+
+        expect(interrupted).toMatchObject({
+            status : 'failed',
+            details: {reasonCode: 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'}
+        });
+        expect((await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`]).toMatchObject({
+            lastIngestedRev                      : 'sha-before-delete',
+            lastCommittedMaterializationAttemptId: 'e'.repeat(32)
+        });
+
+        const recovered = await TenantRepoSyncService.runTask(options);
+
+        expect(recovered).toMatchObject({
+            status : 'completed',
+            details: {completedCount: 1, failedCount: 0}
+        });
+        expect(ingestCalls).toHaveLength(1);
+        expect(ingestAttempt).toBe(1);
+
+        const recoveredState = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+        expect(recoveredState).toMatchObject({
+            lastIngestedRev                      : 'sha-after-delete',
+            lastCommittedMaterializationAttemptId: ingestCalls[0].payload.materializationAttempt.attemptId
+        });
+
+        const staleReceiptReplay = await TenantRepoSyncService.runTask(options);
+
+        expect(staleReceiptReplay).toMatchObject({
+            status : 'failed',
+            details: {
+                completedCount: 0,
+                failedCount   : 1,
+                repos         : [{
+                    lastErrorCode: 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION'
+                }]
+            }
+        });
+        expect(ingestCalls).toHaveLength(2);
+        expect(ingestCalls[1].payload.materializationAttempt.attemptId)
+            .not.toBe(ingestCalls[0].payload.materializationAttempt.attemptId);
     });
 
     test('error-bearing ingestion summary fails closed and the next run reuses the last good revision (#15748)', async () => {
@@ -585,11 +1017,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${repoSlug}`]: {
-                    lastIngestedRev                   : 'sha-good',
-                    lastRunAttemptAt                  : 0,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'sha-good',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'c'.repeat(32)
                 }
             }
         });
@@ -803,11 +1236,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             envelopeBuilder: async args => {
                 envelopeCalls.push(args);
                 return {
-                    tenantId    : args.tenantId,
-                    repoSlug    : args.repoSlug,
-                    files       : [{sourcePath: 'fake.txt', repoSlug: args.repoSlug, content: 'x'}],
-                    deleted     : [],
-                    headRevision: envelopeCalls.length === 1 ? 'sha-replay-failed' : 'sha-replay-clean'
+                    tenantId        : args.tenantId,
+                    repoSlug        : args.repoSlug,
+                    files           : [{sourcePath: 'fake.txt', repoSlug: args.repoSlug, content: 'x'}],
+                    deleted         : [],
+                    headRevision    : envelopeCalls.length === 1 ? 'sha-replay-failed' : 'sha-replay-clean',
+                    manifestSnapshot: {
+                        repoSlug      : args.repoSlug,
+                        pathsAfterPush: ['fake.txt']
+                    }
                 }
             },
             knowledgeBaseIngestionService: makeFakeIngestionService({
@@ -943,11 +1380,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 't1/org/legacy-b': {lastIngestedRev: 'sha-b', lastRunAttemptAt: 0, consecutiveFailures: 0},
                 't1/org/legacy-c': {lastIngestedRev: 'sha-c', lastRunAttemptAt: 0, consecutiveFailures: 0},
                 't1/org/current' : {
-                    lastIngestedRev                   : 'sha-current',
-                    lastRunAttemptAt                  : 0,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'sha-current',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'd'.repeat(32)
                 }
             }
         });
@@ -958,8 +1396,23 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             tenantReposConfig: {tenantRepos: [...legacySlugs, currentSlug].map(repoSlug => ({
                 tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug}.git`
             }))},
-            gitMirror                    : makeFakeGitMirror(),
-            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => {
+                envelopeCalls.push({op: 'buildIngestEnvelope', args});
+
+                return {
+                    tenantId        : args.tenantId,
+                    repoSlug        : args.repoSlug,
+                    files           : [{sourcePath: 'fake.txt', repoSlug: args.repoSlug, content: 'x'}],
+                    deleted         : [],
+                    headRevision    : `sha-head-${args.repoSlug}`,
+                    manifestSnapshot: {
+                        repoSlug      : args.repoSlug,
+                        pathsAfterPush: ['fake.txt']
+                    },
+                    ...(args.lastIngestedRev ? {baseRevision: args.lastIngestedRev} : {})
+                };
+            },
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
             globalCadenceMs              : 0,
@@ -1016,11 +1469,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${currentSlug}`]: {
-                    lastIngestedRev                   : 'sha-current',
-                    lastRunAttemptAt                  : 0,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'sha-current',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'e'.repeat(32)
                 },
                 [`t1/${legacySlug}`]: {
                     lastIngestedRev    : 'sha-legacy',
@@ -1058,8 +1512,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 {tenantId: 't1', repoSlug: currentSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/current.git'},
                 {tenantId: 't1', repoSlug: legacySlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy.git'}
             ]},
-            gitMirror                    : slowCurrentMirror,
-            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            gitMirror      : slowCurrentMirror,
+            envelopeBuilder: makeFakeEnvelopeBuilder({
+                captureCalls   : envelopeCalls,
+                includeManifest: true
+            }),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
             globalCadenceMs              : 0,
@@ -1102,11 +1559,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         await fs.writeJson(revisionsFile, {
             revisions: {
                 [`t1/${currentSlug}`]: {
-                    lastIngestedRev                   : 'sha-current',
-                    lastRunAttemptAt                  : 0,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : 'sha-current',
+                    lastRunAttemptAt                     : 0,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: 'f'.repeat(32)
                 },
                 [`t1/${legacySlug}`]: {
                     lastIngestedRev    : 'sha-legacy',
@@ -1141,8 +1599,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 {tenantId: 't1', repoSlug: currentSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/current.git'},
                 {tenantId: 't1', repoSlug: legacySlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy.git'}
             ]},
-            gitMirror                    : slowLegacyMirror,
-            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            gitMirror      : slowLegacyMirror,
+            envelopeBuilder: makeFakeEnvelopeBuilder({
+                captureCalls   : envelopeCalls,
+                includeManifest: true
+            }),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
             revisionsFilePath            : revisionsFile,
             globalCadenceMs              : 0,
@@ -1169,7 +1630,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         {label: 'string success marker',     marker: {ingestContractVersion: '2'}},
         {label: 'fractional success marker', marker: {ingestContractVersion: 1.5}},
         {label: 'negative attempt marker',   marker: {lastAttemptedIngestContractVersion: -1}},
-        {label: 'zero attempt marker',       marker: {lastAttemptedIngestContractVersion: 0}}
+        {label: 'zero attempt marker',       marker: {lastAttemptedIngestContractVersion: 0}},
+        {label: 'malformed receipt ack',     marker: {lastCommittedMaterializationAttemptId: 'not-an-attempt'}}
     ]) {
         test(`malformed ${label} fails closed without authorizing legacy replay (#15761)`, async () => {
             const
@@ -1747,11 +2209,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // Persistence reflects the failure increment for next cycle's backoff calculation.
         const persisted = await fs.readJson(revisionsFile);
         expect(persisted.revisions['t1/neomjs/failing-repo']).toEqual({
-            lastIngestedRev                   : null,
-            lastRunAttemptAt                  : expect.any(Number),
-            consecutiveFailures               : 1,
-            ingestContractVersion             : null,
-            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            lastIngestedRev                      : null,
+            lastRunAttemptAt                     : expect.any(Number),
+            consecutiveFailures                  : 1,
+            ingestContractVersion                : null,
+            lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastCommittedMaterializationAttemptId: null
         });
     });
 
@@ -1820,7 +2283,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             revisionsFilePath            : revisionsFile
         });
 
-        // A bare SHA has no error-free success proof. The upgrade therefore performs
+        // A bare SHA has no current success proof. The upgrade therefore performs
         // one harmless null-base replay before persisting the current contract marker.
         expect(result.status).toBe('completed');
         expect(envelopeCalls[0].args.lastIngestedRev).toBeNull();
