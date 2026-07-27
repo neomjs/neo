@@ -51,18 +51,45 @@ const ROOT        = path.resolve(import.meta.dirname, '../../..'),
        */
       DETERMINERS = new Set(['a', 'an', 'the', 'this', 'that', 'these', 'those', 'our', 'its',
                              'their', 'his', 'her', 'any', 'each', 'every', 'no', 'some', 'one']),
+      /**
+       * The qualifier that makes a `framework` token legal must name something OTHER than Neo.
+       * Without this, the carve-out exempted the exact phrase the guard exists to catch: `Neo` is
+       * capitalized and is not a determiner, so `Neo framework` and `Neo.mjs framework` read as
+       * "external product name + framework" and passed. A guard whose escape hatch admits its own
+       * subject is worse than no guard, because it certifies the thing it was built to stop.
+       */
+      NEO_TOKENS  = new Set(['neo', 'neo.mjs', 'neomjs']),
       EXTERNAL    = /\b([A-Z][A-Za-z0-9.+-]*)\s+frameworks?\b/,
       TOKEN       = /\bframeworks?\b/i;
 
 /**
  * @summary Whether the line's `framework` token names a specific external framework.
+ *
+ * Legal requires all three: a capitalized qualifier, not a determiner, and not Neo itself.
  * @param {String} text Source line.
  * @returns {Boolean}
  */
-function namesExternalFramework(text) {
+export function namesExternalFramework(text) {
     const match = EXTERNAL.exec(text);
 
-    return Boolean(match) && !DETERMINERS.has(match[1].toLowerCase());
+    if (!match) return false;
+
+    const qualifier = match[1].toLowerCase();
+
+    return !DETERMINERS.has(qualifier) && !NEO_TOKENS.has(qualifier);
+}
+
+/**
+ * @summary Whether one line states a framework-category claim about Neo.
+ *
+ * Exported so the carve-out matrix is pinned in CI rather than living only in the reviewer's head:
+ * this predicate is the entire policy, and its first two drafts each had a hole that a clean-tree
+ * run could not reveal.
+ * @param {String} text Source line.
+ * @returns {Boolean}
+ */
+export function claimsNeoIsAFramework(text) {
+    return TOKEN.test(text) && !namesExternalFramework(text);
 }
 
 /**
@@ -86,7 +113,7 @@ function collectSurfaces() {
 function findViolations(file) {
     return fs.readFileSync(file, 'utf8').split('\n')
         .map((text, index) => ({text, line: index + 1}))
-        .filter(({text}) => TOKEN.test(text) && !namesExternalFramework(text))
+        .filter(({text}) => claimsNeoIsAFramework(text))
         .map(({text, line}) => ({file: path.relative(ROOT, file), line, text: text.trim()}));
 }
 
