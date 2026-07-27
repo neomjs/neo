@@ -637,10 +637,17 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(() => FleetLifecycleService.start('a')).toThrow(/prototype-mutating key/);
     });
 
-    test('every FM spawn binds the child to its fleet identity via NEO_AGENT_IDENTITY', () => {
-        const spawn = install({agents: {a: agentDef('a')}, creds: {}});
-        FleetLifecycleService.start('a');
-        expect(spawn.calls[0].opts.env.NEO_AGENT_IDENTITY).toBe('a');
+    test('every FM spawn binds NEO_AGENT_IDENTITY to githubUsername, never the per-instance fleet id', () => {
+        const spawn = install({
+            agents: {
+                'codex-2': agentDef('codex-2', {githubUsername: 'neo-gpt'})
+            },
+            creds: {}
+        });
+
+        FleetLifecycleService.start('codex-2');
+
+        expect(spawn.calls[0].opts.env.NEO_AGENT_IDENTITY).toBe('neo-gpt');
     });
 
     test('the stdio topology holds stdin open as a pipe — the liveness contract for CLI harnesses', () => {

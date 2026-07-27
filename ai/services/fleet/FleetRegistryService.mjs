@@ -17,6 +17,95 @@ const
     PUBLIC_SENSITIVE_KEY_RE = /^(?:credentials?|secrets?|tokens?|(?:github)?pats?|passwords?|authorization|(?:api|client|private)(?:key|token|secret|credential|password)s?|personalaccess(?:key|token|secret|credential|password)s?|(?:access|auth|bearer|github|id|oauth|refresh|session)(?:key|token|secret|credential|password)s?|launch|command|args|argv|env|environment)$/;
 
 /**
+ * @summary Resolve the one AES-256 key shared by Fleet's repository-credential and remote-plane
+ * credential stores. The canonical on-disk encoding is 32 raw bytes. The earlier tenant store wrote
+ * the same logical key as 64 ASCII hex bytes; that legacy form is decoded and atomically migrated
+ * in place so existing ciphertext remains decryptable. Any other existing shape fails loud and is
+ * never overwritten.
+ *
+ * Creation is race-safe: `wx` elects one writer, and losers read + validate the winner. Migration
+ * uses a `0600` temporary sibling followed by atomic rename; concurrent legacy migrations publish
+ * the same decoded key.
+ *
+ * @param {Object} options
+ * @param {String} options.dataDir Absolute Fleet data directory.
+ * @param {Object} [options.env=process.env] Environment authority.
+ * @param {String} [options.serviceName='Fleet credential store'] Error-message owner.
+ * @returns {Buffer} Exactly 32 key bytes.
+ */
+export function resolveFleetCredentialKey({
+    dataDir,
+    env         = process.env,
+    serviceName = 'Fleet credential store'
+} = {}) {
+    const envKey = env.NEO_FLEET_SECRET_KEY;
+
+    if (envKey) {
+        const key = Buffer.from(envKey, /^[0-9a-fA-F]{64}$/.test(envKey) ? 'hex' : 'base64');
+
+        if (key.length !== 32) {
+            throw new Error(`${serviceName}: NEO_FLEET_SECRET_KEY must decode to 32 bytes (AES-256).`)
+        }
+
+        return key
+    }
+
+    if (typeof dataDir !== 'string' || !path.isAbsolute(dataDir)) {
+        throw new Error(`${serviceName}: dataDir must be an absolute path.`)
+    }
+
+    const
+        keyFile         = path.join(dataDir, 'fleet.key'),
+        readExistingKey = () => {
+            const raw = fs.readFileSync(keyFile);
+
+            if (raw.length === 32) return raw;
+
+            const legacyHex = raw.toString('ascii');
+
+            if (raw.length === 64 && /^[0-9a-fA-F]{64}$/.test(legacyHex)) {
+                const
+                    key      = Buffer.from(legacyHex, 'hex'),
+                    tempFile = `${keyFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+
+                try {
+                    fs.writeFileSync(tempFile, key, {flag: 'wx', mode: 0o600});
+                    fs.renameSync(tempFile, keyFile)
+                } finally {
+                    try {
+                        fs.unlinkSync(tempFile)
+                    } catch {}
+                }
+
+                return key
+            }
+
+            throw new Error(
+                `${serviceName}: fleet.key must contain exactly 32 raw bytes or legacy 64-character hex.`
+            )
+        };
+
+    try {
+        return readExistingKey()
+    } catch (error) {
+        if (error?.code !== 'ENOENT') throw error
+    }
+
+    fs.mkdirSync(dataDir, {recursive: true});
+
+    const key = crypto.randomBytes(32);
+
+    try {
+        fs.writeFileSync(keyFile, key, {flag: 'wx', mode: 0o600});
+        return key
+    } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+
+        return readExistingKey()
+    }
+}
+
+/**
  * @summary Returns whether a normalized public-definition key carries credential or launch
  * authority. Anchoring is deliberate: `refreshToken` and `client_secret` are denied, while benign
  * descriptive fields such as `credentialState`, `tokenBudget`, and `commandLabel` survive.
@@ -753,20 +842,10 @@ class FleetRegistryService extends Base {
      * @private
      */
     getKey() {
-        const envKey = process.env.NEO_FLEET_SECRET_KEY;
-        if (envKey) {
-            const buf = Buffer.from(envKey, /^[0-9a-fA-F]{64}$/.test(envKey) ? 'hex' : 'base64');
-            if (buf.length !== 32) {
-                throw new Error('FleetRegistryService: NEO_FLEET_SECRET_KEY must decode to 32 bytes (AES-256).');
-            }
-            return buf;
-        }
-        const file = this.keyPath();
-        if (fs.existsSync(file)) return fs.readFileSync(file);
-        this.ensureDataDir();
-        const key = crypto.randomBytes(32);
-        fs.writeFileSync(file, key, {mode: 0o600});
-        return key;
+        return resolveFleetCredentialKey({
+            dataDir    : this.getDataDir(),
+            serviceName: 'FleetRegistryService'
+        })
     }
 
     /**

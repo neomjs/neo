@@ -284,6 +284,33 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
         }])
     });
 
+    test('remote readiness binds the provider AgentIdentity, not the per-instance fleet id', async () => {
+        const agents = remoteRepoAgent('codex-2');
+
+        agents['codex-2'].githubUsername = 'neo-gpt';
+
+        const
+            lifecycle        = makeLifecycle({agents}),
+            tenantService    = makeTenantService(),
+            ensureRepo       = makeEnsureRepo('/managed/codex-2/neomjs-neo'),
+            prepareWorkspace = makePrepareWorkspace();
+
+        await startAgentProvisioned({
+            lifecycleService: lifecycle,
+            tenantService,
+            agentId         : 'codex-2',
+            managedRoot     : '/managed',
+            ensureRepo,
+            prepareWorkspace
+        });
+
+        expect(tenantService.calls.probe).toEqual([{
+            tenantId        : 'tenant-a',
+            credential      : 'glpat_exact_plane_credential',
+            expectedIdentity: '@neo-gpt'
+        }])
+    });
+
     test('a remote seat may use a public repository without substituting its plane bearer as GH_TOKEN', async () => {
         const
             agents           = remoteRepoAgent('a'),

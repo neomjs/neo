@@ -2,7 +2,12 @@ import crypto          from 'node:crypto';
 import fs              from 'node:fs';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
-import Base            from '../../../src/core/Base.mjs';
+import {
+    InitializeResultSchema,
+    SUPPORTED_PROTOCOL_VERSIONS
+} from '@modelcontextprotocol/sdk/types.js';
+import Base                        from '../../../src/core/Base.mjs';
+import {resolveFleetCredentialKey} from './FleetRegistryService.mjs';
 
 /**
  * Hosts for which plain `http:` is accepted. Deliberately an exact set rather than a range or a
@@ -170,18 +175,29 @@ class FleetTenantService extends Base {
             connectedAt    : new Date().toISOString()
         };
 
+        // Mutation preflight is tri-state: absent stores are empty; existing unreadable or non-record
+        // stores ABORT before either side changes. Treating corruption as `{}` here would turn a
+        // connect into destructive recovery authority and silently erase older tenant state.
+        let previousCredentials, previousDescriptors;
+
+        try {
+            previousCredentials = this.readCredentialsForMutation();
+            previousDescriptors = this.readDescriptorsForMutation()
+        } catch {
+            return {status: 'rejected', reason: 'tenant connection could not be persisted'}
+        }
+
         // Two-store connect transaction, mirroring `FleetRegistryService.defineAgent`: credential
         // FIRST, public descriptor LAST. The descriptor is the surface that claims `connected`, so
         // publishing it before the credential it depends on is what strands a tenant that reads as
         // live and cannot authenticate. Reversed, the worst case is an encrypted credential with no
         // descriptor — invisible, harmless, and overwritten by the next connect.
-        const previousCredentials = this.readCredentials();
         let   credentialPublished = false;
 
         try {
-            this.writeCredential(descriptor.id, credential);
+            this.writeCredential(descriptor.id, credential, previousCredentials);
             credentialPublished = true;
-            this.writeDescriptor(descriptor)
+            this.writeDescriptor(descriptor, previousDescriptors)
         } catch (error) {
             // The credential write is atomic, so a failure before it returns leaves the old snapshot
             // untouched and needs no compensating write. A descriptor failure happens after the new
@@ -204,7 +220,13 @@ class FleetTenantService extends Base {
      * @returns {Object[]}
      */
     listTenants() {
-        return Object.values(this.readDescriptors()).map(descriptor => ({...descriptor}));
+        return Object.values(this.readDescriptors()).map(descriptor => ({
+            id             : descriptor.id,
+            endpoint       : descriptor.endpoint,
+            status         : descriptor.status,
+            deploymentClass: descriptor.deploymentClass,
+            connectedAt    : descriptor.connectedAt
+        }))
     }
 
     /**
@@ -379,19 +401,47 @@ class FleetTenantService extends Base {
      */
     readDescriptors() {
         try {
-            return JSON.parse(fs.readFileSync(path.join(this.getDataDir(), 'tenants.json'), 'utf8'));
+            return this.readDescriptorsForMutation()
         } catch {
             return {};
         }
     }
 
     /**
-     * @summary Upserts one public descriptor, published atomically; `0600` like every fleet store file.
-     * @param {Object} descriptor
+     * @summary Strict mutation snapshot for `tenants.json`: missing is an empty record; an existing
+     * unreadable, null, scalar, or array payload throws so a connect cannot overwrite it.
+     * @returns {Object} Null-prototype descriptor record.
      * @protected
      */
-    writeDescriptor(descriptor) {
-        const map = this.readDescriptors();
+    readDescriptorsForMutation() {
+        const file = path.join(this.getDataDir(), 'tenants.json');
+        let   source;
+
+        try {
+            source = fs.readFileSync(file, 'utf8')
+        } catch (error) {
+            if (error?.code === 'ENOENT') return Object.create(null);
+
+            throw error
+        }
+
+        const parsed = JSON.parse(source);
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new TypeError('FleetTenantService: tenants.json must contain a descriptor record.')
+        }
+
+        return Object.assign(Object.create(null), parsed)
+    }
+
+    /**
+     * @summary Upserts one public descriptor, published atomically; `0600` like every fleet store file.
+     * @param {Object} descriptor
+     * @param {Object} [snapshot] Strict preflight snapshot.
+     * @protected
+     */
+    writeDescriptor(descriptor, snapshot=this.readDescriptorsForMutation()) {
+        const map = Object.assign(Object.create(null), snapshot);
 
         map[descriptor.id] = descriptor;
 
@@ -437,22 +487,48 @@ class FleetTenantService extends Base {
      */
     readCredentials() {
         try {
-            const raw = fs.readFileSync(path.join(this.getDataDir(), 'tenant-credentials.enc'));
-
-            return JSON.parse(this.decrypt(raw));
+            return this.readCredentialsForMutation()
         } catch {
             return {};
         }
     }
 
     /**
+     * @summary Strict mutation snapshot for the encrypted credential record. Missing is empty;
+     * existing unreadable/wrong-key/non-record ciphertext throws and must remain byte-identical.
+     * @returns {Object} Null-prototype credential record.
+     * @protected
+     */
+    readCredentialsForMutation() {
+        const file = path.join(this.getDataDir(), 'tenant-credentials.enc');
+        let   raw;
+
+        try {
+            raw = fs.readFileSync(file)
+        } catch (error) {
+            if (error?.code === 'ENOENT') return Object.create(null);
+
+            throw error
+        }
+
+        const parsed = JSON.parse(this.decrypt(raw));
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new TypeError('FleetTenantService: tenant-credentials.enc must contain a credential record.')
+        }
+
+        return Object.assign(Object.create(null), parsed)
+    }
+
+    /**
      * @summary Upserts one encrypted credential; the map is re-encrypted whole (AES-256-GCM, `0600`).
      * @param {String} tenantId
      * @param {String} credential
+     * @param {Object} [snapshot] Strict preflight snapshot.
      * @protected
      */
-    writeCredential(tenantId, credential) {
-        const map = this.readCredentials();
+    writeCredential(tenantId, credential, snapshot=this.readCredentialsForMutation()) {
+        const map = Object.assign(Object.create(null), snapshot);
 
         map[tenantId] = credential;
 
@@ -514,34 +590,10 @@ class FleetTenantService extends Base {
      * @protected
      */
     getKey() {
-        const envKey = process.env.NEO_FLEET_SECRET_KEY;
-
-        if (envKey) {
-            const buffer = /^[0-9a-f]{64}$/i.test(envKey) ? Buffer.from(envKey, 'hex') : Buffer.from(envKey, 'base64');
-
-            if (buffer.length !== 32) {
-                throw new Error('FleetTenantService: NEO_FLEET_SECRET_KEY must decode to 32 bytes (AES-256).');
-            }
-
-            return buffer;
-        }
-
-        const keyFile = path.join(this.getDataDir(), 'fleet.key');
-
-        try {
-            const key = Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex');
-
-            if (key.length === 32) return key;
-        } catch {
-            // fall through to generation
-        }
-
-        const key = crypto.randomBytes(32);
-
-        fs.mkdirSync(this.getDataDir(), {recursive: true});
-        fs.writeFileSync(keyFile, key.toString('hex'), {encoding: 'utf8', mode: 0o600});
-
-        return key;
+        return resolveFleetCredentialKey({
+            dataDir    : this.getDataDir(),
+            serviceName: 'FleetTenantService'
+        })
     }
 }
 
@@ -618,18 +670,19 @@ function readMcpToolPayload(envelope) {
  * @param {String} options.url
  * @param {String} options.credential
  * @param {String} options.sessionId
+ * @param {String} options.protocolVersion Negotiated initialize response version.
  * @param {String} options.expectedIdentity
  * @returns {Promise<Object>} Bounded `{ok,status,identity}`.
  * @private
  */
-async function probeMcpIdentity({url, credential, sessionId, expectedIdentity}) {
+async function probeMcpIdentity({url, credential, sessionId, protocolVersion, expectedIdentity}) {
     const response = await fetch(url, {
         method : 'POST',
         headers: {
             Accept                : 'application/json, text/event-stream',
             Authorization         : `Bearer ${credential}`,
             'Content-Type'        : 'application/json',
-            'mcp-protocol-version': '2024-11-05',
+            'mcp-protocol-version': protocolVersion,
             'mcp-session-id'      : sessionId
         },
         body: JSON.stringify({
@@ -652,6 +705,42 @@ async function probeMcpIdentity({url, credential, sessionId, expectedIdentity}) 
 }
 
 /**
+ * @summary Complete the MCP initialize handshake with the negotiated version before any tool call.
+ * A server may accept `initialize` yet correctly reject calls until this notification arrives.
+ * @param {Object} options
+ * @param {String} options.url
+ * @param {String} options.credential
+ * @param {String|null} options.sessionId
+ * @param {String} options.protocolVersion Negotiated initialize response version.
+ * @returns {Promise<Object>} Bounded `{ok,status}`.
+ * @private
+ */
+async function notifyMcpInitialized({url, credential, sessionId, protocolVersion}) {
+    const headers = {
+        Accept                : 'application/json, text/event-stream',
+        Authorization         : `Bearer ${credential}`,
+        'Content-Type'        : 'application/json',
+        'mcp-protocol-version': protocolVersion
+    };
+
+    if (sessionId) headers['mcp-session-id'] = sessionId;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body  : JSON.stringify({
+            jsonrpc: '2.0',
+            method : 'notifications/initialized'
+        }),
+        signal: AbortSignal.timeout(10_000)
+    });
+
+    await response.text();
+
+    return {ok: response.ok, status: response.status}
+}
+
+/**
  * @summary Probe one MCP resource with the protocol's authenticated `initialize` request. A plain
  * health endpoint can stay green while auth or one plane is broken, so readiness is established at
  * the same route and protocol the generated seat will consume.
@@ -662,7 +751,8 @@ async function probeMcpIdentity({url, credential, sessionId, expectedIdentity}) 
  * @returns {Promise<Object>} `{ok,status,identity?}` with no remote prose.
  */
 async function initializeMcpResource({url, credential, expectedIdentity=null}) {
-    const headers = {
+    const requestedProtocolVersion = '2024-11-05';
+    const headers                  = {
         Accept        : 'application/json, text/event-stream',
         Authorization : `Bearer ${credential}`,
         'Content-Type': 'application/json'
@@ -675,7 +765,7 @@ async function initializeMcpResource({url, credential, expectedIdentity=null}) {
             id     : 1,
             method : 'initialize',
             params : {
-                protocolVersion: '2024-11-05',
+                protocolVersion: requestedProtocolVersion,
                 capabilities   : {},
                 clientInfo     : {name: 'neo-fleet-readiness', version: '1'}
             }
@@ -683,40 +773,68 @@ async function initializeMcpResource({url, credential, expectedIdentity=null}) {
         signal: AbortSignal.timeout(10_000)
     });
 
-    // Consume + validate the protocol envelope so a reverse-proxy HTML page or arbitrary JSON 200
-    // cannot masquerade as MCP readiness. The remote text never crosses into a public reason.
-    const
-        envelope    = parseMcpEnvelope(await response.text()),
-        initialized = response.ok &&
-                          envelope?.jsonrpc === '2.0' &&
-                          envelope?.result &&
-                          typeof envelope.result.protocolVersion === 'string',
-        initializeStatus = response.status;
+    const sessionId = response.headers.get('mcp-session-id');
+    let   protocolVersion;
 
-    const sessionId   = response.headers.get('mcp-session-id');
-    let   observation = {ok: initialized, status: initializeStatus};
+    try {
+        // Consume + validate the exact InitializeResult shape so a mismatched JSON-RPC response,
+        // reverse-proxy payload, or arbitrary canned result cannot masquerade as MCP readiness.
+        // The remote text never crosses into a public reason.
+        const
+            envelope     = parseMcpEnvelope(await response.text()),
+            parsedResult = InitializeResultSchema.safeParse(envelope?.result),
+            result       = parsedResult.success ? parsedResult.data : null;
 
-    if (observation.ok && expectedIdentity) {
-        observation = sessionId
-            ? await probeMcpIdentity({url, credential, sessionId, expectedIdentity})
-            : {ok: false, status: initializeStatus, identity: null}
-    }
+        protocolVersion = result?.protocolVersion;
 
-    if (sessionId) {
-        try {
-            const closeResponse = await fetch(url, {
-                method : 'DELETE',
-                headers: {...headers, 'mcp-session-id': sessionId},
-                signal : AbortSignal.timeout(2_000)
+        const initialized = response.ok &&
+            envelope?.jsonrpc === '2.0' &&
+            envelope?.id === 1 &&
+            result &&
+            SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion);
+
+        let observation = {ok: !!initialized, status: response.status};
+
+        if (observation.ok) {
+            const notification = await notifyMcpInitialized({
+                url,
+                credential,
+                sessionId,
+                protocolVersion
             });
 
-            await closeResponse.text()
-        } catch {
-            // Readiness was already established. Session cleanup is bounded best effort.
+            observation = {
+                ok    : notification.ok,
+                status: notification.ok ? response.status : notification.status
+            }
+        }
+
+        if (observation.ok && expectedIdentity) {
+            observation = sessionId
+                ? await probeMcpIdentity({url, credential, sessionId, protocolVersion, expectedIdentity})
+                : {ok: false, status: response.status, identity: null}
+        }
+
+        return observation
+    } finally {
+        if (sessionId) {
+            try {
+                const closeResponse = await fetch(url, {
+                    method : 'DELETE',
+                    headers: {
+                        ...headers,
+                        'mcp-protocol-version': protocolVersion || requestedProtocolVersion,
+                        'mcp-session-id'      : sessionId
+                    },
+                    signal : AbortSignal.timeout(2_000)
+                });
+
+                await closeResponse.text()
+            } catch {
+                // Readiness failed or was already established. Cleanup remains bounded best effort.
+            }
         }
     }
-
-    return observation
 }
 
 /**

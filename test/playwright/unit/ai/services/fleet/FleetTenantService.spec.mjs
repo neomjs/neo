@@ -14,6 +14,7 @@ setup({
 })
 
 import {test, expect} from '@playwright/test'
+import crypto         from 'node:crypto'
 import fs             from 'node:fs'
 import os             from 'node:os'
 import path           from 'node:path'
@@ -23,6 +24,7 @@ import * as core      from '../../../../../../src/core/_export.mjs'
 import FleetTenantService, {
     probeTenantEndpoint
 } from '../../../../../../ai/services/fleet/FleetTenantService.mjs'
+import FleetRegistryService   from '../../../../../../ai/services/fleet/FleetRegistryService.mjs'
 import FleetControlBridge     from '../../../../../../ai/services/fleet/FleetControlBridge.mjs'
 import {dispatchFleetRequest} from '../../../../../../ai/services/fleet/dispatchFleetRequest.mjs'
 import {FLEET_WIRE_METHODS}   from '../../../../../../src/ai/fleet/fleetWireMethods.mjs'
@@ -43,11 +45,13 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         sequence++
         tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `fleet-tenant-${sequence}-`))
         FleetTenantService.dataDir = tmpDir
+        FleetRegistryService.dataDir = tmpDir
     })
 
     test.afterEach(() => {
         FleetTenantService.dataDir = null
         FleetTenantService.probeFn = null
+        FleetRegistryService.dataDir = null
         fs.rmSync(tmpDir, {force: true, recursive: true})
     })
 
@@ -81,6 +85,126 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
 
         // The Brain-internal read (NOT wire-reachable) round-trips the credential for the transport.
         expect(FleetTenantService.getCredential(id)).toBe(PAT)
+    })
+
+    test('listTenants curates the public descriptor fields even when a legacy row carries secret-shaped extras', () => {
+        fs.writeFileSync(path.join(tmpDir, 'tenants.json'), JSON.stringify({
+            legacy: {
+                id             : 'legacy',
+                endpoint       : 'https://tenant.example.com',
+                status         : 'connected',
+                deploymentClass: 'cloud-tenant',
+                connectedAt    : '2026-07-27T00:00:00.000Z',
+                credential     : PAT,
+                token          : 'legacy-token',
+                arbitrary      : 'not-public'
+            }
+        }))
+
+        expect(FleetTenantService.listTenants()).toEqual([{
+            id             : 'legacy',
+            endpoint       : 'https://tenant.example.com',
+            status         : 'connected',
+            deploymentClass: 'cloud-tenant',
+            connectedAt    : '2026-07-27T00:00:00.000Z'
+        }])
+        expect(JSON.stringify(FleetTenantService.listTenants())).not.toContain(PAT)
+        expect(JSON.stringify(FleetTenantService.listTenants())).not.toContain('legacy-token')
+    })
+
+    test('registry-first and tenant-first stores share one raw key without invalidating either credential class', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        FleetRegistryService.defineAgent({
+            id            : 'registry-first',
+            githubUsername: 'neo-gpt',
+            harnessType   : 'codex',
+            credential    : 'ghp_registry_first'
+        })
+
+        const registryKey = fs.readFileSync(path.join(tmpDir, 'fleet.key'))
+        expect(registryKey).toHaveLength(32)
+
+        const firstTenant = await FleetTenantService.connectTenant({
+            tenantUrl : 'https://first.example.com',
+            credential: 'plane_first'
+        })
+
+        expect(fs.readFileSync(path.join(tmpDir, 'fleet.key'))).toEqual(registryKey)
+        expect(FleetRegistryService.resolveCredential('registry-first')).toBe('ghp_registry_first')
+        expect(FleetTenantService.getCredential(firstTenant.id)).toBe('plane_first')
+
+        const secondDir = fs.mkdtempSync(path.join(os.tmpdir(), `fleet-tenant-first-${sequence}-`))
+
+        try {
+            FleetTenantService.dataDir = secondDir
+            FleetRegistryService.dataDir = secondDir
+
+            const secondTenant = await FleetTenantService.connectTenant({
+                tenantUrl : 'https://second.example.com',
+                credential: 'plane_second'
+            })
+            const tenantKey = fs.readFileSync(path.join(secondDir, 'fleet.key'))
+
+            expect(tenantKey).toHaveLength(32)
+
+            FleetRegistryService.defineAgent({
+                id            : 'tenant-first',
+                githubUsername: 'neo-opus-vega',
+                harnessType   : 'codex',
+                credential    : 'ghp_tenant_first'
+            })
+
+            expect(fs.readFileSync(path.join(secondDir, 'fleet.key'))).toEqual(tenantKey)
+            expect(FleetTenantService.getCredential(secondTenant.id)).toBe('plane_second')
+            expect(FleetRegistryService.resolveCredential('tenant-first')).toBe('ghp_tenant_first')
+        } finally {
+            FleetTenantService.dataDir = tmpDir
+            FleetRegistryService.dataDir = tmpDir
+            fs.rmSync(secondDir, {force: true, recursive: true})
+        }
+    })
+
+    test('a legacy ASCII-hex fleet.key migrates atomically to raw bytes without stranding tenant ciphertext', async () => {
+        const
+            key         = crypto.randomBytes(32),
+            keyFile     = path.join(tmpDir, 'fleet.key'),
+            previousEnv = process.env.NEO_FLEET_SECRET_KEY;
+
+        FleetTenantService.probeFn = async () => ({ok: true})
+        process.env.NEO_FLEET_SECRET_KEY = key.toString('hex')
+
+        try {
+            const tenant = await FleetTenantService.connectTenant({
+                tenantUrl : 'https://legacy.example.com',
+                credential: 'plane_legacy'
+            })
+
+            delete process.env.NEO_FLEET_SECRET_KEY
+            fs.writeFileSync(keyFile, key.toString('hex'), {mode: 0o600})
+
+            expect(FleetTenantService.getCredential(tenant.id)).toBe('plane_legacy')
+            expect(fs.readFileSync(keyFile)).toEqual(key)
+            expect(fs.readdirSync(tmpDir).filter(name => name.includes('fleet.key.') && name.endsWith('.tmp'))).toEqual([])
+        } finally {
+            if (previousEnv === undefined) {
+                delete process.env.NEO_FLEET_SECRET_KEY
+            } else {
+                process.env.NEO_FLEET_SECRET_KEY = previousEnv
+            }
+        }
+    })
+
+    test('a malformed existing fleet.key fails loud and is never overwritten', () => {
+        const
+            keyFile   = path.join(tmpDir, 'fleet.key'),
+            malformed = Buffer.from('x'.repeat(64));
+
+        fs.writeFileSync(keyFile, malformed, {mode: 0o600})
+
+        expect(() => FleetTenantService.getKey()).toThrow(/fleet\.key must contain exactly 32 raw bytes/)
+        expect(() => FleetRegistryService.getKey()).toThrow(/fleet\.key must contain exactly 32 raw bytes/)
+        expect(fs.readFileSync(keyFile)).toEqual(malformed)
     })
 
     test('the probe receives the credential exactly once, for authentication only', async () => {
@@ -252,6 +376,105 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         expect(fs.readdirSync(tmpDir).filter(name => name.includes('.tmp'))).toEqual([])
     })
 
+    test('existing corrupt credential ciphertext aborts connect without changing either store', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        await FleetTenantService.connectTenant({
+            tenantUrl : 'https://kept.example.com',
+            credential: 'plane_kept'
+        })
+
+        const
+            descriptorFile = path.join(tmpDir, 'tenants.json'),
+            credentialFile = path.join(tmpDir, 'tenant-credentials.enc'),
+            corruptBytes   = Buffer.from('intentionally-corrupt-prior-store');
+
+        fs.writeFileSync(credentialFile, corruptBytes)
+
+        const descriptorBefore = fs.readFileSync(descriptorFile)
+        const result           = await FleetTenantService.connectTenant({
+            tenantUrl : 'https://new.example.com',
+            credential: 'plane_new'
+        })
+
+        expect(result).toEqual({status: 'rejected', reason: 'tenant connection could not be persisted'})
+        expect(fs.readFileSync(credentialFile)).toEqual(corruptBytes)
+        expect(fs.readFileSync(descriptorFile)).toEqual(descriptorBefore)
+    })
+
+    test('existing corrupt descriptor JSON aborts connect before credential mutation', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        await FleetTenantService.connectTenant({
+            tenantUrl : 'https://kept.example.com',
+            credential: 'plane_kept'
+        })
+
+        const
+            descriptorFile   = path.join(tmpDir, 'tenants.json'),
+            credentialFile   = path.join(tmpDir, 'tenant-credentials.enc'),
+            corruptBytes     = Buffer.from('{not-valid-json'),
+            credentialBefore = fs.readFileSync(credentialFile);
+
+        fs.writeFileSync(descriptorFile, corruptBytes)
+
+        const result = await FleetTenantService.connectTenant({
+            tenantUrl : 'https://new.example.com',
+            credential: 'plane_new'
+        })
+
+        expect(result).toEqual({status: 'rejected', reason: 'tenant connection could not be persisted'})
+        expect(fs.readFileSync(descriptorFile)).toEqual(corruptBytes)
+        expect(fs.readFileSync(credentialFile)).toEqual(credentialBefore)
+    })
+
+    test('valid JSON arrays are not mutation records for either tenant store', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        for (const target of ['descriptors', 'credentials']) {
+            const isolatedDir = fs.mkdtempSync(path.join(os.tmpdir(), `fleet-non-record-${target}-`))
+
+            try {
+                FleetTenantService.dataDir = isolatedDir
+                FleetRegistryService.dataDir = isolatedDir
+
+                await FleetTenantService.connectTenant({
+                    tenantUrl : 'https://kept.example.com',
+                    credential: 'plane_kept'
+                })
+
+                const
+                    descriptorFile = path.join(isolatedDir, 'tenants.json'),
+                    credentialFile = path.join(isolatedDir, 'tenant-credentials.enc');
+
+                if (target === 'descriptors') {
+                    fs.writeFileSync(descriptorFile, '[]')
+                } else {
+                    fs.writeFileSync(credentialFile, FleetTenantService.encrypt('[]'))
+                }
+
+                const
+                    descriptorBefore = fs.readFileSync(descriptorFile),
+                    credentialBefore = fs.readFileSync(credentialFile),
+                    result           = await FleetTenantService.connectTenant({
+                        tenantUrl : 'https://new.example.com',
+                        credential: 'plane_new'
+                    });
+
+                expect(result, target).toEqual({
+                    status: 'rejected',
+                    reason: 'tenant connection could not be persisted'
+                })
+                expect(fs.readFileSync(descriptorFile), target).toEqual(descriptorBefore)
+                expect(fs.readFileSync(credentialFile), target).toEqual(credentialBefore)
+            } finally {
+                FleetTenantService.dataDir = tmpDir
+                FleetRegistryService.dataDir = tmpDir
+                fs.rmSync(isolatedDir, {force: true, recursive: true})
+            }
+        }
+    })
+
     test('publication is atomic and leaves no temp files behind', async () => {
         FleetTenantService.probeFn = async () => ({ok: true})
 
@@ -260,7 +483,7 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         expect(fs.readdirSync(tmpDir).filter(name => name.includes('.tmp'))).toEqual([])
     })
 
-    test('the default probe initializes both canonical MCP routes with the exact bearer and closes sessions', async () => {
+    test('the default probe completes the negotiated MCP handshake on both routes and closes sessions', async () => {
         const
             calls         = [],
             originalFetch = globalThis.fetch
@@ -274,7 +497,7 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
                 ok     : true,
                 status : 200,
                 headers: {
-                    get: key => key === 'mcp-session-id' && options.method === 'POST'
+                    get: key => key === 'mcp-session-id' && request?.method === 'initialize'
                         ? `session-${url.includes('/mc/') ? 'mc' : 'kb'}`
                         : null
                 },
@@ -282,7 +505,7 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
                     ? JSON.stringify({
                         jsonrpc: '2.0',
                         id     : request.id,
-                        result : {protocolVersion: '2024-11-05', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
+                        result : {protocolVersion: '2025-06-18', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
                     })
                     : ''
             }
@@ -308,14 +531,17 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
             }
         })
 
-        const posts = calls.filter(call => call.options.method === 'POST')
+        const
+            posts       = calls.filter(call => call.options.method === 'POST'),
+            initializes = posts.filter(call => JSON.parse(call.options.body).method === 'initialize'),
+            initialized = posts.filter(call => JSON.parse(call.options.body).method === 'notifications/initialized');
 
-        expect(posts.map(call => call.url).sort()).toEqual([
+        expect(initializes.map(call => call.url).sort()).toEqual([
             'https://tenant.example.com/agentos/kb/mcp',
             'https://tenant.example.com/agentos/mc/mcp'
         ])
 
-        posts.forEach(call => {
+        initializes.forEach(call => {
             expect(call.options.headers.Authorization).toBe(`Bearer ${PAT}`)
             expect(call.options.headers.Accept).toBe('application/json, text/event-stream')
             expect(call.options.headers['Content-Type']).toBe('application/json')
@@ -329,15 +555,149 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
                 }
             })
         })
+        expect(initialized.map(call => ({
+            url            : call.url,
+            protocolVersion: call.options.headers['mcp-protocol-version'],
+            sessionId      : call.options.headers['mcp-session-id']
+        })).sort((a, b) => a.url.localeCompare(b.url))).toEqual([
+            {
+                url            : 'https://tenant.example.com/agentos/kb/mcp',
+                protocolVersion: '2025-06-18',
+                sessionId      : 'session-kb'
+            },
+            {
+                url            : 'https://tenant.example.com/agentos/mc/mcp',
+                protocolVersion: '2025-06-18',
+                sessionId      : 'session-mc'
+            }
+        ])
 
         expect(calls.filter(call => call.options.method === 'DELETE').map(call => ({
-            url      : call.url,
-            sessionId: call.options.headers['mcp-session-id']
+            url            : call.url,
+            protocolVersion: call.options.headers['mcp-protocol-version'],
+            sessionId      : call.options.headers['mcp-session-id']
         })).sort((a, b) => a.url.localeCompare(b.url))).toEqual([
-            {url: 'https://tenant.example.com/agentos/kb/mcp', sessionId: 'session-kb'},
-            {url: 'https://tenant.example.com/agentos/mc/mcp', sessionId: 'session-mc'}
+            {
+                url            : 'https://tenant.example.com/agentos/kb/mcp',
+                protocolVersion: '2025-06-18',
+                sessionId      : 'session-kb'
+            },
+            {
+                url            : 'https://tenant.example.com/agentos/mc/mcp',
+                protocolVersion: '2025-06-18',
+                sessionId      : 'session-mc'
+            }
         ])
         expect(calls.some(call => call.url.includes('/health'))).toBe(false)
+    })
+
+    test('the default probe rejects mismatched or incomplete InitializeResult envelopes and still closes sessions', async () => {
+        const
+            originalFetch = globalThis.fetch,
+            variants      = [
+                {
+                    jsonrpc: '2.0',
+                    id     : 99,
+                    result : {protocolVersion: '2025-06-18', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
+                },
+                {
+                    jsonrpc: '2.0',
+                    id     : 1,
+                    result : {protocolVersion: '2025-06-18', capabilities: {}}
+                },
+                {
+                    jsonrpc: '2.0',
+                    id     : 1,
+                    result : {protocolVersion: '2025-06-18', capabilities: [], serverInfo: {name: 'test', version: '1'}}
+                },
+                {
+                    jsonrpc: '2.0',
+                    id     : 1,
+                    result : {protocolVersion: 'bogus', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
+                }
+            ];
+
+        try {
+            for (const envelope of variants) {
+                const calls = []
+
+                globalThis.fetch = async (url, options) => {
+                    calls.push({url, options})
+
+                    return {
+                        ok     : true,
+                        status : 200,
+                        headers: {get: key => key === 'mcp-session-id' ? `session-${url.includes('/mc/') ? 'mc' : 'kb'}` : null},
+                        text   : async () => options.method === 'DELETE' ? '' : JSON.stringify(envelope)
+                    }
+                }
+
+                const result = await probeTenantEndpoint({
+                    endpoint  : 'https://tenant.example.com',
+                    credential: PAT
+                })
+
+                expect(result.ok).toBe(false)
+                expect(calls.filter(call => call.options.method === 'DELETE')).toHaveLength(2)
+                expect(calls.some(call => {
+                    if (!call.options.body) return false
+
+                    return JSON.parse(call.options.body).method === 'notifications/initialized'
+                })).toBe(false)
+            }
+        } finally {
+            globalThis.fetch = originalFetch
+        }
+    })
+
+    test('a post-initialize failure always closes the allocated MCP session', async () => {
+        const
+            calls         = [],
+            originalFetch = globalThis.fetch
+
+        globalThis.fetch = async (url, options) => {
+            calls.push({url, options})
+
+            const request = options.body ? JSON.parse(options.body) : null
+
+            if (request?.method === 'notifications/initialized' && url.includes('/mc/')) {
+                throw new Error('notification transport failed')
+            }
+
+            return {
+                ok     : true,
+                status : 200,
+                headers: {
+                    get: key => key === 'mcp-session-id' && request?.method === 'initialize'
+                        ? `session-${url.includes('/mc/') ? 'mc' : 'kb'}`
+                        : null
+                },
+                text: async () => request?.method === 'initialize'
+                    ? JSON.stringify({
+                        jsonrpc: '2.0',
+                        id     : 1,
+                        result : {protocolVersion: '2025-06-18', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
+                    })
+                    : ''
+            }
+        }
+
+        try {
+            const result = await probeTenantEndpoint({
+                endpoint  : 'https://tenant.example.com',
+                credential: PAT
+            })
+
+            expect(result.ok).toBe(false)
+            expect(result.resources['memory-core']).toEqual({ok: false})
+        } finally {
+            globalThis.fetch = originalFetch
+        }
+
+        expect(calls.filter(call =>
+            call.options.method === 'DELETE' &&
+            call.options.headers['mcp-session-id'] === 'session-mc'
+        )).toHaveLength(1)
     })
 
     test('the default seat probe proves the request-bound Memory Core identity and rejects a wrong-but-valid subject', async () => {
@@ -385,7 +745,7 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
                 text: async () => JSON.stringify({
                     jsonrpc: '2.0',
                     id     : request?.id,
-                    result : {protocolVersion: '2024-11-05', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
+                    result : {protocolVersion: '2025-06-18', capabilities: {}, serverInfo: {name: 'test', version: '1'}}
                 })
             }
         }
@@ -427,11 +787,23 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
             expect(call.url).toBe('https://tenant.example.com/mc/mcp')
             expect(call.options.headers.Authorization).toBe(`Bearer ${PAT}`)
             expect(call.options.headers['mcp-session-id']).toBe('session-mc')
-            expect(call.options.headers['mcp-protocol-version']).toBe('2024-11-05')
+            expect(call.options.headers['mcp-protocol-version']).toBe('2025-06-18')
             expect(JSON.parse(call.options.body)).toMatchObject({
                 method: 'tools/call',
                 params: {name: 'list_permissions', arguments: {}}
             })
+        })
+
+        const initializedCalls = calls.filter(call => {
+            if (!call.options.body) return false
+
+            return JSON.parse(call.options.body).method === 'notifications/initialized'
+        })
+
+        expect(initializedCalls).toHaveLength(4)
+        initializedCalls.forEach(call => {
+            expect(call.options.headers['mcp-protocol-version']).toBe('2025-06-18')
+            expect(call.options.headers['mcp-session-id']).toMatch(/^session-(mc|kb)$/)
         })
     })
 

@@ -3,6 +3,26 @@ import {ensureAgentRepo}               from './ensureAgentRepo.mjs';
 import {prepareManagedAgentWorkspace}  from './prepareManagedAgentWorkspace.mjs';
 
 /**
+ * @summary Resolve the provider login that names the canonical AgentIdentity. Fleet `id` names one
+ * resident process/home and may differ when a user owns multiple instances; it is never identity
+ * authority.
+ * @param {Object} agent Fleet definition.
+ * @returns {String} Canonical `@login`.
+ * @private
+ */
+function expectedAgentIdentity(agent) {
+    const login = typeof agent?.githubUsername === 'string'
+        ? agent.githubUsername.trim().replace(/^@/, '')
+        : '';
+
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(login)) {
+        throw new Error(`startAgentProvisioned: agent '${agent?.id}' has no valid githubUsername identity.`)
+    }
+
+    return `@${login}`
+}
+
+/**
  * @summary Start a Fleet Manager agent's harness *in its own provisioned repo* — the turnkey
  * "define → start" entry that makes the repo-provisioning chain live.
  *
@@ -127,7 +147,7 @@ export async function startAgentProvisioned({
 
         remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent);
 
-        const expectedIdentity = agent.id.startsWith('@') ? agent.id : `@${agent.id}`;
+        const expectedIdentity = expectedAgentIdentity(agent);
         const readiness        = await activeTenantService.probeSeatCredential({
             tenantId  : transport.tenantId,
             credential: resolvedMcpCredential,

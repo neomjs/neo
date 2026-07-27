@@ -663,13 +663,19 @@ test.describe('prepareManagedAgentWorkspace', () => {
             opts        = options(makeAgent('codex'), 'transition-codex'),
             projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
 
-        const local         = await prepareManagedAgentWorkspace(opts);
-        const localBaseline = await read(projectPath);
-        const homePath      = path.join(local.instanceHome, 'config.toml');
-        const homeBaseline  = await read(homePath);
-        const operatorBlock = '\n# operator bytes begin\n[mcp_servers."operator-local"]\ncommand = "custom --do-not-touch"\n# operator bytes end\n';
+        const local              = await prepareManagedAgentWorkspace(opts);
+        const localBaseline      = await read(projectPath);
+        const homePath           = path.join(local.instanceHome, 'config.toml');
+        const homeBaseline       = await read(homePath);
+        const operatorBlock      = '\n# operator bytes begin\n[mcp_servers."operator-local"]\ncommand = "custom --do-not-touch"\n# operator bytes end\n';
+        const operatorArrayBlock = '[[operator."routes]#keep"]] # legal inline-commented array header\nname = "custom --do-not-touch"\n';
+        const insertionAnchor    = '[mcp_servers."neo-mjs-knowledge-base"]';
 
-        await fs.appendFile(projectPath, operatorBlock, 'utf8');
+        await fs.writeFile(
+            projectPath,
+            localBaseline.replace(insertionAnchor, operatorArrayBlock + insertionAnchor) + operatorBlock,
+            'utf8'
+        );
 
         opts.mcpTransport = remoteTransport();
         const firstRemote = await prepareManagedAgentWorkspace(opts);
@@ -677,6 +683,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const receiptPath = path.join(firstRemote.instanceHome, '.neo-fleet-mcp-transport.json');
 
         expect(firstSource).toContain(operatorBlock);
+        expect(firstSource).toContain(operatorArrayBlock);
         expect(firstSource).toContain('https://tenant.example.com/agentos/mc/mcp');
         expect(tomlMcpTable(firstSource, 'neo-mjs-memory-core')).not.toContain('command = ');
         expect(await read(homePath)).toContain('# Fleet-managed remote MCP project trust begin');
@@ -688,6 +695,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const secondSource = await read(projectPath);
 
         expect(secondSource).toContain(operatorBlock);
+        expect(secondSource).toContain(operatorArrayBlock);
         expect(secondSource).toContain('https://other.example.com/agentos/mc/mcp');
         expect(secondSource).not.toContain('https://tenant.example.com/agentos/mc/mcp');
 
@@ -696,9 +704,10 @@ test.describe('prepareManagedAgentWorkspace', () => {
         const localSource = await read(projectPath);
 
         expect(localSource).toContain(operatorBlock);
+        expect(localSource).toContain(operatorArrayBlock);
         expect(tomlMcpTable(localSource, 'neo-mjs-memory-core')).toContain('command = ');
         expect(localSource).not.toContain('https://other.example.com');
-        expect(localSource.replace(operatorBlock, '')).toBe(localBaseline);
+        expect(localSource.replace(operatorArrayBlock, '').replace(operatorBlock, '')).toBe(localBaseline);
         expect(await read(homePath)).toBe(homeBaseline);
         await expect(fs.stat(receiptPath)).rejects.toMatchObject({code: 'ENOENT'});
         expect(backToLocal.artifacts.some(item => item.ownedKeys === 'transport receipt removed')).toBe(true);

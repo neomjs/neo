@@ -847,19 +847,92 @@ function renderCodexHomeConfig() {
     ].join('\n');
 }
 
+/**
+ * @summary Parse a TOML table header without mistaking brackets or `#` inside quoted keys for the
+ * structural close/comment boundary. Both `[table]` and `[[array.table]]` forms are recognized,
+ * including legal trailing comments.
+ * @param {String} line One physical TOML line.
+ * @returns {{array: Boolean, body: String}|null}
+ * @private
+ */
+function parseTomlTableHeader(line) {
+    const
+        source    = String(line).trimStart(),
+        array     = source.startsWith('[['),
+        openWidth = array ? 2 : 1;
+
+    if ((!array && !source.startsWith('[')) || source.length <= openWidth) return null;
+
+    let quote = null, escaped = false;
+
+    for (let index = openWidth; index < source.length; index++) {
+        const char = source[index];
+
+        if (quote) {
+            if (quote === '"' && escaped) {
+                escaped = false
+            } else if (quote === '"' && char === '\\') {
+                escaped = true
+            } else if (char === quote) {
+                quote = null
+            }
+
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            quote = char;
+            continue
+        }
+
+        if (char === '#') return null;
+
+        const closes = array
+            ? char === ']' && source[index + 1] === ']'
+            : char === ']';
+
+        if (!closes) continue;
+
+        const
+            body   = source.slice(openWidth, index).trim(),
+            suffix = source.slice(index + (array ? 2 : 1)).trim();
+
+        if (!body || (suffix && !suffix.startsWith('#'))) return null;
+
+        return {array, body}
+    }
+
+    return null
+}
+
+/**
+ * @summary Extract a Codex MCP server name from one parsed TOML table header.
+ * @param {{array: Boolean, body: String}|null} header
+ * @returns {String|null}
+ * @private
+ */
+function codexMcpServerName(header) {
+    if (!header || header.array) return null;
+
+    return header.body.match(/^mcp_servers\."([^"]+)"$/)?.[1] ?? null
+}
+
 /** @private */
 function stripManagedMcpTables(source) {
     const lines    = source.split(/\r?\n/), output = [];
     let   skipping = false;
 
     for (const line of lines) {
-        const header = line.match(/^\s*\[mcp_servers\.\"([^\"]+)\"\]\s*$/);
-        if (header) {
-            skipping = header[1].startsWith(NEO_MCP_NAME_PREFIX);
+        const
+            header = parseTomlTableHeader(line),
+            name   = codexMcpServerName(header);
+
+        if (name) {
+            skipping = name.startsWith(NEO_MCP_NAME_PREFIX);
             if (!skipping) output.push(line);
             continue;
         }
-        if (/^\s*\[[^\]]+\]\s*$/.test(line)) skipping = false;
+        if (header) skipping = false;
         if (!skipping) output.push(line);
     }
 
@@ -878,14 +951,17 @@ function projectCodexOwnedProjection(source) {
     };
 
     for (const line of lines) {
-        const header = line.match(/^\s*\[mcp_servers\.\"([^\"]+)\"\]\s*$/);
-        if (header) {
+        const
+            header = parseTomlTableHeader(line),
+            name   = codexMcpServerName(header);
+
+        if (name) {
             flush();
-            current = header[1];
+            current = name;
             buffer = [line];
             continue;
         }
-        if (/^\s*\[[^\]]+\]\s*$/.test(line)) {
+        if (header) {
             flush();
             current = null;
             buffer = [];
@@ -908,13 +984,15 @@ function codexHomeOwnedProjection(source) {
     let table = '';
 
     for (const rawLine of source.split(/\r?\n/)) {
+        const header = parseTomlTableHeader(rawLine);
+
+        if (header) {
+            table = header.array ? '' : header.body;
+            continue
+        }
+
         const line = rawLine.replace(/\s+#.*$/, '').trim();
         if (!line) continue;
-        const header = line.match(/^\[([^\]]+)\]$/);
-        if (header) {
-            table = header[1];
-            continue;
-        }
         const entry = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.+)$/);
         if (!entry) continue;
         const key = table ? `${table}.${entry[1]}` : entry[1];
@@ -1020,14 +1098,15 @@ function readCodexProjectTrust(source, repoPath) {
     let   table  = '';
 
     for (const rawLine of source.split(/\r?\n/)) {
-        const line = rawLine.replace(/\s+#.*$/, '').trim();
-        if (!line) continue;
+        const header = parseTomlTableHeader(rawLine);
 
-        const header = line.match(/^\[([^\]]+)\]$/);
         if (header) {
-            table = header[1];
+            table = header.array ? '' : header.body;
             continue
         }
+
+        const line = rawLine.replace(/\s+#.*$/, '').trim();
+        if (!line) continue;
 
         const entry = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.+)$/);
         if (!entry) continue;
@@ -1336,21 +1415,34 @@ function mergeCodexTransport(existing, desired) {
 
 /** @private */
 function findTomlMcpTable(source, name) {
-    const
-        escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-        matcher = new RegExp(`^\\s*\\[mcp_servers\\.\"${escaped}\"\\]\\s*$`, 'm'),
-        match   = matcher.exec(source);
+    let start = null, boundary = source.length, lineStart = 0;
 
-    if (!match) return null;
+    while (lineStart < source.length) {
+        const
+            lineEnd = source.indexOf('\n', lineStart),
+            line    = source.slice(lineStart, lineEnd === -1 ? source.length : lineEnd),
+            header  = parseTomlTableHeader(line);
 
-    const
-        start      = match.index,
-        nextHeader = /^\s*\[[^\]]+\]\s*$/gm;
+        if (start === null) {
+            if (codexMcpServerName(header) === name) start = lineStart
+        } else if (header) {
+            boundary = lineStart;
+            break
+        }
 
-    nextHeader.lastIndex = start + match[0].length;
+        if (lineEnd === -1) break;
 
-    const next = nextHeader.exec(source);
-    const end  = next?.index ?? source.length;
+        lineStart = lineEnd + 1
+    }
+
+    if (start === null) return null;
+
+    // The replacement owns only the table bytes, never the whitespace separator after them.
+    // Keeping that suffix in the resident source is what makes an inserted operator table survive
+    // local → remote → alternate remote → local with byte-exact surrounding layout.
+    let end = boundary;
+
+    while (end > start && /\s/.test(source[end - 1])) end--;
 
     return {start, end, value: source.slice(start, end)}
 }

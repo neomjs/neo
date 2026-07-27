@@ -20,9 +20,10 @@ const TOOL_PROJECTION_MODE_ENV_VAR = 'NEO_NL_TOOL_PROJECTION_MODE';
 
 // The agent-identity env var is a CROSS-PROCESS CONTRACT too: the MCP identity resolution chain
 // (`RequestContextService`, `Orchestrator`, `KbAlertingService`, `assertExpectedIdentity`) reads this
-// exact name, so the FM injects the fleet agent id under it — the spawned harness binds to the agent
-// the FM defined, never to whichever ambient identity the FM process happens to carry. Intentionally
-// NOT configurable — an override would set a var those consumers never read (fail-OPEN).
+// exact name, so the FM injects the definition's GitHub login under it — the AgentIdentity authority.
+// Fleet `id` remains the per-instance process/home key and may differ when one login owns multiple
+// residents. Intentionally NOT configurable — an override would set a var those consumers never read
+// (fail-OPEN).
 const AGENT_IDENTITY_ENV_VAR = 'NEO_AGENT_IDENTITY';
 
 const REMOTE_MCP_SERVER_KEYS = new Set(['memory-core', 'knowledge-base']);
@@ -145,8 +146,8 @@ const HARNESS_AUTH_MARKERS = {
  * class, injected only when supplied under the fixed `NEO_MCP_REMOTE_TOKEN` slot; it is never substituted for
  * `GH_TOKEN`. A status read can never surface either secret because the records hold none. The
  * **Bridge session token** is a THIRD, distinct credential class, injected the same way under its
-     * own var (`bridgeTokenEnvVar`) — minted per spawn, never co-mingled with either provider
-     * credential.
+ * own var (`bridgeTokenEnvVar`) — minted per spawn, never co-mingled with either provider
+ * credential.
  *
  * **Harness-auth provisioning at spawn:** every FM-spawned agent is an *embedded* agent, so `start`
  * provisions its harness-auth surfaces into the child env: (1) a freshly-minted Bridge token for the
@@ -154,10 +155,11 @@ const HARNESS_AUTH_MARKERS = {
  * (`toolProjectionMode`, default `harness-embedded`) under the FIXED `NEO_NL_TOOL_PROJECTION_MODE` var
  * (a cross-process contract, intentionally NOT configurable — an override would set a var the NL server
  * never reads → fail-OPEN) — the NL server reads it as a fallback to its `--tool-projection-mode` flag,
- * and (3) the fleet agent id under the FIXED `NEO_AGENT_IDENTITY` var (the same cross-process-contract
- * rationale — the MCP identity resolution chain reads that exact name), so the child's identity binds
- * to the agent the FM defined by construction. Fail-closed: an FM-spawned agent never receives the
- * full developer tool surface, and `launch.env` can never pre-load a reserved slot.
+ * and (3) the definition's canonical GitHub login under the FIXED `NEO_AGENT_IDENTITY` var (the same
+ * cross-process-contract rationale — the MCP identity resolution chain reads that exact name), so a
+ * custom Fleet instance id cannot become an alternate provider identity. Fail-closed: an FM-spawned
+ * agent never receives the full developer tool surface, and `launch.env` can never pre-load a reserved
+ * slot.
  *
  * **Supervision idiom** mirrors `ai/daemons/orchestrator/services/ProcessSupervisorService` (the
  * injectable `spawnFn` test seam, env-merge, graceful `SIGTERM`→`SIGKILL` stop, and draining the
@@ -309,6 +311,14 @@ class FleetLifecycleService extends Base {
         const agent = this.getRegistry().getDefinition(id);
         if (!agent) throw new Error(`FleetLifecycleService.start: unknown agent '${id}'.`);
 
+        const agentIdentity = typeof agent.githubUsername === 'string'
+            ? agent.githubUsername.trim().replace(/^@/, '')
+            : '';
+
+        if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(agentIdentity)) {
+            throw new Error(`FleetLifecycleService.start: agent '${id}' has no valid githubUsername identity.`)
+        }
+
         const launch                          = this.resolveLaunch(agent, opts),
               {command, args, env: launchEnv} = launch;
 
@@ -422,12 +432,12 @@ class FleetLifecycleService extends Base {
         // --tool-projection-mode flag.
         env[TOOL_PROJECTION_MODE_ENV_VAR] = this.toolProjectionMode;
 
-        // Agent identity: every FM-spawned harness carries its fleet agent id under the FIXED
-        // NEO_AGENT_IDENTITY var (a cross-process contract — the MCP identity resolution chain reads
-        // this exact name), so the child binds to the agent the FM defined — never to whichever
-        // ambient identity the FM process happens to carry. Reserved class #4: launch.env can never
-        // pre-load it (guard above).
-        env[AGENT_IDENTITY_ENV_VAR] = id;
+        // Agent identity: every FM-spawned harness carries the definition's canonical GitHub login
+        // under the FIXED NEO_AGENT_IDENTITY var (a cross-process contract — the MCP identity
+        // resolution chain reads this exact name). The Fleet id remains the instance/process/home
+        // key and cannot impersonate a distinct provider identity. Reserved class #4: launch.env can
+        // never pre-load it (guard above).
+        env[AGENT_IDENTITY_ENV_VAR] = agentIdentity;
 
         // The child's working directory: the agent's provisioned repo checkout when the caller supplies
         // it (the Fleet Manager turnkey path via startAgentProvisioned). Omitted ⇒ inherit this process's
