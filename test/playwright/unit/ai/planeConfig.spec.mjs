@@ -481,6 +481,19 @@ test.describe('⭐ one env ⇒ one resolved default across every declaring confi
     };
 
     test('every leaf binding NEO_MEMORY_DB_PATH resolves the SAME absolute default', async () => {
+        // The KB config base re-wraps the registered Tier-1 singleton at module scope, so the template must be
+        // fully evaluated FIRST — the same registration shape the derivation witnesses earlier in this file
+        // use, and whose comment explains exactly this. An earlier version imported KB directly and passed
+        // only because a prior test here had already registered Tier-1: order-dependent green. @neo-gpt caught
+        // it from a clean export, where it threw `Cannot create proxy with a non-object as target` at
+        // ConfigProvider:529.
+        const templateModule = await import('../../../../ai/config.template.mjs');
+
+        if (!Neo.ai?.Config) {
+            Neo.ai        = Neo.ai || {};
+            Neo.ai.Config = templateModule.default;
+        }
+
         const kb    = await import('../../../../ai/mcp/server/knowledge-base/configBase.mjs'),
               nl    = await import('../../../../ai/mcp/server/neural-link/configBase.mjs'),
               bound = [['memory-core', McConfigBase], ['knowledge-base', kb.default], ['neural-link', nl.default]]
