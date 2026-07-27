@@ -11,6 +11,7 @@ directories:
 
 files:
     - main.mjs
+    - adapterWitness.mjs
     - appLifecycle.mjs
     - brain.mjs
     - contentPolicy.mjs
