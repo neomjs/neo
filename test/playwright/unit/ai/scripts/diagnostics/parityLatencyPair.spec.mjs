@@ -1,6 +1,8 @@
 import {test, expect} from '@playwright/test';
 import {
     MIN_SAMPLES,
+    PARITY_CACHE_CONVENTION,
+    PARITY_COMPARABLE_EVENT,
     compareLatencyLeg,
     evaluateLatencyPair,
     summarizeSamples
@@ -13,7 +15,8 @@ import {
 // Two disciplines are asserted here rather than trusted: a single sample is not a measurement, and the
 // acceptability bound is the caller's to supply.
 
-const EVENT = 'first successful healthcheck response after process/stack start';
+const EVENT = 'first successful healthcheck response after process/stack start',
+      CACHE = PARITY_CACHE_CONVENTION;
 
 const leg = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity, comparableEvent: EVENT});
 
@@ -115,7 +118,9 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
     test('⭐ REFUSES without an explicit acceptableOverhead — but STILL RETURNS THE PAIR', () => {
         // Capturing the pair IS the acceptance criterion: an unevaluated pair makes Option A's falsifier
         // evaluable, whereas a missing pair leaves it unfalsifiable. So the refusal must not discard it.
-        const result = evaluateLatencyPair({boot, hotCall});
+        // Cache convention supplied so the refusal is provably about the MISSING BOUND — otherwise this
+        // test would pass on the earlier cacheConvention guard and stop covering what it names.
+        const result = evaluateLatencyPair({boot, hotCall, cacheConvention: CACHE});
 
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('no default on purpose');
@@ -126,8 +131,47 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
         expect(result.pair.hotCall.overheadRatio).toBeCloseTo(1.2, 5);
     })
 
-    test('within budget when every leg clears the supplied bound', () => {
+    test('⭐ REFUSES without a cacheConvention — and still returns the pair', () => {
+        // Cold-with-build, cold-without-build and fully warm are three parity numbers an order of
+        // magnitude apart, and the figures do not say which they are. The 261033ms first measurement was
+        // build-dominated; recording the conditions is what stops the next one being mistaken the same way.
         const result = evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3});
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('cacheConvention');
+        expect(result.reason).toContain('not reproducible');
+        expect(result.pair.boot.overheadRatio).toBeCloseTo(2.5, 5);
+    })
+
+    test('a blank cacheConvention is not a convention', () => {
+        for (const cacheConvention of ['', '   ', null, undefined, 42]) {
+            expect(evaluateLatencyPair({boot, hotCall, cacheConvention, acceptableOverhead: 3}).ok).toBe(false);
+        }
+    })
+
+    test('⭐ an evaluated pair CARRIES the conditions it was taken under', () => {
+        // A ratio without its conditions cannot be compared to a later ratio, which makes it a number
+        // rather than a measurement.
+        const result = evaluateLatencyPair({boot, hotCall, cacheConvention: CACHE, acceptableOverhead: 3});
+
+        expect(result.conditions.cacheConvention).toBe(PARITY_CACHE_CONVENTION);
+    })
+
+    test('the steward-decided definitions are single-sourced, not defaulted', () => {
+        // Both are exported so a call site states them explicitly. A DEFAULT would re-open the very hole
+        // `comparableEvent` exists to close, so their presence must not make omission legal.
+        expect(PARITY_COMPARABLE_EVENT).toContain('authenticated healthcheck');
+        expect(PARITY_COMPARABLE_EVENT).toContain('BOTH memory-core and knowledge-base');
+        expect(PARITY_CACHE_CONVENTION).toContain('images/artifacts warm');
+        expect(PARITY_CACHE_CONVENTION).toContain('runtimes cold');
+
+        // Omission is still a refusal even though a canonical value now exists.
+        expect(compareLatencyLeg({stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2]}).ok).toBe(false);
+        expect(evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3}).ok).toBe(false);
+    })
+
+    test('within budget when every leg clears the supplied bound', () => {
+        const result = evaluateLatencyPair({boot, hotCall, cacheConvention: CACHE, acceptableOverhead: 3});
 
         expect(result.ok).toBe(true);
         expect(result.verdict).toBe('within-budget');
@@ -136,7 +180,7 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
     })
 
     test('⭐ exceeds budget NAMES the offending dimension — a bare fail hides which leg', () => {
-        const result = evaluateLatencyPair({boot, hotCall, acceptableOverhead: 2});
+        const result = evaluateLatencyPair({boot, hotCall, cacheConvention: CACHE, acceptableOverhead: 2});
 
         expect(result.verdict).toBe('exceeds-budget');
         expect(result.exceeded).toEqual(['boot']);   // hotCall at 1.2x still clears 2x
@@ -144,7 +188,7 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
 
     test('trustworthiness is per-pair — one noisy leg withdraws confidence from the verdict', () => {
         const result = evaluateLatencyPair({
-            boot, hotCall: leg([10, 10, 10], [5, 40, 90]), acceptableOverhead: 10
+            boot, hotCall: leg([10, 10, 10], [5, 40, 90]), cacheConvention: CACHE, acceptableOverhead: 10
         });
 
         expect(result.ok).toBe(true);
@@ -154,7 +198,7 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
     })
 
     test('a sample-count refusal in either dimension refuses the whole evaluation', () => {
-        expect(evaluateLatencyPair({boot: leg([100], [100, 100, 100]), hotCall, acceptableOverhead: 2}).reason)
+        expect(evaluateLatencyPair({boot: leg([100], [100, 100, 100]), hotCall, cacheConvention: CACHE, acceptableOverhead: 2}).reason)
             .toContain('boot stdioSamples');
     })
 });

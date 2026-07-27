@@ -41,6 +41,31 @@
 export const MIN_SAMPLES = 3;
 
 /**
+ * The comparable event both legs must measure, as decided by the parity steward.
+ *
+ * Exported as a **named constant that callers still pass explicitly** rather than as a default. The
+ * distinction is the point: a default would silently re-open the hole `comparableEvent` exists to close,
+ * whereas a named constant makes the equivalence both stated at the call site and single-sourced. Having
+ * the authority decide the definition is the opposite of inventing one — but it does not make the
+ * definition safe to leave implicit.
+ * @type {String}
+ */
+export const PARITY_COMPARABLE_EVENT = 'runtime launch until fresh clients initialize and an ' +
+    'authenticated healthcheck returns identity proof from BOTH memory-core and knowledge-base';
+
+/**
+ * The cache state under which a comparable pair must be taken, as decided by the parity steward:
+ * images and build artifacts warm, runtimes cold, data preserved, no rebuild and no page-cache flush.
+ *
+ * This exists because cold-with-build, cold-without-build, and fully warm are three different parity
+ * numbers separated by an order of magnitude. A measured `261033ms` taken across a three-image rebuild is
+ * a deployment receipt, not a boot-latency leg, and nothing in the figure itself says which it is.
+ * @type {String}
+ */
+export const PARITY_CACHE_CONVENTION = 'images/artifacts warm; runtimes cold; data preserved; ' +
+    'no rebuild and no page-cache flush';
+
+/**
  * @summary True for a finite number strictly greater than zero.
  * @param {*} value
  * @returns {Boolean}
@@ -157,9 +182,14 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
  * @param {Number} spec.acceptableOverhead Maximum tolerable parity/stdio median ratio. REQUIRED — no
  *                                         default, because tolerability is an operational decision
  *                                         about how the seat is used, not a derivable property.
- * @returns {Object} `{ok, reason?, pair, verdict?, exceeded?, trustworthy?}`
+ * @param {String} spec.cacheConvention    The cache state the samples were taken under — normally
+ *                                         `PARITY_CACHE_CONVENTION`. REQUIRED, and recorded into the
+ *                                         result: a latency pair that does not carry its cache
+ *                                         conditions cannot be reproduced or compared to a later pair,
+ *                                         which makes it a number rather than a measurement.
+ * @returns {Object} `{ok, reason?, pair, conditions, verdict?, exceeded?, trustworthy?}`
  */
-export function evaluateLatencyPair({boot, hotCall, acceptableOverhead} = {}) {
+export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, cacheConvention} = {}) {
     const bootLeg = compareLatencyLeg({dimension: 'boot', ...boot}),
           callLeg = compareLatencyLeg({dimension: 'hotCall', ...hotCall});
 
@@ -168,12 +198,25 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead} = {}) {
 
     const pair = {boot: bootLeg, hotCall: callLeg};
 
+    if (typeof cacheConvention !== 'string' || cacheConvention.trim() === '') {
+        return {
+            ok    : false,
+            pair,
+            reason: 'cacheConvention must state the cache state the samples were taken under (normally ' +
+                    'PARITY_CACHE_CONVENTION). Cold-with-build, cold-without-build and fully warm are ' +
+                    'three parity numbers an order of magnitude apart, and the figures themselves do not ' +
+                    'say which they are — so a pair without its conditions is not reproducible.'
+        };
+    }
+
     if (!isPositiveFinite(acceptableOverhead)) {
         return {
             ok    : false,
             // The pair still ships: it is the acceptance criterion, and it is now on the record even
-            // though nobody has yet decided what "acceptable" means.
+            // though nobody has yet decided what "acceptable" means. Its conditions ship with it, so the
+            // recorded pair stays interpretable rather than becoming a bare ratio.
             pair,
+            conditions: {cacheConvention},
             reason: `acceptableOverhead must be a positive finite number, received ${JSON.stringify(acceptableOverhead)}. ` +
                     'It has no default on purpose: whether a given parity/stdio ratio is tolerable is an ' +
                     'operational decision about how the seat is used, not something derivable here. The ' +
@@ -184,9 +227,10 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead} = {}) {
     const exceeded = Object.values(pair).filter(leg => leg.overheadRatio > acceptableOverhead).map(leg => leg.dimension);
 
     return {
-        ok     : true,
+        ok        : true,
         pair,
-        verdict: exceeded.length === 0 ? 'within-budget' : 'exceeds-budget',
+        conditions: {cacheConvention},
+        verdict   : exceeded.length === 0 ? 'within-budget' : 'exceeds-budget',
         exceeded,
         // Both legs must be individually trustworthy before the verdict means anything.
         trustworthy: bootLeg.trustworthy && callLeg.trustworthy
