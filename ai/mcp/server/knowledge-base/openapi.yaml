@@ -678,19 +678,31 @@ paths:
     get:
       summary: Get Class Hierarchy
       operationId: get_class_hierarchy
+      # The scope belongs on the DEFAULT-visible tier: `tools/list` shows this line, while the long
+      # `description` below is only served on an explicit `get_mcp_tool_handbook` call. A caller who
+      # never fetches the handbook is exactly the caller who would misread the scope.
+      x-neo-tool-summary: Static class-hierarchy map for Neo.mjs code only — not your own or any tenant's repositories.
       x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves the static class hierarchy from the knowledge base.
-        This tool provides a deterministic map of class relationships (inheritance) derived from source code.
+        Retrieves the static class hierarchy of **Neo.mjs code only** — a deterministic inheritance
+        map derived from the Neo.mjs engine source tree.
+
+        **Scope — read before calling:** this covers Neo.mjs classes exclusively. It does NOT cover
+        your own or any tenant's repositories, whatever else this deployment has ingested. Use
+        `query_documents` or `ask_knowledge_base` for non-Neo.mjs code.
+
+        Reads a generated build artifact rather than the embedded corpus, so it is independent of
+        ingestion state. A deployment that has not run the Neo.mjs docs build returns an empty or
+        partial map with incomplete `extends` metadata.
 
         **Input:**
-        - `root`: (Optional) Filter the hierarchy to show only subclasses of this class (e.g., 'Neo.component.Base').
+        - `root`: (Optional) Filter to subclasses of this class (e.g. 'Neo.component.Base').
 
         **Output:**
-        A JSON object where keys are class names and values contain metadata (source file, parent class).
+        A JSON object keyed by class name, each value carrying metadata (source file, parent class).
       tags: [Documents]
       parameters:
         - name: root
