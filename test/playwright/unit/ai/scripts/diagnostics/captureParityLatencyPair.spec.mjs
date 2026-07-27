@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {
     SEAT_ADAPTER_PRODUCER,
+    assembleLatencyPair,
     captureParityLatencyPair,
     checkCapturePrerequisites
 } from '../../../../../../ai/scripts/diagnostics/captureParityLatencyPair.mjs';
@@ -136,5 +137,70 @@ test.describe('probe contract — the orchestration refuses partial readings', (
         expect(missing.ok).toBe(false);
         expect(missing.blocked).toBe(true);
         expect(missing.reason).toContain('seat-adapter path');
+    });
+});
+
+// ⭐ THE CONTROL THE GATE WAS HIDING. While `SEAT_ADAPTER_PRODUCER` is null, nothing reaches the capture
+// assembly through `captureParityLatencyPair`, so a defect behind the gate is invisible to every test. That
+// is not hypothetical: a rename of the sample arrays left the handoff referencing four retired variables,
+// this suite stayed green because the gate short-circuited first, and @neo-gpt found the `ReferenceError`
+// only by forcing the capability on in memory.
+//
+// The assembly is therefore reachable directly. The capability gate stays on the terminal, so nothing here
+// bypasses a check that guards a measurement's honesty — it performs the capture it is handed, while whether
+// a capture may be attempted at all remains the terminal's decision.
+test.describe('⭐ assembleLatencyPair — the post-gate path, actually executed', () => {
+    const perService = base => ({memoryCoreMs: base, knowledgeBaseMs: base + 5}),
+          probes     = {
+              probeSeatReady: () => Promise.resolve({stdio: perService(100), parity: perService(210)}),
+              probeHotCall  : () => Promise.resolve({stdio: perService(10),  parity: perService(12)})
+          };
+
+    test('a full capture reaches a real verdict with BOTH hot-call legs', async () => {
+        const result = await assembleLatencyPair({
+            sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.verdict).toBe('within-budget');
+        // Names both services, which is what proves the four-slot handoff is wired to the real arrays.
+        expect(Object.keys(result.pair.hotCall)).toEqual(['memoryCore', 'knowledgeBase']);
+        expect(result.pair.boot.parity.sampleCount).toBe(MIN_SAMPLES);
+        expect(result.conditions).toBe(CONDITIONS);
+    });
+
+    test('a flattened probe reading is refused with its SLOT and sample index named', async () => {
+        for (const [label, bad] of [
+            ['boot.stdio',     {probeSeatReady: () => Promise.resolve({stdio: 100, parity: perService(210)})}],
+            ['boot.parity',    {probeSeatReady: () => Promise.resolve({stdio: perService(100), parity: 210})}],
+            ['hotCall.stdio',  {probeHotCall:   () => Promise.resolve({stdio: 10, parity: perService(12)})}],
+            ['hotCall.parity', {probeHotCall:   () => Promise.resolve({stdio: perService(10), parity: 12})}]
+        ]) {
+            const result = await assembleLatencyPair({
+                sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes, ...bad
+            });
+
+            expect(result.ok, `${label} must refuse`).toBe(false);
+            expect(result.reason).toContain(label);
+            expect(result.reason).toContain('sample 0');
+        }
+    });
+
+    test('a per-service reading missing ONE service is an unmeasured service, not a zero', async () => {
+        const result = await assembleLatencyPair({
+            sampleCount : MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes,
+            probeHotCall: () => Promise.resolve({stdio: {memoryCoreMs: 10}, parity: perService(12)})
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('unmeasured service');
+    });
+
+    test('the probes are still required, and that is a plain refusal', async () => {
+        const result = await assembleLatencyPair({sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3});
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('must both be functions');
+        expect(result).not.toHaveProperty('blocked');
     });
 });

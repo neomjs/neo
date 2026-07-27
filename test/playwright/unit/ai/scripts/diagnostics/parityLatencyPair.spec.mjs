@@ -277,7 +277,7 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
 
             expect(result.ok, `${label} must refuse a flattened array`).toBe(false);
             // The refusal names the SLOT, so a reader knows which of the four measurements was flattened.
-            expect(result.reason, `${label} refusal must name its slot`).toContain(label.replace(' ', ' '));
+            expect(result.reason, `${label} refusal must name its slot`).toContain(label);
         }
     })
 

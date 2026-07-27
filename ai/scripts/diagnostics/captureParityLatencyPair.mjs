@@ -138,6 +138,29 @@ export async function captureParityLatencyPair(spec) {
         return {ok: false, blocked: SEAT_ADAPTER_PRODUCER === null, reason: blocker};
     }
 
+    return assembleLatencyPair({sampleCount, conditions, acceptableOverhead, probeSeatReady, probeHotCall});
+}
+
+/**
+ * @summary The post-gate capture: runs the sample loop and hands four per-service slots to the comparator.
+ *
+ * **Exported because the gate would otherwise hide it.** While `SEAT_ADAPTER_PRODUCER` is `null` nothing
+ * reaches this code through `captureParityLatencyPair`, and a gate that makes a path unreachable also makes
+ * it unverifiable — a defect behind it is invisible to every test. That is not hypothetical here: a rename of
+ * the sample arrays left this block referencing four retired variables, the suite stayed green because the
+ * gate short-circuited first, and the reviewer found the `ReferenceError` only by forcing the capability on
+ * in memory.
+ *
+ * So the assembly is reachable directly and carries its own positive control, while the **capability gate
+ * stays on the terminal** — the same split as `pilotPlaneTerminal`'s exported validators. Calling this
+ * bypasses no capability check that guards a measurement's honesty: it performs the capture it is given, and
+ * whether a capture may be attempted at all is the terminal's decision.
+ * @param {Object} spec See {@link captureParityLatencyPair}.
+ * @returns {Promise<Object>}
+ */
+export async function assembleLatencyPair(spec) {
+    const {sampleCount, conditions, acceptableOverhead, probeSeatReady, probeHotCall} = spec ?? {};
+
     if (typeof probeSeatReady !== 'function' || typeof probeHotCall !== 'function') {
         return {ok: false, reason: 'probeSeatReady and probeHotCall must both be functions'};
     }
@@ -176,14 +199,14 @@ export async function captureParityLatencyPair(spec) {
 
     return evaluateLatencyPair({
         boot: {
-            stdioSamples   : stdioBootSamples,
-            parityObservations,
-            comparableEvent: PARITY_BOOT_EVENT
+            stdioObservations : bootStdio,
+            parityObservations: bootParity,
+            comparableEvent   : PARITY_BOOT_EVENT
         },
         hotCall: {
-            stdioSamples   : stdioHotSamples,
-            paritySamples  : parityHotSamples,
-            comparableEvent: PARITY_HOT_CALL_EVENT
+            stdioObservations : hotStdio,
+            parityObservations: hotParity,
+            comparableEvent   : PARITY_HOT_CALL_EVENT
         },
         acceptableOverhead,
         conditions
