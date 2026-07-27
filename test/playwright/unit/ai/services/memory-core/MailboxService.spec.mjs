@@ -2056,6 +2056,35 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
     });
 
+    test('the strict-mode refusal names the POSTURE, so the reader is not sent to pairwise grants', async () => {
+        // A refusal that says only "requires CAN_REPLY_TO" reads as a per-pair problem, and an operator
+        // acts on it per pair: on a 15-member single-org deployment that is 210 directed grants, plus 28
+        // per new hire, when one deployment-level policy change replaces all of them. The message has to
+        // carry which cause it is.
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            // `@alice` is registered and charlie's earlier attempt FAILED, so it created no SENT_TO edge
+            // and the pair still has no history — the trust-lift stays unlifted.
+            let message = null;
+
+            try {
+                await MailboxService.addMessage({to: '@alice', subject: 'Hi', body: 'body'})
+            } catch (error) {
+                message = error.message
+            }
+
+            expect(message, 'the send must still be refused').toBeTruthy();
+
+            // The policy is named, so the reader can tell "you need a grant" from "this deployment does
+            // not permit intra-plane initiation" — the distinction the old wording erased.
+            expect(message).toMatch(/mailbox\.defaultReplyPolicy='blocked'/);
+            // And it must steer AWAY from the per-pair remedy rather than merely omitting it.
+            expect(message).toMatch(/rather than granting each pair/);
+            // The grant path stays discoverable — naming the posture must not hide the legitimate
+            // per-pair remedy for a genuinely cross-boundary send.
+            expect(message).toMatch(/CAN_REPLY_TO/)
+        })
+    });
+
     test('#10179 broadcast recipient can DM-reply to broadcaster without explicit grant', async () => {
         // Bob broadcasts (always-permitted — broadcast bypasses the CAN_REPLY_TO gate).
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
