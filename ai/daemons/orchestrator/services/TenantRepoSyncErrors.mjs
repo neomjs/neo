@@ -10,6 +10,7 @@
  * subsystem prefixes (`KB_GITMIRROR_`, `KB_INGEST_`, `KB_TENANT_REPO_ACCESS_`).
  *
  * @see learn/agentos/cloud-deployment/TenantIngestionModel.md — operator quarantine runbook
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 
 export const KB_TENANT_REPO_SYNC_SYNC_FAILED            = 'KB_TENANT_REPO_SYNC_SYNC_FAILED';
@@ -17,6 +18,7 @@ export const KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED    = 'KB_TENANT_REPO_SYNC_R
 export const KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND       = 'KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND';
 export const KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
 export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT';
+export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION';
 // Non-failure defer reason: another process holds the cross-process tenant-repo-sync
 // lease. Surfaced as a `skipped` reasonCode (never thrown) so the periodic lane and
 // the manual CLI can branch on it without treating operator ownership as an error.
@@ -44,6 +46,7 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST
 ]);

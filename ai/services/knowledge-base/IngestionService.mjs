@@ -12,6 +12,8 @@ import RequestContextService,
 import SourceRegistry       from './source/_export.mjs';
 import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
+import {createTenantRepoMaterializationDigest}
+                            from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import VectorService   from './VectorService.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
@@ -27,6 +29,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const LOCAL_EMBEDDING_PROVIDERS           = new Set(['openAiCompatible', 'ollama']);
+const MATERIALIZATION_ATTEMPT_ID_PATTERN  = /^[a-f0-9]{32}$/u;
+const MATERIALIZATION_DIGEST_PATTERN      = /^[a-f0-9]{64}$/u;
 const PARSED_CHUNK_SCHEMA_PATH            = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
 const KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS = Object.freeze({
     'read-failed': {
@@ -57,6 +61,7 @@ const KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS = Object.freeze({
  * successful portion of a push, and fully failed pushes still return the contract
  * summary instead of throwing out of the facade boundary.
  *
+ * @see https://github.com/neomjs/neo/issues/16045
  * @class Neo.ai.services.knowledge-base.IngestionService
  * @extends Neo.core.Base
  * @singleton
@@ -139,6 +144,7 @@ class IngestionService extends Base {
      * @param {Object} [payload.manifestSnapshot] Post-push manifest (`{repoSlug, pathsAfterPush}`).
      * @param {String} [payload.baseRevision] Previous revision boundary.
      * @param {String} [payload.headRevision] Current revision boundary.
+     * @param {Object} [payload.materializationAttempt] Opaque pull-attempt id plus checkpoint-contract version.
      * @param {Boolean} [payload.viaMcp=true] Caller-selected work-volume-gate mode. Omitted
      *                                        or truthy values keep `VectorService.embed`
      *                                        MCP-safe. Explicit `false` (the `ai:ingest-tenant`
@@ -217,7 +223,10 @@ class IngestionService extends Base {
 
             this.updateIngestionProgress({phase: 'manifest'});
             await this.persistManifestSnapshot({
-                manifestSnapshot: payload.manifestSnapshot,
+                manifestSnapshot      : payload.manifestSnapshot,
+                files                 : payload.files,
+                headRevision          : payload.headRevision,
+                materializationAttempt: payload.materializationAttempt,
                 tenantContext,
                 summary
             });
@@ -707,7 +716,7 @@ class IngestionService extends Base {
      *
      * @param {Object}  data
      * @param {String} [data.tenantId] Tenant id.
-     * @returns {Promise<Object<String, {repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number}>>}
+     * @returns {Promise<Object<String, {repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number, materializationReceipt: Object|null}>>}
      */
     async getTenantManifests({tenantId} = {}) {
         const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId});
@@ -723,8 +732,16 @@ class IngestionService extends Base {
 
         return Object.fromEntries(Object.entries(source)
             .map(([repoSlug, manifest]) => {
-                const paths = this.normalizeManifestPaths(manifest?.pathsAfterPush);
-                return paths ? [repoSlug, {repoSlug, pathsAfterPush: paths, updatedAt: manifest.updatedAt || 0}] : null;
+                const
+                    paths                  = this.normalizeManifestPaths(manifest?.pathsAfterPush),
+                    materializationReceipt = this.normalizeMaterializationReceipt(manifest?.materializationReceipt);
+
+                return paths ? [repoSlug, {
+                    repoSlug,
+                    pathsAfterPush: paths,
+                    updatedAt     : manifest.updatedAt || 0,
+                    materializationReceipt
+                }] : null;
             })
             .filter(Boolean));
     }
@@ -734,7 +751,7 @@ class IngestionService extends Base {
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.
      * @param {String} data.repoSlug Repo slug.
-     * @returns {Promise<{tenantId: String, repoSlug: String, source: String, pathsAfterPush: Array<String>, updatedAt: Number}>}
+     * @returns {Promise<{tenantId: String, repoSlug: String, source: String, pathsAfterPush: Array<String>, updatedAt: Number, materializationReceipt: Object|null}>}
      */
     async getTenantManifest({tenantId, repoSlug} = {}) {
         const {tenantId: resolvedTenant, repoSlug: resolvedRepo} = this.resolveTenantContext({tenantId, repoSlug});
@@ -742,11 +759,12 @@ class IngestionService extends Base {
         const manifest                                           = manifests[resolvedRepo];
 
         return {
-            tenantId      : resolvedTenant,
-            repoSlug      : resolvedRepo,
-            source        : manifest ? 'graph' : 'empty',
-            pathsAfterPush: manifest?.pathsAfterPush || [],
-            updatedAt     : manifest?.updatedAt || 0
+            tenantId              : resolvedTenant,
+            repoSlug              : resolvedRepo,
+            source                : manifest ? 'graph' : 'empty',
+            pathsAfterPush        : manifest?.pathsAfterPush || [],
+            updatedAt             : manifest?.updatedAt || 0,
+            materializationReceipt: manifest?.materializationReceipt || null
         };
     }
 
@@ -764,18 +782,23 @@ class IngestionService extends Base {
      * @param {String} data.tenantId Tenant id.
      * @param {String} data.repoSlug Repo slug.
      * @param {Array<String>} data.pathsAfterPush Post-push source-path set.
-     * @returns {Promise<{tenantId: String, repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number}|{error: String, code: String, message: String}>}
+     * @param {Object} [data.materializationReceipt] Optional pull-attempt proof. Omission clears stale proof.
+     * @returns {Promise<{tenantId: String, repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number, materializationReceipt: Object|null}|{error: String, code: String, message: String}>}
      */
-    async setTenantManifest({tenantId, repoSlug, pathsAfterPush} = {}) {
+    async setTenantManifest({tenantId, repoSlug, pathsAfterPush, materializationReceipt} = {}) {
         try {
-            const tenantContext = this.resolveTenantContext({tenantId, repoSlug}),
-                  paths         = this.normalizeManifestPaths(pathsAfterPush);
+            const
+                tenantContext = this.resolveTenantContext({tenantId, repoSlug}),
+                paths         = this.normalizeManifestPaths(pathsAfterPush),
+                receipt       = this.normalizeMaterializationReceipt(materializationReceipt);
 
-            if (!paths) {
+            if (!paths || (materializationReceipt != null && !receipt)) {
                 return {
                     error  : 'Tenant manifest write failed',
                     code   : 'KB_TENANT_MANIFEST_INVALID',
-                    message: '`pathsAfterPush` must be an array.'
+                    message: !paths
+                        ? '`pathsAfterPush` must be an array.'
+                        : '`materializationReceipt` has an invalid shape.'
                 };
             }
 
@@ -789,7 +812,8 @@ class IngestionService extends Base {
             manifests[tenantContext.repoSlug] = {
                 repoSlug      : tenantContext.repoSlug,
                 pathsAfterPush: paths,
-                updatedAt
+                updatedAt,
+                ...(receipt ? {materializationReceipt: receipt} : {})
             };
 
             await this.graphService.upsertNode({
@@ -803,7 +827,13 @@ class IngestionService extends Base {
                 }
             });
 
-            return {tenantId: tenantContext.tenantId, repoSlug: tenantContext.repoSlug, pathsAfterPush: paths, updatedAt};
+            return {
+                tenantId              : tenantContext.tenantId,
+                repoSlug              : tenantContext.repoSlug,
+                pathsAfterPush        : paths,
+                updatedAt,
+                materializationReceipt: receipt
+            };
         } catch (error) {
             return {
                 error  : 'Tenant manifest write failed',
@@ -819,17 +849,71 @@ class IngestionService extends Base {
      * @returns {Promise<void>}
      * @protected
      */
-    async persistManifestSnapshot({manifestSnapshot, tenantContext, summary}) {
+    async persistManifestSnapshot({
+        manifestSnapshot,
+        files,
+        headRevision,
+        materializationAttempt,
+        tenantContext,
+        summary
+    }) {
         const normalized = this.normalizeManifestSnapshot({manifestSnapshot, tenantContext});
 
         if (!normalized) {
             return;
         }
 
+        const attempt = this.normalizeMaterializationAttempt(materializationAttempt);
+
+        if (materializationAttempt != null && !attempt) {
+            summary.errors.push(this.createError({
+                code   : 'KB_TENANT_MATERIALIZATION_ATTEMPT_INVALID',
+                message: '`materializationAttempt` has an invalid shape.'
+            }));
+            return;
+        }
+
+        let receipt = null;
+
+        if (attempt) {
+            const
+                envelopeDigest = createTenantRepoMaterializationDigest({
+                    repoSlug        : normalized.repoSlug,
+                    headRevision,
+                    manifestSnapshot: normalized,
+                    files
+                }),
+                existing       = await this.getTenantManifest({
+                    tenantId: tenantContext.tenantId,
+                    repoSlug: normalized.repoSlug
+                }),
+                hasEffect      = summary.errors.length === 0
+                    && [summary.ingested, summary.deleted]
+                        .some(value => Number.isSafeInteger(value) && value > 0);
+
+            if (hasEffect) {
+                receipt = {
+                    attemptId            : attempt.attemptId,
+                    ingestContractVersion: attempt.ingestContractVersion,
+                    envelopeDigest,
+                    recordedAt           : Date.now()
+                };
+            } else if (
+                summary.errors.length === 0
+                && existing.materializationReceipt?.ingestContractVersion === attempt.ingestContractVersion
+                && existing.materializationReceipt.envelopeDigest === envelopeDigest
+            ) {
+                // Preserve a prior positive receipt so a crash or checkpoint-write
+                // failure after KB mutation can settle idempotently on the retry.
+                receipt = existing.materializationReceipt;
+            }
+        }
+
         const result = await this.setTenantManifest({
-            tenantId      : tenantContext.tenantId,
-            repoSlug      : normalized.repoSlug,
-            pathsAfterPush: normalized.pathsAfterPush
+            tenantId              : tenantContext.tenantId,
+            repoSlug              : normalized.repoSlug,
+            pathsAfterPush        : normalized.pathsAfterPush,
+            materializationReceipt: receipt
         });
 
         if (result?.error) {
@@ -837,7 +921,62 @@ class IngestionService extends Base {
                 code   : result.code,
                 message: result.message
             }));
+        } else if (result.materializationReceipt) {
+            summary.materializationReceipt = result.materializationReceipt;
         }
+    }
+
+    /**
+     * @summary Normalizes the opaque identity assigned by the pull orchestrator to one full attempt.
+     * @param {*} attempt Candidate attempt.
+     * @returns {{attemptId: String, ingestContractVersion: Number}|null}
+     * @protected
+     */
+    normalizeMaterializationAttempt(attempt) {
+        if (
+            !attempt
+            || typeof attempt !== 'object'
+            || Array.isArray(attempt)
+            || !MATERIALIZATION_ATTEMPT_ID_PATTERN.test(attempt.attemptId)
+            || !Number.isSafeInteger(attempt.ingestContractVersion)
+            || attempt.ingestContractVersion <= 0
+        ) {
+            return null;
+        }
+
+        return {
+            attemptId            : attempt.attemptId,
+            ingestContractVersion: attempt.ingestContractVersion
+        };
+    }
+
+    /**
+     * @summary Normalizes one durable positive-effect receipt from the tenant manifest graph.
+     * @param {*} receipt Candidate receipt.
+     * @returns {{attemptId: String, ingestContractVersion: Number, envelopeDigest: String, recordedAt: Number}|null}
+     * @protected
+     */
+    normalizeMaterializationReceipt(receipt) {
+        if (
+            !receipt
+            || typeof receipt !== 'object'
+            || Array.isArray(receipt)
+            || !MATERIALIZATION_ATTEMPT_ID_PATTERN.test(receipt.attemptId)
+            || !Number.isSafeInteger(receipt.ingestContractVersion)
+            || receipt.ingestContractVersion <= 0
+            || !MATERIALIZATION_DIGEST_PATTERN.test(receipt.envelopeDigest)
+            || !Number.isSafeInteger(receipt.recordedAt)
+            || receipt.recordedAt <= 0
+        ) {
+            return null;
+        }
+
+        return {
+            attemptId            : receipt.attemptId,
+            ingestContractVersion: receipt.ingestContractVersion,
+            envelopeDigest       : receipt.envelopeDigest,
+            recordedAt           : receipt.recordedAt
+        };
     }
 
     /**

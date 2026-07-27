@@ -30,7 +30,9 @@ test.describe('TenantRepoAccessContract (#11787)', () => {
     test('derives a deterministic repoSlug from a clean URL cloneUrl', () => {
         expect(deriveRepoSlugFromCloneUrl('https://github.com/neomjs/neo.git')).toBe('github.com/neomjs/neo');
         expect(deriveRepoSlugFromCloneUrl('ssh://github.com/neomjs/neo.git')).toBe('github.com/neomjs/neo');
+        expect(deriveRepoSlugFromCloneUrl('ssh://git@github.com/neomjs/neo.git')).toBe('github.com/neomjs/neo');
         expect(deriveRepoSlugFromCloneUrl('github.com:neomjs/neo.git')).toBe('github.com/neomjs/neo');
+        expect(deriveRepoSlugFromCloneUrl('git@github.com:neomjs/neo.git')).toBe('github.com/neomjs/neo');
     });
 
     test('normalizes tenant repo entries while preserving supported credentialRef values as references only', () => {
@@ -154,6 +156,10 @@ test.describe('TenantRepoAccessContract (#11787)', () => {
             cloneUrl     : 'https://token:secret@github.com/neomjs/neo.git',
             credentialRef: 'env:GITHUB_TOKEN'
         })).toThrow(/must not embed userinfo/u);
+        expect(assertCleanCloneUrl('ssh://git@github.com/neomjs/neo.git'))
+            .toBe('ssh://git@github.com/neomjs/neo.git');
+        expect(assertCleanCloneUrl('git@github.com:neomjs/neo.git'))
+            .toBe('git@github.com:neomjs/neo.git');
 
         expect(() => assertCleanCloneUrl('https://github.com/neomjs/neo.git?token=secret'))
             .toThrow(/query strings or fragments/u);
