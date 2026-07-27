@@ -2076,6 +2076,29 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(terse.dark).not.toContain('@neo-33m-working');
         });
 
+        test('the DECLARED OpenAPI response schema matches what the tool actually returns', async () => {
+            // Output schemas are passthrough, so exact-head CI stays green while `tools/list`
+            // advertises a shape the implementation stopped returning — the description prose and the
+            // schema live twenty lines apart and nothing connects them. This pins the declared
+            // contract against the live payload so the two cannot drift silently again.
+            const yaml = await fs.readFile(
+                path.resolve(process.cwd(), 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8');
+            const declared = yaml.slice(yaml.indexOf('operationId: who_is_online'));
+
+            seedAgent('@neo-schema-pin');
+
+            const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            // Every terse key the implementation returns must be a declared property.
+            Object.keys(result).forEach(key => expect(declared).toContain(`${key}:`));
+
+            // And the five states must be declared as the per-agent enum, so a sixth bucket cannot
+            // ship without the contract naming it.
+            ['online', 'idle', 'dark', 'neverConnected', 'benched']
+                .forEach(state => expect(declared).toContain(state));
+            expect(declared).toContain('enum: [online, idle, dark, neverConnected, benched]');
+        });
+
         test('#16058 — the summary states the windows it applied', async () => {
             seedAgent('@neo-window-note');
 
@@ -2158,7 +2181,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const result = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
 
             expect(result.signalStatus).toContain('add_memory-recency');
-            expect(result.beaconStatus).toBeUndefined();
+            expect(result.beaconStatus).toBeUndefined(); // one status string, not a second field
+
+            // Contract truth: the prose must state the precedence the code actually applies. It
+            // previously said add_memory was the signal "no harness beacon" — which stopped being
+            // true the moment presence began deciding verdicts, and a description that misdescribes
+            // its own precedence is read by every agent as authority.
+            expect(result.signalStatus).toContain('turn-presence');
+            expect(result.signalStatus).not.toContain('no harness beacon');
         });
 
         test('family filter narrows the roster (verbose)', async () => {

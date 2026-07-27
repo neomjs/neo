@@ -603,10 +603,12 @@ class WakeSubscriptionService extends Base {
         if (verbose) {
             return {
                 generatedAt,
-                signalStatus: 'add_memory-recency: per maintainer, the most-recent roster-visible AGENT_MEMORY ' +
-                              'write within the freshness window. Deployment-agnostic (add_memory is the universal ' +
-                              'activity write — no harness beacon) and graph-backed (survives an embed-drain). ' +
-                              'Advisory, not a hard routing gate.',
+                signalStatus: 'Precedence: (1) participationStatus hard gate; (2) a fresh turn-presence beacon, ' +
+                              'which decides online before any absence verdict — add_memory lands at turn ' +
+                              'boundaries, so a first or long turn is present without a recent write; (3) ' +
+                              'add_memory-recency, the deployment-agnostic fallback where no beacon is emitted, ' +
+                              'roster-scoped and graph-backed (survives an embed-drain). Advisory, not a hard ' +
+                              'routing gate.',
                 agents
             };
         }
@@ -772,8 +774,11 @@ class WakeSubscriptionService extends Base {
      * per-deployment beacon), so the signal works identically in the swarm and a multi-tenant cloud.
      *
      * Freshness window: `add_memory` lands at turn boundaries (the consolidate-then-save gate), so the
-     * window must exceed a typical turn to avoid marking a mid-turn agent dark — the false-negative the
-     * beacon design feared. 15 min covers "active within the last few turns" for an advisory tool.
+     * window must exceed a typical turn to avoid marking a mid-turn agent dark. It is a deployment-
+     * calibrated config leaf rather than a constant, because the right value depends on a deployment's
+     * own turn rhythm; the caller reads the resolved value and the summary line reports it. A fresh
+     * turn-presence beacon takes precedence over this signal entirely, so a deployment that emits one
+     * is never gated on a window at all.
      * @param {String} owner AgentIdentity node id.
      * @param {Number} nowMs Clock epoch ms.
      * @returns {Object|null} `{lastActivityAt, ageMs, fresh}` or null when the roster agent has no

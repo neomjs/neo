@@ -449,10 +449,11 @@ paths:
         at all. windows carries the applied freshness/cutoff values, and the summary states them.
         Pass verbose:true
         for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
-        hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
-        a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently
-        active. add_memory is the universal, deployment-agnostic activity write (no harness beacon); the
-        read is roster-scoped and graph-backed (survives an embed-drain).
+        hard gate — operator_benched / temporarily_unreachable report offline; (2) a fresh turn-presence
+        beacon, which decides online before any absence verdict, because add_memory lands at turn
+        boundaries and a first or long turn is present without a recent write; (3) add_memory-recency —
+        the deployment-agnostic fallback where no beacon is emitted, roster-scoped and graph-backed
+        (survives an embed-drain).
       tags: [Health]
       requestBody:
         required: false
