@@ -443,7 +443,11 @@ paths:
         instead of stalling the merge gate silently.
 
 
-        Terse by default: {summary, online[], idle[], benched[]} (identity arrays). Pass verbose:true
+        Terse by default: {summary, windows, online[], idle[], dark[], neverConnected[], benched[]}
+        (identity arrays). Buckets separate liveness from membership: idle is stale but within the
+        configured cutoff, dark is stale beyond it, neverConnected has no activity on this deployment
+        at all. windows carries the applied freshness/cutoff values, and the summary states them.
+        Pass verbose:true
         for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
         hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
         a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently

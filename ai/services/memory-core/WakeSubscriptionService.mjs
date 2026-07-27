@@ -3,13 +3,34 @@ import fs                                                                       
 import path                                                                                     from 'path';
 import Base                                                                                     from '../../../src/core/Base.mjs';
 import GraphService                                                                             from './GraphService.mjs';
-import aiConfig                                                                                 from '../../mcp/server/memory-core/config.mjs';
+import AiConfig                                                                                 from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {normalizeUserId}                                                 from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
+
+/**
+ * @summary Renders a millisecond window as the coarsest unit that divides it evenly, for the
+ * `who_is_online` summary line.
+ *
+ * The summary states the windows it applied because the same counts mean different things under
+ * different calibrations — `3 idle` is a different fact at 15 minutes and at 4 hours. Rendering
+ * the resolved value (rather than documenting a constant) keeps the line honest when a deployment
+ * overrides the leaf.
+ * @param {Number} ms
+ * @returns {String}
+ */
+function formatWindow(ms) {
+    const minutes = ms / 60000,
+          hours   = minutes / 60;
+
+    if (Number.isInteger(hours) && hours >= 1) return `${hours}h`;
+    if (Number.isInteger(minutes))             return `${minutes}m`;
+
+    return `${ms}ms`;
+}
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -159,7 +180,7 @@ class WakeSubscriptionService extends Base {
      * @member {String} liveCursorStateFile
      * @protected
      */
-    liveCursorStateFile = aiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath
+    liveCursorStateFile = AiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath
 
     /**
      * Sets the initial live cursor to the current graph log head to prevent
@@ -565,9 +586,14 @@ class WakeSubscriptionService extends Base {
      *   reason/signals) for diagnostics. Default stays terse so the per-call token cost is
      *   proportional to the question.
      * @param {Date|String|Number} [opts.now=new Date()] Clock source (unit-test seam).
-     * @returns {Promise<Object>} Terse (default): `{generatedAt, summary, online[], idle[], benched[]}`
-     *   (identity arrays). Verbose: `{generatedAt, signalStatus, agents}` where each agent is
-     *   `{identity, name, family, participationStatus, online, reason, signals}`.
+     * @returns {Promise<Object>} Terse (default):
+     *   `{generatedAt, summary, windows, online[], idle[], dark[], neverConnected[], benched[]}`
+     *   (identity arrays). The five buckets separate LIVENESS from MEMBERSHIP: `online` (acting
+     *   now), `idle` (stale but inside the idle cutoff), `dark` (stale beyond it), `neverConnected`
+     *   (rostered but never observed on THIS deployment), `benched` (participationStatus gate).
+     *   `windows` carries the resolved `{activityFreshMs, idleCutoffMs}` so the counts are
+     *   interpretable without reading source. Verbose: `{generatedAt, signalStatus, agents}` where
+     *   each agent is `{identity, name, family, participationStatus, online, state, reason, signals}`.
      */
     async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
         const nowMs       = this._coerceDate(now).getTime(),
@@ -587,17 +613,31 @@ class WakeSubscriptionService extends Base {
 
         // Terse default — a "who is online?" answer, not a diagnostics book. The signalStatus essay
         // and the per-agent reason/signals live behind verbose:true so the per-call token cost stays
-        // proportional to the question. online = fresh add_memory activity; idle = rostered
-        // and active but no fresh write; benched = participationStatus not 'active'.
-        const online  = agents.filter(agent => agent.online).map(agent => agent.identity),
-              benched = agents.filter(agent => !agent.online && agent.participationStatus !== 'active').map(agent => agent.identity),
-              idle    = agents.filter(agent => !agent.online && agent.participationStatus === 'active').map(agent => agent.identity);
+        // proportional to the question. Buckets are keyed off the projected state so the wire shape
+        // and the per-agent verdict can never disagree.
+        const inState        = state => agents.filter(agent => agent.state === state).map(agent => agent.identity),
+              online         = inState('online'),
+              idle           = inState('idle'),
+              dark           = inState('dark'),
+              neverConnected = inState('neverConnected'),
+              benched        = inState('benched'),
+              windows        = {
+                  activityFreshMs: AiConfig.whoIsOnline.activityFreshMs,
+                  idleCutoffMs   : AiConfig.whoIsOnline.idleCutoffMs
+              };
 
         return {
             generatedAt,
-            summary: `${online.length} online · ${idle.length} idle · ${benched.length} benched`,
+            // The summary states the windows it applied: the same counts mean different things under
+            // a 15-minute and a 4-hour window, so a bare number is not interpretable without them.
+            summary: `${online.length} online · ${idle.length} idle · ${dark.length} dark · ` +
+                     `${neverConnected.length} never-connected · ${benched.length} benched ` +
+                     `(online ≤ ${formatWindow(windows.activityFreshMs)}, idle ≤ ${formatWindow(windows.idleCutoffMs)})`,
+            windows,
             online,
             idle,
+            dark,
+            neverConnected,
             benched
         };
     }
@@ -659,7 +699,7 @@ class WakeSubscriptionService extends Base {
 
         // 1. participationStatus HARD GATE — benched/unreachable overrides every softer signal.
         if (participationStatus !== 'active') {
-            return {identity, name, family, participationStatus, online: false,
+            return {identity, name, family, participationStatus, online: false, state: 'benched',
                 reason: `roster: participationStatus is '${participationStatus}' (benched / unreachable)`, signals};
         }
 
@@ -672,9 +712,13 @@ class WakeSubscriptionService extends Base {
         const activity = this._readActivityRecency(identity, nowMs);
         signals.activityRecency = activity;
 
+        // Never observed HERE. This is a MEMBERSHIP fact, not a freshness one: the identity ships in
+        // the roster but has no AGENT_MEMORY write on this deployment at all. Folding it into `idle`
+        // is what made a remote roster read as an attendance list — an operator could not tell a
+        // colleague who logged off from a seat that has never once connected.
         if (!activity) {
-            return {identity, name, family, participationStatus, online: false,
-                reason: 'no add_memory activity (dark — no AGENT_MEMORY write on record)', signals};
+            return {identity, name, family, participationStatus, online: false, state: 'neverConnected',
+                reason: 'never connected to this deployment (no AGENT_MEMORY write on record)', signals};
         }
         if (!activity.fresh) {
             // Local-only mid-turn rescue: the consolidate-then-save gate lands add_memory only at the
@@ -685,14 +729,21 @@ class WakeSubscriptionService extends Base {
             const beacon = TurnPresenceService.getFreshTurnPresence(identity, nowMs);
             signals.turnPresence = beacon;
             if (beacon?.fresh) {
-                return {identity, name, family, participationStatus, online: true,
+                return {identity, name, family, participationStatus, online: true, state: 'online',
                     reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; add_memory stale) — mid-turn rescue`, signals};
             }
-            return {identity, name, family, participationStatus, online: false,
-                reason: `stale add_memory activity (last write ${activity.lastActivityAt} — none within the freshness window)`, signals};
+
+            // Stale splits on the idle cutoff. Inside it the identity is plausibly still in this
+            // session; beyond it `idle` would be a claim the signal cannot support, so it reports
+            // `dark` — rostered and reachable, but not evidence of anyone being around.
+            return activity.withinIdle
+                ? {identity, name, family, participationStatus, online: false, state: 'idle',
+                    reason: `stale add_memory activity (last write ${activity.lastActivityAt} — outside the freshness window, within the idle cutoff)`, signals}
+                : {identity, name, family, participationStatus, online: false, state: 'dark',
+                    reason: `no activity within the idle cutoff (last write ${activity.lastActivityAt}) — rostered, not recently seen`, signals};
         }
 
-        return {identity, name, family, participationStatus, online: true,
+        return {identity, name, family, participationStatus, online: true, state: 'online',
             reason: `recent add_memory activity (last write ${activity.lastActivityAt})`, signals};
     }
 
@@ -753,13 +804,16 @@ class WakeSubscriptionService extends Base {
         const lastMs = new Date(latest).getTime();
         if (!Number.isFinite(lastMs)) return null;
 
-        const ageMs   = nowMs - lastMs,
-              freshMs = 15 * 60 * 1000;
+        // Both windows come from the Provider SSOT so a deployment can calibrate to its own turn
+        // rhythm; `stale` is the membership axis (still plausibly in this session) and is what
+        // separates an identity that logged off at lunch from one last seen eight hours ago.
+        const ageMs = nowMs - lastMs;
 
         return {
             lastActivityAt: new Date(lastMs).toISOString(),
             ageMs,
-            fresh         : ageMs >= 0 && ageMs <= freshMs
+            fresh         : ageMs >= 0 && ageMs <= AiConfig.whoIsOnline.activityFreshMs,
+            withinIdle    : ageMs >= 0 && ageMs <= AiConfig.whoIsOnline.idleCutoffMs
         };
     }
 

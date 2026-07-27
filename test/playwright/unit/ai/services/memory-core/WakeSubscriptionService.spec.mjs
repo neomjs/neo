@@ -28,13 +28,18 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 
 test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
-    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave;
+    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave, AiConfig;
 
     test.beforeAll(async () => {
         // Isolation is by construction: `storagePaths.graph` resolves `graphTest` (`:memory:`) and
         // `collections.*` resolve to per-process randomized `test-*` names under `UNIT_TEST_MODE`.
         GraphService            = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         WakeSubscriptionService = (await import('../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs')).default;
+        // The window assertions read the resolved leaves rather than restating literals, so a
+        // deployment override moves the fixture with the config instead of falsifying it.
+        // The canonical committed template, never the repo-local ignored overlay: a test that
+        // asserts against the overlay would pass or fail on one machine's uncommitted edits.
+        AiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../ai/services/memory-core/CoalescingEngineService.mjs')).default;
         LifecycleService        = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         ({callTool}             = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
@@ -1996,15 +2001,69 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.reason).toContain('benched');
         });
 
-        test('no add_memory activity → offline (dark) + signals.activityRecency null (verbose)', async () => {
+        test('no add_memory activity ever → state neverConnected, NOT idle (verbose)', async () => {
             seedAgent('@neo-dark');
 
             const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
             const entry    = agents.find(a => a.identity === '@neo-dark');
 
             expect(entry.online).toBe(false);
-            expect(entry.reason).toContain('no add_memory activity');
+            // Membership, not freshness: an identity that has never written here is not "idle".
+            expect(entry.state).toBe('neverConnected');
+            expect(entry.state).not.toBe('idle');
+            expect(entry.reason).toContain('never connected to this deployment');
             expect(entry.signals.activityRecency).toBeNull();
+        });
+
+        test('#16058 regression A — an 8-hour-stale identity reports dark, never idle', async () => {
+            seedAgent('@neo-8h-stale');
+            seedActivity('@neo-8h-stale', {timestamp: iso(T0ms - 8 * 60 * 60 * 1000)});
+
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry   = verbose.agents.find(a => a.identity === '@neo-8h-stale');
+
+            expect(entry.state).toBe('dark');
+            expect(entry.online).toBe(false);
+            expect(entry.signals.activityRecency.withinIdle).toBe(false);
+
+            const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(terse.dark).toContain('@neo-8h-stale');
+            expect(terse.idle).not.toContain('@neo-8h-stale');
+        });
+
+        test('#16058 regression B — a 33-minute-quiet identity with a fresh beacon reports ONLINE', async () => {
+            // The false-negative that misroutes work: add_memory lands at turn boundaries, so an
+            // agent on a long turn goes quiet on that signal precisely while it is busiest.
+            seedAgent('@neo-33m-working');
+            seedActivity('@neo-33m-working', {timestamp: iso(T0ms - 33 * 60 * 1000)});
+            seedBeacon('@neo-33m-working', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry   = verbose.agents.find(a => a.identity === '@neo-33m-working');
+
+            expect(entry.online).toBe(true);
+            expect(entry.state).toBe('online');
+            expect(entry.signals.activityRecency.fresh).toBe(false); // the write IS stale — the beacon carries it
+
+            const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(terse.online).toContain('@neo-33m-working');
+            expect(terse.idle).not.toContain('@neo-33m-working');
+            expect(terse.dark).not.toContain('@neo-33m-working');
+        });
+
+        test('#16058 — the summary states the windows it applied', async () => {
+            seedAgent('@neo-window-note');
+
+            const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            // A bare count is uninterpretable without its calibration; the numbers come from the
+            // resolved leaves so an override is reflected rather than a documented constant.
+            expect(result.windows.activityFreshMs).toBe(AiConfig.whoIsOnline.activityFreshMs);
+            expect(result.windows.idleCutoffMs).toBe(AiConfig.whoIsOnline.idleCutoffMs);
+            expect(result.summary).toContain('online ≤');
+            expect(result.summary).toContain('idle ≤');
         });
 
         test('roster-scoping: an agent\'s OWN activity marks it online regardless of the user_id tenant tag', async () => {
@@ -2028,10 +2087,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.signals.activityRecency.fresh).toBe(true);
         });
 
-        test('terse default: {summary, online, idle, benched} identity arrays — no per-agent essay', async () => {
+        test('terse default: five honest buckets as identity arrays — no per-agent essay', async () => {
             seedAgent('@neo-t-online');
             seedActivity('@neo-t-online', {timestamp: iso(T0ms - 2 * 60 * 1000)});
-            seedAgent('@neo-t-idle');                                              // active, no activity → idle
+            seedAgent('@neo-t-idle');                                                  // stale, inside the cutoff
+            seedActivity('@neo-t-idle', {timestamp: iso(T0ms - 90 * 60 * 1000)});
+            seedAgent('@neo-t-dark');                                                  // stale, beyond the cutoff
+            seedActivity('@neo-t-dark', {timestamp: iso(T0ms - 9 * 60 * 60 * 1000)});
+            seedAgent('@neo-t-never');                                                 // rostered, never observed here
             seedAgent('@neo-t-benched', {participationStatus: 'temporarily_unreachable'});
 
             const result = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
@@ -2041,8 +2104,15 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(result.signalStatus).toBeUndefined();
             expect(result.online).toContain('@neo-t-online');
             expect(result.idle).toContain('@neo-t-idle');
-            expect(result.idle).not.toContain('@neo-t-online');
+            expect(result.dark).toContain('@neo-t-dark');
+            expect(result.neverConnected).toContain('@neo-t-never');
             expect(result.benched).toContain('@neo-t-benched');
+
+            // The buckets must partition: no identity may appear in two of them, which is the
+            // property that makes the summary counts add up to the roster.
+            expect(result.idle).not.toContain('@neo-t-online');
+            expect(result.idle).not.toContain('@neo-t-dark');
+            expect(result.idle).not.toContain('@neo-t-never');
             expect(result.summary).toContain(`${result.online.length} online`);
         });
 
@@ -2087,8 +2157,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(typeof res.summary).toBe('string');
             expect(Array.isArray(res.online)).toBe(true);
             expect(Array.isArray(res.idle)).toBe(true);
-            // @neo-dispatch is rostered + active but has no activity → idle
-            expect(res.idle).toContain('@neo-dispatch');
+            expect(Array.isArray(res.dark)).toBe(true);
+            expect(Array.isArray(res.neverConnected)).toBe(true);
+            // @neo-dispatch is rostered + active but has never written here → neverConnected, not idle.
+            // The full wire shape crosses the dispatch boundary, so the new buckets are reachable by
+            // an actual tool caller rather than only through the service method.
+            expect(res.neverConnected).toContain('@neo-dispatch');
+            expect(res.idle).not.toContain('@neo-dispatch');
         });
     });
 });

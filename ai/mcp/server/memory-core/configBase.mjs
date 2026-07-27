@@ -247,6 +247,29 @@ class ConfigBase extends ConfigProvider {
                 hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
             },
             /**
+             * `who_is_online` roster-projection windows.
+             *
+             * The tool answers two different questions and needs two different windows, because a
+             * single one cannot be right for both: LIVENESS ("acting right now") and MEMBERSHIP
+             * ("seen on this deployment at all"). Both are deployment-calibratable rather than
+             * constants, because the honest value depends on a deployment's own turn rhythm — a
+             * swarm of long-turn maintainers and a many-seat tenant do not share one answer.
+             *
+             * `activityFreshMs` bounds ONLINE. `add_memory` lands at turn boundaries, so this must
+             * exceed a typical turn or a mid-turn agent reads as absent; the turn-presence beacon
+             * is the preferred liveness signal where a deployment emits one, and this window is the
+             * fallback rather than the primary test.
+             *
+             * `idleCutoffMs` bounds IDLE, and its absence is what made the roster read as an
+             * attendance list: with no cutoff, an identity last seen eight hours ago and an
+             * identity that logged off at lunch occupy the same bucket. Beyond it an identity
+             * reports `dark` — still rostered, no longer plausibly in this session.
+             */
+            whoIsOnline: {
+                activityFreshMs: leaf(15 * 60 * 1000, 'NEO_WHO_IS_ONLINE_ACTIVITY_FRESH_MS', 'number'),
+                idleCutoffMs   : leaf(4 * 60 * 60 * 1000, 'NEO_WHO_IS_ONLINE_IDLE_CUTOFF_MS', 'number')
+            },
+            /**
              * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved
              * leaves at write/report time so deployments can tune observability without
              * re-deriving defaults outside the Provider SSOT.
