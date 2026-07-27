@@ -13,7 +13,9 @@ import {
 // Two disciplines are asserted here rather than trusted: a single sample is not a measurement, and the
 // acceptability bound is the caller's to supply.
 
-const leg = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity});
+const EVENT = 'first successful healthcheck response after process/stack start';
+
+const leg = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity, comparableEvent: EVENT});
 
 test.describe('summarizeSamples — one reading is not a measurement', () => {
     test('⭐ fewer than the floor refuses, and says why rather than just how many', () => {
@@ -46,6 +48,31 @@ test.describe('summarizeSamples — one reading is not a measurement', () => {
         expect(summarizeSamples([100, Number.NaN, 120]).reason).toContain('[1]');
         expect(summarizeSamples([100, -5, 120]).reason).toContain('[1]');
         expect(summarizeSamples('nope').reason).toContain('must be an array');
+    })
+});
+
+test.describe('compareLatencyLeg — the equivalence must be STATED, not assumed', () => {
+    test('⭐ an UNNAMED comparableEvent refuses — the topologies share no native "boot"', () => {
+        // Parity times a FOUR-SERVICE container plane to healthy (vector store + both MCP servers +
+        // running orchestrator + served-identity assertion); stdio spawns a server per client and has no
+        // such plane-ready moment. A ratio between two different events is misleading even when both
+        // numbers are real — which is the failure this comparator exists to prevent one level up.
+        const result = compareLatencyLeg({
+            stdioSamples: [100, 100, 100], paritySamples: [250, 250, 250], dimension: 'boot'
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('comparableEvent must name the event BOTH legs measured');
+        expect(result.reason).toContain('worse than no ratio');
+        expect(result).not.toHaveProperty('overheadRatio');
+    })
+
+    test('a blank comparableEvent is not a name', () => {
+        expect(compareLatencyLeg({stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2], comparableEvent: '   '}).ok).toBe(false);
+    })
+
+    test('the named event is carried onto the result, so a reader sees what was compared', () => {
+        expect(compareLatencyLeg(leg([100, 100, 100], [250, 250, 250])).comparableEvent).toBe(EVENT);
     })
 });
 

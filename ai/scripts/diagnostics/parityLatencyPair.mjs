@@ -100,18 +100,41 @@ export function summarizeSamples(samples, label = 'samples') {
  * @param {Number[]} spec.stdioSamples  Baseline timings — what the seat has today.
  * @param {Number[]} spec.paritySamples Parity-topology timings.
  * @param {String}   [spec.dimension]   `'boot'` or `'hotCall'`, for labels.
+ * @param {String}   spec.comparableEvent The event BOTH legs measured. REQUIRED — the topologies share
+ *                                        no native "boot", so an unnamed equivalence yields a ratio
+ *                                        between two different events.
  * @returns {Object} `{ok, reason?, dimension, stdio, parity, overheadRatio, overheadMs, trustworthy}`
  */
-export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'latency'} = {}) {
+export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'latency', comparableEvent} = {}) {
     const stdio  = summarizeSamples(stdioSamples, `${dimension} stdioSamples`),
           parity = summarizeSamples(paritySamples, `${dimension} paritySamples`);
 
     if (!stdio.ok)  return {ok: false, reason: stdio.reason};
     if (!parity.ok) return {ok: false, reason: parity.reason};
 
+    // THE EQUIVALENCE MUST BE STATED, and this is not paperwork. The two topologies do not share a
+    // "boot": the parity fixture measures wall-clock until a FOUR-SERVICE container plane is healthy
+    // (vector store + both MCP servers + a running orchestrator, plus a served-identity assertion),
+    // while stdio spawns a server process per client on demand and has no such plane-ready moment.
+    // A ratio between two different events is misleading even when both numbers are real — the exact
+    // failure this whole comparator exists to prevent one level up. So the caller must name the event
+    // both legs measured; there is no default, because inventing an equivalence is worse than lacking
+    // one (a stated wrong equivalence can at least be challenged; an implicit one cannot).
+    if (typeof comparableEvent !== 'string' || comparableEvent.trim() === '') {
+        return {
+            ok    : false,
+            reason: `${dimension}: comparableEvent must name the event BOTH legs measured (e.g. ` +
+                    '"first successful healthcheck response after process/stack start"). The parity and ' +
+                    'stdio topologies share no native "boot": parity times a four-service plane to ' +
+                    'healthy, stdio spawns per client. An unnamed equivalence makes the ratio a ' +
+                    'comparison between two different events, which is worse than no ratio.'
+        };
+    }
+
     return {
         ok           : true,
         dimension,
+        comparableEvent,
         stdio,
         parity,
         overheadRatio: parity.medianMs / stdio.medianMs,
@@ -137,8 +160,8 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
  * @returns {Object} `{ok, reason?, pair, verdict?, exceeded?, trustworthy?}`
  */
 export function evaluateLatencyPair({boot, hotCall, acceptableOverhead} = {}) {
-    const bootLeg = compareLatencyLeg({...boot, dimension: 'boot'}),
-          callLeg = compareLatencyLeg({...hotCall, dimension: 'hotCall'});
+    const bootLeg = compareLatencyLeg({dimension: 'boot', ...boot}),
+          callLeg = compareLatencyLeg({dimension: 'hotCall', ...hotCall});
 
     if (!bootLeg.ok) return {ok: false, reason: bootLeg.reason};
     if (!callLeg.ok) return {ok: false, reason: callLeg.reason};
