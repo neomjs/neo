@@ -3,7 +3,7 @@
 Use this audit when the concise workflow-map trigger points here:
 
 - ideation-sandbox-workflow.md §5.1 for high-blast-radius Discussion graduation.
-- `ticket-create-workflow.md` §1c for high-blast-radius tickets citing ungraduated Discussions.
+- ticket-create-workflow.md §1d for high-blast-radius tickets citing ungraduated Discussions.
 - `epic-review-workflow.md` Stage 2 for Discussion-origin Epic backstops.
 
 ## Why This Exists
@@ -67,7 +67,7 @@ If a Discussion-origin Epic lacks the required upstream matrix or peer cycle, re
 ## Disposition
 
 - ideation-sandbox-workflow.md §5.1: `compress-to-trigger`
-- `ticket-create-workflow.md` §1c: `compress-to-trigger`
+- ticket-create-workflow.md §1d: `compress-to-trigger`
 - `epic-review-workflow.md` Stage 2 backstop: `compress-to-trigger`
 - This file: `move`
 - Tag: `DISCIPLINE-ONLY`
