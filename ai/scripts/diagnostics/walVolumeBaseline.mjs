@@ -183,44 +183,100 @@ export function reduceWalWindow({segments, windowDays, nowMs} = {}) {
  * **Projects from the PEAK day, not the mean** — a pilot sized on a quiet week is sized wrong, and the
  * failure direction of under-projecting is choosing fork-then-replay for a corpus that cannot replay.
  * The mean is reported alongside so the gap between them is visible rather than hidden by the choice.
+ * ## The budget is DERIVED here, not accepted
+ *
+ * An earlier shape took `replayBudgetMb` as a required scalar and documented the formula in prose. That
+ * merely relocated the invention: any caller-supplied number could select the cheap posture while
+ * contradicting the stated arithmetic, and nothing checked it. Requiring a value is not the same as
+ * deriving one. So the three *factual* inputs are taken instead and the budget is computed from them,
+ * which makes the formula executable rather than advisory.
+ *
+ * Rates are MB/**day** to match the baseline's own units (`peakDayMb`, `meanMbPerDay`); the earlier prose
+ * mixed MB/s with a window in seconds, which is dimensionally equivalent but invites a units slip at the
+ * call site.
+ *
+ * ## Non-convergence is a posture, not an error
+ *
+ * When concurrent native inflow meets or exceeds replay throughput, the net rate is ≤ 0 and a forward pass
+ * never catches up — fork-then-replay is impossible at *any* cutover window, not merely over budget. The
+ * old signature could not express that at all; it is reported as `dual-journal` with a non-convergence
+ * rationale, because it is a genuine decision rather than a malformed input.
  * @param {Object} spec
- * @param {Object} spec.baseline       An `ok` {@link reduceWalWindow} result.
- * @param {Number} spec.pilotDays      Planned pilot duration.
- * @param {Number} spec.replayBudgetMb Corpus size one forward pass can absorb WITHIN the accepted
- *                                     cutover window — i.e. NET throughput (MB/s, after concurrent
- *                                     native inflow) x that window (s). REQUIRED, no default: a
- *                                     throughput alone has the wrong units.
- * @returns {Object} `{ok, reason?, posture, projectedMb, projectedFromMeanMb, headroomMb, rationale}`
+ * @param {Object} spec.baseline                 An `ok` {@link reduceWalWindow} result.
+ * @param {Number} spec.pilotDays                Planned pilot duration.
+ * @param {Number} spec.replayThroughputMbPerDay Measured rate one forward replay pass sustains.
+ * @param {Number} spec.nativeInflowMbPerDay     Rate the shared native plane keeps producing DURING
+ *                                               replay. Subtracted, because replay competes with it.
+ * @param {Number} spec.cutoverWindowDays        Accepted duration of the cutover — an operational
+ *                                               decision, and the only judgement input of the three.
+ * @returns {Object} `{ok, reason?, posture, projectedMb, projectedFromMeanMb, replayBudgetMb, netThroughputMbPerDay, headroomMb, rationale}`
  */
-export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
+export function decideWalPosture({
+    baseline, pilotDays, replayThroughputMbPerDay, nativeInflowMbPerDay, cutoverWindowDays
+} = {}) {
     const refuse = reason => ({ok: false, reason});
 
-    if (!baseline?.ok)                     return refuse(`baseline is not a successful measurement: ${baseline?.reason ?? 'absent'}`);
-    if (!isPositiveFinite(pilotDays))      return refuse(`pilotDays must be a positive finite number, received ${JSON.stringify(pilotDays)}`);
-    if (!isPositiveFinite(replayBudgetMb)) {
+    if (!baseline?.ok)                return refuse(`baseline is not a successful measurement: ${baseline?.reason ?? 'absent'}`);
+    if (!isPositiveFinite(pilotDays)) return refuse(`pilotDays must be a positive finite number, received ${JSON.stringify(pilotDays)}`);
+
+    for (const [label, value] of [
+        ['replayThroughputMbPerDay', replayThroughputMbPerDay],
+        ['cutoverWindowDays',        cutoverWindowDays]
+    ]) {
+        if (!isPositiveFinite(value)) {
+            return refuse(
+                `${label} must be a positive finite number, received ${JSON.stringify(value)}. The replay ` +
+                'budget is DERIVED as (replay throughput − native inflow) × cutover window, so the factors ' +
+                'are required rather than a precomputed size: a supplied number could pick the cheap ' +
+                'posture while contradicting that arithmetic, with nothing to catch it.'
+            );
+        }
+    }
+
+    // Zero is legitimate here (a quiesced plane genuinely has no inflow), so this one is not "positive".
+    if (typeof nativeInflowMbPerDay !== 'number' || !Number.isFinite(nativeInflowMbPerDay) || nativeInflowMbPerDay < 0) {
         return refuse(
-            `replayBudgetMb must be a positive finite number, received ${JSON.stringify(replayBudgetMb)}. ` +
-            'It has no default on purpose, and it is a SIZE: derive it as NET replay throughput (MB/s, ' +
-            'after the concurrent native inflow a shared plane keeps producing) times the accepted ' +
-            'cutover window (s). A throughput alone cannot set it — wrong units — and a plausible ' +
-            'constant chosen here would encode one observation as a calibrated bound.'
+            `nativeInflowMbPerDay must be a non-negative finite number, received ${JSON.stringify(nativeInflowMbPerDay)}. ` +
+            'Pass 0 for a quiesced plane — omitting it would silently assume quiescence, which is the ' +
+            'optimistic direction on a shared plane.'
         );
     }
 
-    const projectedMb         = baseline.peakDayMb * pilotDays,
-          projectedFromMeanMb = baseline.meanMbPerDay * pilotDays,
-          withinBudget        = projectedMb <= replayBudgetMb;
+    const netThroughputMbPerDay = replayThroughputMbPerDay - nativeInflowMbPerDay,
+          projectedMb           = baseline.peakDayMb * pilotDays,
+          projectedFromMeanMb   = baseline.meanMbPerDay * pilotDays;
+
+    if (netThroughputMbPerDay <= 0) {
+        return {
+            ok            : true,
+            posture       : 'dual-journal',
+            projectedMb,
+            projectedFromMeanMb,
+            replayBudgetMb: 0,
+            netThroughputMbPerDay,
+            headroomMb    : -projectedMb,
+            rationale     : `native inflow ${nativeInflowMbPerDay}MB/d meets or exceeds replay throughput ` +
+                `${replayThroughputMbPerDay}MB/d, so a forward pass never converges and fork-then-replay is ` +
+                'impossible at any cutover window — not merely over budget'
+        };
+    }
+
+    const replayBudgetMb = netThroughputMbPerDay * cutoverWindowDays,
+          withinBudget   = projectedMb <= replayBudgetMb,
+          budgetNote     = `${replayBudgetMb.toFixed(2)}MB budget (net ${netThroughputMbPerDay}MB/d × ${cutoverWindowDays}d)`;
 
     return {
         ok        : true,
         posture   : withinBudget ? 'fork-then-replay' : 'dual-journal',
         projectedMb,
         projectedFromMeanMb,
+        replayBudgetMb,
+        netThroughputMbPerDay,
         headroomMb: replayBudgetMb - projectedMb,
         rationale : withinBudget
-            ? `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d fits the ${replayBudgetMb}MB replay budget; ` +
+            ? `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d fits the ${budgetNote}; ` +
               'the WAL segments are already the append-only replay substrate, so a second write path buys nothing'
-            : `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d exceeds the ${replayBudgetMb}MB replay budget; ` +
+            : `peak-projected ${projectedMb.toFixed(2)}MB over ${pilotDays}d exceeds the ${budgetNote}; ` +
               'one forward pass cannot absorb the pilot corpus, so the disposition needs a dual journal'
     };
 }

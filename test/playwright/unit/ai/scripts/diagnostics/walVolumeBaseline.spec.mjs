@@ -159,42 +159,92 @@ test.describe('reduceWalWindow — the measurement', () => {
 test.describe('decideWalPosture — the constant is deferred, never invented', () => {
     const busyBaseline = baselineOf([segment('wal-a.jsonl', 1, 3), segment('wal-b.jsonl', 3, 3)]);
 
-    test('⭐ REFUSES without an explicit replayBudgetMb, and says why it has no default', () => {
-        // The uncalibrated-constant trap. A plausible default here would encode one week's observation
-        // as a calibrated bound — the exact move that was withdrawn after peers falsified it elsewhere
-        // this cycle. The budget's only honest source is a measured replay throughput.
-        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14});
+    // Budget factors chosen so the DERIVED budget matches the numbers the earlier suite passed in directly:
+    // net 10MB/d x 10d = 100MB, and net 2MB/d x 10d = 20MB.
+    const fits     = {replayThroughputMbPerDay: 11, nativeInflowMbPerDay: 1, cutoverWindowDays: 10},
+          tooTight = {replayThroughputMbPerDay: 3,  nativeInflowMbPerDay: 1, cutoverWindowDays: 10};
+
+    test('⭐ REFUSES a precomputed replayBudgetMb — requiring a number is not deriving one', () => {
+        // The earlier shape took the budget as a required scalar and documented the formula in prose, which
+        // merely relocated the invention: a supplied number could select the cheap posture while
+        // contradicting the stated arithmetic, and nothing checked it. The factors are now required instead.
+        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14, replayBudgetMb: 100});
 
         expect(result.ok).toBe(false);
-        expect(result.reason).toContain('no default on purpose');
-        // ...and the refusal states the DIMENSIONS, because a throughput alone has the wrong units.
-        expect(result.reason).toContain('accepted cutover window');
-        expect(result.reason).toContain('wrong');
-        // NET, not isolated: a replay on a shared plane races the writes other seats keep making, so an
-        // isolated benchmark over-states the budget and would pick fork-then-replay for a corpus that
-        // cannot finish inside the window.
-        expect(result.reason).toContain('NET replay throughput');
-        expect(result.reason).toContain('concurrent native inflow');
+        expect(result.reason).toContain('replayThroughputMbPerDay');
+        expect(result.reason).toContain('DERIVED');
+        expect(result.reason).toContain('contradicting that arithmetic');
+        // The smuggled figure must not have leaked into the output.
+        expect(result.replayBudgetMb).toBeUndefined();
+        expect(result.posture).toBeUndefined();
     })
 
-    test('fork-then-replay when the PEAK-projected corpus fits the budget', () => {
-        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14, replayBudgetMb: 100});
+    test('an omitted native inflow is NOT silently assumed quiescent', () => {
+        // Assuming zero inflow is the optimistic direction on a shared plane, so it has to be stated —
+        // including the legitimate zero.
+        const omitted = decideWalPosture({baseline: busyBaseline, pilotDays: 14, replayThroughputMbPerDay: 11, cutoverWindowDays: 10});
+
+        expect(omitted.ok).toBe(false);
+        expect(omitted.reason).toContain('Pass 0 for a quiesced plane');
+
+        expect(decideWalPosture({
+            baseline            : busyBaseline, pilotDays: 14, replayThroughputMbPerDay: 11,
+            nativeInflowMbPerDay: 0, cutoverWindowDays: 10
+        }).ok).toBe(true);
+
+        expect(decideWalPosture({
+            baseline            : busyBaseline, pilotDays: 14, replayThroughputMbPerDay: 11,
+            nativeInflowMbPerDay: -1, cutoverWindowDays: 10
+        }).ok).toBe(false);
+    })
+
+    test('⭐ non-convergence is a POSTURE, not an error — replay that never catches up', () => {
+        // Inflow at or above throughput means a forward pass never converges, so fork-then-replay is
+        // impossible at ANY cutover window rather than merely over budget. The earlier signature could not
+        // express this: with a caller-supplied budget it reported fork-then-replay with positive headroom.
+        const result = decideWalPosture({
+            baseline                : busyBaseline, pilotDays: 14,
+            replayThroughputMbPerDay: 1, nativeInflowMbPerDay: 2, cutoverWindowDays: 10
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.posture).toBe('dual-journal');
+        expect(result.netThroughputMbPerDay).toBe(-1);
+        expect(result.replayBudgetMb).toBe(0);
+        expect(result.rationale).toContain('never converges');
+        expect(result.rationale).toContain('at any cutover window');
+
+        // Exactly break-even is still non-convergent: it never finishes.
+        expect(decideWalPosture({
+            baseline                : busyBaseline, pilotDays: 14,
+            replayThroughputMbPerDay: 2, nativeInflowMbPerDay: 2, cutoverWindowDays: 10
+        }).posture).toBe('dual-journal');
+    })
+
+    test('fork-then-replay when the PEAK-projected corpus fits the DERIVED budget', () => {
+        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14, ...fits});
 
         expect(result.ok).toBe(true);
         expect(result.posture).toBe('fork-then-replay');
-        expect(result.projectedMb).toBeCloseTo(42, 5);           // peak day 3MB x 14d
+        expect(result.projectedMb).toBeCloseTo(42, 5);            // peak day 3MB x 14d
+        // Derived, not supplied: net (11 - 1) x 10d.
+        expect(result.netThroughputMbPerDay).toBe(10);
+        expect(result.replayBudgetMb).toBeCloseTo(100, 5);
         expect(result.headroomMb).toBeCloseTo(58, 5);
         expect(result.rationale).toContain('second write path buys nothing');
+        // The rationale shows the arithmetic, so a reader can check the budget rather than trust it.
+        expect(result.rationale).toContain('net 10MB/d × 10d');
     })
 
     test('dual-journal when it does not — and the boundary is decided by the peak, not the mean', () => {
-        // Mean-projected would be 12MB (under budget); peak-projected is 42MB (over). The stricter
-        // projection must win, because under-projecting picks a posture that cannot replay.
-        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14, replayBudgetMb: 20});
+        // Mean-projected would be 12MB (under the derived 20MB); peak-projected is 42MB (over). The
+        // stricter projection must win, because under-projecting picks a posture that cannot replay.
+        const result = decideWalPosture({baseline: busyBaseline, pilotDays: 14, ...tooTight});
 
+        expect(result.replayBudgetMb).toBeCloseTo(20, 5);
         expect(result.posture).toBe('dual-journal');
         expect(result.projectedFromMeanMb).toBeCloseTo(12, 5);
-        expect(result.projectedFromMeanMb).toBeLessThan(20);     // the mean alone would have said "fits"
+        expect(result.projectedFromMeanMb).toBeLessThan(20);      // the mean alone would have said "fits"
         expect(result.projectedMb).toBeGreaterThan(20);
         expect(result.rationale).toContain('cannot absorb');
     })

@@ -151,8 +151,27 @@ test.describe('planWalReplay — no double-apply', () => {
         expect(second.alreadyApplied).toEqual(['a', 'b']);
     })
 
-    test('receiptIdSet ignores malformed receipt rows without inventing ids', () => {
-        expect([...receiptIdSet([{id: 'a', embeddedAt: 1}, {noId: true}, null])]).toEqual(['a']);
+    test('⭐ receiptIdSet REFUSES a malformed receipt row instead of skipping it', () => {
+        // This spec previously asserted the skip and therefore certified the defect. A row with no usable
+        // id is UNKNOWN prior-application state, not absent state: dropping it converts "I cannot tell
+        // whether this was applied" into "it was not applied", which schedules a re-apply and breaks the
+        // no-double-apply claim through the one path that reports success.
+        const refused = receiptIdSet([{id: 'a', embeddedAt: 1}, {noId: true}, null]);
+
+        expect(refused.ok).toBe(false);
+        expect(refused.reason).toContain('index 1');
+        expect(refused.reason).toContain('UNKNOWN prior-application state');
+        expect(refused.ids).toBeUndefined();
+    })
+
+    test('receiptIdSet accepts well-formed rows and rejects a duplicated receipt', () => {
+        // Positive control: the refusal above must not be a blanket failure.
+        expect([...receiptIdSet([{id: 'a', embeddedAt: 1}, {id: 'b'}]).ids]).toEqual(['a', 'b']);
+        expect(receiptIdSet([]).ok).toBe(true);
+
+        // A repeated receipt means the sidecar itself is inconsistent, so prior state is untrustworthy.
+        expect(receiptIdSet([{id: 'a'}, {id: 'a'}]).ok).toBe(false);
+        expect(receiptIdSet('not-an-array').ok).toBe(false);
     })
 });
 
@@ -273,5 +292,89 @@ test.describe('verifyReplayContinuity — the verifier must be BOUND and able to
             .toContain('not a successful plan');
         expect(verifyReplayContinuity({appliedStagesBefore: S([]), appliedStagesAfter: allStages([]), plan}).reason)
             .toContain('appliedStagesBefore.embedded must be a Set');
+    })
+});
+
+// The missing negative control. The suite above mutates TARGET state but never the plan projection, which
+// let the central continuity claim pass vacuously: a queue-consuming executor that drained its work list
+// turned "no replay happened" into a clean receipt. A continuity receipt must bind THREE authorities —
+// target pre-state, planned work, and resulting post-state — and only the first and third were checked.
+test.describe('⭐ verifyReplayContinuity — the plan projection is authenticated against its receipt', () => {
+    const entries = [entry('a', 1), entry('b', 2)],
+          before  = allStages(['seed']);
+
+    test('a returned plan is frozen, so draining the work list throws rather than succeeding', () => {
+        const plan = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])});
+
+        expect(Object.isFrozen(plan)).toBe(true);
+        expect(Object.isFrozen(plan.toApply)).toBe(true);
+        expect(Object.isFrozen(plan.receipt)).toBe(true);
+        expect(() => { plan.toApply.length = 0; }).toThrow(TypeError);
+        expect(plan.toApply).toHaveLength(2);
+    })
+
+    test('⭐ a drained work list CANNOT verify zero replay as success', () => {
+        const plan = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])}),
+              // A hand-built plan never passed through the freeze, which is exactly how a real executor's
+              // copy would arrive. The reconciliation — not the freeze — is what has to catch this.
+              drained = {ok: true, toApply: [], alreadyApplied: [], receipt: plan.receipt},
+              result  = verifyReplayContinuity({appliedStagesBefore: before, appliedStagesAfter: before, plan: drained});
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('receipt recorded 2');
+        expect(result.reason).toContain('mutated after planning');
+    })
+
+    test('a partially drained list is caught too, not just a fully emptied one', () => {
+        const plan    = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])}),
+              partial = {ok: true, toApply: [plan.toApply[0]], alreadyApplied: [], receipt: plan.receipt},
+              result  = verifyReplayContinuity({
+                  appliedStagesBefore: before, appliedStagesAfter: allStages(['seed', 'a']), plan: partial
+              });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('receipt recorded 2');
+    })
+
+    test('a substituted work list of the SAME LENGTH is caught by id comparison', () => {
+        // Count agreement is necessary but not sufficient: swapping which ids were planned keeps the
+        // arithmetic balanced while changing what the receipt attests to.
+        const plan    = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])}),
+              swapped = {
+                  ok     : true,
+                  toApply: [{...entry('x', 1), pendingStages: ['embedded', 'graph']},
+                                   {...entry('y', 2), pendingStages: ['embedded', 'graph']}],
+                  alreadyApplied: [],
+                  receipt       : plan.receipt
+              },
+              result = verifyReplayContinuity({
+                  appliedStagesBefore: before, appliedStagesAfter: allStages(['seed', 'x', 'y']), plan: swapped
+              });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('altered after it was receipted');
+    })
+
+    test('a plan whose receipt carries no planned ids refuses', () => {
+        const plan                         = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])}),
+              {plannedIdsByStage, ...rest} = plan.receipt,
+              stripped                     = {ok: true, toApply: plan.toApply, alreadyApplied: [], receipt: rest},
+              result                       = verifyReplayContinuity({appliedStagesBefore: before, appliedStagesAfter: before, plan: stripped});
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('plannedIdsByStage is missing');
+    })
+
+    test('positive control: an untampered plan still verifies, and reports the receipted total', () => {
+        // Without this the four refusals above could all be a blanket failure.
+        const plan   = planWalReplay({payloadEntries: entries, appliedStages: allStages(['seed'])}),
+              result = verifyReplayContinuity({
+                  appliedStagesBefore: before, appliedStagesAfter: allStages(['seed', 'a', 'b']), plan
+              });
+
+        expect(result.ok).toBe(true);
+        expect(result.monotonic).toBe(true);
+        expect(result.receipt.plannedTotal).toBe(2);
+        expect(result.appliedByStage).toEqual({embedded: 2, graph: 2});
     })
 });

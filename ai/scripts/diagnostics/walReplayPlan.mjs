@@ -28,12 +28,22 @@ import crypto from 'node:crypto';
  * A row therefore counts as applied only when **every required stage** carries its receipt; otherwise
  * it is replayed for exactly the stages still pending, and those stages are named in the plan.
  *
- * ## The verifier is BOUND to the plan it verifies
+ * ## A continuity receipt binds THREE authorities, not two
  *
- * A plan is computed against a specific target pre-state. Verifying it against a *different* pre-state
- * is meaningless, and it used to pass: a plan built against `{seed}` verified clean against an empty
- * target. So the plan carries a digest of the pre-state it was computed from, and the verifier refuses
- * a mismatch. A size comparison would not do — two different sets of the same size would agree.
+ * **1. Target pre-state.** A plan is computed against a specific pre-state, and verifying it against a
+ * *different* one is meaningless — it used to pass: a plan built against `{seed}` verified clean against
+ * an empty target. So the plan carries a digest of the pre-state it was computed from and the verifier
+ * refuses a mismatch. A size comparison would not do — two different sets of the same size would agree.
+ *
+ * **2. The planned work.** This was the missing one, and its absence made the central claim vacuously
+ * true. The verifier read `plan.toApply` — a *mutable projection* — so a queue-consuming executor that
+ * drained its own work list turned "no replay happened" into a clean continuity receipt with
+ * `plannedTotal: 0`. The planned ids are now captured in the frozen receipt at plan time, the verifier
+ * reads them from there, and it reconciles the projection against them before trusting either. Freezing
+ * alone would not be enough: a hand-built or partially-copied plan object never passes through the freeze,
+ * and this verifier's whole purpose is to be un-foolable by the executor it audits.
+ *
+ * **3. The resulting post-state.** Every planned stage landed, and nothing previously applied was lost.
  *
  * ## The two invariants, stated as arithmetic rather than intent
  *
@@ -92,12 +102,53 @@ export function parseJsonl(text, label = 'jsonl') {
 }
 
 /**
- * @summary Collects one stage's receipted ids.
+ * @summary Collects one stage's receipted ids, refusing any row whose id is unusable.
+ *
+ * ## Why a malformed row refuses instead of being skipped
+ *
+ * This set is consumed as *prior-application state*: an id present means "already applied, do not replay".
+ * A syntactically valid sidecar row carrying no usable id is therefore **unknown** prior state, not absent
+ * prior state — and silently dropping it converts "I do not know whether this was applied" into "it was
+ * not applied", which schedules a re-apply. That is precisely the double-apply the no-double-apply claim
+ * rules out, arriving through the one path that reports success.
+ *
+ * Fails closed for the same reason `planWalReplay` refuses a payload entry with no id: on an integrity
+ * boundary, an unreadable input is an integrity event, not a detail to filter out.
  * @param {Object[]} receiptRecords Parsed `.embedded` or `.graph` sidecar records.
- * @returns {Set<String>}
+ * @returns {Object} `{ok, reason?, ids?}` — `ids` is a `Set<String>` when `ok`.
  */
 export function receiptIdSet(receiptRecords) {
-    return new Set((receiptRecords ?? []).map(record => record?.id).filter(id => typeof id === 'string'));
+    if (!Array.isArray(receiptRecords)) {
+        return {ok: false, reason: `receiptRecords must be an array, received ${JSON.stringify(receiptRecords)}`};
+    }
+
+    const ids = new Set();
+
+    for (let index = 0; index < receiptRecords.length; index++) {
+        const record = receiptRecords[index],
+              id     = record?.id;
+
+        if (typeof id !== 'string' || id === '') {
+            return {
+                ok    : false,
+                reason: `receipt row at index ${index} has no usable id (${JSON.stringify(record)}). A row ` +
+                        'without an id is UNKNOWN prior-application state, not absent state — skipping it ' +
+                        'would schedule a re-apply of work that may already have landed.'
+            };
+        }
+
+        if (ids.has(id)) {
+            return {
+                ok    : false,
+                reason: `receipt row at index ${index} repeats id "${id}". A duplicated receipt means the ` +
+                        'sidecar itself is inconsistent, so prior-application state cannot be trusted.'
+            };
+        }
+
+        ids.add(id);
+    }
+
+    return {ok: true, ids};
 }
 
 /**
@@ -212,23 +263,81 @@ export function planWalReplay({payloadEntries, appliedStages, requiredStages = W
         return refuse(`accounting mismatch: ${accounted} entries bucketed from ${payloadEntries.length} inputs`);
     }
 
-    return {
-        ok     : true,
-        toApply,
-        alreadyApplied,
-        receipt: {
+    // The authoritative per-stage work list, captured at plan time and frozen. `verifyReplayContinuity`
+    // reads THIS rather than `plan.toApply`, because a work list a queue-consuming executor can drain is
+    // not evidence of what was planned: truncating it to zero used to make "no replay happened" verify as
+    // a clean continuity receipt. A receipt must bind three authorities — target pre-state, planned work,
+    // and resulting post-state — and this is the second of them.
+    const plannedIdsByStage = Object.freeze(Object.fromEntries(requiredStages.map(stage =>
+        [stage, Object.freeze(toApply.filter(entry => entry.pendingStages.includes(stage)).map(entry => entry.id))]
+    )));
+
+    return Object.freeze({
+        ok: true,
+        // Frozen so a truncation attempt THROWS in strict mode rather than silently succeeding. The
+        // verifier still reconciles independently, since a hand-built plan object never passed through here.
+        toApply       : Object.freeze(toApply.map(entry => Object.freeze({...entry, pendingStages: Object.freeze(entry.pendingStages)}))),
+        alreadyApplied: Object.freeze(alreadyApplied),
+        receipt       : Object.freeze({
             sourceEntries      : payloadEntries.length,
             toApplyCount       : toApply.length,
             alreadyAppliedCount: alreadyApplied.length,
-            requiredStages     : [...requiredStages],
+            requiredStages     : Object.freeze([...requiredStages]),
             // The binding. Verifying a plan against a pre-state it was not computed from is meaningless,
             // and used to pass silently.
             targetStateDigest: digestAppliedStages(appliedStages, requiredStages),
-            pendingByStage   : Object.fromEntries(requiredStages.map(stage =>
-                [stage, toApply.filter(entry => entry.pendingStages.includes(stage)).length]
-            ))
+            plannedIdsByStage,
+            pendingByStage   : Object.freeze(Object.fromEntries(requiredStages.map(stage =>
+                [stage, plannedIdsByStage[stage].length]
+            )))
+        })
+    });
+}
+
+/**
+ * @summary Checks a plan's mutable `toApply` projection against the immutable receipt it was built with.
+ *
+ * Returns a refusal reason, or `null` when they agree. Split out so the reconciliation is one named idea
+ * rather than inline noise in the verifier, and so its absence would be conspicuous.
+ * @param {Object} plan
+ * @param {String[]} stages
+ * @returns {String|null}
+ */
+function reconcilePlannedWork(plan, stages) {
+    const {receipt} = plan,
+          planned   = receipt.plannedIdsByStage;
+
+    if (!planned || typeof planned !== 'object') {
+        return 'plan.receipt.plannedIdsByStage is missing, so the planned work cannot be authenticated. ' +
+               'A continuity receipt must bind the planned work, not just the target state.';
+    }
+
+    if (!Array.isArray(plan.toApply)) return 'plan.toApply must be an array';
+
+    if (plan.toApply.length !== receipt.toApplyCount) {
+        return `plan.toApply holds ${plan.toApply.length} entr(ies) but its receipt recorded ` +
+               `${receipt.toApplyCount}. The work list was mutated after planning, so it is not evidence ` +
+               'of what was planned — a drained list would otherwise verify "no replay happened" as a ' +
+               'clean continuity receipt.';
+    }
+
+    for (const stage of stages) {
+        const fromReceipt    = planned[stage],
+              fromProjection = plan.toApply.filter(entry => entry?.pendingStages?.includes(stage)).map(entry => entry.id);
+
+        if (!Array.isArray(fromReceipt)) {
+            return `plan.receipt.plannedIdsByStage.${stage} must be an array of planned ids`;
         }
-    };
+
+        if (fromReceipt.length !== fromProjection.length ||
+            fromReceipt.some((id, index) => id !== fromProjection[index])) {
+            return `plan.toApply disagrees with plan.receipt.plannedIdsByStage.${stage} ` +
+                   `(receipt ${fromReceipt.length} id(s), projection ${fromProjection.length}). The plan ` +
+                   'was altered after it was receipted.';
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -248,7 +357,19 @@ export function verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter,
 
     if (!plan?.ok) return refuse(`plan is not a successful plan: ${plan?.reason ?? 'absent'}`);
 
-    const stages = plan.receipt.requiredStages;
+    const stages = plan.receipt?.requiredStages;
+
+    if (!Array.isArray(stages) || stages.length === 0) {
+        return refuse('plan.receipt.requiredStages is missing, so there is no planned work to verify against');
+    }
+
+    // RECONCILE THE WORK LIST AGAINST ITS RECEIPT before trusting either. The plan returned by
+    // `planWalReplay` is frozen, but a hand-built or partially-copied plan object never passed through that
+    // freeze — and this verifier's whole purpose is to be un-foolable by the executor it audits. Checking
+    // the projection against the receipt costs nothing and closes the gap for both shapes.
+    const reconciliation = reconcilePlannedWork(plan, stages);
+
+    if (reconciliation) return refuse(reconciliation);
 
     for (const [label, value] of [['appliedStagesBefore', appliedStagesBefore], ['appliedStagesAfter', appliedStagesAfter]]) {
         if (!value || typeof value !== 'object') return refuse(`${label} must be an object of {stage: Set}`);
@@ -286,7 +407,9 @@ export function verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter,
             );
         }
 
-        const planned   = plan.toApply.filter(entry => entry.pendingStages.includes(stage)).map(entry => entry.id),
+        // Read from the RECEIPT, not from `plan.toApply`. Reconciled above, so the two agree — but taking
+        // it from the receipt makes the authority explicit at the point of use instead of implied.
+        const planned   = plan.receipt.plannedIdsByStage[stage],
               notLanded = planned.filter(id => !after.has(id)),
               gained    = [...after].filter(id => !before.has(id));
 
@@ -310,7 +433,7 @@ export function verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter,
         unrelatedGainsByStage,
         receipt  : {
             requiredStages: [...stages],
-            plannedTotal  : plan.toApply.length,
+            plannedTotal  : plan.receipt.toApplyCount,
             appliedByStage,
             unrelatedTotal: Object.values(unrelatedGainsByStage).reduce((sum, ids) => sum + ids.length, 0)
         }

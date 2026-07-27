@@ -46,8 +46,14 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 ## Promotion
 
 1. **Baseline the replay volume.** `walVolumeBaseline.mjs` decides fork-then-replay vs dual-journal from
-   measured per-seat WAL volume against a `replayBudgetMb` you supply. It **refuses** an empty window
-   rather than reporting zero.
+   measured per-seat WAL volume. Supply the three factual inputs — replay throughput, concurrent native
+   inflow, and the accepted cutover window — and the budget is **derived** as
+   `(throughput − inflow) × window`. It does not accept a precomputed budget: a supplied figure could pick
+   the cheap posture while contradicting that arithmetic, and requiring a number is not deriving one.
+   Two refusals worth knowing: an empty measurement window **refuses** rather than reporting zero, and an
+   omitted inflow **refuses** rather than assuming a quiesced plane (pass `0` explicitly).
+   If inflow meets or exceeds throughput the posture is `dual-journal` — replay never converges, so
+   fork-then-replay is impossible at *any* window rather than merely over budget.
 2. **Plan the replay.** `walReplayPlan.mjs` → `planWalReplay(...)`. Duplicate source ids refuse: a
    payload that cannot be uniquely keyed cannot be proven non-double-applied.
 3. **Capture the pre-state digest.** `digestAppliedStages(...)` **before** applying anything. The
