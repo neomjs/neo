@@ -59,11 +59,12 @@ const ROOT       = path.resolve(__dirname, '../..');
  * - **paths given** (the `lint-staged` path): only artifacts in this change are checked, each against
  *   the whole corpus. This is the commit-time gate — it blocks a NEW collision without failing on
  *   pre-existing ones a commit does not touch, so it lands green on a corpus still awaiting repair.
- * - **`--all`**: audits every family and exits non-zero on any collision. This is the post-repair
- *   ratchet, and it is deliberately NOT wired into any blocking surface: the corpus can carry
- *   pre-existing collisions, and a blocking full audit would wedge every commit in the repository
- *   until an unrelated repair cleared them — turning a guard against new damage into a block on all
- *   progress. Wire it in once a full audit passes.
+ * - **`--all`**: audits every family and exits non-zero on any collision. Wired into CI on both
+ *   `push` and `pull_request` against `dev`, where `push` is the load-bearing trigger — corpus
+ *   artifacts arrive by direct push from the sync path, not by pull request. A full audit is safe as
+ *   a blocking gate only because the corpus is clean; while it carried known collisions, blocking on
+ *   it would have wedged every commit in the repository until an unrelated repair cleared them.
+ *   Keep that in mind before adding a family with pre-existing damage: fix first, then let CI hold.
  */
 
 /**

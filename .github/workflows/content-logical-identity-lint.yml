@@ -1,0 +1,51 @@
+name: Content Logical Identity Lint
+
+# The third and widest layer of one invariant: no two archived artifacts may claim the same logical
+# name. The other two are `lint-staged` (hand-authored commits) and an in-process assertion in
+# `SyncService.commitRebaseAndPushGeneratedContent` (the automated sync, which commits `--no-verify`
+# and so cannot be reached by a git hook at all).
+#
+# `push` is the load-bearing trigger here, not `pull_request`. Corpus artifacts do not arrive by pull
+# request — the sync path pushes them straight to `dev` — so a PR-only check would watch a road this
+# defect never travels. The `pull_request` leg is still worth its seconds: it catches a hand-authored
+# archive change before merge.
+#
+# Full-tree audit rather than a changed-files subset: the invariant is a property of the whole corpus,
+# and a collision needs only ONE of its two sides to be touched by the commit under test. A subset
+# check would pass on the untouched side and report green over a corpus that refuses to embed.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'resources/content/archive/**'
+      - 'buildScripts/util/check-content-logical-identity.mjs'
+      - '.github/workflows/content-logical-identity-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'resources/content/archive/**'
+      - 'buildScripts/util/check-content-logical-identity.mjs'
+      - '.github/workflows/content-logical-identity-lint.yml'
+
+concurrency:
+  group: content-logical-identity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # No `npm ci` at all: the check imports only `node:fs`, `node:path`, `node:process` and
+      # `node:url`, so there is nothing to install. Adding an install would make this the slowest
+      # leg of a job that otherwise finishes in about a second.
+      - name: Audit archived-content logical identity
+        run: node ./buildScripts/util/check-content-logical-identity.mjs --all
