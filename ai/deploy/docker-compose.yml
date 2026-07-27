@@ -121,7 +121,28 @@ services:
     environment:
       - NEO_TRANSPORT=streamable-http
       - NEO_MC_PRIMARY=false
-      - NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked
+      # `NEO_MAILBOX_DEFAULT_REPLY_POLICY` is deliberately NOT set here.
+      #
+      # This template used to pin it to `blocked`, which overrode the library default of `open` for
+      # every deployment that followed our own guide. The result: members of one organisation's
+      # private deployment could not message each other at all — each pair needed an explicit
+      # `CAN_REPLY_TO` grant first. On a 15-member team that is 210 directed grants, and 28 more per
+      # hire, to obtain what the product is for. Install the mail system, then send postal letters
+      # asking to be allowed to send mail.
+      #
+      # It was also incoherent with its neighbour: `memorySharing.defaultPolicy` defaults to `team`,
+      # so the same deployment let every member read every other member's MEMORIES while forbidding
+      # them a message. Reading someone's stored reasoning is strictly more sensitive than pinging
+      # them.
+      #
+      # A deployment is a trust boundary. The members inside one are peers of the same operator, so
+      # peer-trust is the correct default and `blocked` is the exception — for a genuine multi-tenant
+      # install co-locating separate organisations, which sets it explicitly alongside
+      # `NEO_MEMORY_SHARING_DEFAULT_POLICY=private`. Those two belong together; pinning one without
+      # the other is what produced the incoherence above.
+      #
+      # Not restated as `=open` on purpose: that would duplicate the leaf's default in a second place
+      # and silently pin today's value if the leaf ever changes. The leaf owns it.
       - NEO_AUTO_SUMMARIZE=false
       - NEO_MEM_AUTO_START_DATABASE=false
       - NEO_MEM_AUTO_START_INFERENCE=false
