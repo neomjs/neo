@@ -786,4 +786,85 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(commands.some(command => command.includes('git commit'))).toBe(true);
         expect(commands.some(command => command.includes('git push'))).toBe(true);
     });
+
+    /**
+     * The corpus logical-identity invariant, asserted at the ONLY point that can enforce it.
+     *
+     * `commitRebaseAndPushGeneratedContent` commits with `--no-verify`, deliberately and correctly —
+     * generated content carries trailing whitespace the whitespace hook rejects. That bypass disables
+     * every git hook, so the `lint-staged` copy of this guard is structurally unable to see the one
+     * automated commit that writes the corpus. Hence the in-process assertion.
+     *
+     * Both tests drive a TEMP corpus rather than `resources/content`, because a test that pointed at a
+     * real duplicate would assert today's damage and start failing the moment the repair lands.
+     */
+    test.describe('the corpus-commit path enforces one artifact per logical name (#16057)', () => {
+        let tempRoot;
+
+        const stageOnly = (commands, staged) => async command => {
+            commands.push(command);
+
+            if (command.startsWith('git status --porcelain ')) {
+                return {stdout: ` M ${staged}\n`, stderr: ''}
+            }
+
+            if (command === 'git diff --cached --name-only') {
+                return {stdout: `${staged}\n`, stderr: ''}
+            }
+
+            return {stdout: '', stderr: ''}
+        };
+
+        const writeArtifact = async (relative) => {
+            const absolute = path.join(tempRoot, relative);
+
+            await fs.mkdir(path.dirname(absolute), {recursive: true});
+            await fs.writeFile(absolute, '# artifact\n', 'utf8')
+        };
+
+        test.beforeEach(async () => {
+            tempRoot = await fs.mkdtemp(path.join(await fs.realpath('/tmp'), 'neo-sync-corpus-'))
+        });
+
+        test.afterEach(async () => {
+            await fs.rm(tempRoot, {force: true, recursive: true})
+        });
+
+        test('a staged collision is REFUSED and never reaches the commit', async () => {
+            const
+                commands = [],
+                staged   = 'resources/content/archive/pulls/v13.0.0/chunk-2/pr-1.md';
+
+            await writeArtifact('resources/content/archive/pulls/v13.0.0/chunk-1/pr-1.md');
+            await writeArtifact(staged);
+
+            SyncService.execGit = stageOnly(commands, staged);
+
+            await expect(SyncService.commitRebaseAndPushGeneratedContent(tempRoot))
+                .rejects.toThrow(/two artifacts claiming one logical name/);
+
+            // The load-bearing half: refusing AFTER committing would leave the corpus broken on `dev`
+            // and the error would be an epilogue. Nothing may be committed or pushed.
+            expect(commands.some(command => command.includes('git commit'))).toBe(false);
+            expect(commands.some(command => command.includes('git push'))).toBe(false)
+        });
+
+        test('a staged artifact with no collision proceeds — the gate can PASS', async () => {
+            // The positive control. Without it the refusal above is satisfied by a guard that rejects
+            // everything, and "commit never happened" would prove only that the method is broken.
+            const
+                commands = [],
+                staged   = 'resources/content/archive/pulls/v13.0.0/chunk-1/pr-2.md';
+
+            await writeArtifact('resources/content/archive/pulls/v13.0.0/chunk-1/pr-1.md');
+            await writeArtifact(staged);
+
+            SyncService.execGit = stageOnly(commands, staged);
+
+            await expect(SyncService.commitRebaseAndPushGeneratedContent(tempRoot)).resolves.toBe(true);
+
+            expect(commands.some(command => command.includes('git commit'))).toBe(true);
+            expect(commands.some(command => command.includes('git push'))).toBe(true)
+        })
+    })
 });

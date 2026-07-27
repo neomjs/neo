@@ -23,10 +23,49 @@ import {execSync}       from 'child_process';
 import fs               from 'fs-extra';
 import path             from 'path';
 import {GH_SyncService} from '../../ai/services.mjs';
+import {findLogicalIdentityCollisions} from '../util/check-content-logical-identity.mjs';
 
 const root = path.resolve();
 
 // --- Helper Functions ---
+
+/**
+ * @summary Refuses a release commit that would make two archived artifacts claim one logical name.
+ *
+ * Every commit in this script uses `--no-verify`, deliberately: a latent whitespace hit in a
+ * prepare-touched doc killed the v13 cut. So no git hook runs here, and the `lint-staged` copy of
+ * this guard is blind to the release path — the assertion has to be in-process, like the one in
+ * `SyncService.commitRebaseAndPushGeneratedContent`.
+ *
+ * This matters most at the archive commit, because that one runs inside a `catch` that deliberately
+ * continues after `runFullSync()` throws. `runFullSync` throws precisely when its integrity verdict
+ * measured the corpus as unclean — so "commit what we have" is, in exactly that case, a decision to
+ * publish the state the verdict rejected. A collision there stalls Knowledge Base ingestion for the
+ * whole corpus, not just the colliding artifacts, so it is the one failure a release must not carry
+ * forward. Everything else the broad `git add .` picks up is still committed as before.
+ *
+ * @param {String} stage Human-readable commit site, for the failure message.
+ * @returns {void}
+ * @throws {Error} When any archived logical name is claimed by more than one artifact.
+ */
+function assertNoArchiveLogicalIdentityCollisions(stage) {
+    const collisions = findLogicalIdentityCollisions({
+        archiveRoot: path.join(root, 'resources/content/archive')
+    });
+
+    if (collisions.length > 0) {
+        const detail = collisions
+            .map(item => `${item.key} (${item.paths.length} copies)`)
+            .join('; ');
+
+        throw new Error(
+            `Release aborted at "${stage}": ${collisions.length} archived logical name(s) claimed by ` +
+            `more than one artifact — ${detail}. Embedding refuses this state, so releasing it stalls ` +
+            `Knowledge Base ingestion for the entire corpus. Repair with ` +
+            `PullRequestSyncer.repairDuplicateArtifacts (npm run ai:sync-github-workflow), then re-run.`
+        );
+    }
+}
 
 function runCommand(command, errorMessage) {
     try {
@@ -108,6 +147,7 @@ async function main() {
     // hooks gate human-authored changes (which already passed them at PR time). A latent
     // whitespace hit in a prepare-touched doc killed the v13 cut at this exact line.
     console.log('💾 Committing changes to dev...');
+    assertNoArchiveLogicalIdentityCollisions('commit changes to dev');
     runCommand('git add .', 'Failed to stage changes');
     try {
         runCommand(`git commit --no-verify -m "Release v${newVersion}"`, 'Failed to commit to dev');
@@ -262,6 +302,10 @@ async function main() {
     const status = runCommandWithOutput('git status --porcelain');
 
     if (status) {
+        // Deliberately AFTER the catch above, so it also fires on the path where `runFullSync()`
+        // threw and this script chose to continue: that throw is the integrity verdict, and this is
+        // the commit that would publish what the verdict refused.
+        assertNoArchiveLogicalIdentityCollisions('commit archived tickets');
         runCommand('git add .', 'Failed to stage archive changes');
         runCommand(`git commit --no-verify -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
         runCommand('git push origin dev', 'Failed to push archive changes');
