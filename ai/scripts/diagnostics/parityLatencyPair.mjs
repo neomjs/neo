@@ -458,16 +458,16 @@ function reduceBootObservations({observations, side} = {}) {
 /**
  * @summary Validates the reproducibility conditions, returning a refusal reason or `null`.
  *
- * Cache convention alone does not pin a run. The image digest and the config head move independently of
- * cache state, so a pair recorded with only a cache note cannot be re-taken — which is how a figure like a
- * build-dominated `261033ms` survives as an apparently comparable number. `hostLoad` is optional and
- * passed through when present: it is worth recording and rarely available with any precision.
+ * Cache convention alone does not pin a run. The image-manifest digest, matched-dataset digest, source
+ * head, and ignored generated-runtime config digest move independently of cache state, so a pair recorded
+ * with only a cache note cannot be re-taken — which is how a figure like a build-dominated `261033ms`
+ * survives as an apparently comparable number.
  * @param {Object} conditions
  * @returns {String|null}
  */
 function validateConditions(conditions) {
     if (!conditions || typeof conditions !== 'object') {
-        return 'conditions is required: {cacheConvention, imageDigest, configHead, hostLoad}. A latency pair ' +
+        return 'conditions is required: {cacheConvention, imageDigest, datasetDigest, configHead, runtimeDigest, hostLoad}. A latency pair ' +
                'that cannot be reproduced is a number rather than a measurement.';
     }
 
@@ -482,12 +482,12 @@ function validateConditions(conditions) {
                'not make it comparable.';
     }
 
-    for (const key of ['imageDigest', 'configHead', 'hostLoad']) {
+    for (const key of ['imageDigest', 'datasetDigest', 'configHead', 'runtimeDigest', 'hostLoad']) {
         if (typeof conditions[key] !== 'string' || conditions[key].trim() === '') {
-            return `conditions.${key} must be a non-empty string. The image and config head move ` +
-                   'independently of cache state, and host load moves independently of both — the ruling ' +
-                   'requires all of them recorded, because a pair that cannot be re-taken under the same ' +
-                   'conditions cannot be compared to a later one.';
+            return `conditions.${key} must be a non-empty string. Images, matched data, source head, ignored ` +
+                   'runtime config, and host load move independently — the ruling requires all of them ' +
+                   'recorded, because a pair that cannot be re-taken under the same conditions cannot be ' +
+                   'compared to a later one.';
         }
     }
 
@@ -498,6 +498,18 @@ function validateConditions(conditions) {
         return `conditions.imageDigest must be a sha256 digest (e.g. "sha256:e3b0c442…"), received ` +
                `${JSON.stringify(conditions.imageDigest)} — a placeholder in a reproducibility field is ` +
                'worse than an empty one, because it reads as recorded.';
+    }
+
+    if (!/^sha256:[0-9a-f]{16,}$/i.test(conditions.datasetDigest)) {
+        return `conditions.datasetDigest must be a sha256 digest, received ` +
+               `${JSON.stringify(conditions.datasetDigest)} — “data preserved” without an observed matched ` +
+               'dataset is a cache claim, not evidence that the two topologies consumed the same corpus.';
+    }
+
+    if (!/^sha256:[0-9a-f]{16,}$/i.test(conditions.runtimeDigest)) {
+        return `conditions.runtimeDigest must be a sha256 digest, received ` +
+               `${JSON.stringify(conditions.runtimeDigest)} — git HEAD does not identify ignored generated ` +
+               'config.mjs leaves consumed by the runtime.';
     }
 
     return null;

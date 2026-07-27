@@ -3,7 +3,8 @@ import {listHarnessTypes, resolveHarnessType} from '../../config/harnessTypes.mj
 import {
     listMcpServers,
     normalizeMcpOverrides,
-    resolveMcpMatrix
+    resolveMcpMatrix,
+    supportsRemoteMcpTransport
 } from '../../config/mcpServers.mjs';
 
 /**
@@ -49,6 +50,13 @@ class AgentConfigCard extends Component {
          */
         record_: null,
         /**
+         * The provider-hosted public tenant roster. This card listens to the Store directly so both
+         * Accounts and a docked/popped-out AgentDetail refresh from the same availability truth.
+         * @member {Neo.data.Store|null} tenantStore_=null
+         * @reactive
+         */
+        tenantStore_: null,
+        /**
          * Ephemeral save feedback for the currently rendered record. This is deliberately component
          * state, never AgentDefinition data: pending/rejected are transport facts, not durable fleet
          * configuration.
@@ -74,6 +82,40 @@ class AgentConfigCard extends Component {
      */
     afterSetRecord(value, oldValue) {
         this.saveStatus = {agentId: value?.id ?? null, state: 'idle', reason: ''};
+        this.refresh()
+    }
+
+    /**
+     * Triggered after the public tenant Store changes. Listener maps are recreated for symmetric
+     * `on`/`un` because Neo event registration consumes its input object.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetTenantStore(value, oldValue) {
+        oldValue?.un?.(this.getTenantStoreListeners());
+        value?.on?.(this.getTenantStoreListeners());
+        this.isConstructed && this.refresh()
+    }
+
+    /**
+     * @returns {Object} The complete public-tenant Store listener set.
+     * @protected
+     */
+    getTenantStoreListeners() {
+        return {
+            load        : this.onTenantStoreChange,
+            mutate      : this.onTenantStoreChange,
+            recordChange: this.onTenantStoreChange,
+            scope       : this
+        }
+    }
+
+    /**
+     * @summary Re-render target choices when tenant membership or availability changes.
+     * @protected
+     */
+    onTenantStoreChange() {
         this.refresh()
     }
 
@@ -115,6 +157,33 @@ class AgentConfigCard extends Component {
             me.fire('configIntent', {id: record.id, mcpServers: normalizeMcpOverrides(matrix)})
         } else if (kind === 'harness' && key !== record.harnessType) {
             me.fire('configIntent', {id: record.id, harnessType: key})
+        } else if (kind === 'transport') {
+            if (key === 'local') {
+                record.mcpTransport?.mode === 'remote-http' &&
+                    me.fire('configIntent', {id: record.id, mcpTransport: null});
+                return
+            }
+
+            let tenantId;
+
+            try {
+                tenantId = decodeURIComponent(key)
+            } catch {
+                return
+            }
+
+            const tenant = me.tenantStore?.get(tenantId);
+
+            if (supportsRemoteMcpTransport(record.harnessType) &&
+                tenant?.status === 'connected' &&
+                typeof tenant.endpoint === 'string' &&
+                tenant.endpoint &&
+                record.mcpTransport?.tenantId !== tenantId) {
+                me.fire('configIntent', {
+                    id          : record.id,
+                    mcpTransport: {mode: 'remote-http', tenantId}
+                })
+            }
         }
     }
 
@@ -154,10 +223,11 @@ class AgentConfigCard extends Component {
         }
 
         const
-            me         = this,
-            harness    = resolveHarnessType(record.harnessType),
-            matrix     = resolveMcpMatrix(record.mcpServers),
-            saveStatus = me.saveStatus?.agentId === record.id
+            me            = this,
+            harness       = resolveHarnessType(record.harnessType),
+            matrix        = resolveMcpMatrix(record.mcpServers),
+            targetChoices = me.createTargetChoices(record),
+            saveStatus    = me.saveStatus?.agentId === record.id
                 ? me.saveStatus
                 : {state: 'idle', reason: ''};
 
@@ -180,6 +250,15 @@ class AgentConfigCard extends Component {
                 cls : ['fm-chip', entry.type === record.harnessType ? 'is-selected' : 'is-selectable'],
                 text: entry.label
             }))
+        }, {
+            cls: ['fm-config-section'],
+            cn : [
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Memory & knowledge'},
+                {
+                    cls: ['fm-config-chips', 'fm-config-targets'],
+                    cn : targetChoices
+                }
+            ]
         }, {
             cls: ['fm-config-section'],
             cn : [
@@ -207,6 +286,58 @@ class AgentConfigCard extends Component {
     }
 
     /**
+     * @summary Build product-language choices for local services versus one public connected tenant.
+     * A persisted target remains visible when missing/disconnected but is inert; unsupported harness
+     * families see remote choices as unavailable. No credential or transport-header vocabulary
+     * reaches the DOM.
+     * @param {Object} record
+     * @returns {Object[]}
+     */
+    createTargetChoices(record) {
+        const
+            me               = this,
+            selectedTenantId = record.mcpTransport?.mode === 'remote-http'
+                ? record.mcpTransport.tenantId
+                : null,
+            remoteSupported  = supportsRemoteMcpTransport(record.harnessType),
+            records          = me.tenantStore?.items || [],
+            choices          = [{
+                id  : `${me.id}__transport__local`,
+                cls : ['fm-chip', 'fm-transport-choice', selectedTenantId ? 'is-selectable' : 'is-selected'],
+                text: 'Local services'
+            }];
+
+        for (const tenant of records) {
+            const
+                selected  = tenant.id === selectedTenantId,
+                connected = tenant.status === 'connected' && typeof tenant.endpoint === 'string' && !!tenant.endpoint,
+                available = remoteSupported && connected,
+                state     = selected
+                    ? ['is-selected', ...(available ? [] : ['is-unavailable'])]
+                    : [available ? 'is-selectable' : 'is-unavailable'],
+                suffix    = connected
+                    ? (remoteSupported ? '' : ' · Unavailable for this harness')
+                    : ' · Unavailable';
+
+            choices.push({
+                id  : `${me.id}__transport__${encodeURIComponent(tenant.id)}`,
+                cls : ['fm-chip', 'fm-transport-choice', ...state],
+                text: `${tenant.endpoint}${suffix}`
+            })
+        }
+
+        if (selectedTenantId && !records.some(tenant => tenant.id === selectedTenantId)) {
+            choices.push({
+                id  : `${me.id}__transport__${encodeURIComponent(selectedTenantId)}`,
+                cls : ['fm-chip', 'fm-transport-choice', 'is-selected', 'is-unavailable'],
+                text: `${selectedTenantId} · Saved target unavailable`
+            })
+        }
+
+        return choices
+    }
+
+    /**
      * @summary One operational-toggle row with tri-state honesty: a boolean renders On/Off; null
      * renders "Not read back yet" — the surface never invents a state it has not observed.
      * @param {String} label Product-language row label.
@@ -223,6 +354,15 @@ class AgentConfigCard extends Component {
                 {cls: ['fm-config-value'], text: known ? (state ? 'On' : 'Off') : 'Not read back yet'}
             ]
         }
+    }
+
+    /**
+     * @summary Detach public-tenant Store listeners before the component retires.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.tenantStore?.un?.(this.getTenantStoreListeners());
+        super.destroy(...args)
     }
 }
 

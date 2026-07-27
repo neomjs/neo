@@ -3,6 +3,7 @@ import AgentDefinitions   from '../store/AgentDefinitions.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
+import FleetTenants       from '../store/FleetTenants.mjs';
 import StateProvider      from '../../../src/state/Provider.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
 import ViewportController from './ViewportController.mjs';
@@ -57,6 +58,9 @@ class Viewport extends BaseViewport {
             stores: {
                 agentDefinitions: {
                     module: AgentDefinitions
+                },
+                fleetTenants: {
+                    module: FleetTenants
                 }
             }
         },

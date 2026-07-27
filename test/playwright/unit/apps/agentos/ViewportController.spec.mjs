@@ -9,6 +9,8 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
+import AgentDefinitions   from '../../../../../apps/agentos/store/AgentDefinitions.mjs';
+import FleetTenants       from '../../../../../apps/agentos/store/FleetTenants.mjs';
 import Viewport           from '../../../../../apps/agentos/view/Viewport.mjs';
 import ViewportController from '../../../../../apps/agentos/view/ViewportController.mjs';
 
@@ -83,6 +85,13 @@ test.describe('AgentOS.view.ViewportController — route → keeper-view tab', (
 });
 
 test.describe('AgentOS.view.Viewport — accepted-definition composition boundary', () => {
+    test('hosts the exact shared definition and public-tenant Stores at the Viewport provider root', () => {
+        const stores = Viewport.config.stateProvider.stores;
+
+        expect(stores.agentDefinitions).toEqual({module: AgentDefinitions});
+        expect(stores.fleetTenants).toEqual({module: FleetTenants})
+    });
+
     test('authors the Accounts intent listener and FleetCockpit reference at the shared owner', () => {
         const
             shellConfig  = Viewport.config.items.find(item => item.reference === 'shell'),

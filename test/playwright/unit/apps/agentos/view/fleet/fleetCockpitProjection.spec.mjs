@@ -220,7 +220,21 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
     });
 
     test('panes are layout-blind (§2.6) and absent-item fallback reads OWNER-held state', () => {
-        const host = makeHost({gridAdapterState: 'live', streamAdapterState: 'stale', streamEvents: [{type: 'pr-activity', payload: {text: 'held'}}], detailRecord: {agentId: 'vega', displayName: 'Vega'}});
+        const
+            definitions = {id: 'definitions-store'},
+            tenants     = {id: 'tenants-store'},
+            host        = makeHost({
+                detailRecord    : {agentId: 'vega', displayName: 'Vega'},
+                getStateProvider: () => ({
+                    getStore: name => ({
+                        agentDefinitions: definitions,
+                        fleetTenants    : tenants
+                    })[name]
+                }),
+                gridAdapterState  : 'live',
+                streamAdapterState: 'stale',
+                streamEvents      : [{type: 'pr-activity', payload: {text: 'held'}}]
+            });
 
         const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
 
@@ -242,6 +256,8 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
         expect(detail.module).toBe(AgentDetail);
         expect(detail.record).toBe(host.detailRecord);   // owner-held selection survives re-projection
+        expect(detail.agentDefinitions).toBe(definitions);
+        expect(detail.fleetTenants).toBe(tenants);
         expect(detail.cls).toContain('dock-flip-item-detail');
 
         // §2.6 layout-blind: NOTHING dock-specific reaches a pane config beyond the marker class

@@ -21,6 +21,27 @@ export const MCP_SERVERS = Object.freeze([
 ]);
 
 /**
+ * Harness families whose installed configuration grammar can represent remote HTTP MCP servers.
+ * Claude Desktop, Antigravity, and Native stay local: presenting a tenant choice for a harness
+ * whose artifact cannot encode it would turn a product selection into a late boot failure.
+ * @type {ReadonlyArray<String>}
+ */
+export const REMOTE_HTTP_HARNESS_TYPES = Object.freeze([
+    'codex',
+    'codex-desktop',
+    'claude-code',
+    'opencode',
+    'kimi-code'
+]);
+
+/**
+ * The fixed child-environment slot every remote MC/KB adapter references. Repository credentials
+ * occupy a different authority and may never be substituted here.
+ * @type {String}
+ */
+export const REMOTE_MCP_CREDENTIAL_ENV_VAR = 'NEO_MCP_REMOTE_TOKEN';
+
+/**
  * @summary List every registered MCP server in display order. Every result is caller-owned.
  * @returns {Object[]} `[{key, label, core, defaultEnabled}]`
  */
@@ -102,10 +123,65 @@ export function normalizeMcpOverrides(overrides, catalog=MCP_SERVERS) {
     return Object.keys(sparse).length ? sparse : null
 }
 
+/**
+ * @summary Validate and canonicalize the deliberately tiny MCP transport intent. Local stdio is
+ * represented as `null`; remote HTTP carries only a public tenant id. URLs, headers, environment
+ * bags, commands, and credentials have no grammar here, so they cannot cross the Body→Brain wire.
+ * @param {Object|null} transport
+ * @returns {{mode: 'remote-http', tenantId: String}|null}
+ */
+export function normalizeMcpTransport(transport) {
+    if (transport === null) {
+        return null
+    }
+
+    if (!transport || typeof transport !== 'object' || Array.isArray(transport)) {
+        throw new TypeError('MCP transport must be an object or null.')
+    }
+
+    const
+        {mode}  = transport,
+        allowed = mode === 'remote-http'
+            ? new Set(['mode', 'tenantId'])
+            : new Set(['mode']),
+        unknown = Object.keys(transport).find(key => !allowed.has(key));
+
+    if (unknown) {
+        throw new TypeError(`Unsupported MCP transport field '${unknown}'.`)
+    }
+
+    if (mode === 'stdio') {
+        return null
+    }
+
+    if (mode !== 'remote-http') {
+        throw new TypeError(`Unsupported MCP transport mode '${mode}'.`)
+    }
+
+    if (typeof transport.tenantId !== 'string' || !transport.tenantId.trim()) {
+        throw new TypeError("Remote MCP transport requires a non-empty 'tenantId'.")
+    }
+
+    return {mode: 'remote-http', tenantId: transport.tenantId.trim()}
+}
+
+/**
+ * @summary Whether a registered harness family can encode the remote HTTP MCP grammar.
+ * @param {String} harnessType
+ * @returns {Boolean}
+ */
+export function supportsRemoteMcpTransport(harnessType) {
+    return REMOTE_HTTP_HARNESS_TYPES.includes(harnessType)
+}
+
 export default {
     MCP_SERVERS,
+    REMOTE_HTTP_HARNESS_TYPES,
+    REMOTE_MCP_CREDENTIAL_ENV_VAR,
     defaultMcpMatrix,
     listMcpServers,
     normalizeMcpOverrides,
-    resolveMcpMatrix
+    normalizeMcpTransport,
+    resolveMcpMatrix,
+    supportsRemoteMcpTransport
 };

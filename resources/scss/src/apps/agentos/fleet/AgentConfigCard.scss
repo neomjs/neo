@@ -118,6 +118,15 @@
             cursor    : default;
             font-weight  : 600; // the non-color carrier — selection never rides hue alone (1.4.1)
         }
+
+        &.is-unavailable {
+            background : var(--fm-panel-2);
+            border-style: dashed;
+            color      : var(--fm-ink-dim);
+            cursor     : not-allowed;
+            font-style : italic;
+            opacity    : .78;
+        }
     }
 
     .fm-config-save-status {

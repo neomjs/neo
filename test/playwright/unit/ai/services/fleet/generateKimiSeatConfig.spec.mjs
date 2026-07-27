@@ -1,5 +1,6 @@
 import {expect, test}                              from '@playwright/test';
 import {spawnSync}                                 from 'node:child_process';
+import {createHash}                                from 'node:crypto';
 import fs                                          from 'node:fs';
 import os                                          from 'node:os';
 import path                                        from 'node:path';
@@ -164,6 +165,80 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
 
     test('purity: identical params emit byte-identical files (deterministic, no hidden inputs)', () => {
         expect(generateKimiSeatConfig(PARAMS)).toEqual(generateKimiSeatConfig(PARAMS));
+        expect(generateKimiSeatConfig(PARAMS)).toEqual(generateKimiSeatConfig({...PARAMS, remoteServers: {}}))
+    });
+
+    test('no remote intent stays byte-identical to the origin/dev stdio artifact set', () => {
+        const digest = createHash('sha256')
+            .update(JSON.stringify(generateKimiSeatConfig(PARAMS).files))
+            .digest('hex');
+
+        // Live-frozen from the pre-change origin/dev artifact. This is deliberately not current-vs-current:
+        // an unconditional remote credential echo in any generated file changes the digest.
+        expect(digest).toBe('7aeb71b78d7e0371a49293a934dac969bf2a9eb8ec4001edd576ed3e5d3ea5ae')
+    });
+
+    test('remote map replaces only selected servers with the exact Kimi HTTP adapter grammar', () => {
+        const
+            remoteServers = {
+                'neo-mjs-memory-core': {
+                    url: 'https://tenant.example.com/mc/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                },
+                'neo-mjs-knowledge-base': {
+                    url: 'https://tenant.example.com/kb/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                }
+            },
+            mcp = JSON.parse(findFile(
+                generateKimiSeatConfig({...PARAMS, remoteServers}).files,
+                '.kimi-code/mcp.json'
+            ).content).mcpServers;
+
+        expect(mcp['neo-mjs-memory-core']).toEqual({
+            url              : 'https://tenant.example.com/mc/mcp',
+            bearerTokenEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+            enabled          : true
+        });
+        expect(mcp['neo-mjs-knowledge-base']).toEqual({
+            url              : 'https://tenant.example.com/kb/mcp',
+            bearerTokenEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+            enabled          : true
+        });
+        expect(mcp['neo-mjs-github-workflow'].command).toBe(PARAMS.nodeBinary);
+        expect(mcp['neo-mjs-neural-link'].command).toBe(PARAMS.nodeBinary);
+        expect(JSON.stringify(mcp)).not.toContain('Bearer ')
+    });
+
+    test('remote map rejects unknown servers and every secret/header/env-bearing carrier', () => {
+        const malformed = [{
+            unknown: {url: 'https://tenant.example.com/mc/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'}
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                token           : 'secret'
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                headers         : {Authorization: 'Bearer secret'}
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'GH_TOKEN'
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'NOT VALID'
+            }
+        }, []];
+
+        malformed.forEach(remoteServers => {
+            expect(() => generateKimiSeatConfig({...PARAMS, remoteServers}))
+                .toThrow(/remoteServers|remote server/)
+        })
     });
 
     test('island guard: a server script escaping canonicalRoot throws; a malformed entry throws', () => {
