@@ -1,8 +1,11 @@
-import {readFileSync}                   from 'node:fs';
-import {test, expect}                   from '@playwright/test';
-import Neo                              from '../../../../../../../src/Neo.mjs';
-import * as core                        from '../../../../../../../src/core/_export.mjs';
-import {DeploymentRuntimeAccessService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
+import {readFileSync} from 'node:fs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
+import {
+    DeploymentRuntimeAccessService,
+    DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY
+} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
 
 const BASE_CONFIG = {
     enabled                     : true,
@@ -425,4 +428,74 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             }
         });
     });
+    /**
+     * The orchestrator must be READABLE through the bridge it publishes — it is the only process
+     * holding the tenant-repo-sync failure text, and excluding it made a wedged deployment
+     * undiagnosable from a remote MCP client. It must never be a LIFECYCLE target of that same bridge.
+     *
+     * One `allowedServices` list gates both envelopes, so allowlisting it for reads necessarily
+     * allowlists it for restart. These assert the asymmetry in BOTH directions, because either half
+     * alone is satisfied by a wrong implementation: refusing everything would pass the restart test,
+     * and allowing everything would pass the read test.
+     */
+    test('the orchestrator is READABLE through its own bridge', async () => {
+        const {service} = createService({
+            config    : {allowedServices: [...BASE_CONFIG.allowedServices, DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY]},
+            containers: [makeContainer({
+                Names : ['/neo-orchestrator-1'],
+                Labels: {
+                    'com.docker.compose.service': DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY,
+                    'com.docker.compose.project': 'neo'
+                }
+            })],
+            inspectData: {Name: '/neo-orchestrator-1'}
+        });
+
+        const result = await service.readObserve({
+            serviceKey: DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY,
+            operation : 'logs',
+            tail      : 25
+        });
+
+        expect(result).toBeTruthy();
+    });
+
+    test('the orchestrator is NOT restartable through its own bridge, even while allowlisted', async () => {
+        const {service} = createService({
+            config: {allowedServices: [...BASE_CONFIG.allowedServices, DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY]}
+        });
+
+        // Refused on the SELF rule, not on the allowlist — the allowlist admits it, which is the whole
+        // point: a test that passed because the service was un-allowlisted would prove nothing about
+        // the asymmetry.
+        await expect(service.applyLifecycle({
+            serviceKey: DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY,
+            operation : 'restart'
+        })).rejects.toThrow(/publishes this bridge/);
+    });
+
+    test('a sibling service stays restartable — the refusal is scoped to self, not to lifecycle', async () => {
+        // The positive control for the assertion above.
+        const {service} = createService({
+            config: {allowedServices: [...BASE_CONFIG.allowedServices, DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY]}
+        });
+
+        const result = await service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'});
+
+        expect(result).toBeTruthy();
+    });
+
+    test('the self-service constant matches the orchestrator service key in the deploy template', () => {
+        // Two expectation sites: the refusal keys off this string, and the template names the service.
+        // A rename in either would silently disarm the refusal by making it match nothing, so the
+        // coupling is asserted rather than assumed.
+        const
+            compose  = readFileSync(new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8'),
+            services = [...compose.matchAll(/^ {2}([a-z0-9][a-z0-9_.-]*):$/gmu)].map(match => match[1]);
+
+        expect(services, 'the compose parse found no services — the guard is looking at nothing').toContain('chroma');
+        expect(services).toContain(DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY);
+        // And the shipped allowlist must actually grant it, or the read half is unreachable in production.
+        expect(compose).toMatch(new RegExp(`RUNTIME_ACCESS_ALLOWED_SERVICES=[^\\n]*${DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY}`));
+    })
 });

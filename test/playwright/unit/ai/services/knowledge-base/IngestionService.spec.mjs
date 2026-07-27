@@ -207,11 +207,22 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('reports idle ingestion progress before any observed run (#14028)', () => {
+    test('distinguishes NEVER-ATTEMPTED from idle, and discloses its process scope (#14028)', () => {
+        // `idle` used to cover two different facts: a run finished and nothing is in flight, versus
+        // this process has never ingested at all. On a live deployment the second presented as
+        // `status: "idle", errorCount: 0` with every timestamp null, which reads as healthy while four
+        // tenant repos had failed four times each.
+        //
+        // The scope disclosure is the other half, and it is why a better status alone is not enough:
+        // progress state is IN-MEMORY per process, and the pull-mode tenant-repo lane ingests in the
+        // orchestrator — so a Knowledge Base server saying `never-attempted` is not evidence that the
+        // deployment never ingested. Without that, the clearer status would license a wrong conclusion
+        // more confidently than the vague one did.
         expect(Service.getIngestionProgress()).toMatchObject({
-            status        : 'idle',
+            status        : 'never-attempted',
             active        : false,
             phase         : 'idle',
+            observedScope : 'this-process-only',
             stalled       : false,
             totalSources  : 0,
             seenSources   : 0,
@@ -221,6 +232,8 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             remaining     : 0,
             lastRunSummary: null
         });
+
+        expect(Service.getIngestionProgress().crossProcessHint).toMatch(/orchestrator/);
     });
 
     test('reports active ingestion progress and preserves the last-run summary (#14028)', async () => {

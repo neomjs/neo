@@ -494,9 +494,23 @@ class IngestionService extends Base {
             : null;
 
         return {
-            status        : 'idle',
-            active        : false,
-            phase         : 'idle',
+            // `idle` conflated two facts an operator must be able to tell apart: a run finished and
+            // nothing is in flight, versus THIS PROCESS has never ingested at all. Observed on a live
+            // deployment where four tenant repos had failed four times each and this surface reported
+            // `status: "idle", errorCount: 0` with every timestamp null — which reads as healthy.
+            status: lastRunSummary ? 'idle' : 'never-attempted',
+            active: false,
+            phase : 'idle',
+            // The scope disclosure is the load-bearing half, and it is why a better status alone would
+            // not be enough. `activeIngestionProgress` / `lastIngestionProgress` are IN-MEMORY instance
+            // state, so this answers only for the process serving the call. The pull-mode tenant-repo
+            // lane ingests inside the ORCHESTRATOR, so a Knowledge Base server reporting
+            // `never-attempted` is not evidence that the deployment has never ingested — it cannot see
+            // that lane at all. Cross-process ingestion state lives in the deployment-state bridge
+            // snapshot (`tenantRepoSync`), which is where a wedged pull lane is actually visible.
+            observedScope   : 'this-process-only',
+            crossProcessHint: 'Pull-mode tenant-repo ingestion runs in the orchestrator process and is '
+                + 'NOT reflected here; read the deployment-state snapshot for that lane.',
             startedAt     : null,
             updatedAt     : lastRunSummary?.updatedAt ?? null,
             lastProgressAt: null,
