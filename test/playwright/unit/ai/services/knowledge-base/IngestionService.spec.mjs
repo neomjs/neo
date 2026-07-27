@@ -454,6 +454,137 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
+    test('persists and replays an attempt-bound positive full-materialization receipt (#16045)', async () => {
+        collection = createSpyCollection([
+            {id: 'stale', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/stale.js'}}
+        ]);
+        Service.chromaManager = {
+            getKnowledgeBaseCollection: async () => collection
+        };
+
+        const envelope = {
+            tenantId        : 'tenant-a',
+            repoSlug        : 'repo-a',
+            files           : [],
+            headRevision    : 'head-delete-only',
+            manifestSnapshot: {repoSlug: 'repo-a', pathsAfterPush: []}
+        };
+        const first = await Service.ingestSourceFiles({
+            ...envelope,
+            materializationAttempt: {
+                attemptId            : 'a'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+
+        expect(first).toMatchObject({
+            deleted               : 1,
+            errors                : [],
+            materializationReceipt: {
+                attemptId            : 'a'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+        expect(first.materializationReceipt.envelopeDigest).toMatch(/^[a-f0-9]{64}$/u);
+
+        const retry = await Service.ingestSourceFiles({
+            ...envelope,
+            materializationAttempt: {
+                attemptId            : 'b'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+
+        expect(retry).toMatchObject({
+            deleted               : 0,
+            errors                : [],
+            materializationReceipt: {
+                attemptId            : 'a'.repeat(32),
+                ingestContractVersion: 2,
+                envelopeDigest       : first.materializationReceipt.envelopeDigest
+            }
+        });
+
+        await Service.setTenantManifest({
+            tenantId      : 'tenant-a',
+            repoSlug      : 'repo-a',
+            pathsAfterPush: []
+        });
+        expect((await Service.getTenantManifest({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-a'
+        })).materializationReceipt).toBeNull();
+    });
+
+    test('error-bearing retries clear rather than preserve an older materialization receipt (#16045)', async () => {
+        collection = createSpyCollection([
+            {id: 'stale', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/stale.js'}}
+        ]);
+        Service.chromaManager = {
+            getKnowledgeBaseCollection: async () => collection
+        };
+
+        const envelope = {
+            tenantId        : 'tenant-a',
+            repoSlug        : 'repo-a',
+            files           : [],
+            headRevision    : 'head-error-retry',
+            manifestSnapshot: {repoSlug: 'repo-a', pathsAfterPush: []}
+        };
+        const first = await Service.ingestSourceFiles({
+            ...envelope,
+            materializationAttempt: {
+                attemptId            : 'e'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+
+        expect(first.materializationReceipt).toBeTruthy();
+
+        const errored = await Service.ingestSourceFiles({
+            ...envelope,
+            baseRevision          : 'base-requiring-unavailable-resolver',
+            materializationAttempt: {
+                attemptId            : 'f'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+
+        expect(errored.errors).toContainEqual(expect.objectContaining({
+            code: 'KB_REVISION_BOUNDARY_UNAVAILABLE'
+        }));
+        expect(errored.materializationReceipt).toBeUndefined();
+        expect((await Service.getTenantManifest({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-a'
+        })).materializationReceipt).toBeNull();
+    });
+
+    test('fresh zero-effect full attempts never manufacture a replay receipt (#16045)', async () => {
+        const envelope = {
+            tenantId        : 'tenant-a',
+            repoSlug        : 'repo-empty',
+            files           : [],
+            headRevision    : 'head-empty',
+            manifestSnapshot: {repoSlug: 'repo-empty', pathsAfterPush: []}
+        };
+
+        for (const attemptId of ['c'.repeat(32), 'd'.repeat(32)]) {
+            const summary = await Service.ingestSourceFiles({
+                ...envelope,
+                materializationAttempt: {attemptId, ingestContractVersion: 2}
+            });
+
+            expect(summary).toMatchObject({ingested: 0, deleted: 0, errors: []});
+            expect(summary.materializationReceipt).toBeUndefined();
+        }
+
+        expect((await Service.getTenantManifest({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-empty'
+        })).materializationReceipt).toBeNull();
+    });
+
     test('records reconcile telemetry when one push ingests and deletes chunks', async () => {
         collection = createSpyCollection([
             {id: 'deleted', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/deleted.js'}}

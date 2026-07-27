@@ -747,11 +747,12 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 async readPersistedRevisions() {
                     return {
                         'tenant-a/private/repo': {
-                            lastIngestedRev                   : 'abcdef1234567890',
-                            lastRunAttemptAt                  : OBSERVED_AT - 1_000,
-                            consecutiveFailures               : 0,
-                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                            lastIngestedRev                      : 'abcdef1234567890',
+                            lastRunAttemptAt                     : OBSERVED_AT - 1_000,
+                            consecutiveFailures                  : 0,
+                            ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastCommittedMaterializationAttemptId: 'a'.repeat(32)
                         }
                     };
                 },
@@ -1053,11 +1054,12 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                             lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
                         },
                         'tenant-c/private/complete': {
-                            lastIngestedRev                   : 'cccccccccccccccc',
-                            lastRunAttemptAt                  : OBSERVED_AT - 10_000,
-                            consecutiveFailures               : 0,
-                            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                            lastIngestedRev                      : 'cccccccccccccccc',
+                            lastRunAttemptAt                     : OBSERVED_AT - 10_000,
+                            consecutiveFailures                  : 0,
+                            ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            lastCommittedMaterializationAttemptId: 'c'.repeat(32)
                         },
                         'tenant-e/private/unsupported': {
                             lastIngestedRev                   : 'eeeeeeeeeeeeeeee',

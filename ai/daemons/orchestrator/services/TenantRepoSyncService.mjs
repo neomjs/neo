@@ -4,7 +4,10 @@ import path                      from 'node:path';
 import Base                      from '../../../../src/core/Base.mjs';
 import AiConfig                  from '../../../config.mjs';
 import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
-import {buildIngestEnvelope}     from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
+import {
+    buildIngestEnvelope,
+    createTenantRepoMaterializationDigest
+} from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {
     isTenantRepoAccessReadinessOutcome,
     normalizeTenantRepoCredentialRef,
@@ -13,6 +16,7 @@ import {
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
+    KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST,
@@ -224,6 +228,69 @@ function assertErrorFreeIngestionSummary(summary) {
 }
 
 /**
+ * @summary Verifies a graph receipt against the current full-materialization identity.
+ * @param {*} receipt Candidate graph receipt.
+ * @param {String} expectedDigest Digest of the current manifest-bearing envelope.
+ * @returns {Boolean}
+ */
+function isMatchingMaterializationReceipt(receipt, expectedDigest) {
+    return Boolean(
+        receipt
+        && receipt.ingestContractVersion === TENANT_REPO_INGEST_CONTRACT_VERSION
+        && receipt.envelopeDigest === expectedDigest
+        && /^[a-f0-9]{32}$/u.test(receipt.attemptId)
+        && Number.isSafeInteger(receipt.recordedAt)
+        && receipt.recordedAt > 0
+    )
+}
+
+/**
+ * @summary Requires a durable positive-effect proof before a full materialization can commit.
+ *
+ * A manifest-bearing envelope represents bootstrap, non-linear fallback, manual full
+ * replay, or legacy revalidation. It must reach ingestion before this check so an
+ * empty manifest can reconcile and delete stale rows. A fresh attempt must prove a
+ * safely-counted ingest/delete effect and persist its matching graph receipt. A
+ * zero-effect retry may settle only an unacknowledged receipt left by a prior positive
+ * attempt whose checkpoint commit failed. Incremental envelopes have no manifest and
+ * may remain healthy zero-delta checkpoints.
+ *
+ * @param {Object} envelope Tenant-repo ingestion envelope.
+ * @param {Object} summary Validated error-free ingestion summary.
+ * @param {Object|null} priorState Previous durable checkpoint.
+ * @param {Object|null} materializationAttempt Current opaque full-attempt identity.
+ * @returns {Object|null} Receipt to acknowledge in the final checkpoint.
+ * @throws {TenantRepoSyncError} When a full materialization has no proved effect.
+ */
+function assertFullMaterializationEffect(envelope, summary, priorState, materializationAttempt) {
+    if (envelope?.manifestSnapshot == null) {
+        return null
+    }
+
+    const
+        expectedDigest = createTenantRepoMaterializationDigest(envelope),
+        receipt        = summary.materializationReceipt,
+        validReceipt   = isMatchingMaterializationReceipt(receipt, expectedDigest),
+        hasEffect      = [summary.ingested, summary.deleted]
+            .some(value => Number.isSafeInteger(value) && value > 0),
+        provesCurrentAttempt = validReceipt
+            && receipt.attemptId === materializationAttempt?.attemptId,
+        provesUncommittedRetry = validReceipt
+            && receipt.attemptId !== materializationAttempt?.attemptId
+            && receipt.attemptId !== priorState?.lastCommittedMaterializationAttemptId;
+
+    if ((hasEffect && !provesCurrentAttempt) || (!hasEffect && !provesUncommittedRetry)) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
+            'Tenant-repo full materialization produced no durable positive-effect proof.',
+            {phase: 'full-materialization'}
+        )
+    }
+
+    return receipt
+}
+
+/**
  * @summary Cloud-deployable scheduler lane that pulls tenant repos into the deployment KB.
  *
  * Bridges the `tenant-repo-sync` Orchestrator periodic lane (registered via
@@ -259,6 +326,7 @@ function assertErrorFreeIngestionSummary(summary) {
  * @see ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs
  * @see ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs
  * @see learn/agentos/cloud-deployment/TenantIngestionModel.md
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 class TenantRepoSyncService extends Base {
     static config = {
@@ -514,6 +582,7 @@ class TenantRepoSyncService extends Base {
             probe = await gitMirror.probeRemoteAccess({
                 cloneUrl     : repo.cloneUrl,
                 credentialRef: repo.credentialRef,
+                mirrorRoot   : repo.mirrorRoot,
                 ref          : repo.branchRef || 'HEAD'
             });
         } catch {
@@ -597,8 +666,9 @@ class TenantRepoSyncService extends Base {
      * | Code | Surface | Trigger |
      * |---|---|---|
      * | `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | underlying clone/fetch/envelope/ingest failure (wraps the original error) |
+     * | `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | full materialization lacks a fresh positive effect or matching unacknowledged retry receipt |
      * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
-     * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle retries idempotently) |
+     * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle settles the unacknowledged graph receipt idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
      * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | per-repo `lastErrorCode` | concurrency-gate slot-acquisition timeout after `concurrencyGateTimeoutMs` |
      *
@@ -934,11 +1004,12 @@ class TenantRepoSyncService extends Base {
                         ? repo.cadenceMs
                         : globalCadenceMs;
                     persistedRevisions[repoLabel] = {
-                        lastIngestedRev                   : null,
-                        lastRunAttemptAt                  : sweepStartedMs - baseCadenceMs,
-                        consecutiveFailures               : 0,
-                        ingestContractVersion             : null,
-                        lastAttemptedIngestContractVersion: null
+                        lastIngestedRev                      : null,
+                        lastRunAttemptAt                     : sweepStartedMs - baseCadenceMs,
+                        consecutiveFailures                  : 0,
+                        ingestContractVersion                : null,
+                        lastAttemptedIngestContractVersion   : null,
+                        lastCommittedMaterializationAttemptId: null
                     };
                     seededAny = true;
                     writeLog?.('INFO', `[TenantRepoSync] Bootstrap-seeding ${repoLabel} (sync scheduled within jitter window).`);
@@ -1097,21 +1168,63 @@ class TenantRepoSyncService extends Base {
                 // lane protects (the manifest commit being the first).
                 await leaseGuard();
 
-                const ingestResult = assertErrorFreeIngestionSummary(await ingestionService.ingestSourceFiles({
-                    ...envelope,
-                    viaMcp: false // operator-bulk path
-                }));
+                const materializationAttempt = envelope.manifestSnapshot == null
+                    ? null
+                    : {
+                        attemptId            : randomBytes(16).toString('hex'),
+                        ingestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    };
+                const
+                    envelopeDigest = materializationAttempt
+                        ? createTenantRepoMaterializationDigest(envelope)
+                        : null,
+                    existingManifest = materializationAttempt
+                        && typeof ingestionService.getTenantManifest === 'function'
+                        ? await ingestionService.getTenantManifest({
+                            tenantId: repo.tenantId,
+                            repoSlug: repo.repoSlug
+                        })
+                        : null,
+                    retryReceipt = isMatchingMaterializationReceipt(
+                        existingManifest?.materializationReceipt,
+                        envelopeDigest
+                    ) && existingManifest.materializationReceipt.attemptId
+                        !== priorState?.lastCommittedMaterializationAttemptId
+                        ? existingManifest.materializationReceipt
+                        : null,
+                    ingestResult = assertErrorFreeIngestionSummary(retryReceipt
+                        ? {
+                            ingested              : 0,
+                            deleted               : 0,
+                            errors                : [],
+                            materializationReceipt: retryReceipt
+                        }
+                        : await ingestionService.ingestSourceFiles({
+                            ...envelope,
+                            ...(materializationAttempt ? {materializationAttempt} : {}),
+                            viaMcp: false // operator-bulk path
+                        }));
+
+                const materializationReceipt = assertFullMaterializationEffect(
+                    envelope,
+                    ingestResult,
+                    priorState,
+                    materializationAttempt
+                );
 
                 // Persist full per-repo state on success. Reset consecutiveFailures
                 // to 0 (backoff is the multiplier-component of effectiveCadence; reset on
                 // successful sync). lastRunAttemptAt advances to
                 // startedMs so subsequent due-checks measure from the actual attempt.
                 persistedRevisions[repoLabel] = {
-                    lastIngestedRev                   : envelope.headRevision || priorState?.lastIngestedRev || null,
-                    lastRunAttemptAt                  : startedMs,
-                    consecutiveFailures               : 0,
-                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : envelope.headRevision || priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt                     : startedMs,
+                    consecutiveFailures                  : 0,
+                    ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: materializationReceipt?.attemptId
+                        || priorState?.lastCommittedMaterializationAttemptId
+                        || null
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -1177,11 +1290,12 @@ class TenantRepoSyncService extends Base {
                 // start, not last-success).
                 const nextFailureCount = (priorState?.consecutiveFailures ?? 0) + 1;
                 persistedRevisions[repoLabel] = {
-                    lastIngestedRev                   : priorState?.lastIngestedRev || null,
-                    lastRunAttemptAt                  : startedMs,
-                    consecutiveFailures               : nextFailureCount,
-                    ingestContractVersion             : priorState?.ingestContractVersion ?? null,
-                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    lastIngestedRev                      : priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt                     : startedMs,
+                    consecutiveFailures                  : nextFailureCount,
+                    ingestContractVersion                : priorState?.ingestContractVersion ?? null,
+                    lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastCommittedMaterializationAttemptId: priorState?.lastCommittedMaterializationAttemptId || null
                 };
 
                 const failedRepoState = {
@@ -1342,7 +1456,8 @@ class TenantRepoSyncService extends Base {
      *   lastRunAttemptAt                   : <ms-epoch>,
      *   consecutiveFailures                : <int>,
      *   ingestContractVersion              : <int|null>,
-     *   lastAttemptedIngestContractVersion : <int|null>
+     *   lastAttemptedIngestContractVersion : <int|null>,
+     *   lastCommittedMaterializationAttemptId: <hex|null>
      * }
      * ```
      *

@@ -1,6 +1,5 @@
-import {execFile}  from 'child_process';
-import fs          from 'fs-extra';
-import {promisify} from 'util';
+import {createHash} from 'node:crypto';
+import fs           from 'fs-extra';
 
 import GitMirror from './gitMirror.mjs';
 import {
@@ -9,20 +8,18 @@ import {
     redactTenantRepoSecrets
 } from './tenantRepoAccessContract.mjs';
 
-const execFileAsync = promisify(execFile);
-const GIT_MAX_BUFFER = 50 * 1024 * 1024;
-
 /**
  * @summary Builds `KnowledgeBaseIngestionService.ingestSourceFiles()` envelopes from tenant Git mirrors.
  *
- * `TenantRepoIngestEnvelopeBuilder` is the #11789 adapter between the low-level
- * persistent mirror primitive (#11788) and the tenant KB ingestion payload contract.
+ * `TenantRepoIngestEnvelopeBuilder` is the adapter between the low-level
+ * persistent mirror primitive and the tenant KB ingestion payload contract.
  * Linear history advances emit bounded raw-file deltas plus tombstones; bootstrap,
  * missing-baseline, and force-push cases fall back to a full manifest-carrying
  * snapshot so the ingestion service can reconcile the claimed live path set without
  * relying on a stale revision boundary.
  *
  * @see https://github.com/neomjs/neo/issues/11789
+ * @see https://github.com/neomjs/neo/issues/16045
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs
  */
 
@@ -59,6 +56,75 @@ function createIngestEnvelopeError(code, message, details = {}) {
 }
 
 /**
+ * @summary Creates the bounded identity digest for one manifest-bearing pull materialization.
+ *
+ * The Git head binds source bytes while the manifest and parser bindings distinguish
+ * the corpus/parser shape being materialized. The digest intentionally excludes
+ * credential and filesystem data so it is safe to persist in the shared manifest graph.
+ *
+ * @param {Object} envelope Manifest-bearing tenant-repo ingestion envelope.
+ * @returns {String} Lowercase SHA-256 digest.
+ */
+export function createTenantRepoMaterializationDigest({
+    repoSlug,
+    headRevision,
+    manifestSnapshot,
+    files = []
+} = {}) {
+    const
+        normalizedRepoSlug = normalizeRepoSlug(manifestSnapshot?.repoSlug || repoSlug),
+        normalizedHead     = typeof headRevision === 'string' ? headRevision.trim() : '';
+
+    if (!normalizedHead) {
+        throw createIngestEnvelopeError(
+            'KB_INGEST_ENVELOPE_REF_NOT_FOUND',
+            'Tenant repo materialization identity requires a head revision'
+        );
+    }
+
+    if (!Array.isArray(manifestSnapshot?.pathsAfterPush)) {
+        throw createIngestEnvelopeError(
+            'KB_INGEST_ENVELOPE_MANIFEST_INVALID',
+            'Tenant repo materialization identity requires manifestSnapshot.pathsAfterPush'
+        );
+    }
+
+    const
+        pathsAfterPush = [...new Set(manifestSnapshot.pathsAfterPush
+            .filter(sourcePath => typeof sourcePath === 'string' && sourcePath.length > 0))]
+            .sort(),
+        parserBindings = (Array.isArray(files) ? files : [])
+            .filter(file => typeof file?.sourcePath === 'string' && file.sourcePath.length > 0)
+            .map(file => ({
+                sourcePath   : file.sourcePath,
+                rootKind     : typeof file.rootKind === 'string' ? file.rootKind : null,
+                parserId     : typeof file.parserId === 'string' ? file.parserId : null,
+                parserVersion: typeof file.parserVersion === 'string' ? file.parserVersion : null
+            }))
+            .sort((left, right) => {
+                const
+                    leftKey  = JSON.stringify(left),
+                    rightKey = JSON.stringify(right);
+
+                if (leftKey === rightKey) {
+                    return 0;
+                }
+
+                return leftKey < rightKey ? -1 : 1;
+            });
+
+    return createHash('sha256')
+        .update(JSON.stringify({
+            formatVersion: 1,
+            repoSlug     : normalizedRepoSlug,
+            headRevision : normalizedHead,
+            pathsAfterPush,
+            parserBindings
+        }))
+        .digest('hex');
+}
+
+/**
  * @summary Returns the mirror path while converting contract errors into builder errors.
  * @param {Object} options
  * @returns {String}
@@ -73,35 +139,6 @@ function getMirrorPath({mirrorRoot, tenantId, repoSlug} = {}) {
             error.message,
             {cause: error}
         );
-    }
-}
-
-/**
- * @summary Runs read-only git commands against an existing bare mirror.
- * @param {String} mirrorPath Local mirror path.
- * @param {String[]} args Git arguments.
- * @param {Object} options={}
- * @returns {Promise<String>}
- * @private
- */
-async function runMirrorGit(mirrorPath, args, {
-    failureCode = 'KB_INGEST_ENVELOPE_GIT_FAILED',
-    failureMessage = 'Tenant repo ingest envelope git command failed'
-} = {}) {
-    try {
-        const {stdout} = await execFileAsync('git', args, {
-            cwd      : mirrorPath,
-            maxBuffer: GIT_MAX_BUFFER
-        });
-
-        return stdout;
-    } catch (error) {
-        throw createIngestEnvelopeError(failureCode, failureMessage, {
-            cause   : error,
-            exitCode: error.code,
-            stdout  : error.stdout,
-            stderr  : error.stderr
-        });
     }
 }
 
@@ -140,29 +177,40 @@ async function resolveRevision({gitMirror, identity, ref, fallbackToFull = false
 /**
  * @summary Lists all repo-relative paths present at a revision.
  * @param {Object} options
+ * @param {Object} options.gitMirror GitMirror-compatible primitive.
+ * @param {Object} options.identity Tenant-repo mirror identity.
+ * @param {String} options.revision Resolved revision.
  * @returns {Promise<Array<String>>}
  * @private
  */
-async function listRevisionPaths({mirrorPath, revision}) {
-    const stdout = await runMirrorGit(
-        mirrorPath,
-        ['ls-tree', '-r', '-z', '--name-only', revision],
-        {
-            failureCode   : 'KB_INGEST_ENVELOPE_LIST_FAILED',
-            failureMessage: 'Tenant repo ingest envelope failed to list revision paths'
-        }
-    );
-
-    return stdout.split('\0').filter(Boolean).sort();
+async function listRevisionPaths({gitMirror, identity, revision}) {
+    try {
+        return await gitMirror.listRevisionPaths({...identity, revision});
+    } catch (error) {
+        throw createIngestEnvelopeError(
+            'KB_INGEST_ENVELOPE_LIST_FAILED',
+            'Tenant repo ingest envelope failed to list revision paths',
+            {
+                cause   : error,
+                exitCode: error.exitCode,
+                stdout  : error.stdout,
+                stderr  : error.stderr
+            }
+        );
+    }
 }
 
 /**
  * @summary Reads one text file from a revision.
  * @param {Object} options
+ * @param {Object} options.gitMirror GitMirror-compatible primitive.
+ * @param {Object} options.identity Tenant-repo mirror identity.
+ * @param {String} options.revision Resolved revision.
+ * @param {String} options.sourcePath Repo-relative source path.
  * @returns {Promise<String>}
  * @private
  */
-async function readRevisionFile({mirrorPath, revision, sourcePath}) {
+async function readRevisionFile({gitMirror, identity, revision, sourcePath}) {
     if (!sourcePath || sourcePath.includes('\0')) {
         throw createIngestEnvelopeError(
             'KB_INGEST_ENVELOPE_PATH_INVALID',
@@ -170,14 +218,20 @@ async function readRevisionFile({mirrorPath, revision, sourcePath}) {
         );
     }
 
-    return await runMirrorGit(
-        mirrorPath,
-        ['show', `${revision}:${sourcePath}`],
-        {
-            failureCode   : 'KB_INGEST_ENVELOPE_FILE_READ_FAILED',
-            failureMessage: `Tenant repo ingest envelope failed to read '${sourcePath}'`
-        }
-    );
+    try {
+        return await gitMirror.readRevisionFile({...identity, revision, sourcePath});
+    } catch (error) {
+        throw createIngestEnvelopeError(
+            'KB_INGEST_ENVELOPE_FILE_READ_FAILED',
+            `Tenant repo ingest envelope failed to read '${sourcePath}'`,
+            {
+                cause   : error,
+                exitCode: error.exitCode,
+                stdout  : error.stdout,
+                stderr  : error.stderr
+            }
+        );
+    }
 }
 
 /**
@@ -186,15 +240,15 @@ async function readRevisionFile({mirrorPath, revision, sourcePath}) {
  * @returns {Promise<Array<Object>>}
  * @private
  */
-async function buildFilePayloads({mirrorPath, revision, paths, repoSlug, rootKind, parserId, parserVersion}) {
+async function buildFilePayloads({gitMirror, identity, revision, paths, rootKind, parserId, parserVersion}) {
     const files = [];
 
     for (const sourcePath of paths) {
         files.push({
             sourcePath,
-            repoSlug,
+            repoSlug: identity.repoSlug,
             rootKind,
-            content: await readRevisionFile({mirrorPath, revision, sourcePath}),
+            content : await readRevisionFile({gitMirror, identity, revision, sourcePath}),
             ...(parserId ? {parserId} : {}),
             ...(parserVersion ? {parserVersion} : {})
         });
@@ -209,21 +263,21 @@ async function buildFilePayloads({mirrorPath, revision, paths, repoSlug, rootKin
  * @returns {Promise<Object>}
  * @private
  */
-async function buildFullEnvelope({identity, mirrorPath, headRevision, rootKind, parserId, parserVersion}) {
-    const paths = await listRevisionPaths({mirrorPath, revision: headRevision});
+async function buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion}) {
+    const paths = await listRevisionPaths({gitMirror, identity, revision: headRevision});
     const files = await buildFilePayloads({
-        mirrorPath,
+        gitMirror,
+        identity,
         revision: headRevision,
         paths,
-        repoSlug: identity.repoSlug,
         rootKind,
         parserId,
         parserVersion
     });
 
     return {
-        tenantId: identity.tenantId,
-        repoSlug : identity.repoSlug,
+        tenantId        : identity.tenantId,
+        repoSlug        : identity.repoSlug,
         files,
         headRevision,
         manifestSnapshot: {
@@ -281,7 +335,7 @@ export async function buildIngestEnvelope({
     });
 
     if (!baseRevision) {
-        return await buildFullEnvelope({identity, mirrorPath, headRevision, rootKind, parserId, parserVersion});
+        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion});
     }
 
     const linear = await gitMirror.isAncestor({
@@ -291,7 +345,7 @@ export async function buildIngestEnvelope({
     });
 
     if (!linear) {
-        return await buildFullEnvelope({identity, mirrorPath, headRevision, rootKind, parserId, parserVersion});
+        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion});
     }
 
     const diff = await gitMirror.diffRevisions({
@@ -303,12 +357,12 @@ export async function buildIngestEnvelope({
 
     return {
         tenantId: identity.tenantId,
-        repoSlug : identity.repoSlug,
-        files: await buildFilePayloads({
-            mirrorPath,
+        repoSlug: identity.repoSlug,
+        files   : await buildFilePayloads({
+            gitMirror,
+            identity,
             revision: headRevision,
             paths,
-            repoSlug: identity.repoSlug,
             rootKind,
             parserId,
             parserVersion
@@ -322,7 +376,8 @@ export async function buildIngestEnvelope({
 }
 
 const TenantRepoIngestEnvelopeBuilder = {
-    buildIngestEnvelope
+    buildIngestEnvelope,
+    createTenantRepoMaterializationDigest
 };
 
 export default TenantRepoIngestEnvelopeBuilder;

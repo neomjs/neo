@@ -142,6 +142,41 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         expect('error' in result).toBe(false);
     });
 
+    test('push callers cannot inject or receive pull-materialization authority (#16045)', async () => {
+        let dispatchedArgs;
+
+        IngestionService.ingestSourceFiles = async args => {
+            dispatchedArgs = args;
+
+            return {
+                ingested              : 1,
+                deleted               : 0,
+                errors                : [],
+                materializationReceipt: {
+                    attemptId            : 'a'.repeat(32),
+                    ingestContractVersion: 2,
+                    envelopeDigest       : 'b'.repeat(64),
+                    recordedAt           : Date.now()
+                }
+            };
+        };
+
+        const result = await ingestSourceFilesViaMcp({
+            tenantId              : 'neo-shared',
+            files                 : [{path: 'README.md', content: 'source'}],
+            viaMcp                : false,
+            materializationAttempt: {
+                attemptId            : 'c'.repeat(32),
+                ingestContractVersion: 2
+            }
+        });
+
+        expect(dispatchedArgs.viaMcp).toBe(true);
+        expect(dispatchedArgs).not.toHaveProperty('materializationAttempt');
+        expect(result).not.toHaveProperty('materializationReceipt');
+        expect(result).toMatchObject({ingested: 1, deleted: 0, errors: []});
+    });
+
     test('ingest_source_files is listed for the remote Streamable HTTP transport profile', () => {
         aiConfig.transport = 'streamable-http';
 

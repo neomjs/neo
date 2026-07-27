@@ -9,11 +9,13 @@ import path from 'path';
  * injected later by the Git mirror worker, not stored in the Knowledge Base config node.
  *
  * @see https://github.com/neomjs/neo/issues/11787
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 
 const URL_WITH_USERINFO_RE   = /^[a-z][a-z0-9+.-]*:\/\/[^/\s@]+@/iu;
 const SCP_LIKE_USERINFO_RE   = /^[^/\s@:]+@[^/\s@:]+:/u;
 const ENV_CREDENTIAL_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+const SSH_USERNAME_RE        = /^[A-Za-z0-9._-]+$/u;
 const SECRET_REPLACEMENT     = '[REDACTED]';
 
 export const TenantRepoAccessStatus = Object.freeze({
@@ -141,6 +143,29 @@ export function hasCloneUrlUserInfo(cloneUrl) {
 }
 
 /**
+ * @summary Returns true only for a non-secret SSH login name in a clone endpoint.
+ * @param {String} cloneUrl Candidate clone URL.
+ * @returns {Boolean}
+ * @private
+ */
+function hasCleanSshUsername(cloneUrl) {
+    const value = String(cloneUrl || '').trim();
+
+    try {
+        const url      = new URL(value);
+        const username = decodeURIComponent(url.username);
+
+        return url.protocol === 'ssh:'
+            && !url.password
+            && SSH_USERNAME_RE.test(username);
+    } catch {
+        const match = value.match(/^([^/\s@:]+)@([^/\s@:]+):(.+)$/u);
+
+        return Boolean(match && SSH_USERNAME_RE.test(match[1]));
+    }
+}
+
+/**
  * @summary Throws when a clone URL contains credential-shaped material.
  * @param {String} cloneUrl Candidate clone URL.
  * @returns {String} Trimmed clone URL.
@@ -155,7 +180,7 @@ export function assertCleanCloneUrl(cloneUrl) {
         );
     }
 
-    if (hasCloneUrlUserInfo(value)) {
+    if (hasCloneUrlUserInfo(value) && !hasCleanSshUsername(value)) {
         throw createContractError(
             'KB_TENANT_REPO_CLONE_URL_CREDENTIALS',
             'Tenant repo cloneUrl must not embed userinfo or credentials'
@@ -194,7 +219,7 @@ export function deriveRepoSlugFromCloneUrl(cloneUrl) {
 
         return normalizeRepoSlug(`${url.hostname}/${stripRepoSuffix(url.pathname)}`);
     } catch (error) {
-        const scpLike = value.match(/^([^/\s@:]+):(.+)$/u);
+        const scpLike = value.match(/^(?:[^/\s@:]+@)?([^/\s@:]+):(.+)$/u);
 
         if (scpLike) {
             return normalizeRepoSlug(`${scpLike[1]}/${stripRepoSuffix(scpLike[2])}`);

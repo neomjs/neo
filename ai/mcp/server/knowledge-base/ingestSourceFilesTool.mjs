@@ -58,7 +58,9 @@ const assertToolTransportAllowed = toolName => {
  *
  * The gate lives at the MCP facade (not threaded into the service) because the batch
  * volume is knowable from the input alone, keeping service-layer ingestion logic
- * unchanged and transport policy localized to the MCP facade.
+ * unchanged and transport policy localized to the MCP facade. This boundary also
+ * strips the pull orchestrator's internal materialization-attempt field, forces MCP
+ * work-volume mode, and never returns a durable pull receipt to a push caller.
  *
  * @param {Object}    args            The `ingest_source_files` tool envelope.
  * @param {String}   [args.tenantId]  Authenticated tenant id.
@@ -68,6 +70,7 @@ const assertToolTransportAllowed = toolName => {
  *     refusal when the work-volume gate fires.
  * @see https://github.com/neomjs/neo/issues/11634
  * @see https://github.com/neomjs/neo/issues/10572
+ * @see https://github.com/neomjs/neo/issues/16045
  */
 const ingestSourceFilesViaMcp = async args => {
     const
@@ -88,7 +91,21 @@ const ingestSourceFilesViaMcp = async args => {
         };
     }
 
-    return IngestionService.ingestSourceFiles(args);
+    const serviceArgs = {...(args || {}), viaMcp: true};
+
+    delete serviceArgs.materializationAttempt;
+
+    const result = await IngestionService.ingestSourceFiles(serviceArgs);
+
+    if (!result || typeof result !== 'object' || !Object.hasOwn(result, 'materializationReceipt')) {
+        return result
+    }
+
+    const publicResult = {...result};
+
+    delete publicResult.materializationReceipt;
+
+    return publicResult
 };
 
 export {
