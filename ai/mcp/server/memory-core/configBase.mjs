@@ -10,6 +10,34 @@ import {
     resolveMemoryCoreGraphPath
 } from './helpers/TurnPresenceConfig.mjs';
 
+/**
+ * @summary Parses a liveness-window override, refusing values a window cannot have.
+ *
+ * A window of `0`, a negative, or a non-number is not a calibration — it is a deployment silently
+ * disabling or inverting a roster verdict. `0` would make every identity permanently stale and a
+ * negative would make freshness unreachable, so both fail loud at config resolution rather than
+ * producing an all-dark roster nobody can explain at 3am.
+ * Mirrors the `parseMemorySharingPolicy` signature directly above: the parser receives the env var
+ * NAME and reads the value itself, returning `undefined` when unset so the leaf default applies.
+ * @param {String} envVarName Env var name.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {Number|undefined} Positive finite milliseconds, or undefined when unset.
+ */
+function parsePositiveWindowMs(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(`[Config] Invalid ${envVarName} value: "${rawValue}". Must be a positive finite number of milliseconds.`);
+    }
+
+    return parsed;
+}
+
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
     if (rawValue === undefined || rawValue === null || rawValue === '') return;
@@ -266,8 +294,8 @@ class ConfigBase extends ConfigProvider {
              * reports `dark` — still rostered, no longer plausibly in this session.
              */
             whoIsOnline: {
-                activityFreshMs: leaf(15 * 60 * 1000, 'NEO_WHO_IS_ONLINE_ACTIVITY_FRESH_MS', 'number'),
-                idleCutoffMs   : leaf(4 * 60 * 60 * 1000, 'NEO_WHO_IS_ONLINE_IDLE_CUTOFF_MS', 'number')
+                activityFreshMs: leaf(15 * 60 * 1000,     'NEO_WHO_IS_ONLINE_ACTIVITY_FRESH_MS', 'number', {parse: parsePositiveWindowMs}),
+                idleCutoffMs   : leaf(4 * 60 * 60 * 1000, 'NEO_WHO_IS_ONLINE_IDLE_CUTOFF_MS',    'number', {parse: parsePositiveWindowMs})
             },
             /**
              * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved

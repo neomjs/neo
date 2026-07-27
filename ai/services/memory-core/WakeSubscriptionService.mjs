@@ -712,28 +712,36 @@ class WakeSubscriptionService extends Base {
         const activity = this._readActivityRecency(identity, nowMs);
         signals.activityRecency = activity;
 
-        // Never observed HERE. This is a MEMBERSHIP fact, not a freshness one: the identity ships in
-        // the roster but has no AGENT_MEMORY write on this deployment at all. Folding it into `idle`
-        // is what made a remote roster read as an attendance list — an operator could not tell a
-        // colleague who logged off from a seat that has never once connected.
-        if (!activity) {
-            return {identity, name, family, participationStatus, online: false, state: 'neverConnected',
-                reason: 'never connected to this deployment (no AGENT_MEMORY write on record)', signals};
-        }
-        if (!activity.fresh) {
-            // Local-only mid-turn rescue: the consolidate-then-save gate lands add_memory only at the
-            // turn boundary, so a long mid-turn agent can read add_memory-stale yet be live. Where a
-            // local turn-presence beacon is wired, a fresh one rescues it. Local-only by construction —
-            // no beacon → the memory verdict stands (a beaconless deployment is never gated on a signal
-            // it cannot emit); the benched hard-gate above is never upgraded (only this stale branch).
+        // The turn-presence beacon is consulted BEFORE any not-online verdict, not only on the stale
+        // branch. add_memory lands at turn boundaries, so an agent on its FIRST turn has no
+        // AGENT_MEMORY row yet while being maximally present — reading that absence as "never
+        // connected" asserts a membership fact the beacon directly falsifies, and routes around a
+        // new peer precisely while they work. Absence of the durable write is only evidence of
+        // never-connected once every current-observation signal is exhausted.
+        if (!activity?.fresh) {
             const beacon = TurnPresenceService.getFreshTurnPresence(identity, nowMs);
             signals.turnPresence = beacon;
+
             if (beacon?.fresh) {
                 return {identity, name, family, participationStatus, online: true, state: 'online',
-                    reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; add_memory stale) — mid-turn rescue`, signals};
+                    reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; ` +
+                            `${activity ? 'add_memory stale' : 'no add_memory write yet — first turn'}) — mid-turn rescue`, signals};
             }
+        }
 
-            // Stale splits on the idle cutoff. Inside it the identity is plausibly still in this
+        // Never observed HERE, and no live beacon contradicting that. This is a MEMBERSHIP fact, not
+        // a freshness one: the identity ships in the roster but has no AGENT_MEMORY write on this
+        // deployment at all. Folding it into `idle` is what made a remote roster read as an
+        // attendance list — an operator could not tell a colleague who logged off from a seat that
+        // has never once connected.
+        if (!activity) {
+            return {identity, name, family, participationStatus, online: false, state: 'neverConnected',
+                reason: 'never connected to this deployment (no AGENT_MEMORY write on record, no live turn presence)', signals};
+        }
+        if (!activity.fresh) {
+            // The beacon was already consulted above and did not rescue this identity — a beaconless
+            // deployment is never gated on a signal it cannot emit, so the memory verdict stands.
+            // Stale then splits on the idle cutoff: inside it the identity is plausibly still in this
             // session; beyond it `idle` would be a claim the signal cannot support, so it reports
             // `dark` — rostered and reachable, but not evidence of anyone being around.
             return activity.withinIdle

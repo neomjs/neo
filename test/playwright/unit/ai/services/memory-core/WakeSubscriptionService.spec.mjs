@@ -2032,6 +2032,29 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(terse.idle).not.toContain('@neo-8h-stale');
         });
 
+        test('first turn: NO add_memory row yet but a fresh beacon reports ONLINE, never neverConnected', async () => {
+            // The absence of a durable write is not evidence of never-connected while a live
+            // observation contradicts it. A newly rostered peer has no AGENT_MEMORY row on its very
+            // first turn — the moment it is most present — so asserting membership from that absence
+            // routes around a working peer. Every current-observation signal must be exhausted first.
+            seedAgent('@neo-first-turn');
+            seedBeacon('@neo-first-turn', {freshUntil: iso(T0ms + 5 * 60 * 1000)});
+
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry   = verbose.agents.find(a => a.identity === '@neo-first-turn');
+
+            expect(entry.online).toBe(true);
+            expect(entry.state).toBe('online');
+            expect(entry.state).not.toBe('neverConnected');
+            expect(entry.signals.activityRecency).toBeNull(); // genuinely no write on record
+            expect(entry.reason).toContain('first turn');
+
+            const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
+
+            expect(terse.online).toContain('@neo-first-turn');
+            expect(terse.neverConnected).not.toContain('@neo-first-turn');
+        });
+
         test('#16058 regression B — a 33-minute-quiet identity with a fresh beacon reports ONLINE', async () => {
             // The false-negative that misroutes work: add_memory lands at turn boundaries, so an
             // agent on a long turn goes quiet on that signal precisely while it is busiest.
