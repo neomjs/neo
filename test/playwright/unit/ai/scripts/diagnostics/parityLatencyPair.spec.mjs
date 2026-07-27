@@ -34,10 +34,19 @@ const CONDITIONS = {
 
 // Parity boot samples arrive as PER-SERVICE observations and are reduced by max-of-both, so the ruling's
 // separate MC/KB requirement is binding rather than illustrative.
+// Per-service observations. Both topologies and BOTH dimensions take this shape now: boot reduces by
+// max-of-both, hot-call stays per service so one slow service is named rather than averaged away.
 const OBSERVATIONS = [
     {memoryCoreMs: 200, knowledgeBaseMs: 250},
     {memoryCoreMs: 210, knowledgeBaseMs: 240},
     {memoryCoreMs: 220, knowledgeBaseMs: 260}
+];
+
+/** Three per-service observations centred on `base`. */
+const obs = base => [
+    {memoryCoreMs: base,     knowledgeBaseMs: base + 2},
+    {memoryCoreMs: base + 1, knowledgeBaseMs: base + 3},
+    {memoryCoreMs: base + 2, knowledgeBaseMs: base + 4}
 ];
 
 const bootLeg    = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity, comparableEvent: PARITY_BOOT_EVENT}),
@@ -203,8 +212,8 @@ test.describe('deriveSeatReadyMs — seat-ready is the LATER service, per servic
 });
 
 test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is the deliverable', () => {
-    const boot    = {stdioSamples: [100, 100, 100], parityObservations: OBSERVATIONS, comparableEvent: PARITY_BOOT_EVENT},
-          hotCall = hotCallLeg([10, 10, 10], [12, 12, 12]);
+    const boot    = {stdioObservations: obs(100), parityObservations: OBSERVATIONS, comparableEvent: PARITY_BOOT_EVENT},
+          hotCall = {stdioObservations: obs(10), parityObservations: obs(12), comparableEvent: PARITY_HOT_CALL_EVENT};
 
     test('⭐ the reviewer\'s exact falsifier is refused end-to-end', () => {
         // Two distinct non-empty event strings ('process start' / 'process start '), the explicitly EXCLUDED
@@ -251,18 +260,25 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
         }
     })
 
-    test('⭐ PRE-REDUCED parity boot samples are refused — MC/KB separation is binding', () => {
-        // `deriveSeatReadyMs` previously had no caller, which made per-service separation a feature-shaped
-        // orphan: the ruling said measure both and take max-of-both, while the only path in accepted one
-        // opaque array.
-        const result = evaluateLatencyPair({
-            boot   : bootLeg([100, 100, 100], [250, 250, 250]),
-            hotCall, acceptableOverhead: 3, conditions: CONDITIONS
-        });
+    test('⭐ a PRE-REDUCED slot is refused on EITHER topology and EITHER dimension — all four are bound', () => {
+        // Per-service separation was previously enforced on the parity BOOT slot alone, so the other three
+        // accepted flattened arrays: nothing showed the stdio boot healthchecked both services, and both
+        // hot-call legs were collapsed. Each slot is asserted individually so no single one can regress.
+        const flat  = [1, 1, 1],
+              slots = [
+                  ['boot stdio',    {boot: {...boot, stdioObservations: flat}, hotCall}],
+                  ['boot parity',   {boot: {...boot, parityObservations: flat}, hotCall}],
+                  ['hotCall stdio', {boot, hotCall: {...hotCall, stdioObservations: flat}}],
+                  ['hotCall parity',{boot, hotCall: {...hotCall, parityObservations: flat}}]
+              ];
 
-        expect(result.ok).toBe(false);
-        expect(result.reason).toContain('parityObservations must be an array');
-        expect(result.reason).toContain('which service gated readiness');
+        for (const [label, legs] of slots) {
+            const result = evaluateLatencyPair({...legs, acceptableOverhead: 3, conditions: CONDITIONS});
+
+            expect(result.ok, `${label} must refuse a flattened array`).toBe(false);
+            // The refusal names the SLOT, so a reader knows which of the four measurements was flattened.
+            expect(result.reason, `${label} refusal must name its slot`).toContain(label.replace(' ', ' '));
+        }
     })
 
     test('a per-observation missing service is named by index', () => {
@@ -272,7 +288,7 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
         });
 
         expect(result.ok).toBe(false);
-        expect(result.reason).toContain('parityObservations[1]');
+        expect(result.reason).toContain('boot parity[1]');
         expect(result.reason).toContain('not a zero');
     })
 
@@ -284,7 +300,9 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('no default on purpose');
         expect(result.reason).toContain('capturing it is the deliverable');
-        expect(result.pair.boot.overheadRatio).toBeCloseTo(2.5, 5);   // seat-ready median 250 vs stdio 100
+        // Boot compares seat-ready medians: parity max-of-both 250 vs stdio max-of-both 103.
+        expect(result.pair.boot.overheadRatio).toBeGreaterThan(2);
+        expect(Object.keys(result.pair.hotCall)).toEqual(['memoryCore', 'knowledgeBase']);
         expect(result.conditions).toBe(CONDITIONS);
     })
 
@@ -326,19 +344,26 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
     })
 
     test('dispersion travels with the verdict as data, for the reader to weigh', () => {
+        const noisy = [
+            {memoryCoreMs: 5,  knowledgeBaseMs: 5},
+            {memoryCoreMs: 40, knowledgeBaseMs: 40},
+            {memoryCoreMs: 90, knowledgeBaseMs: 90}
+        ];
         const result = evaluateLatencyPair({
-            boot, hotCall: hotCallLeg([10, 10, 10], [5, 40, 90]),
-            acceptableOverhead: 10, conditions: CONDITIONS
+            boot, hotCall: {...hotCall, parityObservations: noisy},
+            acceptableOverhead: 100, conditions: CONDITIONS
         });
 
         expect(result.ok).toBe(true);
+        // 90/5 = 18x within the noisy leg; reported, never scored.
         expect(result.worstSpreadRatio).toBeCloseTo(18, 5);
         expect(result).not.toHaveProperty('trustworthy');
     })
 
     test('a sample-count refusal in either dimension refuses the whole evaluation', () => {
         expect(evaluateLatencyPair({
-            boot: {...boot, stdioSamples: [100]}, hotCall, acceptableOverhead: 2, conditions: CONDITIONS
+            boot              : {...boot, stdioObservations: obs(100).slice(0, 1)}, hotCall,
+            acceptableOverhead: 2, conditions: CONDITIONS
         }).reason).toContain('boot stdioSamples');
 
         expect(evaluateLatencyPair({

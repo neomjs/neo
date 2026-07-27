@@ -24,8 +24,10 @@ const CONDITIONS = {
     hostLoad       : 'idle; load1=0.38'
 };
 
-const bootProbe = () => Promise.resolve({memoryCoreMs: 210, knowledgeBaseMs: 250, stdioMs: 100}),
-      hotProbe  = () => Promise.resolve({stdioMs: 10, parityMs: 12});
+// Both topologies, both dimensions, per service — the shape the comparator now binds on all four slots.
+const perService = base => ({memoryCoreMs: base, knowledgeBaseMs: base + 5}),
+      bootProbe  = () => Promise.resolve({stdio: perService(100), parity: perService(210)}),
+      hotProbe   = () => Promise.resolve({stdio: perService(10),  parity: perService(12)});
 
 test.describe('⭐ the capture is BLOCKED on the seat-adapter producer, not satisfiable by argument', () => {
     test('the producer does not exist yet, and that is held as a constant', () => {

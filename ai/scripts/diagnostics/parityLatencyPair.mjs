@@ -261,42 +261,80 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
  * Returns the captured pair even when it cannot render a verdict, because **capturing the pair is the
  * deliverable** — the acceptance criterion is that Option A's falsifier becomes evaluable, and an
  * unevaluated pair still achieves that while a missing pair does not.
+ *
+ * ## Both topologies, both dimensions, per service
+ *
+ * An earlier shape enforced per-service observations on the **parity boot** leg only. The other three
+ * measurement slots — stdio boot, and both hot-call legs — took bare number arrays, so the accepted event
+ * labels could sit on top of samples that proved nothing about what was measured: nothing showed the stdio
+ * boot had launched and healthchecked *both* services, and both hot-call legs were flattened.
+ *
+ * So all four slots now take `{memoryCoreMs, knowledgeBaseMs}` observations, and the two dimensions reduce
+ * them **differently, because they are different things**:
+ *
+ * - **boot** reduces by `max-of-both` — a seat is ready when the *later* service is ready, so one figure per
+ *   observation is the honest summary and a mean would report ready while a dependency was still starting;
+ * - **hot-call** does NOT reduce. A hot call is a round trip to *one* service, so MC and KB are separate
+ *   measurements and collapsing them would average away the case where one service is slow. The pair
+ *   therefore carries `hotCall.memoryCore` and `hotCall.knowledgeBase` as their own comparisons, and
+ *   `exceeded` names the service.
  * @param {Object} spec
- * @param {Object} spec.boot               `{stdioSamples, paritySamples}`
- * @param {Object} spec.hotCall            `{stdioSamples, paritySamples}`
+ * @param {Object} spec.boot               `{stdioObservations, parityObservations, comparableEvent}`
+ * @param {Object} spec.hotCall            `{stdioObservations, parityObservations, comparableEvent}`
  * @param {Number} spec.acceptableOverhead Maximum tolerable parity/stdio median ratio. REQUIRED — no
  *                                         default, because tolerability is an operational decision
  *                                         about how the seat is used, not a derivable property.
  * @param {Object} spec.conditions         What the samples were taken under. REQUIRED:
- *                                         `{cacheConvention, imageDigest, configHead, hostLoad?}`. A
- *                                         latency pair that cannot be reproduced is a number, not a
- *                                         measurement, and cache state alone does not pin a run — the
- *                                         image and the config head move independently of it.
+ *                                         `{cacheConvention, imageDigest, configHead, hostLoad}`.
  * @returns {Object} `{ok, reason?, pair, conditions?, verdict?, exceeded?, worstSpreadRatio?}`
  */
 export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditions} = {}) {
-    // The boot leg is DERIVED from per-service observations rather than accepting pre-reduced samples.
-    // `deriveSeatReadyMs` previously existed with no caller, which made per-service separation a
-    // feature-shaped orphan: the ruling said measure MC and KB separately and take max-of-both, while the
-    // only path into the comparator accepted a single opaque array. Routing the boot leg through the
-    // reduction is what makes the ruling binding instead of illustrative.
-    const reducedBoot = reduceBootObservations(boot);
+    // BOOT: both sides reduce by max-of-both, so neither topology can smuggle in a pre-flattened figure.
+    const stdioBoot  = reduceBootObservations({observations: boot?.stdioObservations, side: 'boot stdio'}),
+          parityBoot = reduceBootObservations({observations: boot?.parityObservations, side: 'boot parity'});
 
-    if (reducedBoot.reason) return {ok: false, reason: reducedBoot.reason};
+    if (stdioBoot.reason)  return {ok: false, reason: stdioBoot.reason};
+    if (parityBoot.reason) return {ok: false, reason: parityBoot.reason};
 
-    const bootLeg = compareLatencyLeg({dimension: 'boot', ...reducedBoot.leg}),
-          callLeg = compareLatencyLeg({dimension: 'hotCall', ...hotCall});
+    const bootLeg = compareLatencyLeg({
+        dimension      : 'boot',
+        stdioSamples   : stdioBoot.samples,
+        paritySamples  : parityBoot.samples,
+        comparableEvent: boot?.comparableEvent
+    });
 
     if (!bootLeg.ok) return {ok: false, reason: bootLeg.reason};
-    if (!callLeg.ok) return {ok: false, reason: callLeg.reason};
 
-    const pair = {boot: bootLeg, hotCall: callLeg};
+    // HOT CALL: per service, NOT reduced. Each service is its own round trip and its own comparison.
+    const hotLegs = {};
+
+    for (const [service, field] of [['memoryCore', 'memoryCoreMs'], ['knowledgeBase', 'knowledgeBaseMs']]) {
+        const stdioSide  = extractServiceSamples({observations: hotCall?.stdioObservations, field, side: `hotCall stdio ${service}`}),
+              paritySide = extractServiceSamples({observations: hotCall?.parityObservations, field, side: `hotCall parity ${service}`});
+
+        if (stdioSide.reason)  return {ok: false, reason: stdioSide.reason};
+        if (paritySide.reason) return {ok: false, reason: paritySide.reason};
+
+        const leg = compareLatencyLeg({
+            dimension      : `hotCall:${service}`,
+            stdioSamples   : stdioSide.samples,
+            paritySamples  : paritySide.samples,
+            comparableEvent: hotCall?.comparableEvent
+        });
+
+        if (!leg.ok) return {ok: false, reason: leg.reason};
+
+        hotLegs[service] = leg;
+    }
+
+    const pair    = {boot: bootLeg, hotCall: hotLegs},
+          allLegs = [bootLeg, ...Object.values(hotLegs)];
 
     // THE TWO DIMENSIONS MUST MEASURE DIFFERENT EVENTS. Reusing one event for both collapsed the pair into
     // a comparison of a thing to itself: the hot-call leg ended up timing process start, which is the boot
     // definition. `compareLatencyLeg` cannot catch this — each leg is individually well-formed — so it has
     // to be checked where both are visible.
-    if (bootLeg.comparableEvent === callLeg.comparableEvent) {
+    if (bootLeg.comparableEvent === hotLegs.memoryCore.comparableEvent) {
         return {
             ok    : false,
             pair,
@@ -325,7 +363,9 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditio
         };
     }
 
-    const exceeded = Object.values(pair).filter(leg => leg.overheadRatio > acceptableOverhead).map(leg => leg.dimension);
+    // `exceeded` names the DIMENSION AND SERVICE, so a breach identifies which round trip is slow rather
+    // than reporting a flattened hot-call verdict a reader cannot act on.
+    const exceeded = allLegs.filter(leg => leg.overheadRatio > acceptableOverhead).map(leg => leg.dimension);
 
     return {
         ok     : true,
@@ -335,45 +375,84 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditio
         exceeded,
         // Reported, not scored — see `compareLatencyLeg`. A reader with a ratified dispersion ceiling can
         // compare against it; this module does not mint one.
-        worstSpreadRatio: Math.max(bootLeg.worstSpreadRatio, callLeg.worstSpreadRatio)
+        worstSpreadRatio: Math.max(...allLegs.map(leg => leg.worstSpreadRatio))
     };
 }
 
 /**
- * @summary Reduces a boot spec's per-service observations to seat-ready samples via max-of-both.
+ * @summary Pulls one service's timings out of per-service observations, refusing a flattened array.
  *
- * Each parity boot sample must arrive as `{memoryCoreMs, knowledgeBaseMs}` so the seat-ready figure is
- * *derived* rather than asserted. The stdio baseline stays a plain array: a stdio server is spawned per
- * client and has no two-service readiness moment to reduce, which is the asymmetry the comparable-event
- * definition exists to make explicit.
- * @param {Object} boot `{stdioSamples, parityObservations, comparableEvent}`
- * @returns {Object} `{reason}` or `{leg}`
+ * Hot-call samples must stay per service: a hot call is a round trip to ONE service, so averaging MC and KB
+ * would hide the case where a single service is slow — which is the case a latency budget most needs to see.
+ * @param {Object} spec
+ * @param {Object[]} spec.observations
+ * @param {String} spec.field `'memoryCoreMs'` or `'knowledgeBaseMs'`
+ * @param {String} spec.side Surfaced in refusals.
+ * @returns {Object} `{reason}` or `{samples}`
  */
-function reduceBootObservations(boot) {
-    if (!boot || typeof boot !== 'object') return {reason: 'boot must be an object'};
-
-    const {parityObservations, comparableEvent, stdioSamples} = boot;
-
-    if (!Array.isArray(parityObservations)) {
+function extractServiceSamples({observations, field, side} = {}) {
+    if (!Array.isArray(observations)) {
         return {
-            reason: 'boot.parityObservations must be an array of {memoryCoreMs, knowledgeBaseMs} — one entry ' +
-                    'per boot. Pre-reduced parity samples are not accepted: the ruling measures memory-core ' +
-                    'and knowledge-base separately and takes max-of-both, and a single opaque number cannot ' +
-                    'show which service gated readiness.'
+            reason: `${side}: observations must be an array of {memoryCoreMs, knowledgeBaseMs}. A flattened ` +
+                    'number array is not accepted — it cannot show that both services were measured, and ' +
+                    'averaging them would hide a single slow service.'
         };
     }
 
-    const paritySamples = [];
+    const samples = [];
 
-    for (let index = 0; index < parityObservations.length; index++) {
-        const derived = deriveSeatReadyMs(parityObservations[index]);
+    for (let index = 0; index < observations.length; index++) {
+        const value = observations[index]?.[field];
 
-        if (!derived.ok) return {reason: `boot.parityObservations[${index}]: ${derived.reason}`};
+        if (!isPositiveFinite(value)) {
+            return {
+                reason: `${side}[${index}].${field} must be a positive finite number, received ` +
+                        `${JSON.stringify(value)}. A missing per-service reading is an unmeasured service, ` +
+                        'not a zero.'
+            };
+        }
 
-        paritySamples.push(derived.seatReadyMs);
+        samples.push(value);
     }
 
-    return {leg: {stdioSamples, paritySamples, comparableEvent}};
+    return {samples};
+}
+
+/**
+ * @summary Reduces one side's per-service boot observations to seat-ready samples via max-of-both.
+ *
+ * Applied to BOTH topologies now, not only parity. The stdio side previously took a bare number array, so
+ * nothing showed that its boot had launched and healthchecked both services — the accepted event label sat
+ * on top of a figure that could have measured anything.
+ *
+ * Seat-ready is `max`, never a mean: the seat is ready when the *later* of memory-core and knowledge-base is
+ * ready, and averaging would report readiness while a service it depends on was still starting.
+ * @param {Object} spec
+ * @param {Object[]} spec.observations `[{memoryCoreMs, knowledgeBaseMs}]`, one entry per boot.
+ * @param {String} spec.side Surfaced in refusals.
+ * @returns {Object} `{reason}` or `{samples}`
+ */
+function reduceBootObservations({observations, side} = {}) {
+    if (!Array.isArray(observations)) {
+        return {
+            reason: `${side}: observations must be an array of {memoryCoreMs, knowledgeBaseMs} — one entry ` +
+                    'per boot. Pre-reduced samples are not accepted on either topology: the ruling measures ' +
+                    'memory-core and knowledge-base separately and takes max-of-both, and a single opaque ' +
+                    'number cannot show which service gated readiness.'
+        };
+    }
+
+    const samples = [];
+
+    for (let index = 0; index < observations.length; index++) {
+        const derived = deriveSeatReadyMs(observations[index]);
+
+        if (!derived.ok) return {reason: `${side}[${index}]: ${derived.reason}`};
+
+        samples.push(derived.seatReadyMs);
+    }
+
+    return {samples};
 }
 
 /**

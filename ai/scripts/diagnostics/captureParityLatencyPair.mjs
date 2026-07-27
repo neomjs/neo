@@ -34,7 +34,6 @@ import {
     PARITY_BOOT_EVENT,
     PARITY_CACHE_CONVENTION,
     PARITY_HOT_CALL_EVENT,
-    deriveSeatReadyMs,
     evaluateLatencyPair
 } from './parityLatencyPair.mjs';
 
@@ -112,16 +111,19 @@ export function checkCapturePrerequisites(spec) {
 /**
  * @summary Runs one capture pass and hands the samples to {@link evaluateLatencyPair}.
  *
- * Per-service parity boot observations are reduced by `deriveSeatReadyMs` (max-of-both), because the seat is
- * ready when the *later* of memory-core and knowledge-base is ready. A failed probe aborts the pass rather
- * than contributing a partial sample set: a leg short of its floor is not a smaller measurement, it is not
- * a measurement.
+ * The comparator owns the reductions: boot collapses per-service readings by max-of-both (a seat is ready
+ * when the LATER service is), while hot-call keeps them separate (a round trip goes to ONE service, so
+ * averaging would hide a single slow one). This driver's job is to hand over four honest per-service slots
+ * and to abort rather than contribute a partial set — a leg short of its floor is not a smaller
+ * measurement, it is not a measurement.
  * @param {Object} spec
  * @param {Number} spec.sampleCount        Samples per leg, at least `MIN_SAMPLES`.
  * @param {Object} spec.conditions         `{cacheConvention, imageDigest, configHead, hostLoad}`.
  * @param {Number} spec.acceptableOverhead Ratio bound — the caller's operational decision.
- * @param {Function} spec.probeSeatReady   `() => Promise<{memoryCoreMs, knowledgeBaseMs}>` — one cold boot.
- * @param {Function} spec.probeHotCall     `() => Promise<{stdioMs, parityMs}>` — one warmed round trip.
+ * @param {Function} spec.probeSeatReady   `() => Promise<{stdio, parity}>`, each
+ *        `{memoryCoreMs, knowledgeBaseMs}` — one cold boot per topology, per service.
+ * @param {Function} spec.probeHotCall     `() => Promise<{stdio, parity}>`, same shape — one warmed
+ *        round trip per topology, per service.
  * @returns {Promise<Object>} `{ok, reason?, blocked?, pair?, conditions?, verdict?}`
  */
 export async function captureParityLatencyPair(spec) {
@@ -140,39 +142,36 @@ export async function captureParityLatencyPair(spec) {
         return {ok: false, reason: 'probeSeatReady and probeHotCall must both be functions'};
     }
 
-    const parityObservations = [],
-          stdioBootSamples   = [],
-          stdioHotSamples    = [],
-          parityHotSamples   = [];
+    const bootStdio  = [],
+          bootParity = [],
+          hotStdio   = [],
+          hotParity  = [];
 
     for (let index = 0; index < sampleCount; index++) {
         const boot = await probeSeatReady(),
               hot  = await probeHotCall();
 
-        // Reduce per observation rather than at the end, so a malformed reading is attributed to its own
-        // index instead of surfacing as an unexplained leg failure later.
-        const derived = deriveSeatReadyMs(boot);
-
-        if (!derived.ok) {
-            return {ok: false, reason: `boot sample ${index}: ${derived.reason}`};
+        // Both topologies, both dimensions, per service. A probe returning a flattened number for any of the
+        // four slots is refused HERE with its slot named, rather than reaching the comparator as a figure
+        // whose subject cannot be established. Attributed per index so a bad reading is locatable.
+        for (const [label, reading] of [
+            ['boot.stdio', boot?.stdio], ['boot.parity', boot?.parity],
+            ['hotCall.stdio', hot?.stdio], ['hotCall.parity', hot?.parity]
+        ]) {
+            if (!isPositiveFinite(reading?.memoryCoreMs) || !isPositiveFinite(reading?.knowledgeBaseMs)) {
+                return {
+                    ok    : false,
+                    reason: `sample ${index}: ${label} must be {memoryCoreMs, knowledgeBaseMs} with both a ` +
+                            'positive finite reading. A missing per-service value is an unmeasured service, ' +
+                            'not a zero, and a flattened figure cannot show which service was measured.'
+                };
+            }
         }
 
-        if (!isPositiveFinite(boot.stdioMs)) {
-            return {
-                ok    : false,
-                reason: `boot sample ${index}: stdioMs must be a positive finite number, received ` +
-                        `${JSON.stringify(boot.stdioMs)} — the baseline leg cannot be inferred from the parity leg`
-            };
-        }
-
-        if (!isPositiveFinite(hot?.stdioMs) || !isPositiveFinite(hot?.parityMs)) {
-            return {ok: false, reason: `hot-call sample ${index}: both stdioMs and parityMs must be positive finite numbers`};
-        }
-
-        parityObservations.push(boot);
-        stdioBootSamples.push(boot.stdioMs);
-        stdioHotSamples.push(hot.stdioMs);
-        parityHotSamples.push(hot.parityMs);
+        bootStdio.push(boot.stdio);
+        bootParity.push(boot.parity);
+        hotStdio.push(hot.stdio);
+        hotParity.push(hot.parity);
     }
 
     return evaluateLatencyPair({
