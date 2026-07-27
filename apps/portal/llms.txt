@@ -465,6 +465,7 @@ Here you find the full history of Neo.mjs updates.
 - [Neural Link Capability Matrix](https://neomjs.com/raw/learn/agentos/tooling/NeuralLinkCapabilityMatrix.md)
 - [Blind BigData Neural Link Probe](https://neomjs.com/raw/learn/agentos/tooling/GenesisNeuralLinkProbe.md)
 - [Restoration Runbook](https://neomjs.com/raw/learn/agentos/tooling/RestorationRunbook.md)
+- [Pilot Plane Runbook](https://neomjs.com/raw/learn/agentos/tooling/PilotPlaneRunbook.md)
 - [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 - [0019 — AiConfig Reactive Provider SSOT](https://neomjs.com/raw/learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md)
