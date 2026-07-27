@@ -16,10 +16,14 @@
  * no default — and it is a **size**, which a throughput alone cannot supply: throughput has units of
  * MB *per unit time*. The budget is the product of two separate facts —
  *
- *     replayBudgetMb = measured replay throughput (MB/s) × the accepted cutover window (s)
+ *     replayBudgetMb = NET replay throughput (MB/s) × the accepted cutover window (s)
  *
  * — so the caller must have chosen an acceptable promotion/demotion duration before it can name a
- * budget at all. The replay-proof AC supplies the throughput; the window is an operational decision
+ * budget at all. **NET, not measured-in-isolation**: a replay running against a shared native plane
+ * races the writes other seats are still making, so its effective rate is the measured rate minus the
+ * concurrent inflow it must also absorb. On a shared plane that is the normal case, not an edge one, and
+ * using an isolated benchmark would over-state the budget and pick fork-then-replay for a corpus that
+ * cannot finish inside the window. The replay-proof AC supplies the throughput; the window is an operational decision
  * about how long a cutover may take. Stating the dimensional relationship rather than saying "from
  * measured throughput" matters: the earlier wording implied one input where there are two, and a
  * budget derived from throughput alone would be a number without units. Shipping a plausible
@@ -183,8 +187,9 @@ export function reduceWalWindow({segments, windowDays, nowMs} = {}) {
  * @param {Object} spec.baseline       An `ok` {@link reduceWalWindow} result.
  * @param {Number} spec.pilotDays      Planned pilot duration.
  * @param {Number} spec.replayBudgetMb Corpus size one forward pass can absorb WITHIN the accepted
- *                                     cutover window — i.e. measured throughput (MB/s) x that window
- *                                     (s). REQUIRED, no default: a throughput alone has the wrong units.
+ *                                     cutover window — i.e. NET throughput (MB/s, after concurrent
+ *                                     native inflow) x that window (s). REQUIRED, no default: a
+ *                                     throughput alone has the wrong units.
  * @returns {Object} `{ok, reason?, posture, projectedMb, projectedFromMeanMb, headroomMb, rationale}`
  */
 export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
@@ -195,9 +200,10 @@ export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
     if (!isPositiveFinite(replayBudgetMb)) {
         return refuse(
             `replayBudgetMb must be a positive finite number, received ${JSON.stringify(replayBudgetMb)}. ` +
-            'It has no default on purpose, and it is a SIZE: derive it as measured replay throughput ' +
-            '(MB/s) times the accepted cutover window (s). A throughput alone cannot set it — wrong ' +
-            'units — and a plausible-looking constant chosen here would encode one observation as a bound.'
+            'It has no default on purpose, and it is a SIZE: derive it as NET replay throughput (MB/s, ' +
+            'after the concurrent native inflow a shared plane keeps producing) times the accepted ' +
+            'cutover window (s). A throughput alone cannot set it — wrong units — and a plausible ' +
+            'constant chosen here would encode one observation as a calibrated bound.'
         );
     }
 

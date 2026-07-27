@@ -168,9 +168,13 @@ test.describe('decideWalPosture — the constant is deferred, never invented', (
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('no default on purpose');
         // ...and the refusal states the DIMENSIONS, because a throughput alone has the wrong units.
-        expect(result.reason).toContain('measured replay throughput');
         expect(result.reason).toContain('accepted cutover window');
         expect(result.reason).toContain('wrong');
+        // NET, not isolated: a replay on a shared plane races the writes other seats keep making, so an
+        // isolated benchmark over-states the budget and would pick fork-then-replay for a corpus that
+        // cannot finish inside the window.
+        expect(result.reason).toContain('NET replay throughput');
+        expect(result.reason).toContain('concurrent native inflow');
     })
 
     test('fork-then-replay when the PEAK-projected corpus fits the budget', () => {
