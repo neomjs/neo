@@ -126,7 +126,9 @@ Shared deployments need to know **which agent originated each request** so memor
 
 2. **Proxy identity injection (for deployments fronted by an identity-aware proxy)** — when an `oauth2-proxy`-style reverse proxy already terminates OIDC and injects `X-PREFERRED-USERNAME` (or the oauth2-proxy-specific `X-Auth-Request-Preferred-Username`) into the upstream request, the MC server can read that header instead of running its own OIDC verification. Gated by `auth.trustProxyIdentity`. Source provenance: `source: 'proxy-header'`.
 
-The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment. The local proof for this runtime gate is `test/playwright/integration/AuthRejection.integration.spec.mjs`, which connects without an identity header and expects the rejection before verifying an identity-bearing client can still call `healthcheck`.
+The two paths are NOT mutually exclusive. `AuthService` owns their non-downgrading composition: any present `Authorization` header is terminal and runs only through OIDC, so valid bearer identity wins while malformed or invalid bearer credentials challenge with no proxy fallback. Only true bearer absence may reach proxy identity when `trustProxyIdentity` is explicitly enabled. **If no valid proxy identity header is then found, the request is actively rejected with `401 Unauthorized` before MCP transport/session creation.** This prevents unauthenticated fallthrough in a shared deployment.
+
+The consumed proof is `test/playwright/integration/AuthRejection.integration.spec.mjs`. It mounts the exact reference Caddy configuration, verifies that a caller-supplied identity is stripped and cannot create an MC or KB session, then verifies that the identity injected by the authenticated proxy boundary can create both sessions. Focused real-HTTP unit coverage additionally exercises all four OIDC+proxy precedence cells.
 
 ### Configuration: Canonical `publicUrl` (PR #10802)
 
@@ -180,7 +182,7 @@ Every authenticated request carries a `source` tag through `Server.mjs#buildRequ
 |---|---|---|
 | OIDC introspection | `'oidc'` | MC's `AuthService.verifyAccessToken` |
 | Proxy header injection | `'proxy-header'` | The fronting proxy's deployment configuration |
-| Single-tenant fallthrough (no auth) | (empty) | None — local dev only |
+| Unconfigured HTTP authentication | no request context (boot fails) | AuthService fail-closed installer census |
 
 The source tag is graph-ingested into agent-identity memory writes; an audit query against memories can verify the proportion of `'oidc'` vs `'proxy-header'` writes against operator expectations.
 

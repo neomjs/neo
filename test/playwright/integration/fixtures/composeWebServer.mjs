@@ -1,8 +1,8 @@
 import {spawn, spawnSync} from 'node:child_process';
-import http              from 'node:http';
-import net               from 'node:net';
-import path              from 'node:path';
-import {fileURLToPath}   from 'node:url';
+import http               from 'node:http';
+import net                from 'node:net';
+import path               from 'node:path';
+import {fileURLToPath}    from 'node:url';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -98,21 +98,22 @@ async function waitForServices() {
 
     while (!shuttingDown && Date.now() < deadline) {
         try {
-            const [chroma, kbPort, mcPort, mcOidcPort, kbOidcPort] = await Promise.all([
+            const [chroma, kbPort, mcPort, mcOidcPort, kbOidcPort, referenceIngressPort] = await Promise.all([
                 fetch('http://127.0.0.1:18080/api/v2/heartbeat').then(r => r.ok).catch(() => false),
                 portOpen(13000),
                 portOpen(13001),
                 portOpen(13002),
-                portOpen(13003)
+                portOpen(13003),
+                portOpen(13004)
             ]);
 
-            if (chroma && kbPort && mcPort && mcOidcPort && kbOidcPort) {
+            if (chroma && kbPort && mcPort && mcOidcPort && kbOidcPort && referenceIngressPort) {
                 state.servicesReady = true;
                 state.reason        = 'Dockerized MCP integration stack is ready.';
                 return;
             }
 
-            state.reason = `Waiting for stack readiness: chroma=${chroma}, kb=${kbPort}, mc=${mcPort}, mcOidc=${mcOidcPort}, kbOidc=${kbOidcPort}`;
+            state.reason = `Waiting for stack readiness: chroma=${chroma}, kb=${kbPort}, mc=${mcPort}, mcOidc=${mcOidcPort}, kbOidc=${kbOidcPort}, referenceIngress=${referenceIngressPort}`;
         } catch (error) {
             state.reason = error.message;
         }
