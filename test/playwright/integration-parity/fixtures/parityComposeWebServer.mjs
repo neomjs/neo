@@ -58,6 +58,7 @@ function dockerCompose(args, options = {}) {
     return spawnSync('docker', [...composeArgs, ...args], {
         cwd     : repoRoot,
         encoding: 'utf8',
+        env     : process.env,
         ...options
     });
 }
@@ -265,6 +266,7 @@ server.listen(readyPort, '127.0.0.1', async () => {
         '--remove-orphans'
     ], {
         cwd  : repoRoot,
+        env  : process.env,
         stdio: 'inherit'
     });
 

@@ -36,9 +36,15 @@ import {load as yamlLoad} from 'js-yaml';
  */
 
 const
-    repoRoot    = path.resolve(process.cwd()),
-    composePath = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
-    compose     = yamlLoad(fs.readFileSync(composePath, 'utf8'));
+    repoRoot          = path.resolve(process.cwd()),
+    composePath       = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
+    parityOverlayPath = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
+    parityConfigPath  = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
+    paritySpecPath    = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
+    parityServerPath  = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
+    parityProbePath   = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
+    compose           = yamlLoad(fs.readFileSync(composePath, 'utf8')),
+    parityOverlay     = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8'));
 
 /*
  * The service sets below are DERIVED from the compose file, never listed. A hardcoded roster
@@ -119,6 +125,130 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             expect(probe.join(' '), `${service} probes connectivity without asserting which plane answered`).toContain('--expected-plane-id');
             expect(probe.join(' '), `${service} does not pin the data root, so a matching id with foreign storage would pass`).toContain('--expected-plane-data-root');
         }
+    });
+
+    test('both MCP servers share one rosterless provider-PAT declaration', () => {
+        const
+            providerAuth = compose['x-provider-auth-env'],
+            source       = fs.readFileSync(composePath, 'utf8');
+
+        expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — auth assertions would be vacuous').toBeGreaterThan(0);
+        expect(providerAuth).toMatchObject({
+            NEO_AUTH_MODE                           : 'github-pat',
+            NEO_AUTH_TRUST_PROXY_IDENTITY           : 'false',
+            NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT     : 'true',
+            NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: 'github-pat'
+        });
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_ALLOWED_USERS');
+        expect(providerAuth).not.toHaveProperty('NEO_MCP_LISTEN_HOST');
+
+        // Both consumers resolve one anchored FILE reference. The credential itself lives in one
+        // environment-backed Docker secret and therefore never appears in rendered config.
+        expect(providerAuth.NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE)
+            .toBe(providerAuth.NEO_MCP_HEALTHCHECK_TOKEN_FILE);
+        expect(providerAuth.NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE).toBe('/run/secrets/mcp-auth-token');
+        expect(compose.secrets?.['mcp-auth-token']).toEqual({environment: 'NEO_MCP_HEALTHCHECK_TOKEN'});
+        expect(source).toMatch(/NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE:\s*&provider-bootstrap-pat-file\s+\/run\/secrets\/mcp-auth-token/);
+        expect(source).toMatch(/NEO_MCP_HEALTHCHECK_TOKEN_FILE:\s*\*provider-bootstrap-pat-file\s*$/m);
+        expect(source).not.toMatch(/^\s+NEO_AUTH_PROVIDER_BOOTSTRAP_PAT:/m);
+        expect(source).not.toMatch(/^\s+NEO_MCP_HEALTHCHECK_TOKEN:/m);
+        expect(source).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
+
+        for (const service of mcpServices) {
+            const merges = compose.services[service].environment?.['<<'];
+
+            expect(Array.isArray(merges), `${service} does not merge the shared plane + provider-auth maps`).toBe(true);
+            expect(merges, `${service} restates or omits the provider-auth declaration`).toContain(providerAuth);
+            expect(compose.services[service].environment.NEO_MCP_LISTEN_HOST, `${service} binds its in-container listener to loopback`).toBeUndefined();
+            expect(compose.services[service].secrets).toContain('mcp-auth-token')
+        }
+
+        const
+            orchestratorEnvironment = JSON.stringify(compose.services?.orchestrator?.environment ?? {}),
+            orchestratorSecrets     = compose.services?.orchestrator?.secrets ?? [];
+
+        expect(orchestratorEnvironment).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
+        expect(orchestratorEnvironment).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+        expect(orchestratorSecrets).not.toContain('mcp-auth-token')
+    });
+
+    test('canonical MCP host publication is literal IPv4 loopback', () => {
+        const expectedPortByTarget = {
+            'knowledge-base': '127.0.0.1:3100:3000',
+            'memory-core'   : '127.0.0.1:3101:3001'
+        };
+
+        expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — port assertions would be vacuous').toBeGreaterThan(0);
+
+        for (const service of mcpServices) {
+            const
+                target       = compose.services[service].build.args.TARGET_SERVER,
+                expectedPort = expectedPortByTarget[target];
+
+            expect(expectedPort, `${service} has an unexpected TARGET_SERVER "${target}"`).toBeTruthy();
+            expect(compose.services[service].ports).toContain(expectedPort)
+        }
+    });
+
+    test('the CI overlay replaces provider auth with one mounted local-bearer fixture', () => {
+        const
+            auth          = parityOverlay['x-parity-auth-env'],
+            overlaySource = fs.readFileSync(parityOverlayPath, 'utf8'),
+            configSource  = fs.readFileSync(parityConfigPath, 'utf8'),
+            serverSource  = fs.readFileSync(parityServerPath, 'utf8'),
+            specSource    = fs.readFileSync(paritySpecPath, 'utf8'),
+            probeSource   = fs.readFileSync(parityProbePath, 'utf8'),
+            fixtureMatch  = configSource.match(/parityAuthToken\s*=\s*'([A-Za-z0-9_-]+)'/),
+            fixture       = fixtureMatch?.[1];
+
+        expect(auth).toEqual({
+            NEO_AUTH_MODE                           : 'local-bearer',
+            NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT     : 'false',
+            NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: '',
+            NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE    : '',
+            NEO_AUTH_LOCAL_BEARER_TOKEN             : '${NEO_MCP_HEALTHCHECK_TOKEN:?parity auth fixture required}',
+            NEO_MCP_LISTEN_HOST                     : '127.0.0.1'
+        });
+        expect(parityOverlay.networks?.['neo-parity-network']?.internal).toBe(true);
+
+        expect(fixture, 'the Playwright config does not declare the canonical parity auth fixture').toBeTruthy();
+        expect(fixture).toHaveLength(43);
+        expect(Buffer.from(fixture, 'base64url')).toHaveLength(32);
+        expect(Buffer.from(fixture, 'base64url').toString('base64url')).toBe(fixture);
+        expect(configSource.match(new RegExp(fixture, 'g'))).toHaveLength(1);
+        expect(configSource).toMatch(/process\.env\.NEO_MCP_HEALTHCHECK_TOKEN\s*=\s*parityAuthToken/);
+        expect(configSource).toMatch(/NEO_MCP_HEALTHCHECK_TOKEN:\s*parityAuthToken/);
+        expect(serverSource.match(/env\s+: process\.env/g)).toHaveLength(2);
+        expect(specSource).toMatch(/\{cwd: repoRoot, encoding: 'utf8', env: process\.env,/);
+        expect(probeSource).toMatch(/bearerTokenFile\s+=\s+process\.env\.NEO_MCP_HEALTHCHECK_TOKEN_FILE/);
+        expect(probeSource).toMatch(/readFileSync\(bearerTokenFile, 'utf8'\)\.trim\(\)/);
+        expect(probeSource.match(/\bbearerToken,/g)).toHaveLength(2);
+
+        expect(overlaySource).not.toContain(fixture);
+        expect(overlaySource.match(/NEO_AUTH_LOCAL_BEARER_TOKEN:/g)).toHaveLength(1);
+        expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
+        expect(parityOverlay.services?.['kb-server']?.environment).toMatchObject({
+            NEO_KB_ASK_PROVIDER: 'openAiCompatible',
+            NEO_KB_ASK_MODEL   : 'gemma-4-31b-it',
+            NEO_KB_ASK_API_KEY : 'neo-parity-ci-key',
+            NEO_KB_ASK_BASE_URL: 'http://embedding-server:11434'
+        });
+        expect(compose['x-provider-auth-env'].NEO_MCP_HEALTHCHECK_TOKEN_FILE)
+            .toBe('/run/secrets/mcp-auth-token');
+
+        for (const service of mcpServices) {
+            const
+                overlayEnvironment = parityOverlay.services?.[service]?.environment,
+                merges             = overlayEnvironment?.['<<'];
+
+            expect(merges, `${service} does not merge the shared CI auth override`).toBe(auth);
+            expect(compose.services[service].secrets).toContain('mcp-auth-token')
+        }
+
+        const orchestratorEnvironment = JSON.stringify(parityOverlay.services?.orchestrator?.environment ?? {});
+
+        expect(orchestratorEnvironment).not.toContain('NEO_AUTH_');
+        expect(orchestratorEnvironment).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN')
     });
 
     test('the PLANE ROOT rides a named volume in every service, not the repo bind', () => {

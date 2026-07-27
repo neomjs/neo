@@ -33,6 +33,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         '@identity-collision-15027',
         '@identity-topology-15027',
         '@gitlab-agent-14388',
+        '@github-pinned-15990',
+        '@github-outsider-15990',
         '@existing-gitlab-agent-14388',
         '@colliding-gitlab-agent-14388',
         '@concurrent-gitlab-agent-14388'
@@ -282,6 +284,154 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(JSON.stringify(node)).not.toContain('glpat-secret-never-store');
         } finally {
             serverInstance.destroy();
+        }
+    });
+
+    test('#15990: GitHub-PAT admission precedes AgentIdentity auto-provisioning', async () => {
+        await GraphService.initAsync();
+
+        const
+            admittedUser                               = 'github-pinned-15990',
+            deniedUser                                 = 'github-outsider-15990',
+            serverInstance                             = await createServerWithoutBoot(),
+            [{default: TransportService}, {McpServer}] = await Promise.all([
+                import('../../../../../../../ai/mcp/server/shared/services/TransportService.mjs'),
+                import('@modelcontextprotocol/sdk/server/mcp.js')
+            ]),
+            originalFetch = globalThis.fetch,
+            contextCalls  = [];
+
+        serverInstance.aiConfig = {
+            auth: {
+                autoProvisionIdentitySources: ['github-pat']
+            }
+        };
+
+        TransportService.app        = null;
+        TransportService.httpServer = null;
+        TransportService.transports = new Map();
+        TransportService.mcpServers = new Map();
+
+        globalThis.fetch = async (url, options={}) => {
+            if (!String(url).startsWith('https://api.github.test/')) {
+                return originalFetch(url, options)
+            }
+
+            const
+                token = options.headers.Authorization.replace(/^Bearer /, ''),
+                login = token === 'github-outsider-pat' ? deniedUser : admittedUser;
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({
+                    id  : login === admittedUser ? 15990 : 15991,
+                    login,
+                    name: login
+                })
+            }
+        };
+
+        const aiConfig = {
+            mcpHttpHost  : '127.0.0.1',
+            mcpListenHost: '127.0.0.1',
+            mcpHttpPort  : 0,
+            auth         : {
+                mode                        : 'github-pat',
+                host                        : null,
+                issuerUrl                   : null,
+                trustProxyIdentity          : false,
+                githubApiBaseUrl            : 'https://api.github.test',
+                patCacheTtlSeconds          : 300,
+                patValidationTimeoutMs      : 5000,
+                allowedUsers                : [],
+                allowedClientIds            : [],
+                pinFirstProviderSubject     : true,
+                providerBootstrapPat        : 'github-bootstrap-pat',
+                providerBootstrapPatFile    : '',
+                autoProvisionIdentitySources: ['github-pat']
+            }
+        };
+
+        const sendInitialize = token => originalFetch(
+            `http://127.0.0.1:${TransportService.httpServer.address().port}/mcp`,
+            {
+                method : 'POST',
+                headers: {
+                    Accept        : 'application/json, text/event-stream',
+                    Authorization : `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id     : 1,
+                    method : 'initialize',
+                    params : {
+                        protocolVersion: '2024-11-05',
+                        capabilities   : {},
+                        clientInfo     : {name: 'github-provisioning-15990', version: '1.0.0'}
+                    }
+                })
+            }
+        );
+
+        try {
+            await TransportService.setup({
+                server: {
+                    createMcpServer: () => new McpServer({
+                        name   : 'github-provisioning-15990',
+                        version: '1.0.0'
+                    }),
+                    buildRequestContext: async reqAuth => {
+                        contextCalls.push(reqAuth.userId);
+                        return serverInstance.buildRequestContext(reqAuth)
+                    },
+                    onSessionClosed: () => {}
+                },
+                aiConfig,
+                logger      : {info: () => {}, warn: () => {}, error: () => {}},
+                resourceName: 'GithubProvisioning15990'
+            });
+
+            const admitted = await sendInitialize('github-same-subject-pat');
+
+            expect(admitted.status).toBe(200);
+            expect(admitted.headers.get('mcp-session-id')).toBeTruthy();
+
+            const admittedNode = rawGraphNode(`@${admittedUser}`);
+
+            expect(admittedNode).toMatchObject({
+                label     : 'AgentIdentity',
+                properties: {
+                    authProvider    : 'github',
+                    authSource      : 'github-pat',
+                    providerUsername: admittedUser,
+                    autoProvisioned : true
+                }
+            });
+            expect(admittedNode.properties.description)
+                .toBe('Auto-provisioned Agent OS identity for an authenticated Memory Core principal.');
+
+            const denied = await sendInitialize('github-outsider-pat');
+
+            expect(denied.status).toBe(401);
+            expect(denied.headers.get('mcp-session-id')).toBeNull();
+            expect(contextCalls).toEqual([admittedUser]);
+            expect(rawGraphNode(`@${deniedUser}`)).toBeNull();
+        } finally {
+            globalThis.fetch = originalFetch;
+
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear();
+            serverInstance.destroy()
         }
     });
 

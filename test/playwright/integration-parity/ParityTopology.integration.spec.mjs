@@ -1,5 +1,6 @@
 import {test, expect}  from '@playwright/test';
 import {spawnSync}     from 'node:child_process';
+import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -26,7 +27,33 @@ function compose(args) {
         '-f', 'ai/deploy/docker-compose.dev.yml',
         '-f', 'ai/deploy/docker-compose.parity-ci.yml',
         ...args
-    ], {cwd: repoRoot, encoding: 'utf8', timeout: 150000});
+    ], {cwd: repoRoot, encoding: 'utf8', env: process.env, timeout: 150000});
+}
+
+/**
+ * @summary Runs a canonical-auth one-off without mutating the live parity project graph.
+ *
+ * This is the negative arm for the environment-backed provider secret. It deliberately retains
+ * the fixture's exact two-file Compose graph: addressing the same project through the base file
+ * alone makes Compose replace the live internal network with the base network, severing the MCP
+ * server's existing Chroma connection and poisoning later assertions. The one-off command
+ * restores the base profile's GitHub-PAT leaves with `run -e` instead.
+ *
+ * `os.devNull` prevents a developer `.env` file from silently supplying the credential after
+ * the explicit process-env deletion.
+ * @param {String[]} args Compose arguments after the project/file flags.
+ * @param {Object} env Child-process environment.
+ * @returns {Object} The spawnSync result.
+ */
+function composeCanonicalAuth(args, env) {
+    return spawnSync('docker', [
+        'compose',
+        '--env-file', os.devNull,
+        '-p', PLANE_ID,
+        '-f', 'ai/deploy/docker-compose.dev.yml',
+        '-f', 'ai/deploy/docker-compose.parity-ci.yml',
+        ...args
+    ], {cwd: repoRoot, encoding: 'utf8', env, timeout: 150000});
 }
 
 /**
@@ -142,6 +169,42 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
 
         expect(foreignRoot.status).not.toBe(0);
         expect(`${foreignRoot.stdout}\n${foreignRoot.stderr}`).toMatch(/dataRoot/);
+    });
+
+    test('canonical provider auth refuses missing and empty secret carriers before listen', () => {
+        const missingEnv = {...process.env};
+        delete missingEnv.NEO_MCP_HEALTHCHECK_TOKEN;
+
+        // Entry point `true` makes this a pure Compose materialization probe. The command can only
+        // fail because the required credential carrier cannot be projected into the profile.
+        const missing = composeCanonicalAuth([
+            'run', '--rm', '--no-deps', '--entrypoint', 'true', 'kb-server'
+        ], missingEnv);
+        const missingOutput = `${missing.stdout}\n${missing.stderr}`;
+
+        expect(missing.status).not.toBe(0);
+        expect(missing.error?.code).not.toBe('ETIMEDOUT');
+        expect(missingOutput).toMatch(/required variable NEO_MCP_HEALTHCHECK_TOKEN is missing a value|environment variable .* required by secret .* is not set/i);
+
+        // The required-variable expression correctly rejects an empty environment value before
+        // container creation, so use the container's readable-but-empty null device for the
+        // boot arm. Restore the base profile's canonical GitHub-PAT leaves only for that process;
+        // AuthService must reject the empty carrier before Transport opens a listener.
+        const empty = composeCanonicalAuth([
+            'run', '--rm', '--no-deps',
+            '-e', 'NEO_AUTH_MODE=github-pat',
+            '-e', 'NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT=true',
+            '-e', 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES=github-pat',
+            '-e', `NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE=${os.devNull}`,
+            '-e', 'NEO_AUTH_LOCAL_BEARER_TOKEN=',
+            'kb-server'
+        ], process.env);
+        const emptyOutput = `${empty.stdout}\n${empty.stderr}`;
+
+        expect(empty.status).not.toBe(0);
+        expect(empty.error?.code).not.toBe('ETIMEDOUT');
+        expect(emptyOutput).toMatch(/AuthService: (?:cannot read auth\.providerBootstrapPatFile|auth\.providerBootstrapPatFile contains no credential)/);
+        expect(emptyOutput).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/)
     });
 
     test('the durable-root invariant: an overlay that resolves the canonical root is REFUSED at boot', async () => {

@@ -332,6 +332,35 @@ class ConfigBase extends ConfigProvider {
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
                 // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.
                 allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
+                /**
+                 * @summary Pins a rosterless local GitHub-PAT process to the provider subject
+                 * resolved from the configured bootstrap carrier before the HTTP listener opens.
+                 *
+                 * This is an explicit admission policy, never an alternate meaning for an empty
+                 * `allowedUsers`. Generic PAT profiles remain unchanged while this is `false`.
+                 * @type {Boolean}
+                 */
+                pinFirstProviderSubject: leaf(false, 'NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', 'boolean'),
+                /**
+                 * @summary Bootstrap PAT used only when `pinFirstProviderSubject` is enabled.
+                 *
+                 * AuthService validates the credential against the configured provider before
+                 * installing bearer middleware. This direct-value carrier is intended for
+                 * non-Compose runtimes and is mutually exclusive with `providerBootstrapPatFile`;
+                 * the raw value is never logged.
+                 * @type {String}
+                 */
+                providerBootstrapPat: leaf('', 'NEO_AUTH_PROVIDER_BOOTSTRAP_PAT', 'string'),
+                /**
+                 * @summary File containing the bootstrap PAT for secret-file-aware runtimes.
+                 *
+                 * AuthService reads this resolved path once before installing bearer middleware.
+                 * Canonical local Compose mounts one environment-backed Docker secret and shares
+                 * its file reference with the authenticated health probe, so rendered Compose
+                 * configuration never contains the credential.
+                 * @type {String}
+                 */
+                providerBootstrapPatFile: leaf('', 'NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE', 'string'),
                 // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
                 // 'github-pat' is deliberately NOT in the default: github.com is a public identity
                 // surface, so auto-provisioning must be opt-in for deployments that scope their caller

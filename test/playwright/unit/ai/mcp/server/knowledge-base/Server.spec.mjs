@@ -93,4 +93,24 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
             serverInstance.destroy();
         }
     });
+
+    test('#15990: GitHub-PAT identity reaches the Knowledge Base request boundary intact', async () => {
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            const context = await serverInstance.buildRequestContext({
+                userId  : 'github-pinned-15990',
+                username: 'GitHub Pinned 15990',
+                source  : 'github-pat'
+            });
+
+            expect(context).toEqual({
+                userId  : 'github-pinned-15990',
+                username: 'GitHub Pinned 15990',
+                source  : 'github-pat'
+            })
+        } finally {
+            serverInstance.destroy()
+        }
+    });
 });

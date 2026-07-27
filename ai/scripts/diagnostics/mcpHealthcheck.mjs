@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import {Command}                       from 'commander';
 import {Client}                        from '@modelcontextprotocol/sdk/client/index.js';
+import {readFileSync}                  from 'fs';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {pathToFileURL}                 from 'url';
 
@@ -42,6 +43,50 @@ function withAbortableTimeout(promise, timeoutMs, label, abortController) {
 }
 
 /**
+ * @summary Resolves one optional bearer credential from a direct env slot or secret file.
+ *
+ * The two carriers are mutually exclusive so a stale direct token cannot silently shadow a
+ * rotated file. File errors name only the carrier and never include credential contents.
+ * @param {Object} options
+ * @param {Object} options.env Environment source
+ * @param {String} options.bearerTokenEnv Direct-token env var name
+ * @param {String|null} options.bearerTokenFile Secret file path
+ * @returns {String|null}
+ */
+function resolveBearerToken({env, bearerTokenEnv, bearerTokenFile}) {
+    const
+        directToken = env[bearerTokenEnv] || null,
+        filePath    = typeof bearerTokenFile === 'string' && bearerTokenFile.trim()
+            ? bearerTokenFile.trim()
+            : null;
+
+    if (directToken && filePath) {
+        throw new Error(
+            `Configure exactly one healthcheck bearer carrier: ${bearerTokenEnv} or ` +
+            'NEO_MCP_HEALTHCHECK_TOKEN_FILE/--bearer-token-file'
+        )
+    }
+
+    if (!filePath) {
+        return directToken
+    }
+
+    let token;
+
+    try {
+        token = readFileSync(filePath, 'utf8').trim()
+    } catch {
+        throw new Error('Cannot read the configured healthcheck bearer-token file')
+    }
+
+    if (!token) {
+        throw new Error('The configured healthcheck bearer-token file contains no credential')
+    }
+
+    return token
+}
+
+/**
  * @summary Parses CLI arguments and dotenv-backed environment defaults.
  * @param {String[]} [argv=[]] CLI arguments without `node` / script path.
  * @param {Object} [env=process.env] Environment source.
@@ -58,6 +103,7 @@ export function parseArgs(argv = [], env = process.env) {
         .option('--url <url>', 'Base URL of the MCP server.', env.NEO_MCP_HEALTHCHECK_URL || DEFAULT_URL)
         .option('--identity <identity>', 'Trusted proxy identity header value.', env.NEO_MCP_HEALTHCHECK_IDENTITY || 'neo-container-healthcheck')
         .option('--bearer-token-env <name>', 'Environment variable containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_ENV || 'NEO_MCP_HEALTHCHECK_TOKEN')
+        .option('--bearer-token-file <path>', 'File containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_FILE || null)
         .option('--expected-status <status>', 'Expected healthcheck status value.', env.NEO_MCP_HEALTHCHECK_EXPECTED_STATUS || 'healthy')
         .option('--expected-plane-id <id>', 'Plane identity the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_ID || null)
         .option('--expected-plane-data-root <path>', 'Plane data root the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_DATA_ROOT || null)
@@ -66,13 +112,19 @@ export function parseArgs(argv = [], env = process.env) {
 
     program.parse(argv, {from: 'user'});
 
-    const options = program.opts();
+    const options     = program.opts();
+    const bearerToken = resolveBearerToken({
+        env,
+        bearerTokenEnv : options.bearerTokenEnv,
+        bearerTokenFile: options.bearerTokenFile
+    });
 
     return {
         url                  : options.url,
         identity             : options.identity,
-        bearerToken          : env[options.bearerTokenEnv] || null,
+        bearerToken,
         bearerTokenEnv       : options.bearerTokenEnv,
+        bearerTokenFile      : options.bearerTokenFile || null,
         expectedStatus       : options.expectedStatus,
         expectedPlaneId      : options.expectedPlaneId      || null,
         expectedPlaneDataRoot: options.expectedPlaneDataRoot || null,
@@ -191,8 +243,8 @@ export async function runHealthcheck({
     ClientClass           = Client,
     TransportClass        = StreamableHTTPClientTransport
 }) {
-    const baseUrl = new URL(url);
-    const headers = buildHeaders({identity, bearerToken});
+    const baseUrl         = new URL(url);
+    const headers         = buildHeaders({identity, bearerToken});
     const abortController = new AbortController();
 
     const transport = new TransportClass(new URL('/mcp', baseUrl), {
@@ -254,17 +306,26 @@ export async function runHealthcheck({
  * @param {Error} error The failure thrown by `runHealthcheck` / the transport.
  * @param {Object} [options]
  * @param {String|null} [options.bearerToken] The configured bearer token (`null` when unset).
- * @param {String} [options.bearerTokenEnv='NEO_MCP_HEALTHCHECK_TOKEN'] The env var the token reads from.
+ * @param {String} [options.bearerTokenEnv='NEO_MCP_HEALTHCHECK_TOKEN'] Direct-token env var name.
+ * @param {String|null} [options.bearerTokenFile=null] Secret file path.
  * @returns {String} `error.message`, plus the hint when no bearer token was sent.
  */
-export function formatHealthcheckError(error, {bearerToken = null, bearerTokenEnv = 'NEO_MCP_HEALTHCHECK_TOKEN'} = {}) {
+export function formatHealthcheckError(error, {
+    bearerToken = null,
+    bearerTokenEnv = 'NEO_MCP_HEALTHCHECK_TOKEN',
+    bearerTokenFile = null
+} = {}) {
     const message = error?.message || String(error);
 
     if (bearerToken) {
         return message;
     }
 
-    return `${message}\nNo bearer token was sent (${bearerTokenEnv} is unset). If the server runs NEO_AUTH_MODE=gitlab-pat, that is the likely cause of a 401 — set ${bearerTokenEnv} to a GitLab token that validates at /api/v4/user (a read_user PAT, or a read_api OAuth-app / group token). See learn/agentos/cloud-deployment/Troubleshooting.md.`;
+    const carrier = bearerTokenFile
+        ? `the configured bearer-token file (${bearerTokenFile})`
+        : `${bearerTokenEnv} or NEO_MCP_HEALTHCHECK_TOKEN_FILE`;
+
+    return `${message}\nNo bearer token was sent (${carrier} is unavailable). If the server runs a provider-PAT auth mode, that is the likely cause of a 401 — configure one direct env or file carrier with a token that validates at the provider user endpoint. See learn/agentos/cloud-deployment/Troubleshooting.md.`;
 }
 
 async function main() {

@@ -546,7 +546,7 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary Creates or refreshes a GitLab-PAT authenticated AgentIdentity from server-stamped
+     * @summary Creates or refreshes a provider-PAT authenticated AgentIdentity from server-stamped
      * auth context before graph-gated tools need `agentIdentityNodeId`.
      *
      * Missing identities are written as globally visible SQLite graph nodes (`userId: null`) so a
@@ -602,7 +602,7 @@ class Server extends BaseServer {
                 id         : graphNodeId,
                 type       : 'AgentIdentity',
                 name       : existing ? undefined : providerDisplay,
-                description: existing ? undefined : 'Auto-provisioned Agent OS identity for a GitLab-authenticated Memory Core principal.',
+                description: existing ? undefined : 'Auto-provisioned Agent OS identity for an authenticated Memory Core principal.',
                 properties
             });
 

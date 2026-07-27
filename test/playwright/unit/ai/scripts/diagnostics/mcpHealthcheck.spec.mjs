@@ -1,5 +1,7 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs';
+import os             from 'node:os';
+import path           from 'node:path';
 import * as yaml      from 'js-yaml';
 
 test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
@@ -29,10 +31,10 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
     test('parseArgs uses dotenv-compatible environment defaults', () => {
         const args = parseArgs([], {
-            NEO_MCP_HEALTHCHECK_URL            : 'http://mc-server:3001',
-            NEO_MCP_HEALTHCHECK_IDENTITY       : 'deploy-probe',
-            NEO_MCP_HEALTHCHECK_TOKEN_ENV      : 'TOKEN_SLOT',
-            TOKEN_SLOT                         : 'secret-token',
+            NEO_MCP_HEALTHCHECK_URL                     : 'http://mc-server:3001',
+            NEO_MCP_HEALTHCHECK_IDENTITY                : 'deploy-probe',
+            NEO_MCP_HEALTHCHECK_TOKEN_ENV               : 'TOKEN_SLOT',
+            TOKEN_SLOT                                  : 'secret-token',
             NEO_MCP_HEALTHCHECK_EXPECTED_STATUS         : 'ready',
             NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_ID       : 'neo-local-parity',
             NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_DATA_ROOT: '/app/.neo-ai-data-parity',
@@ -45,12 +47,63 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             identity             : 'deploy-probe',
             bearerToken          : 'secret-token',
             bearerTokenEnv       : 'TOKEN_SLOT',
+            bearerTokenFile      : null,
             expectedStatus       : 'ready',
             expectedPlaneId      : 'neo-local-parity',
             expectedPlaneDataRoot: '/app/.neo-ai-data-parity',
             clientName           : 'deploy-client',
             timeoutMs            : 7000
         });
+    });
+
+    test('parseArgs reads one bearer token file and trims its terminal newline', () => {
+        const
+            tempDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-healthcheck-token-')),
+            tokenPath = path.join(tempDir, 'mcp-auth-token');
+
+        fs.writeFileSync(tokenPath, 'file-secret-token\n');
+
+        try {
+            const args = parseArgs(['--bearer-token-file', tokenPath], {});
+
+            expect(args.bearerToken).toBe('file-secret-token');
+            expect(args.bearerTokenFile).toBe(tokenPath)
+        } finally {
+            fs.rmSync(tempDir, {recursive: true, force: true})
+        }
+    });
+
+    test('parseArgs rejects ambiguous, unreadable, and empty file carriers without exposing tokens', () => {
+        const
+            tempDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-healthcheck-token-invalid-')),
+            tokenPath = path.join(tempDir, 'mcp-auth-token'),
+            emptyPath = path.join(tempDir, 'empty-token'),
+            rawSecret = 'secret-that-must-not-appear';
+
+        fs.writeFileSync(tokenPath, `${rawSecret}\n`);
+        fs.writeFileSync(emptyPath, ' \n');
+
+        let ambiguityError;
+
+        try {
+            try {
+                parseArgs(['--bearer-token-file', tokenPath], {
+                    NEO_MCP_HEALTHCHECK_TOKEN: rawSecret
+                })
+            } catch (error) {
+                ambiguityError = error
+            }
+
+            expect(ambiguityError?.message).toMatch(/exactly one healthcheck bearer carrier/i);
+            expect(ambiguityError?.message).not.toContain(rawSecret);
+            expect(() => parseArgs(['--bearer-token-file', path.join(tempDir, 'missing-token')], {}))
+                .toThrow('Cannot read the configured healthcheck bearer-token file');
+
+            expect(() => parseArgs(['--bearer-token-file', emptyPath], {}))
+                .toThrow('The configured healthcheck bearer-token file contains no credential')
+        } finally {
+            fs.rmSync(tempDir, {recursive: true, force: true})
+        }
     });
 
     test('the served-plane expectations default to null, so they are opt-in', () => {
@@ -231,17 +284,16 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         const withoutToken = formatHealthcheckError(error, {bearerToken: null});
         expect(withoutToken).toContain('HTTP 401');
-        expect(withoutToken).toContain('NEO_MCP_HEALTHCHECK_TOKEN is unset');
-        expect(withoutToken).toContain('NEO_AUTH_MODE=gitlab-pat');
-        expect(withoutToken).toContain('/api/v4/user');
+        expect(withoutToken).toContain('NEO_MCP_HEALTHCHECK_TOKEN or NEO_MCP_HEALTHCHECK_TOKEN_FILE');
+        expect(withoutToken).toContain('provider-PAT auth mode');
+        expect(withoutToken).toContain('provider user endpoint');
         expect(withoutToken).toContain('Troubleshooting.md');
     });
 
     test('formatHealthcheckError names the configured bearer-token env var', () => {
         const hint = formatHealthcheckError(new Error('boom'), {bearerToken: null, bearerTokenEnv: 'TOKEN_SLOT'});
 
-        expect(hint).toContain('TOKEN_SLOT is unset');
-        expect(hint).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN');
+        expect(hint).toContain('TOKEN_SLOT or NEO_MCP_HEALTHCHECK_TOKEN_FILE');
     });
 
     test('production compose wires KB/MC MCP healthchecks before cloud orchestrator startup', () => {
