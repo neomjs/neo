@@ -1,5 +1,6 @@
 import {test, expect}          from '../../fixtures.mjs';
 import {workstationTourScript} from '../../../../apps/workstation/tour/denseWorkstation.mjs';
+import {isFilmTake}            from '../utils/gpuIntent.mjs';
 
 /**
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
@@ -37,7 +38,7 @@ const initialTabNodeIds = [
 ];
 
 const asArray  = value => Array.isArray(value) ? value : value ? [value] : [],
-      filmTake = Boolean(process.env.NEO_FILM_TAKE);
+      filmTake = isFilmTake();
 
 /**
  * @summary Captures the exact Canvas pixels when the film profile presents frames on glass.

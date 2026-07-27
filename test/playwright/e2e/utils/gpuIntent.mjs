@@ -82,6 +82,14 @@ export const E2E_LAUNCH_ARGS = [...GPU_INTENT_ARGS, ...BASE_LAUNCH_ARGS];
 export const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
 
 /**
+ * @summary Whether the exact public sentinel selects the native film-take profile.
+ * @returns {Boolean}
+ */
+export function isFilmTake() {
+    return process.env.NEO_FILM_TAKE === '1'
+}
+
+/**
  * @summary The launch list the CURRENT run mode actually uses.
  *
  * Single selection point for config projects AND the boot probe: the probe must demand GL
@@ -90,7 +98,7 @@ export const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disabl
  * @returns {String[]}
  */
 export function activeLaunchArgs() {
-    return process.env.NEO_FILM_TAKE ? FILM_LAUNCH_ARGS : E2E_LAUNCH_ARGS
+    return isFilmTake() ? FILM_LAUNCH_ARGS : E2E_LAUNCH_ARGS
 }
 
 /**

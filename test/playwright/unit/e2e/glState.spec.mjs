@@ -1,6 +1,13 @@
 import {expect, test}                           from '@playwright/test';
-import {claimsGpuAcceleration, GPU_INTENT_ARGS} from '../../e2e/utils/gpuIntent.mjs';
-import {readGlState, SOFTWARE_RENDERER_MARKERS} from '../../e2e/utils/glState.mjs';
+import {
+    activeLaunchArgs,
+    claimsGpuAcceleration,
+    E2E_LAUNCH_ARGS,
+    FILM_LAUNCH_ARGS,
+    GPU_INTENT_ARGS,
+    isFilmTake
+}                                                from '../../e2e/utils/gpuIntent.mjs';
+import {readGlState, SOFTWARE_RENDERER_MARKERS}   from '../../e2e/utils/glState.mjs';
 
 /**
  * @summary Coverage for the E2E boot probe's decision core.
@@ -105,5 +112,33 @@ test.describe('e2e/utils/glState', () => {
 
         // Tuning flags do not by themselves claim acceleration and must not arm the demand.
         expect(claimsGpuAcceleration(['--disable-frame-rate-limit', '--force-gpu-mem-available-mb=4096'])).toBe(false);
+    });
+
+    test('#16046 only the exact film sentinel selects the capture launch profile', () => {
+        const previous = process.env.NEO_FILM_TAKE;
+
+        try {
+            delete process.env.NEO_FILM_TAKE;
+            expect(isFilmTake()).toBe(false);
+            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
+
+            process.env.NEO_FILM_TAKE = '0';
+            expect(isFilmTake()).toBe(false);
+            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
+
+            process.env.NEO_FILM_TAKE = 'true';
+            expect(isFilmTake()).toBe(false);
+            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
+
+            process.env.NEO_FILM_TAKE = '1';
+            expect(isFilmTake()).toBe(true);
+            expect(activeLaunchArgs()).toBe(FILM_LAUNCH_ARGS)
+        } finally {
+            if (previous === undefined) {
+                delete process.env.NEO_FILM_TAKE
+            } else {
+                process.env.NEO_FILM_TAKE = previous
+            }
+        }
     });
 });
