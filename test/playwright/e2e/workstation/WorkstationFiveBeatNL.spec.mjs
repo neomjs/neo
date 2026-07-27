@@ -1,5 +1,9 @@
+import {createHash}                                     from 'node:crypto';
+import path                                             from 'node:path';
+import fs                                               from 'fs-extra';
 import {test, expect}                                   from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeometry.mjs';
+import {isFilmTake}                                     from '../utils/gpuIntent.mjs';
 
 /**
  * @summary The five-beat multi-window journey witness for the flagship workstation — the
@@ -51,12 +55,157 @@ import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeome
 // inside the window; birth is absence-not-slowness when it fails, so a longer gate buys
 // nothing but a worse error.
 const
-    filmTake    = Boolean(process.env.NEO_FILM_TAKE),
+    filmTake    = isFilmTake(),
     journeyRuns = filmTake ? 1 : 2,
     themeDwell  = filmTake ? 3200 : 0,
     filmPace    = filmTake
         ? {birthAttempts: 240, curve: 0.18, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
-        : {};
+        : {},
+    filmControl = resolveFilmControl();
+
+/**
+ * @summary Resolves the optional film-only ready/go/receipt file contract, rejecting partial,
+ * relative, or non-film declarations so a malformed runner cannot silently skip the gate.
+ * @returns {Object|null} Absolute ready, go, and semantic-receipt paths.
+ */
+function resolveFilmControl() {
+    const
+        controls = {
+            goFile     : process.env.NEO_FILM_GO_FILE,
+            readyFile  : process.env.NEO_FILM_READY_FILE,
+            receiptFile: process.env.NEO_FILM_RECEIPT_FILE
+        },
+        present = Object.values(controls).filter(Boolean);
+
+    if (!present.length) {
+        return null
+    }
+
+    if (!filmTake) {
+        throw new Error('NEO_FILM_* control files require NEO_FILM_TAKE=1')
+    }
+    if (present.length !== Object.keys(controls).length) {
+        throw new Error('NEO_FILM_READY_FILE, NEO_FILM_GO_FILE, and NEO_FILM_RECEIPT_FILE are one atomic contract')
+    }
+
+    for (const [name, value] of Object.entries(controls)) {
+        if (!path.isAbsolute(value)) {
+            throw new Error(`${name} must be an absolute path`)
+        }
+
+        controls[name] = path.normalize(value)
+    }
+    if (new Set(Object.values(controls)).size !== Object.keys(controls).length) {
+        throw new Error('NEO_FILM_READY_FILE, NEO_FILM_GO_FILE, and NEO_FILM_RECEIPT_FILE must be distinct')
+    }
+
+    return controls
+}
+
+/**
+ * @summary Recursively sorts object keys so semantic receipt hashes are stable across writers.
+ * @param {*} value JSON-safe receipt value.
+ * @returns {*} Canonicalized value with arrays preserved and object keys sorted.
+ */
+function canonicalize(value) {
+    if (Array.isArray(value)) {
+        return value.map(canonicalize)
+    }
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort()
+            .map(key => [key, canonicalize(value[key])]))
+    }
+
+    return value
+}
+
+/**
+ * @summary Serializes one semantic receipt in a stable, human-readable JSON form.
+ * @param {Object} value JSON-safe receipt.
+ * @returns {String} Canonical JSON with one trailing newline.
+ */
+function serializeReceipt(value) {
+    return JSON.stringify(canonicalize(value), null, 2) + '\n'
+}
+
+/**
+ * @summary Hashes a serialized receipt with SHA-256.
+ * @param {String} value Serialized receipt.
+ * @returns {String} Lowercase SHA-256 digest.
+ */
+function hashReceipt(value) {
+    return createHash('sha256').update(value).digest('hex')
+}
+
+/**
+ * @summary Writes a control receipt exactly once so stale runner files cannot be reused.
+ * @param {String} filePath Absolute output path.
+ * @param {String} value Serialized receipt.
+ * @returns {Promise<void>}
+ */
+async function writeExclusive(filePath, value) {
+    await fs.writeFile(filePath, value, {encoding: 'utf8', flag: 'wx'})
+}
+
+/**
+ * @summary Publishes the verified semantic start state, then blocks the first visual beat until
+ * the recorder answers with a go receipt bound to that exact ready hash.
+ * @param {Object} payload Canonical start-state receipt.
+ * @returns {Promise<Object|null>} Ready/go hashes, or null outside controlled film mode.
+ */
+async function awaitFilmGo(payload) {
+    if (!filmControl) {
+        return null
+    }
+
+    expect(await fs.pathExists(filmControl.goFile), 'the film go file must not predate readiness').toBe(false);
+    expect(await fs.pathExists(filmControl.receiptFile),
+        'the semantic receipt path must be fresh for this take').toBe(false);
+
+    const
+        readyText   = serializeReceipt(payload),
+        readySha256 = hashReceipt(readyText);
+
+    await writeExclusive(filmControl.readyFile, readyText);
+    console.log(`[film-control] ready sha256=${readySha256}`);
+
+    let goText;
+
+    await expect.poll(async () => {
+        try {
+            const candidate = await fs.readFile(filmControl.goFile, 'utf8');
+
+            JSON.parse(candidate);
+            goText = candidate;
+
+            return true
+        } catch (error) {
+            if (error.code === 'ENOENT' || error instanceof SyntaxError) {
+                return false
+            }
+
+            throw error
+        }
+    }, {
+        message  : 'the recorder must acknowledge this exact semantic-ready receipt',
+        timeout  : 60000,
+        intervals: [50, 100, 250]
+    }).toBe(true);
+
+    const
+        go = JSON.parse(goText);
+
+    expect(go).toMatchObject({
+        readySha256,
+        schema: 'neo.film.take17.go.v1'
+    });
+
+    const goSha256 = hashReceipt(goText);
+
+    console.log(`[film-control] go sha256=${goSha256}`);
+
+    return {goSha256, readySha256}
+}
 
 /**
  * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
@@ -191,7 +340,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @param {Object} [options={}]
      * @param {Boolean} [options.navigate=true] Set false only after this runner's own reload, so
      * the next worker read witnesses that exact navigation instead of hiding it behind a goto.
-     * @returns {Promise<Object>} `{app, disposeObservers, pageErrors, popupProbe, wsId}`
+     * @returns {Promise<Object>} `{app, disposeObservers, pageErrors, popupProbe, stageReceipt, wsId}`
      */
     async function boot({page, neuralLink}, {navigate=true}={}) {
         const pageErrors = [],
@@ -258,6 +407,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             },
             pageErrors,
             popupProbe,
+            stageReceipt,
             wsId
         }
     }
@@ -1176,8 +1326,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test('scene 5 — the signature: full journey in ONE run, two-take beat-log equality', async ({page, neuralLink}) => {
+    test('scene 5 — the signature: full journey in ONE run, two-take beat-log equality',
+        async ({page, neuralLink}, testInfo) => {
         const
+            controlReceipts  = [],
             logs             = [],
             openingDocuments = [],
             pageErrorRuns    = [];
@@ -1214,6 +1366,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             } else {
                 openingDocuments.push(opening)
             }
+
+            const controlReceipt = await awaitFilmGo({
+                opening: {
+                    commitsIdentity     : commitsBefore,
+                    dockDocumentSha256  : hashReceipt(serializeReceipt(opening)),
+                    heartbeatPositive   : heartbeatAtOpen > 0,
+                    heavyCount          : opening.nodes['heavy-tabs'].items.length,
+                    metricsIdentity     : metricsBefore,
+                    railed              : ['graph', 'inspector'],
+                    rightBottomItems    : opening.nodes['right-bottom-tabs'].items,
+                    rightTopItems       : opening.nodes['right-top-tabs'].items,
+                    scaleItems          : opening.nodes['scale-tabs'].items,
+                    survivingVesselCount: livePopupsAtOpen.length
+                },
+                run          : run + 1,
+                schema       : 'neo.film.take17.ready.v1',
+                stageGeometry: ctx.stageReceipt ?? null
+            });
+
+            controlReceipt && controlReceipts.push(controlReceipt);
 
             const roomSpec = await app.callMethod(wsId, 'runTourSpec', [{
                 schema: 'neo.tour.script.v1',
@@ -1432,6 +1604,31 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(logs.every(log => log.length === 5),
             'each uninterrupted journey must emit exactly five semantic beats').toBe(true);
-        expect(pageErrorRuns.flat(), 'both journeys must stay browser-error-free').toEqual([])
+        expect(pageErrorRuns.flat(), 'both journeys must stay browser-error-free').toEqual([]);
+
+        const
+            semanticReceipt = {
+                beatLogs             : logs,
+                controlReceipts,
+                filmTake,
+                journeyRuns,
+                openingDocumentSha256: openingDocuments.map(opening =>
+                    hashReceipt(serializeReceipt(opening))),
+                schema               : 'neo.film.five-beat-semantic-receipt.v1'
+            },
+            semanticText   = serializeReceipt(semanticReceipt),
+            semanticSha256 = hashReceipt(semanticText);
+
+        await testInfo.attach('five-beat-semantic-receipt', {
+            body       : Buffer.from(semanticText),
+            contentType: 'application/json'
+        });
+
+        if (filmControl) {
+            await writeExclusive(filmControl.receiptFile, semanticText)
+        }
+
+        console.log(`[film-cue] semantic-receipt sha256=${semanticSha256}` +
+            ` journeys=${journeyRuns} beats=${logs.map(log => log.length).join(',')}`)
     });
 });
