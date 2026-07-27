@@ -269,6 +269,13 @@ class Workspace extends Container {
      */
     lastCrossWindowTransfer = null
     /**
+     * Most recent exact vessel-close attempt for bounded headed-failure diagnosis. Native handle
+     * authority is represented only by presence/match booleans; its secret key never enters this
+     * worker-visible receipt.
+     * @member {Object|null} lastTearOutClose=null
+     */
+    lastTearOutClose = null
+    /**
      * Product-semantic vessel owner grants by `flow:itemId`.
      * @member {Map} vesselOwnerGrants=new Map()
      * @protected
@@ -631,9 +638,21 @@ class Workspace extends Container {
      * @returns {String|null}
      */
     getPaneIdentity(itemId) {
-        const item = this.dockModel.items[itemId];
+        let me   = this,
+            pane = me.paneCache[itemId],
+            item = me.dockModel.items[itemId];
 
-        return item ? this.resolvePane(itemId, item).id : null
+        if (pane && !pane.isDestroyed) return pane.id;
+
+        if (!item) {
+            for (const state of me.vesselWorkspaces.values()) {
+                item = state.document?.items?.[itemId];
+
+                if (item) break
+            }
+        }
+
+        return item ? me.resolvePane(itemId, item).id : null
     }
 
     /**
@@ -843,7 +862,15 @@ class Workspace extends Container {
             onDockTearOutExit        : data => me.onDockTearOutExit(data),
             onDockTearOutTerminal    : data => me.tearOutHandlers.onDockTearOutTerminal(data),
             onDockVesselConversionIn : data => {
-                me.vesselConversionTargetWindowId = data.targetId ?? null;
+                let targetWorkspaceId = data.targetId,
+                    targetState       = me.vesselWorkspaces.get(targetWorkspaceId);
+
+                // The coordinator speaks stable claim identity. Platform effects speak runtime
+                // window identity. Resolve the former through the app-owned workspace registry;
+                // never reinterpret `workstation-vessel:<item>` as a manager.Window id.
+                me.vesselConversionTargetWindowId = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
+                    ? me.windowId
+                    : targetState?.windowId ?? null;
 
                 return me.vesselParkHandlers.onConversionIn({
                     itemId    : data.itemId,
@@ -1270,6 +1297,7 @@ class Workspace extends Container {
             applied       : true,
             closeRequested: false,
             descriptor    : DockZoneModel.clone(descriptor),
+            phases        : ['documents-adopted'],
             reconciled    : false,
             sourceWorkspaceId,
             targetWorkspaceId,
@@ -1287,13 +1315,16 @@ class Workspace extends Container {
                         me.vesselWorkspaces.get(targetWorkspaceId) !== targetState) {
                         throw new Error('vessel target projection did not settle')
                     }
+                    receipt.phases.push('target-projected');
 
                     await me.refreshDockWorkspace({
                         preserveItemIds: Object.keys(targetState.document?.items || {})
                     });
+                    receipt.phases.push('main-projected');
                     targetState.reconciling = false
                 } else {
                     await me.refreshDockWorkspace();
+                    receipt.phases.push('main-projected');
 
                     if (me.vesselWorkspaces.get(sourceWorkspaceId) === sourceState) {
                         await me.retireReturnedVessel(sourceWorkspaceId)
@@ -1388,11 +1419,20 @@ class Workspace extends Container {
      * @protected
      */
     async retireReturnedVessel(workspaceId) {
-        let me     = this,
-            state  = me.vesselWorkspaces.get(workspaceId),
-            vessel = state && me.resolveTearOutVessel(state.itemId);
+        let me      = this,
+            state   = me.vesselWorkspaces.get(workspaceId),
+            vessel  = state && me.resolveTearOutVessel(state.itemId),
+            receipt = me.lastCrossWindowTransfer;
 
         if (!state || Object.keys(state.document?.items || {}).length || !vessel) return false;
+
+        if (
+            receipt?.sourceWorkspaceId === workspaceId &&
+            receipt.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
+        ) {
+            receipt.phases ??= [];
+            receipt.phases.push('close-dispatched')
+        }
 
         const closed = await me.closeTearOutVessel(vessel);
 
@@ -1406,7 +1446,9 @@ class Workspace extends Container {
                 me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
                 me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
             ) {
-                me.lastCrossWindowTransfer.closeRequested = true
+                me.lastCrossWindowTransfer.closeRequested = true;
+                me.lastCrossWindowTransfer.phases ??= [];
+                me.lastCrossWindowTransfer.phases.push('close-acknowledged')
             }
         }
 
@@ -2197,11 +2239,25 @@ class Workspace extends Container {
             embodiedWindowId = entry?.windowId ?? admission?.windowId ?? me.tearOutEmbodiment.getWindowId(itemId),
             closed           = false;
 
+        const closeReceipt = me.lastTearOutClose = {
+            identity: {
+                admissionMatches : !Number.isFinite(admissionToken) || admissionToken === exactToken,
+                entryNameMatches : !entry || entry.windowName === windowName,
+                generationMatches: !Number.isFinite(generation) || generation === exactGeneration,
+                hasEntry         : Boolean(entry),
+                hasItemId        : Boolean(itemId),
+                windowNameMatches: windowName === expected
+            },
+            itemId: itemId ?? null,
+            stage : 'validating-identity'
+        };
+
         if (
             !itemId || windowName !== expected || (entry && entry.windowName !== windowName) ||
             (Number.isFinite(generation) && generation !== exactGeneration) ||
             (Number.isFinite(admissionToken) && admissionToken !== exactToken)
         ) {
+            closeReceipt.stage = 'identity-refused';
             return false
         }
 
@@ -2211,11 +2267,26 @@ class Workspace extends Container {
 
         const exactWindowId = entry?.windowId ?? admission?.windowId;
 
+        closeReceipt.route = {
+            closeCapable      : !nativeRoute || nativeRoute.capabilities?.close === true,
+            exactTargetMatches: !nativeRoute || !exactWindowId || nativeRoute.targetWindowId === exactWindowId,
+            exactWindowId     : exactWindowId ?? null,
+            hasHandle         : !nativeRoute || Boolean(nativeRoute.nativeHandleKey),
+            ownerMatches      : !nativeRoute || nativeRoute.ownerWindowId === me.windowId,
+            ownerWindowId     : nativeRoute?.ownerWindowId ?? null,
+            present           : Boolean(nativeRoute),
+            targetPresent     : !nativeRoute || Boolean(nativeRoute.targetWindowId),
+            targetWindowId    : nativeRoute?.targetWindowId ?? null
+        };
+
         if (nativeRoute && (
             !nativeRoute.nativeHandleKey || nativeRoute.ownerWindowId !== me.windowId ||
             !nativeRoute.targetWindowId || nativeRoute.capabilities?.close !== true ||
             (exactWindowId && nativeRoute.targetWindowId !== exactWindowId)
-        )) return false;
+        )) {
+            closeReceipt.stage = 'route-refused';
+            return false
+        }
 
         // Establish retirement before restoring any source embodiment or awaiting the platform.
         // A refused close retains the exact route + tear-out machine slot for retry, but the
@@ -2229,17 +2300,24 @@ class Workspace extends Container {
                       itemId, windowId: embodiedWindowId
                   });
 
-            if (!settled) return false
+            closeReceipt.embodiment = {settled, sourceOwns, staged: true};
+
+            if (!settled) {
+                closeReceipt.stage = 'embodiment-refused';
+                return false
+            }
         }
 
         try {
             if (nativeRoute) {
+                closeReceipt.stage = 'native-dispatched';
                 closed = await Neo.Main.windowNativeClose({
                     nativeHandleKey: nativeRoute.nativeHandleKey,
                     targetWindowId : nativeRoute.targetWindowId,
                     windowId       : me.windowId
                 }) === true
             } else {
+                closeReceipt.stage = 'semantic-dispatched';
                 // Before connect there is no exact route to correlate yet; the active tear-out
                 // slot's unguessable semantic name is the only available authority. Once a route
                 // exists, ANY invalidity above fails closed — never downgrade to same-name close.
@@ -2247,15 +2325,23 @@ class Workspace extends Container {
                 closed = true
             }
         } catch (error) {
+            closeReceipt.error = String(error?.message || error);
+            closeReceipt.stage = 'threw';
             return false
         }
 
-        if (!closed) return false;
+        closeReceipt.closed = closed;
+
+        if (!closed) {
+            closeReceipt.stage = 'platform-refused';
+            return false
+        }
 
         delete me.tearOutConnects[itemId];
         me.tearOutConnectAdmissions.delete(itemId);
         me.revokeVesselOwnerGrant('tear-out', itemId);
         me.tearOutRetirements.delete(itemId);
+        closeReceipt.stage = 'acknowledged';
 
         return true
     }
@@ -2273,6 +2359,7 @@ class Workspace extends Container {
 
         const resolved = {
             ...entry,
+            itemId,
             nativeRoute: entry.nativeRoute ?? Neo.manager?.Window?.get(entry.windowId)?.nativeRoute ?? null,
             windowName : entry.windowName ?? `tearout-${itemId}`
         };
@@ -2813,7 +2900,9 @@ class Workspace extends Container {
                         me.lastCrossWindowTransfer?.sourceWorkspaceId === workspaceId &&
                         me.lastCrossWindowTransfer.targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID
                     ) {
-                        me.lastCrossWindowTransfer.topologyExited = true
+                        me.lastCrossWindowTransfer.topologyExited = true;
+                        me.lastCrossWindowTransfer.phases ??= [];
+                        me.lastCrossWindowTransfer.phases.push('topology-exited')
                     }
 
                     me.retireVesselWorkspaceTarget(itemId);
@@ -2836,10 +2925,11 @@ class Workspace extends Container {
      * style delta.
      * @param {Number} clientX
      * @param {Number} clientY
+     * @param {String|Number} [windowId=this.windowId]
      * @returns {Neo.component.Base}
      * @protected
      */
-    createFilmCursorDot(clientX, clientY) {
+    createFilmCursorDot(clientX, clientY, windowId=this.windowId) {
         let me        = this,
             cursorDot = Neo.create({
                 className    : 'Neo.component.Base',
@@ -2847,7 +2937,7 @@ class Workspace extends Container {
                 autoInitVnode: true,
                 autoMount    : true,
                 parentId     : 'document.body',
-                windowId     : me.windowId,
+                windowId,
                 cls          : ['film-cursor'],
                 style        : {
                     backgroundColor: 'rgba(255, 90, 0, 0.92)',
@@ -2865,7 +2955,7 @@ class Workspace extends Container {
             });
 
         cursorDot.mountedPromise.then(() => {
-            console.log(`[film-cursor] dot mounted at client (${clientX}, ${clientY})`)
+            console.log(`[film-cursor] dot mounted in ${windowId} at client (${clientX}, ${clientY})`)
         });
 
         return cursorDot
@@ -3247,6 +3337,590 @@ class Workspace extends Container {
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
             restoreProxyPopupConfig();
+            cursorDot?.destroy()
+        }
+    }
+
+    /**
+     * @summary Reads the semantic, rendered, arbitration, and physical-park truth for one
+     * cross-window pointer frame.
+     *
+     * The film executors use this as their pre-release gate: mouseup is withheld until the
+     * coordinator has exactly one stable claim, its winning target is engaged, and the target's
+     * semantic preview equals the preview rendered in that window. A converting tear-out can add
+     * `parkedItemId`, which additionally requires the exact source vessel to be strictly parked.
+     * @param {Object} context
+     * @param {String|null} [context.parkedItemId=null]
+     * @param {Neo.dashboard.DockTabSortZone} context.sourceZone
+     * @param {String} context.targetWorkspaceId
+     * @returns {Object}
+     * @protected
+     */
+    readCrossWindowGestureSnapshot({parkedItemId=null, sourceZone, targetWorkspaceId}={}) {
+        let me            = this,
+            isMain        = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID,
+            state         = isMain ? null : me.vesselWorkspaces.get(targetWorkspaceId),
+            participation = me.crossWindowParticipations.get(targetWorkspaceId),
+            target        = participation?.target,
+            coordinator   = sourceZone?.dragCoordinator,
+            arbiter       = coordinator?.pointerClaimArbiter,
+            winner        = arbiter?.resolve?.() ?? null,
+            semantic      = target?.currentPreview ?? null,
+            renderer      = isMain ? me.dragAffordances?.preview : state?.preview,
+            rendered      = renderer?.dockPreview ?? null,
+            sensor        = sourceZone?.vesselConversionSensor,
+            parkedVessel  = me.vesselParkHandlers?.parkedVessel ?? null,
+            sourceVessel  = parkedItemId && me.resolveTearOutVessel(parkedItemId),
+            snapshot      = {
+                claimCount           : arbiter?.claimCount ?? 0,
+                converted            : sensor?.converted === true && sensor?.transitioning !== true,
+                engaged              : coordinator?.activeTargetZone === target,
+                parkedItemId         : parkedVessel?.itemId ?? null,
+                preview              : semantic ? DockZoneModel.clone(semantic) : null,
+                rendered             : rendered ? DockZoneModel.clone(rendered) : null,
+                sourceVesselConnected: Boolean(
+                    sourceVessel?.windowId && Neo.manager?.Window?.get(sourceVessel.windowId)
+                ),
+                sourceVesselWindowId: sourceVessel?.windowId ?? null,
+                targetWorkspaceId,
+                winnerStableId      : winner?.stableId ?? null
+            };
+
+        snapshot.ready = snapshot.claimCount === 1
+            && snapshot.engaged
+            && snapshot.winnerStableId === targetWorkspaceId
+            && Boolean(snapshot.preview?.previewId)
+            && snapshot.rendered?.previewId === snapshot.preview.previewId
+            && (parkedItemId == null || (
+                snapshot.converted && snapshot.parkedItemId === parkedItemId &&
+                snapshot.sourceVesselConnected
+            ));
+
+        return snapshot
+    }
+
+    /**
+     * @summary Polls one exact cross-window transfer through model adoption and queued projection.
+     * @param {Object} expected
+     * @param {String} expected.sourceWorkspaceId
+     * @param {String} expected.targetWorkspaceId
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=240]
+     * @param {Number} [options.delay=16]
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async waitForCrossWindowTransfer(expected, {attempts=240, delay=16}={}) {
+        let me = this,
+            receipt;
+
+        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+            receipt = me.lastCrossWindowTransfer;
+
+            if (
+                receipt?.applied === true && receipt.reconciled === true &&
+                receipt.sourceWorkspaceId === expected?.sourceWorkspaceId &&
+                receipt.targetWorkspaceId === expected?.targetWorkspaceId
+            ) {
+                return receipt
+            }
+
+            attempt < attempts && await me.timeout(delay)
+        }
+
+        return receipt ?? null
+    }
+
+    /**
+     * @summary Scene 3's real-pointer executor: converts a second tear-out while the gesture remains
+     * down, parks that exact OS window over a committed sibling vessel, and releases only after one
+     * semantic + rendered target claim has settled.
+     *
+     * The source stays on the ordinary tab-drag path. It first crosses the source workspace boundary
+     * to acquire its real vessel; subsequent events keep source-local coordinates outside while
+     * moving in global screen space over the target vessel. The landed conversion sensor and
+     * coordinator therefore own the park, preview, arbitration, and atomic transfer. This method
+     * drives and reports those seams; it never calls a reducer or target commit directly.
+     * @param {Object} step
+     * @param {String} step.itemId Incoming pane id.
+     * @param {String} step.sourceNodeId Main-workspace tabs node currently holding the pane.
+     * @param {String} step.targetItemId Existing detached pane whose vessel becomes the target.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=240]
+     * @param {Number} [options.moveDelay=16]
+     * @param {Number} [options.moveSteps=4]
+     * @param {Boolean} [options.showCursor=false] Film mode: show the synthetic cursor in whichever
+     * window currently owns the visible leg of the gesture.
+     * @returns {Promise<Object>}
+     */
+    async executeCrossWindowDockStep(step, {attempts=240, moveDelay=16, moveSteps=4, showCursor=false}={}) {
+        let me                                   = this,
+            {itemId, sourceNodeId, targetItemId} = step || {},
+            targetWorkspaceId                    = Workspace.vesselWorkspaceId(targetItemId),
+            targetState                          = targetWorkspaceId && me.vesselWorkspaces.get(targetWorkspaceId),
+            sourceDocument                       = me.dockModel,
+            sourceNode                           = sourceDocument?.nodes?.[sourceNodeId],
+            button                               = null,
+            cursorDot                            = null,
+            release                              = null,
+            sortZone                             = null;
+
+        if (
+            !itemId || !targetItemId || itemId === targetItemId ||
+            sourceNode?.type !== 'tabs' || !sourceNode.items.includes(itemId)
+        ) {
+            return {applied: false, errors: ['cross-window dock step must name distinct live source and target panes']}
+        }
+        if (
+            !targetState || targetState.committed || targetState.closeRequested ||
+            !me.tearOutPanes[targetItemId]
+        ) {
+            return {applied: false, errors: ['target vessel is not an available first-dock workspace']}
+        }
+
+        let pane = me.paneCache[itemId];
+
+        if (!pane || pane.isDestroyed || !sourceDocument.items?.[itemId]) {
+            return {applied: false, errors: ['incoming pane is not live and owned by the main workspace']}
+        }
+
+        try {
+            await me.refreshPromise;
+            targetState.participationPromise && await targetState.participationPromise;
+
+            let host          = me.getReference('dock-host'),
+                tabs          = host?.down({dockNodeId: sourceNodeId}),
+                itemIndex     = sourceNode.items.indexOf(itemId),
+                WindowManager = (await import('../../../src/manager/Window.mjs')).default;
+
+            button   = tabs?.getTabAtIndex(itemIndex);
+            sortZone = tabs?.getTabBar()?.sortZone;
+
+            let [buttonRect] = button ? await button.getDomRect([button.id], button.windowId) : [],
+                sourceWindow = WindowManager.get(button?.windowId),
+                targetWindow = WindowManager.get(targetState.windowId);
+
+            if (
+                !button || !sortZone || !buttonRect || !sourceWindow?.innerRect ||
+                !targetWindow?.innerRect || !targetState.participation
+            ) {
+                return {applied: false, errors: ['cross-window dock gesture surfaces are not ready']}
+            }
+
+            let startX  = buttonRect.x + buttonRect.width / 2,
+                startY  = buttonRect.y + buttonRect.height / 2,
+                startSX = sourceWindow.innerRect.x + startX,
+                startSY = sourceWindow.innerRect.y + startY,
+                opt     = (clientX, clientY, screenX, screenY, buttons) => ({
+                    bubbles: true, button: 0, buttons, cancelable: true,
+                    clientX, clientY, screenX, screenY
+                }),
+                moveCursor = (clientX, clientY) => {
+                    if (cursorDot) {
+                        cursorDot.style = {
+                            ...cursorDot.style,
+                            left: `${clientX - 8}px`,
+                            top : `${clientY - 8}px`
+                        }
+                    }
+                };
+
+            delete me.tearOutConnects[itemId];
+            showCursor && (cursorDot = me.createFilmCursorDot(startX, startY, button.windowId));
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: button.id, type: 'mousedown', windowId: button.windowId,
+                options : opt(startX, startY, startSX, startSY, 1)
+            }, {
+                delay  : 120, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                options: opt(startX + 8, startY + 2, startSX + 8, startSY + 2, 1)
+            }, {
+                delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                options: opt(startX + 16, startY + 24, startSX + 16, startSY + 24, 1)
+            }]});
+
+            if (!await me.waitForTearOutDragArmed(sortZone)) {
+                release = {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY};
+
+                let cancellation = await me.cancelTearOutGesture(button, release, {sortZone});
+
+                return {
+                    applied: false,
+                    errors : ['cross-window source drag did not arm'],
+                    proof  : {cancellation}
+                }
+            }
+
+            let boundary = sortZone.boundaryContainerRect,
+                right    = boundary.right  ?? boundary.x + boundary.width,
+                bottom   = boundary.bottom ?? boundary.y + boundary.height,
+                outX     = Math.round(right + 120),
+                outY     = Math.round(bottom + 120);
+
+            for (let index = 1; index <= moveSteps; index++) {
+                let t       = index / moveSteps,
+                    clientX = Math.round(startX + (outX - startX) * t),
+                    clientY = Math.round(startY + (outY - startY) * t);
+
+                moveCursor(clientX, clientY);
+
+                await me.interactionService.simulateEvent({events: [{
+                    delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                    options: opt(
+                        clientX,
+                        clientY,
+                        sourceWindow.innerRect.x + clientX,
+                        sourceWindow.innerRect.y + clientY,
+                        1
+                    )
+                }]})
+            }
+
+            if (!await me.waitForTearOutVessel(itemId, {attempts})) {
+                release = {
+                    clientX: outX,
+                    clientY: outY,
+                    screenX: sourceWindow.innerRect.x + outX,
+                    screenY: sourceWindow.innerRect.y + outY
+                };
+
+                let cancellation = await me.cancelTearOutGesture(button, release, {sortZone});
+
+                return {
+                    applied: false,
+                    errors : ['cross-window source vessel was not born while the gesture remained down'],
+                    proof  : {cancellation}
+                }
+            }
+
+            let remoteSnapshot;
+
+            if (showCursor) {
+                cursorDot?.destroy();
+                cursorDot = null
+            }
+
+            for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                targetWindow = WindowManager.get(targetState.windowId);
+
+                if (!targetWindow?.innerRect) break;
+
+                let targetClientX = Math.round(targetWindow.innerRect.width  / 2) + attempt % 2,
+                    targetClientY = Math.round(targetWindow.innerRect.height / 2),
+                    targetScreenX = Math.round(targetWindow.innerRect.x + targetClientX),
+                    targetScreenY = Math.round(targetWindow.innerRect.y + targetClientY);
+
+                showCursor && !cursorDot &&
+                    (cursorDot = me.createFilmCursorDot(targetClientX, targetClientY, targetState.windowId));
+                moveCursor(targetClientX, targetClientY);
+
+                release = {clientX: outX, clientY: outY, screenX: targetScreenX, screenY: targetScreenY};
+
+                await me.interactionService.simulateEvent({events: [{
+                    delay  : moveDelay, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                    options: opt(outX + attempt % 2, outY, targetScreenX, targetScreenY, 1)
+                }]});
+
+                let transition = sortZone.vesselConversionSensor?.transitionPromise;
+
+                transition && await transition;
+                remoteSnapshot = me.readCrossWindowGestureSnapshot({
+                    parkedItemId: itemId,
+                    sourceZone  : sortZone,
+                    targetWorkspaceId
+                });
+
+                if (remoteSnapshot.ready) break
+            }
+
+            if (!remoteSnapshot?.ready) {
+                let cancellation = await me.cancelTearOutGesture(button, release, {sortZone});
+
+                return {
+                    applied: false,
+                    errors : ['target vessel did not reach one parked semantic + rendered claim'],
+                    proof  : {cancellation, remoteSnapshot}
+                }
+            }
+
+            me.lastCrossWindowTransfer = null;
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: button.id, type: 'mouseup', windowId: button.windowId,
+                options : opt(release.clientX, release.clientY, release.screenX, release.screenY, 0)
+            }]});
+
+            let transfer = await me.waitForCrossWindowTransfer({
+                    sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    targetWorkspaceId
+                }, {attempts}),
+                sourceAfter = DockZoneModel.clone(me.dockModel),
+                targetAfter = DockZoneModel.clone(me.vesselWorkspaces.get(targetWorkspaceId)?.document),
+                retired     = await me.waitForTearOutVesselRetired(itemId, {attempts}),
+                targetItems = targetAfter?.nodes?.[Workspace.vesselTabsNodeId(targetItemId)]?.items || [],
+                sourceOwns  = DockZoneModel.findContainingTabsId(sourceAfter, itemId) != null
+                    || DockZoneModel.findContainingTabsId(sourceAfter, targetItemId) != null,
+                applied     = transfer?.reconciled === true && retired && !sourceOwns
+                    && targetItems.length === 2
+                    && targetItems[0] === targetItemId
+                    && targetItems[1] === itemId;
+
+            return {
+                applied,
+                errors: applied ? [] : ['cross-window dock did not settle as one A+B target adoption'],
+                proof : {
+                    remoteSnapshot,
+                    sourceDocument     : sourceAfter,
+                    sourceVesselRetired: retired,
+                    targetDocument     : targetAfter,
+                    transfer           : transfer ? DockZoneModel.clone(transfer) : null
+                }
+            }
+        } catch (error) {
+            button && await me.cancelTearOutGesture(button, release, {sortZone}).catch(() => {});
+
+            return {applied: false, errors: [error?.message || String(error)]}
+        } finally {
+            cursorDot?.destroy()
+        }
+    }
+
+    /**
+     * @summary Scene 4's real-pointer executor: drags a committed vessel's model-resolved stack
+     * grip home and waits through atomic `transferNode`, main projection, native close request, and
+     * physical topology exit.
+     *
+     * The pointer starts on the actual nested `.neo-dock-stack-handle`, so
+     * {@link Neo.dashboard.DockTabSortZone} authors the group payload. The executor never invokes
+     * `transferNode` itself; it withholds mouseup until the main target's one semantic + rendered
+     * claim settles, then observes the resulting receipt through window disconnect.
+     * @param {Object} step
+     * @param {String} step.ownerItemId The pane whose committed vessel owns the stack.
+     * @param {Object} [options={}]
+     * @param {Number} [options.attempts=240]
+     * @param {Number} [options.moveDelay=16]
+     * @param {Boolean} [options.showCursor=false] Film mode: move the synthetic cursor from the
+     * committed vessel into the main window with the physical gesture.
+     * @returns {Promise<Object>}
+     */
+    async executeStackReturnStep(step, {attempts=240, moveDelay=16, showCursor=false}={}) {
+        let me            = this,
+            {ownerItemId} = step || {},
+            workspaceId   = Workspace.vesselWorkspaceId(ownerItemId),
+            state         = workspaceId && me.vesselWorkspaces.get(workspaceId),
+            button        = null,
+            cursorDot     = null,
+            handleId      = null,
+            release       = null,
+            sortZone      = null;
+
+        if (!state?.committed || !state.document || !me.workspaceSet.has(workspaceId)) {
+            return {applied: false, errors: ['stack return requires one committed vessel workspace']}
+        }
+
+        try {
+            await me.refreshPromise;
+            await me.crossWindowParticipationPromise;
+
+            let nodeId        = DockZoneModel.resolveStackRoot(state.document),
+                tabsNodeId    = Workspace.vesselTabsNodeId(ownerItemId),
+                tabsNode      = state.document.nodes?.[tabsNodeId],
+                activeItemId  = tabsNode?.activeItemId ?? tabsNode?.items?.[0],
+                activeIndex   = tabsNode?.items?.indexOf(activeItemId) ?? -1,
+                tabs          = state.host?.down({dockNodeId: tabsNodeId}),
+                WindowManager = (await import('../../../src/manager/Window.mjs')).default;
+
+            button   = tabs?.getTabAtIndex(activeIndex);
+            sortZone = tabs?.getTabBar()?.sortZone;
+            handleId = DockLayoutAdapter.stackHandleDomId(activeItemId);
+
+            let [handleRect] = button && handleId
+                    ? await button.getDomRect([handleId], button.windowId)
+                    : [],
+                sourceWindow = WindowManager.get(state.windowId),
+                targetWindow = WindowManager.get(me.windowId);
+
+            if (
+                !nodeId || !button || !sortZone || !handleRect || !sourceWindow?.innerRect ||
+                !targetWindow?.innerRect || !me.crossWindowParticipations.get(Workspace.MAIN_WORKSPACE_ID)
+            ) {
+                return {applied: false, errors: ['whole-stack gesture surfaces are not ready']}
+            }
+
+            let startX  = handleRect.x + handleRect.width / 2,
+                startY  = handleRect.y + handleRect.height / 2,
+                startSX = sourceWindow.innerRect.x + startX,
+                startSY = sourceWindow.innerRect.y + startY,
+                opt     = (clientX, clientY, screenX, screenY, buttons) => ({
+                    bubbles: true, button: 0, buttons, cancelable: true,
+                    clientX, clientY, screenX, screenY
+                }),
+                moveCursor = (clientX, clientY) => {
+                    if (cursorDot) {
+                        cursorDot.style = {
+                            ...cursorDot.style,
+                            left: `${clientX - 8}px`,
+                            top : `${clientY - 8}px`
+                        }
+                    }
+                };
+
+            showCursor && (cursorDot = me.createFilmCursorDot(startX, startY, state.windowId));
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: handleId, type: 'mousedown', windowId: button.windowId,
+                options : opt(startX, startY, startSX, startSY, 1)
+            }, {
+                delay  : 120, targetId: handleId, type: 'mousemove', windowId: button.windowId,
+                options: opt(startX + 8, startY, startSX + 8, startSY, 1)
+            }, {
+                delay  : moveDelay, targetId: handleId, type: 'mousemove', windowId: button.windowId,
+                options: opt(startX + 24, startY, startSX + 24, startSY, 1)
+            }]});
+
+            let armed = false;
+
+            for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
+                armed = Boolean(sortZone.stackDragActive && sortZone.dragProxy && sortZone.dragCoordinator);
+
+                if (armed) break;
+
+                attempt < 120 && await me.timeout(16)
+            }
+
+            if (!armed) {
+                release = {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY};
+
+                let cancellation = await me.cancelTearOutGesture(button, release, {sortZone, targetId: handleId});
+
+                return {
+                    applied: false,
+                    errors : ['whole-stack source drag did not arm from the rendered grip'],
+                    proof  : {
+                        cancellation,
+                        sourceArm: {
+                            dockGroupNodeId: sortZone.dockGroupNodeId,
+                            dragComponent  : sortZone.dragComponent?.id ?? null,
+                            dragProxyReady : Boolean(sortZone.dragProxy),
+                            stackDragActive: sortZone.stackDragActive === true,
+                            startIndex     : sortZone.startIndex
+                        }
+                    }
+                }
+            }
+
+            let remoteSnapshot;
+
+            if (showCursor) {
+                cursorDot?.destroy();
+                cursorDot = null
+            }
+
+            for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                targetWindow = WindowManager.get(me.windowId);
+
+                if (!targetWindow?.innerRect) break;
+
+                let targetClientX = Math.round(targetWindow.innerRect.width  / 2) + attempt % 2,
+                    targetClientY = Math.round(targetWindow.innerRect.height / 2),
+                    targetScreenX = Math.round(targetWindow.innerRect.x + targetClientX),
+                    targetScreenY = Math.round(targetWindow.innerRect.y + targetClientY);
+
+                showCursor && !cursorDot &&
+                    (cursorDot = me.createFilmCursorDot(targetClientX, targetClientY, me.windowId));
+                moveCursor(targetClientX, targetClientY);
+
+                release = {
+                    clientX: startX + 32,
+                    clientY: startY,
+                    screenX: targetScreenX,
+                    screenY: targetScreenY
+                };
+
+                await me.interactionService.simulateEvent({events: [{
+                    delay  : moveDelay, targetId: handleId, type: 'mousemove', windowId: button.windowId,
+                    options: opt(
+                        release.clientX + attempt % 2,
+                        release.clientY,
+                        release.screenX,
+                        release.screenY,
+                        1
+                    )
+                }]});
+
+                remoteSnapshot = me.readCrossWindowGestureSnapshot({
+                    sourceZone       : sortZone,
+                    targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+                });
+
+                if (remoteSnapshot.ready) break
+            }
+
+            if (!remoteSnapshot?.ready) {
+                let cancellation = await me.cancelTearOutGesture(button, release, {sortZone, targetId: handleId});
+
+                return {
+                    applied: false,
+                    errors : ['main workspace did not reach one semantic + rendered stack-return claim'],
+                    proof  : {cancellation, remoteSnapshot}
+                }
+            }
+
+            let sourceWindowId = state.windowId,
+                sourceItemIds  = [
+                    ...(state.document.nodes?.[nodeId]?.items || Object.keys(state.document.items || {}))
+                ];
+
+            me.lastCrossWindowTransfer = null;
+
+            await me.interactionService.simulateEvent({events: [{
+                targetId: handleId, type: 'mouseup', windowId: button.windowId,
+                options : opt(release.clientX, release.clientY, release.screenX, release.screenY, 0)
+            }]});
+
+            let transfer = await me.waitForCrossWindowTransfer({
+                sourceWorkspaceId: workspaceId,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            }, {attempts});
+
+            for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
+                if (transfer?.topologyExited === true && !WindowManager.get(sourceWindowId)) break;
+
+                attempt < attempts && await me.timeout(16)
+            }
+
+            let mainAfter        = DockZoneModel.clone(me.dockModel),
+                targetNodeId     = remoteSnapshot.preview?.target?.nodeId,
+                returnedItems    = mainAfter.nodes?.[targetNodeId]?.items || [],
+                requiredPhases   = ['documents-adopted', 'main-projected', 'close-dispatched', 'topology-exited'],
+                phaseOrder       = (transfer?.phases || []).filter(phase => requiredPhases.includes(phase)),
+                sourceWindowGone = !WindowManager.get(sourceWindowId),
+                applied          = transfer?.descriptor?.operation === 'transferNode'
+                    && transfer.closeRequested === true
+                    && transfer.topologyExited === true
+                    && JSON.stringify(phaseOrder) === JSON.stringify(requiredPhases)
+                    && sourceWindowGone
+                    && sourceItemIds.every(itemId => returnedItems.includes(itemId));
+
+            return {
+                applied,
+                errors: applied ? [] : ['whole-stack return did not settle through model-before-close topology exit'],
+                proof : {
+                    closeReceipt: me.lastTearOutClose ? DockZoneModel.clone(me.lastTearOutClose) : null,
+                    mainDocument: mainAfter,
+                    phaseOrder,
+                    remoteSnapshot,
+                    sourceItemIds,
+                    sourceWindowGone,
+                    sourceWindowId,
+                    transfer    : transfer ? DockZoneModel.clone(transfer) : null
+                }
+            }
+        } catch (error) {
+            button && await me.cancelTearOutGesture(button, release, {sortZone, targetId: handleId}).catch(() => {});
+
+            return {applied: false, errors: [error?.message || String(error)]}
+        } finally {
             cursorDot?.destroy()
         }
     }

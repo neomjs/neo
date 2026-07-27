@@ -313,7 +313,16 @@ test.describe.serial('Workstation.view.Workspace', () => {
             windowPosition.setConfigs = data => resizeCalls.push(data);
             workspace = Neo.create(Workspace, {});
 
-            const chrome = readTabChrome(workspace);
+            const
+                chrome            = readTabChrome(workspace),
+                targetWorkspaceId = Workspace.vesselWorkspaceId('alerts');
+
+            workspace.vesselWorkspaces.set(targetWorkspaceId, {windowId: 'window-alerts'});
+            chrome.get('right-top-tabs').tab.fire('dockVesselConversionIn', {
+                itemId  : 'audit',
+                record  : {sourceRect: null},
+                targetId: targetWorkspaceId
+            });
 
             expect(resizeCalls).toEqual([{
                 observeResize: true,
@@ -321,6 +330,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             }]);
             expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
             expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
+            expect(workspace.vesselConversionTargetWindowId).toBe('window-alerts');
 
             chrome.forEach(({bar}, nodeId) => {
                 expect(bar.sortZoneConfig, `${nodeId} joins the one cross-window source group`).toMatchObject({
@@ -427,6 +437,25 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(state.document).toBeNull();
             expect(preview.dockPreview).toBeNull();
             expect(destroyed).toEqual([])
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('pane identity remains readable after the catalog moves into a vessel workspace', () => {
+        const workspace = Neo.create(Workspace, {});
+
+        try {
+            const
+                alertsIdentity   = workspace.getPaneIdentity('alerts'),
+                securityIdentity = workspace.getPaneIdentity('security');
+
+            stageCommittedVessel(workspace);
+
+            expect(workspace.dockModel.items.alerts).toBeUndefined();
+            expect(workspace.dockModel.items.security).toBeUndefined();
+            expect(workspace.getPaneIdentity('alerts')).toBe(alertsIdentity);
+            expect(workspace.getPaneIdentity('security')).toBe(securityIdentity)
         } finally {
             workspace.destroy()
         }
@@ -714,11 +743,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
         const
             workspace              = Neo.create(Workspace, {}),
             {state, workspaceId}   = stageCommittedVessel(workspace),
-            originalResolve        = workspace.resolveTearOutVessel,
             originalClose          = workspace.closeTearOutVessel,
             originalTearOut        = workspace.tearOutHandlers,
             originalPark           = workspace.vesselParkHandlers,
             participantRetirements = [];
+        let closedVessel;
 
         try {
             const
@@ -758,11 +787,18 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
                 topologyExited   : false
             };
-            workspace.resolveTearOutVessel = () => ({windowId: 'window-alerts'});
-            workspace.closeTearOutVessel   = async () => true;
+            workspace.closeTearOutVessel = async vessel => {
+                closedVessel = vessel;
+                return true
+            };
 
             await expect(workspace.retireReturnedVessel(workspaceId)).resolves.toBe(true);
 
+            expect(closedVessel).toMatchObject({
+                itemId    : 'alerts',
+                windowId  : 'window-alerts',
+                windowName: 'tearout-alerts'
+            });
             expect(state.closeRequested).toBe(true);
             expect(workspace.vesselWorkspaces.get(workspaceId)).toBe(state);
             expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
@@ -781,10 +817,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
             expect(participantRetirements).toEqual(['destroy'])
         } finally {
-            workspace.resolveTearOutVessel  = originalResolve;
-            workspace.closeTearOutVessel    = originalClose;
-            workspace.tearOutHandlers       = originalTearOut;
-            workspace.vesselParkHandlers    = originalPark;
+            workspace.closeTearOutVessel = originalClose;
+            workspace.tearOutHandlers    = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
             workspace.destroy()
         }
     });
