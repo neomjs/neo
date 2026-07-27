@@ -621,8 +621,13 @@ class App extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.appName
+     * @param {Object} [data.sourcePort]
+     * @param {String} data.windowId
      */
     async onConnect(data) {
+        let me = this;
+
         if (this.aiClientPromise) {
             await this.aiClientPromise
         }
@@ -630,8 +635,12 @@ class App extends Base {
         // short delay to ensure app VCs are in place
         await this.timeout(10);
 
-        let {appName, windowId} = data,
+        let {appName, sourcePort, windowId} = data,
             windowData;
+
+        if (!me.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
 
         try {
             windowData = await Neo.Main.getWindowData({windowId})
@@ -639,7 +648,11 @@ class App extends Base {
             console.error('onConnect: getWindowData failed', e)
         }
 
-        this.fire('connect', {appName, windowData, windowId})
+        if (!me.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
+
+        me.fire('connect', {appName, windowData, windowId})
     }
 
     /**
@@ -710,9 +723,10 @@ class App extends Base {
 
     /**
      * @param {Object} msg
+     * @param {Object} [sourcePort]
      */
-    onRegisterNeoConfig(msg) {
-        super.onRegisterNeoConfig(msg);
+    onRegisterNeoConfig(msg, sourcePort) {
+        super.onRegisterNeoConfig(msg, sourcePort);
 
         if (Neo.config.useSharedWorkers) {
             import('../manager/Window.mjs')
@@ -808,8 +822,13 @@ class App extends Base {
     /**
      * @param {Object} data
      * @param {Object} data.data
+     * @param {Object} [sourcePort]
      */
-    onWindowPositionChange({data}) {
+    onWindowPositionChange({data}, sourcePort) {
+        if (!this.isCurrentPort(sourcePort, {windowId: data.windowId})) {
+            return
+        }
+
         // Only available in shared workers
         Neo.manager.Window?.onWindowPositionChange(data);
         Neo.manager.DragCoordinator?.onWindowPositionChange(data);
@@ -824,7 +843,7 @@ class App extends Base {
      */
     registerApp(appName, windowId) {
         // register the name as fast as possible
-        this.onRegisterApp({appName});
+        this.onRegisterApp({appName}, this.getPort({windowId}));
         this.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
