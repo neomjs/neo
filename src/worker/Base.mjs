@@ -121,7 +121,7 @@ class Worker extends Base {
             hasMatch = true;
 
             Object.entries(opts).forEach(([key, value]) => {
-                if (value !== port[key]) {
+                if (key === 'appName' ? !this.hasPortApp(port, value) : value !== port[key]) {
                     hasMatch = false
                 }
             });
@@ -135,14 +135,50 @@ class Worker extends Base {
     }
 
     /**
+     * @summary Checks one app registration without reducing a multi-app browser window to one scalar owner.
+     * @param {Object} portEntry
+     * @param {String} appName
+     * @returns {Boolean}
+     */
+    hasPortApp(portEntry, appName) {
+        return portEntry.appNames instanceof Set
+            ? portEntry.appNames.has(appName)
+            : portEntry.appName === appName
+    }
+
+    /**
+     * @summary Verifies that an async operation still belongs to the exact connected port generation.
+     * @param {Object|null} portEntry
+     * @param {Object} [identity]
+     * @param {String} [identity.appName]
+     * @param {String} [identity.windowId]
+     * @returns {Boolean}
+     */
+    isCurrentPort(portEntry, {appName, windowId}={}) {
+        return !portEntry || (
+            this.ports.includes(portEntry)
+            && (!appName  || this.hasPortApp(portEntry, appName))
+            && (!windowId || portEntry.windowId === windowId)
+        )
+    }
+
+    /**
      * Only relevant for SharedWorkers
      * @param {Object} data
+     * @param {String} data.appName
+     * @param {Object} [data.sourcePort]
+     * @param {String} data.windowId
      */
     async onConnect(data) {
         // short delay to ensure app VCs are in place
         await this.timeout(10);
 
-        let {appName, windowId} = data;
+        let {appName, sourcePort, windowId} = data;
+
+        if (!this.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
+
         this.fire('connect', {appName, windowId})
     }
 
@@ -151,19 +187,19 @@ class Worker extends Base {
      * @param {Object} e
      */
     onConnected(e) {
-        let me = this,
-            id = Neo.getId('port');
+        let me        = this,
+            id        = Neo.getId('port'),
+            portEntry = {
+                appNames: new Set(),
+                id,
+                port    : e.ports[0],
+                windowId: null
+            };
 
         me.isConnected = true;
 
-        me.ports.push({
-            appName : null,
-            id,
-            port    : e.ports[0],
-            windowId: null
-        });
-
-        me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
+        me.ports.push(portEntry);
+        portEntry.port.onmessage = event => me.onMessage(event, portEntry);
 
         // core.Base: initRemote() subscribes to this event for the SharedWorkers context
         me.fire('connected');
@@ -175,6 +211,34 @@ class Worker extends Base {
         });
 
         me.afterConnect()
+    }
+
+    /**
+     * @summary Retires one exact SharedWorker port generation and releases its message handler.
+     * @param {Object} portEntry
+     * @returns {Boolean} True when the entry was live and removed
+     */
+    removePort(portEntry) {
+        const
+            me    = this,
+            index = me.ports.indexOf(portEntry);
+
+        if (index === -1) {
+            return false
+        }
+
+        me.ports.splice(index, 1);
+        portEntry.port.onmessage = null;
+        portEntry.port.close?.();
+
+        Object.entries(me.promises).forEach(([id, promise]) => {
+            if (promise.portEntry === portEntry) {
+                delete me.promises[id];
+                promise.reject(new Error(`Worker port disconnected before reply: ${portEntry.id}`))
+            }
+        });
+
+        return true
     }
 
     /**
@@ -194,27 +258,54 @@ class Worker extends Base {
     /**
      * Only relevant for SharedWorkers
      * @param {Object} data
+     * @param {String} data.appName
+     * @param {String} data.windowId
+     * @param {Object} [sourcePort]
      */
-    onDisconnect(data) {
-        let {appName, windowId} = data;
+    onDisconnect(data, sourcePort) {
+        let me                  = this,
+            {appName, windowId} = data;
+
+        sourcePort ??= me.isSharedWorker ? me.getPort({windowId}) : null;
+
+        if (sourcePort && !me.isCurrentPort(sourcePort, {appName, windowId})) {
+            return
+        }
+
+        if (me.isSharedWorker && !sourcePort) {
+            return
+        }
+
+        if (sourcePort?.appNames instanceof Set) {
+            sourcePort.appNames.delete(appName);
+            sourcePort.appNames.size || me.removePort(sourcePort)
+        } else if (sourcePort) {
+            me.removePort(sourcePort)
+        }
+
         this.fire('disconnect', {appName, windowId})
     }
 
     /**
      * @param {Object} e
+     * @param {Object} [sourcePort] Exact SharedWorker port entry which delivered the message
      */
-    onMessage(e) {
+    onMessage(e, sourcePort) {
         let me                = this,
             {data}            = e,
             {action, replyId} = data,
             promise;
+
+        if (sourcePort && !me.ports.includes(sourcePort)) {
+            return
+        }
 
         if (!action) {
             throw new Error('Message action is missing: ' + data.id)
         }
 
         if (action !== 'reply') {
-            me['on' + Neo.capitalize(action)](data);
+            me['on' + Neo.capitalize(action)](data, sourcePort);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             if (data.reject) {
                 promise.reject(data.data)
@@ -237,18 +328,19 @@ class Worker extends Base {
      * Only relevant for SharedWorkers
      * @param {Object} msg
      * @param {String} msg.appName
+     * @param {Object} [sourcePort]
      */
-    onRegisterApp(msg) {
+    onRegisterApp(msg, sourcePort) {
         let me        = this,
             {appName} = msg,
-            port;
+            port      = sourcePort || me.ports.find(item => (
+                item.appNames instanceof Set ? item.appNames.size === 0 : !item.appName
+            ));
 
-        for (port of me.ports) {
-            if (!port.appName) {
-                port.appName = appName;
-                me.onConnect({appName, windowId: port.windowId});
-                break
-            }
+        if (port && !me.hasPortApp(port, appName)) {
+            port.appNames ??= new Set(port.appName ? [port.appName] : []);
+            port.appNames.add(appName);
+            me.onConnect({appName, sourcePort: port, windowId: port.windowId})
         }
     }
 
@@ -261,15 +353,15 @@ class Worker extends Base {
      * @param {Object} msg The incoming message object.
      * @param {Object} msg.data The initial global Neo.config data object.
      * @param {String} msg.data.windowId The unique ID of the window/tab.
+     * @param {Object} [sourcePort]
      */
-    onRegisterNeoConfig({data}) {
+    onRegisterNeoConfig({data}, sourcePort) {
         Neo.ns('Neo.config', true);
 
-        for (const port of this.ports) {
-            if (!port.windowId) {
-                port.windowId = data.windowId;
-                break
-            }
+        let port = sourcePort || this.ports.find(item => !item.windowId);
+
+        if (port) {
+            port.windowId = data.windowId
         }
 
         if (!Neo.config.windowId) {
@@ -318,7 +410,11 @@ class Worker extends Base {
                 // a window got closed and the message port no longer exist (SharedWorkers)
                 reject()
             } else {
-                me.promises[msgId] = {reject, resolve}
+                me.promises[msgId] = {
+                    portEntry: message.port ? me.getPort({id: message.port}) : null,
+                    reject,
+                    resolve
+                }
             }
         })
     }
@@ -370,7 +466,12 @@ class Worker extends Base {
                 // Last-resort only when no routing key was given at all: delivering a keyed
                 // message to an arbitrary port would misroute it into a foreign window, which
                 // loses it just as silently as dropping it.
-                port = me.ports[0]?.port
+                portObject = me.ports[0];
+
+                if (portObject) {
+                    port      = portObject.port;
+                    opts.port = portObject.id
+                }
             }
         }
 

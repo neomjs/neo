@@ -211,12 +211,29 @@ class DockLayoutAdapter extends Base {
                 {
                     'aria-hidden': true,
                     cls          : ['neo-dock-stack-handle'],
+                    id           : this.stackHandleDomId(itemId),
                     tag          : 'span',
                     text         : '⠿',
                     title        : 'Drag whole stack'
                 }
             ]
         }
+    }
+
+    /**
+     * @summary Returns the stable DOM identity of one projected whole-stack grip.
+     *
+     * The grip is runtime projection state, not document state. Its semantic item id makes the
+     * address stable across re-projections so app-owned pointer choreography can target the real
+     * nested handle instead of bypassing {@link Neo.dashboard.DockTabSortZone#isStackHandleDrag}.
+     * @param {String} itemId Stable item identity.
+     * @returns {String|null}
+     * @static
+     */
+    static stackHandleDomId(itemId) {
+        return typeof itemId === 'string' && itemId
+            ? `neo-dock-stack-handle-${encodeURIComponent(itemId)}`
+            : null
     }
 
     /**

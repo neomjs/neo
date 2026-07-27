@@ -10,6 +10,8 @@ import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../src/Neo.mjs';
 import * as core                from '../../../../../src/core/_export.mjs';
 import DockProjectionReconciler from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockZoneModel            from '../../../../../src/dashboard/DockZoneModel.mjs';
+import {previewToOperation}     from '../../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane from '../../../../../apps/workstation/view/ScalePane.mjs';
@@ -42,6 +44,79 @@ const readTabChrome = workspace => {
             tab
         }]
     }))
+};
+
+/**
+ * @summary Builds one committed bare-owner + incoming-pane vessel pair without render effects.
+ * @param {Workstation.view.Workspace} workspace
+ * @param {String} [ownerItemId='alerts']
+ * @param {String} [incomingItemId='security']
+ * @returns {Object}
+ */
+const stageCommittedVessel = (workspace, ownerItemId='alerts', incomingItemId='security') => {
+    const
+        workspaceId = Workspace.vesselWorkspaceId(ownerItemId),
+        tabsNodeId  = Workspace.vesselTabsNodeId(ownerItemId),
+        detached    = DockZoneModel.applyOperation(workspace.dockModel, {
+            operation: 'detachItem',
+            itemId   : ownerItemId
+        });
+
+    if (detached.errors.length) throw new Error(detached.errors.join('; '));
+
+    workspace.dockModel = detached.document;
+
+    const
+        provisional = workspace.createVesselWorkspaceDocument(ownerItemId),
+        incoming    = DockZoneModel.transferItem(detached.document, provisional, {
+            itemId           : incomingItemId,
+            sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+            targetWorkspaceId: workspaceId,
+            target           : {operation: 'addTab', tabsNodeId}
+        }),
+        owner       = DockZoneModel.transferItem(incoming.sourceDocument, incoming.targetDocument, {
+            itemId           : ownerItemId,
+            sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+            targetWorkspaceId: workspaceId,
+            target           : {operation: 'addTab', tabsNodeId, index: 0}
+        });
+
+    if (incoming.errors.length || owner.errors.length) {
+        throw new Error([...incoming.errors, ...owner.errors].join('; '))
+    }
+
+    const state = {
+        app                 : {mainView: {isDestroyed: false}},
+        closeRequested      : false,
+        committed           : true,
+        disconnected        : false,
+        document            : provisional,
+        host                : null,
+        itemId              : ownerItemId,
+        participation       : null,
+        participationPromise: null,
+        preview             : null,
+        reconciling         : false,
+        windowId            : `window-${ownerItemId}`,
+        workspaceId
+    };
+
+    workspace.vesselWorkspaces.set(workspaceId, state);
+    workspace.workspaceSet.register(workspaceId, {
+        getDocument: () => state.document,
+        setDocument: document => state.document = document
+    });
+
+    if (!workspace.workspaceSet.adoptTransfer({
+        sourceDocument   : owner.sourceDocument,
+        sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+        targetDocument   : owner.targetDocument,
+        targetWorkspaceId: workspaceId
+    })) {
+        throw new Error('workspace-set refused fixture transfer')
+    }
+
+    return {state, tabsNodeId, workspaceId}
 };
 
 /**
@@ -222,6 +297,715 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(scalePane.isDestroyed).toBeFalsy();
             expect(feedPane.isDestroyed).toBeFalsy()
         } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('cross-window source projection publishes stable workspace identity and conversion ownership', () => {
+        const
+            originalWindowPosition = Neo.main.addon.WindowPosition,
+            windowPosition         = originalWindowPosition ?? Neo.ns('Neo.main.addon.WindowPosition', true),
+            originalSetConfigs     = windowPosition.setConfigs,
+            resizeCalls            = [];
+        let workspace;
+
+        try {
+            windowPosition.setConfigs = data => resizeCalls.push(data);
+            workspace = Neo.create(Workspace, {});
+
+            const
+                chrome            = readTabChrome(workspace),
+                targetWorkspaceId = Workspace.vesselWorkspaceId('alerts');
+
+            workspace.vesselWorkspaces.set(targetWorkspaceId, {windowId: 'window-alerts'});
+            chrome.get('right-top-tabs').tab.fire('dockVesselConversionIn', {
+                itemId  : 'audit',
+                record  : {sourceRect: null},
+                targetId: targetWorkspaceId
+            });
+
+            expect(resizeCalls).toEqual([{
+                observeResize: true,
+                windowId     : workspace.windowId
+            }]);
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.workspaceSet.getDocument(Workspace.MAIN_WORKSPACE_ID)).toBe(workspace.dockModel);
+            expect(workspace.vesselConversionTargetWindowId).toBe('window-alerts');
+
+            chrome.forEach(({bar}, nodeId) => {
+                expect(bar.sortZoneConfig, `${nodeId} joins the one cross-window source group`).toMatchObject({
+                    dockWorkspaceId       : Workspace.MAIN_WORKSPACE_ID,
+                    enableVesselConversion: true,
+                    sortGroup             : Workspace.CROSS_WINDOW_SORT_GROUP
+                })
+            })
+        } finally {
+            workspace?.destroy();
+            if (originalWindowPosition) {
+                originalSetConfigs
+                    ? windowPosition.setConfigs = originalSetConfigs
+                    : delete windowPosition.setConfigs
+            } else {
+                delete Neo.main.addon.WindowPosition
+            }
+        }
+    });
+
+    test('a connected vessel stays unregistered until an accepted drop seeds document ownership', async () => {
+        const
+            workspace   = Neo.create(Workspace, {}),
+            workspaceId = Workspace.vesselWorkspaceId('alerts'),
+            classes     = [],
+            destroyed   = [],
+            preview     = {dockPreview: null, applyTargetGeometry() {}},
+            mainView    = {
+                id           : 'workstation-vessel-view',
+                isDestroyed  : false,
+                add          : () => preview,
+                addCls       : cls => classes.push(cls),
+                promiseUpdate: async () => {}
+            };
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+
+            workspace.createCrossWindowParticipation = async data => ({
+                ...data,
+                destroy: () => destroyed.push(data.workspaceId)
+            });
+            workspace.tearOutPanes.alerts = {windowId: 'window-alerts'};
+
+            const state = await workspace.registerVesselWorkspaceTarget({
+                app     : {mainView},
+                itemId  : 'alerts',
+                windowId: 'window-alerts'
+            });
+
+            expect(state).toMatchObject({
+                committed: false,
+                document : null,
+                itemId   : 'alerts',
+                windowId : 'window-alerts',
+                workspaceId
+            });
+            expect(workspaceId).toBe('workstation-vessel:alerts');
+            expect(workspaceId).not.toContain('window-alerts');
+            expect(classes).toEqual(['workstation-vessel-target']);
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.crossWindowParticipations.get(workspaceId)).toBe(state.participation);
+
+            const provisional = workspace.getWorkspaceDocument(workspaceId);
+
+            expect(DockZoneModel.validate(provisional)).toEqual([]);
+            expect(provisional.items).toEqual({});
+            expect(provisional.nodes[Workspace.vesselTabsNodeId('alerts')]).toEqual({
+                activeItemId: null,
+                items       : [],
+                type        : 'tabs'
+            });
+            expect(workspace.workspaceSet.ids()).toEqual([Workspace.MAIN_WORKSPACE_ID]);
+
+            const
+                WindowManager = Neo.manager.Window,
+                originalGet   = WindowManager.get;
+
+            try {
+                WindowManager.get = () => ({innerRect: {width: 480, height: 320}});
+
+                const edgePreview = workspace.renderCrossWindowPreview(workspaceId, {
+                    draggedItem: {
+                        dockItemId           : 'security',
+                        dockSourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+                    },
+                    localX      : 1,
+                    localY      : 1,
+                    sourceNodeId: 'heavy-tabs'
+                });
+
+                expect(previewToOperation(edgePreview)).toEqual({
+                    operation : 'addTab',
+                    itemId    : 'security',
+                    index     : null,
+                    tabsNodeId: Workspace.vesselTabsNodeId('alerts')
+                })
+            } finally {
+                WindowManager.get = originalGet
+            }
+
+            workspace.clearCrossWindowPreview(workspaceId);
+
+            expect(state.document).toBeNull();
+            expect(preview.dockPreview).toBeNull();
+            expect(destroyed).toEqual([])
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('pane identity remains readable after the catalog moves into a vessel workspace', () => {
+        const workspace = Neo.create(Workspace, {});
+
+        try {
+            const
+                alertsIdentity   = workspace.getPaneIdentity('alerts'),
+                securityIdentity = workspace.getPaneIdentity('security');
+
+            stageCommittedVessel(workspace);
+
+            expect(workspace.dockModel.items.alerts).toBeUndefined();
+            expect(workspace.dockModel.items.security).toBeUndefined();
+            expect(workspace.getPaneIdentity('alerts')).toBe(alertsIdentity);
+            expect(workspace.getPaneIdentity('security')).toBe(securityIdentity)
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('first dock adopts A+B once; whole-stack return projects main before a refused close', async () => {
+        const
+            workspace     = Neo.create(Workspace, {}),
+            workspaceId   = Workspace.vesselWorkspaceId('alerts'),
+            tabsNodeId    = Workspace.vesselTabsNodeId('alerts'),
+            originalAdopt = workspace.workspaceSet.adoptTransfer,
+            order         = [];
+
+        try {
+            await workspace.refreshPromise;
+
+            const detached = DockZoneModel.applyOperation(workspace.dockModel, {
+                operation: 'detachItem',
+                itemId   : 'alerts'
+            });
+
+            expect(detached.errors).toEqual([]);
+            workspace.dockModel = detached.document;
+
+            const state = {
+                app          : {mainView: {isDestroyed: false}},
+                committed    : false,
+                document     : workspace.createVesselWorkspaceDocument('alerts'),
+                host         : null,
+                itemId       : 'alerts',
+                participation: null,
+                preview      : null,
+                windowId     : 'window-alerts',
+                workspaceId
+            };
+
+            workspace.tearOutPanes.alerts = {windowId: 'window-alerts'};
+            workspace.vesselWorkspaces.set(workspaceId, state);
+            workspace.timeout = async () => {};
+            workspace.mountVesselWorkspace = async id => {
+                order.push(['project-target', id]);
+                return true
+            };
+            workspace.refreshCrossWindowParticipation = async id => order.push(['participation', id]);
+            workspace.refreshDockWorkspace = async () => {
+                order.push(['project-main']);
+                await workspace.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID)
+            };
+            workspace.retireReturnedVessel = async id => {
+                order.push(['close-refused', id]);
+                return false
+            };
+
+            const transferIncoming = () => DockZoneModel.transferItem(
+                workspace.dockModel,
+                state.document,
+                {
+                    itemId           : 'security',
+                    sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    targetWorkspaceId: workspaceId,
+                    target           : {operation: 'addTab', tabsNodeId}
+                }
+            );
+            let incoming = transferIncoming();
+
+            expect(incoming.errors).toEqual([]);
+
+            workspace.workspaceSet.adoptTransfer = () => false;
+
+            expect(workspace.commitCrossWindowTransfer({
+                descriptor: {
+                    operation        : 'transferItem',
+                    itemId           : 'security',
+                    sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    targetWorkspaceId: workspaceId,
+                    target           : {operation: 'addTab', tabsNodeId}
+                },
+                sourceDocument   : incoming.sourceDocument,
+                sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                targetDocument   : incoming.targetDocument,
+                targetWorkspaceId: workspaceId
+            })).toBe(false);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
+            expect(state).toMatchObject({committed: false, document: null});
+            expect(workspace.dockModel).toBe(detached.document);
+            expect(order).toEqual([]);
+
+            state.document = workspace.createVesselWorkspaceDocument('alerts');
+            incoming = transferIncoming();
+            let adoptionCount = 0;
+
+            workspace.workspaceSet.adoptTransfer = data => {
+                adoptionCount++;
+                order.push(['adopt']);
+                return originalAdopt(data)
+            };
+
+            expect(workspace.commitCrossWindowTransfer({
+                descriptor: {
+                    operation        : 'transferItem',
+                    itemId           : 'security',
+                    sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    targetWorkspaceId: workspaceId,
+                    target           : {operation: 'addTab', tabsNodeId}
+                },
+                sourceDocument   : incoming.sourceDocument,
+                sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                targetDocument   : incoming.targetDocument,
+                targetWorkspaceId: workspaceId
+            })).toBe(true);
+
+            expect(adoptionCount).toBe(1);
+            expect(order).toEqual([['adopt']]);
+            expect(state.committed).toBe(true);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
+            expect(state.document.nodes[tabsNodeId].items).toEqual(['alerts', 'security']);
+            expect(workspace.dockModel.items.alerts).toBeUndefined();
+            expect(workspace.dockModel.items.security).toBeUndefined();
+            expect(state.document.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(state.document.items.security).toEqual(initialDocument.items.security);
+
+            await workspace.refreshPromise;
+
+            expect(order).toEqual([
+                ['adopt'],
+                ['project-target', workspaceId],
+                ['project-main'],
+                ['participation', Workspace.MAIN_WORKSPACE_ID]
+            ]);
+            expect(workspace.lastCrossWindowTransfer).toMatchObject({
+                applied          : true,
+                reconciled       : true,
+                sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: workspaceId
+            });
+
+            order.length = 0;
+
+            const returnDescriptor = {
+                    operation        : 'transferNode',
+                    nodeId           : DockZoneModel.resolveStackRoot(state.document),
+                    sourceWorkspaceId: workspaceId,
+                    targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    target           : {
+                        targetNodeId: 'heavy-tabs',
+                        placement   : {kind: 'tab-into'}
+                    }
+                },
+                returned = DockZoneModel.transferNode(
+                    state.document,
+                    workspace.dockModel,
+                    returnDescriptor
+                );
+
+            expect(returned.errors).toEqual([]);
+            expect(workspace.commitCrossWindowTransfer({
+                descriptor       : returnDescriptor,
+                sourceDocument   : returned.sourceDocument,
+                sourceWorkspaceId: workspaceId,
+                targetDocument   : returned.targetDocument,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            })).toBe(true);
+            expect(adoptionCount).toBe(2);
+            expect(order).toEqual([['adopt']]);
+            expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(workspace.dockModel.items.security).toEqual(initialDocument.items.security);
+            expect(state.document.items).toEqual({});
+
+            await workspace.refreshPromise;
+
+            expect(order).toEqual([
+                ['adopt'],
+                ['project-main'],
+                ['participation', Workspace.MAIN_WORKSPACE_ID],
+                ['close-refused', workspaceId]
+            ]);
+            expect(state.committed).toBe(true);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
+            expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(workspace.dockModel.items.security).toEqual(initialDocument.items.security)
+        } finally {
+            workspace.workspaceSet.adoptTransfer = originalAdopt;
+            workspace.destroy()
+        }
+    });
+
+    test('unexpected vessel death atomically recovers the whole A+B stack', () => {
+        const
+            workspace              = Neo.create(Workspace, {}),
+            {state, workspaceId}   = stageCommittedVessel(workspace),
+            originalTearOut        = workspace.tearOutHandlers,
+            originalPark           = workspace.vesselParkHandlers,
+            originalDocumentChange = workspace.onDockZoneDocumentChange,
+            projections            = [];
+
+        try {
+            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutPanes.alerts = {
+                admissionToken: 7,
+                generation    : 3,
+                windowId      : 'window-alerts',
+                windowName    : 'tearout-alerts'
+            };
+            workspace.tearOutHandlers = {onVesselRetired() {}};
+            workspace.vesselParkHandlers = {onVesselRetired() {}};
+            workspace.onDockZoneDocumentChange = (document, options) => {
+                projections.push({document, options})
+            };
+
+            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+
+            expect(workspace.dockModel.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(workspace.dockModel.items.security).toEqual(initialDocument.items.security);
+            expect(state.document.items).toEqual({});
+            expect(workspace.vesselWorkspaces.has(workspaceId)).toBe(false);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
+            expect(workspace.tearOutPanes.alerts).toBeUndefined();
+            expect(workspace.tearOutPlacements.alerts).toBeUndefined();
+            expect(workspace.lastCrossWindowTransfer).toMatchObject({
+                applied              : true,
+                recoveredOnDisconnect: true,
+                sourceWorkspaceId    : workspaceId,
+                targetWorkspaceId    : Workspace.MAIN_WORKSPACE_ID,
+                topologyExited       : true
+            });
+            expect(projections).toHaveLength(1);
+            expect(new Set(projections[0].options.preserveItemIds)).toEqual(new Set(['alerts', 'security']))
+        } finally {
+            workspace.tearOutHandlers        = originalTearOut;
+            workspace.vesselParkHandlers     = originalPark;
+            workspace.onDockZoneDocumentChange = originalDocumentChange;
+            workspace.destroy()
+        }
+    });
+
+    test('a refused disconnect recovery retains the only A+B truth as a headless workspace', () => {
+        const
+            workspace            = Neo.create(Workspace, {}),
+            {state, workspaceId} = stageCommittedVessel(workspace),
+            originalAdopt        = workspace.workspaceSet.adoptTransfer,
+            originalTearOut      = workspace.tearOutHandlers,
+            originalPark         = workspace.vesselParkHandlers;
+
+        try {
+            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutPanes.alerts = {
+                admissionToken: 7,
+                generation    : 3,
+                windowId      : 'window-alerts',
+                windowName    : 'tearout-alerts'
+            };
+            workspace.tearOutHandlers = {onVesselRetired() {}};
+            workspace.vesselParkHandlers = {onVesselRetired() {}};
+            workspace.workspaceSet.adoptTransfer = () => false;
+
+            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+
+            expect(workspace.dockModel.items.alerts).toBeUndefined();
+            expect(workspace.dockModel.items.security).toBeUndefined();
+            expect(state.document.items.alerts).toEqual(initialDocument.items.alerts);
+            expect(state.document.items.security).toEqual(initialDocument.items.security);
+            expect(workspace.vesselWorkspaces.get(workspaceId)).toBe(state);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
+            expect(state).toMatchObject({
+                app         : null,
+                disconnected: true,
+                host        : null,
+                preview     : null,
+                windowId    : null
+            });
+            expect(workspace.tearOutPlacements.alerts).toEqual({index: 0, tabsNodeId: 'heavy-tabs'});
+            expect(workspace.lastCrossWindowTransfer).toMatchObject({
+                applied: false,
+                errors : ['workspace-set refused disconnected-vessel recovery']
+            })
+        } finally {
+            workspace.workspaceSet.adoptTransfer = originalAdopt;
+            workspace.tearOutHandlers            = originalTearOut;
+            workspace.vesselParkHandlers         = originalPark;
+            workspace.destroy()
+        }
+    });
+
+    test('close acknowledgement retains workspace truth until exact topology exit', async () => {
+        const
+            workspace              = Neo.create(Workspace, {}),
+            {state, workspaceId}   = stageCommittedVessel(workspace),
+            originalClose          = workspace.closeTearOutVessel,
+            originalTearOut        = workspace.tearOutHandlers,
+            originalPark           = workspace.vesselParkHandlers,
+            participantRetirements = [];
+        let closedVessel;
+
+        try {
+            const
+                descriptor = {
+                    operation        : 'transferNode',
+                    nodeId           : DockZoneModel.resolveStackRoot(state.document),
+                    sourceWorkspaceId: workspaceId,
+                    targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                    target           : {
+                        targetNodeId: 'heavy-tabs',
+                        placement   : {kind: 'tab-into'}
+                    }
+                },
+                returned = DockZoneModel.transferNode(state.document, workspace.dockModel, descriptor);
+
+            expect(returned.errors).toEqual([]);
+            expect(workspace.workspaceSet.adoptTransfer({
+                sourceDocument   : returned.sourceDocument,
+                sourceWorkspaceId: workspaceId,
+                targetDocument   : returned.targetDocument,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+            })).toBe(true);
+
+            state.participation = {destroy: () => participantRetirements.push('destroy')};
+            workspace.crossWindowParticipations.set(workspaceId, state.participation);
+            workspace.tearOutPlacements.alerts = {index: 0, tabsNodeId: 'heavy-tabs'};
+            workspace.tearOutPanes.alerts = {
+                admissionToken: 7,
+                generation    : 3,
+                windowId      : 'window-alerts',
+                windowName    : 'tearout-alerts'
+            };
+            workspace.lastCrossWindowTransfer = {
+                applied          : true,
+                closeRequested   : false,
+                sourceWorkspaceId: workspaceId,
+                targetWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                topologyExited   : false
+            };
+            workspace.closeTearOutVessel = async vessel => {
+                closedVessel = vessel;
+                return true
+            };
+
+            await expect(workspace.retireReturnedVessel(workspaceId)).resolves.toBe(true);
+
+            expect(closedVessel).toMatchObject({
+                itemId    : 'alerts',
+                windowId  : 'window-alerts',
+                windowName: 'tearout-alerts'
+            });
+            expect(state.closeRequested).toBe(true);
+            expect(workspace.vesselWorkspaces.get(workspaceId)).toBe(state);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(true);
+            expect(workspace.lastCrossWindowTransfer).toMatchObject({
+                closeRequested: true,
+                topologyExited: false
+            });
+            expect(participantRetirements).toEqual(['destroy']);
+
+            workspace.tearOutHandlers = {onVesselRetired() {}};
+            workspace.vesselParkHandlers = {onVesselRetired() {}};
+            workspace.onWindowDisconnect({windowId: 'window-alerts'});
+
+            expect(workspace.vesselWorkspaces.has(workspaceId)).toBe(false);
+            expect(workspace.workspaceSet.has(workspaceId)).toBe(false);
+            expect(workspace.lastCrossWindowTransfer.topologyExited).toBe(true);
+            expect(participantRetirements).toEqual(['destroy'])
+        } finally {
+            workspace.closeTearOutVessel = originalClose;
+            workspace.tearOutHandlers    = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
+            workspace.destroy()
+        }
+    });
+
+    test('vessel projection retires its one-shot incoming target after paint', async () => {
+        const
+            workspace   = Neo.create(Workspace, {}),
+            workspaceId = Workspace.vesselWorkspaceId('alerts'),
+            provisional = workspace.createVesselWorkspaceDocument('alerts'),
+            moved       = DockZoneModel.transferItem(workspace.dockModel, provisional, {
+                itemId           : 'alerts',
+                sourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: workspaceId,
+                target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId('alerts')}
+            }),
+            order       = [],
+            preview     = {parent: {remove: () => order.push('preview-parked')}},
+            host        = {
+                isDestroyed  : false,
+                promiseUpdate: async () => order.push('paint')
+            },
+            mainView    = {
+                isDestroyed: false,
+                add        : () => {
+                    order.push('projection-created');
+                    return host
+                }
+            },
+            participation = {destroy: () => order.push('target-retired')};
+
+        try {
+            expect(moved.errors).toEqual([]);
+
+            workspace.vesselWorkspaces.set(workspaceId, {
+                app      : {mainView},
+                committed: true,
+                document : moved.targetDocument,
+                host     : null,
+                itemId   : 'alerts',
+                participation,
+                preview,
+                windowId : 'window-alerts',
+                workspaceId
+            });
+            workspace.crossWindowParticipations.set(workspaceId, participation);
+
+            await expect(workspace.mountVesselWorkspace(workspaceId)).resolves.toBe(true);
+            expect(order).toEqual([
+                'preview-parked',
+                'projection-created',
+                'paint',
+                'target-retired'
+            ]);
+            expect(workspace.crossWindowParticipations.has(workspaceId)).toBe(false);
+            expect(workspace.vesselWorkspaces.get(workspaceId).participation).toBeNull()
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('cross-window hit-testing follows live manager.Window dimensions', async () => {
+        const
+            workspace   = Neo.create(Workspace, {}),
+            workspaceId = Workspace.vesselWorkspaceId('alerts');
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+            workspace.tearOutPanes.alerts = {windowId: 'window-alerts'};
+            workspace.vesselWorkspaces.set(workspaceId, {
+                itemId  : 'alerts',
+                windowId: 'window-alerts'
+            });
+
+            const
+                WindowManager = Neo.manager.Window,
+                originalGet   = WindowManager.get;
+            let innerRect = {width: 320, height: 240};
+
+            try {
+                WindowManager.get = () => ({innerRect});
+
+                expect(workspace.hitTestCrossWindowTarget(
+                    workspaceId,
+                    300,
+                    200
+                )).toBe(true);
+
+                innerRect = {width: 240, height: 160};
+
+                expect(workspace.hitTestCrossWindowTarget(
+                    workspaceId,
+                    300,
+                    200
+                )).toBe(false)
+            } finally {
+                WindowManager.get = originalGet
+            }
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('physical vessel death clears both tear-out and park lifecycle owners', () => {
+        const
+            workspace       = Neo.create(Workspace, {}),
+            originalTearOut = workspace.tearOutHandlers,
+            originalPark    = workspace.vesselParkHandlers,
+            calls           = [];
+
+        try {
+            workspace.tearOutConnects.alerts = {
+                admissionToken: 7,
+                generation    : 3,
+                windowId      : 'tear-child'
+            };
+            workspace.tearOutHandlers = {
+                onVesselRetired: data => calls.push(['tear-out', data])
+            };
+            workspace.vesselParkHandlers = {
+                onVesselRetired: data => calls.push(['park', data])
+            };
+
+            workspace.onWindowDisconnect({windowId: 'tear-child'});
+
+            expect(workspace.tearOutConnects.alerts).toBeUndefined();
+            expect(calls).toEqual([
+                ['tear-out', {
+                    admissionToken: 7,
+                    generation    : 3,
+                    itemId        : 'alerts',
+                    windowName    : 'tearout-alerts'
+                }],
+                ['park', {itemId: 'alerts', retirement: true}]
+            ])
+        } finally {
+            workspace.tearOutHandlers  = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
+            workspace.destroy()
+        }
+    });
+
+    test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
+        const
+            workspace       = Neo.create(Workspace, {}),
+            originalTearOut = workspace.tearOutHandlers,
+            originalPark    = workspace.vesselParkHandlers,
+            active          = {itemId: 'alerts', windowName: 'tearout-alerts'},
+            calls           = [];
+        let admitRetirement = true;
+
+        workspace.tearOutHandlers = {
+            activeVessel     : active,
+            onDockTearOutExit: async data => {
+                calls.push(['exit', data]);
+                return true
+            },
+            retireActiveVessel: async data => {
+                calls.push(['retire', data]);
+                return admitRetirement
+            }
+        };
+        workspace.vesselParkHandlers = {
+            onVesselRetired: data => calls.push(['park-retired', data])
+        };
+
+        const data = {sortZone: {endWindowDrag: () => calls.push('end')}};
+
+        try {
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(true);
+            expect(calls).toEqual([
+                ['retire', active],
+                ['park-retired', {itemId: 'alerts', retirement: true}],
+                ['exit', data]
+            ]);
+
+            calls.length    = 0;
+            admitRetirement = false;
+
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(false);
+            expect(calls).toEqual([
+                ['retire', active],
+                'end'
+            ])
+        } finally {
+            workspace.tearOutHandlers  = originalTearOut;
+            workspace.vesselParkHandlers = originalPark;
             workspace.destroy()
         }
     });

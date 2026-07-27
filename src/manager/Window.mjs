@@ -164,8 +164,9 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Removes live geometry when its source window disconnects.
      * @param {Object} data
-     * @param {Number} data.appName
+     * @param {String} data.appName
      * @param {String} data.windowId
      */
     onWindowDisconnect({windowId}) {
@@ -173,6 +174,7 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Updates geometry forwarded by the App Worker from a live source port.
      * Updates the geometric state of a window based on data from the Main Thread.
      * This method is called via direct delegation from the App Worker to minimize overhead.
      * @param {Object} data

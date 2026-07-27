@@ -328,6 +328,27 @@ class DockTabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * @summary Prevents popup-scale boundary overlap from impersonating a source-window re-entry
+     * after a remote target already won the current pointer frame.
+     *
+     * The coordinator resolves claims before the base boundary sampler runs. Once a remote claim
+     * exists, that frame belongs to the remote window even when the future-vessel-sized proxy
+     * geometrically overlaps the source boundary. The next claim-free frame delegates unchanged,
+     * preserving ordinary void motion and the real return-to-source transition.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    checkWindowBoundary(data) {
+        let me          = this,
+            remoteClaim = me.dragCoordinator?.pointerClaimArbiter?.resolve?.() ?? null;
+
+        if (me.isWindowDragging && remoteClaim) return true;
+
+        return super.checkWindowBoundary(data)
+    }
+
+    /**
      * @summary Ends a non-terminal conversion because its target disappeared.
      *
      * Unlike {@link #resetVesselConversion}, this path emits the sensor's convert-out seam before
@@ -893,13 +914,25 @@ class DockTabSortZone extends TabHeaderSortZone {
 
     /**
      * @summary Whether this drag originated on the opt-in whole-stack grip.
+     *
+     * `main.addon.DragDrop#getEventData` preserves the native mousedown element as `target` and
+     * its original composed path as `targetPath`, but replaces `path` with the custom `drag:start`
+     * event path. That path begins at the draggable tab button, so a nested grip cannot be inferred
+     * from it in the production mouse pipeline. Keep all three scans for direct/native callers
+     * while treating the preserved target surfaces as the authoritative origin.
      * @param {Object} data drag-start payload with the main-thread DOM path
      * @returns {Boolean}
      * @protected
      */
     isStackHandleDrag(data) {
-        return !!this.dockGroupNodeId && (data?.path || []).some(node =>
-            Array.isArray(node.cls) && node.cls.includes('neo-dock-stack-handle'))
+        let hasMarker = node =>
+            Array.isArray(node?.cls) && node.cls.includes('neo-dock-stack-handle');
+
+        return !!this.dockGroupNodeId && (
+            hasMarker(data?.target) ||
+            (data?.targetPath || []).some(hasMarker) ||
+            (data?.path || []).some(hasMarker)
+        )
     }
 
     /**

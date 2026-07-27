@@ -20,19 +20,16 @@ import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeome
  *  5. «The signature»        — final topology plus the continuity readout: the same live
  *                              instances, heartbeats monotonic across every transition.
  *
- * Scene 2 is LIVE (the workstation composes the shipped tear-out machinery: `?popout=` vessel
- * shell + DockTearOut/DockVesselEmbodiment composition + the app-owned `executeTearOutStep`
- * executor), including the back-IN morph witness — one continuous drag out and home again,
- * zero mutation by guard. Beats 3-4 remain CONTRACTED (test.fixme) until the cross-window
- * docking wiring lands (conversion, remote zone previews, arbitration, stack return; the
- * mechanics are already shipped in src/dashboard). Each fixme names the worker-truth receipts
- * its activation must assert, so the contract stays reviewable and the legs turn on without
- * reshaping the suite.
+ * Scenes 2-5 are LIVE through app-owned real-pointer executors: tear-out + back-IN morph,
+ * convert-while-dragging into another vessel, deterministic remote arbitration, whole-stack
+ * return through physical topology exit, and the two-take full-journey composition that binds
+ * these independently executable receipts into one deterministic beat log.
  *
- * Determinism contract: the executable journey runs TWICE per spec run; the per-beat logs must
- * be identical across runs (structural facts only — no clock-coupled values), with a
- * zero-residue reload between takes. The film's recording pipeline replays exactly this drive
- * headed, so a surface fix re-runs the spec instead of re-recording a one-shot video.
+ * Scene 1, the showcase witness, and Scene 5 run twice per spec with structural equality. Scene 5's
+ * determinism contract is the uninterrupted full journey twice, with identical clock-free beat
+ * logs and a zero-residue reload between takes. The film's recording pipeline replays the same
+ * app-owned drives headed, so a surface fix re-runs the spec instead of re-recording a one-shot
+ * video.
  *
  * Claim boundary: this spec makes NO cross-platform, default-selection, or release-portability
  * claims — its receipts are macOS-headed only, and caption copy derived from it inherits the
@@ -191,33 +188,45 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * birth failure needs, logged as they happen because a failed birth can outlive the bridge
      * call that reports it).
      * @param {Object} fixtures `{page, neuralLink}`
-     * @returns {Promise<Object>} `{app, pageErrors, popupProbe, wsId}`
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.navigate=true] Set false only after this runner's own reload, so
+     * the next worker read witnesses that exact navigation instead of hiding it behind a goto.
+     * @returns {Promise<Object>} `{app, disposeObservers, pageErrors, popupProbe, wsId}`
      */
-    async function boot({page, neuralLink}) {
+    async function boot({page, neuralLink}, {navigate=true}={}) {
         const pageErrors = [],
               popupProbe = [];
         let stageReceipt;
 
-        page.on('pageerror', error => {
-            let value = String(error?.stack || error?.message || error || '');
+        const
+            onPageError = error => {
+                let value = String(error?.stack || error?.message || error || '');
 
-            value && value !== 'undefined' && pageErrors.push(value)
-        });
+                value && value !== 'undefined' && pageErrors.push(value)
+            },
+            onPopup = popup => {
+                const fact = {urlAtOpen: popup.url(), loaded: false};
+
+                popupProbe.push(fact);
+                console.log(`[vessel-probe] popup created urlAtOpen=${fact.urlAtOpen}`);
+                popup.on('pageerror', error => {
+                    let value = String(error?.stack || error?.message || error || '');
+
+                    value && value !== 'undefined' && pageErrors.push(`[popup] ${value}`)
+                });
+                popup.once('load',  () => {fact.loaded = true; fact.urlAtLoad = popup.url(); console.log(`[vessel-probe] popup loaded ${fact.urlAtLoad}`)});
+                popup.once('close', () => {fact.closed = true; console.log('[vessel-probe] popup closed')})
+            };
+
+        page.on('pageerror', onPageError);
 
         // Passive birth-layer probe: whether the platform CREATED a popup window is a different
         // fact from whether its page loaded, which is a different fact from whether the vessel
         // joined the shared heap (the executor's own gate). A birth failure needs all three —
         // logged EAGERLY, because a failed birth can outlive the bridge call that reports it.
-        page.on('popup', popup => {
-            const fact = {urlAtOpen: popup.url(), loaded: false};
+        page.on('popup', onPopup);
 
-            popupProbe.push(fact);
-            console.log(`[vessel-probe] popup created urlAtOpen=${fact.urlAtOpen}`);
-            popup.once('load',  () => {fact.loaded = true; fact.urlAtLoad = popup.url(); console.log(`[vessel-probe] popup loaded ${fact.urlAtLoad}`)});
-            popup.once('close', () => {fact.closed = true; console.log('[vessel-probe] popup closed')})
-        });
-
-        await page.goto('/apps/workstation/index.html');
+        navigate && await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-tour-play',    {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
 
@@ -231,14 +240,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             stageReceipt = await pinToCaptureDisplay(page)
         }
 
-        const app        = await neuralLink.connectToApp('Workstation'),
-              workspaces = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
-              wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
+        const
+            app        = await neuralLink.connectToApp('Workstation'),
+            found      = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
+            workspaces = Array.isArray(found) ? found : found ? [found] : [],
+            wsId       = workspaces[0]?.id;
 
+        expect(workspaces, 'the connected page must own exactly one current Workspace').toHaveLength(1);
         expect(wsId, 'the App Worker must own one Workspace').toBeTruthy();
         stageReceipt && await assertStageGeometryPublished(app, stageReceipt);
 
-        return {app, pageErrors, popupProbe, wsId}
+        return {
+            app,
+            disposeObservers() {
+                page.off('pageerror', onPageError);
+                page.off('popup', onPopup)
+            },
+            pageErrors,
+            popupProbe,
+            wsId
+        }
     }
 
     /**
@@ -261,6 +282,48 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      */
     async function readHeartbeat(app, wsId) {
         return (await app.getComponent(wsId, ['feedSequence'])).feedSequence
+    }
+
+    /**
+     * @summary Creates scene 3's committed A+B vessel through two real pointer gestures.
+     *
+     * The first gesture tears `metrics` out into the target vessel. The second tears `commits` out
+     * while still down, parks that exact popup over the first, and commits through the remote
+     * participation. The panes originate in different tabs nodes so the main workspace retains a
+     * concrete semantic home for the whole-stack return. Both popup handles come from Playwright's
+     * real window set.
+     * @param {Object} data
+     * @param {Object} data.app Neural Link app wrapper.
+     * @param {Object} data.page Playwright page.
+     * @param {String} data.wsId Workspace component id.
+     * @returns {Promise<Object>}
+     */
+    async function stageMergedVessel({app, page, wsId}) {
+        const
+            targetPopupPromise = page.waitForEvent('popup', {timeout: 90000}),
+            ownerResult        = await app.callMethod(wsId, 'executeTearOutStep', [
+                {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+                filmPace
+            ]),
+            targetPopup        = await targetPopupPromise,
+            sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
+            dockResult         = await app.callMethod(wsId, 'executeCrossWindowDockStep', [
+                {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
+                {
+                    attempts  : filmPace.birthAttempts ?? 180,
+                    moveDelay : filmPace.moveDelay ?? 16,
+                    moveSteps : filmPace.moveSteps ?? 4,
+                    showCursor: filmPace.showCursor ?? false
+                }
+            ]),
+            sourcePopup = await sourcePopupPromise;
+
+        await expect.poll(() => sourcePopup.isClosed(), {
+            message: 'the converted source vessel must retire after its remote commit',
+            timeout: 15000
+        }).toBe(true);
+
+        return {dockResult, ownerResult, sourcePopup, targetPopup}
     }
 
     /**
@@ -581,6 +644,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             if (run < journeyRuns - 1) {
                 await page.reload()
             }
+
+            ctx.disposeObservers()
         }
 
         // The normal proof profile retains its two-run equality contract. Film mode records one
@@ -678,6 +743,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             if (run < journeyRuns - 1) {
                 await page.reload()
             }
+
+            ctx.disposeObservers()
         }
 
         if (!filmTake) {
@@ -988,31 +1055,383 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
-    test.fixme('scene 3 — the second window learns to dock: convert-while-dragging + exactly one preview', async () => {
-        // Receipts this leg must assert when activated:
-        //  - a second pane converts to a vessel while its drag continues (park-not-close
-        //    lifecycle: the vessel is parked during the gesture, never destroyed mid-flight);
-        //  - dragged over the first popup, the TARGET popup's zones preview (remote previews
-        //    rendered inside the other window);
-        //  - with two overlapping candidates, EXACTLY ONE preview claims — deterministic
-        //    arbitration, asserted from the claim registry, not from pixels;
-        //  - release docks: two panes in one popup, both stores still streaming.
+    test('scene 3 — the second window learns to dock: convert-while-dragging + exactly one preview', async ({page, neuralLink}) => {
+        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const
+            heartbeatBefore                        = await readHeartbeat(app, wsId),
+            metricsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            commitsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+            {dockResult, ownerResult, targetPopup} = await stageMergedVessel({app, page, wsId});
+
+        expect(ownerResult.errors).toEqual([]);
+        expect(ownerResult.applied, 'pane A must commit into the first real vessel').toBe(true);
+        expect(
+            dockResult.errors,
+            `cross-window dock receipt: ${JSON.stringify(dockResult.proof ?? null)}`
+        ).toEqual([]);
+        expect(dockResult.applied, 'pane B must commit into A through the remote target').toBe(true);
+
+        const snapshot = dockResult.proof.remoteSnapshot;
+
+        expect(snapshot).toMatchObject({
+            claimCount           : 1,
+            converted            : true,
+            engaged              : true,
+            parkedItemId         : 'commits',
+            sourceVesselConnected: true,
+            targetWorkspaceId    : 'workstation-vessel:metrics',
+            winnerStableId       : 'workstation-vessel:metrics'
+        });
+        expect(snapshot.sourceVesselWindowId, 'the parked physical source vessel must still exist pre-mouseup')
+            .toBeTruthy();
+        expect(snapshot.preview.previewId, 'the target must publish one semantic preview').toBeTruthy();
+        expect(snapshot.rendered.previewId, 'that same preview must paint inside the target popup')
+            .toBe(snapshot.preview.previewId);
+        expect(snapshot.preview.target.nodeId).toBe('workstation-vessel-tabs:metrics');
+
+        const targetTabs = dockResult.proof.targetDocument.nodes['workstation-vessel-tabs:metrics'];
+
+        expect(targetTabs.items, 'the first accepted drop must compose A then B').toEqual(['metrics', 'commits']);
+        expect(dockResult.proof.transfer).toMatchObject({
+            applied          : true,
+            reconciled       : true,
+            sourceWorkspaceId: 'workstation-main',
+            targetWorkspaceId: 'workstation-vessel:metrics',
+            descriptor       : {operation: 'transferItem', itemId: 'commits'}
+        });
+        expect(dockResult.proof.sourceVesselRetired, 'B must retire only after the target commit').toBe(true);
+        expect(targetPopup.isClosed(), 'the merged A+B target vessel must remain open').toBe(false);
+
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])).toBe(metricsBefore);
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['commits'])).toBe(commitsBefore);
+        expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+        expect(pageErrors).toEqual([])
     });
 
-    test.fixme('scene 4 — reintegration: whole stack home, commit precedes the vessel self-close', async () => {
-        // Receipts this leg must assert when activated:
-        //  - stack-handle drag home over main; main zones preview;
-        //  - the commit lands the WHOLE stack atomically (one document transaction);
-        //  - the emptied vessel closes itself AFTER the commit — and a native close resolves
-        //    provisionally: the receipt is terminal only when the runtime windowId leaves the
-        //    connected topology (dispatch success is never effect proof);
-        //  - same-instance identity + heartbeat continuity across the return.
+    test('scene 4 — reintegration: whole stack home, commit precedes the vessel self-close', async ({page, neuralLink}) => {
+        const {app, pageErrors, wsId} = await boot({page, neuralLink});
+        const
+            heartbeatBefore                        = await readHeartbeat(app, wsId),
+            metricsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            commitsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+            {dockResult, ownerResult, targetPopup} = await stageMergedVessel({app, page, wsId});
+
+        expect(ownerResult.applied).toBe(true);
+        expect(dockResult.applied).toBe(true);
+
+        const result = await app.callMethod(wsId, 'executeStackReturnStep', [
+            {ownerItemId: 'metrics'},
+            {
+                attempts  : filmPace.birthAttempts ?? 180,
+                moveDelay : filmPace.moveDelay ?? 16,
+                showCursor: filmPace.showCursor ?? false
+            }
+        ]);
+
+        expect(result.errors, JSON.stringify({
+            closeReceipt    : result.proof?.closeReceipt,
+            phaseOrder      : result.proof?.phaseOrder,
+            remoteSnapshot  : result.proof?.remoteSnapshot,
+            sourceItemIds   : result.proof?.sourceItemIds,
+            sourceWindowGone: result.proof?.sourceWindowGone,
+            transfer        : result.proof?.transfer
+        })).toEqual([]);
+        expect(result.applied, 'the grouped pointer gesture must settle through physical topology exit').toBe(true);
+        expect(result.proof.remoteSnapshot).toMatchObject({
+            claimCount       : 1,
+            engaged          : true,
+            targetWorkspaceId: 'workstation-main',
+            winnerStableId   : 'workstation-main'
+        });
+        expect(result.proof.remoteSnapshot.rendered.previewId)
+            .toBe(result.proof.remoteSnapshot.preview.previewId);
+        expect(result.proof.transfer).toMatchObject({
+            applied          : true,
+            closeRequested   : true,
+            descriptor       : {operation: 'transferNode'},
+            reconciled       : true,
+            sourceWorkspaceId: 'workstation-vessel:metrics',
+            targetWorkspaceId: 'workstation-main',
+            topologyExited   : true
+        });
+        expect(result.proof.phaseOrder).toEqual([
+            'documents-adopted',
+            'main-projected',
+            'close-dispatched',
+            'topology-exited'
+        ]);
+        expect(result.proof.sourceItemIds).toEqual(['metrics', 'commits']);
+        expect(result.proof.sourceWindowGone, 'close acknowledgement alone is not topology exit').toBe(true);
+        await expect.poll(() => targetPopup.isClosed(), {
+            message: 'the empty committed vessel must physically close after main adoption',
+            timeout: 15000
+        }).toBe(true);
+
+        const documentAfter = await readDocument(app, wsId);
+
+        expect(documentAfter.nodes['right-top-tabs'].items).toEqual(['audit', 'metrics', 'commits']);
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])).toBe(metricsBefore);
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['commits'])).toBe(commitsBefore);
+        expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+        expect(pageErrors).toEqual([])
     });
 
-    test.fixme('scene 5 — the signature: full journey in ONE run, two-take beat-log equality', async () => {
-        // The capstone contract: all five beats consecutively, one headed run, real pointer,
-        // the per-beat worker-truth asserts above, two consecutive runs with identical beat
-        // logs, and the final continuity readout (feed counts monotonic end-to-end) as the
-        // closing shot the film records.
+    test('scene 5 — the signature: full journey in ONE run, two-take beat-log equality', async ({page, neuralLink}) => {
+        const
+            logs             = [],
+            openingDocuments = [],
+            pageErrorRuns    = [];
+
+        for (let run = 0; run < journeyRuns; run++) {
+            const
+                ctx              = await boot({page, neuralLink}, {navigate: run === 0}),
+                {app, wsId}      = ctx,
+                beatLog          = [],
+                opening          = await readDocument(app, wsId),
+                heartbeatAtOpen  = await readHeartbeat(app, wsId),
+                metricsBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+                commitsBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+                livePopupsAtOpen = page.context().pages()
+                    .filter(candidate => candidate !== page && !candidate.isClosed());
+
+            pageErrorRuns.push(ctx.pageErrors);
+
+            expect(livePopupsAtOpen, 'each take must start without a surviving vessel').toEqual([]);
+            expect(opening.nodes['scale-tabs'].items).toEqual(['scale']);
+            expect(opening.nodes['heavy-tabs'].items).toHaveLength(12);
+            expect(opening.nodes['right-top-tabs'].items).toEqual(['metrics', 'audit']);
+            expect(opening.nodes['right-bottom-tabs'].items).toEqual(['commits']);
+            expect(opening.items.graph.autoHidden).toBe(true);
+            expect(opening.items.inspector.autoHidden).toBe(true);
+            expect(heartbeatAtOpen, 'the feed producer must be alive before the uninterrupted journey')
+                .toBeGreaterThan(0);
+            expect(metricsBefore, 'metrics must be one live pane before it crosses a window').toBeTruthy();
+            expect(commitsBefore, 'commits must be one live pane before it crosses a window').toBeTruthy();
+
+            if (openingDocuments.length) {
+                expect(opening, 'reload must restore pristine worker truth before the second take')
+                    .toEqual(openingDocuments[0])
+            } else {
+                openingDocuments.push(opening)
+            }
+
+            const roomSpec = await app.callMethod(wsId, 'runTourSpec', [{
+                schema: 'neo.tour.script.v1',
+                id    : 'five-beat-signature-room',
+                title : 'scene 5 — the room is alive',
+                scenes: [{
+                    id   : 'room-alive',
+                    title: 'resize',
+                    steps: [{
+                        type      : 'op',
+                        descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
+                        expect    : [{path: 'nodes.split-main.sizes.0', equals: 0.52}]
+                    }, {
+                        type  : 'topology-assert',
+                        expect: [{path: 'nodes.split-main.sizes.1', equals: 0.48}]
+                    }]
+                }]
+            }]);
+
+            expect(roomSpec.completed, 'the opening resize must commit through the app-owned tour runner')
+                .toBe(true);
+            expect(roomSpec.errors).toEqual([]);
+            expect(roomSpec.document.nodes['split-main'].sizes).toEqual([0.52, 0.48]);
+
+            await expect.poll(async () => (await readDocument(app, wsId)).nodes['split-main'].sizes, {
+                message  : 'the committed document must carry the opening resize',
+                timeout  : 10000,
+                intervals: [100, 250]
+            }).toEqual([0.52, 0.48]);
+
+            await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+
+            await expect.poll(async () =>
+                (await app.getComponent(wsId, ['theme'])).theme, {
+                message: 'the uninterrupted journey must reach the light theme',
+                timeout: 10000
+            }).toBe('neo-theme-neo-light');
+
+            themeDwell && await page.waitForTimeout(themeDwell);
+
+            await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
+
+            await expect.poll(async () =>
+                (await app.getComponent(wsId, ['theme'])).theme, {
+                message: 'the uninterrupted journey must return to the dark theme',
+                timeout: 10000
+            }).toBe('neo-theme-neo-dark');
+
+            beatLog.push({
+                beat      : 'room-alive',
+                finalTheme: 'neo-theme-neo-dark',
+                heavyCount: opening.nodes['heavy-tabs'].items.length,
+                railed    : ['graph', 'inspector'],
+                sizes     : [0.52, 0.48]
+            });
+
+            const
+                {dockResult, ownerResult, sourcePopup, targetPopup} =
+                    await stageMergedVessel({app, page, wsId});
+
+            expect(ownerResult.errors).toEqual([]);
+            expect(ownerResult.proof.born, 'the first vessel must exist before pointer-up').toBe(true);
+            expect(ownerResult.proof.survivedProbe,
+                'the first vessel must survive post-birth pointer movement').toBe(true);
+            expect(ownerResult.applied, 'metrics must commit into its real vessel').toBe(true);
+            expect(targetPopup.isClosed(), 'the first committed vessel must stay physically open').toBe(false);
+
+            beatLog.push({
+                beat            : 'tear-out',
+                bornMidGesture  : true,
+                detachCommitted : ownerResult.proof.detachCommitted,
+                ownerWorkspaceId: 'workstation-vessel:metrics',
+                sourceItems     : ownerResult.proof.documentAfter.nodes['right-top-tabs'].items
+            });
+
+            expect(
+                dockResult.errors,
+                `cross-window dock receipt: ${JSON.stringify(dockResult.proof ?? null)}`
+            ).toEqual([]);
+            expect(dockResult.applied, 'commits must join metrics through one remote target').toBe(true);
+            expect(dockResult.proof.remoteSnapshot).toMatchObject({
+                claimCount           : 1,
+                converted            : true,
+                engaged              : true,
+                parkedItemId         : 'commits',
+                sourceVesselConnected: true,
+                targetWorkspaceId    : 'workstation-vessel:metrics',
+                winnerStableId       : 'workstation-vessel:metrics'
+            });
+            expect(dockResult.proof.remoteSnapshot.rendered.previewId)
+                .toBe(dockResult.proof.remoteSnapshot.preview.previewId);
+            expect(dockResult.proof.remoteSnapshot.preview.target.nodeId)
+                .toBe('workstation-vessel-tabs:metrics');
+            expect(dockResult.proof.targetDocument.nodes['workstation-vessel-tabs:metrics'].items)
+                .toEqual(['metrics', 'commits']);
+            expect(dockResult.proof.transfer).toMatchObject({
+                applied          : true,
+                reconciled       : true,
+                sourceWorkspaceId: 'workstation-main',
+                targetWorkspaceId: 'workstation-vessel:metrics',
+                descriptor       : {operation: 'transferItem', itemId: 'commits'}
+            });
+            expect(dockResult.proof.sourceVesselRetired).toBe(true);
+            expect(sourcePopup.isClosed(), 'the converted source vessel must be physically gone').toBe(true);
+
+            beatLog.push({
+                beat             : 'vessel-dock',
+                claimCount       : 1,
+                sourceRetired    : true,
+                targetItems      : ['metrics', 'commits'],
+                targetWorkspaceId: 'workstation-vessel:metrics',
+                transfer         : 'transferItem',
+                winnerStableId   : 'workstation-vessel:metrics'
+            });
+
+            const returnResult = await app.callMethod(wsId, 'executeStackReturnStep', [
+                {ownerItemId: 'metrics'},
+                {
+                    attempts  : filmPace.birthAttempts ?? 180,
+                    moveDelay : filmPace.moveDelay ?? 16,
+                    showCursor: filmPace.showCursor ?? false
+                }
+            ]);
+
+            expect(returnResult.errors, JSON.stringify({
+                closeReceipt    : returnResult.proof?.closeReceipt,
+                phaseOrder      : returnResult.proof?.phaseOrder,
+                remoteSnapshot  : returnResult.proof?.remoteSnapshot,
+                sourceItemIds   : returnResult.proof?.sourceItemIds,
+                sourceWindowGone: returnResult.proof?.sourceWindowGone,
+                transfer        : returnResult.proof?.transfer
+            })).toEqual([]);
+            expect(returnResult.applied,
+                'the grouped pointer gesture must settle through physical topology exit').toBe(true);
+            expect(returnResult.proof.remoteSnapshot).toMatchObject({
+                claimCount       : 1,
+                engaged          : true,
+                targetWorkspaceId: 'workstation-main',
+                winnerStableId   : 'workstation-main'
+            });
+            expect(returnResult.proof.remoteSnapshot.rendered.previewId)
+                .toBe(returnResult.proof.remoteSnapshot.preview.previewId);
+            expect(returnResult.proof.transfer).toMatchObject({
+                applied          : true,
+                closeRequested   : true,
+                descriptor       : {operation: 'transferNode'},
+                reconciled       : true,
+                sourceWorkspaceId: 'workstation-vessel:metrics',
+                targetWorkspaceId: 'workstation-main',
+                topologyExited   : true
+            });
+            expect(returnResult.proof.phaseOrder).toEqual([
+                'documents-adopted',
+                'main-projected',
+                'close-dispatched',
+                'topology-exited'
+            ]);
+            expect(returnResult.proof.sourceItemIds).toEqual(['metrics', 'commits']);
+            expect(returnResult.proof.sourceWindowGone,
+                'native close acknowledgement alone is not topology exit').toBe(true);
+            await expect.poll(() => targetPopup.isClosed(), {
+                message: 'the emptied vessel must be physically gone',
+                timeout: 15000
+            }).toBe(true);
+
+            const documentAfter = await readDocument(app, wsId);
+
+            expect(documentAfter.nodes['right-top-tabs'].items).toEqual(['audit', 'metrics', 'commits']);
+
+            beatLog.push({
+                beat          : 'reintegration',
+                finalTarget   : 'right-top-tabs',
+                phaseOrder    : returnResult.proof.phaseOrder,
+                sourceItems   : returnResult.proof.sourceItemIds,
+                topologyExited: true,
+                transfer      : 'transferNode'
+            });
+
+            const
+                heartbeatAtClose  = await readHeartbeat(app, wsId),
+                metricsAfter      = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+                commitsAfter      = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+                livePopupsAtClose = page.context().pages()
+                    .filter(candidate => candidate !== page && !candidate.isClosed());
+
+            expect(metricsAfter, 'metrics must remain the same live instance end-to-end')
+                .toBe(metricsBefore);
+            expect(commitsAfter, 'commits must remain the same live instance end-to-end')
+                .toBe(commitsBefore);
+            expect(heartbeatAtClose, 'the feed must advance without resetting during the journey')
+                .toBeGreaterThan(heartbeatAtOpen);
+            expect(livePopupsAtClose,
+                'physical vessel topology must be empty before the zero-residue reload').toEqual([]);
+            expect(ctx.pageErrors, 'the uninterrupted journey must be browser-error-free').toEqual([]);
+
+            beatLog.push({
+                beat                    : 'signature',
+                commitsInstancePreserved: true,
+                feedAdvanced            : true,
+                metricsInstancePreserved: true,
+                survivingVessels        : 0
+            });
+            logs.push(beatLog);
+
+            if (run < journeyRuns - 1) {
+                await page.reload()
+            }
+
+            ctx.disposeObservers()
+        }
+
+        if (!filmTake) {
+            expect(logs[1], 'two clean takes must emit the same clock-free five-beat log')
+                .toEqual(logs[0])
+        }
+
+        expect(logs.every(log => log.length === 5),
+            'each uninterrupted journey must emit exactly five semantic beats').toBe(true);
+        expect(pageErrorRuns.flat(), 'both journeys must stay browser-error-free').toEqual([])
     });
 });
