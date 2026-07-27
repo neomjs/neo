@@ -1254,6 +1254,41 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
     });
 
+    // ⭐ The daemon surface reaching the REAL slot. The derivation being correct is a separate suite;
+    // this asserts the cockpit actually FEEDS it, because a derivation nothing feeds is indistinguishable
+    // from an absent feature — and the wiring is the half that makes the shell spec's banner exist.
+    test('⭐ a dead daemon reaches the slot with the diagnosis, outranking a stale feed', () => {
+        const banner = makeBanner(),
+              host   = {
+                  ...makeHost('live', 'stale', banner),
+                  daemonDegradedReason: 'orchestrator exited',
+                  daemonState         : 'stopped'
+              };
+
+        host.syncSpineBanner();
+
+        const {cls, hidden, text} = banner.calls[0];
+
+        expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
+        expect(hidden).toBe(false);
+        expect(text).toContain('stopped');
+        expect(text).toContain('orchestrator exited');
+        // The stale feed is the symptom; it must not be the sentence.
+        expect(text).not.toContain('last-known data')
+    });
+
+    test('⭐ an unfed daemon surface stays SILENT on a live owner — absence claims nothing', () => {
+        // `daemonState` is null until the runtime pull lands. This asserts the default is honest
+        // silence rather than an implicit "the organism is fine", which is what defaulting to
+        // `'running'` would have asserted on the strength of never having asked.
+        const banner = makeBanner();
+
+        makeHost('live', 'live', banner).syncSpineBanner();
+
+        expect(banner.calls[0].hidden).toBe(true);
+        expect(banner.calls[0].text).toBe('')
+    });
+
     test('a cold owner writes the REAL slot: cold class hook, visible, cause + shipped remedy', () => {
         const banner = makeBanner();
 

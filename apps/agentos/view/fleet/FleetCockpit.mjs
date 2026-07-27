@@ -288,6 +288,33 @@ class FleetCockpit extends Container {
      */
     dockPreviewProducer = null
     /**
+     * Brain daemon health for the spine banner's third surface — `'running'|'degraded'|'stopped'`,
+     * matching `harness/appLifecycle.mjs`'s `BRAIN_STATES`.
+     *
+     * **`null` by default, and that silence is deliberate rather than a placeholder.** The shell spec
+     * pairs a tray-state change with ONE cockpit banner, and this is the cockpit half. But nothing in
+     * the cockpit pulls daemon health yet, so defaulting to `'running'` would have the banner assert
+     * "the organism is fine" on the strength of never having asked — the fabrication this cockpit's
+     * whole render discipline exists to prevent. `null` renders nothing and claims nothing, which is
+     * the honest state until the pull lands; `deriveSpineBanner` treats absence as UNKNOWN and its
+     * spec asserts that silence directly, so the seam is exercised rather than dormant.
+     *
+     * The pull is `FleetControlBridge.fleetRuntimeStatus()` over the existing `neoShell.fleetRequest`
+     * capability — deliberately NOT a new main→renderer push channel, which would need the shell ADR
+     * §2.3 amendment its preload demands.
+     * @member {String|null} daemonState=null
+     * @protected
+     */
+    daemonState = null
+    /**
+     * The retained diagnosis pointer for the DAEMON surface — the "why" the spine banner names instead
+     * of generic copy. Per-surface for the same reason as {@link #gridDegradedReason}: a transport
+     * sibling must never be able to supply or silence this cause.
+     * @member {String|null} daemonDegradedReason=null
+     * @protected
+     */
+    daemonDegradedReason = null
+    /**
      * The grid's held `adapterState` — absent-item materialization reads from HERE, so a committed
      * layout change can never reset a live grid back to its sample badge.
      * @member {String} gridAdapterState='sample'
@@ -2532,6 +2559,10 @@ class FleetCockpit extends Container {
             // each state travels WITH its own cause: the derivation reports the reason of the
             // surface that decided the verdict, and no sibling can supply or silence it
             let {hidden, kind, text} = deriveSpineBanner({
+                // Daemon health ranks above a stale feed: a dead daemon is usually what MADE the feed
+                // stale, so the transport line alone would name the symptom and drop the diagnosis.
+                // Silent while `daemonState` is null — absence is unknown, never nominal.
+                daemon: {state: me.daemonState,        reason: me.daemonDegradedReason},
                 grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
                 stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
             });
