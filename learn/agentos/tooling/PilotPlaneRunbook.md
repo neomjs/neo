@@ -60,33 +60,50 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
    fork-then-replay is impossible at *any* window rather than merely over budget.
 2. **Plan the replay.** `walReplayPlan.mjs` → `planWalReplay(...)`. Duplicate source ids refuse: a
    payload that cannot be uniquely keyed cannot be proven non-double-applied.
-3. **Capture the pre-state digest.** `digestAppliedStages(...)` **before** applying anything. The
-   verifier in step 5 is bound to this digest — skip it and the verification has no baseline.
+3. **Record the applied-stage sets** for the durable plane **before** applying anything. The verification is
+   bound to this pre-state — without it there is no baseline and nothing can be proven.
 4. **Apply** the planned entries to the durable plane.
-5. **Verify continuity.** `verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter, plan})`.
-   Concurrent gains from other seats are permitted and reported separately, not treated as corruption.
-6. **Settle.** `evaluatePromotion({continuity})` → the terminal and the receipt. Record both.
+5. **Record the applied-stage sets again**, after.
+6. **Settle.** `evaluatePromotion({appliedStagesBefore, appliedStagesAfter, plan})` → the terminal and the
+   receipt. Record both.
 
-> **Do not re-derive continuity by eye at step 6.** The verifier distinguishes a genuine replay from a
-> double-apply because it holds the pre-state digest; a fresh look at the post-state cannot.
+> **There is no separate "verify" step, deliberately.** `evaluatePromotion` **runs** the continuity
+> verification itself rather than accepting a verdict, because a verdict — even a structurally complete one
+> with stages, totals and per-stage counts — is a thing a caller can simply type. Validating its shape checks
+> the shape of a claim, never its provenance. Passing the raw observations instead removes the forgeable
+> intermediate: forging a `committed` would require a self-consistent plan whose every planned id appears in
+> the after-state, which is *doing* the replay rather than claiming it.
+>
+> Concurrent gains from other seats are permitted and reported separately, not treated as corruption.
 
 ## Demotion
 
-> ### ⚠️ `demoted-clean` is not reachable yet, and that is the honest state
+> ### ⚠️ `demoted-clean` is MECHANICALLY UNREACHABLE today, and that is the honest state
 >
-> The leak scan needs each durable segment's **plane id**. No producer for it exists: the WAL appender
-> writes `{...record, segmentKey}` and carries no plane id, so nothing can currently distinguish an
-> overlay-written segment from a natively-written one. Until that producer lands, `overlayScan.planeIdSource`
-> cannot be populated honestly and **every demotion settles `failed-contained`**.
+> The leak scan needs each durable segment's **plane id**. No producer for it exists: the WAL appender writes
+> `{...record, segmentKey}` and carries no plane id, so nothing can distinguish an overlay-written segment
+> from a natively-written one.
 >
-> That is the correct terminal for an unprovable claim, not a bug to work around. The earlier shape of this
-> evaluator accepted a bare empty array as "no leak", which let a caller claim a scan the substrate cannot
-> perform — converting a missing capability into a clean bill of health. Do not pass a synthetic
-> `planeIdSource` to get a green terminal; the terminal would be false and the receipt would attest to
-> nothing.
+> `evaluateDemotion` therefore consults `OVERLAY_TAGGING_PRODUCER` **before it reads a single argument**, and
+> while that constant is `null` **every demotion settles `failed-contained` regardless of what you pass.**
+> This is a gate, not a validation: there is no input that unlocks a clean terminal.
+>
+> **That is deliberate, and it replaced two weaker attempts** — each of which asked the *caller* to assert
+> the fact rather than establishing it. First a bare `[]` was accepted as "no leak". Then a named
+> `planeIdSource` was required — but only checked for being a non-empty string, so an invented name unlocked
+> `demoted-clean`. **Requiring a field is not proving a fact**, and a fabricable field is worse than none,
+> because it makes an impossibility look satisfied.
+>
+> Do not try to satisfy the gate. A green terminal here would be false and its receipt would attest to
+> nothing. When a producer lands, set the constant to name it: the validation and set-inclusion logic behind
+> the gate is already written and directly tested, so opening the path is a one-line change with coverage in
+> place.
+
+The procedure below is what runs **once a producer exists**:
 
 1. **Scan the durable corpus for overlay-tagged segments.** The evaluator requires a *structure*, not a
-   list: `{planeIdSource, scannedSegmentCount, taggedSegments}`. A bare array is refused, because `[]` is
+   list: `{planeIdSource, scannedSegmentCount, taggedSegments}`, and `planeIdSource` must **be** the
+   substrate's producer rather than merely a non-empty string. A bare array is refused, because `[]` is
    indistinguishable from "nobody looked". **Unscanned is unproven, not clean.**
 2. **Record durable segment IDs** at clone time and now — *ids*, not counts. Cardinality is not identity:
    `3 → 3` looks stable while a delete-and-add has destroyed committed history, so the check is set

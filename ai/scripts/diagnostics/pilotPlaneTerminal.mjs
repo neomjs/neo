@@ -45,6 +45,28 @@
  * reader gets one citation that is maintained, instead of decaying references scattered through code.
  */
 
+import {verifyReplayContinuity} from './walReplayPlan.mjs';
+
+/**
+ * Whether the substrate can attribute a durable WAL segment to the plane that wrote it.
+ *
+ * **`null` because no such producer exists.** The WAL appender writes `{...record, segmentKey}` and carries
+ * no plane id, and nothing downstream supplies one — so no scan can distinguish an overlay-written segment
+ * from a natively-written one.
+ *
+ * This is a **constant, not a parameter**, and that is the point. An earlier shape asked the caller to name
+ * a `planeIdSource`, which only checked that a *string was present* — so an invented one unlocked
+ * `demoted-clean`. Requiring a field is not proving a fact, and the fabricable field was worse than no
+ * check because it made the impossibility look satisfied. Holding the capability here makes clean demotion
+ * **mechanically unreachable** until a real producer lands, whatever a caller passes.
+ *
+ * When a producer exists, set this to a string naming it. The validation and set-inclusion logic behind the
+ * gate is already written and directly tested, so opening the path is a one-line change with coverage
+ * already in place.
+ * @type {String|null}
+ */
+export const OVERLAY_TAGGING_PRODUCER = null;
+
 /**
  * The complete terminal set. A pilot transition ends in exactly one of these — there is no unnamed exit.
  *
@@ -156,27 +178,36 @@ export function evaluatePromotion(spec) {
     // Nullish-coalesced rather than a `= {}` default parameter, which fires only for `undefined` and would
     // let `evaluatePromotion(null)` THROW. A throw is an exit without a terminal — the exact silent abandon
     // this module exists to make impossible — so the guard has to cover null too.
-    const {continuity} = spec ?? {};
+    const {appliedStagesBefore, appliedStagesAfter, plan} = spec ?? {};
 
-    if (!continuity || typeof continuity !== 'object') {
+    if (!plan || typeof plan !== 'object') {
         return settle(
             'failed-contained',
-            'no continuity verdict was supplied, so the replay cannot be proven. A promotion that died ' +
-            'mid-replay reaches this branch identically to a mis-wired caller — both are unprovable, and ' +
-            'the governing rule settles unprovable as contained.'
+            'no replay plan was supplied, so nothing can be verified. A promotion that died mid-replay ' +
+            'reaches this branch identically to a mis-wired caller — both are unprovable, and the governing ' +
+            'rule settles unprovable as contained.'
         );
     }
+
+    // THE VERIFICATION RUNS HERE. An earlier shape accepted `verifyReplayContinuity`'s OUTPUT, and a
+    // structurally complete receipt is a thing a caller can simply type — validating its shape checked the
+    // shape of a claim, never its provenance. Calling the verifier removes the forgeable intermediate
+    // entirely: the only remaining input is the plan plus the observed before/after states, and the verifier
+    // binds those to each other (pre-state digest, receipted planned work, monotonic post-state). Forging a
+    // `committed` now requires constructing a self-consistent plan whose planned ids all appear in the
+    // after-state — which is doing the replay, not claiming it.
+    const continuity = verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter, plan});
 
     if (!continuity.ok) {
         return settle('failed-contained', `continuity verification refused: ${continuity.reason ?? 'no reason given'}`);
     }
 
-    // `ok` alone is not the claim being relied on; monotonicity is. Trusting `ok` and ignoring `monotonic`
-    // would let a verdict that verified *something* stand in for one that excluded loss and double-apply.
+    // Belt-and-braces on the verifier's own contract rather than on a caller's assertion: if a future change
+    // let it return `ok` without establishing monotonicity, this must not silently become a commit.
     if (continuity.monotonic !== true) {
         return settle(
             'failed-contained',
-            'continuity verdict did not assert monotonic replay, so loss or double-apply is not excluded'
+            'continuity verification did not establish monotonic replay, so loss or double-apply is not excluded'
         );
     }
 
@@ -194,27 +225,18 @@ export function evaluatePromotion(spec) {
 /**
  * @summary Validates the overlay-leak scan and returns a refusal reason, or `null`.
  *
- * ## Why a bare array is refused
- *
- * An earlier shape took `durableOverlayTaggedSegments` as an array and treated `[]` as "no leak". But `[]`
- * is indistinguishable from "nobody looked", and — more seriously — **the current substrate cannot produce
- * this scan at all**: WAL records carry a `segmentKey` but no plane id, so there is nothing to match an
- * overlay against. Accepting `[]` therefore let a caller claim a scan that cannot be performed, which is
- * worse than having no check: it converts a missing capability into a clean bill of health.
- *
- * So the scan must arrive as a structure that states **how** it was performed. Until WAL segments carry a
- * plane id, no honest caller can populate `planeIdSource`, and demotion settles `failed-contained` — which
- * is the correct terminal for an unprovable claim, and names the missing producer as the blocker rather
- * than papering over it.
- * @param {Object} overlayScan
+ * Exported so the logic behind the capability gate stays directly testable with positive controls. It is
+ * deliberately **not** the thing that decides a terminal: while {@link OVERLAY_TAGGING_PRODUCER} is `null`
+ * no caller can reach this at all, because a well-formed scan structure is still only a *claim* that a scan
+ * happened. Shape is checkable; provenance is not.
+ * @param {Object} overlayScan `{planeIdSource, scannedSegmentCount, taggedSegments}`
  * @returns {String|null}
  */
-function validateOverlayScan(overlayScan) {
+export function validateOverlayScan(overlayScan) {
     if (Array.isArray(overlayScan)) {
         return 'overlayScan must be an object describing HOW the durable corpus was scanned for ' +
                'overlay-tagged segments, not a bare array. An empty array is indistinguishable from "nobody ' +
-               'looked", and the plane-id producer this scan needs does not exist yet: WAL records carry a ' +
-               'segmentKey but no plane id. Passing [] would claim a scan the substrate cannot perform.';
+               'looked".';
     }
 
     if (!overlayScan || typeof overlayScan !== 'object') {
@@ -225,10 +247,16 @@ function validateOverlayScan(overlayScan) {
     const {planeIdSource, scannedSegmentCount, taggedSegments} = overlayScan;
 
     if (typeof planeIdSource !== 'string' || planeIdSource.trim() === '') {
-        return 'overlayScan.planeIdSource must name where each durable segment\'s plane id was read from. ' +
-               'No such producer exists today — WAL records carry a segmentKey but no plane id — so this ' +
-               'refusal is the honest terminal for a demotion, and the blocker is the missing producer, ' +
-               'not the caller.';
+        return 'overlayScan.planeIdSource must name where each durable segment\'s plane id was read from';
+    }
+
+    // The producer is the authority on what a valid source IS. A caller-invented name is not one, which is
+    // why this comparison exists rather than a mere non-empty-string check: the earlier shape accepted any
+    // string, so an invented source unlocked a clean terminal.
+    if (planeIdSource !== OVERLAY_TAGGING_PRODUCER) {
+        return `overlayScan.planeIdSource "${planeIdSource}" is not the substrate's plane-id producer ` +
+               `(${JSON.stringify(OVERLAY_TAGGING_PRODUCER)}). A source the substrate does not provide is an ` +
+               'invented one, and naming a field is not producing the fact it claims.';
     }
 
     if (!Number.isInteger(scannedSegmentCount) || scannedSegmentCount < 0) {
@@ -242,6 +270,36 @@ function validateOverlayScan(overlayScan) {
     }
 
     return null;
+}
+
+/**
+ * @summary Compares pre-clone and post-pilot segment id sets, returning `{lost, gained}` or a refusal reason.
+ *
+ * Exported for direct testing behind the capability gate. **Identity, not cardinality:** `3 → 3` looks stable
+ * while a delete-old-and-add-new has destroyed committed history, so the claim "no committed history was
+ * lost" is set inclusion over every pre-clone id and nothing weaker.
+ * @param {String[]} preCloneSegmentIds
+ * @param {String[]} postPilotSegmentIds
+ * @returns {Object} `{reason}` or `{lost, gained}`
+ */
+export function diffSegmentIdentity(preCloneSegmentIds, postPilotSegmentIds) {
+    for (const [label, value] of [['preCloneSegmentIds', preCloneSegmentIds], ['postPilotSegmentIds', postPilotSegmentIds]]) {
+        if (!Array.isArray(value) || value.some(id => typeof id !== 'string' || id === '')) {
+            return {
+                reason: `${label} must be an array of non-empty segment id strings. Counts cannot prove that ` +
+                        'no committed history was lost — a delete-and-add keeps cardinality identical — so ' +
+                        'identity is required.'
+            };
+        }
+    }
+
+    const postSet = new Set(postPilotSegmentIds),
+          preSet  = new Set(preCloneSegmentIds);
+
+    return {
+        lost  : preCloneSegmentIds.filter(id => !postSet.has(id)),
+        gained: postPilotSegmentIds.filter(id => !preSet.has(id))
+    };
 }
 
 /**
@@ -260,31 +318,40 @@ function validateOverlayScan(overlayScan) {
  * delete-old-and-add-new has silently destroyed committed history. So the check is **set inclusion** — every
  * pre-clone segment must still be present by id — which is what "no committed history was lost" actually
  * asserts. Growth beyond that is other seats' work and is reported, not judged.
+ * ## `demoted-clean` is currently unreachable, by construction
+ *
+ * The **capability gate fires first**, before any caller input is consulted. While
+ * {@link OVERLAY_TAGGING_PRODUCER} is `null` there is no honest scan, so no argument combination can produce
+ * a clean terminal. An earlier shape asked the caller to *name* a `planeIdSource` and only checked that a
+ * string was present — so an invented name unlocked `demoted-clean`. **Requiring a field is not proving a
+ * fact**, and a fabricable field is worse than no field, because it makes an impossibility look satisfied.
  * @param {Object} spec
- * @param {Object} spec.overlayScan        `{planeIdSource, scannedSegmentCount, taggedSegments}` — see
- *        {@link validateOverlayScan}. REQUIRED as a structure, because a bare empty array claims a scan
- *        the substrate cannot currently perform.
+ * @param {Object} spec.overlayScan           `{planeIdSource, scannedSegmentCount, taggedSegments}`.
  * @param {String[]} spec.preCloneSegmentIds  Durable segment ids recorded at clone time.
  * @param {String[]} spec.postPilotSegmentIds Durable segment ids at demotion.
  * @returns {Object} `{terminal, reason, eligibility, receipt}`
  */
 export function evaluateDemotion(spec) {
+    // THE CAPABILITY GATE, FIRST AND UNCONDITIONALLY. Placed ahead of every other check so that no
+    // caller-supplied value is even read while the producer is absent: a gate that ran after input validation
+    // would still let the shape of the input decide which refusal a reader sees, and the honest message here
+    // is about the substrate, not about the caller.
+    if (typeof OVERLAY_TAGGING_PRODUCER !== 'string' || OVERLAY_TAGGING_PRODUCER === '') {
+        return settle(
+            'failed-contained',
+            'the substrate cannot attribute a durable WAL segment to the plane that wrote it: the WAL appender ' +
+            'writes {...record, segmentKey} with no plane id, so no scan can distinguish an overlay-written ' +
+            'segment from a natively-written one. A clean demotion is therefore UNPROVABLE, not merely ' +
+            'unproven, and no argument can change that — the blocker is the missing producer. Quarantine the ' +
+            'overlay and leave eligibility closed until one exists.'
+        );
+    }
+
     // See `evaluatePromotion`: nullish-coalesced so a null argument settles contained instead of throwing.
-    const {overlayScan, preCloneSegmentIds, postPilotSegmentIds} = spec ?? {};
-    const scanFault                                              = validateOverlayScan(overlayScan);
+    const {overlayScan, preCloneSegmentIds, postPilotSegmentIds} = spec ?? {},
+          scanFault                                              = validateOverlayScan(overlayScan);
 
     if (scanFault) return settle('failed-contained', scanFault);
-
-    for (const [label, value] of [['preCloneSegmentIds', preCloneSegmentIds], ['postPilotSegmentIds', postPilotSegmentIds]]) {
-        if (!Array.isArray(value) || value.some(id => typeof id !== 'string' || id === '')) {
-            return settle(
-                'failed-contained',
-                `${label} must be an array of non-empty segment id strings. Counts cannot prove that no ` +
-                'committed history was lost — a delete-and-add keeps cardinality identical — so identity is ' +
-                'required.'
-            );
-        }
-    }
 
     const {taggedSegments} = overlayScan;
 
@@ -298,20 +365,19 @@ export function evaluateDemotion(spec) {
         );
     }
 
-    const postSet = new Set(postPilotSegmentIds),
-          lost    = preCloneSegmentIds.filter(id => !postSet.has(id));
+    const identity = diffSegmentIdentity(preCloneSegmentIds, postPilotSegmentIds);
 
-    if (lost.length > 0) {
+    if (identity.reason) return settle('failed-contained', identity.reason);
+
+    if (identity.lost.length > 0) {
         return settle(
             'failed-contained',
-            `${lost.length} pre-clone segment(s) are no longer present in the durable corpus (e.g. ` +
-            `${lost[0]}). Concurrent writers explain growth, never loss, so committed history went missing ` +
-            'and the demotion cannot be called clean.',
-            {lostSegmentTotal: lost.length, lostSample: lost.slice(0, 5)}
+            `${identity.lost.length} pre-clone segment(s) are no longer present in the durable corpus (e.g. ` +
+            `${identity.lost[0]}). Concurrent writers explain growth, never loss, so committed history went ` +
+            'missing and the demotion cannot be called clean.',
+            {lostSegmentTotal: identity.lost.length, lostSample: identity.lost.slice(0, 5)}
         );
     }
-
-    const gained = postPilotSegmentIds.filter(id => !preCloneSegmentIds.includes(id));
 
     return settle(
         'demoted-clean',
@@ -323,7 +389,7 @@ export function evaluateDemotion(spec) {
             postPilotSegmentTotal: postPilotSegmentIds.length,
             // Reported rather than asserted about: this is other seats' work, and the number is here so a
             // reader can sanity-check that a pilot-length window of institutional writing shows up at all.
-            concurrentGainTotal: gained.length,
+            concurrentGainTotal: identity.gained.length,
             overlayTaggedTotal : 0,
             planeIdSource      : overlayScan.planeIdSource,
             scannedSegmentCount: overlayScan.scannedSegmentCount

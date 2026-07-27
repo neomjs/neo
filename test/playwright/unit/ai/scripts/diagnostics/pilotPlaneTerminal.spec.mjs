@@ -1,42 +1,35 @@
 import {test, expect} from '@playwright/test';
 import {
     ELIGIBILITY_EFFECT,
+    OVERLAY_TAGGING_PRODUCER,
     PILOT_TERMINALS,
+    diffSegmentIdentity,
     eligibilityEffect,
     evaluateDemotion,
-    evaluatePromotion
+    evaluatePromotion,
+    validateOverlayScan
 } from '../../../../../../ai/scripts/diagnostics/pilotPlaneTerminal.mjs';
+import {planWalReplay} from '../../../../../../ai/scripts/diagnostics/walReplayPlan.mjs';
 
-// AC5's parenthetical — "never a silent abandon" — is the whole specification. So the assertions here are
-// mostly about the ABSENCE of exits: every path must name a terminal, an unprovable claim must not open
-// eligibility, and no caller may hand in the verdict or forge the evidence behind it.
+// AC5's parenthetical — "never a silent abandon" — is the whole specification. So most assertions here are
+// about the ABSENCE of exits: every path names a terminal, an unprovable claim never opens eligibility, and
+// no caller may hand in the verdict OR the evidence behind it.
 //
-// Three earlier shapes of this module were falsified by peer probe and each defect is pinned below:
-//   * two caller booleans passed as proof of replay          -> receipt validation
-//   * a bare [] claiming a scan the substrate cannot perform -> provenance-carrying overlayScan
-//   * segment COUNTS offered as proof of no-loss             -> set inclusion by id
+// Five earlier shapes were falsified by peer probe. Each is pinned below, because the pattern recurred:
+// every one of them checked the SHAPE of a claim and mistook that for checking the claim.
+//   * two caller booleans passed as proof of replay        -> verification runs HERE
+//   * a structurally valid typed receipt passed as proof   -> verification runs HERE
+//   * a bare [] claiming an impossible scan                -> capability gate
+//   * an invented planeIdSource string unlocking clean     -> capability gate
+//   * segment COUNTS offered as proof of no-loss           -> set inclusion by id
 
-// A structurally complete continuity receipt, as `verifyReplayContinuity` actually produces.
-const receiptOf = (plannedTotal = 2) => ({
-    requiredStages: ['embedded', 'graph'],
-    plannedTotal,
-    appliedByStage: {embedded: plannedTotal, graph: plannedTotal},
-    unrelatedTotal: 0
-});
+const S         = ids => new Set(ids),
+      allStages = ids => ({embedded: S(ids), graph: S(ids)});
 
-const provenContinuity = () => ({ok: true, monotonic: true, receipt: receiptOf()});
-
-// A scan that states HOW it was performed. `planeIdSource` is the field no honest caller can populate today.
-const scanOf = (taggedSegments = []) => ({
-    planeIdSource      : 'segment header planeId (hypothetical producer)',
-    scannedSegmentCount: 140,
-    taggedSegments
-});
-
-const cleanDemotion = () => ({
-    overlayScan        : scanOf(),
-    preCloneSegmentIds : ['s1', 's2', 's3'],
-    postPilotSegmentIds: ['s1', 's2', 's3', 's4', 's5']
+// A real plan from the real planner — not a hand-built object, which is the entire point.
+const realPlan = () => planWalReplay({
+    payloadEntries: [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}],
+    appliedStages : allStages(['seed'])
 });
 
 test.describe('terminal set and the eligibility authority', () => {
@@ -45,10 +38,9 @@ test.describe('terminal set and the eligibility authority', () => {
     });
 
     test('⭐ only strict `committed` OPENS eligibility — a clean demotion leaves it unchanged', () => {
-        // A boolean previously conflated "opened" with "never closed", which contradicted the governing
-        // rule reserving an opening for strict `committed`. A clean demotion never mutated the durable
-        // plane, so there was nothing to open — modelling that as `unchanged` keeps the strictness intact
-        // rather than quietly widening it.
+        // A boolean previously conflated "opened" with "never closed", which contradicted the governing rule
+        // reserving an opening for strict `committed`. A clean demotion never mutated the durable plane, so
+        // there was nothing to open.
         expect(eligibilityEffect('committed')).toBe('opened');
         expect(eligibilityEffect('demoted-clean')).toBe('unchanged');
         expect(eligibilityEffect('failed-contained')).toBe('denied');
@@ -62,210 +54,222 @@ test.describe('terminal set and the eligibility authority', () => {
     });
 });
 
-test.describe('evaluatePromotion — the terminal rests on a receipt, not on booleans', () => {
-    test('a validated receipt commits, and the receipt is carried through', () => {
-        const continuity = provenContinuity(),
-              result     = evaluatePromotion({continuity});
+test.describe('evaluatePromotion — the verification runs HERE, so evidence cannot be typed', () => {
+    test('a real replay against a real plan commits, and carries the verifier\'s receipt', () => {
+        // POSITIVE CONTROL for the whole promotion path: without it, every refusal below could be a blanket
+        // failure and the module would look correct while being useless.
+        const result = evaluatePromotion({
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['seed', 'a', 'b']),
+            plan               : realPlan()
+        });
 
         expect(result.terminal).toBe('committed');
         expect(result.eligibility).toBe('opened');
-        expect(result.receipt).toBe(continuity.receipt);
+        expect(result.receipt.plannedTotal).toBe(2);
+        expect(result.receipt.appliedByStage).toEqual({embedded: 2, graph: 2});
         expect(result.reason).toContain('embedded + graph');
     });
 
-    test('⭐ two caller booleans are NOT evidence — no receipt cannot commit', () => {
-        // The falsified shape: `{ok: true, monotonic: true}` settled `committed` with `receipt: null`,
-        // which both contradicted "derived from evidence" and failed the AC's requirement that the
-        // terminal END IN a continuity receipt.
-        const result = evaluatePromotion({continuity: {ok: true, monotonic: true}});
+    test('⭐ a hand-typed but structurally COMPLETE receipt cannot commit', () => {
+        // The falsified shape. Validating receipt structure only checked the shape of a claim, never its
+        // provenance — and a complete receipt is a thing a caller can simply type. There is no longer a
+        // `continuity` input to forge: the verifier is called from inside.
+        const typed = evaluatePromotion({
+            continuity: {
+                ok     : true, monotonic: true,
+                receipt: {requiredStages: ['embedded', 'graph'], plannedTotal: 2, appliedByStage: {embedded: 2, graph: 2}}
+            }
+        });
 
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.eligibility).toBe('denied');
-        expect(result.reason).toContain('carries no receipt');
-        expect(result.reason).toContain('not evidence');
+        expect(typed.terminal).toBe('failed-contained');
+        expect(typed.eligibility).toBe('denied');
+        expect(typed.reason).toContain('no replay plan');
     });
 
-    test('a structurally incomplete receipt cannot commit', () => {
-        const cases = [
-            [{}, 'names no required stages'],
-            [{requiredStages: []}, 'names no required stages'],
-            [{requiredStages: ['embedded'], plannedTotal: -1}, 'plannedTotal'],
-            [{requiredStages: ['embedded'], plannedTotal: 1.5}, 'plannedTotal'],
-            [{requiredStages: ['embedded'], plannedTotal: 1}, 'per-stage applied counts'],
-            [{requiredStages: ['embedded', 'graph'], plannedTotal: 1, appliedByStage: {embedded: 1}}, 'stage "graph"']
-        ];
+    test('⭐ a forged plan cannot commit — the verifier reconciles it against its own receipt', () => {
+        const plan = realPlan(),
+              // Same receipt, drained work list: the shape a queue-consuming executor would produce.
+              drained = evaluatePromotion({
+                  appliedStagesBefore: allStages(['seed']),
+                  appliedStagesAfter : allStages(['seed']),
+                  plan               : {ok: true, toApply: [], alreadyApplied: [], receipt: plan.receipt}
+              });
 
-        for (const [receipt, expected] of cases) {
-            const result = evaluatePromotion({continuity: {ok: true, monotonic: true, receipt}});
-
-            expect(result.terminal).toBe('failed-contained');
-            expect(result.reason).toContain(expected);
-        }
+        expect(drained.terminal).toBe('failed-contained');
+        expect(drained.reason).toContain('mutated after planning');
     });
 
-    test('a refused continuity verdict settles contained and surfaces the verifier reason', () => {
-        const result = evaluatePromotion({continuity: {ok: false, reason: 'duplicate source ids in payload'}});
+    test('a replay verified against the WRONG pre-state cannot commit', () => {
+        // The plan was computed against {seed}; verifying it against an empty target is meaningless.
+        const result = evaluatePromotion({
+            appliedStagesBefore: allStages([]),
+            appliedStagesAfter : allStages(['a', 'b']),
+            plan               : realPlan()
+        });
 
         expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('duplicate source ids');
+        expect(result.reason).toContain('pre-state');
     });
 
-    test('ok:true without monotonic:true does NOT commit', () => {
-        const result = evaluatePromotion({continuity: {ok: true, receipt: receiptOf()}});
+    test('a planned id that never landed cannot commit', () => {
+        const result = evaluatePromotion({
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['seed', 'a']),   // 'b' never landed
+            plan               : realPlan()
+        });
 
         expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('monotonic');
+        expect(result.reason).toContain('never landed');
+    });
+
+    test('a target that LOST a prior receipt cannot commit', () => {
+        const result = evaluatePromotion({
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['a', 'b']),       // 'seed' regressed
+            plan               : realPlan()
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('lost');
+    });
+
+    test('a refused plan cannot commit, and the planner reason surfaces', () => {
+        const bad    = planWalReplay({payloadEntries: [{id: 'a'}, {id: 'a'}], appliedStages: allStages([])}),
+              result = evaluatePromotion({
+                  appliedStagesBefore: allStages([]), appliedStagesAfter: allStages(['a']), plan: bad
+              });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('duplicate source id');
     });
 
     test('absent evidence settles contained rather than refusing — the refusal WOULD BE the abandon', () => {
-        for (const continuity of [undefined, null, 'ok', 42]) {
-            expect(evaluatePromotion({continuity}).terminal).toBe('failed-contained');
-        }
+        for (const spec of [undefined, null, {}, {plan: null}, {plan: 'x'}, 42]) {
+            const result = evaluatePromotion(spec);
 
-        // Called with nothing at all: a promotion that died before producing any evidence. `null` matters
-        // separately from `undefined` — a `= {}` default fires only for the latter, so this once THREW,
-        // and a throw is an exit without a terminal.
-        expect(evaluatePromotion().terminal).toBe('failed-contained');
-        expect(evaluatePromotion(null).terminal).toBe('failed-contained');
+            expect(result.terminal).toBe('failed-contained');
+            expect(result.eligibility).toBe('denied');
+        }
     });
 
     test('a caller cannot supply the terminal', () => {
-        const result = evaluatePromotion({
-            continuity : {ok: false, reason: 'replay incomplete'},
-            terminal   : 'committed',
-            eligibility: 'opened'
-        });
+        const result = evaluatePromotion({plan: {ok: false, reason: 'nope'}, terminal: 'committed', eligibility: 'opened'});
 
         expect(result.terminal).toBe('failed-contained');
         expect(result.eligibility).toBe('denied');
     });
 });
 
-test.describe('evaluateDemotion — proves no leak and no loss, by identity', () => {
-    test('concurrent growth from other seats is clean, not a failure', () => {
-        // The load-bearing case. A pilot occupies one seat for 1-2 weeks while the institution keeps
-        // writing, so extra durable segments are the EXPECTED shape of a healthy demotion. A fingerprint
-        // equality proof would have called this contained and been switched off within one pilot.
-        const result = evaluateDemotion(cleanDemotion());
-
-        expect(result.terminal).toBe('demoted-clean');
-        expect(result.eligibility).toBe('unchanged');
-        expect(result.receipt.concurrentGainTotal).toBe(2);
-        expect(result.receipt.overlayTaggedTotal).toBe(0);
-        expect(result.receipt.planeIdSource).toContain('planeId');
+test.describe('⭐ evaluateDemotion — clean is MECHANICALLY unreachable while the producer is absent', () => {
+    test('the substrate has no plane-id producer, and that is recorded as a constant', () => {
+        // A constant, not a parameter. Asking the caller to NAME a source only checked that a string was
+        // present, so an invented name unlocked a clean terminal: requiring a field is not proving a fact.
+        expect(OVERLAY_TAGGING_PRODUCER).toBeNull();
     });
 
-    test('zero concurrent growth is also clean', () => {
-        const result = evaluateDemotion({...cleanDemotion(), postPilotSegmentIds: ['s1', 's2', 's3']});
+    test('⭐ NO argument combination yields demoted-clean — including a plausible invented scan', () => {
+        // Euclid's exact falsifier: a non-empty planeIdSource with zero scanned and zero tagged segments.
+        const candidates = [
+            {overlayScan: {planeIdSource: 'segment header planeId', scannedSegmentCount: 0, taggedSegments: []},
+             preCloneSegmentIds: [], postPilotSegmentIds: []},
+            {overlayScan: {planeIdSource: 'wal-store', scannedSegmentCount: 140, taggedSegments: []},
+             preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1', 's2']},
+            {overlayScan: {planeIdSource: null, scannedSegmentCount: 1, taggedSegments: []},
+             preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']},
+            {overlayScan: []}, {overlayScan: {}}, {}, null, undefined
+        ];
 
-        expect(result.terminal).toBe('demoted-clean');
-        expect(result.receipt.concurrentGainTotal).toBe(0);
-    });
-
-    test('⭐ a bare array is REFUSED — [] claims a scan the substrate cannot perform', () => {
-        // The falsified shape. `[]` is indistinguishable from "nobody looked", and worse: WAL records carry
-        // a segmentKey but NO plane id, so no producer for this scan exists. Accepting `[]` converted a
-        // missing capability into a clean bill of health.
-        const result = evaluateDemotion({...cleanDemotion(), overlayScan: []});
-
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('not a bare array');
-        expect(result.reason).toContain('segmentKey but no plane id');
-    });
-
-    test('a scan that cannot say where the plane id came from is unproven', () => {
-        for (const planeIdSource of [undefined, null, '', '   ', 42]) {
-            const result = evaluateDemotion({...cleanDemotion(), overlayScan: {...scanOf(), planeIdSource}});
-
-            expect(result.terminal).toBe('failed-contained');
-            expect(result.reason).toContain('planeIdSource');
-        }
-    });
-
-    test('a scan that cannot say how much it examined is not a scan', () => {
-        for (const scannedSegmentCount of [undefined, -1, 1.5, '140']) {
-            const result = evaluateDemotion({...cleanDemotion(), overlayScan: {...scanOf(), scannedSegmentCount}});
-
-            expect(result.terminal).toBe('failed-contained');
-            expect(result.reason).toContain('scannedSegmentCount');
-        }
-    });
-
-    test('an overlay-tagged segment settles contained and says do not delete', () => {
-        const result = evaluateDemotion({
-            ...cleanDemotion(),
-            overlayScan: scanOf(['wal-2026-07-20.jsonl', 'wal-2026-07-21.jsonl'])
-        });
-
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.eligibility).toBe('denied');
-        expect(result.reason).toContain('wal-2026-07-20.jsonl');
-        // Quarantine over deletion: the overlay is the only surviving evidence of what leaked.
-        expect(result.reason).toContain('Quarantine');
-        expect(result.receipt.overlayTaggedTotal).toBe(2);
-    });
-
-    test('⭐ EQUAL COUNTS do not prove no-loss — delete-old + add-new is caught by identity', () => {
-        // The falsified shape used counts. Cardinality is not identity: 3 -> 3 looks stable while committed
-        // history has been destroyed and replaced.
-        const result = evaluateDemotion({
-            ...cleanDemotion(),
-            preCloneSegmentIds : ['s1', 's2', 's3'],
-            postPilotSegmentIds: ['s2', 's3', 's9']   // s1 destroyed, s9 added — same count
-        });
-
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('no longer present');
-        expect(result.reason).toContain('s1');
-        expect(result.receipt.lostSegmentTotal).toBe(1);
-    });
-
-    test('a shrinking corpus is caught too — writers explain growth, never loss', () => {
-        const result = evaluateDemotion({...cleanDemotion(), postPilotSegmentIds: ['s1', 's2']});
-
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('no longer present');
-    });
-
-    test('malformed segment id lists settle contained', () => {
-        for (const ids of [
-            {preCloneSegmentIds: undefined},
-            {postPilotSegmentIds: undefined},
-            {preCloneSegmentIds: ['s1', '']},
-            {preCloneSegmentIds: ['s1', 42]},
-            {preCloneSegmentIds: 3, postPilotSegmentIds: 3}
-        ]) {
-            const result = evaluateDemotion({...cleanDemotion(), ...ids});
+        for (const spec of candidates) {
+            const result = evaluateDemotion(spec);
 
             expect(result.terminal).toBe('failed-contained');
             expect(result.eligibility).toBe('denied');
         }
-
-        expect(evaluateDemotion().terminal).toBe('failed-contained');
-        expect(evaluateDemotion(null).terminal).toBe('failed-contained');
     });
 
-    test('the leak check outranks the loss check', () => {
-        // Both wrong at once: the report must lead with the leak, since that is the fact that changes what
-        // the operator does next.
+    test('the refusal blames the SUBSTRATE, not the caller, and says quarantine', () => {
+        // The message a real operator will read mid-demotion. It must not send them hunting for a bad argument.
         const result = evaluateDemotion({
-            overlayScan        : scanOf(['wal-2026-07-22.jsonl']),
-            preCloneSegmentIds : ['s1', 's2'],
-            postPilotSegmentIds: ['s2']
+            overlayScan       : {planeIdSource: 'segment header planeId', scannedSegmentCount: 140, taggedSegments: []},
+            preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']
         });
 
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('overlay-tagged');
+        expect(result.reason).toContain('UNPROVABLE, not merely');
+        expect(result.reason).toContain('no argument can change that');
+        expect(result.reason).toContain('missing producer');
+        expect(result.reason).toContain('Quarantine');
+    });
+});
+
+// POSITIVE CONTROLS for the logic behind the capability gate. Without these the gate would hide whether the
+// demotion reasoning works at all, and opening the path later would be an untested one-line change.
+test.describe('validateOverlayScan — the logic behind the gate, tested directly', () => {
+    test('a bare array is not a scan', () => {
+        expect(validateOverlayScan([])).toContain('not a bare array');
+        expect(validateOverlayScan(['x'])).toContain('not a bare array');
+    });
+
+    test('an absent scan is unproven, not clean', () => {
+        for (const value of [undefined, null, 'scan', 42]) {
+            expect(validateOverlayScan(value)).toContain('unproven, not clean');
+        }
+    });
+
+    test('⭐ an INVENTED planeIdSource is rejected against the substrate\'s producer', () => {
+        // Not merely "is a string" — it must BE the producer the substrate provides. While that is null,
+        // every named source is invented by construction.
+        const invented = validateOverlayScan({planeIdSource: 'segment header planeId', scannedSegmentCount: 1, taggedSegments: []});
+
+        expect(invented).toContain('is not the substrate\'s plane-id producer');
+        expect(invented).toContain('naming a field is not producing the fact');
+    });
+
+    test('a missing planeIdSource is named as such', () => {
+        expect(validateOverlayScan({scannedSegmentCount: 1, taggedSegments: []})).toContain('must name where');
+        expect(validateOverlayScan({planeIdSource: '  ', scannedSegmentCount: 1, taggedSegments: []})).toContain('must name where');
+    });
+});
+
+test.describe('diffSegmentIdentity — identity, not cardinality', () => {
+    test('⭐ EQUAL COUNTS do not prove no-loss: delete-old + add-new is caught', () => {
+        // 3 -> 3 looks stable while committed history was destroyed and replaced.
+        const result = diffSegmentIdentity(['s1', 's2', 's3'], ['s2', 's3', 's9']);
+
+        expect(result.lost).toEqual(['s1']);
+        expect(result.gained).toEqual(['s9']);
+    });
+
+    test('concurrent growth from other seats is gain, not loss', () => {
+        // The load-bearing case: a pilot occupies one seat for 1-2 weeks while the institution keeps writing,
+        // so extra durable segments are the EXPECTED shape of a healthy demotion. A fingerprint equality
+        // proof would have called this a failure and been switched off within one pilot.
+        const result = diffSegmentIdentity(['s1', 's2'], ['s1', 's2', 's3', 's4']);
+
+        expect(result.lost).toEqual([]);
+        expect(result.gained).toEqual(['s3', 's4']);
+    });
+
+    test('an unchanged corpus has neither', () => {
+        expect(diffSegmentIdentity(['s1'], ['s1'])).toEqual({lost: [], gained: []});
+        expect(diffSegmentIdentity([], [])).toEqual({lost: [], gained: []});
+    });
+
+    test('malformed id lists refuse rather than coerce', () => {
+        for (const [pre, post] of [[undefined, ['s1']], [['s1'], undefined], [['s1', ''], ['s1']], [['s1', 42], ['s1']], [3, 3]]) {
+            expect(diffSegmentIdentity(pre, post).reason).toContain('identity is required');
+        }
     });
 });
 
 test.describe('no path exits without a named terminal', () => {
     test('both evaluators always return a member of PILOT_TERMINALS', () => {
         const inputs = [
-            undefined, null, {}, 'string', 42,
-            {continuity: {}}, {continuity: {ok: true}}, {continuity: provenContinuity()},
-            {overlayScan: []}, {overlayScan: scanOf()}, {preCloneSegmentIds: ['s1']},
-            cleanDemotion()
+            undefined, null, {}, 'string', 42, [],
+            {plan: realPlan()}, {plan: {}}, {continuity: {ok: true, monotonic: true}},
+            {appliedStagesBefore: allStages(['seed']), appliedStagesAfter: allStages(['seed', 'a', 'b']), plan: realPlan()},
+            {overlayScan: []}, {overlayScan: {planeIdSource: 'x', scannedSegmentCount: 0, taggedSegments: []}},
+            {preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']}
         ];
 
         for (const input of inputs) {
@@ -278,6 +282,8 @@ test.describe('no path exits without a named terminal', () => {
                 expect(result.eligibility).toBe(eligibilityEffect(result.terminal));
                 // Only a commit may carry an opened eligibility, whatever the input.
                 if (result.eligibility === 'opened') expect(result.terminal).toBe('committed');
+                // And demotion can NEVER reach a non-contained terminal at this head.
+                if (evaluate === evaluateDemotion) expect(result.terminal).toBe('failed-contained');
             }
         }
     });
