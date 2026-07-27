@@ -35,8 +35,9 @@
  * that guessed would launder one category error into another.
  */
 
-import fs   from 'node:fs';
-import path from 'node:path';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const ROOT        = path.resolve(import.meta.dirname, '../../..'),
       SERVER_ROOT = path.join(ROOT, 'ai/mcp/server'),
@@ -59,24 +60,27 @@ const ROOT        = path.resolve(import.meta.dirname, '../../..'),
        * subject is worse than no guard, because it certifies the thing it was built to stop.
        */
       NEO_TOKENS  = new Set(['neo', 'neo.mjs', 'neomjs']),
-      EXTERNAL    = /\b([A-Z][A-Za-z0-9.+-]*)\s+frameworks?\b/,
-      TOKEN       = /\bframeworks?\b/i;
+      /**
+       * Every `framework` token with its immediately preceding word, if any. Global and
+       * occurrence-scoped so each token is judged on its own qualifier.
+       */
+      OCCURRENCE  = /(?:([A-Za-z0-9.+-]+)\s+)?\bframeworks?\b/gi;
 
 /**
- * @summary Whether the line's `framework` token names a specific external framework.
+ * @summary Whether one `framework` occurrence's qualifier names a specific external framework.
  *
- * Legal requires all three: a capitalized qualifier, not a determiner, and not Neo itself.
- * @param {String} text Source line.
+ * Legal requires all three: a capitalized qualifier, not a determiner, and not Neo itself. A bare
+ * token with no qualifier at all is never legal — an unqualified `framework` in a Neo-owned
+ * description can only mean Neo.
+ * @param {String|undefined} qualifier The word directly before the token.
  * @returns {Boolean}
  */
-export function namesExternalFramework(text) {
-    const match = EXTERNAL.exec(text);
+export function isExternalQualifier(qualifier) {
+    if (!qualifier) return false;
 
-    if (!match) return false;
+    const lower = qualifier.toLowerCase();
 
-    const qualifier = match[1].toLowerCase();
-
-    return !DETERMINERS.has(qualifier) && !NEO_TOKENS.has(qualifier);
+    return /^[A-Z]/.test(qualifier) && !DETERMINERS.has(lower) && !NEO_TOKENS.has(lower);
 }
 
 /**
@@ -89,7 +93,12 @@ export function namesExternalFramework(text) {
  * @returns {Boolean}
  */
 export function claimsNeoIsAFramework(text) {
-    return TOKEN.test(text) && !namesExternalFramework(text);
+    // Evaluated per OCCURRENCE, not per line. A line-level carve-out let one legal mention launder
+    // every other token beside it — `Vue framework adapter; Neo.mjs framework internals` passed,
+    // because the first match was legal and the whole line was then exempt. The claim is made by an
+    // occurrence, so the occurrence is what must be judged.
+    return Array.from(text.matchAll(OCCURRENCE))
+        .some(match => !isExternalQualifier(match[1]));
 }
 
 /**
@@ -117,18 +126,33 @@ function findViolations(file) {
         .map(({text, line}) => ({file: path.relative(ROOT, file), line, text: text.trim()}));
 }
 
-const violations = collectSurfaces().flatMap(findViolations);
+/**
+ * @summary Scans the surfaces and exits non-zero on any violation.
+ *
+ * Runs ONLY when this module is the entrypoint. Importing the predicate for a spec must have no
+ * side effect — an import-time scan would `process.exit(1)` inside the test runner the moment the
+ * tree had a real violation, so the guard's own coverage would die exactly when it mattered.
+ * @returns {void}
+ */
+function main() {
+    const surfaces   = collectSurfaces(),
+          violations = surfaces.flatMap(findViolations);
 
-if (violations.length) {
-    console.error(`\x1b[31mlint-identity-vocabulary: ${violations.length} framework-category claim(s) in agent-facing tool descriptions:\x1b[0m`);
-    violations.forEach(({file, line, text}) => console.error(`  ${file}:${line}: ${text}`));
-    console.error(
-        'Neo is not a framework — the Body is an ENGINE, the Brain is the Agent OS. Tool descriptions\n' +
-        'are read by every agent as authority on what Neo is, including agents that never read a guide.\n' +
-        'Use "engine" for runtime-facing text and "Neo.mjs" for text about knowledge of the project.\n' +
-        'Naming a specific external framework (e.g. "React framework") is legal and passes.'
-    );
-    process.exit(1);
+    if (violations.length) {
+        console.error(`\x1b[31mlint-identity-vocabulary: ${violations.length} framework-category claim(s) in agent-facing tool descriptions:\x1b[0m`);
+        violations.forEach(({file, line, text}) => console.error(`  ${file}:${line}: ${text}`));
+        console.error(
+            'Neo is not a framework — the Body is an ENGINE, the Brain is the Agent OS. Tool descriptions\n' +
+            'are read by every agent as authority on what Neo is, including agents that never read a guide.\n' +
+            'Use "engine" for runtime-facing text and "Neo.mjs" for text about knowledge of the project.\n' +
+            'Naming a specific external framework (e.g. "React framework") is legal and passes.'
+        );
+        process.exit(1);
+    }
+
+    console.log(`lint-identity-vocabulary: ${surfaces.length} agent-facing surface(s) scanned, 0 violations.`);
 }
 
-console.log(`lint-identity-vocabulary: ${collectSurfaces().length} agent-facing surface(s) scanned, 0 violations.`);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    main();
+}
