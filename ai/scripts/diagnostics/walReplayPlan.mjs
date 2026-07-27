@@ -157,17 +157,30 @@ export function receiptIdSet(receiptRecords) {
  * This is what binds a plan to the pre-state it was computed from. Sorted before hashing so two reads of
  * the same target agree regardless of enumeration order.
  *
- * ## Why values are length-prefixed rather than newline-framed
+ * ## Two separate ambiguities had to be closed, and the second is the instructive one
  *
- * An earlier version wrote `${value}\n`, which is **not injective** because a newline is legal inside an id.
- * `{embedded: ["a\nb"]}` and `{embedded: ["a", "b"]}` therefore produced the *same* digest — so the
- * pre-state binding could authenticate a **different legal state**, which is the one thing it exists to
- * prevent. A plan computed against one target verified clean against another.
+ * **1. Values.** The original wrote `${value}\n`, which is not injective because a newline is legal inside
+ * an id: `{embedded: ["a\nb"]}` and `{embedded: ["a", "b"]}` produced the *same* digest. Values are now
+ * **length-prefixed by byte count**, so no value can be mistaken for a concatenation of shorter ones
+ * whatever bytes it contains. That beats escaping or forbidding delimiters, because it needs no cooperation
+ * from the id grammar and stays injective if the grammar later widens.
  *
- * Length-prefixing removes the ambiguity structurally: no value can be mistaken for a concatenation of
- * shorter ones, whatever bytes it contains. That is strictly better than escaping or than forbidding
- * delimiters in ids, because it needs no cooperation from the id grammar — the encoding stays injective
- * even if the grammar later widens.
+ * **2. The partition.** Length-prefixing every element made the *element* encoding injective while leaving
+ * the mapping from **stage-partitioned state → flattened element sequence** ambiguous. An id equal to the
+ * next stage's name migrated across the boundary invisibly:
+ *
+ * ```
+ * {embedded: ["graph"], graph: []}   →  "embedded" "graph" | "graph"
+ * {embedded: [], graph: ["graph"]}   →  "embedded" | "graph" "graph"
+ * ```
+ *
+ * Identical byte streams, so a plan computed against one verified clean against the other. Each stage now
+ * writes **its name followed by its id count** before the ids, which makes every stage a fixed-arity header
+ * plus exactly that many elements — a canonical serialization of the whole structure rather than of its
+ * leaves.
+ *
+ * The lesson worth keeping: an injective encoding of the parts is not an injective encoding of the shape.
+ * Both levels need framing, and fixing the one that was reported is not the same as closing the class.
  * @param {Object} appliedStages `{<stage>: Set<String>}`
  * @param {String[]} [stages] Stage names to include, in a fixed order.
  * @returns {String} sha256 hex.
@@ -184,9 +197,13 @@ export function digestAppliedStages(appliedStages, stages = WAL_RECEIPT_STAGES) 
           };
 
     for (const stage of stages) {
-        write(stage);
+        const ids = [...(appliedStages?.[stage] ?? [])].sort();
 
-        for (const id of [...(appliedStages?.[stage] ?? [])].sort()) {
+        write(stage);
+        // THE PARTITION BOUNDARY. Without this count an id may impersonate the next stage's name.
+        write(ids.length);
+
+        for (const id of ids) {
             write(id);
         }
     }

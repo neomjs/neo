@@ -187,6 +187,75 @@ test.describe('digestAppliedStages — the binding is order-independent and stag
         expect(digestAppliedStages({embedded: S(['a']), graph: S()}))
             .not.toBe(digestAppliedStages({embedded: S(), graph: S(['a'])}));
     })
+
+    test('⭐ VALUE ambiguity: a newline inside an id cannot fake a second id', () => {
+        // The original encoding wrote `${value}\n`, and a newline is LEGAL inside a WAL id — so these two
+        // distinct legal states hashed identically and the pre-state binding authenticated the wrong one.
+        expect(digestAppliedStages({embedded: S(['a\nb']), graph: S(['a\nb'])}))
+            .not.toBe(digestAppliedStages({embedded: S(['a', 'b']), graph: S(['a', 'b'])}));
+
+        // A value that LOOKS like a length prefix must not defeat the length prefix either.
+        expect(digestAppliedStages({embedded: S(['1:a']), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(['a']), graph: S()}));
+    })
+
+    test('⭐ PARTITION ambiguity: an id equal to the next stage name cannot cross the boundary', () => {
+        // Length-prefixing every element made the ELEMENT encoding injective and left the mapping from
+        // stage-partitioned state to flattened sequence ambiguous:
+        //   {embedded: ['graph'], graph: []} -> "embedded" "graph" | "graph"
+        //   {embedded: [], graph: ['graph']} -> "embedded" | "graph" "graph"
+        // Identical byte streams. Each stage now writes its id COUNT before its ids, so every stage is a
+        // fixed-arity header plus exactly that many elements.
+        expect(digestAppliedStages({embedded: S(['graph']), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(), graph: S(['graph'])}));
+
+        // Same shape with the OTHER stage name, and with a numeric id that could impersonate a count.
+        expect(digestAppliedStages({embedded: S(['embedded']), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(), graph: S(['embedded'])}));
+        expect(digestAppliedStages({embedded: S(['1']), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(), graph: S(['1'])}));
+
+        // And a split that preserves the flattened element sequence but changes the partition.
+        expect(digestAppliedStages({embedded: S(['a', 'b']), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(['a']), graph: S(['b'])}));
+    })
+
+    test('an empty stage is distinct from a stage holding an empty-string id', () => {
+        expect(digestAppliedStages({embedded: S(), graph: S()}))
+            .not.toBe(digestAppliedStages({embedded: S(['']), graph: S()}));
+    })
+});
+
+test.describe('⭐ verifyReplayContinuity — the pre-state binding survives a stage-boundary substitution', () => {
+    // The end-to-end form of the partition collision: a plan computed against state A verified clean
+    // against state B, unchanged before→after, reporting monotonic success while the opposite stage held
+    // the work. This is the attack the digest exists to stop, so it is asserted at the verifier and not
+    // only at the hash.
+    const stateA = {embedded: S(['graph']), graph: S()},
+          stateB = {embedded: S(), graph: S(['graph'])};
+
+    test('a plan built against state A cannot verify against state B', () => {
+        const plan   = planWalReplay({payloadEntries: [entry('graph', 1)], appliedStages: stateA}),
+              result = verifyReplayContinuity({appliedStagesBefore: stateB, appliedStagesAfter: stateB, plan});
+
+        expect(plan.ok).toBe(true);
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('does not match the pre-state');
+    })
+
+    test('positive control: the same plan verifies against its OWN state once the replay lands', () => {
+        // Without this the refusal above could be a blanket failure on any id named after a stage.
+        const plan   = planWalReplay({payloadEntries: [entry('graph', 1)], appliedStages: stateA}),
+              result = verifyReplayContinuity({
+                  appliedStagesBefore: stateA,
+                  appliedStagesAfter : {embedded: S(['graph']), graph: S(['graph'])},
+                  plan
+              });
+
+        expect(result.ok).toBe(true);
+        expect(result.monotonic).toBe(true);
+        expect(result.receipt.plannedTotal).toBe(1);
+    })
 });
 
 test.describe('verifyReplayContinuity — the verifier must be BOUND and able to FAIL', () => {
