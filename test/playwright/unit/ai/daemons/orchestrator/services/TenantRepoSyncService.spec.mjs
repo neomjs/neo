@@ -629,6 +629,67 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         });
     });
 
+    test('legacy null-contract checkpoint bootstraps an empty target after the first positive materialization (#16045)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/legacy-empty-bootstrap',
+            envelopeCalls    = [],
+            ingestCalls      = [];
+
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : 'sha-before-contracts',
+                    lastRunAttemptAt                  : 0,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : null,
+                    lastAttemptedIngestContractVersion: null
+                }
+            }
+        });
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/private.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls, includeManifest: true}),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
+            onlyRepoSlugs                : [repoSlug],
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+        expect(result.details.failedCount).toBe(0);
+        expect(envelopeCalls).toHaveLength(1);
+        expect(envelopeCalls[0].args.lastIngestedRev).toBeNull();
+        expect(ingestCalls).toHaveLength(1);
+        expect(ingestCalls[0].payload).toMatchObject({
+            tenantId: 't1',
+            repoSlug,
+            viaMcp  : false
+        });
+        expect(ingestCalls[0].payload.manifestSnapshot.pathsAfterPush).toEqual(['fake.txt']);
+        expect(ingestCalls[0].payload.materializationAttempt).toMatchObject({
+            ingestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        });
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${repoSlug}`]).toMatchObject({
+            lastIngestedRev                   : `sha-head-${repoSlug}`,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastCommittedMaterializationAttemptId:
+                ingestCalls[0].payload.materializationAttempt.attemptId
+        });
+    });
+
     for (const scenario of [
         {
             label        : 'bootstrap',
