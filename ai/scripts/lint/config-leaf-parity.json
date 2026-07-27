@@ -512,7 +512,10 @@
         "wakeDaemon",
         "wakeDaemon.bridgeLastSyncIdPathOverride",
         "wakeDaemon.dataDir",
-        "wakeDaemon.wakeSubscriptionLiveCursorPathOverride"
+        "wakeDaemon.wakeSubscriptionLiveCursorPathOverride",
+        "whoIsOnline",
+        "whoIsOnline.activityFreshMs",
+        "whoIsOnline.idleCutoffMs"
     ],
     "ai/mcp/server/neural-link/config.template.mjs": [
         "autoConnect",

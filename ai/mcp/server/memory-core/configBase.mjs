@@ -9,6 +9,34 @@ import {
     TURN_PRESENCE_ENV
 } from './helpers/TurnPresenceConfig.mjs';
 
+/**
+ * @summary Parses a liveness-window override, refusing values a window cannot have.
+ *
+ * A window of `0`, a negative, or a non-number is not a calibration — it is a deployment silently
+ * disabling or inverting a roster verdict. `0` would make every identity permanently stale and a
+ * negative would make freshness unreachable, so both fail loud at config resolution rather than
+ * producing an all-dark roster nobody can explain at 3am.
+ * Mirrors the `parseMemorySharingPolicy` signature directly above: the parser receives the env var
+ * NAME and reads the value itself, returning `undefined` when unset so the leaf default applies.
+ * @param {String} envVarName Env var name.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {Number|undefined} Positive finite milliseconds, or undefined when unset.
+ */
+function parsePositiveWindowMs(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(`[Config] Invalid ${envVarName} value: "${rawValue}". Must be a positive finite number of milliseconds.`);
+    }
+
+    return parsed;
+}
+
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];
     if (rawValue === undefined || rawValue === null || rawValue === '') return;
@@ -244,6 +272,29 @@ class ConfigBase extends ConfigProvider {
                 ttlMs             : leaf(TURN_PRESENCE_DEFAULTS.ttlMs,              TURN_PRESENCE_ENV.ttlMs,              'number'),
                 noteMaxChars      : leaf(TURN_PRESENCE_DEFAULTS.noteMaxChars,       TURN_PRESENCE_ENV.noteMaxChars,       'number'),
                 hookWriteTimeoutMs: leaf(TURN_PRESENCE_DEFAULTS.hookWriteTimeoutMs, TURN_PRESENCE_ENV.hookWriteTimeoutMs, 'number')
+            },
+            /**
+             * `who_is_online` roster-projection windows.
+             *
+             * The tool answers two different questions and needs two different windows, because a
+             * single one cannot be right for both: LIVENESS ("acting right now") and MEMBERSHIP
+             * ("seen on this deployment at all"). Both are deployment-calibratable rather than
+             * constants, because the honest value depends on a deployment's own turn rhythm — a
+             * swarm of long-turn maintainers and a many-seat tenant do not share one answer.
+             *
+             * `activityFreshMs` bounds ONLINE. `add_memory` lands at turn boundaries, so this must
+             * exceed a typical turn or a mid-turn agent reads as absent; the turn-presence beacon
+             * is the preferred liveness signal where a deployment emits one, and this window is the
+             * fallback rather than the primary test.
+             *
+             * `idleCutoffMs` bounds IDLE, and its absence is what made the roster read as an
+             * attendance list: with no cutoff, an identity last seen eight hours ago and an
+             * identity that logged off at lunch occupy the same bucket. Beyond it an identity
+             * reports `dark` — still rostered, no longer plausibly in this session.
+             */
+            whoIsOnline: {
+                activityFreshMs: leaf(15 * 60 * 1000,     'NEO_WHO_IS_ONLINE_ACTIVITY_FRESH_MS', 'number', {parse: parsePositiveWindowMs}),
+                idleCutoffMs   : leaf(4 * 60 * 60 * 1000, 'NEO_WHO_IS_ONLINE_IDLE_CUTOFF_MS',    'number', {parse: parsePositiveWindowMs})
             },
             /**
              * Redacted Memory Core MCP tool-call telemetry. The recorder reads these resolved
