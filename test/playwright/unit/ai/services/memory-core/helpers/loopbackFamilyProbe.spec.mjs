@@ -1,9 +1,12 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import * as yaml      from 'js-yaml';
 import {
     LOOPBACK_PROBE_TIMEOUT_MS,
     classifyLoopbackObservation,
     isLoopbackHost,
-    probeLoopbackFamilies
+    probeLoopbackFamilies,
+    resolveLoopbackFamilies
 } from '../../../../../../../ai/services/memory-core/helpers/loopbackFamilyProbe.mjs';
 
 // Neo-free helper imported directly, mirroring hostEndpoint.spec and detectionRetentionSla.spec: no
@@ -43,6 +46,31 @@ test.describe('loopbackFamilyProbe — isLoopbackHost', () => {
         expect(isLoopbackHost('LOCALHOST')).toBe(true);
         expect(isLoopbackHost(' localhost ')).toBe(true);
     });
+
+    test('⭐ ADMISSION IS PARSED, not prefix-matched — malformed 127-ish hosts are rejected', () => {
+        // `startsWith('127.')` admitted all of these. A diagnostic that accepts a non-address and then
+        // dials something else entirely is worse than no diagnostic.
+        expect(isLoopbackHost('127.abc')).toBe(false);
+        expect(isLoopbackHost('127.0.0.1.example.com')).toBe(false);
+        expect(isLoopbackHost('127.0.0')).toBe(false);          // three octets
+        expect(isLoopbackHost('127.0.0.256')).toBe(false);      // out of range
+        expect(isLoopbackHost('127.0.0.1x')).toBe(false);
+        expect(isLoopbackHost('1270.0.0.1')).toBe(false);       // first octet is not 127
+        // ...while the whole legitimate 127/8 block still is loopback.
+        expect(isLoopbackHost('127.0.0.1')).toBe(true);
+        expect(isLoopbackHost('127.0.0.5')).toBe(true);
+        expect(isLoopbackHost('127.255.255.254')).toBe(true);
+    })
+
+    test('⭐ a NON-CANONICAL 127/8 host is PROBED and REPORTED as itself, never as 127.0.0.1', () => {
+        // The substitution bug: the probe hard-coded 127.0.0.1, so a server configured for 127.0.0.5
+        // was dialed at — and had its verdict report — an address it never uses.
+        expect(resolveLoopbackFamilies('127.0.0.5').map(f => f.host)).toEqual(['127.0.0.5', '::1']);
+        expect(resolveLoopbackFamilies('127.0.0.5').map(f => f.label)).toEqual(['127.0.0.5', '[::1]']);
+        // Only when the config supplies no IPv4 literal does the canonical stand-in apply.
+        expect(resolveLoopbackFamilies('::1').map(f => f.host)).toEqual(['127.0.0.1', '::1']);
+        expect(resolveLoopbackFamilies('localhost').map(f => f.host)).toEqual(['127.0.0.1', '::1']);
+    })
 
     test('rejects the container service-name case — this is what keeps cloud deployments untouched', () => {
         // In a compose network the configured host is a service name, so no loopback claim could say
@@ -221,4 +249,58 @@ test.describe('loopbackFamilyProbe — the timeout bound is stated, not inherite
         expect(seen.every(entry => entry.timeoutMs === LOOPBACK_PROBE_TIMEOUT_MS)).toBe(true);
         expect(seen.every(entry => entry.port === 8000)).toBe(true);
     });
+});
+
+test.describe('the published contract matches the verdicts the code can actually emit', () => {
+    test('⭐ every classifier verdict is in the OpenAPI enum — the schema cannot drift from the producer', () => {
+        // A schema listing five of six verdicts is worse than no schema: a consumer coding against it
+        // would treat the missing one as a protocol violation. So the enum is asserted against the
+        // verdicts this module can PRODUCE, not eyeballed once at authoring time.
+        const schema = yaml.load(fs.readFileSync('ai/mcp/server/memory-core/openapi.yaml', 'utf8'))
+                  .components.schemas.HealthCheckResponse
+                  .properties.database.properties.connection.properties.loopbackProbe,
+              documented = new Set(schema.properties.verdict.enum),
+              // Every verdict reachable from this module, each produced by a real call rather than
+              // copied from a list — a hand-maintained list is the drift this test exists to stop.
+              emitted    = new Set([
+                  classifyLoopbackObservation(undefined).verdict,
+                  classifyLoopbackObservation({probed: true, host: '127.0.0.1', port: 1, families: [
+                      {family: 4, host: '127.0.0.1', label: '127.0.0.1', answered: false},
+                      {family: 6, host: '::1', label: '[::1]', answered: true}
+                  ]}).verdict,
+                  classifyLoopbackObservation({probed: true, host: '127.0.0.1', port: 1, families: [
+                      {family: 4, host: '127.0.0.1', label: '127.0.0.1', answered: false},
+                      {family: 6, host: '::1', label: '[::1]', answered: false}
+                  ]}).verdict,
+                  classifyLoopbackObservation({probed: true, host: '127.0.0.1', port: 1, families: [
+                      {family: 4, host: '127.0.0.1', label: '127.0.0.1', answered: true},
+                      {family: 6, host: '::1', label: '[::1]', answered: false}
+                  ]}).verdict,
+                  classifyLoopbackObservation({probed: true, host: 'localhost', port: 1, families: [
+                      {family: 4, host: '127.0.0.1', label: '127.0.0.1', answered: false},
+                      {family: 6, host: '::1', label: '[::1]', answered: true}
+                  ]}).verdict,
+                  classifyLoopbackObservation({probed: true, host: '127.0.0.1', port: 1, families: [
+                      {family: 4, host: '127.0.0.1', label: '127.0.0.1', answered: null},
+                      {family: 6, host: '::1', label: '[::1]', answered: true}
+                  ]}).verdict
+              ]);
+
+        expect(emitted.size).toBe(6);
+        for (const verdict of emitted) {
+            expect(documented, `verdict "${verdict}" is emitted but undocumented`).toContain(verdict);
+        }
+        // And nothing documented is unreachable — a phantom enum member misleads a consumer too.
+        expect([...documented].sort()).toEqual([...emitted].sort());
+    })
+
+    test('the probe payload is declared nullable and optional — absent is a valid, meaningful state', () => {
+        // Absence carries information: a healthy connection, or a non-loopback host. A consumer must not
+        // read absence as a malformed payload.
+        const connection = yaml.load(fs.readFileSync('ai/mcp/server/memory-core/openapi.yaml', 'utf8'))
+            .components.schemas.HealthCheckResponse.properties.database.properties.connection;
+
+        expect(connection.properties.loopbackProbe.nullable).toBe(true);
+        expect(connection.required ?? []).not.toContain('loopbackProbe');
+    })
 });

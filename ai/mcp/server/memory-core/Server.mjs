@@ -839,10 +839,15 @@ class Server extends BaseServer {
 
         switch (probe.verdict) {
             case 'mismatch':
-                // The whole point of the ticket: the diagnosis itself, not a command that finds it.
+                // OBSERVATIONAL, deliberately. A successful TCP connect proves "a listener accepted a
+                // connection", NOT "ChromaDB is running" — nothing here speaks Chroma's protocol. The
+                // earlier wording asserted the identity of the process that answered, which is the same
+                // overclaim this whole diagnostic exists to retire. The inference is offered to the
+                // operator as conditional, and the observation is stated as fact.
                 logger.warn(`       ⚠️  Bind-family mismatch OBSERVED: this server dials ${probe.dialed}, which refused,`);
-                logger.warn(`       but a listener answered at ${answering}. ChromaDB is running — on the family`);
-                logger.warn(`       this server is not dialing. Rebind it, or point this server at ${answering}.`);
+                logger.warn(`       but a TCP listener answered at ${answering} — unidentified; this probe does not`);
+                logger.warn(`       speak Chroma's protocol. If that listener is ChromaDB, rebind it or point this`);
+                logger.warn(`       server at ${answering}.`);
                 return true;
 
             case 'no-listener':

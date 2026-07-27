@@ -40,19 +40,6 @@ import net from 'node:net';
  */
 
 /**
- * The two loopback authorities a local client can dial, IPv4 first to match the order a `127.0.0.1`
- * default makes most likely.
- *
- * `label` is the display form (bracketed IPv6), `host` the dial form — a socket wants `::1`, a human
- * reading a log wants `[::1]`.
- * @member {Object[]} LOOPBACK_FAMILIES
- */
-export const LOOPBACK_FAMILIES = Object.freeze([
-    Object.freeze({family: 4, host: '127.0.0.1', label: '127.0.0.1'}),
-    Object.freeze({family: 6, host: '::1',       label: '[::1]'})
-]);
-
-/**
  * Probe budget per family, in milliseconds.
  *
  * Stated here as a literal with its derivation rather than read from config, because this bound is a
@@ -89,9 +76,57 @@ export const LOOPBACK_PROBE_HEALTH_KEY = 'loopbackProbe';
  * @returns {Boolean}
  */
 export function isLoopbackHost(host) {
+    return classifyLoopbackHost(host).kind !== 'not-loopback';
+}
+
+/**
+ * @summary Classifies a configured host into the loopback form it actually is, by PARSING it.
+ *
+ * Prefix matching was wrong in both directions: `startsWith('127.')` admitted non-addresses like
+ * `127.abc` and `127.0.0.1.example.com`, while the probe simultaneously hard-coded `127.0.0.1` — so a
+ * server configured for `127.0.0.5` was probed at, and had its verdict reported as, an address it never
+ * dials. A diagnostic that names the wrong address is worse than none.
+ *
+ * The whole `127.0.0.0/8` block is genuine loopback, so it stays supported — but the **configured
+ * literal** is carried through rather than normalised away.
+ * @param {String} host Configured host.
+ * @returns {Object} `{kind: 'ipv4'|'ipv6'|'resolver'|'not-loopback', literal?}`
+ */
+export function classifyLoopbackHost(host) {
     const value = String(host ?? '').trim().replace(/^\[|]$/g, '').toLowerCase();
 
-    return value === 'localhost' || value === '::1' || value.startsWith('127.');
+    if (value === 'localhost') return {kind: 'resolver', literal: 'localhost'};
+    if (value === '::1')       return {kind: 'ipv6', literal: '::1'};
+
+    // Strict dotted-quad: exactly four octets, each 0-255 with no leading zeros or stray characters,
+    // and the first must be 127. `Number()` would accept ' 1', '0x7f' and '1e2', so the digit shape is
+    // asserted before the range.
+    const octets = value.split('.');
+
+    if (octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255) && octets[0] === '127') {
+        return {kind: 'ipv4', literal: value};
+    }
+
+    return {kind: 'not-loopback'};
+}
+
+/**
+ * @summary Builds the family list to probe, carrying the CONFIGURED IPv4 literal when there is one.
+ *
+ * A `127.0.0.5` deployment gets `127.0.0.5` probed and reported. Only when the configured host supplies
+ * no IPv4 literal of its own (`::1`, or resolver-decided `localhost`) does the canonical `127.0.0.1`
+ * stand in — and then it is the honest choice, because nothing else was specified.
+ * @param {String} host Configured host.
+ * @returns {Object[]} `[{family, host, label}]`, IPv4 first.
+ */
+export function resolveLoopbackFamilies(host) {
+    const classified = classifyLoopbackHost(host),
+          ipv4       = classified.kind === 'ipv4' ? classified.literal : '127.0.0.1';
+
+    return [
+        {family: 4, host: ipv4,  label: ipv4},
+        {family: 6, host: '::1', label: '[::1]'}
+    ];
 }
 
 /**
@@ -162,7 +197,7 @@ export async function probeLoopbackFamilies({host, port, timeoutMs, connect} = {
         return refuse('connect seam is required; pass tcpConnectProbe for real sockets');
     }
 
-    const families = await Promise.all(LOOPBACK_FAMILIES.map(async entry => {
+    const families = await Promise.all(resolveLoopbackFamilies(host).map(async entry => {
         try {
             const answered = await connect({host: entry.host, port, timeoutMs});
 
@@ -202,11 +237,16 @@ export function classifyLoopbackObservation(observation) {
         return {verdict: 'skipped', conclusive: false, reason: reason || 'no observation was taken'};
     }
 
-    const answering = families.filter(entry => entry.answered === true).map(entry => entry.label),
-          empty     = families.filter(entry => entry.answered === false).map(entry => entry.label),
-          unknown   = families.filter(entry => entry.answered === null).map(entry => entry.label),
-          normalise = String(host ?? '').trim().replace(/^\[|]$/g, '').toLowerCase(),
-          dialed    = normalise === 'localhost' ? null : families.find(entry => entry.host === normalise || (normalise.startsWith('127.') && entry.family === 4)),
+    const answering  = families.filter(entry => entry.answered === true).map(entry => entry.label),
+          empty      = families.filter(entry => entry.answered === false).map(entry => entry.label),
+          unknown    = families.filter(entry => entry.answered === null).map(entry => entry.label),
+          classified = classifyLoopbackHost(host),
+          // `resolver` (localhost) has no observable dialed family — the resolver picks it, and that
+          // choice is not visible here, so no mismatch may be asserted. An ipv4/ipv6 literal matches
+          // the family carrying that exact literal, so a 127/8 deployment reports its OWN address.
+          dialed    = classified.kind === 'ipv4' || classified.kind === 'ipv6'
+              ? families.find(entry => entry.host === classified.literal)
+              : null,
           base      = {dialed: dialed?.label || String(host ?? ''), answering, empty, unknown, port};
 
     if (unknown.length > 0) {

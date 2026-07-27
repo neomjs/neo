@@ -1054,7 +1054,15 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(tip).toMatch(/Bind-family mismatch OBSERVED/);
             expect(tip).toContain('127.0.0.1');
             expect(tip).toContain('[::1]');
-            expect(tip).toMatch(/ChromaDB is running/);
+
+            // OBSERVATIONAL, and the discrimination is the point: a successful TCP connect proves a
+            // listener accepted, NOT that the listener is ChromaDB — nothing here speaks Chroma's
+            // protocol. The earlier wording asserted the answering process's identity, which is the
+            // same overclaim this diagnostic exists to retire.
+            expect(tip).toMatch(/TCP listener answered/);
+            expect(tip).toMatch(/unidentified/);
+            expect(tip).toMatch(/If that listener is ChromaDB/);   // inference offered, not asserted
+            expect(tip).not.toMatch(/ChromaDB is running/);
 
             // The fallback is now redundant, so it must be GONE — leaving it would mean the tip still
             // costs the operator the command the AC exists to remove.
