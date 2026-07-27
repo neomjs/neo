@@ -26,7 +26,7 @@ import FleetRegistryService from '../../../../../../ai/services/fleet/FleetRegis
 // between tests, and no real registry/manager (which would touch disk / spawn processes) is ever hit.
 
 test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist over the two Brain singletons', () => {
-    let calls, registryStub, managerStub;
+    let calls, registryStub, managerStub, tenantServiceStub;
 
     test.beforeEach(() => {
         calls = [];
@@ -48,8 +48,19 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
             setAvatar      : payload  => { calls.push(['setAvatar', payload]); return {id: payload.id, metadata: {avatarUrl: payload.avatarUrl}}; }
         };
 
+        tenantServiceStub = {
+            resolveMcpResources: tenantId => {
+                calls.push(['resolveMcpResources', tenantId]);
+
+                return tenantId === 'connected'
+                    ? {tenantId, resources: {'memory-core': {}, 'knowledge-base': {}}}
+                    : null
+            }
+        };
+
         FleetControlBridge.registry = registryStub;
         FleetControlBridge.manager  = managerStub;
+        FleetControlBridge.tenantService = tenantServiceStub;
     });
 
     test.afterEach(() => {
@@ -60,6 +71,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.historySource      = null;
         FleetControlBridge.mailboxMirrorSource = null;
         FleetControlBridge.identityResolver   = null;
+        FleetControlBridge.tenantService      = null;
     });
 
     // ---- delegation: the registry (define / list / get) half ----
@@ -88,6 +100,29 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
             .toThrow('/secret/storage/path failed')
     });
 
+    test('defineAgent rejects a new unavailable remote target before registry persistence', () => {
+        registryStub.getAgent = id => {
+            calls.push(['getAgent', id]);
+
+            return null
+        };
+
+        const definition = {
+            githubUsername: 'new-peer',
+            harnessType   : 'codex',
+            mcpTransport  : {mode: 'remote-http', tenantId: 'missing'}
+        };
+
+        expect(FleetControlBridge.defineAgent(definition)).toEqual({
+            status: 'rejected',
+            reason: "Remote MCP tenant 'missing' is unavailable."
+        });
+        expect(calls).toEqual([
+            ['getAgent', 'new-peer'],
+            ['resolveMcpResources', 'missing']
+        ])
+    });
+
     test('configureAgent forwards one curated payload and returns accepted/rejected domain outcomes', () => {
         const intent = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}};
 
@@ -112,6 +147,58 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         registryStub.configureAgent = () => { throw new Error('/secret/storage/path failed') };
         expect(() => FleetControlBridge.configureAgent({id: 'alice', harnessType: 'codex'}))
             .toThrow('/secret/storage/path failed')
+    });
+
+    test('configureAgent admits only a connected NEW remote target and never persists an unavailable one', () => {
+        const available = {
+            id          : 'alice',
+            mcpTransport: {mode: 'remote-http', tenantId: 'connected'}
+        };
+
+        expect(FleetControlBridge.configureAgent(available)).toEqual({
+            status: 'accepted',
+            agent : {id: 'alice', harnessType: undefined}
+        });
+        expect(calls).toEqual([
+            ['getAgent', 'alice'],
+            ['resolveMcpResources', 'connected'],
+            ['configureAgent', available]
+        ]);
+
+        calls.length = 0;
+
+        const unavailable = {
+            id          : 'alice',
+            mcpTransport: {mode: 'remote-http', tenantId: 'missing'}
+        };
+
+        expect(FleetControlBridge.configureAgent(unavailable)).toEqual({
+            status: 'rejected',
+            reason: "Remote MCP tenant 'missing' is unavailable."
+        });
+        expect(calls).toEqual([
+            ['getAgent', 'alice'],
+            ['resolveMcpResources', 'missing']
+        ])
+    });
+
+    test('configureAgent preserves an unchanged saved remote target for the start-time readiness gate', () => {
+        registryStub.getAgent = id => {
+            calls.push(['getAgent', id]);
+
+            return {id, mcpTransport: {mode: 'remote-http', tenantId: 'stale-saved'}}
+        };
+
+        const intent = {
+            id          : 'alice',
+            mcpTransport: {mode: 'remote-http', tenantId: 'stale-saved'}
+        };
+
+        expect(FleetControlBridge.configureAgent(intent).status).toBe('accepted');
+        expect(calls).toEqual([
+            ['getAgent', 'alice'],
+            ['configureAgent', intent]
+        ])
     });
 
     test('listAgents delegates to the registry roster', () => {

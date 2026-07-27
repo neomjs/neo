@@ -320,7 +320,8 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
 
         // upsert goes through the provider-bound roster store with the canonical Brain response,
         // never a request-derived projection or a module-global singleton import.
-        expect(source).toContain("bind: {agentDefinitionsStore: 'stores.agentDefinitions'}");
+        expect(source).toContain("agentDefinitionsStore: 'stores.agentDefinitions'");
+        expect(source).toContain("fleetTenantsStore    : 'stores.fleetTenants'");
         expect(source).toContain('store.add(definition)');
         expect(source).toContain('this.upsertPublicAgentDefinition(outcome, payload.credential)');
         expect(source).not.toContain('createPublicAgentDefinition');
@@ -607,11 +608,12 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
 // assignments — the card must still re-render (refresh), and the intent path must fire from the
 // real vdom-derived ids.
 test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + configIntent (real objects)', () => {
-    let AgentConfigCard, AgentDefinition, Store, savedAgentOS;
+    let AgentConfigCard, AgentDefinition, FleetTenants, Store, savedAgentOS;
 
     test.beforeAll(async () => {
         AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/AgentConfigCard.mjs')).default;
         AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        FleetTenants    = (await import('../../../../../apps/agentos/store/FleetTenants.mjs')).default;
         Store           = (await import('../../../../../src/data/Store.mjs')).default
     });
 
@@ -692,6 +694,115 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         expect(record.harnessType).toBe('codex');
 
         card.destroy();
+        store.destroy()
+    });
+
+    test('target choices render public availability honestly and emit only the narrow persisted intent', () => {
+        const
+            store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [{
+                id: 'ada', githubUsername: 'ada', harnessType: 'codex'
+            }]}),
+            tenants = Neo.create(FleetTenants, {data: [{
+                id             : 'tenant-a',
+                endpoint       : 'https://tenant-a.example.com/agentos',
+                status         : 'connected',
+                deploymentClass: 'cloud-tenant',
+                connectedAt    : '2026-07-27T00:00:00.000Z',
+                credential     : 'must-never-enter-the-model'
+            }, {
+                id      : 'tenant-b',
+                endpoint: 'https://tenant-b.example.com/agentos',
+                status  : 'disconnected'
+            }]}),
+            record  = store.get('ada'),
+            card    = Neo.create(AgentConfigCard, {record, tenantStore: tenants}),
+            intents = [];
+
+        card.on('configIntent', intent => intents.push(intent));
+
+        expect(cardText(card)).toContain('Local services');
+        expect(cardText(card)).toContain('https://tenant-a.example.com/agentos');
+        expect(cardText(card)).toContain('https://tenant-b.example.com/agentos · Unavailable');
+        expect(cardText(card)).not.toContain('must-never-enter-the-model');
+        expect(cardText(card)).not.toMatch(/Authorization|Bearer|credentialEnvVar/);
+        expect(tenants.get('tenant-a').credential).toBeUndefined();
+
+        card.onCardClick({path: [{id: `${card.id}__transport__tenant-a`}]});
+        card.onCardClick({path: [{id: `${card.id}__transport__tenant-b`}]});
+
+        expect(intents).toHaveLength(1);
+        expect(intents[0]).toMatchObject({
+            id          : 'ada',
+            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+        });
+        expect(record.mcpTransport).toBeNull();
+
+        record.set({mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}});
+        card.refresh();
+        card.onCardClick({path: [{id: `${card.id}__transport__local`}]});
+
+        expect(intents[1]).toMatchObject({id: 'ada', mcpTransport: null});
+        expect(record.mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+
+        card.destroy();
+        tenants.destroy();
+        store.destroy()
+    });
+
+    test('unsupported, disconnected, and missing saved targets stay visible but inert', () => {
+        const
+            store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [{
+                id            : 'desktop',
+                githubUsername: 'desktop',
+                harnessType   : 'claude-desktop',
+                mcpTransport  : {mode: 'remote-http', tenantId: 'missing-tenant'}
+            }]}),
+            tenants = Neo.create(FleetTenants, {data: [{
+                id      : 'connected',
+                endpoint: 'https://connected.example.com',
+                status  : 'connected'
+            }, {
+                id      : 'offline',
+                endpoint: 'https://offline.example.com',
+                status  : 'disconnected'
+            }]}),
+            card    = Neo.create(AgentConfigCard, {record: store.get('desktop'), tenantStore: tenants}),
+            intents = [];
+
+        card.on('configIntent', intent => intents.push(intent));
+
+        expect(cardText(card)).toContain('Unavailable for this harness');
+        expect(cardText(card)).toContain('missing-tenant · Saved target unavailable');
+
+        card.onCardClick({path: [{id: `${card.id}__transport__connected`}]});
+        card.onCardClick({path: [{id: `${card.id}__transport__offline`}]});
+        card.onCardClick({path: [{id: `${card.id}__transport__missing-tenant`}]});
+
+        expect(intents).toEqual([]);
+
+        card.destroy();
+        tenants.destroy();
+        store.destroy()
+    });
+
+    test('tenant Store record changes refresh target availability without reseating the Store', () => {
+        const
+            store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [{
+                id: 'ada', githubUsername: 'ada', harnessType: 'codex'
+            }]}),
+            tenants = Neo.create(FleetTenants, {data: [{
+                id: 'tenant-a', endpoint: 'https://tenant.example.com', status: 'connected'
+            }]}),
+            card = Neo.create(AgentConfigCard, {record: store.get('ada'), tenantStore: tenants});
+
+        expect(cardText(card)).not.toContain('https://tenant.example.com · Unavailable');
+
+        tenants.get('tenant-a').set({status: 'disconnected'});
+
+        expect(cardText(card)).toContain('https://tenant.example.com · Unavailable');
+
+        card.destroy();
+        tenants.destroy();
         store.destroy()
     });
 
@@ -852,6 +963,86 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
 
         delete globalThis.AgentOS;
         store.destroy()
+    });
+
+    test('tenant hydration curates public fields and preserves last-known rows on malformed or failed reads', async () => {
+        const
+            tenants = Neo.create(FleetTenants, {data: [{
+                id: 'placeholder', endpoint: 'https://placeholder.example.com', status: 'connected'
+            }]}),
+            stub    = {
+                fleetTenantsStore         : tenants,
+                fleetTenantsLoadGeneration: 0,
+                loadFleetTenants          : Accounts.prototype.loadFleetTenants
+            };
+
+        globalThis.AgentOS = {fleet: {registryBridge: {listTenants: async () => [{
+            id             : 'tenant-a',
+            endpoint       : 'https://tenant.example.com/agentos',
+            status         : 'connected',
+            deploymentClass: 'cloud-tenant',
+            connectedAt    : '2026-07-27T00:00:00.000Z',
+            credential     : 'must-not-cross',
+            headers        : {Authorization: 'Bearer secret'}
+        }]}}};
+
+        await expect(stub.loadFleetTenants()).resolves.toBe(true);
+        expect(tenants.get('placeholder')).toBeNull();
+        expect(tenants.get('tenant-a').toJSON()).toEqual({
+            id             : 'tenant-a',
+            endpoint       : 'https://tenant.example.com/agentos',
+            status         : 'connected',
+            deploymentClass: 'cloud-tenant',
+            connectedAt    : '2026-07-27T00:00:00.000Z'
+        });
+        expect(JSON.stringify(tenants.get('tenant-a'))).not.toContain('must-not-cross');
+        expect(JSON.stringify(tenants.get('tenant-a'))).not.toContain('Authorization');
+
+        globalThis.AgentOS.fleet.registryBridge.listTenants = async () => [{id: 'broken'}];
+        await expect(stub.loadFleetTenants()).resolves.toBe(false);
+        expect(tenants.get('tenant-a').status).toBe('connected');
+
+        globalThis.AgentOS.fleet.registryBridge.listTenants = async () => { throw new Error('offline') };
+        await expect(stub.loadFleetTenants()).resolves.toBe(false);
+        expect(tenants.get('tenant-a').endpoint).toBe('https://tenant.example.com/agentos');
+
+        tenants.destroy()
+    });
+
+    test('only the newest tenant-list response may replace the provider Store', async () => {
+        const
+            tenants  = Neo.create(FleetTenants, {data: [{
+                id: 'kept', endpoint: 'https://kept.example.com', status: 'connected'
+            }]}),
+            deferred = [],
+            stub     = {
+                fleetTenantsStore         : tenants,
+                fleetTenantsLoadGeneration: 0,
+                loadFleetTenants          : Accounts.prototype.loadFleetTenants
+            };
+
+        globalThis.AgentOS = {fleet: {registryBridge: {listTenants: () => new Promise(resolve => {
+            deferred.push(resolve)
+        })}}};
+
+        const older = stub.loadFleetTenants();
+        const newer = stub.loadFleetTenants();
+
+        deferred[1]([{
+            id: 'newer', endpoint: 'https://newer.example.com', status: 'connected'
+        }]);
+        await expect(newer).resolves.toBe(true);
+
+        deferred[0]([{
+            id: 'older', endpoint: 'https://older.example.com', status: 'connected'
+        }]);
+        await expect(older).resolves.toBe(false);
+
+        expect(tenants.get('newer')).not.toBeNull();
+        expect(tenants.get('older')).toBeNull();
+        expect(tenants.get('kept')).toBeNull();
+
+        tenants.destroy()
     });
 
     test('an accepted readback from ANOTHER owner invalidates an older in-flight boot list (#15440)', async () => {

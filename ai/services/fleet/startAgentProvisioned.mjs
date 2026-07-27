@@ -1,5 +1,6 @@
-import {ensureAgentRepo}              from './ensureAgentRepo.mjs';
-import {prepareManagedAgentWorkspace} from './prepareManagedAgentWorkspace.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../src/ai/fleet/mcpServers.mjs';
+import {ensureAgentRepo}               from './ensureAgentRepo.mjs';
+import {prepareManagedAgentWorkspace}  from './prepareManagedAgentWorkspace.mjs';
 
 /**
  * @summary Start a Fleet Manager agent's harness *in its own provisioned repo* — the turnkey
@@ -42,6 +43,8 @@ import {prepareManagedAgentWorkspace} from './prepareManagedAgentWorkspace.mjs';
  *                                             for tests.
  * @param {Function} [options.prepareWorkspace] The post-provisioning workspace/home composer; defaults
  *                                              to {@link Neo.ai.services.fleet.prepareManagedAgentWorkspace}.
+ * @param {Object}   [options.tenantService]     Remote tenant authority. Lazily imports the real
+ *                                              singleton only for an opted-in remote seat.
  * @param {String}   [options.instanceRoot]     Explicit harness-home root; omitted ⇒ the lifecycle
  *                                              service's config-resolved `getInstanceRoot()` value.
  * @param {String}   [options.mainCheckout]     Installed canonical checkout override for preparation.
@@ -58,6 +61,7 @@ export async function startAgentProvisioned({
     cloneRepo,
     ensureRepo = ensureAgentRepo,
     prepareWorkspace = prepareManagedAgentWorkspace,
+    tenantService = null,
     instanceRoot,
     mainCheckout,
     nodePath
@@ -74,10 +78,18 @@ export async function startAgentProvisioned({
           agent    = registry.getDefinition?.(agentId) ?? registry.getAgent(agentId);
     if (!agent) throw new Error(`startAgentProvisioned: unknown agent '${agentId}'.`);
 
-    const repo = agent.metadata?.repo;
+    const
+        repo      = agent.metadata?.repo,
+        transport = agent.mcpTransport;
 
     // No repo coordinates ⇒ nothing to provision; start in the inherited cwd (backward-compatible).
-    if (!repo) return lifecycleService.start(agentId);
+    if (!repo) {
+        if (transport?.mode === 'remote-http') {
+            throw new Error(`startAgentProvisioned: remote MCP agent '${agentId}' requires a managed repo.`)
+        }
+
+        return lifecycleService.start(agentId);
+    }
 
     // The managed-workspace contract is coupled to Fleet's curated harness launch. A repo-bearing
     // raw override can execute an unrelated command and consumes no derived home/MCP artifacts, so
@@ -88,6 +100,46 @@ export async function startAgentProvisioned({
 
     if (!managedRoot) {
         throw new Error(`startAgentProvisioned: 'managedRoot' is required to provision the repo for agent '${agentId}'.`);
+    }
+
+    let
+        remotePlan                   = null,
+        resolvedCredential,
+        resolvedMcpCredential,
+        remoteCapability;
+
+    if (transport?.mode === 'remote-http') {
+        const activeTenantService = tenantService ?? (await import('./FleetTenantService.mjs')).default;
+
+        resolvedCredential = registry.resolveCredential(agentId);
+
+        remotePlan = activeTenantService.resolveMcpResources(transport.tenantId);
+
+        if (!remotePlan) {
+            throw new Error(`startAgentProvisioned: remote MCP tenant '${transport.tenantId}' is unavailable for agent '${agentId}'.`)
+        }
+
+        resolvedMcpCredential = activeTenantService.resolveMcpCredential(transport.tenantId);
+
+        if (!resolvedMcpCredential) {
+            throw new Error(`startAgentProvisioned: remote MCP tenant '${transport.tenantId}' has no plane credential for agent '${agentId}'.`)
+        }
+
+        remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent);
+
+        const expectedIdentity = agent.id.startsWith('@') ? agent.id : `@${agent.id}`;
+        const readiness        = await activeTenantService.probeSeatCredential({
+            tenantId  : transport.tenantId,
+            credential: resolvedMcpCredential,
+            expectedIdentity
+        });
+
+        if (!readiness?.ok ||
+            !readiness.resources?.['memory-core']?.ok ||
+            readiness.resources['memory-core'].identity !== expectedIdentity ||
+            !readiness.resources?.['knowledge-base']?.ok) {
+            throw new Error(`startAgentProvisioned: remote MCP credential readiness failed for agent '${agentId}'.`)
+        }
     }
 
     // Ensure the checkout exists (clone-or-reuse, never clobber). A throw here propagates: the harness
@@ -110,12 +162,36 @@ export async function startAgentProvisioned({
         repoPath,
         instanceRoot: instanceRoot ?? lifecycleService.getInstanceRoot?.(),
         mainCheckout,
-        nodePath
+        nodePath,
+        mcpTransport: remotePlan && {
+            mode            : 'remote-http',
+            credentialEnvVar: REMOTE_MCP_CREDENTIAL_ENV_VAR,
+            resources       : remotePlan.resources
+        }
     });
 
     if (!prepared || prepared.repoPath !== repoPath) {
         throw new Error(`startAgentProvisioned: preparation did not return the canonical provisioned repoPath for agent '${agentId}'.`);
     }
 
-    return lifecycleService.start(agentId, {cwd: prepared.repoPath});
+    if (transport?.mode === 'remote-http') {
+        await lifecycleService.inspectPreparedRemoteMcpAdapter({
+            agent,
+            binaryPath  : remoteCapability.binaryPath,
+            repoPath    : prepared.repoPath,
+            instanceHome: prepared.instanceHome,
+            mcpMatrix   : prepared.mcpMatrix,
+            mcpTransport: {
+                mode     : 'remote-http',
+                resources: remotePlan.resources
+            }
+        })
+    }
+
+    return lifecycleService.start(agentId, {
+        cwd: prepared.repoPath,
+        ...(transport?.mode === 'remote-http'
+            ? {resolvedCredential, resolvedMcpCredential, remoteMcpCapability: remoteCapability}
+            : {})
+    });
 }

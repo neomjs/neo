@@ -53,9 +53,19 @@ class Accounts extends DashboardPanel {
          */
         agentDefinitionsStore_: null,
         /**
-         * @member {Object} bind={agentDefinitionsStore:'stores.agentDefinitions'}
+         * The provider-hosted public tenant roster. The card consumes this exact Store instance;
+         * tenant credentials never enter it.
+         * @member {Neo.data.Store|null} fleetTenantsStore_=null
+         * @reactive
          */
-        bind: {agentDefinitionsStore: 'stores.agentDefinitions'},
+        fleetTenantsStore_: null,
+        /**
+         * @member {Object} bind
+         */
+        bind: {
+            agentDefinitionsStore: 'stores.agentDefinitions',
+            fleetTenantsStore    : 'stores.fleetTenants'
+        },
         /**
          * @member {String[]} cls=['agent-panel-accounts']
          * @reactive
@@ -188,6 +198,14 @@ class Accounts extends DashboardPanel {
     agentDefinitionsLoadGeneration = 0
 
     /**
+     * Monotonic guard for canonical tenant-roster reads. Only the newest successful, well-formed
+     * `listTenants()` response may replace the provider Store; failures preserve last-known rows.
+     * @member {Number} fleetTenantsLoadGeneration=0
+     * @private
+     */
+    fleetTenantsLoadGeneration = 0
+
+    /**
      * Ephemeral save status per agent. Selection changes re-project this state onto the card, so a
      * pending/accepted/rejected result never moves to or disappears behind another agent.
      * @member {Map<String,Object>} agentConfigSaveStatuses
@@ -209,7 +227,10 @@ class Accounts extends DashboardPanel {
             form       = me.getReference('agent-form'),
             credential = form?.items.find(item => item.name === 'credential');
 
-        me.getReference('agent-config-card')?.on({configIntent: me.onAgentConfigIntent, scope: me});
+        const card = me.getReference('agent-config-card');
+
+        card?.on({configIntent: me.onAgentConfigIntent, scope: me});
+        if (card) card.tenantStore = me.fleetTenantsStore;
 
         if (isShellCredentialIngress(bridge)) {
             credential && form.remove(credential);
@@ -244,6 +265,20 @@ class Accounts extends DashboardPanel {
 
         me.syncAgentSelector();
         value && void me.loadAgentDefinitions?.()
+    }
+
+    /**
+     * Triggered after the public tenant Store binding changes. The configuration card listens to
+     * the exact Store instance for live availability changes; Accounts owns only canonical loading.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetFleetTenantsStore(value, oldValue) {
+        const card = this.getReference('agent-config-card');
+
+        if (card) card.tenantStore = value;
+        value && void this.loadFleetTenants?.()
     }
 
     /**
@@ -286,7 +321,8 @@ class Accounts extends DashboardPanel {
      * validates + persists, and the RESPONSE (the public definition — the readback) is written
      * onto the store record, which re-renders the card. Fail-closed: without a bridge nothing
      * mutates locally — a config that did not persist must never render as if it had.
-     * @param {Object} intent The one wire shape: `{id, harnessType?, mcpServers?}`.
+     * @param {Object} intent The one wire shape:
+     *     `{id, harnessType?, mcpServers?, mcpTransport?}`.
      * @returns {Promise<void>}
      */
     async onAgentConfigIntent(intent={}) {
@@ -355,6 +391,60 @@ class Accounts extends DashboardPanel {
 
             return true
         } catch (error) {
+            return false
+        }
+    }
+
+    /**
+     * @summary Hydrate the provider-hosted FleetTenants Store from the Brain's public descriptor
+     * list. The projection is curated field-by-field so a malformed bridge response cannot smuggle
+     * credential-shaped data into Body state. Failed, malformed, or stale reads preserve the last
+     * known tenant choices.
+     * @returns {Promise<Boolean>} True only when canonical public rows replaced the Store.
+     */
+    async loadFleetTenants() {
+        const
+            me         = this,
+            store      = me.fleetTenantsStore,
+            bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+            generation = (me.fleetTenantsLoadGeneration || 0) + 1;
+
+        me.fleetTenantsLoadGeneration = generation;
+
+        if (!store || typeof bridge?.listTenants !== 'function') {
+            return false
+        }
+
+        try {
+            const tenants = await bridge.listTenants();
+
+            if (!Array.isArray(tenants) || tenants.some(tenant =>
+                !tenant ||
+                typeof tenant !== 'object' ||
+                Array.isArray(tenant) ||
+                typeof tenant.id !== 'string' ||
+                !tenant.id ||
+                typeof tenant.endpoint !== 'string' ||
+                !tenant.endpoint ||
+                typeof tenant.status !== 'string' ||
+                !tenant.status
+            )) {
+                return false
+            }
+            if (generation !== me.fleetTenantsLoadGeneration || store !== me.fleetTenantsStore) {
+                return false
+            }
+
+            store.data = tenants.map(tenant => ({
+                id             : tenant.id,
+                endpoint       : tenant.endpoint,
+                status         : tenant.status,
+                deploymentClass: typeof tenant.deploymentClass === 'string' ? tenant.deploymentClass : null,
+                connectedAt    : typeof tenant.connectedAt === 'string' ? tenant.connectedAt : null
+            }));
+
+            return true
+        } catch {
             return false
         }
     }

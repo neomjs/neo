@@ -2,10 +2,14 @@ import crypto          from 'crypto';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import aiConfig                    from '../../config.mjs';
-import Base                        from '../../../src/core/Base.mjs';
-import {HARNESS_TYPES}             from '../../../src/ai/fleet/harnessTypes.mjs';
-import {normalizeMcpOverrides}     from '../../../src/ai/fleet/mcpServers.mjs';
+import aiConfig        from '../../config.mjs';
+import Base            from '../../../src/core/Base.mjs';
+import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
+import {
+    normalizeMcpOverrides,
+    normalizeMcpTransport,
+    supportsRemoteMcpTransport
+} from '../../../src/ai/fleet/mcpServers.mjs';
 
 const
     __filename              = fileURLToPath(import.meta.url),
@@ -52,6 +56,20 @@ function redactPublicFields(value, seen=new WeakSet()) {
 }
 
 /**
+ * @summary Canonicalize one persisted transport without letting a corrupt legacy row acquire
+ * remote authority. Absence and invalid stored shapes both fail closed to local stdio.
+ * @param {*} transport
+ * @returns {Object|null}
+ */
+function normalizeStoredMcpTransport(transport) {
+    try {
+        return normalizeMcpTransport(transport ?? null)
+    } catch {
+        return null
+    }
+}
+
+/**
  * @class Neo.ai.services.fleet.FleetRegistryService
  * @extends Neo.core.Base
  * @singleton
@@ -61,7 +79,8 @@ function redactPublicFields(value, seen=new WeakSet()) {
  * This is the first leaf of the Fleet Manager MVP: the `define` surface of the operator loop
  * *define agents → start/stop → repos managed under the hood*.
  *
- * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, mcpServers, metadata, createdAt, updatedAt}` —
+ * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, mcpServers,
+ * mcpTransport, metadata, createdAt, updatedAt}` —
  * never a secret. `modelProvider` (the agent's model-provider login) resolves via the AiConfig
  * `modelProvider` SSOT leaf when not supplied — read-only, no service-local default shadow. The associated **credential** (a GitHub PAT) is stored separately, encrypted at
  * rest, and is the load-bearing security boundary of this service:
@@ -161,9 +180,11 @@ class FleetRegistryService extends Base {
      * @param {Object} [opts.metadata={}]       Free-form non-secret metadata.
      * @param {String} [opts.modelProvider]     The agent's model-provider login (e.g. `openAiCompatible`, `ollama`). Resolves via the AiConfig `modelProvider` SSOT leaf when omitted — no service-local default shadow. Non-secret; carried in the public definition.
      * @param {Object|null} [opts.mcpServers]   Sparse MCP overrides shared with configureAgent; omitted/null follows defaults.
+     * @param {Object|null} [opts.mcpTransport] Local stdio (`null` / `{mode:'stdio'}`) or
+     *     `{mode:'remote-http', tenantId}`. No URL, header, env, command, or credential bag.
      * @returns {Object} The public agent definition (no credential).
      */
-    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider, mcpServers} = {}) {
+    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider, mcpServers, mcpTransport} = {}) {
         if (!githubUsername) throw new Error("FleetRegistryService.defineAgent: 'githubUsername' is required.");
         if (!harnessType)    throw new Error("FleetRegistryService.defineAgent: 'harnessType' is required.");
 
@@ -181,14 +202,25 @@ class FleetRegistryService extends Base {
         }
 
         const
-            agentId = id || githubUsername,
-            now     = new Date().toISOString(),
-            matrix  = mcpServers === undefined ? null : normalizeMcpOverrides(mcpServers);
+            agentId   = id || githubUsername,
+            now       = new Date().toISOString(),
+            matrix    = mcpServers === undefined ? null : normalizeMcpOverrides(mcpServers),
+            transport = mcpTransport === undefined ? null : normalizeMcpTransport(mcpTransport);
+
+        if (transport && !supportsRemoteMcpTransport(harnessType)) {
+            throw new TypeError(`FleetRegistryService.defineAgent: harnessType '${harnessType}' does not support remote MCP transport.`)
+        }
 
         this.ensureLoaded();
 
         if (this.agents.has(agentId)) {
             throw new Error(`FleetRegistryService.defineAgent: id '${agentId}' already exists; use a scoped update operation.`)
+        }
+
+        const tenantAssignee = transport && this.findMcpTenantAssignee(transport.tenantId);
+
+        if (tenantAssignee) {
+            throw new Error(`FleetRegistryService.defineAgent: remote MCP tenant '${transport.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
         }
 
         const previousCredentials = this.readCredentials();
@@ -211,6 +243,7 @@ class FleetRegistryService extends Base {
                 modelProvider: modelProvider || aiConfig.modelProvider,
                 metadata,
                 mcpServers   : matrix,
+                mcpTransport : transport,
                 createdAt    : now,
                 updatedAt    : now
             },
@@ -288,15 +321,16 @@ class FleetRegistryService extends Base {
 
     /**
      * Configure an existing agent through the ONE wire-serializable curated intent. Only `id`,
-     * `harnessType`, and sparse `mcpServers` overrides are accepted; credentials, launch fields,
-     * wake, hooks, identity, and generic config bags are mechanically rejected. Unspecified fields
-     * are preserved. The returned public definition is canonical persisted readback, never request
+     * `harnessType`, sparse `mcpServers` overrides, and the narrow `mcpTransport` intent are accepted;
+     * credentials, URLs, headers, launch fields, wake, hooks, identity, and generic config bags are
+     * mechanically rejected. Unspecified fields are preserved. The returned public definition is canonical persisted readback, never request
      * echo. Controlled validation failures use the method prefix so FleetControlBridge can expose a
      * safe rejected-domain reason while unexpected storage failures remain transport-sanitized.
      * @param {Object} intent
      * @param {String} intent.id Existing registry id.
      * @param {String} [intent.harnessType] Registered durable harness key.
      * @param {Object|null} [intent.mcpServers] Complete sparse MCP override set; null follows defaults.
+     * @param {Object|null} [intent.mcpTransport] `null`/stdio or `{mode:'remote-http', tenantId}`.
      * @returns {Object|null} Updated public definition, or `null` when the id is not registered.
      */
     configureAgent(intent={}) {
@@ -309,9 +343,9 @@ class FleetRegistryService extends Base {
         }
 
         const
-            allowed = new Set(['id', 'harnessType', 'mcpServers']),
-            unknown = Object.keys(intent).find(key => !allowed.has(key)),
-            {id, harnessType, mcpServers} = intent;
+            allowed                                     = new Set(['id', 'harnessType', 'mcpServers', 'mcpTransport']),
+            unknown                                     = Object.keys(intent).find(key => !allowed.has(key)),
+            {id, harnessType, mcpServers, mcpTransport} = intent;
 
         if (unknown) {
             reject(`unsupported field '${unknown}'.`)
@@ -319,7 +353,9 @@ class FleetRegistryService extends Base {
         if (typeof id !== 'string' || !id.trim()) {
             reject("'id' is required.")
         }
-        if (!Object.hasOwn(intent, 'harnessType') && !Object.hasOwn(intent, 'mcpServers')) {
+        if (!Object.hasOwn(intent, 'harnessType') &&
+            !Object.hasOwn(intent, 'mcpServers') &&
+            !Object.hasOwn(intent, 'mcpTransport')) {
             reject('at least one configuration field is required.')
         }
 
@@ -332,7 +368,9 @@ class FleetRegistryService extends Base {
             reject(`invalid harnessType '${harnessType}'. Must be one of: ${this.harnessTypes.join(', ')}.`)
         }
 
-        let matrix = existing.mcpServers ?? null;
+        let
+            matrix    = existing.mcpServers ?? null,
+            transport = normalizeStoredMcpTransport(existing.mcpTransport);
 
         if (Object.hasOwn(intent, 'mcpServers')) {
             try {
@@ -342,11 +380,32 @@ class FleetRegistryService extends Base {
             }
         }
 
+        if (Object.hasOwn(intent, 'mcpTransport')) {
+            try {
+                transport = normalizeMcpTransport(mcpTransport)
+            } catch (error) {
+                reject(error.message)
+            }
+        }
+
+        const nextHarnessType = Object.hasOwn(intent, 'harnessType') ? harnessType : existing.harnessType;
+
+        if (transport && !supportsRemoteMcpTransport(nextHarnessType)) {
+            reject(`harnessType '${nextHarnessType}' does not support remote MCP transport.`)
+        }
+
+        const tenantAssignee = transport && this.findMcpTenantAssignee(transport.tenantId, id);
+
+        if (tenantAssignee) {
+            reject(`remote MCP tenant '${transport.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
+        }
+
         const def = {
             ...existing,
-            harnessType: Object.hasOwn(intent, 'harnessType') ? harnessType : existing.harnessType,
-            mcpServers : matrix,
-            updatedAt  : new Date().toISOString()
+            harnessType : nextHarnessType,
+            mcpServers  : matrix,
+            mcpTransport: transport,
+            updatedAt   : new Date().toISOString()
         };
 
         const nextAgents = new Map(this.agents);
@@ -430,7 +489,7 @@ class FleetRegistryService extends Base {
         if (!def) return null;
 
         const {credential, pat, ...rest} = def;
-        return structuredClone(rest);
+        return structuredClone({...rest, mcpTransport: normalizeStoredMcpTransport(rest.mcpTransport)});
     }
 
     /**
@@ -502,6 +561,29 @@ class FleetRegistryService extends Base {
     // ---- internals ----------------------------------------------------------
 
     /**
+     * @summary Find the one other agent already bound to a tenant credential. One current tenant
+     * descriptor owns one provider subject; permitting two agents to select it would silently
+     * collapse both canonical seats onto the same remote identity.
+     * @param {String} tenantId
+     * @param {String|null} [exceptId=null]
+     * @returns {String|null}
+     * @private
+     */
+    findMcpTenantAssignee(tenantId, exceptId=null) {
+        for (const [agentId, definition] of this.agents) {
+            if (agentId === exceptId) continue;
+
+            const transport = normalizeStoredMcpTransport(definition.mcpTransport);
+
+            if (transport?.mode === 'remote-http' && transport.tenantId === tenantId) {
+                return agentId
+            }
+        }
+
+        return null
+    }
+
+    /**
      * @summary The public projection: secrets stripped AND the Brain/operator-only launch override
      * redacted. The result is a DEEP CLONE — a shallow spread would hand every get/list/wire caller
      * the internal metadata object by shared reference, so mutating a returned definition would
@@ -512,7 +594,10 @@ class FleetRegistryService extends Base {
      * @private
      */
     toPublic(def) {
-        return redactPublicFields(structuredClone(def))
+        return redactPublicFields(structuredClone({
+            ...def,
+            mcpTransport: normalizeStoredMcpTransport(def.mcpTransport)
+        }))
     }
 
     /**

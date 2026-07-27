@@ -1,29 +1,38 @@
-import {constants as fsConstants}                          from 'node:fs';
-import fs                                                  from 'node:fs/promises';
-import path                                                from 'node:path';
-import {fileURLToPath}                                     from 'node:url';
-import {hydrateCurrentWorktree}                            from '../../scripts/migrations/bootstrapWorktree.mjs';
-import {MCP_SERVERS, resolveMcpMatrix}                     from '../../../src/ai/fleet/mcpServers.mjs';
+import {constants as fsConstants} from 'node:fs';
+import fs                         from 'node:fs/promises';
+import path                       from 'node:path';
+import crypto                     from 'node:crypto';
+import {fileURLToPath}            from 'node:url';
+import {hydrateCurrentWorktree}   from '../../scripts/migrations/bootstrapWorktree.mjs';
+import {
+    MCP_SERVERS,
+    REMOTE_MCP_CREDENTIAL_ENV_VAR,
+    resolveMcpMatrix,
+    supportsRemoteMcpTransport
+} from '../../../src/ai/fleet/mcpServers.mjs';
 import {deriveAgentInstanceHome}                           from './deriveAgentInstanceHome.mjs';
 import {LAUNCHABLE_HARNESS_TYPES}                          from './deriveHarnessLaunchSpec.mjs';
 import {KIMI_SEAT_SERVERS, generateKimiSeatConfig}         from './generateKimiSeatConfig.mjs';
 import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from './generateOpenCodeSeatConfig.mjs';
 
 const
-    __filename            = fileURLToPath(import.meta.url),
-    __dirname             = path.dirname(__filename),
-    DEFAULT_MAIN_CHECKOUT = path.resolve(__dirname, '../../..'),
-    NEO_MCP_NAME_PREFIX   = 'neo-mjs-';
+    __filename               = fileURLToPath(import.meta.url),
+    __dirname                = path.dirname(__filename),
+    DEFAULT_MAIN_CHECKOUT    = path.resolve(__dirname, '../../..'),
+    NEO_MCP_NAME_PREFIX      = 'neo-mjs-',
+    CODEX_REMOTE_TRUST_BEGIN = '# Fleet-managed remote MCP project trust begin',
+    CODEX_REMOTE_TRUST_END   = '# Fleet-managed remote MCP project trust end';
 
 /**
  * @summary Convergence states for Fleet-owned workspace artifacts. `DIVERGENT` is emitted on the
  * thrown error's `artifact` field because preparation fails closed instead of returning a launchable
  * result alongside unresolved operator content.
- * @type {Readonly<{CREATED: String, MATCH: String, DIVERGENT: String}>}
+ * @type {Readonly<{CREATED: String, MATCH: String, UPDATED: String, DIVERGENT: String}>}
  */
 export const WORKSPACE_ARTIFACT_STATES = Object.freeze({
     CREATED  : 'CREATED',
     MATCH    : 'MATCH',
+    UPDATED  : 'UPDATED',
     DIVERGENT: 'DIVERGENT'
 });
 
@@ -146,6 +155,8 @@ export class ManagedWorkspacePreparationError extends Error {
  * @param {String}   options.instanceRoot        Absolute Fleet harness-home root.
  * @param {String}  [options.mainCheckout]       Installed canonical checkout; defaults to this module's repo root.
  * @param {String}  [options.nodePath]           Node executable used for installed MCP entrypoints.
+ * @param {Object}  [options.mcpTransport]       Resolved non-secret remote plan:
+ *     `{mode:'remote-http', credentialEnvVar, resources:{memory-core:{url},knowledge-base:{url}}}`.
  * @param {Function}[options.hydrateWorkspace]    Import-safe checkout hydration seam.
  * @param {Function}[options.deriveInstanceHome]  Per-agent home derivation seam.
  * @param {Function}[options.resolveMatrix]       Sparse-at-rest MCP resolver seam.
@@ -163,6 +174,7 @@ export async function prepareManagedAgentWorkspace({
     hydrateWorkspace = hydrateCurrentWorktree,
     deriveInstanceHome = deriveAgentInstanceHome,
     resolveMatrix = resolveMcpMatrix,
+    mcpTransport = null,
     fileSystem = fs,
     log = () => {}
 } = {}) {
@@ -181,7 +193,7 @@ export async function prepareManagedAgentWorkspace({
         canonicalRepoPath = path.resolve(repoPath),
         installedRoot     = path.resolve(mainCheckout),
         mcpMatrix         = resolveMatrix(agent.mcpServers),
-        plan              = createMcpPlan({mcpMatrix, repoPath: canonicalRepoPath, mainCheckout: installedRoot, nodePath}),
+        plan              = createMcpPlan({mcpMatrix, repoPath: canonicalRepoPath, mainCheckout: installedRoot, nodePath, mcpTransport}),
         instanceHome      = deriveInstanceHome({instanceRoot, agentId: agent.id, harnessType: agent.harnessType});
 
     // Hardest/unsupported adapter gate runs before hydration or artifact writes. A failed product
@@ -223,16 +235,23 @@ export async function prepareManagedAgentWorkspace({
 }
 
 /** @private */
-function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath}) {
+function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTransport}) {
+    assertMcpTransportPlan(mcpTransport);
+
     return MCP_SERVERS.map(entry => {
-        const descriptor = MCP_SERVER_DESCRIPTORS[entry.key];
+        const
+            descriptor = MCP_SERVER_DESCRIPTORS[entry.key],
+            remote     = mcpTransport?.mode === 'remote-http' && mcpTransport.resources[entry.key];
 
         return {
-            key    : entry.key,
-            name   : `${NEO_MCP_NAME_PREFIX}${entry.key}`,
-            enabled: mcpMatrix[entry.key] === true,
-            command: nodePath,
-            args   : [
+            key             : entry.key,
+            name            : `${NEO_MCP_NAME_PREFIX}${entry.key}`,
+            enabled         : mcpMatrix[entry.key] === true,
+            mode            : remote ? 'remote-http' : 'stdio',
+            url             : remote?.url ?? null,
+            credentialEnvVar: remote ? mcpTransport.credentialEnvVar : null,
+            command         : nodePath,
+            args            : [
                 path.join(mainCheckout, descriptor.entrypoint),
                 ...(entry.key === 'neural-link' ? ['--cwd', repoPath] : [])
             ],
@@ -245,6 +264,73 @@ function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath}) {
 }
 
 /** @private */
+function assertMcpTransportPlan(transport) {
+    if (transport === null) return;
+
+    const topLevelKeys = new Set(['mode', 'credentialEnvVar', 'resources']);
+
+    if (!transport ||
+        typeof transport !== 'object' ||
+        Array.isArray(transport) ||
+        Object.keys(transport).some(key => !topLevelKeys.has(key)) ||
+        transport.mode !== 'remote-http' ||
+        transport.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
+        !transport.resources ||
+        typeof transport.resources !== 'object' ||
+        Array.isArray(transport.resources)) {
+        throw unsupported('remote MCP transport plan is malformed')
+    }
+
+    const
+        allowed  = new Set(['memory-core', 'knowledge-base']),
+        suffixes = {
+            'memory-core'   : '/mc/mcp',
+            'knowledge-base': '/kb/mcp'
+        };
+    let deploymentBase = null;
+
+    for (const [key, resource] of Object.entries(transport.resources)) {
+        let url;
+
+        try {
+            url = new URL(resource?.url)
+        } catch {
+            throw unsupported(`remote MCP resource '${key}' is malformed`)
+        }
+
+        const suffix = suffixes[key];
+
+        if (!allowed.has(key) ||
+            !resource ||
+            typeof resource !== 'object' ||
+            Array.isArray(resource) ||
+            Object.keys(resource).some(field => field !== 'url') ||
+            typeof resource.url !== 'string' ||
+            !resource.url ||
+            !['http:', 'https:'].includes(url.protocol) ||
+            url.username ||
+            url.password ||
+            url.search ||
+            url.hash ||
+            !url.pathname.endsWith(suffix)) {
+            throw unsupported(`remote MCP resource '${key}' is malformed`)
+        }
+
+        const candidateBase = `${url.origin}${url.pathname.slice(0, -suffix.length)}`;
+
+        if (deploymentBase !== null && deploymentBase !== candidateBase) {
+            throw unsupported('remote MCP resources do not share one canonical deployment base')
+        }
+
+        deploymentBase = candidateBase
+    }
+
+    if (![...allowed].every(key => transport.resources[key])) {
+        throw unsupported('remote MCP transport requires both memory-core and knowledge-base resources')
+    }
+}
+
+/** @private */
 function assertHarnessSupported({agent, plan}) {
     if (agent.metadata?.launch) {
         throw unsupported('raw metadata.launch overrides bypass curated resident-home and MCP preparation');
@@ -252,6 +338,11 @@ function assertHarnessSupported({agent, plan}) {
 
     if (!LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType)) {
         throw unsupported(`harness '${agent.harnessType}' has no launch/workspace adapter`);
+    }
+
+    if (plan.some(server => server.mode === 'remote-http') &&
+        !supportsRemoteMcpTransport(agent.harnessType)) {
+        throw unsupported(`harness '${agent.harnessType}' has no proven secret-safe remote MCP grammar`)
     }
 
     const catalogUnsupported = plan.find(server => server.enabled && server.unsupportedReason);
@@ -283,6 +374,10 @@ async function assertRealDirectory(directoryPath, label, fileSystem) {
 
 /** @private */
 async function assertExecutablePlan({plan, nodePath, fileSystem}) {
+    const localEnabled = plan.filter(server => server.enabled && server.mode === 'stdio');
+
+    if (localEnabled.length === 0) return;
+
     const nodeStat = await fileSystem.stat(nodePath).catch(() => null);
 
     if (!nodeStat?.isFile()) {
@@ -296,7 +391,7 @@ async function assertExecutablePlan({plan, nodePath, fileSystem}) {
     }
 
     for (const server of plan) {
-        if (!server.enabled) continue;
+        if (!server.enabled || server.mode !== 'stdio') continue;
 
         const
             entrypoint = server.args[0],
@@ -355,23 +450,23 @@ async function prepareHarnessArtifacts({agent, repoPath, instanceHome, mainCheck
         case 'opencode':
             return prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, plan, fileSystem});
         case 'claude-code':
-            return [await prepareClaudeJsonArtifact({
+            return prepareClaudeJsonArtifact({
                 agent,
                 filePath      : path.join(instanceHome, 'mcp-config.json'),
                 trustedRoot   : instanceHome,
                 plan,
                 fileSystem,
                 interpolateEnv: true
-            })];
+            });
         case 'claude-desktop':
-            return [await prepareClaudeJsonArtifact({
+            return prepareClaudeJsonArtifact({
                 agent,
                 filePath      : path.join(instanceHome, 'claude_desktop_config.json'),
                 trustedRoot   : instanceHome,
                 plan,
                 fileSystem,
                 interpolateEnv: false
-            })];
+            });
         default:
             throw unsupported(`harness '${agent.harnessType}' has no workspace adapter`);
     }
@@ -384,27 +479,47 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
         projectPath    = path.join(repoPath, '.codex', 'config.toml'),
         template       = await fileSystem.readFile(templatePath, 'utf8'),
         projectContent = renderCodexProjectConfig(template, plan),
+        legacyContent  = renderCodexProjectConfig(template, localizePlan(plan)),
         homeRoot       = agent.harnessType === 'codex-desktop' ? path.join(instanceHome, 'codex-home') : instanceHome,
         homePath       = path.join(homeRoot, 'config.toml'),
         memoriesPath   = path.join(homeRoot, 'memories'),
+        homeContent    = renderCodexHomeConfig(),
+        remote         = plan.some(server => server.mode === 'remote-http'),
         artifacts      = [];
 
-    artifacts.push(await convergeTextArtifact({
+    artifacts.push(...await convergeTransportArtifact({
         filePath       : projectPath,
         desiredContent : projectContent,
+        legacyContent,
         ownedProjection: projectCodexOwnedProjection,
+        mergeTransport : mergeCodexTransport,
+        adapter        : agent.harnessType,
+        instanceHome,
+        remote,
         ownedLabel     : 'mcp_servers.\"neo-mjs-*\"',
         trustedRoot    : repoPath,
         fileSystem
     }));
-    artifacts.push(await convergeTextArtifact({
+    const homeArtifact = await convergeTextArtifact({
         filePath       : homePath,
-        desiredContent : renderCodexHomeConfig(),
+        desiredContent : homeContent,
         ownedProjection: codexHomeOwnedProjection,
         ownedLabel     : 'cli_auth_credentials_store,mcp_oauth_credentials_store,features.memories',
         trustedRoot    : instanceHome,
         fileSystem
-    }));
+    });
+
+    if (await convergeCodexRemoteTrust({
+        filePath   : homePath,
+        repoPath,
+        remote,
+        trustedRoot: instanceHome,
+        fileSystem
+    }) && homeArtifact.status === WORKSPACE_ARTIFACT_STATES.MATCH) {
+        homeArtifact.status = WORKSPACE_ARTIFACT_STATES.UPDATED
+    }
+
+    artifacts.push(homeArtifact);
     artifacts.push(await ensureDirectoryArtifact(memoriesPath, instanceHome, fileSystem));
 
     return artifacts;
@@ -412,10 +527,40 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
 
 /** @private */
 async function prepareClaudeJsonArtifact({agent, filePath, trustedRoot, plan, fileSystem, interpolateEnv}) {
+    const
+        desiredContent = renderClaudeJsonContent({agent, plan, interpolateEnv}),
+        legacyContent  = renderClaudeJsonContent({agent, plan: localizePlan(plan), interpolateEnv});
+
+    return convergeTransportArtifact({
+        filePath,
+        desiredContent,
+        legacyContent,
+        ownedProjection: claudeJsonOwnedProjection,
+        mergeTransport : (existing, desired) => mergeJsonTransport(existing, desired, 'mcpServers'),
+        adapter        : agent.harnessType,
+        instanceHome   : trustedRoot,
+        remote         : plan.some(server => server.mode === 'remote-http'),
+        ownedLabel     : 'mcpServers.neo-mjs-*',
+        trustedRoot,
+        fileSystem
+    })
+}
+
+/** @private */
+function renderClaudeJsonContent({agent, plan, interpolateEnv}) {
     const servers = {};
 
     for (const server of plan) {
         if (!server.enabled) continue;
+
+        if (server.mode === 'remote-http') {
+            servers[server.name] = {
+                type   : 'http',
+                url    : server.url,
+                headers: {Authorization: `Bearer \${${server.credentialEnvVar}}`}
+            };
+            continue
+        }
 
         const
             env      = {},
@@ -438,14 +583,7 @@ async function prepareClaudeJsonArtifact({agent, filePath, trustedRoot, plan, fi
         servers[server.name] = {command: server.command, args: server.args, env};
     }
 
-    return convergeTextArtifact({
-        filePath,
-        desiredContent : JSON.stringify({mcpServers: servers}, null, 2) + '\n',
-        ownedProjection: claudeJsonOwnedProjection,
-        ownedLabel     : 'mcpServers.neo-mjs-*',
-        trustedRoot,
-        fileSystem
-    });
+    return JSON.stringify({mcpServers: servers}, null, 2) + '\n'
 }
 
 /**
@@ -465,19 +603,36 @@ async function prepareKimiArtifacts({repoPath, instanceHome, mainCheckout, plan,
         throw unsupported("harness 'kimi-code' has no enabled MCP servers to wire");
     }
 
-    const {files} = generateKimiSeatConfig({
+    const
+        remoteServers = createRemoteServerMap(plan),
+        {files}       = generateKimiSeatConfig({
         canonicalRoot: mainCheckout,
         seatEnvFile  : path.join(repoPath, '.env'),
         workspaceRoot: repoPath,
         kimiHome     : instanceHome,
         memoryDir    : path.join(instanceHome, 'memory'),
         nodeBinary   : plan[0].command,
-        servers
-    });
+        servers,
+        remoteServers
+    }),
+        {files: legacyFiles} = generateKimiSeatConfig({
+            canonicalRoot: mainCheckout,
+            seatEnvFile  : path.join(repoPath, '.env'),
+            workspaceRoot: repoPath,
+            kimiHome     : instanceHome,
+            memoryDir    : path.join(instanceHome, 'memory'),
+            nodeBinary   : plan[0].command,
+            servers
+        });
 
-    return convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies: [
+    return convergeSeatConfigFiles({files, legacyFiles, repoPath, instanceHome, fileSystem, policies: [
         {match: /config\.toml$/,                   ownedProjection: kimiConfigTomlOwnedProjection, ownedLabel: 'default_permission_mode,default_model,[[permission.rules]],[[hooks]]'},
-        {match: /\.kimi-code\/mcp\.json$/,         ownedProjection: claudeJsonOwnedProjection,     ownedLabel: 'mcpServers."neo-mjs-*"'},
+        {
+            match          : /\.kimi-code\/mcp\.json$/,
+            ownedProjection: claudeJsonOwnedProjection,
+            ownedLabel     : 'mcpServers."neo-mjs-*"',
+            transport      : {adapter: 'kimi-code', containerName: 'mcpServers'}
+        },
         {match: /hooks\/identityAnchorHook\.mjs$/, ownedProjection: wholeFileOwnedProjection,      ownedLabel: 'generated identity-anchor hook'}
         // Everything else (the four memory-layer files) is create-only bearer substrate.
     ]});
@@ -499,7 +654,9 @@ async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, p
         throw unsupported("harness 'opencode' has no enabled MCP servers to wire");
     }
 
-    const {files} = generateOpenCodeSeatConfig({
+    const
+        remoteServers = createRemoteServerMap(plan),
+        options       = {
         canonicalRoot: mainCheckout,
         seatEnvFile  : path.join(repoPath, '.env'),
         workspaceRoot: repoPath,
@@ -508,10 +665,17 @@ async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, p
         seatHome     : instanceHome,
         wakeHookPath : path.join(instanceHome, 'write-wake-envelope.mjs'),
         servers
-    });
+    },
+        {files}       = generateOpenCodeSeatConfig({...options, remoteServers}),
+        {files: legacyFiles} = generateOpenCodeSeatConfig(options);
 
-    return convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies: [
-        {match: /opencode\.jsonc$/,          ownedProjection: opencodeJsoncOwnedProjection, ownedLabel: 'mcp."neo-mjs-*",instructions'},
+    return convergeSeatConfigFiles({files, legacyFiles, repoPath, instanceHome, fileSystem, policies: [
+        {
+            match          : /opencode\.jsonc$/,
+            ownedProjection: opencodeJsoncOwnedProjection,
+            ownedLabel     : 'mcp."neo-mjs-*",instructions',
+            transport      : {adapter: 'opencode', containerName: 'mcp'}
+        },
         {match: /write-wake-envelope\.mjs$/, ownedProjection: wholeFileOwnedProjection,     ownedLabel: 'generated wake-envelope boot hook'}
     ]});
 }
@@ -523,20 +687,38 @@ async function prepareOpenCodeArtifacts({repoPath, instanceHome, mainCheckout, p
  * seat's own authorship is never a divergence), an absent file is created from the template.
  * @private
  */
-async function convergeSeatConfigFiles({files, repoPath, instanceHome, fileSystem, policies}) {
+async function convergeSeatConfigFiles({files, legacyFiles, repoPath, instanceHome, fileSystem, policies}) {
     const artifacts = [];
 
     for (const file of files) {
         const policy = policies.find(entry => entry.match.test(file.path));
 
-        artifacts.push(await convergeTextArtifact({
+        const legacyFile = legacyFiles?.find(entry => entry.path === file.path);
+        const common     = {
             filePath       : file.path,
             desiredContent : file.content,
             ownedProjection: policy ? policy.ownedProjection : createOnlyOwnedProjection,
             ownedLabel     : policy ? policy.ownedLabel      : 'create-only bearer memory layer',
             trustedRoot    : file.path.startsWith(repoPath + path.sep) ? repoPath : instanceHome,
             fileSystem
-        }));
+        };
+
+        if (policy?.transport) {
+            artifacts.push(...await convergeTransportArtifact({
+                ...common,
+                legacyContent : legacyFile.content,
+                mergeTransport: (existing, desired) => mergeJsonTransport(
+                    existing,
+                    desired,
+                    policy.transport.containerName
+                ),
+                adapter: policy.transport.adapter,
+                instanceHome,
+                remote : file.content !== legacyFile.content
+            }))
+        } else {
+            artifacts.push(await convergeTextArtifact(common))
+        }
     }
 
     return artifacts;
@@ -595,13 +777,14 @@ function kimiConfigTomlOwnedProjection(source) {
 /**
  * The Fleet-owned surface of a generated `opencode.jsonc`: the `neo-mjs-*` MCP entries plus the
  * `instructions` array (the memory-layer load wiring). Resident additions outside those keys are
- * free. Full-line `//` comments are stripped before parsing (the JSONC emission contract).
+ * free. Legal JSONC comments and trailing commas are normalized only for comparison; the source
+ * bytes themselves remain resident-owned outside Fleet's narrow MCP replacements.
  * @private
  */
 function opencodeJsoncOwnedProjection(source) {
     let parsed;
     try {
-        parsed = JSON.parse(source.split(/\r?\n/).filter(line => !line.trimStart().startsWith('//')).join('\n'));
+        parsed = parseJsonLike(source);
     } catch {
         return {__invalidJson: true};
     }
@@ -629,6 +812,17 @@ function renderCodexProjectConfig(template, plan) {    const
 
 /** @private */
 function renderCodexMcpTable(server) {
+    if (server.mode === 'remote-http') {
+        return [
+            `[mcp_servers.\"${server.name}\"]`,
+            `url = ${JSON.stringify(server.url)}`,
+            `bearer_token_env_var = ${JSON.stringify(server.credentialEnvVar)}`,
+            'startup_timeout_sec = 30',
+            'tool_timeout_sec = 120',
+            `enabled = ${server.enabled}`
+        ].join('\n')
+    }
+
     return [
         `[mcp_servers.\"${server.name}\"]`,
         `command = ${JSON.stringify(server.command)}`,
@@ -730,6 +924,119 @@ function codexHomeOwnedProjection(source) {
     return canonicalize(result);
 }
 
+/**
+ * @summary Add the narrow Codex project-trust row only while remote MCP is selected, then remove
+ * exactly Fleet's marked block on opt-out. A resident-authored trust row is preserved; an explicit
+ * non-trusted row rejects remote admission. This keeps the no-intent home artifact byte-identical
+ * to the stdio baseline while making the generated project MCP config consumable at runtime.
+ * @param {Object} options
+ * @returns {Promise<Boolean>} whether Fleet changed the home artifact.
+ * @private
+ */
+async function convergeCodexRemoteTrust({filePath, repoPath, remote, trustedRoot, fileSystem}) {
+    await assertNoSymlinkSegments({
+        rootPath  : trustedRoot,
+        targetPath: filePath,
+        fileSystem,
+        label     : 'Codex remote MCP project trust'
+    });
+
+    const
+        source        = await fileSystem.readFile(filePath, 'utf8'),
+        expectedBlock = renderCodexRemoteTrustBlock(repoPath),
+        begin         = source.indexOf(CODEX_REMOTE_TRUST_BEGIN),
+        endMarker     = begin < 0 ? -1 : source.indexOf(CODEX_REMOTE_TRUST_END, begin),
+        secondBegin   = begin < 0 ? -1 : source.indexOf(CODEX_REMOTE_TRUST_BEGIN, begin + 1);
+
+    if ((begin < 0) !== (endMarker < 0) || secondBegin >= 0) {
+        throw transportDivergence(filePath, 'projects.<managed-repo>.trust_level', 'malformed Fleet trust marker')
+    }
+
+    if (begin >= 0) {
+        const
+            end   = endMarker + CODEX_REMOTE_TRUST_END.length,
+            block = source.slice(begin, end);
+
+        if (remote) {
+            if (block !== expectedBlock) {
+                throw transportDivergence(filePath, 'projects.<managed-repo>.trust_level', 'Fleet trust block diverged')
+            }
+            return false
+        }
+
+        const removable = block.match(
+            /^# Fleet-managed remote MCP project trust begin\n\[projects\.(.+)\]\ntrust_level = "trusted"\n# Fleet-managed remote MCP project trust end$/
+        );
+
+        if (!removable) {
+            throw transportDivergence(filePath, 'projects.<managed-repo>.trust_level', 'Fleet trust block diverged')
+        }
+
+        const suffix = source.slice(end).startsWith('\n\n') ? source.slice(end + 2) : source.slice(end);
+
+        await publishTextAtomically({
+            filePath,
+            content: source.slice(0, begin) + suffix,
+            fileSystem
+        });
+        return true
+    }
+
+    if (!remote) return false;
+
+    const existingTrust = readCodexProjectTrust(source, repoPath);
+
+    if (existingTrust === '"trusted"') return false;
+    if (existingTrust !== undefined) {
+        throw transportDivergence(filePath, 'projects.<managed-repo>.trust_level', 'resident trust row is not trusted')
+    }
+
+    const featureHeader = /^\[features\]\s*$/m.exec(source);
+    if (!featureHeader) {
+        throw transportDivergence(filePath, 'projects.<managed-repo>.trust_level', 'features insertion anchor is missing')
+    }
+
+    const output = source.slice(0, featureHeader.index) +
+        expectedBlock + '\n\n' +
+        source.slice(featureHeader.index);
+
+    await publishTextAtomically({filePath, content: output, fileSystem});
+    return true
+}
+
+/** @private */
+function renderCodexRemoteTrustBlock(repoPath) {
+    return [
+        CODEX_REMOTE_TRUST_BEGIN,
+        `[projects.${JSON.stringify(repoPath)}]`,
+        'trust_level = "trusted"',
+        CODEX_REMOTE_TRUST_END
+    ].join('\n')
+}
+
+/** @private */
+function readCodexProjectTrust(source, repoPath) {
+    const wanted = `projects.${JSON.stringify(repoPath)}.trust_level`;
+    let   table  = '';
+
+    for (const rawLine of source.split(/\r?\n/)) {
+        const line = rawLine.replace(/\s+#.*$/, '').trim();
+        if (!line) continue;
+
+        const header = line.match(/^\[([^\]]+)\]$/);
+        if (header) {
+            table = header[1];
+            continue
+        }
+
+        const entry = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.+)$/);
+        if (!entry) continue;
+
+        const key = table ? `${table}.${entry[1]}` : entry[1];
+        if (key === wanted) return entry[2].trim()
+    }
+}
+
 /** @private */
 function claudeJsonOwnedProjection(source) {
     let parsed;
@@ -744,6 +1051,610 @@ function claudeJsonOwnedProjection(source) {
         if (name.startsWith(NEO_MCP_NAME_PREFIX)) result[name] = definition;
     }
     return canonicalize(result);
+}
+
+const TRANSPORT_SERVER_NAMES = Object.freeze([
+    `${NEO_MCP_NAME_PREFIX}memory-core`,
+    `${NEO_MCP_NAME_PREFIX}knowledge-base`
+]);
+
+/** @private */
+function localizePlan(plan) {
+    return plan.map(server => server.mode === 'remote-http'
+        ? {...server, mode: 'stdio', url: null, credentialEnvVar: null}
+        : {...server});
+}
+
+/** @private */
+function createRemoteServerMap(plan) {
+    return Object.fromEntries(plan
+        .filter(server => server.mode === 'remote-http')
+        .map(server => [server.name, {
+            url             : server.url,
+            credentialEnvVar: server.credentialEnvVar
+        }]));
+}
+
+/**
+ * @summary Converge the one transport-bearing artifact with an authenticated transition receipt.
+ * Markerless legacy stdio may move once; later changes require the receipt hash to match the
+ * current MC/KB projection. All other managed Neo entries must already match, and the merge
+ * function replaces only the two transport values.
+ * @private
+ */
+async function convergeTransportArtifact({
+    filePath,
+    desiredContent,
+    legacyContent,
+    ownedProjection,
+    mergeTransport,
+    adapter,
+    instanceHome,
+    remote,
+    ownedLabel,
+    trustedRoot,
+    fileSystem
+}) {
+    await assertNoSymlinkSegments({rootPath: trustedRoot, targetPath: filePath, fileSystem, label: ownedLabel});
+
+    const
+        receiptPath = path.join(instanceHome, '.neo-fleet-mcp-transport.json'),
+        desired     = splitTransportProjection(ownedProjection(desiredContent)),
+        legacy      = splitTransportProjection(ownedProjection(legacyContent));
+    let existing;
+    let artifactStatus = WORKSPACE_ARTIFACT_STATES.MATCH;
+
+    try {
+        existing = await fileSystem.readFile(filePath, 'utf8')
+    } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+
+        await fileSystem.mkdir(path.dirname(filePath), {recursive: true});
+        await assertNoSymlinkSegments({rootPath: trustedRoot, targetPath: filePath, fileSystem, label: ownedLabel});
+        await fileSystem.writeFile(filePath, desiredContent, {encoding: 'utf8', flag: 'wx', mode: 0o600});
+        existing       = desiredContent;
+        artifactStatus = WORKSPACE_ARTIFACT_STATES.CREATED
+    }
+
+    const actual = splitTransportProjection(ownedProjection(existing));
+
+    if (actual.invalid || desired.invalid || legacy.invalid ||
+        JSON.stringify(actual.other) !== JSON.stringify(desired.other)) {
+        throw transportDivergence(filePath, ownedLabel, actual.invalid ? 'invalid managed artifact' : 'non-transport managed keys differ')
+    }
+
+    if (JSON.stringify(actual.transport) !== JSON.stringify(desired.transport)) {
+        const receipt    = await readTransportReceipt({receiptPath, adapter, filePath, fileSystem});
+        const authorized = receipt
+            ? receipt.projectionSha256 === hashProjection(actual.transport)
+            : JSON.stringify(actual.transport) === JSON.stringify(legacy.transport);
+
+        if (!authorized) {
+            throw transportDivergence(filePath, ownedLabel, 'current MC/KB projection is neither markerless legacy stdio nor receipt-authenticated')
+        }
+
+        const merged     = mergeTransport(existing, desiredContent);
+        const mergedPlan = splitTransportProjection(ownedProjection(merged));
+
+        if (mergedPlan.invalid ||
+            JSON.stringify(mergedPlan.transport) !== JSON.stringify(desired.transport) ||
+            JSON.stringify(mergedPlan.other) !== JSON.stringify(actual.other)) {
+            throw transportDivergence(filePath, ownedLabel, 'transport-only merge could not preserve the managed artifact contract')
+        }
+
+        await publishTextAtomically({filePath, content: merged, fileSystem});
+        artifactStatus = WORKSPACE_ARTIFACT_STATES.UPDATED
+    }
+
+    const artifacts = [{
+        path     : filePath,
+        status   : artifactStatus,
+        ownedKeys: ownedLabel
+    }];
+
+    if (remote) {
+        artifacts.push(await convergeTransportReceipt({
+            receiptPath,
+            adapter,
+            filePath,
+            projectionSha256: hashProjection(desired.transport),
+            fileSystem,
+            instanceHome
+        }))
+    } else {
+        const removed = await removeTransportReceipt({receiptPath, fileSystem, instanceHome});
+        if (removed) artifacts.push(removed)
+    }
+
+    return artifacts
+}
+
+/** @private */
+function splitTransportProjection(projection) {
+    if (!projection || projection.__invalidJson) {
+        return {invalid: true, transport: {}, other: {}}
+    }
+
+    const
+        hasMcpBag = Object.hasOwn(projection, 'mcp'),
+        bag       = hasMcpBag ? (projection.mcp || {}) : projection,
+        transport = {},
+        otherBag  = {...bag};
+
+    for (const name of TRANSPORT_SERVER_NAMES) {
+        if (Object.hasOwn(bag, name)) transport[name] = bag[name];
+        delete otherBag[name]
+    }
+
+    const other = hasMcpBag
+        ? {...projection, ...(Object.keys(otherBag).length ? {mcp: otherBag} : {})}
+        : otherBag;
+
+    if (hasMcpBag && Object.keys(otherBag).length === 0) delete other.mcp;
+
+    return {
+        invalid  : false,
+        transport: canonicalize(transport),
+        other    : canonicalize(other)
+    }
+}
+
+/** @private */
+function hashProjection(projection) {
+    return crypto.createHash('sha256').update(JSON.stringify(canonicalize(projection))).digest('hex')
+}
+
+/** @private */
+async function readTransportReceipt({receiptPath, adapter, filePath, fileSystem}) {
+    let raw;
+
+    try {
+        raw = await fileSystem.readFile(receiptPath, 'utf8')
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error
+    }
+
+    let receipt;
+
+    try {
+        receipt = JSON.parse(raw)
+    } catch {
+        throw transportDivergence(receiptPath, 'transport receipt', 'invalid JSON')
+    }
+
+    const expectedKeys = ['adapter', 'artifact', 'projectionSha256', 'version'];
+
+    if (!receipt ||
+        typeof receipt !== 'object' ||
+        Array.isArray(receipt) ||
+        Object.keys(receipt).sort().join(',') !== expectedKeys.sort().join(',') ||
+        receipt.version !== 1 ||
+        receipt.adapter !== adapter ||
+        receipt.artifact !== path.basename(filePath) ||
+        !/^[a-f0-9]{64}$/.test(receipt.projectionSha256 || '')) {
+        throw transportDivergence(receiptPath, 'transport receipt', 'receipt identity or shape differs')
+    }
+
+    return receipt
+}
+
+/** @private */
+async function convergeTransportReceipt({receiptPath, adapter, filePath, projectionSha256, fileSystem, instanceHome}) {
+    await assertNoSymlinkSegments({
+        rootPath  : instanceHome,
+        targetPath: receiptPath,
+        fileSystem,
+        label     : 'transport receipt'
+    });
+
+    const desired = {
+        version : 1,
+        adapter,
+        artifact: path.basename(filePath),
+        projectionSha256
+    };
+    let existing = null;
+
+    try {
+        existing = JSON.parse(await fileSystem.readFile(receiptPath, 'utf8'))
+    } catch (error) {
+        if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
+    }
+
+    if (JSON.stringify(existing) === JSON.stringify(desired)) {
+        return {path: receiptPath, status: WORKSPACE_ARTIFACT_STATES.MATCH, ownedKeys: 'transport receipt'}
+    }
+
+    const status = existing
+        ? WORKSPACE_ARTIFACT_STATES.UPDATED
+        : WORKSPACE_ARTIFACT_STATES.CREATED;
+
+    await fileSystem.mkdir(path.dirname(receiptPath), {recursive: true});
+    await publishTextAtomically({
+        filePath: receiptPath,
+        content : JSON.stringify(desired, null, 2) + '\n',
+        fileSystem
+    });
+
+    return {path: receiptPath, status, ownedKeys: 'transport receipt'}
+}
+
+/** @private */
+async function removeTransportReceipt({receiptPath, fileSystem, instanceHome}) {
+    await assertNoSymlinkSegments({
+        rootPath  : instanceHome,
+        targetPath: receiptPath,
+        fileSystem,
+        label     : 'transport receipt'
+    });
+
+    try {
+        await fileSystem.unlink(receiptPath);
+        return {path: receiptPath, status: WORKSPACE_ARTIFACT_STATES.UPDATED, ownedKeys: 'transport receipt removed'}
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error
+    }
+}
+
+/** @private */
+async function publishTextAtomically({filePath, content, fileSystem}) {
+    const tmpPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+
+    try {
+        await fileSystem.writeFile(tmpPath, content, {encoding: 'utf8', mode: 0o600});
+        await fileSystem.rename(tmpPath, filePath);
+        await fileSystem.chmod(filePath, 0o600)
+    } catch (error) {
+        await fileSystem.unlink(tmpPath).catch(() => {});
+        throw error
+    }
+}
+
+/** @private */
+function mergeCodexTransport(existing, desired) {
+    let   output       = existing;
+    const replacements = TRANSPORT_SERVER_NAMES.map(name => {
+        const
+            current = findTomlMcpTable(existing, name),
+            target  = findTomlMcpTable(desired, name);
+
+        if (!current || !target) {
+            throw transportDivergence(name, 'Codex MCP table', 'managed table is missing')
+        }
+
+        return {start: current.start, end: current.end, value: target.value}
+    }).sort((a, b) => b.start - a.start);
+
+    for (const replacement of replacements) {
+        output = output.slice(0, replacement.start) + replacement.value + output.slice(replacement.end)
+    }
+
+    return output
+}
+
+/** @private */
+function findTomlMcpTable(source, name) {
+    const
+        escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        matcher = new RegExp(`^\\s*\\[mcp_servers\\.\"${escaped}\"\\]\\s*$`, 'm'),
+        match   = matcher.exec(source);
+
+    if (!match) return null;
+
+    const
+        start      = match.index,
+        nextHeader = /^\s*\[[^\]]+\]\s*$/gm;
+
+    nextHeader.lastIndex = start + match[0].length;
+
+    const next = nextHeader.exec(source);
+    const end  = next?.index ?? source.length;
+
+    return {start, end, value: source.slice(start, end)}
+}
+
+/** @private */
+function mergeJsonTransport(existing, desired, containerName) {
+    const desiredObject = parseJsonLike(desired);
+    const desiredBag    = desiredObject?.[containerName];
+
+    if (!desiredBag || typeof desiredBag !== 'object') {
+        throw transportDivergence(containerName, 'JSON MCP container', 'desired container is missing')
+    }
+
+    const
+        rootRange             = findJsonObjectRange(existing),
+        containerRange        = findDirectJsonProperty(existing, rootRange, containerName),
+        desiredRootRange      = findJsonObjectRange(desired),
+        desiredContainerRange = findDirectJsonProperty(desired, desiredRootRange, containerName);
+
+    if (!containerRange || existing[containerRange.valueStart] !== '{') {
+        throw transportDivergence(containerName, 'JSON MCP container', 'existing container is missing')
+    }
+    if (!desiredContainerRange || desired[desiredContainerRange.valueStart] !== '{') {
+        throw transportDivergence(containerName, 'JSON MCP container', 'desired container source is missing')
+    }
+
+    const replacements = TRANSPORT_SERVER_NAMES.map(name => {
+        const
+            current = findDirectJsonProperty(existing, {
+                start: containerRange.valueStart,
+                end  : containerRange.valueEnd
+            }, name),
+            target  = findDirectJsonProperty(desired, {
+                start: desiredContainerRange.valueStart,
+                end  : desiredContainerRange.valueEnd
+            }, name);
+
+        if (!current || !target || !Object.hasOwn(desiredBag, name)) {
+            throw transportDivergence(name, 'JSON MCP entry', 'managed entry is missing')
+        }
+
+        return {
+            start: current.valueStart,
+            end  : current.valueEnd,
+            value: desired.slice(target.valueStart, target.valueEnd)
+        }
+    }).sort((a, b) => b.start - a.start);
+
+    let output = existing;
+
+    for (const replacement of replacements) {
+        output = output.slice(0, replacement.start) + replacement.value + output.slice(replacement.end)
+    }
+
+    return output
+}
+
+/** @private */
+function parseJsonLike(source) {
+    return JSON.parse(normalizeJsonc(source))
+}
+
+/**
+ * @summary Normalize legal JSONC comments and trailing commas for semantic comparison without
+ * rewriting the resident's source artifact. String content and line structure are preserved.
+ * @param {String} source
+ * @returns {String}
+ * @private
+ */
+function normalizeJsonc(source) {
+    const
+        withoutComments = [],
+        length          = source.length;
+    let
+        cursor   = 0,
+        inString = false,
+        escaped  = false;
+
+    while (cursor < length) {
+        const character = source[cursor];
+
+        if (inString) {
+            withoutComments.push(character);
+
+            if (escaped) {
+                escaped = false
+            } else if (character === '\\') {
+                escaped = true
+            } else if (character === '"') {
+                inString = false
+            }
+
+            cursor++;
+            continue
+        }
+
+        if (character === '"') {
+            inString = true;
+            withoutComments.push(character);
+            cursor++;
+            continue
+        }
+
+        if (source.startsWith('//', cursor)) {
+            while (cursor < length && source[cursor] !== '\n') {
+                withoutComments.push(' ');
+                cursor++
+            }
+            continue
+        }
+
+        if (source.startsWith('/*', cursor)) {
+            const end = source.indexOf('*/', cursor + 2);
+
+            if (end < 0) throw new SyntaxError('Unterminated JSONC block comment.');
+
+            while (cursor < end + 2) {
+                withoutComments.push(source[cursor] === '\n' ? '\n' : ' ');
+                cursor++
+            }
+            continue
+        }
+
+        withoutComments.push(character);
+        cursor++
+    }
+
+    const
+        normalized = withoutComments.join(''),
+        output     = normalized.split('');
+
+    inString = false;
+    escaped  = false;
+
+    for (cursor = 0; cursor < normalized.length; cursor++) {
+        const character = normalized[cursor];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false
+            } else if (character === '\\') {
+                escaped = true
+            } else if (character === '"') {
+                inString = false
+            }
+            continue
+        }
+
+        if (character === '"') {
+            inString = true;
+            continue
+        }
+
+        if (character === ',') {
+            let lookahead = cursor + 1;
+
+            while (/\s/.test(normalized[lookahead])) lookahead++;
+            if (normalized[lookahead] === '}' || normalized[lookahead] === ']') output[cursor] = ' '
+        }
+    }
+
+    return output.join('')
+}
+
+/** @private */
+function findJsonObjectRange(source) {
+    const start = skipJsonTrivia(source, 0);
+
+    if (source[start] !== '{') return null;
+
+    return {start, end: scanJsonValueEnd(source, start)}
+}
+
+/** @private */
+function findDirectJsonProperty(source, objectRange, propertyName) {
+    if (!objectRange || source[objectRange.start] !== '{') return null;
+
+    let cursor = objectRange.start + 1;
+
+    while (cursor < objectRange.end) {
+        cursor = skipJsonTrivia(source, cursor);
+        if (source[cursor] === ',') {
+            cursor++;
+            continue
+        }
+        if (source[cursor] === '}') return null;
+        if (source[cursor] !== '"') return null;
+
+        const keyEnd = scanJsonStringEnd(source, cursor);
+        const key    = JSON.parse(source.slice(cursor, keyEnd));
+
+        cursor = skipJsonTrivia(source, keyEnd);
+        if (source[cursor] !== ':') return null;
+
+        const valueStart = skipJsonTrivia(source, cursor + 1);
+        const valueEnd   = scanJsonValueEnd(source, valueStart);
+
+        if (key === propertyName) {
+            return {valueStart, valueEnd}
+        }
+
+        cursor = valueEnd
+    }
+
+    return null
+}
+
+/** @private */
+function skipJsonTrivia(source, start) {
+    let cursor = start;
+
+    while (cursor < source.length) {
+        if (/\s/.test(source[cursor])) {
+            cursor++;
+        } else if (source.startsWith('//', cursor)) {
+            cursor = source.indexOf('\n', cursor + 2);
+            if (cursor < 0) return source.length;
+        } else if (source.startsWith('/*', cursor)) {
+            const end = source.indexOf('*/', cursor + 2);
+            if (end < 0) return source.length;
+            cursor = end + 2
+        } else {
+            break
+        }
+    }
+
+    return cursor
+}
+
+/** @private */
+function scanJsonStringEnd(source, start) {
+    let escaped = false;
+
+    for (let cursor = start + 1; cursor < source.length; cursor++) {
+        const character = source[cursor];
+
+        if (escaped) {
+            escaped = false
+        } else if (character === '\\') {
+            escaped = true
+        } else if (character === '"') {
+            return cursor + 1
+        }
+    }
+
+    return source.length
+}
+
+/** @private */
+function scanJsonValueEnd(source, start) {
+    if (source[start] === '"') return scanJsonStringEnd(source, start);
+
+    if (source[start] === '{' || source[start] === '[') {
+        const stack = [source[start] === '{' ? '}' : ']'];
+
+        for (let cursor = start + 1; cursor < source.length; cursor++) {
+            if (source[cursor] === '"') {
+                cursor = scanJsonStringEnd(source, cursor) - 1;
+                continue
+            }
+            if (source.startsWith('//', cursor)) {
+                const end = source.indexOf('\n', cursor + 2);
+                if (end < 0) return source.length;
+                cursor = end;
+                continue
+            }
+            if (source.startsWith('/*', cursor)) {
+                const end = source.indexOf('*/', cursor + 2);
+                if (end < 0) return source.length;
+                cursor = end + 1;
+                continue
+            }
+            if (source[cursor] === '{') {
+                stack.push('}')
+            } else if (source[cursor] === '[') {
+                stack.push(']')
+            } else if (source[cursor] === stack.at(-1)) {
+                stack.pop();
+                if (!stack.length) return cursor + 1
+            }
+        }
+
+        return source.length
+    }
+
+    let cursor = start;
+    while (cursor < source.length &&
+        source[cursor] !== ',' &&
+        source[cursor] !== '}' &&
+        source[cursor] !== ']' &&
+        !source.startsWith('//', cursor) &&
+        !source.startsWith('/*', cursor)) cursor++;
+    return cursor
+}
+
+/** @private */
+function transportDivergence(filePath, ownedKeys, reason) {
+    return new ManagedWorkspacePreparationError(
+        `prepareManagedAgentWorkspace: refusing unauthenticated MCP transport transition at '${filePath}' (${reason}).`,
+        {
+            code    : 'FLEET_WORKSPACE_DIVERGENT',
+            artifact: {path: filePath, status: WORKSPACE_ARTIFACT_STATES.DIVERGENT, ownedKeys, reason}
+        }
+    )
 }
 
 /** @private */

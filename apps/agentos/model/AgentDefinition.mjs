@@ -8,8 +8,9 @@ import Model from '../../../src/data/Model.mjs';
  * configuration model every account surface binds: identity, ONE harness choice (a registered
  * `config/harnessTypes.mjs` key), the per-agent sparse MCP-server overrides (`mcpServers` — null
  * means every current catalog default applies; resolve via `config/mcpServers.mjs`, never persist
- * the fully resolved matrix),
- * and the operational toggles (honest readback: null = state not read back yet, never an
+ * the fully resolved matrix), the narrow MCP transport target (`mcpTransport` — null = local
+ * stdio; remote is only `{mode:'remote-http', tenantId}`), and the operational toggles (honest
+ * readback: null = state not read back yet, never an
  * optimistic guess). This model deliberately contains no credential field: PAT bytes remain
  * Brain-side in FleetRegistryService and may only surface here as redacted state.
  */
@@ -45,6 +46,11 @@ class AgentDefinition extends Model {
         }, {
             // sparse per-agent MCP overrides {serverKey: Boolean}; null = all live defaults apply
             name        : 'mcpServers',
+            type        : 'Object',
+            defaultValue: null
+        }, {
+            // null = local stdio; remote shape is only {mode:'remote-http', tenantId}
+            name        : 'mcpTransport',
             type        : 'Object',
             defaultValue: null
         }, {

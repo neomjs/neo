@@ -37,7 +37,21 @@ function canonicalize(url) {
 function rejectionReasonFor(status) {
     if (status === 401 || status === 403) return 'tenant rejected the credential';
 
-    return Number.isInteger(status) ? `tenant health probe failed (${status})` : 'tenant authentication failed';
+    return Number.isInteger(status) ? `tenant MCP readiness failed (${status})` : 'tenant authentication failed';
+}
+
+/**
+ * @summary Derive the two fixed remote MCP resource URLs from one canonical tenant endpoint.
+ * The tenant descriptor owns only the deployment base; callers never persist or accept arbitrary
+ * per-plane URLs.
+ * @param {String} endpoint
+ * @returns {Object} Public `{memory-core:{url}, knowledge-base:{url}}`.
+ */
+function resourcesFor(endpoint) {
+    return {
+        'memory-core'   : {url: `${endpoint}/mc/mcp`},
+        'knowledge-base': {url: `${endpoint}/kb/mcp`}
+    }
 }
 
 /**
@@ -48,18 +62,18 @@ function rejectionReasonFor(status) {
  * @summary
  * The Brain-side (Node-only) remote-tenant connection registry — the "connect and go" half of the
  * Fleet Manager's entry story: a design partner points the cockpit at a HOSTED Agent-OS tenant
- * (a tenant URL + a PAT) instead of standing up the full local stack.
+ * (a tenant URL + its provider bearer) instead of standing up the full local stack.
  *
  * **Two-hemisphere credential boundary (non-negotiable, mirroring `FleetRegistryService`):** the
- * tenant PAT is a Node-side secret. It rides IN through {@link #connectTenant}, authenticates the
+ * plane bearer is a Node-side secret. It rides IN through {@link #connectTenant}, authenticates the
  * remote transport probe, and is stored reversibly encrypted (AES-256-GCM, `0600`, the same
- * `NEO_FLEET_SECRET_KEY` / generated-keyfile discipline as the agent-PAT store) because the future
+ * `NEO_FLEET_SECRET_KEY` / generated-keyfile discipline as the agent-credential store) because the
  * remote transport must present the real bearer. It is **never** returned, never included in a
  * public descriptor, and never persists or returns through Body state — every read surface serves
  * the public projection only (`{id, endpoint, status, deploymentClass, connectedAt}`).
  *
  * Stated precisely, because the looser claim ("never transits the browser") is false and worth not
- * believing: the PAT necessarily ARRIVES through the allowlisted Body→Brain connect request. The
+ * believing: the bearer necessarily ARRIVES through the allowlisted Body→Brain connect request. The
  * boundary this class holds is one-way — inbound once, never back out, and never into anything the
  * Body can read.
  *
@@ -70,7 +84,7 @@ function rejectionReasonFor(status) {
  *
  * Storage layout (under the same data-dir precedent as the registry):
  * - `tenants.json`             — public descriptors only; safe to render anywhere.
- * - `tenant-credentials.enc`   — the encrypted `{tenantId: pat}` map (AES-256-GCM, `0600`).
+ * - `tenant-credentials.enc`   — the encrypted `{tenantId: providerBearer}` map (AES-256-GCM, `0600`).
  */
 class FleetTenantService extends Base {
     static config = {
@@ -94,26 +108,31 @@ class FleetTenantService extends Base {
      */
     dataDir = null
     /**
-     * Transport-probe seam: `({endpoint, credential}) => Promise<{ok: Boolean, status?: Number}>`.
-     * Defaults (via {@link getProbeFn}) to {@link probeTenantEndpoint} — an authenticated HTTPS
-     * health probe. Any `reason` a stub returns is IGNORED: the public failure vocabulary is
+     * Transport-probe seam:
+     * `({endpoint, credential, expectedIdentity?}) =>
+     * Promise<{ok: Boolean, status?: Number, resources?: Object}>`.
+     * Defaults (via {@link getProbeFn}) to {@link probeTenantEndpoint} — authenticated MCP
+     * initialization against BOTH MC and KB. Any `reason` a stub returns is IGNORED: the public failure vocabulary is
      * derived from `status` alone ({@link rejectionReasonFor}). Inject a stub in tests so no spec
-     * ever needs a live tenant or a real PAT. Plain field, mirroring `FleetLifecycleService.spawnFn`.
+     * ever needs a live tenant or a real provider bearer. Plain field, mirroring
+     * `FleetLifecycleService.spawnFn`.
      * @member {Function|null} probeFn=null
      */
     probeFn = null
 
     /**
      * @summary Connect a remote Agent-OS tenant: validate the URL, authenticate the transport with
-     * the PAT, persist the descriptor (+ the encrypted credential), and return the PUBLIC result.
+     * the provider bearer, persist the descriptor (+ the encrypted credential), and return the
+     * PUBLIC result.
      *
      * The returned object never carries the credential — the secret-omission boundary is the same
-     * one `defineAgent` enforces for agent PATs. Reconnecting an existing endpoint updates its
+     * one `defineAgent` enforces for agent credentials. Reconnecting an existing endpoint updates its
      * descriptor + credential in place (re-auth is the point of a reconnect).
      * @param {Object} params
      * @param {String} params.tenantUrl  The hosted tenant's base URL. `https` required; plain `http`
      *     is accepted for loopback development only (the bearer must not cross a network in clear).
-     * @param {String} params.credential The tenant PAT — stored encrypted, never returned.
+     * @param {String} params.credential The selected plane's provider bearer — stored encrypted,
+     *     never returned.
      * @returns {Promise<Object>} `{id, endpoint, status: 'connected', deploymentClass,
      *     connectedAt}` on success; `{status: 'rejected', reason}` — reason drawn from a closed
      *     vocabulary — on any validation, auth, or persistence failure.
@@ -126,7 +145,7 @@ class FleetTenantService extends Base {
         }
 
         if (typeof credential !== 'string' || credential.trim() === '') {
-            return {status: 'rejected', reason: 'credential (tenant PAT) is required'};
+            return {status: 'rejected', reason: 'credential (plane provider bearer) is required'};
         }
 
         let probe;
@@ -189,7 +208,90 @@ class FleetTenantService extends Base {
     }
 
     /**
-     * @summary Resolve one tenant's stored PAT for the Node-side transport that must present it.
+     * @summary Resolve a connected tenant into the fixed, non-secret MC/KB resource descriptor used
+     * by workspace generation. Brain-internal: no wire method exposes it. Missing, disconnected, or
+     * malformed rows fail closed to `null`.
+     * @param {String} tenantId
+     * @returns {Object|null} `{tenantId, endpoint, resources}` with no credential.
+     */
+    resolveMcpResources(tenantId) {
+        const
+            descriptor = this.readDescriptors()[tenantId],
+            endpoint   = this.normalizeEndpoint(descriptor?.endpoint);
+
+        if (!descriptor ||
+            descriptor.id !== tenantId ||
+            descriptor.status !== 'connected' ||
+            !endpoint ||
+            endpoint !== descriptor.endpoint) {
+            return null
+        }
+
+        return {
+            tenantId,
+            endpoint,
+            resources: resourcesFor(endpoint)
+        }
+    }
+
+    /**
+     * @summary Resolve the selected tenant's encrypted provider bearer for the remote MC/KB child-env
+     * slot. Brain-internal only: this method is not wire-allowlisted and returns a value only while
+     * the matching public descriptor is still canonical and connected.
+     * @param {String} tenantId
+     * @returns {String|null}
+     */
+    resolveMcpCredential(tenantId) {
+        if (!this.resolveMcpResources(tenantId)) return null;
+
+        const credential = this.getCredential(tenantId);
+
+        return typeof credential === 'string' && credential.trim() ? credential : null
+    }
+
+    /**
+     * @summary Authenticate the selected tenant's provider credential against BOTH selected tenant
+     * resources before any checkout or config mutation. Repository and plane credentials are
+     * intentionally resolved by different services: a GitHub checkout PAT is not remote-plane
+     * authority, even when one deployment happens to use GitHub as its identity provider.
+     * @param {Object} options
+     * @param {String} options.tenantId
+     * @param {String} options.credential Plane credential resolved once from this tenant service.
+     * @param {String} options.expectedIdentity Canonical seat identity the provider credential must
+     *     resolve to. A valid credential for a different provider subject fails closed.
+     * @returns {Promise<Object>} Bounded `{ok,status,resources}`; never remote prose or a token.
+     */
+    async probeSeatCredential({tenantId, credential, expectedIdentity}={}) {
+        const
+            resolved          = this.resolveMcpResources(tenantId),
+            canonicalIdentity = normalizeAgentIdentity(expectedIdentity);
+
+        if (!resolved ||
+            typeof credential !== 'string' ||
+            !credential.trim() ||
+            !canonicalIdentity) {
+            return {ok: false}
+        }
+
+        try {
+            const readiness = await this.getProbeFn()({
+                endpoint        : resolved.endpoint,
+                credential,
+                expectedIdentity: canonicalIdentity
+            });
+
+            if (readiness?.resources?.['memory-core']?.identity !== canonicalIdentity) {
+                return {...readiness, ok: false}
+            }
+
+            return readiness
+        } catch {
+            return {ok: false}
+        }
+    }
+
+    /**
+     * @summary Resolve one tenant's stored provider bearer for the Node-side transport that presents it.
      * Brain-internal only: this method is NOT on any wire allowlist and must never be added to one.
      * @param {String} tenantId
      * @returns {String|null}
@@ -222,7 +324,7 @@ class FleetTenantService extends Base {
         // A URL-embedded secret would bypass the encrypted store — reject the shape outright.
         if (url.username || url.password) return null;
 
-        // The PAT rides to this endpoint as a bearer header (see `probeTenantEndpoint`), so the
+        // The provider bearer rides to this endpoint as a header (see `probeTenantEndpoint`), so the
         // endpoint's scheme decides whether the credential crosses the wire in cleartext. TLS is
         // required for anything remote; `http:` survives only for loopback, where there is no
         // network hop to intercept and a developer can run a tenant without a certificate.
@@ -329,7 +431,7 @@ class FleetTenantService extends Base {
     }
 
     /**
-     * @returns {Object} the decrypted `{tenantId: pat}` map; `{}` when absent/locked/corrupt — the
+     * @returns {Object} the decrypted `{tenantId: providerBearer}` map; `{}` when absent/locked/corrupt — the
      * fail-closed read discipline of the agent-credential store.
      * @protected
      */
@@ -363,7 +465,7 @@ class FleetTenantService extends Base {
      * Separate from {@link writeCredential} because a rollback must restore a prior snapshot
      * wholesale, not upsert one entry: re-adding the key we just wrote is not the inverse of
      * writing it.
-     * @param {Object} map `{tenantId: pat}`
+     * @param {Object} map `{tenantId: providerBearer}`
      * @protected
      */
     writeCredentials(map) {
@@ -444,25 +546,215 @@ class FleetTenantService extends Base {
 }
 
 /**
- * @summary The default transport probe: an authenticated GET against the tenant endpoint's health
- * path, bearer-presented, bounded timeout. Any 2xx authenticates; everything else does not.
+ * @summary Normalize a provider login / AgentIdentity node id to the canonical `@login` shape.
+ * The provider response is remote-authored, so malformed values fail closed instead of crossing
+ * into diagnostics.
+ * @param {*} value
+ * @returns {String|null}
+ * @private
+ */
+function normalizeAgentIdentity(value) {
+    if (typeof value !== 'string') return null;
+
+    const login = value.trim().replace(/^AGENT_IDENTITY:/, '').replace(/^@/, '');
+
+    return login && /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(login) ? `@${login}` : null
+}
+
+/**
+ * @summary Parse one JSON or SSE MCP response envelope without forwarding remote prose.
+ * @param {String} text
+ * @returns {Object|null}
+ * @private
+ */
+function parseMcpEnvelope(text) {
+    try {
+        return JSON.parse(text)
+    } catch {}
+
+    for (const line of String(text).split(/\r?\n/)) {
+        if (!line.startsWith('data:')) continue;
+
+        try {
+            return JSON.parse(line.slice(5).trim())
+        } catch {}
+    }
+
+    return null
+}
+
+/**
+ * @summary Read the JSON payload of one MCP tool result. Only structured JSON or a JSON text item
+ * is accepted; arbitrary remote text never becomes a diagnostic.
+ * @param {Object|null} envelope
+ * @returns {Object|null}
+ * @private
+ */
+function readMcpToolPayload(envelope) {
+    const result = envelope?.result;
+
+    if (!result || result.isError) return null;
+    if (result.structuredContent && typeof result.structuredContent === 'object') {
+        return result.structuredContent
+    }
+
+    const text = result.content?.find?.(item => item?.type === 'text')?.text;
+
+    if (typeof text !== 'string') return null;
+
+    try {
+        return JSON.parse(text)
+    } catch {
+        return null
+    }
+}
+
+/**
+ * @summary Ask Memory Core for the request-bound caller identity inside the initialized session.
+ * `list_permissions` is read-only, health-exempt, defaults to the bound caller, and returns the
+ * canonical identity it actually used. A valid bearer for the wrong provider subject therefore
+ * cannot pass this gate.
+ * @param {Object} options
+ * @param {String} options.url
+ * @param {String} options.credential
+ * @param {String} options.sessionId
+ * @param {String} options.expectedIdentity
+ * @returns {Promise<Object>} Bounded `{ok,status,identity}`.
+ * @private
+ */
+async function probeMcpIdentity({url, credential, sessionId, expectedIdentity}) {
+    const response = await fetch(url, {
+        method : 'POST',
+        headers: {
+            Accept                : 'application/json, text/event-stream',
+            Authorization         : `Bearer ${credential}`,
+            'Content-Type'        : 'application/json',
+            'mcp-protocol-version': '2024-11-05',
+            'mcp-session-id'      : sessionId
+        },
+        body: JSON.stringify({
+            jsonrpc: '2.0',
+            id     : 2,
+            method : 'tools/call',
+            params : {name: 'list_permissions', arguments: {}}
+        }),
+        signal: AbortSignal.timeout(10_000)
+    });
+    const payload  = readMcpToolPayload(parseMcpEnvelope(await response.text()));
+    const identity = normalizeAgentIdentity(payload?.identity);
+    const matches  = response.ok && identity === expectedIdentity;
+
+    return {
+        ok      : matches,
+        status  : response.status,
+        identity: matches ? expectedIdentity : null
+    }
+}
+
+/**
+ * @summary Probe one MCP resource with the protocol's authenticated `initialize` request. A plain
+ * health endpoint can stay green while auth or one plane is broken, so readiness is established at
+ * the same route and protocol the generated seat will consume.
+ * @param {Object} options
+ * @param {String} options.url
+ * @param {String} options.credential
+ * @param {String|null} [options.expectedIdentity] Memory Core caller identity to prove.
+ * @returns {Promise<Object>} `{ok,status,identity?}` with no remote prose.
+ */
+async function initializeMcpResource({url, credential, expectedIdentity=null}) {
+    const headers = {
+        Accept        : 'application/json, text/event-stream',
+        Authorization : `Bearer ${credential}`,
+        'Content-Type': 'application/json'
+    };
+    const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body  : JSON.stringify({
+            jsonrpc: '2.0',
+            id     : 1,
+            method : 'initialize',
+            params : {
+                protocolVersion: '2024-11-05',
+                capabilities   : {},
+                clientInfo     : {name: 'neo-fleet-readiness', version: '1'}
+            }
+        }),
+        signal: AbortSignal.timeout(10_000)
+    });
+
+    // Consume + validate the protocol envelope so a reverse-proxy HTML page or arbitrary JSON 200
+    // cannot masquerade as MCP readiness. The remote text never crosses into a public reason.
+    const
+        envelope    = parseMcpEnvelope(await response.text()),
+        initialized = response.ok &&
+                          envelope?.jsonrpc === '2.0' &&
+                          envelope?.result &&
+                          typeof envelope.result.protocolVersion === 'string',
+        initializeStatus = response.status;
+
+    const sessionId   = response.headers.get('mcp-session-id');
+    let   observation = {ok: initialized, status: initializeStatus};
+
+    if (observation.ok && expectedIdentity) {
+        observation = sessionId
+            ? await probeMcpIdentity({url, credential, sessionId, expectedIdentity})
+            : {ok: false, status: initializeStatus, identity: null}
+    }
+
+    if (sessionId) {
+        try {
+            const closeResponse = await fetch(url, {
+                method : 'DELETE',
+                headers: {...headers, 'mcp-session-id': sessionId},
+                signal : AbortSignal.timeout(2_000)
+            });
+
+            await closeResponse.text()
+        } catch {
+            // Readiness was already established. Session cleanup is bounded best effort.
+        }
+    }
+
+    return observation
+}
+
+/**
+ * @summary The default tenant probe: authenticate and initialize BOTH fixed MC and KB MCP routes in
+ * parallel. Both must be ready; the aggregate exposes per-plane bounded observations for capture
+ * evidence while never carrying response text.
  *
- * Reports `{ok, status}` and deliberately NO prose. The caller owns the public failure vocabulary
+ * Reports `{ok, status, resources}` and deliberately NO prose. The caller owns the public failure vocabulary
  * ({@link rejectionReasonFor}) because a probe's text is shaped by the remote tenant; a `reason`
  * field here would be an open invitation for the next author to forward it, which is the boundary
  * this split exists to close.
  * @param {Object} options
  * @param {String} options.endpoint   Normalized tenant base URL (TLS, or loopback for development).
- * @param {String} options.credential The tenant PAT (used for the probe only; never logged).
- * @returns {Promise<Object>} `{ok, status}`.
+ * @param {String} options.credential The tenant bearer (used for the probe only; never logged).
+ * @param {String|null} [options.expectedIdentity] Canonical seat identity to verify through MC.
+ * @returns {Promise<Object>} `{ok, status, resources}`.
  */
-export async function probeTenantEndpoint({endpoint, credential}) {
-    const response = await fetch(`${endpoint}/health`, {
-        headers: {Authorization: `Bearer ${credential}`},
-        signal : AbortSignal.timeout(10_000)
-    });
+export async function probeTenantEndpoint({endpoint, credential, expectedIdentity=null}) {
+    const resources = resourcesFor(endpoint);
+    const entries   = await Promise.all(Object.entries(resources).map(async ([key, {url}]) => {
+        try {
+            return [key, await initializeMcpResource({
+                url,
+                credential,
+                expectedIdentity: key === 'memory-core' ? expectedIdentity : null
+            })]
+        } catch {
+            return [key, {ok: false}]
+        }
+    }));
+    const observations = Object.fromEntries(entries);
+    const failed       = entries.find(([, observation]) => !observation.ok)?.[1];
 
-    return {ok: response.ok, status: response.status};
+    return {
+        ok       : !failed,
+        status   : failed?.status ?? 200,
+        resources: observations
+    };
 }
 
 export default Neo.setupClass(FleetTenantService);

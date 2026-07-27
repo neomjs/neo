@@ -120,6 +120,14 @@ class AgentDetail extends Container {
          */
         agentDefinitions_: null,
         /**
+         * The provider-hosted public tenant Store, seated by FleetCockpit composition alongside the
+         * definitions Store. The configuration card owns its Store listeners; this view only keeps
+         * the exact shared instance stable across dock and vessel reparents.
+         * @member {Neo.data.Store|null} fleetTenants_=null
+         * @reactive
+         */
+        fleetTenants_: null,
+        /**
          * The drilled-in resident: an {@link AgentOS.model.FleetAgent} record (store-backed, live)
          * or a plain field bag with the same keys. `null` renders the honest "no agent selected"
          * empty state — never a blank inspector masquerading as a loaded one.
@@ -295,9 +303,27 @@ class AgentDetail extends Container {
         this.getReference('mailbox-pane')?.on('pageRequest', this.onMailboxPageRequest, this);
         // same explicit-wiring rule for the config tab: the card fires, this view runs the shared
         // bridge round-trip (see onConfigIntent)
-        this.getReference('config-pane')?.on('configIntent', this.onConfigIntent, this);
+        const configPane = this.getReference('config-pane');
+
+        configPane?.on('configIntent', this.onConfigIntent, this);
+
+        if (configPane) {
+            configPane.tenantStore = this.fleetTenants
+        }
         this.applyRecord();
         this.startFreshnessAging()
+    }
+
+    /**
+     * Triggered after the composition-seated public tenant Store changes.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetFleetTenants(value, oldValue) {
+        const card = this.getReference?.('config-pane');
+
+        if (card) card.tenantStore = value
     }
 
     /**
@@ -546,7 +572,8 @@ class AgentDetail extends Container {
      * response. This owner contributes only its store resolution and its status sink (the card).
      * Fail-closed and readback-only by construction —
      * see {@link module:apps/agentos/view/fleet/configIntentRoundTrip}.
-     * @param {Object} intent `{id, harnessType?, mcpServers?}` (+ event envelope, stripped by the runner).
+     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTransport?}` (+ event envelope,
+     *     stripped by the runner).
      * @returns {Promise<void>}
      */
     onConfigIntent(intent={}) {

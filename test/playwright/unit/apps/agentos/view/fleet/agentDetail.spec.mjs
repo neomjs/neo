@@ -25,7 +25,7 @@ import Instance       from '../../../../../../../src/manager/Instance.mjs';
  * freshness contract renders deterministically.
  */
 test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () => {
-    let AgentDetail, AgentDefinition, FleetAgent, Store;
+    let AgentDetail, AgentDefinition, FleetAgent, FleetTenants, Store;
 
     const
         stores          = [],
@@ -90,6 +90,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         AgentDetail     = (await import('../../../../../../../apps/agentos/view/fleet/AgentDetail.mjs')).default;
         AgentDefinition = (await import('../../../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
         FleetAgent      = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
+        FleetTenants    = (await import('../../../../../../../apps/agentos/store/FleetTenants.mjs')).default;
         Store           = (await import('../../../../../../../src/data/Store.mjs')).default
     });
 
@@ -600,6 +601,45 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.record = makeRecord({agentId: 'ghost', displayName: 'Ghost'});
         expect(card.record).toBeNull();
         expect(JSON.stringify(card.vdom.cn)).toContain('no stored definition');
+
+        detail.destroy()
+    });
+
+    test('the configuration tab receives the exact provider tenant Store and tracks its live availability', () => {
+        const
+            definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+                {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+            ]}),
+            tenants = Neo.create(FleetTenants, {data: [{
+                id: 'tenant-a', endpoint: 'https://tenant.example.com', status: 'connected'
+            }]});
+
+        stores.push(definitions, tenants);
+
+        const
+            detail = createDetail(
+                {agentId: 'ada', displayName: 'Ada'},
+                {agentDefinitions: definitions, fleetTenants: tenants}
+            ),
+            card = detail.getReference('config-pane');
+
+        expect(card.tenantStore).toBe(tenants);
+        expect(JSON.stringify(card.vdom.cn)).toContain('https://tenant.example.com');
+        expect(JSON.stringify(card.vdom.cn)).not.toContain('Unavailable');
+
+        tenants.get('tenant-a').set({status: 'disconnected'});
+
+        expect(JSON.stringify(card.vdom.cn)).toContain('https://tenant.example.com · Unavailable');
+
+        const replacement = Neo.create(FleetTenants, {data: [{
+            id: 'tenant-b', endpoint: 'https://replacement.example.com', status: 'connected'
+        }]});
+
+        stores.push(replacement);
+        detail.fleetTenants = replacement;
+
+        expect(card.tenantStore).toBe(replacement);
+        expect(JSON.stringify(card.vdom.cn)).toContain('https://replacement.example.com');
 
         detail.destroy()
     });

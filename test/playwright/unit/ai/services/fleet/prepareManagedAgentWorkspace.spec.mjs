@@ -84,6 +84,31 @@ async function read(filePath) {
     return fs.readFile(filePath, 'utf8');
 }
 
+function remoteTransport(endpoint='https://tenant.example.com/agentos') {
+    return {
+        mode            : 'remote-http',
+        credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+        resources       : {
+            'memory-core'   : {url: `${endpoint}/mc/mcp`},
+            'knowledge-base': {url: `${endpoint}/kb/mcp`}
+        }
+    }
+}
+
+function parseJsonc(content) {
+    return JSON.parse(content.split(/\r?\n/).filter(line => !line.trimStart().startsWith('//')).join('\n'))
+}
+
+function tomlMcpTable(content, name) {
+    const
+        marker = `[mcp_servers."${name}"]`,
+        start  = content.indexOf(marker),
+        tail   = content.slice(start + marker.length),
+        next   = tail.search(/\n\s*\[/);
+
+    return start < 0 ? '' : marker + (next < 0 ? tail : tail.slice(0, next))
+}
+
 test.describe('prepareManagedAgentWorkspace', () => {
     test('Codex: hydrate → project MCP projection + isolated home policy, all CREATED', async () => {
         const
@@ -119,6 +144,17 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(projectConfig).toMatch(/\[mcp_servers\."neo-mjs-gitlab-workflow"\][\s\S]*?enabled = false/);
         expect(homeConfig).toContain('cli_auth_credentials_store = "file"');
         expect(homeConfig).toContain('mcp_oauth_credentials_store = "file"');
+        expect(homeConfig).not.toContain(`[projects.${JSON.stringify(opts.repoPath)}]`);
+        expect(homeConfig).not.toContain('trust_level = "trusted"');
+        expect(homeConfig).toBe([
+            '# Fleet-owned Codex home policy. Authentication material itself is created by Codex login, never by Fleet.',
+            'cli_auth_credentials_store = "file"',
+            'mcp_oauth_credentials_store = "file"',
+            '',
+            '[features]',
+            'memories = true',
+            ''
+        ].join('\n'));
         expect(homeConfig).toContain('memories = true');
         expect((await fs.stat(memoriesPath)).isDirectory()).toBe(true);
         expect((await fs.stat(homeConfigPath)).mode & 0o777).toBe(0o600);
@@ -181,6 +217,28 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(path.join(a.instanceHome, 'memories')).not.toBe(path.join(b.instanceHome, 'memories'));
         expect((await fs.stat(path.join(a.instanceHome, 'memories'))).isDirectory()).toBe(true);
         expect((await fs.stat(path.join(b.instanceHome, 'memories'))).isDirectory()).toBe(true);
+    });
+
+    test('a remote Codex home refuses a managed-project trust downgrade instead of silently ignoring its generated MCP config', async () => {
+        const opts = options(makeAgent('codex'));
+
+        opts.mcpTransport = remoteTransport();
+
+        const
+            first      = await prepareManagedAgentWorkspace(opts),
+            homePath   = path.join(first.instanceHome, 'config.toml'),
+            downgraded = (await read(homePath)).replace('trust_level = "trusted"', 'trust_level = "untrusted"');
+
+        await fs.writeFile(homePath, downgraded, 'utf8');
+
+        await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+            code    : 'FLEET_WORKSPACE_DIVERGENT',
+            artifact: {
+                path     : homePath,
+                ownedKeys: 'projects.<managed-repo>.trust_level'
+            }
+        });
+        expect(await read(homePath)).toBe(downgraded);
     });
 
     test('Codex Desktop keeps its auth/memory policy inside the nested codex-home', async () => {
@@ -504,5 +562,293 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
         expect(second.artifacts.map(item => item.status)).toEqual(new Array(6).fill(WORKSPACE_ARTIFACT_STATES.MATCH));
         expect(await read(memory)).toBe('# bearer index\n');
+    });
+
+    test('remote adapters emit each harness exact grammar while Neural Link remains local', async () => {
+        const cases = [{
+            harnessType: 'codex',
+            inspect    : async (opts, result) => {
+                const source = await read(path.join(opts.repoPath, '.codex', 'config.toml'));
+
+                expect(source).toMatch(/\[mcp_servers\."neo-mjs-memory-core"\][\s\S]*?url = "https:\/\/tenant\.example\.com\/agentos\/mc\/mcp"[\s\S]*?bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/);
+                expect(source).toMatch(/\[mcp_servers\."neo-mjs-knowledge-base"\][\s\S]*?url = "https:\/\/tenant\.example\.com\/agentos\/kb\/mcp"[\s\S]*?bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/);
+                expect(source).toMatch(/\[mcp_servers\."neo-mjs-neural-link"\][\s\S]*?command = /)
+            }
+        }, {
+            harnessType: 'codex-desktop',
+            inspect    : async (opts, result) => {
+                const source = await read(path.join(opts.repoPath, '.codex', 'config.toml'));
+
+                expect(source).toContain('bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"');
+                expect(result.instanceHome).toContain('codex-desktop')
+            }
+        }, {
+            harnessType: 'claude-code',
+            inspect    : async (opts, result) => {
+                const config = JSON.parse(await read(path.join(result.instanceHome, 'mcp-config.json')));
+
+                expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
+                    type   : 'http',
+                    url    : 'https://tenant.example.com/agentos/mc/mcp',
+                    headers: {Authorization: 'Bearer ${NEO_MCP_REMOTE_TOKEN}'}
+                });
+                expect(config.mcpServers['neo-mjs-knowledge-base']).toEqual({
+                    type   : 'http',
+                    url    : 'https://tenant.example.com/agentos/kb/mcp',
+                    headers: {Authorization: 'Bearer ${NEO_MCP_REMOTE_TOKEN}'}
+                });
+                expect(config.mcpServers['neo-mjs-neural-link'].command).toBe(NODE_PATH)
+            }
+        }, {
+            harnessType: 'kimi-code',
+            inspect    : async opts => {
+                const config = JSON.parse(await read(path.join(opts.repoPath, '.kimi-code', 'mcp.json')));
+
+                expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
+                    url              : 'https://tenant.example.com/agentos/mc/mcp',
+                    bearerTokenEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                    enabled          : true
+                });
+                expect(config.mcpServers['neo-mjs-knowledge-base']).toEqual({
+                    url              : 'https://tenant.example.com/agentos/kb/mcp',
+                    bearerTokenEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                    enabled          : true
+                });
+                expect(config.mcpServers['neo-mjs-neural-link'].command).toBe(NODE_PATH)
+            }
+        }, {
+            harnessType: 'opencode',
+            inspect    : async opts => {
+                const config = parseJsonc(await read(path.join(opts.repoPath, 'opencode.jsonc')));
+
+                expect(config.mcp['neo-mjs-memory-core']).toEqual({
+                    type   : 'remote',
+                    url    : 'https://tenant.example.com/agentos/mc/mcp',
+                    enabled: true,
+                    headers: {Authorization: 'Bearer {env:NEO_MCP_REMOTE_TOKEN}'},
+                    oauth  : false
+                });
+                expect(config.mcp['neo-mjs-knowledge-base']).toEqual({
+                    type   : 'remote',
+                    url    : 'https://tenant.example.com/agentos/kb/mcp',
+                    enabled: true,
+                    headers: {Authorization: 'Bearer {env:NEO_MCP_REMOTE_TOKEN}'},
+                    oauth  : false
+                });
+                expect(config.mcp['neo-mjs-neural-link'].type).toBe('local')
+            }
+        }];
+
+        for (const {harnessType, inspect} of cases) {
+            const opts = options(makeAgent(harnessType), `remote-${harnessType}`);
+
+            opts.mcpTransport = remoteTransport();
+
+            const result = await prepareManagedAgentWorkspace(opts);
+
+            await inspect(opts, result);
+
+            const receipt = JSON.parse(await read(path.join(result.instanceHome, '.neo-fleet-mcp-transport.json')));
+
+            expect(Object.keys(receipt).sort()).toEqual(['adapter', 'artifact', 'projectionSha256', 'version']);
+            expect(receipt.adapter).toBe(harnessType);
+            expect(receipt.projectionSha256).toMatch(/^[a-f0-9]{64}$/);
+            expect(JSON.stringify(receipt)).not.toContain('tenant.example.com');
+            expect(JSON.stringify(receipt)).not.toContain('NEO_MCP_REMOTE_TOKEN')
+        }
+    });
+
+    test('transport transition is local → remote → different remote → local, preserving unrelated TOML bytes', async () => {
+        const
+            opts        = options(makeAgent('codex'), 'transition-codex'),
+            projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
+
+        const local         = await prepareManagedAgentWorkspace(opts);
+        const localBaseline = await read(projectPath);
+        const homePath      = path.join(local.instanceHome, 'config.toml');
+        const homeBaseline  = await read(homePath);
+        const operatorBlock = '\n# operator bytes begin\n[mcp_servers."operator-local"]\ncommand = "custom --do-not-touch"\n# operator bytes end\n';
+
+        await fs.appendFile(projectPath, operatorBlock, 'utf8');
+
+        opts.mcpTransport = remoteTransport();
+        const firstRemote = await prepareManagedAgentWorkspace(opts);
+        const firstSource = await read(projectPath);
+        const receiptPath = path.join(firstRemote.instanceHome, '.neo-fleet-mcp-transport.json');
+
+        expect(firstSource).toContain(operatorBlock);
+        expect(firstSource).toContain('https://tenant.example.com/agentos/mc/mcp');
+        expect(tomlMcpTable(firstSource, 'neo-mjs-memory-core')).not.toContain('command = ');
+        expect(await read(homePath)).toContain('# Fleet-managed remote MCP project trust begin');
+        expect(JSON.parse(await read(receiptPath)).adapter).toBe('codex');
+
+        opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+        await prepareManagedAgentWorkspace(opts);
+
+        const secondSource = await read(projectPath);
+
+        expect(secondSource).toContain(operatorBlock);
+        expect(secondSource).toContain('https://other.example.com/agentos/mc/mcp');
+        expect(secondSource).not.toContain('https://tenant.example.com/agentos/mc/mcp');
+
+        opts.mcpTransport = null;
+        const backToLocal = await prepareManagedAgentWorkspace(opts);
+        const localSource = await read(projectPath);
+
+        expect(localSource).toContain(operatorBlock);
+        expect(tomlMcpTable(localSource, 'neo-mjs-memory-core')).toContain('command = ');
+        expect(localSource).not.toContain('https://other.example.com');
+        expect(localSource.replace(operatorBlock, '')).toBe(localBaseline);
+        expect(await read(homePath)).toBe(homeBaseline);
+        await expect(fs.stat(receiptPath)).rejects.toMatchObject({code: 'ENOENT'});
+        expect(backToLocal.artifacts.some(item => item.ownedKeys === 'transport receipt removed')).toBe(true);
+        expect(local.instanceHome).toBe(backToLocal.instanceHome)
+    });
+
+    test('Claude, Kimi, and legal OpenCode JSONC preserve operator bytes across the full transport lifecycle', async () => {
+        const
+            strictOperatorBlock = '  "operatorOwned": {\n    "keep": true\n  },\n',
+            jsoncOperatorBlock  = '  /* operator bytes include structural noise: } [ */\n  "operatorOwned": {\n    "keep": true, // legal JSONC inline comment\n  },\n',
+            cases               = [{
+                harnessType  : 'claude-code',
+                artifactPath : (opts, result) => path.join(result.instanceHome, 'mcp-config.json'),
+                operatorBlock: strictOperatorBlock
+            }, {
+                harnessType  : 'kimi-code',
+                artifactPath : opts => path.join(opts.repoPath, '.kimi-code', 'mcp.json'),
+                operatorBlock: strictOperatorBlock
+            }, {
+                harnessType  : 'opencode',
+                artifactPath : opts => path.join(opts.repoPath, 'opencode.jsonc'),
+                operatorBlock: jsoncOperatorBlock
+            }];
+
+        for (const entry of cases) {
+            const
+                id                = `transition-${entry.harnessType}`,
+                opts              = options(makeAgent(entry.harnessType, {id}), id),
+                local             = await prepareManagedAgentWorkspace(opts),
+                artifactPath      = entry.artifactPath(opts, local),
+                localBaseline     = await read(artifactPath),
+                localWithOperator = localBaseline.replace('{\n', `{\n${entry.operatorBlock}`);
+
+            await fs.writeFile(artifactPath, localWithOperator, 'utf8');
+
+            opts.mcpTransport = remoteTransport();
+            const firstRemote = await prepareManagedAgentWorkspace(opts);
+            const firstSource = await read(artifactPath);
+            const receiptPath = path.join(firstRemote.instanceHome, '.neo-fleet-mcp-transport.json');
+
+            expect(firstSource, entry.harnessType).toContain(entry.operatorBlock);
+            expect(firstSource, entry.harnessType).toContain('https://tenant.example.com/agentos/mc/mcp');
+            expect(JSON.parse(await read(receiptPath)).adapter).toBe(entry.harnessType);
+
+            const edited = firstSource.replace(
+                'https://tenant.example.com/agentos/mc/mcp',
+                'https://operator.example.com/agentos/mc/mcp'
+            );
+
+            await fs.writeFile(artifactPath, edited, 'utf8');
+            opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+
+            await expect(prepareManagedAgentWorkspace(opts), entry.harnessType).rejects.toMatchObject({
+                code: 'FLEET_WORKSPACE_DIVERGENT'
+            });
+            expect(await read(artifactPath), entry.harnessType).toBe(edited);
+
+            await fs.writeFile(artifactPath, firstSource, 'utf8');
+            await prepareManagedAgentWorkspace(opts);
+
+            const secondSource = await read(artifactPath);
+
+            expect(secondSource, entry.harnessType).toContain(entry.operatorBlock);
+            expect(secondSource, entry.harnessType).toContain('https://other.example.com/agentos/mc/mcp');
+            expect(secondSource, entry.harnessType).not.toContain('https://tenant.example.com/agentos/mc/mcp');
+
+            opts.mcpTransport = null;
+            await prepareManagedAgentWorkspace(opts);
+
+            expect(await read(artifactPath), entry.harnessType).toBe(localWithOperator);
+            await expect(fs.stat(receiptPath), entry.harnessType).rejects.toMatchObject({code: 'ENOENT'})
+        }
+    });
+
+    test('a receipt cannot authorize an operator-edited transport projection', async () => {
+        const
+            opts        = options(makeAgent('codex'), 'edited-remote'),
+            projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
+
+        opts.mcpTransport = remoteTransport();
+        await prepareManagedAgentWorkspace(opts);
+
+        const edited = (await read(projectPath)).replace(
+            'https://tenant.example.com/agentos/mc/mcp',
+            'https://operator.example.com/agentos/mc/mcp'
+        );
+
+        await fs.writeFile(projectPath, edited, 'utf8');
+        opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+
+        await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+            code: 'FLEET_WORKSPACE_DIVERGENT'
+        });
+        expect(await read(projectPath)).toBe(edited)
+    });
+
+    test('remote plan grammar rejects extra/secret fields, incomplete resources, and split deployment bases before hydration', async () => {
+        const malformed = [{
+            ...remoteTransport(),
+            token: 'secret'
+        }, {
+            ...remoteTransport(),
+            resources: {
+                ...remoteTransport().resources,
+                'memory-core': {
+                    url    : 'https://tenant.example.com/agentos/mc/mcp',
+                    headers: {Authorization: 'Bearer secret'}
+                }
+            }
+        }, {
+            ...remoteTransport(),
+            resources: {
+                'memory-core': {url: 'https://tenant.example.com/agentos/mc/mcp'}
+            }
+        }, {
+            ...remoteTransport(),
+            resources: {
+                'memory-core'   : {url: 'https://tenant.example.com/agentos/mc/mcp'},
+                'knowledge-base': {url: 'https://other.example.com/agentos/kb/mcp'}
+            }
+        }, {
+            ...remoteTransport(),
+            credentialEnvVar: 'GH_TOKEN'
+        }, {
+            ...remoteTransport(),
+            credentialEnvVar: 'NOT VALID'
+        }];
+
+        for (const [index, mcpTransport] of malformed.entries()) {
+            const opts = options(makeAgent('codex'), `malformed-${index}`);
+
+            opts.mcpTransport = mcpTransport;
+
+            await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+                code: 'FLEET_WORKSPACE_UNSUPPORTED'
+            })
+        }
+
+        expect(hydrationCalls).toHaveLength(0)
+    });
+
+    test('unsupported Claude Desktop remote transport fails before hydration or artifact writes', async () => {
+        const opts = options(makeAgent('claude-desktop'), 'remote-desktop');
+
+        opts.mcpTransport = remoteTransport();
+
+        await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+            code: 'FLEET_WORKSPACE_UNSUPPORTED'
+        });
+        expect(hydrationCalls).toHaveLength(0);
+        await expect(fs.stat(instanceRoot)).rejects.toMatchObject({code: 'ENOENT'})
     });
 });

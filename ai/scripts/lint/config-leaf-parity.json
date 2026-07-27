@@ -52,6 +52,8 @@
         "fleet.harnessBinaries.claudeDesktop",
         "fleet.harnessBinaries.codex",
         "fleet.harnessBinaries.codexDesktop",
+        "fleet.harnessBinaries.kimiCode",
+        "fleet.harnessBinaries.openCode",
         "fleet.instanceRoot",
         "geminiApiKey",
         "graphProvider",
