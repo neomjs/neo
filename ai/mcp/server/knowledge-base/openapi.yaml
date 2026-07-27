@@ -678,19 +678,33 @@ paths:
     get:
       summary: Get Class Hierarchy
       operationId: get_class_hierarchy
+      # The scope belongs on the DEFAULT-visible tier: `tools/list` shows this line, while the long
+      # `description` below is only served on an explicit `get_mcp_tool_handbook` call. A caller who
+      # never fetches the handbook is exactly the caller who would misread the scope.
+      x-neo-tool-summary: Static class-hierarchy map for Neo.mjs code only — not your own or any tenant's repositories.
       x-neo-tool-tier: read
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves the static class hierarchy from the knowledge base.
-        This tool provides a deterministic map of class relationships (inheritance) derived from source code.
+        Retrieves the static class hierarchy of **Neo.mjs code only** — a deterministic inheritance
+        map derived from the Neo.mjs engine source tree.
+
+        **Scope — read before calling:** this covers Neo.mjs classes exclusively. It does NOT cover
+        your own or any tenant's repositories, whatever else this deployment has ingested. Use
+        `query_documents` or `ask_knowledge_base` for non-Neo.mjs code.
+
+        Reads a generated build artifact, not the embedded corpus, so it is independent of ingestion
+        state. It fails LOUD rather than degrading: an absent artifact errors telling you to sync the
+        knowledge base, instead of returning a thinner map indistinguishable from a complete one.
 
         **Input:**
-        - `root`: (Optional) Filter the hierarchy to show only subclasses of this class (e.g., 'Neo.component.Base').
+        - `root`: (REQUIRED) Returns this class plus its subclasses (e.g. 'Neo.component.Base').
+          Bounds the payload; omitting it errors.
 
         **Output:**
-        A JSON object where keys are class names and values contain metadata (source file, parent class).
+        A JSON object keyed by class name whose value is that class's parent class name, or `null`
+        where it has none. A `root` with no entry and no subclasses returns `{message}` instead.
       tags: [Documents]
       parameters:
         - name: root
