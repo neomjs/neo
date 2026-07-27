@@ -98,8 +98,14 @@ function getFirstPaintReporter(intervals) {
  * @returns {Object}
  */
 function adapterHead(state, labelText, labelSelector) {
+    // `state` may be an ARRAY, to express a head advertising several `is-*` classes at once. The old
+    // single-string form hard-coded `name === \`is-${state}\``, so the mock could express exactly ONE
+    // class — which made the ambiguity path structurally untestable and left "no control" looking like
+    // "nothing to control".
+    const states = Array.isArray(state) ? state : [state];
+
     return {
-        classList    : {contains: name => name === `is-${state}`},
+        classList    : {contains: name => states.some(entry => name === `is-${entry}`)},
         querySelector: selector => selector === labelSelector && labelText !== null ? {textContent: labelText} : null
     }
 }
@@ -243,6 +249,38 @@ test.describe('Electron harness preload capability', () => {
 
             return sends.find(([channel]) => channel === 'shell-first-paint-report')?.[1] ?? null;
         };
+
+        test('⭐ AMBIGUOUS head — the CommonJS observer reports `unknown` and stays NOT READY', async () => {
+            // The CJS resolution is a FORCED duplicate of `adapterWitness.resolveAdapterState` (Electron
+            // cannot load an ESM preload in a sandboxed renderer), so asserting the two state LISTS match
+            // is not enough — the resolution BEHAVIOUR must be pinned here too, or the copy could revert
+            // to first-match and nothing would catch it.
+            const report = await readFirstPaint(cockpitDom({
+                rosterState: ['live', 'sample'],   // contradictory DOM
+                rosterLabel: ''
+            }), {viaTimeout: true});
+
+            // Not `live` — which is what first-match returned, preferring whichever state was listed first.
+            expect(report.rosterState).toBe('unknown');
+            // And ambiguity must not satisfy the product receipt: it arrives via the timeout path.
+            expect(report.timedOut).toBe(true);
+        })
+
+        test('a head advertising THREE known classes is also `unknown`', async () => {
+            const report = await readFirstPaint(cockpitDom({
+                rosterState: ['live', 'sample', 'stale'], rosterLabel: ''
+            }), {viaTimeout: true});
+
+            expect(report.rosterState).toBe('unknown');
+        })
+
+        test('the STREAM head obeys the same rule — both heads, not just the roster', async () => {
+            const report = await readFirstPaint(cockpitDom({
+                streamState: ['live', 'degraded'], streamLabel: '● streaming'
+            }), {viaTimeout: true});
+
+            expect(report.streamState).toBe('unknown');
+        })
 
         test('POSITIVE CONTROL — a LIVE cockpit is observed as live, not as null', async () => {
             const report = await readFirstPaint(cockpitDom({
