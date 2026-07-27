@@ -80,6 +80,7 @@
         "ai:run-sandman"                       : "node ./ai/scripts/runners/runSandman.mjs",
         "ai:server"                            : "chroma run --path ./.neo-ai-data/chroma/unified",
         "ai:server-neural-link"                : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
+        "ai:check-content-identity"            : "node ./buildScripts/util/check-content-logical-identity.mjs --all",
         "ai:structure-map"                     : "node ./ai/scripts/diagnostics/structureMap.mjs",
         "ai:summarize-sessions"                : "node ./ai/scripts/lifecycle/summarize-sessions.mjs",
         "ai:sync-github-workflow"              : "node ./ai/scripts/maintenance/syncGithubWorkflow.mjs",
@@ -256,6 +257,9 @@
         "test/**/*.mjs": [
             "node ./buildScripts/util/check-aiconfig-test-mutation.mjs",
             "node ./buildScripts/util/check-derived-domain.mjs"
+        ],
+        "resources/content/archive/**/*.md": [
+            "node ./buildScripts/util/check-content-logical-identity.mjs"
         ]
     }
 }
