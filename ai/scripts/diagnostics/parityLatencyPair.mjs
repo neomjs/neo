@@ -82,6 +82,26 @@ export const PARITY_CACHE_CONVENTION = 'images/artifacts warm; runtimes cold; da
     'no rebuild and no page-cache flush';
 
 /**
+ * The accepted comparable events. Membership is **checked**, not merely documented.
+ *
+ * An earlier shape required `comparableEvent` to be a non-empty string that differed between the two legs.
+ * That only forced a caller to type something: `'process start'` and `'process start '` are two distinct
+ * non-empty strings, so a build-dominated regime the ruling explicitly excludes sailed through. Enumerating
+ * the accepted values makes the selected measurement contract executable.
+ * @type {String[]}
+ */
+export const ACCEPTED_COMPARABLE_EVENTS = Object.freeze([PARITY_BOOT_EVENT, PARITY_HOT_CALL_EVENT]);
+
+/**
+ * Which event each dimension must carry, so a cold launch cannot be labelled `hotCall`.
+ * @type {Object}
+ */
+export const DIMENSION_EVENTS = Object.freeze({
+    boot   : PARITY_BOOT_EVENT,
+    hotCall: PARITY_HOT_CALL_EVENT
+});
+
+/**
  * @summary True for a finite number strictly greater than zero.
  * @param {*} value
  * @returns {Boolean}
@@ -175,9 +195,8 @@ export function deriveSeatReadyMs({memoryCoreMs, knowledgeBaseMs} = {}) {
  * @param {Number[]} spec.stdioSamples  Baseline timings — what the seat has today.
  * @param {Number[]} spec.paritySamples Parity-topology timings.
  * @param {String}   [spec.dimension]   `'boot'` or `'hotCall'`, for labels.
- * @param {String}   spec.comparableEvent The event BOTH legs measured. REQUIRED — the topologies share
- *                                        no native "boot", so an unnamed equivalence yields a ratio
- *                                        between two different events.
+ * @param {String}   spec.comparableEvent The event BOTH legs measured. REQUIRED, and it must be one of the
+ *                                        **accepted** constants — see {@link ACCEPTED_COMPARABLE_EVENTS}.
  * @returns {Object} `{ok, reason?, dimension, stdio, parity, overheadRatio, overheadMs, trustworthy}`
  */
 export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'latency', comparableEvent} = {}) {
@@ -187,22 +206,35 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
     if (!stdio.ok)  return {ok: false, reason: stdio.reason};
     if (!parity.ok) return {ok: false, reason: parity.reason};
 
-    // THE EQUIVALENCE MUST BE STATED, and this is not paperwork. The two topologies do not share a
-    // "boot": the parity fixture measures wall-clock until a FOUR-SERVICE container plane is healthy
-    // (vector store + both MCP servers + a running orchestrator, plus a served-identity assertion),
-    // while stdio spawns a server process per client on demand and has no such plane-ready moment.
-    // A ratio between two different events is misleading even when both numbers are real — the exact
-    // failure this whole comparator exists to prevent one level up. So the caller must name the event
-    // both legs measured; there is no default, because inventing an equivalence is worse than lacking
-    // one (a stated wrong equivalence can at least be challenged; an implicit one cannot).
-    if (typeof comparableEvent !== 'string' || comparableEvent.trim() === '') {
+    // THE EQUIVALENCE MUST BE AN ACCEPTED VALUE, not caller prose. Requiring a non-empty string only forced
+    // a caller to TYPE something: `'process start'` and `'process start '` are two distinct non-empty
+    // strings, so they satisfied a "must differ" check while naming an event the ruling explicitly excludes.
+    // Making the argument harder to supply did not make the fact harder to fake. So the accepted values are
+    // enumerated here and membership is checked — the selected measurement contract is executable rather
+    // than advisory.
+    if (!ACCEPTED_COMPARABLE_EVENTS.includes(comparableEvent)) {
         return {
             ok    : false,
-            reason: `${dimension}: comparableEvent must name the event BOTH legs measured (e.g. ` +
-                    '"first successful healthcheck response after process/stack start"). The parity and ' +
-                    'stdio topologies share no native "boot": parity times a four-service plane to ' +
-                    'healthy, stdio spawns per client. An unnamed equivalence makes the ratio a ' +
-                    'comparison between two different events, which is worse than no ratio.'
+            reason: `${dimension}: comparableEvent must be one of the accepted measurement events, received ` +
+                    `${JSON.stringify(comparableEvent)}. Caller prose is not accepted: the two topologies ` +
+                    'share no native "boot" (parity times a plane to healthy, stdio spawns per client), so an ' +
+                    'unratified event name makes the ratio a comparison between two different things — which ' +
+                    'is worse than no ratio. Use PARITY_BOOT_EVENT or PARITY_HOT_CALL_EVENT.'
+        };
+    }
+
+    // The dimension and the event must AGREE. Both being accepted values is not enough: timing a cold launch
+    // and labelling it `hotCall` reports boot latency under a hot-call heading, which is the collapse this
+    // pair exists to expose.
+    const expectedEvent = DIMENSION_EVENTS[dimension];
+
+    if (expectedEvent && comparableEvent !== expectedEvent) {
+        return {
+            ok    : false,
+            reason: `${dimension}: comparableEvent is the ${comparableEvent === PARITY_BOOT_EVENT ? 'BOOT' : 'HOT-CALL'} ` +
+                    `event, but this leg is the "${dimension}" dimension. The hot-call event must exclude ` +
+                    'process/stack start; pairing a dimension with the other dimension\'s event mislabels ' +
+                    'what was measured.'
         };
     }
 
@@ -243,7 +275,16 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
  * @returns {Object} `{ok, reason?, pair, conditions?, verdict?, exceeded?, worstSpreadRatio?}`
  */
 export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditions} = {}) {
-    const bootLeg = compareLatencyLeg({dimension: 'boot', ...boot}),
+    // The boot leg is DERIVED from per-service observations rather than accepting pre-reduced samples.
+    // `deriveSeatReadyMs` previously existed with no caller, which made per-service separation a
+    // feature-shaped orphan: the ruling said measure MC and KB separately and take max-of-both, while the
+    // only path into the comparator accepted a single opaque array. Routing the boot leg through the
+    // reduction is what makes the ruling binding instead of illustrative.
+    const reducedBoot = reduceBootObservations(boot);
+
+    if (reducedBoot.reason) return {ok: false, reason: reducedBoot.reason};
+
+    const bootLeg = compareLatencyLeg({dimension: 'boot', ...reducedBoot.leg}),
           callLeg = compareLatencyLeg({dimension: 'hotCall', ...hotCall});
 
     if (!bootLeg.ok) return {ok: false, reason: bootLeg.reason};
@@ -299,6 +340,43 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditio
 }
 
 /**
+ * @summary Reduces a boot spec's per-service observations to seat-ready samples via max-of-both.
+ *
+ * Each parity boot sample must arrive as `{memoryCoreMs, knowledgeBaseMs}` so the seat-ready figure is
+ * *derived* rather than asserted. The stdio baseline stays a plain array: a stdio server is spawned per
+ * client and has no two-service readiness moment to reduce, which is the asymmetry the comparable-event
+ * definition exists to make explicit.
+ * @param {Object} boot `{stdioSamples, parityObservations, comparableEvent}`
+ * @returns {Object} `{reason}` or `{leg}`
+ */
+function reduceBootObservations(boot) {
+    if (!boot || typeof boot !== 'object') return {reason: 'boot must be an object'};
+
+    const {parityObservations, comparableEvent, stdioSamples} = boot;
+
+    if (!Array.isArray(parityObservations)) {
+        return {
+            reason: 'boot.parityObservations must be an array of {memoryCoreMs, knowledgeBaseMs} — one entry ' +
+                    'per boot. Pre-reduced parity samples are not accepted: the ruling measures memory-core ' +
+                    'and knowledge-base separately and takes max-of-both, and a single opaque number cannot ' +
+                    'show which service gated readiness.'
+        };
+    }
+
+    const paritySamples = [];
+
+    for (let index = 0; index < parityObservations.length; index++) {
+        const derived = deriveSeatReadyMs(parityObservations[index]);
+
+        if (!derived.ok) return {reason: `boot.parityObservations[${index}]: ${derived.reason}`};
+
+        paritySamples.push(derived.seatReadyMs);
+    }
+
+    return {leg: {stdioSamples, paritySamples, comparableEvent}};
+}
+
+/**
  * @summary Validates the reproducibility conditions, returning a refusal reason or `null`.
  *
  * Cache convention alone does not pin a run. The image digest and the config head move independently of
@@ -310,16 +388,37 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditio
  */
 function validateConditions(conditions) {
     if (!conditions || typeof conditions !== 'object') {
-        return 'conditions is required: {cacheConvention, imageDigest, configHead}. A latency pair that ' +
-               'cannot be reproduced is a number rather than a measurement.';
+        return 'conditions is required: {cacheConvention, imageDigest, configHead, hostLoad}. A latency pair ' +
+               'that cannot be reproduced is a number rather than a measurement.';
     }
 
-    for (const key of ['cacheConvention', 'imageDigest', 'configHead']) {
+    // THE CACHE REGIME IS AN ACCEPTED VALUE, not free text. Requiring a non-empty string let
+    // `'cold-with-three-image-build'` through — the regime the ruling explicitly EXCLUDES, and precisely the
+    // one that produced the 261033ms figure this module exists to stop being mistaken for a boot leg. A
+    // caller describing a disallowed regime accurately is not the same as a caller measuring an allowed one.
+    if (conditions.cacheConvention !== PARITY_CACHE_CONVENTION) {
+        return `conditions.cacheConvention must be exactly PARITY_CACHE_CONVENTION, received ` +
+               `${JSON.stringify(conditions.cacheConvention)}. Free text is not accepted: a build-inclusive ` +
+               'regime is a deployment receipt rather than a latency leg, and describing it accurately does ' +
+               'not make it comparable.';
+    }
+
+    for (const key of ['imageDigest', 'configHead', 'hostLoad']) {
         if (typeof conditions[key] !== 'string' || conditions[key].trim() === '') {
-            return `conditions.${key} must be a non-empty string. Cold-with-build, cold-without-build and ` +
-                   'fully warm are parity numbers an order of magnitude apart, and the image and config ' +
-                   'head move independently of cache state — so all three are needed to re-take a pair.';
+            return `conditions.${key} must be a non-empty string. The image and config head move ` +
+                   'independently of cache state, and host load moves independently of both — the ruling ' +
+                   'requires all of them recorded, because a pair that cannot be re-taken under the same ' +
+                   'conditions cannot be compared to a later one.';
         }
+    }
+
+    // A digest that does not look like one is a placeholder. This will not catch a determined fabrication,
+    // and is not meant to: it catches `'caller-text'`, which is what actually gets passed when someone is
+    // filling in a required field rather than recording an observation.
+    if (!/^sha256:[0-9a-f]{16,}$/i.test(conditions.imageDigest)) {
+        return `conditions.imageDigest must be a sha256 digest (e.g. "sha256:e3b0c442…"), received ` +
+               `${JSON.stringify(conditions.imageDigest)} — a placeholder in a reproducibility field is ` +
+               'worse than an empty one, because it reads as recorded.';
     }
 
     return null;

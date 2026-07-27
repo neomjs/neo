@@ -152,22 +152,42 @@ export function receiptIdSet(receiptRecords) {
 }
 
 /**
- * @summary Order-independent digest of a target's per-stage receipt state.
+ * @summary Order-independent digest of a target's per-stage receipt state, over an injective encoding.
  *
- * This is what binds a plan to the pre-state it was computed from. Sorted before hashing so two reads
- * of the same target agree regardless of enumeration order.
+ * This is what binds a plan to the pre-state it was computed from. Sorted before hashing so two reads of
+ * the same target agree regardless of enumeration order.
+ *
+ * ## Why values are length-prefixed rather than newline-framed
+ *
+ * An earlier version wrote `${value}\n`, which is **not injective** because a newline is legal inside an id.
+ * `{embedded: ["a\nb"]}` and `{embedded: ["a", "b"]}` therefore produced the *same* digest — so the
+ * pre-state binding could authenticate a **different legal state**, which is the one thing it exists to
+ * prevent. A plan computed against one target verified clean against another.
+ *
+ * Length-prefixing removes the ambiguity structurally: no value can be mistaken for a concatenation of
+ * shorter ones, whatever bytes it contains. That is strictly better than escaping or than forbidding
+ * delimiters in ids, because it needs no cooperation from the id grammar — the encoding stays injective
+ * even if the grammar later widens.
  * @param {Object} appliedStages `{<stage>: Set<String>}`
  * @param {String[]} [stages] Stage names to include, in a fixed order.
  * @returns {String} sha256 hex.
  */
 export function digestAppliedStages(appliedStages, stages = WAL_RECEIPT_STAGES) {
-    const hash = crypto.createHash('sha256');
+    const hash = crypto.createHash('sha256'),
+          // Byte length, not string length: two different strings can share a `.length` under
+          // surrogate pairs, which would reintroduce the ambiguity this prefix exists to remove.
+          write = value => {
+              const bytes = Buffer.from(String(value), 'utf8');
+
+              hash.update(`${bytes.length}:`);
+              hash.update(bytes);
+          };
 
     for (const stage of stages) {
-        hash.update(`${stage}\n`);
+        write(stage);
 
         for (const id of [...(appliedStages?.[stage] ?? [])].sort()) {
-            hash.update(`${id}\n`);
+            write(id);
         }
     }
 

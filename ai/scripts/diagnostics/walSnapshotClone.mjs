@@ -66,10 +66,23 @@ export function fingerprintCorpus(segments) {
     }
 
     const ordered = [...segments].sort((a, b) => a.name.localeCompare(b.name)),
-          hash    = crypto.createHash('sha256');
+          hash    = crypto.createHash('sha256'),
+          // Length-prefixed, matching `digestAppliedStages`. The previous `\0`-delimited form was injective
+          // only because POSIX forbids NUL in a filename — correct, but resting on an external invariant
+          // this module does not own. A segment name CAN legally contain a newline, and the old form also
+          // used `\n` as its record terminator. Length prefixes make the encoding unambiguous on its own
+          // terms, so no filesystem guarantee has to hold for the fingerprint to distinguish two corpora.
+          write   = value => {
+              const bytes = Buffer.from(String(value), 'utf8');
+
+              hash.update(`${bytes.length}:`);
+              hash.update(bytes);
+          };
 
     for (const segment of ordered) {
-        hash.update(`${segment.name}\0${segment.bytes}\0${segment.mtimeMs}\n`);
+        write(segment.name);
+        write(segment.bytes);
+        write(segment.mtimeMs);
     }
 
     return {

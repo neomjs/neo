@@ -22,13 +22,23 @@ import {
 // dimensions, so the hot-call leg measured process start — the boot definition, and explicitly not the
 // selected hot-call one. Dimension-specific helpers exist so that cannot recur silently.
 
-// Reproducibility conditions: cache state alone does not pin a run, since image and config move
-// independently of it.
+// Reproducibility conditions: cache state alone does not pin a run, since image, config head and host load
+// all move independently of it. `cacheConvention` must EQUAL the ratified constant — free text let the
+// explicitly-excluded build-inclusive regime through.
 const CONDITIONS = {
     cacheConvention: PARITY_CACHE_CONVENTION,
     imageDigest    : 'sha256:e3b0c44298fc1c149afbf4c8996fb924',
-    configHead     : '8c73d531c5'
+    configHead     : '8c73d531c5',
+    hostLoad       : 'idle; load1=0.41'
 };
+
+// Parity boot samples arrive as PER-SERVICE observations and are reduced by max-of-both, so the ruling's
+// separate MC/KB requirement is binding rather than illustrative.
+const OBSERVATIONS = [
+    {memoryCoreMs: 200, knowledgeBaseMs: 250},
+    {memoryCoreMs: 210, knowledgeBaseMs: 240},
+    {memoryCoreMs: 220, knowledgeBaseMs: 260}
+];
 
 const bootLeg    = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity, comparableEvent: PARITY_BOOT_EVENT}),
       hotCallLeg = (stdio, parity) => ({stdioSamples: stdio, paritySamples: parity, comparableEvent: PARITY_HOT_CALL_EVENT}),
@@ -80,13 +90,41 @@ test.describe('compareLatencyLeg — the equivalence must be STATED, not assumed
         });
 
         expect(result.ok).toBe(false);
-        expect(result.reason).toContain('comparableEvent must name the event BOTH legs measured');
+        expect(result.reason).toContain('must be one of the accepted measurement events');
         expect(result.reason).toContain('worse than no ratio');
         expect(result).not.toHaveProperty('overheadRatio');
     })
 
-    test('a blank comparableEvent is not a name', () => {
-        expect(compareLatencyLeg({stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2], comparableEvent: '   '}).ok).toBe(false);
+    test('⭐ CALLER PROSE is refused, however plausible — accepted values only', () => {
+        // The falsified shape required a non-empty string, so `'process start'` satisfied it while naming an
+        // event the ruling excludes. Making the argument harder to supply did not make the fact harder to
+        // fake: the check has to be membership in the ratified set.
+        for (const comparableEvent of [
+            'process start', 'process start ', 'first successful healthcheck response after process/stack start',
+            '   ', '', null, undefined, 42, PARITY_BOOT_EVENT + ' '
+        ]) {
+            const result = compareLatencyLeg({stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2], comparableEvent});
+
+            expect(result.ok).toBe(false);
+        }
+    })
+
+    test('⭐ an accepted event on the WRONG dimension refuses', () => {
+        // Both values ratified is not enough: timing a cold launch and labelling it hotCall reports boot
+        // latency under a hot-call heading, which is the collapse the pair exists to expose.
+        const swapped = compareLatencyLeg({
+            stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2],
+            dimension   : 'hotCall', comparableEvent: PARITY_BOOT_EVENT
+        });
+
+        expect(swapped.ok).toBe(false);
+        expect(swapped.reason).toContain('mislabels');
+
+        // Positive control: the same event on its own dimension is accepted.
+        expect(compareLatencyLeg({
+            stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2],
+            dimension   : 'boot', comparableEvent: PARITY_BOOT_EVENT
+        }).ok).toBe(true);
     })
 
     test('the named event is carried onto the result, so a reader sees what was compared', () => {
@@ -165,97 +203,123 @@ test.describe('deriveSeatReadyMs — seat-ready is the LATER service, per servic
 });
 
 test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is the deliverable', () => {
-    const boot    = bootLeg([100, 100, 100], [250, 250, 250]),
+    const boot    = {stdioSamples: [100, 100, 100], parityObservations: OBSERVATIONS, comparableEvent: PARITY_BOOT_EVENT},
           hotCall = hotCallLeg([10, 10, 10], [12, 12, 12]);
 
-    test('⭐ REFUSES when both dimensions declare the SAME event — that is not a pair', () => {
-        // The falsified shape. Each leg is individually well-formed, so only a check that sees both can
-        // catch it: reusing the boot event for hot-call made the second leg time process start, reporting
-        // boot latency twice under two labels.
-        const collapsed = evaluateLatencyPair({
-            boot, hotCall: bootLeg([10, 10, 10], [12, 12, 12]),
-            conditions: CONDITIONS, acceptableOverhead: 3
+    test('⭐ the reviewer\'s exact falsifier is refused end-to-end', () => {
+        // Two distinct non-empty event strings ('process start' / 'process start '), the explicitly EXCLUDED
+        // build-inclusive cache regime, placeholder digests, no host load, and an absurd bound. Every one of
+        // those satisfied an earlier "is a non-empty string" check.
+        const result = evaluateLatencyPair({
+            boot              : {stdioSamples: [10, 11, 12], paritySamples: [261033, 261033, 261033], comparableEvent: 'process start'},
+            hotCall           : {stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2], comparableEvent: 'process start '},
+            acceptableOverhead: 1_000_000,
+            conditions        : {cacheConvention: 'cold-with-three-image-build', imageDigest: 'caller-text', configHead: 'caller-text'}
         });
 
-        expect(collapsed.ok).toBe(false);
-        expect(collapsed.reason).toContain('SAME comparableEvent');
-        expect(collapsed.reason).toContain('boot latency twice');
-        // The evidence survives the refusal.
-        expect(collapsed.pair.boot.overheadRatio).toBeCloseTo(2.5, 5);
+        expect(result.ok).toBe(false);
+        expect(result).not.toHaveProperty('verdict');
+    })
+
+    test('⭐ the EXCLUDED cache regime is refused even when everything else is ratified', () => {
+        // Describing a disallowed regime accurately is not the same as measuring an allowed one. This is the
+        // regime that produced 261033ms.
+        const result = evaluateLatencyPair({
+            boot, hotCall, acceptableOverhead: 3,
+            conditions: {...CONDITIONS, cacheConvention: 'cold-with-three-image-build'}
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('must be exactly PARITY_CACHE_CONVENTION');
+        expect(result.reason).toContain('deployment receipt');
+    })
+
+    test('⭐ a placeholder digest is refused — it reads as recorded', () => {
+        const result = evaluateLatencyPair({
+            boot, hotCall, acceptableOverhead: 3, conditions: {...CONDITIONS, imageDigest: 'caller-text'}
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('must be a sha256 digest');
+    })
+
+    test('⭐ host load is REQUIRED, per the ruling', () => {
+        for (const key of ['hostLoad', 'configHead']) {
+            const {[key]: _dropped, ...partial} = CONDITIONS;
+
+            expect(evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3, conditions: partial}).ok).toBe(false);
+        }
+    })
+
+    test('⭐ PRE-REDUCED parity boot samples are refused — MC/KB separation is binding', () => {
+        // `deriveSeatReadyMs` previously had no caller, which made per-service separation a feature-shaped
+        // orphan: the ruling said measure both and take max-of-both, while the only path in accepted one
+        // opaque array.
+        const result = evaluateLatencyPair({
+            boot   : bootLeg([100, 100, 100], [250, 250, 250]),
+            hotCall, acceptableOverhead: 3, conditions: CONDITIONS
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('parityObservations must be an array');
+        expect(result.reason).toContain('which service gated readiness');
+    })
+
+    test('a per-observation missing service is named by index', () => {
+        const result = evaluateLatencyPair({
+            boot   : {...boot, parityObservations: [OBSERVATIONS[0], {memoryCoreMs: 210}, OBSERVATIONS[2]]},
+            hotCall, acceptableOverhead: 3, conditions: CONDITIONS
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('parityObservations[1]');
+        expect(result.reason).toContain('not a zero');
     })
 
     test('⭐ REFUSES without an explicit acceptableOverhead — but STILL RETURNS THE PAIR', () => {
         // Capturing the pair IS the acceptance criterion: an unevaluated pair makes Option A's falsifier
         // evaluable, whereas a missing pair leaves it unfalsifiable. So the refusal must not discard it.
-        // Conditions supplied so the refusal is provably about the MISSING BOUND — otherwise this test
-        // would pass on the earlier conditions guard and stop covering what it names.
         const result = evaluateLatencyPair({boot, hotCall, conditions: CONDITIONS});
 
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('no default on purpose');
-        expect(result.reason).toContain('operational decision');
         expect(result.reason).toContain('capturing it is the deliverable');
-        expect(result.pair.boot.overheadRatio).toBeCloseTo(2.5, 5);
-        expect(result.pair.hotCall.overheadRatio).toBeCloseTo(1.2, 5);
-        // Conditions ride along, so the recorded pair stays interpretable.
+        expect(result.pair.boot.overheadRatio).toBeCloseTo(2.5, 5);   // seat-ready median 250 vs stdio 100
         expect(result.conditions).toBe(CONDITIONS);
     })
 
-    test('⭐ REFUSES conditions that cannot reproduce the run — cache state alone does not pin it', () => {
-        // Image digest and config head move independently of cache state. This is how a build-dominated
-        // 261033ms survives as an apparently comparable number: nothing in the figure says what produced it.
-        for (const conditions of [
-            undefined, null, {}, 'warm',
-            {cacheConvention: PARITY_CACHE_CONVENTION},
-            {cacheConvention: PARITY_CACHE_CONVENTION, imageDigest: 'sha256:abc'},
-            {cacheConvention: PARITY_CACHE_CONVENTION, imageDigest: '', configHead: '8c73d531c5'},
-            {imageDigest: 'sha256:abc', configHead: '8c73d531c5'}
-        ]) {
-            const result = evaluateLatencyPair({boot, hotCall, conditions, acceptableOverhead: 3});
+    test('⭐ boot parity samples are the MAX of each observation, not the mean', () => {
+        // POSITIVE CONTROL for the reduction. Observations reduce to 250 / 240 / 260, median 250. A mean of
+        // both services would give 225 / 225 / 240 and report the seat ready before KB was.
+        const result = evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3, conditions: CONDITIONS});
 
-            expect(result.ok).toBe(false);
-            expect(result.reason).toMatch(/conditions/);
-            // The pair still survives the refusal.
-            expect(result.pair.boot.ok).toBe(true);
-        }
+        expect(result.ok).toBe(true);
+        expect(result.pair.boot.parity.medianMs).toBe(250);
+        expect(result.pair.boot.parity.maxMs).toBe(260);
+        expect(result.verdict).toBe('within-budget');
+    })
+
+    test('⭐ same event on both dimensions is impossible now — each is pinned to its dimension', () => {
+        // Previously guarded by a "must differ" check, which two near-identical strings defeated. Now the
+        // dimension/event agreement check makes the collapse unreachable rather than merely detected.
+        const result = evaluateLatencyPair({
+            boot              : {...boot, comparableEvent: PARITY_HOT_CALL_EVENT}, hotCall,
+            acceptableOverhead: 3, conditions: CONDITIONS
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('mislabels');
     })
 
     test('an evaluated pair CARRIES the conditions it was taken under', () => {
-        const result = evaluateLatencyPair({boot, hotCall, conditions: CONDITIONS, acceptableOverhead: 3});
+        const result = evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3, conditions: CONDITIONS});
 
         expect(result.conditions.cacheConvention).toBe(PARITY_CACHE_CONVENTION);
-        expect(result.conditions.imageDigest).toBe(CONDITIONS.imageDigest);
-        expect(result.conditions.configHead).toBe(CONDITIONS.configHead);
-    })
-
-    test('the steward-decided definitions are single-sourced, distinct, and not defaulted', () => {
-        expect(PARITY_BOOT_EVENT).toContain('cold runtime launch');
-        expect(PARITY_BOOT_EVENT).toContain('memory-core and knowledge-base separately');
-        // The hot-call definition must EXCLUDE process start — that exclusion is the whole distinction.
-        expect(PARITY_HOT_CALL_EVENT).toContain('already-established sessions');
-        expect(PARITY_HOT_CALL_EVENT).toContain('no process or stack start');
-        expect(PARITY_HOT_CALL_EVENT).not.toBe(PARITY_BOOT_EVENT);
-
-        expect(PARITY_CACHE_CONVENTION).toContain('images/artifacts warm');
-        expect(PARITY_CACHE_CONVENTION).toContain('runtimes cold');
-
-        // Omission is still a refusal even though canonical values now exist.
-        expect(compareLatencyLeg({stdioSamples: [1, 1, 1], paritySamples: [2, 2, 2]}).ok).toBe(false);
-        expect(evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3}).ok).toBe(false);
-    })
-
-    test('within budget when every leg clears the supplied bound', () => {
-        const result = evaluateLatencyPair({boot, hotCall, conditions: CONDITIONS, acceptableOverhead: 3});
-
-        expect(result.ok).toBe(true);
-        expect(result.verdict).toBe('within-budget');
-        expect(result.exceeded).toEqual([]);
-        expect(result).not.toHaveProperty('trustworthy');
-        expect(result.worstSpreadRatio).toBeCloseTo(1, 5);
+        expect(result.conditions.hostLoad).toBe(CONDITIONS.hostLoad);
     })
 
     test('⭐ exceeds budget NAMES the offending dimension — a bare fail hides which leg', () => {
-        const result = evaluateLatencyPair({boot, hotCall, conditions: CONDITIONS, acceptableOverhead: 2});
+        const result = evaluateLatencyPair({boot, hotCall, acceptableOverhead: 2, conditions: CONDITIONS});
 
         expect(result.verdict).toBe('exceeds-budget');
         expect(result.exceeded).toEqual(['boot']);   // hotCall at 1.2x still clears 2x
@@ -264,19 +328,22 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
     test('dispersion travels with the verdict as data, for the reader to weigh', () => {
         const result = evaluateLatencyPair({
             boot, hotCall: hotCallLeg([10, 10, 10], [5, 40, 90]),
-            conditions: CONDITIONS, acceptableOverhead: 10
+            acceptableOverhead: 10, conditions: CONDITIONS
         });
 
         expect(result.ok).toBe(true);
-        expect(result.verdict).toBe('within-budget');
-        // Reported, not scored: the worst spread across both legs is 18x here, and the reader decides.
         expect(result.worstSpreadRatio).toBeCloseTo(18, 5);
         expect(result).not.toHaveProperty('trustworthy');
     })
 
     test('a sample-count refusal in either dimension refuses the whole evaluation', () => {
         expect(evaluateLatencyPair({
-            boot: bootLeg([100], [100, 100, 100]), hotCall, conditions: CONDITIONS, acceptableOverhead: 2
+            boot: {...boot, stdioSamples: [100]}, hotCall, acceptableOverhead: 2, conditions: CONDITIONS
         }).reason).toContain('boot stdioSamples');
+
+        expect(evaluateLatencyPair({
+            boot              : {...boot, parityObservations: OBSERVATIONS.slice(0, 1)}, hotCall,
+            acceptableOverhead: 2, conditions: CONDITIONS
+        }).reason).toContain('boot paritySamples');
     })
 });
