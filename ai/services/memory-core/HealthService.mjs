@@ -1641,11 +1641,12 @@ class HealthService extends Base {
             payload.status = 'unhealthy';
             payload.details.push(connectionCheck.error);
 
-            // Gated to the ALREADY-FAILED path on purpose. `healthcheck()` also serves the MCP
-            // `healthcheck` tool on every invocation, so an ungated dual-family probe would dial two
-            // sockets per call forever to answer a question only a failure asks. Here the connection
-            // has already failed, so the ~2ms buys the one diagnostic that distinguishes "Chroma is
-            // down" from "Chroma is up on the family you did not dial".
+            // Gated on the connection OUTCOME, not on the caller. `healthcheck()` also serves the MCP
+            // `healthcheck` tool on every invocation, so an ungated probe would dial two sockets per
+            // call forever to answer a question only a failure asks — but an UNHEALTHY tool call does
+            // probe, deliberately, because that is exactly when the answer is wanted. Here the
+            // connection has already failed, so the ~2ms buys the one diagnostic that distinguishes
+            // "Chroma is down" from "Chroma is up on the family you did not dial".
             payload.database.connection[LOOPBACK_PROBE_HEALTH_KEY] = await this.#observeLoopbackFamilies();
 
             return payload;

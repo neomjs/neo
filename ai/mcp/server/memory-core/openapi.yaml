@@ -2839,12 +2839,13 @@ components:
                   type: object
                   nullable: true
                   description: >-
-                    Present ONLY when the primary Chroma connection failed AND the configured host is a
-                    loopback address. Absent on a healthy connection (the probe is gated so it never runs
-                    on the MCP healthcheck path) and absent for a non-loopback host such as a compose
-                    service name, where no loopback claim could be true. Purely observational: a
-                    successful connect proves a TCP listener accepted, never the identity of the process
-                    that answered.
+                    Present ONLY when the primary Chroma connection FAILED and the configured host is a
+                    loopback address. Absent on the successful/healthy path, and absent for a
+                    non-loopback host such as a compose service name where no loopback claim could be
+                    true. Note the gate is on the connection OUTCOME, not on the caller: an unhealthy
+                    `healthcheck` tool call does probe, because the field exists to explain that
+                    failure. Purely observational — a successful connect proves a TCP listener accepted,
+                    never the identity of the process that answered.
                   properties:
                     verdict:
                       type: string

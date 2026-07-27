@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import net            from 'node:net';
 import fs             from 'node:fs';
 import * as yaml      from 'js-yaml';
 import {
@@ -46,6 +47,35 @@ test.describe('loopbackFamilyProbe — isLoopbackHost', () => {
         expect(isLoopbackHost('LOCALHOST')).toBe(true);
         expect(isLoopbackHost(' localhost ')).toBe(true);
     });
+
+    test('⭐ NODE is the authority on address validity — leading-zero octets are NOT addresses', () => {
+        // My own dotted-quad regex accepted these; `net.isIP` rejects them, and the runtime that opens
+        // the socket is the only authority worth agreeing with. Admitting them meant the probe would
+        // dial a string Node cannot parse.
+        expect(net.isIP('127.000.000.001')).toBe(0);
+        expect(net.isIP('127.01.2.3')).toBe(0);
+        expect(isLoopbackHost('127.000.000.001')).toBe(false);
+        expect(isLoopbackHost('127.01.2.3')).toBe(false);
+    })
+
+    test('⭐ brackets must be BALANCED — a half-bracketed host is malformed, not IPv6', () => {
+        // Stripping a leading `[` or trailing `]` independently admitted all of these.
+        expect(isLoopbackHost('[::1')).toBe(false);
+        expect(isLoopbackHost('::1]')).toBe(false);
+        expect(isLoopbackHost('127.0.0.1]')).toBe(false);
+        expect(isLoopbackHost('[127.0.0.1')).toBe(false);
+        // The balanced forms still work.
+        expect(isLoopbackHost('[::1]')).toBe(true);
+        expect(isLoopbackHost('::1')).toBe(true);
+    })
+
+    test('a non-`::1` IPv6 loopback spelling declines rather than being normalised', () => {
+        // `0:0:0:0:0:0:0:1` IS loopback and Node accepts it, but an address normaliser inside a
+        // diagnostic is a second parser to keep correct. Declining is the quiet, safe outcome — the
+        // stated limit, not a surprise.
+        expect(net.isIP('0:0:0:0:0:0:0:1')).toBe(6);
+        expect(isLoopbackHost('0:0:0:0:0:0:0:1')).toBe(false);
+    })
 
     test('⭐ ADMISSION IS PARSED, not prefix-matched — malformed 127-ish hosts are rejected', () => {
         // `startsWith('127.')` admitted all of these. A diagnostic that accepts a non-address and then

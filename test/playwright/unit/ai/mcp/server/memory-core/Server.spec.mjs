@@ -1069,6 +1069,24 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(tip).not.toContain('lsof');
         });
 
+        test('⭐ NO-LISTENER names the OBSERVED addresses, not a hardcoded 127.0.0.1', async () => {
+            // The rendering half carried the same substitution defect the probe half had fixed: a literal
+            // `127.0.0.1` in the wording reported an address a 127.0.0.5-configured server never dials.
+            const {tip} = await renderTip({
+                verdict: 'no-listener', conclusive: true, dialed: '127.0.0.5', answering: [], empty: ['127.0.0.5', '[::1]'], unknown: []
+            });
+
+            // Scoped to the no-listener SENTENCE, not the whole tip: the first line legitimately prints
+            // the resolved config endpoint, so a whole-tip matcher would be answering about the wrong
+            // subject — the exact mistake this PR's diagnostic exists to avoid.
+            const probedLine = tip.split('\n').find(line => line.includes('nothing answered on port'));
+
+            expect(probedLine).toBeDefined();
+            expect(tip).toContain('127.0.0.5 or [::1]');
+            // The observed-address line must not name an address the server does not dial.
+            expect(tip.split('\n').filter(line => line.includes(' or [::1]')).join('\n')).not.toContain('127.0.0.1');
+        })
+
         test('NO-LISTENER rules the mismatch OUT and also replaces the fallback', async () => {
             const {tip} = await renderTip({
                 verdict: 'no-listener', conclusive: true, dialed: '127.0.0.1', answering: [], empty: ['127.0.0.1', '[::1]'], unknown: []
@@ -1078,6 +1096,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             // problem that provably is not there.
             expect(tip).toMatch(/nothing answered/i);
             expect(tip).toMatch(/not a bind-family mismatch/i);
+            // Observational: it no longer asserts WHICH process is absent, only that nothing answered.
+            expect(tip).not.toMatch(/ChromaDB is\s+genuinely/);
             expect(tip).not.toContain('lsof');
         });
 

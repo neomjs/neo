@@ -93,19 +93,34 @@ export function isLoopbackHost(host) {
  * @returns {Object} `{kind: 'ipv4'|'ipv6'|'resolver'|'not-loopback', literal?}`
  */
 export function classifyLoopbackHost(host) {
-    const value = String(host ?? '').trim().replace(/^\[|]$/g, '').toLowerCase();
+    const raw = String(host ?? '').trim();
+
+    // Brackets must be BALANCED. Stripping a leading `[` or a trailing `]` independently admitted
+    // `[::1` and `::1]`, which are not authorities at all — a half-bracketed host is malformed input,
+    // not an IPv6 literal, and admitting it would have the probe dial a string Node cannot parse.
+    if ((raw.startsWith('[') || raw.endsWith(']')) && !(raw.startsWith('[') && raw.endsWith(']') && raw.length > 2)) {
+        return {kind: 'not-loopback'};
+    }
+
+    const bracketed = raw.startsWith('[') && raw.endsWith(']'),
+          value     = (bracketed ? raw.slice(1, -1) : raw).toLowerCase();
 
     if (value === 'localhost') return {kind: 'resolver', literal: 'localhost'};
-    if (value === '::1')       return {kind: 'ipv6', literal: '::1'};
 
-    // Strict dotted-quad: exactly four octets, each 0-255 with no leading zeros or stray characters,
-    // and the first must be 127. `Number()` would accept ' 1', '0x7f' and '1e2', so the digit shape is
-    // asserted before the range.
-    const octets = value.split('.');
+    // `net.isIP` IS THE AUTHORITY, not a hand-written dotted-quad regex. Mine accepted
+    // `127.000.000.001` and `127.01.2.3` — leading-zero octets that Node rejects outright, so the probe
+    // would have dialled a host the runtime does not consider an address. Delegating means this cannot
+    // disagree with the stack that opens the socket.
+    const family = net.isIP(value);
 
-    if (octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255) && octets[0] === '127') {
-        return {kind: 'ipv4', literal: value};
-    }
+    // `::1` only. Other spellings of IPv6 loopback (`0:0:0:0:0:0:0:1`) are valid addresses that Node
+    // accepts, and they are deliberately classified not-loopback rather than normalised here: declining
+    // to probe is a quiet, safe outcome, whereas an address normaliser inside a diagnostic is a second
+    // parser to keep correct. Stated as a limit rather than left as a surprise.
+    if (family === 6) return value === '::1' ? {kind: 'ipv6', literal: '::1'} : {kind: 'not-loopback'};
+
+    // The whole 127.0.0.0/8 block is loopback, and the CONFIGURED literal is carried through.
+    if (family === 4 && value.startsWith('127.')) return {kind: 'ipv4', literal: value};
 
     return {kind: 'not-loopback'};
 }

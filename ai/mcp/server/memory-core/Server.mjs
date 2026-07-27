@@ -852,9 +852,12 @@ class Server extends BaseServer {
 
             case 'no-listener':
                 // Equally load-bearing: it rules the mismatch OUT, so the operator stops looking here.
+                // The addresses come from the OBSERVATION, never a literal: a hardcoded `127.0.0.1`
+                // reported an address a `127.0.0.5`-configured server never dials — the same
+                // substitution defect the probe half already fixed, surviving in the rendering half.
                 logger.warn(`       Probed both loopback families: nothing answered on port ${port} at`);
-                logger.warn(`       127.0.0.1 or [::1], so this is not a bind-family mismatch — ChromaDB is`);
-                logger.warn(`       genuinely not accepting local connections.`);
+                logger.warn(`       ${(probe.empty || []).join(' or ')}, so this is not a bind-family mismatch — nothing`);
+                logger.warn(`       is accepting local connections on either family.`);
                 return true;
 
             case 'listener-reachable':
