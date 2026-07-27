@@ -98,6 +98,7 @@
             {"name": "Neural Link Capability Matrix",                   "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/NeuralLinkCapabilityMatrix"},
             {"name": "Blind BigData Neural Link Probe",                 "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GenesisNeuralLinkProbe"},
             {"name": "Restoration Runbook",                            "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/RestorationRunbook"},
+            {"name": "Pilot Plane Runbook",                            "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/PilotPlaneRunbook"},
             {"name": "Wake Substrate Incident Protocol",               "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/WakeSubstrateIncidentProtocol"},
         {"name": "Architectural Decision Records",                     "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/Decisions", "collapsed": true},
             {"name": "0001 — Cross-Process Cache Coherence",           "parentId": "AgentOS/Decisions",                                   "id": "agentos/decisions/0001-cross-process-cache-coherence"},
