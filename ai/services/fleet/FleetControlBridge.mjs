@@ -206,12 +206,26 @@ class FleetControlBridge extends Base {
      * @param {Object} [definition.metadata]         Free-form non-secret metadata.
      * @param {String} [definition.modelProvider]    The agent's model-provider login; resolves via the AiConfig SSOT leaf when omitted.
      * @param {Object|null} [definition.mcpServers]   Complete sparse MCP overrides; omitted/null follows live defaults, exactly like configureAgent.
+     * @param {Object|null} [definition.mcpTransport] Local stdio or one connected remote tenant id.
      * @returns {Object} The public agent definition (no credential), or a controlled
      *     `{status:'rejected', reason}` outcome for FleetRegistryService validation failures.
      */
     defineAgent(definition) {
         try {
-            return this.getRegistry().defineAgent(definition)
+            const
+                registry        = this.getRegistry(),
+                transport       = definition?.mcpTransport,
+                selectingRemote = transport?.mode === 'remote-http' &&
+                    typeof transport.tenantId === 'string' &&
+                    !!transport.tenantId.trim(),
+                agentId   = definition?.id || definition?.githubUsername,
+                existing  = selectingRemote && agentId ? registry.getAgent(agentId) : null,
+                rejected  = selectingRemote && !existing &&
+                    this.rejectUnavailableRemoteMcpSelection(transport);
+
+            if (rejected) return rejected;
+
+            return registry.defineAgent(definition)
         } catch (error) {
             const prefix = 'FleetRegistryService.defineAgent:';
 
@@ -224,12 +238,12 @@ class FleetControlBridge extends Base {
     }
 
     /**
-     * @summary Connect a remote Agent-OS tenant (tenant URL + PAT) — the design-partner entry: the
+     * @summary Connect a remote Agent-OS tenant (tenant URL + provider bearer) — the design-partner entry: the
      * cockpit points at a HOSTED tenant instead of standing up the local stack. Delegates to
      * `FleetTenantService.connectTenant`; the credential is stored encrypted Node-side and is
      * **never** echoed back — the return is the public descriptor (`{id, endpoint, status,
      * deploymentClass, connectedAt}`) or a controlled `{status: 'rejected', reason}` outcome. The
-     * same secret-omission boundary {@link #defineAgent} enforces for agent PATs.
+     * same secret-omission boundary {@link #defineAgent} enforces for repository credentials.
      * @param {Object} params `{tenantUrl, credential}`
      * @returns {Promise<Object>} the public tenant descriptor, or `{status: 'rejected', reason}`.
      */
@@ -251,12 +265,29 @@ class FleetControlBridge extends Base {
      * @summary Configure an existing agent through one serializable curated intent. Validation
      * failures become an explicit domain outcome the Accounts card may render; unexpected service
      * failures still throw and are sanitized by dispatchFleetRequest.
-     * @param {Object} intent `{id, harnessType?, mcpServers?}`
+     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTransport?}`
      * @returns {{status: 'accepted', agent: Object}|{status: 'rejected', reason: String}}
      */
     configureAgent(intent) {
         try {
-            const agent = this.getRegistry().configureAgent(intent);
+            const
+                registry  = this.getRegistry(),
+                transport = intent && Object.hasOwn(intent, 'mcpTransport')
+                    ? intent.mcpTransport
+                    : null,
+                selectingRemote = transport?.mode === 'remote-http' &&
+                    typeof transport.tenantId === 'string' &&
+                    !!transport.tenantId.trim(),
+                existing  = selectingRemote ? registry.getAgent(intent?.id) : null,
+                unchanged = transport?.mode === 'remote-http' &&
+                    existing?.mcpTransport?.mode === 'remote-http' &&
+                    existing.mcpTransport.tenantId === transport.tenantId,
+                rejected = existing && !unchanged &&
+                    this.rejectUnavailableRemoteMcpSelection(transport);
+
+            if (rejected) return rejected;
+
+            const agent = registry.configureAgent(intent);
 
             return agent
                 ? {status: 'accepted', agent}
@@ -269,6 +300,30 @@ class FleetControlBridge extends Base {
             }
 
             throw error
+        }
+    }
+
+    /**
+     * @summary Reject a NEW remote target selection unless the Brain tenant authority can resolve it
+     * as connected. Registry persistence remains provider-neutral; this Body→Brain boundary prevents
+     * a stale/direct wire intent from bypassing the card's inert-target affordance. An unchanged
+     * already-persisted selection is deliberately handled by its normal start-time readiness gate.
+     * @param {Object|null} transport
+     * @returns {Object|null} Controlled rejection or `null`.
+     * @protected
+     */
+    rejectUnavailableRemoteMcpSelection(transport) {
+        if (transport?.mode !== 'remote-http' ||
+            typeof transport.tenantId !== 'string' ||
+            !transport.tenantId.trim()) {
+            return null
+        }
+
+        if (this.getTenantService().resolveMcpResources(transport.tenantId)) return null;
+
+        return {
+            status: 'rejected',
+            reason: `Remote MCP tenant '${transport.tenantId}' is unavailable.`
         }
     }
 

@@ -1,4 +1,5 @@
 import {expect, test}                                      from '@playwright/test';
+import {createHash}                                        from 'node:crypto';
 import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from '../../../../../../ai/services/fleet/generateOpenCodeSeatConfig.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
@@ -83,6 +84,82 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
 
     test('purity: identical params emit byte-identical files (deterministic, no hidden inputs)', () => {
         expect(generateOpenCodeSeatConfig(PARAMS)).toEqual(generateOpenCodeSeatConfig(PARAMS));
+        expect(generateOpenCodeSeatConfig(PARAMS))
+            .toEqual(generateOpenCodeSeatConfig({...PARAMS, remoteServers: {}}))
+    });
+
+    test('no remote intent stays byte-identical to the origin/dev stdio artifact set', () => {
+        const digest = createHash('sha256')
+            .update(JSON.stringify(generateOpenCodeSeatConfig(PARAMS).files))
+            .digest('hex');
+
+        // Live-frozen from the pre-change origin/dev artifact. This catches remote-only prose or grammar
+        // leaking into the default artifact set even when current-vs-current purity stays green.
+        expect(digest).toBe('c8461ca787b93aabbe8bf1c0b54c420b5a0101de56ca901b9726d6ddcc52d972')
+    });
+
+    test('remote map replaces only selected servers with the exact OpenCode HTTP adapter grammar', () => {
+        const
+            remoteServers = {
+                'neo-mjs-memory-core': {
+                    url: 'https://tenant.example.com/mc/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                },
+                'neo-mjs-knowledge-base': {
+                    url: 'https://tenant.example.com/kb/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                }
+            },
+            config = parseJsonc(generateOpenCodeSeatConfig({...PARAMS, remoteServers}).files[0].content);
+
+        expect(config.mcp['neo-mjs-memory-core']).toEqual({
+            type   : 'remote',
+            url    : 'https://tenant.example.com/mc/mcp',
+            enabled: true,
+            headers: {Authorization: 'Bearer {env:NEO_MCP_REMOTE_TOKEN}'},
+            oauth  : false
+        });
+        expect(config.mcp['neo-mjs-knowledge-base']).toEqual({
+            type   : 'remote',
+            url    : 'https://tenant.example.com/kb/mcp',
+            enabled: true,
+            headers: {Authorization: 'Bearer {env:NEO_MCP_REMOTE_TOKEN}'},
+            oauth  : false
+        });
+        expect(config.mcp['neo-mjs-github-workflow'].type).toBe('local');
+        expect(config.mcp['neo-mjs-neural-link'].type).toBe('local');
+        expect(JSON.stringify(config)).not.toContain('Bearer secret')
+    });
+
+    test('remote map rejects unknown servers and every secret/header/env-bearing carrier', () => {
+        const malformed = [{
+            unknown: {url: 'https://tenant.example.com/mc/mcp', credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'}
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                credential      : 'secret'
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
+                headers         : {Authorization: 'Bearer secret'}
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: 'GH_TOKEN'
+            }
+        }, {
+            'neo-mjs-memory-core': {
+                url             : 'https://tenant.example.com/mc/mcp',
+                credentialEnvVar: '9INVALID'
+            }
+        }, []];
+
+        malformed.forEach(remoteServers => {
+            expect(() => generateOpenCodeSeatConfig({...PARAMS, remoteServers}))
+                .toThrow(/remoteServers|remote server/)
+        })
     });
 
     test('island guard: a server script escaping canonicalRoot throws; a malformed entry throws', () => {

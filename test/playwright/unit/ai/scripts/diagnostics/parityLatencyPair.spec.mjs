@@ -22,13 +22,15 @@ import {
 // dimensions, so the hot-call leg measured process start — the boot definition, and explicitly not the
 // selected hot-call one. Dimension-specific helpers exist so that cannot recur silently.
 
-// Reproducibility conditions: cache state alone does not pin a run, since image, config head and host load
-// all move independently of it. `cacheConvention` must EQUAL the ratified constant — free text let the
-// explicitly-excluded build-inclusive regime through.
+// Reproducibility conditions: cache state alone does not pin a run, since image, source head, ignored
+// generated runtime config and host load all move independently of it. `cacheConvention` must EQUAL
+// the ratified constant — free text let the explicitly-excluded build-inclusive regime through.
 const CONDITIONS = {
     cacheConvention: PARITY_CACHE_CONVENTION,
-    imageDigest    : 'sha256:e3b0c44298fc1c149afbf4c8996fb924',
-    configHead     : '8c73d531c5',
+    imageDigest    : 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+    datasetDigest  : 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+    configHead     : '1111111111111111111111111111111111111111',
+    runtimeDigest  : 'sha256:2222222222222222222222222222222222222222222222222222222222222222',
     hostLoad       : 'idle; load1=0.41'
 };
 
@@ -252,12 +254,21 @@ test.describe('evaluateLatencyPair — the bound is the caller\'s, the pair is t
         expect(result.reason).toContain('must be a sha256 digest');
     })
 
-    test('⭐ host load is REQUIRED, per the ruling', () => {
-        for (const key of ['hostLoad', 'configHead']) {
+    test('⭐ matched data, host load, source head, and runtime config are REQUIRED', () => {
+        for (const key of ['datasetDigest', 'hostLoad', 'configHead', 'runtimeDigest']) {
             const {[key]: _dropped, ...partial} = CONDITIONS;
 
             expect(evaluateLatencyPair({boot, hotCall, acceptableOverhead: 3, conditions: partial}).ok).toBe(false);
         }
+    })
+
+    test('⭐ a placeholder matched-dataset digest is refused', () => {
+        const result = evaluateLatencyPair({
+            boot, hotCall, acceptableOverhead: 3, conditions: {...CONDITIONS, datasetDigest: 'caller-text'}
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('conditions.datasetDigest must be a sha256 digest')
     })
 
     test('⭐ a PRE-REDUCED slot is refused on EITHER topology and EITHER dimension — all four are bound', () => {

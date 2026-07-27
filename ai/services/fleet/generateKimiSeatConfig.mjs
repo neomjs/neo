@@ -1,4 +1,5 @@
 import path                                                                                         from 'node:path';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                                                              from '../../../src/ai/fleet/mcpServers.mjs';
 import {renderAboutThisLayerMd, renderIdentityAnchorHookMjs, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
@@ -74,12 +75,14 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  *                                        Default `'kimi-code/k3'`.
  * @param {Array}  [options.servers]      Override the canonical server set
  *                                        ({@link KIMI_SEAT_SERVERS}) — same entry shape.
+ * @param {Object} [options.remoteServers] Per-server remote grammar keyed by server name:
+ *                                        `{url, credentialEnvVar}`. The value is non-secret.
  * @returns {{files: Array<{path: String, content: String}>}} the emission list — callers own
  * writing (mode, atomicity, divergence policy).
  * @throws {Error} naming the offending argument on missing/invalid input, and
  * `generateKimiSeatConfig: island guard` when a server script resolves outside `canonicalRoot`.
  */
-export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoot, kimiHome, memoryDir, nodeBinary, environment = {}, defaultModel = 'kimi-code/k3', servers = KIMI_SEAT_SERVERS} = {}) {
+export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoot, kimiHome, memoryDir, nodeBinary, environment = {}, defaultModel = 'kimi-code/k3', servers = KIMI_SEAT_SERVERS, remoteServers = {}} = {}) {
     assertNonEmptyString(canonicalRoot, 'canonicalRoot');
     assertNonEmptyString(seatEnvFile,   'seatEnvFile');
     assertNonEmptyString(workspaceRoot, 'workspaceRoot');
@@ -104,10 +107,11 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
             throw new Error(`generateKimiSeatConfig: island guard — server script '${server.script}' escapes canonicalRoot '${root}' or the entry is malformed.`);
         }
     });
+    assertRemoteServerMap(remoteServers, servers);
 
     return {files: [
         {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome, servers})},
-        {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers})},
+        {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers, remoteServers})},
         {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryIndexMd({harness: 'kimi-code'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
         {path: path.posix.join(memoryDir, 'identity.md'),                content: renderIdentityMd()},
@@ -246,10 +250,21 @@ function renderTurnPresenceHooks({nodeBinary, seatEnvFile}) {
  * @returns {String}
  * @private
  */
-function renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers}) {
+function renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers, remoteServers}) {
     const mcpServers = {};
 
     servers.forEach(server => {
+        const remote = remoteServers[server.name];
+
+        if (remote) {
+            mcpServers[server.name] = {
+                url              : remote.url,
+                bearerTokenEnvVar: remote.credentialEnvVar,
+                enabled          : true
+            };
+            return
+        }
+
         const args = ['--env-file=' + seatEnvFile, path.posix.join(root, server.script)];
 
         if (server.needsCwd) {
@@ -297,6 +312,34 @@ function renderSeatPointersMd() {
         '- A2A-notify peers after any lifecycle event. Never `gh pr merge` (human-only).',
         ''
     ].join('\n');
+}
+
+/**
+ * @summary Validate the caller-resolved remote map before it reaches generated JSON. Only a known
+ * server name plus `{url, credentialEnvVar}` is legal; secret/header/env bags fail named.
+ * @param {*} remoteServers
+ * @param {Object[]} servers
+ * @private
+ */
+function assertRemoteServerMap(remoteServers, servers) {
+    if (!remoteServers || typeof remoteServers !== 'object' || Array.isArray(remoteServers)) {
+        throw new Error("generateKimiSeatConfig: 'remoteServers' must be an object.")
+    }
+
+    const known = new Set(servers.map(server => server.name));
+
+    for (const [name, remote] of Object.entries(remoteServers)) {
+        if (!known.has(name) ||
+            !remote ||
+            typeof remote !== 'object' ||
+            Array.isArray(remote) ||
+            Object.keys(remote).sort().join(',') !== 'credentialEnvVar,url' ||
+            typeof remote.url !== 'string' ||
+            !remote.url ||
+            remote.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR) {
+            throw new Error(`generateKimiSeatConfig: remote server '${name}' is malformed.`)
+        }
+    }
 }
 
 /**

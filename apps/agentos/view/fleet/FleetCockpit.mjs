@@ -1004,6 +1004,19 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the Viewport provider's exact public FleetTenants Store for every composed
+     * configuration card. Bare mounts degrade to `null`; no cockpit-local tenant copy is invented.
+     * @returns {Neo.data.Store|null}
+     */
+    resolveFleetTenantsStore() {
+        try {
+            return this.getStateProvider()?.getStore('fleetTenants') ?? null
+        } catch {
+            return null
+        }
+    }
+
+    /**
      * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
      * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
      *
@@ -1102,6 +1115,7 @@ class FleetCockpit extends Container {
                     // a bare mount or a chain without the store degrades to null — the tab's honest
                     // empty state — instead of a bind demanding a provider chain that may not exist
                     agentDefinitions: me.resolveAgentDefinitionsStore(),
+                    fleetTenants    : me.resolveFleetTenantsStore(),
                     cls             : [marker],
                     record          : me.detailRecord,
                     reference       : 'agent-detail'

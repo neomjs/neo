@@ -77,6 +77,29 @@ function agentDef(id, extra = {}) {
     return {id, githubUsername: id, harnessType: 'codex', metadata: {launch: LAUNCH}, ...extra};
 }
 
+/** Exact non-secret renderer input returned by prepareManagedAgentWorkspace for a remote Codex seat. */
+function remoteMcpPlan(resources, matrix) {
+    return Object.entries(matrix).map(([key, enabled]) => {
+        const remote = ['memory-core', 'knowledge-base'].includes(key);
+
+        return {
+            key,
+            name              : `neo-mjs-${key}`,
+            enabled,
+            mode              : remote ? 'remote-http' : 'stdio',
+            url               : remote ? resources[key].url : null,
+            credentialEnvVar  : remote ? 'NEO_MCP_REMOTE_TOKEN' : null,
+            command           : process.execPath,
+            sourceRoot        : '/installed/neo',
+            args              : [`/installed/neo/ai/mcp/server/${key}/mcp-server.mjs`],
+            runtimeEnv        : ['NEO_AGENT_IDENTITY'],
+            requiredRuntimeEnv: ['NEO_AGENT_IDENTITY'],
+            secretEnv         : [],
+            unsupportedReason : null
+        }
+    })
+}
+
 /** Reset the singleton + inject fresh test doubles. Returns the spawn stub. */
 function install({agents = {}, creds = {}} = {}) {
     const spawnStub = makeSpawnStub();
@@ -89,8 +112,8 @@ function install({agents = {}, creds = {}} = {}) {
     FleetLifecycleService.sigkillTimeoutMs = 50;
     // Reset the configurable env-key fields to their defaults so a collision test cannot bleed into
     // the next serial sibling (singleton-stateful service).
-    FleetLifecycleService.credentialEnvVar  = 'GH_TOKEN';
-    FleetLifecycleService.bridgeTokenEnvVar = 'NEO_FLEET_BRIDGE_TOKEN';
+    FleetLifecycleService.credentialEnvVar          = 'GH_TOKEN';
+    FleetLifecycleService.bridgeTokenEnvVar         = 'NEO_FLEET_BRIDGE_TOKEN';
     // Reset the curated-launch resolution fields too — fallback tests set them explicitly.
     FleetLifecycleService.instanceRoot       = null;
     FleetLifecycleService.harnessBinaryPaths = null;
@@ -138,6 +161,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
 
         // injected under the configured var, on a COPY of process.env (not the live object)
         expect(call.opts.env.GH_TOKEN).toBe(pat);
+        expect(call.opts.env.NEO_MCP_REMOTE_TOKEN).toBeUndefined();
         expect(call.opts.env).not.toBe(process.env);
         // never in argv or the command
         expect(JSON.stringify(call.args)).not.toContain(pat);
@@ -157,6 +181,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         // Bridge token under its OWN var — a credential class distinct from the PAT
         expect(env.NEO_FLEET_BRIDGE_TOKEN).toBe('bridge_a_token');
         expect(env.NEO_FLEET_BRIDGE_TOKEN).not.toBe(env.GH_TOKEN);
+        expect(env.NEO_FLEET_BRIDGE_TOKEN).not.toBe(env.NEO_MCP_REMOTE_TOKEN);
         // forced NL projection: FM-spawned ⇒ embedded ⇒ harness-embedded, by construction
         expect(env.NEO_NL_TOOL_PROJECTION_MODE).toBe('harness-embedded');
         // the PAT injection is unaffected
@@ -196,9 +221,13 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
 
         const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}}); // fresh install resets the keys
-        FleetLifecycleService.credentialEnvVar = ''; // empty key ⇒ contract violation
+        FleetLifecycleService.credentialEnvVar = 'NEO_MCP_REMOTE_TOKEN'; // repository PAT cannot collapse onto the fixed remote plane slot
         expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/);
         expect(spawn.calls).toHaveLength(0); // never spawned
+
+        install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
+        FleetLifecycleService.credentialEnvVar = ''; // empty key ⇒ contract violation
+        expect(() => FleetLifecycleService.start('a')).toThrow(/env-key contract/)
     });
 
     test('a tokenless agent starts with NO credential in its env — the parent\'s ambient token never crosses', () => {
@@ -210,6 +239,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         // per-agent credential boundary (the cycle-1 review's falsifier) — the minimal allowlisted
         // child env excludes it by construction.
         expect(spawn.calls[0].opts.env.GH_TOKEN).toBeUndefined();
+        expect(spawn.calls[0].opts.env.NEO_MCP_REMOTE_TOKEN).toBeUndefined();
         expect(FleetLifecycleService.isRunning('a')).toBe(true);
     });
 
@@ -612,6 +642,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
             expect(env.NEO_TEST_AMBIENT_SECRET).toBeUndefined();  // a tokenless peer cannot inherit parent secrets
             expect(env.PATH).toBe(process.env.PATH);              // benign runtime vars DO cross (the allowlist)
             expect(env.GH_TOKEN).toBeUndefined();                 // creds:{} → no PAT: nothing leaks from the parent's own GH_TOKEN either
+            expect(env.NEO_MCP_REMOTE_TOKEN).toBeUndefined();     // no selected plane credential ⇒ remote slot stays empty
         } finally {
             delete process.env.NEO_TEST_AMBIENT_SECRET;
         }
@@ -629,10 +660,17 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(() => FleetLifecycleService.start('a')).toThrow(/prototype-mutating key/);
     });
 
-    test('every FM spawn binds the child to its fleet identity via NEO_AGENT_IDENTITY', () => {
-        const spawn = install({agents: {a: agentDef('a')}, creds: {}});
-        FleetLifecycleService.start('a');
-        expect(spawn.calls[0].opts.env.NEO_AGENT_IDENTITY).toBe('a');
+    test('every FM spawn binds NEO_AGENT_IDENTITY to githubUsername, never the per-instance fleet id', () => {
+        const spawn = install({
+            agents: {
+                'codex-2': agentDef('codex-2', {githubUsername: 'neo-gpt'})
+            },
+            creds: {}
+        });
+
+        FleetLifecycleService.start('codex-2');
+
+        expect(spawn.calls[0].opts.env.NEO_AGENT_IDENTITY).toBe('neo-gpt');
     });
 
     test('the stdio topology holds stdin open as a pipe — the liveness contract for CLI harnesses', () => {
@@ -646,6 +684,39 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         FleetLifecycleService.instanceRoot       = os.tmpdir();
         FleetLifecycleService.harnessBinaryPaths = {codex: '/definitely/not/a/real/binary'};
         expect(() => FleetLifecycleService.start('ghostbin')).toThrow(/harness binary .* not found/);
+    });
+
+    test('a remote start launches the exact binary snapshot carried by its capability proof', () => {
+        const spawn = install({agents: {remote: curatedAgent('remote')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = os.tmpdir();
+        FleetLifecycleService.harnessBinaryPaths = {codex: '/mutated/after-capability-probe'};
+
+        FleetLifecycleService.start('remote', {
+            remoteMcpCapability: {
+                harnessType     : 'codex',
+                binaryPath      : process.execPath,
+                launchBinaryPath: process.execPath
+            }
+        });
+
+        expect(spawn.calls).toHaveLength(1);
+        expect(spawn.calls[0].command).toBe(process.execPath)
+    });
+
+    test('a malformed or cross-family capability proof rejects before spawn', () => {
+        const spawn = install({agents: {remote: curatedAgent('remote')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot = os.tmpdir();
+
+        expect(() => FleetLifecycleService.start('remote', {
+            remoteMcpCapability: {
+                harnessType     : 'claude-code',
+                binaryPath      : process.execPath,
+                launchBinaryPath: process.execPath
+            }
+        })).toThrow(/invalid remote MCP capability proof/);
+        expect(spawn.calls).toEqual([])
     });
 
     test('authRequired surfaces the LIVE per-home auth-marker state for curated launches — and flips without a restart', () => {
@@ -815,5 +886,318 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         const stopped = await FleetLifecycleService.stop('live');
         expect(stopped.success).toBe(true);
         expect(FleetLifecycleService.isRunning('live')).toBe(false);
+    });
+});
+
+test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capability admission', () => {
+    test('accepts only the exact adapter grammar/version for every supported harness family', async () => {
+        install();
+        FleetLifecycleService.harnessBinaryPaths = {
+            codex          : process.execPath,
+            'codex-desktop': process.execPath,
+            'claude-code'  : process.execPath,
+            'kimi-code'    : process.execPath,
+            opencode       : process.execPath
+        };
+
+        const
+            outputs = new Map([
+                ['codex',         'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
+                ['codex-desktop', 'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
+                ['claude-code',   'Usage: mcp add --transport http --header Header'],
+                ['kimi-code',     'kimi 0.29.1'],
+                ['opencode',      'opencode 1.18.5']
+            ]),
+            calls   = [];
+
+        FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+            const harnessType = calls.at(-1)?.pendingHarness;
+            calls.push({command, args, opts, harnessType});
+            callback(null, outputs.get(harnessType), '')
+        };
+
+        for (const harnessType of outputs.keys()) {
+            calls.push({pendingHarness: harnessType});
+
+            await expect(FleetLifecycleService.assertRemoteMcpCapability({
+                id: `seat-${harnessType}`, harnessType
+            })).resolves.toEqual({
+                harnessType,
+                binaryPath      : process.execPath,
+                launchBinaryPath: process.execPath
+            })
+        }
+
+        const probeCalls = calls.filter(call => call.command);
+
+        expect(probeCalls.map(call => call.args)).toEqual([
+            ['mcp', 'add', '--help'],
+            ['mcp', 'add', '--help'],
+            ['mcp', 'add', '--help'],
+            ['--version'],
+            ['--version']
+        ])
+    });
+
+    test('rejects missing flags, wrong versions, unknown families, and unavailable binaries', async () => {
+        install();
+        FleetLifecycleService.harnessBinaryPaths = {
+            codex          : process.execPath,
+            'codex-desktop': process.execPath,
+            'claude-code'  : process.execPath,
+            'kimi-code'    : process.execPath,
+            opencode       : process.execPath
+        };
+
+        const rejects = [
+            {harnessType: 'codex',       output: '--url only'},
+            {harnessType: 'claude-code', output: '--transport only'},
+            {harnessType: 'kimi-code',   output: 'kimi 0.29.0'},
+            {harnessType: 'opencode',    output: 'opencode 1.18.6'}
+        ];
+
+        for (const {harnessType, output} of rejects) {
+            FleetLifecycleService.execFileFn = (command, args, opts, callback) => callback(null, output, '');
+
+            await expect(FleetLifecycleService.assertRemoteMcpCapability({
+                id: `seat-${harnessType}`, harnessType
+            })).rejects.toThrow(/does not expose Fleet's required remote MCP grammar/)
+        }
+
+        FleetLifecycleService.harnessBinaryPaths['native-neo'] = process.execPath;
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-native', harnessType: 'native-neo'
+        })).rejects.toThrow(/has no remote MCP artifact grammar/)
+
+        FleetLifecycleService.harnessBinaryPaths = {codex: '/definitely/missing/codex'};
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-missing', harnessType: 'codex'
+        })).rejects.toThrow(/harness binary .* is unavailable/)
+    });
+
+    test('capability probes receive only the benign runtime env allowlist', async () => {
+        install();
+        FleetLifecycleService.harnessBinaryPaths = {codex: process.execPath};
+
+        const
+            secretKey    = 'NEO_TEST_REMOTE_CAPABILITY_SECRET',
+            priorSecret  = process.env[secretKey],
+            capturedEnvs = [];
+
+        process.env[secretKey] = 'must-not-cross';
+        FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+            capturedEnvs.push(opts.env);
+            callback(null, '--url --bearer-token-env-var', '')
+        };
+
+        try {
+            await FleetLifecycleService.assertRemoteMcpCapability({
+                id: 'seat-codex', harnessType: 'codex'
+            })
+        } finally {
+            if (priorSecret === undefined) {
+                delete process.env[secretKey]
+            } else {
+                process.env[secretKey] = priorSecret
+            }
+        }
+
+        expect(capturedEnvs).toHaveLength(1);
+        expect(capturedEnvs[0][secretKey]).toBeUndefined();
+        expect(capturedEnvs[0].GH_TOKEN).toBeUndefined();
+        expect(capturedEnvs[0].NEO_MCP_REMOTE_TOKEN).toBeUndefined();
+        expect(Object.keys(capturedEnvs[0]).every(key =>
+            ['HOME', 'LANG', 'LC_ALL', 'LOGNAME', 'PATH', 'SHELL', 'TERM', 'TMPDIR', 'USER'].includes(key)
+        )).toBe(true)
+    });
+
+    test('the installed Codex parser must consume the exact generated remote projection before spawn', async () => {
+        install();
+
+        const
+            resources = {
+                'memory-core'   : {url: 'https://tenant.example.com/mc/mcp'},
+                'knowledge-base': {url: 'https://tenant.example.com/kb/mcp'}
+            },
+            matrix = {
+                'memory-core'    : true,
+                'knowledge-base' : true,
+                'neural-link'    : true,
+                'github-workflow': false,
+                'gitlab-workflow': false
+            },
+            rows = Object.entries(matrix).map(([key, enabled]) => ({
+                name     : `neo-mjs-${key}`,
+                enabled,
+                transport: ['memory-core', 'knowledge-base'].includes(key)
+                    ? {
+                        type                : 'streamable_http',
+                        url                 : resources[key].url,
+                        bearer_token_env_var: 'NEO_MCP_REMOTE_TOKEN',
+                        http_headers        : null,
+                        env_http_headers    : null
+                    }
+                    : {type: 'stdio'}
+            })),
+            calls = [];
+
+        FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+            calls.push({command, args, opts});
+            callback(null, JSON.stringify(rows), 'WARNING: benign launcher warning')
+        };
+
+        await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
+            agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
+            binaryPath  : process.execPath,
+            repoPath    : '/managed/seat-codex/neo',
+            instanceHome: '/instances/seat-codex',
+            mcpMatrix   : matrix,
+            mcpTransport: {mode: 'remote-http', resources},
+            mcpPlan     : remoteMcpPlan(resources, matrix)
+        })).resolves.toEqual({
+            harnessType: 'codex',
+            inspected  : true,
+            serverNames: Object.keys(matrix).map(key => `neo-mjs-${key}`),
+            capturePlan: {
+                producer        : 'installed-codex-mcp-list',
+                harnessType     : 'codex',
+                repoPath        : '/managed/seat-codex/neo',
+                sourceRoot      : '/installed/neo',
+                expectedIdentity: '@neo-gpt',
+                servers         : {
+                    'memory-core': {
+                        name   : 'neo-mjs-memory-core',
+                        enabled: true,
+                        stdio  : {
+                            command: process.execPath,
+                            args   : ['/installed/neo/ai/mcp/server/memory-core/mcp-server.mjs'],
+                            envVars: ['NEO_AGENT_IDENTITY']
+                        },
+                        remote: {
+                            url             : resources['memory-core'].url,
+                            credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                        }
+                    },
+                    'knowledge-base': {
+                        name   : 'neo-mjs-knowledge-base',
+                        enabled: true,
+                        stdio  : {
+                            command: process.execPath,
+                            args   : ['/installed/neo/ai/mcp/server/knowledge-base/mcp-server.mjs'],
+                            envVars: ['NEO_AGENT_IDENTITY']
+                        },
+                        remote: {
+                            url             : resources['knowledge-base'].url,
+                            credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                        }
+                    }
+                }
+            }
+        });
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0].command).toBe(process.execPath);
+        expect(calls[0].args).toEqual(['mcp', 'list', '--json']);
+        expect(calls[0].opts.cwd).toBe('/managed/seat-codex/neo');
+        expect(calls[0].opts.env.CODEX_HOME).toBe('/instances/seat-codex');
+        expect(calls[0].opts.env.GH_TOKEN).toBeUndefined();
+        expect(calls[0].opts.env.NEO_MCP_REMOTE_TOKEN).toBeUndefined();
+    });
+
+    test('the installed Codex projection fails closed on residue, wrong routing, or static auth', async () => {
+        install();
+
+        const
+            resources = {
+                'memory-core'   : {url: 'https://tenant.example.com/mc/mcp'},
+                'knowledge-base': {url: 'https://tenant.example.com/kb/mcp'}
+            },
+            matrix = {
+                'memory-core'    : true,
+                'knowledge-base' : true,
+                'neural-link'    : true,
+                'github-workflow': false,
+                'gitlab-workflow': false
+            },
+            canonicalRows = Object.entries(matrix).map(([key, enabled]) => ({
+                name     : `neo-mjs-${key}`,
+                enabled,
+                transport: ['memory-core', 'knowledge-base'].includes(key)
+                    ? {
+                        type                : 'streamable_http',
+                        url                 : resources[key].url,
+                        bearer_token_env_var: 'NEO_MCP_REMOTE_TOKEN',
+                        http_headers        : null,
+                        env_http_headers    : null
+                    }
+                    : {type: 'stdio'}
+            })),
+            mutations = [
+                rows => rows.slice(1),
+                rows => [...rows, structuredClone(rows[0])],
+                rows => { rows[0].enabled = false; return rows; },
+                rows => { rows[0].transport.url = 'https://wrong.example.com/mc/mcp'; return rows; },
+                rows => { rows[0].transport.bearer_token_env_var = 'GH_TOKEN'; return rows; },
+                rows => { rows[0].transport.http_headers = {Authorization: 'Bearer static'}; return rows; },
+                rows => { rows[2].transport = {type: 'streamable_http', url: 'https://wrong.example.com/nl'}; return rows; }
+            ];
+
+        for (const mutate of mutations) {
+            const rows = mutate(structuredClone(canonicalRows));
+
+            FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+                callback(null, JSON.stringify(rows), '')
+            };
+
+            await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
+                agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
+                binaryPath  : process.execPath,
+                repoPath    : '/managed/seat-codex/neo',
+                instanceHome: '/instances/seat-codex',
+                mcpMatrix   : matrix,
+                mcpTransport: {mode: 'remote-http', resources},
+                mcpPlan     : remoteMcpPlan(resources, matrix)
+            })).rejects.toThrow(/inspectPreparedRemoteMcpAdapter/)
+        }
+
+        FleetLifecycleService.execFileFn = (command, args, opts, callback) => {
+            callback(new Error('adapter read failed'))
+        };
+
+        await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
+            agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
+            binaryPath  : process.execPath,
+            repoPath    : '/managed/seat-codex/neo',
+            instanceHome: '/instances/seat-codex',
+            mcpMatrix   : matrix,
+            mcpTransport: {mode: 'remote-http', resources},
+            mcpPlan     : remoteMcpPlan(resources, matrix)
+        })).rejects.toThrow(/could not consume the generated MCP projection/)
+    });
+
+    test('explicit repository and plane credentials are injected verbatim without authority collapse or a second registry read', () => {
+        const
+            repositoryPat = 'ghp_exact_authenticated_value',
+            planePat      = 'glpat_exact_authenticated_value',
+            spawn         = install({agents: {a: agentDef('a')}, creds: {a: 'stale-registry-value'}}),
+            registry      = FleetLifecycleService.registry;
+        let credentialReads = 0;
+
+        registry.resolveCredential = () => {
+            credentialReads++;
+            return 'unexpected-second-read'
+        };
+
+        FleetLifecycleService.start('a', {
+            resolvedCredential   : repositoryPat,
+            resolvedMcpCredential: planePat
+        });
+
+        expect(credentialReads).toBe(0);
+        expect(spawn.calls[0].opts.env.GH_TOKEN).toBe(repositoryPat);
+        expect(spawn.calls[0].opts.env.NEO_MCP_REMOTE_TOKEN).toBe(planePat);
+        expect(spawn.calls[0].opts.env.GH_TOKEN).not.toBe(spawn.calls[0].opts.env.NEO_MCP_REMOTE_TOKEN)
     });
 });

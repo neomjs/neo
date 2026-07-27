@@ -1,8 +1,12 @@
-import {execFile, spawn}                                            from 'child_process';
-import fs                                                           from 'fs';
-import path                                                         from 'path';
-import AiConfig                                                     from '../../config.mjs';
-import Base                                                         from '../../../src/core/Base.mjs';
+import {execFile, spawn} from 'child_process';
+import fs                from 'fs';
+import path              from 'path';
+import AiConfig          from '../../config.mjs';
+import Base              from '../../../src/core/Base.mjs';
+import {
+    MCP_SERVERS,
+    REMOTE_MCP_CREDENTIAL_ENV_VAR
+} from '../../../src/ai/fleet/mcpServers.mjs';
 import {deriveAgentInstanceHome}                                    from './deriveAgentInstanceHome.mjs';
 import {deriveHarnessLaunchSpec}                                    from './deriveHarnessLaunchSpec.mjs';
 import FleetRegistryService                                         from './FleetRegistryService.mjs';
@@ -16,10 +20,39 @@ const TOOL_PROJECTION_MODE_ENV_VAR = 'NEO_NL_TOOL_PROJECTION_MODE';
 
 // The agent-identity env var is a CROSS-PROCESS CONTRACT too: the MCP identity resolution chain
 // (`RequestContextService`, `Orchestrator`, `KbAlertingService`, `assertExpectedIdentity`) reads this
-// exact name, so the FM injects the fleet agent id under it — the spawned harness binds to the agent
-// the FM defined, never to whichever ambient identity the FM process happens to carry. Intentionally
-// NOT configurable — an override would set a var those consumers never read (fail-OPEN).
+// exact name, so the FM injects the definition's GitHub login under it — the AgentIdentity authority.
+// Fleet `id` remains the per-instance process/home key and may differ when one login owns multiple
+// residents. Intentionally NOT configurable — an override would set a var those consumers never read
+// (fail-OPEN).
 const AGENT_IDENTITY_ENV_VAR = 'NEO_AGENT_IDENTITY';
+
+const REMOTE_MCP_SERVER_KEYS = new Set(['memory-core', 'knowledge-base']);
+
+/**
+ * @summary Parse Codex's normalized MCP list while tolerating its benign launcher warning outside
+ * the JSON payload. Only one outer JSON array is accepted; callers never surface its raw content.
+ * @param {String|Buffer} output
+ * @returns {Object[]}
+ * @private
+ */
+function parseCodexMcpList(output) {
+    const
+        source = String(output),
+        start  = source.indexOf('['),
+        end    = source.lastIndexOf(']');
+
+    if (start === -1 || end < start) {
+        throw new SyntaxError('Codex MCP list did not contain a JSON array.')
+    }
+
+    const rows = JSON.parse(source.slice(start, end + 1));
+
+    if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row))) {
+        throw new TypeError('Codex MCP list JSON must be an array of objects.')
+    }
+
+    return rows
+}
 
 // The AiConfig `fleet.harnessBinaries` leaf key per harness family. An unknown family has no
 // entry — `resolveLaunch` fails loud instead of guessing a command for it.
@@ -28,7 +61,9 @@ const HARNESS_BINARY_LEAF_KEYS = {
     'claude-code'   : 'claudeCode',
     'claude-desktop': 'claudeDesktop',
     'codex'         : 'codex',
-    'codex-desktop' : 'codexDesktop'
+    'codex-desktop' : 'codexDesktop',
+    'kimi-code'     : 'kimiCode',
+    'opencode'      : 'openCode'
 };
 
 // The ONLY ambient parent-env vars that cross into a spawned harness. The FM's own environment
@@ -98,17 +133,21 @@ const HARNESS_AUTH_MARKERS = {
  * **Child env (minimal by construction):** the child receives ONLY the `AMBIENT_ENV_ALLOWLIST`
  * process-runtime vars — never a full parent-env copy, so ambient operator secrets cannot leak into
  * a peer — plus the launch spec's own env (its isolation home var), plus the reserved injections.
- * A `launch.env` key naming a reserved slot (`credentialEnvVar`, `bridgeTokenEnvVar`,
- * `NEO_NL_TOOL_PROJECTION_MODE`, `NEO_AGENT_IDENTITY`) or a prototype-mutating key
+ * A `launch.env` key naming a reserved slot (`credentialEnvVar`, `NEO_MCP_REMOTE_TOKEN`,
+ * `bridgeTokenEnvVar`, `NEO_NL_TOOL_PROJECTION_MODE`, `NEO_AGENT_IDENTITY`) or a prototype-mutating key
  * (`__proto__` / `constructor` / `prototype`) is rejected fail-fast, naming the offending key.
  *
- * **Credential security boundary** (inherited from the registry's two-hemisphere rule): the PAT is
+ * **Credential security boundary** (inherited from the registry's two-hemisphere rule): the GitHub
+ * repository PAT is
  * injected into the spawned **child's environment only** — onto the minimal allowlisted env above
  * (the parent env is never mutated), under a configurable var (`credentialEnvVar`, default
  * `GH_TOKEN`). It is **never** placed in `argv` (visible in `ps`), never written to the tracked
- * process record, and never logged. A status read can never surface a secret because the records
- * hold none. The **Bridge session token** is a SECOND, distinct credential class, injected the same
- * way under its own var (`bridgeTokenEnvVar`) — minted per spawn, never co-mingled with the PAT.
+ * process record, and never logged. The already-probed remote MCP plane bearer is a SECOND credential
+ * class, injected only when supplied under the fixed `NEO_MCP_REMOTE_TOKEN` slot; it is never substituted for
+ * `GH_TOKEN`. A status read can never surface either secret because the records hold none. The
+ * **Bridge session token** is a THIRD, distinct credential class, injected the same way under its
+ * own var (`bridgeTokenEnvVar`) — minted per spawn, never co-mingled with either provider
+ * credential.
  *
  * **Harness-auth provisioning at spawn:** every FM-spawned agent is an *embedded* agent, so `start`
  * provisions its harness-auth surfaces into the child env: (1) a freshly-minted Bridge token for the
@@ -116,10 +155,11 @@ const HARNESS_AUTH_MARKERS = {
  * (`toolProjectionMode`, default `harness-embedded`) under the FIXED `NEO_NL_TOOL_PROJECTION_MODE` var
  * (a cross-process contract, intentionally NOT configurable — an override would set a var the NL server
  * never reads → fail-OPEN) — the NL server reads it as a fallback to its `--tool-projection-mode` flag,
- * and (3) the fleet agent id under the FIXED `NEO_AGENT_IDENTITY` var (the same cross-process-contract
- * rationale — the MCP identity resolution chain reads that exact name), so the child's identity binds
- * to the agent the FM defined by construction. Fail-closed: an FM-spawned agent never receives the
- * full developer tool surface, and `launch.env` can never pre-load a reserved slot.
+ * and (3) the definition's canonical GitHub login under the FIXED `NEO_AGENT_IDENTITY` var (the same
+ * cross-process-contract rationale — the MCP identity resolution chain reads that exact name), so a
+ * custom Fleet instance id cannot become an alternate provider identity. Fail-closed: an FM-spawned
+ * agent never receives the full developer tool surface, and `launch.env` can never pre-load a reserved
+ * slot.
  *
  * **Supervision idiom** mirrors `ai/daemons/orchestrator/services/ProcessSupervisorService` (the
  * injectable `spawnFn` test seam, env-merge, graceful `SIGTERM`→`SIGKILL` stop, and draining the
@@ -249,6 +289,11 @@ class FleetLifecycleService extends Base {
      *                              ({@link Neo.ai.services.fleet.startAgentProvisioned}) supplies the
      *                              `ensureAgentRepo`-derived `repoPath` here, so an FM-spawned harness
      *                              runs inside ITS repo rather than the Fleet Manager's own directory.
+     * @param {String|null} [opts.resolvedCredential] Already-resolved GitHub repository credential.
+     * @param {String|null} [opts.resolvedMcpCredential] Already-probed remote MC/KB plane credential.
+     * @param {Object} [opts.remoteMcpCapability] Exact capability proof returned by
+     *     {@link assertRemoteMcpCapability}; binds the curated launch to the same resolved binary
+     *     snapshot instead of re-reading a mutable AiConfig path after preparation.
      * @returns {Object} status (see {@link status}).
      */
     start(id, opts = {}) {
@@ -266,6 +311,14 @@ class FleetLifecycleService extends Base {
         const agent = this.getRegistry().getDefinition(id);
         if (!agent) throw new Error(`FleetLifecycleService.start: unknown agent '${id}'.`);
 
+        const agentIdentity = typeof agent.githubUsername === 'string'
+            ? agent.githubUsername.trim().replace(/^@/, '')
+            : '';
+
+        if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(agentIdentity)) {
+            throw new Error(`FleetLifecycleService.start: agent '${id}' has no valid githubUsername identity.`)
+        }
+
         const launch                          = this.resolveLaunch(agent, opts),
               {command, args, env: launchEnv} = launch;
 
@@ -275,9 +328,15 @@ class FleetLifecycleService extends Base {
         // other — collapsing the distinct-credential-class boundary (the Bridge token lands in the PAT
         // slot), or stomping the forced-projection / agent-identity vars. Reject BEFORE injecting any
         // secret; never spawn under a broken env contract.
-        const envKeys = [this.credentialEnvVar, this.bridgeTokenEnvVar, TOOL_PROJECTION_MODE_ENV_VAR, AGENT_IDENTITY_ENV_VAR];
+        const envKeys = [
+            this.credentialEnvVar,
+            REMOTE_MCP_CREDENTIAL_ENV_VAR,
+            this.bridgeTokenEnvVar,
+            TOOL_PROJECTION_MODE_ENV_VAR,
+            AGENT_IDENTITY_ENV_VAR
+        ];
         if (envKeys.some(key => !key) || new Set(envKeys).size !== envKeys.length) {
-            throw new Error(`FleetLifecycleService.start: env-key contract violated — credentialEnvVar, bridgeTokenEnvVar, the forced-projection var, and the agent-identity var must be non-empty and pairwise distinct (got ${JSON.stringify(envKeys)}).`);
+            throw new Error(`FleetLifecycleService.start: env-key contract violated — credentialEnvVar, the fixed remote-MCP credential slot, bridgeTokenEnvVar, the forced-projection var, and the agent-identity var must be non-empty and pairwise distinct (got ${JSON.stringify(envKeys)}).`);
         }
 
         // The launch env may not name a reserved slot: allowing it would either let registry-authored
@@ -343,8 +402,22 @@ class FleetLifecycleService extends Base {
             }
         }
 
-        const pat = this.getRegistry().resolveCredential(id);
+        // The provisioned remote-seat path resolves and authenticates the PAT BEFORE any checkout
+        // or config mutation, then hands that exact value through here. Own-property semantics are
+        // load-bearing: an explicit `null` is an authenticated negative result and must not trigger
+        // a second registry read that could observe a different credential.
+        const pat = Object.hasOwn(opts, 'resolvedCredential')
+            ? opts.resolvedCredential
+            : this.getRegistry().resolveCredential(id);
         if (pat != null) env[this.credentialEnvVar] = pat;
+
+        // Remote plane bearer: a second provider credential resolved + authenticated by
+        // startAgentProvisioned through FleetTenantService. It has NO implicit fallback to the
+        // repository PAT: provider equality is a deployment fact, never a Fleet assumption.
+        const remoteMcpCredential = Object.hasOwn(opts, 'resolvedMcpCredential')
+            ? opts.resolvedMcpCredential
+            : null;
+        if (remoteMcpCredential != null) env[REMOTE_MCP_CREDENTIAL_ENV_VAR] = remoteMcpCredential;
 
         // Bridge token: a credential class DISTINCT from the PAT. Mint one + inject it under
         // bridgeTokenEnvVar (never credentialEnvVar). The raw token enters the child env only — the
@@ -359,12 +432,12 @@ class FleetLifecycleService extends Base {
         // --tool-projection-mode flag.
         env[TOOL_PROJECTION_MODE_ENV_VAR] = this.toolProjectionMode;
 
-        // Agent identity: every FM-spawned harness carries its fleet agent id under the FIXED
-        // NEO_AGENT_IDENTITY var (a cross-process contract — the MCP identity resolution chain reads
-        // this exact name), so the child binds to the agent the FM defined — never to whichever
-        // ambient identity the FM process happens to carry. Reserved class #4: launch.env can never
-        // pre-load it (guard above).
-        env[AGENT_IDENTITY_ENV_VAR] = id;
+        // Agent identity: every FM-spawned harness carries the definition's canonical GitHub login
+        // under the FIXED NEO_AGENT_IDENTITY var (a cross-process contract — the MCP identity
+        // resolution chain reads this exact name). The Fleet id remains the instance/process/home
+        // key and cannot impersonate a distinct provider identity. Reserved class #4: launch.env can
+        // never pre-load it (guard above).
+        env[AGENT_IDENTITY_ENV_VAR] = agentIdentity;
 
         // The child's working directory: the agent's provisioned repo checkout when the caller supplies
         // it (the Fleet Manager turnkey path via startAgentProvisioned). Omitted ⇒ inherit this process's
@@ -755,7 +828,16 @@ class FleetLifecycleService extends Base {
         if (!launch) {
             // Curated-intent fallback: classification (harnessType) + the config-resolved instance
             // root / binary path decide the launch — the registry payload contributes no command.
-            const binaryPath = this.getHarnessBinaryPath(agent.harnessType);
+            const
+                proof      = opts.remoteMcpCapability,
+                binaryPath = proof === undefined
+                    ? this.getHarnessBinaryPath(agent.harnessType)
+                    : proof?.launchBinaryPath;
+
+            if (proof !== undefined &&
+                (proof?.harnessType !== agent.harnessType || !path.isAbsolute(binaryPath || ''))) {
+                throw new Error(`FleetLifecycleService: agent '${agent.id}' received an invalid remote MCP capability proof for harnessType '${agent.harnessType}'.`)
+            }
             if (!binaryPath) {
                 throw new Error(`FleetLifecycleService: agent '${agent.id}' (harnessType '${agent.harnessType}') has no launch template. Use a templated harnessType, or have the Brain/operator set a launch override via FleetRegistryService.setLaunchOverride.`);
             }
@@ -804,7 +886,8 @@ class FleetLifecycleService extends Base {
      * field entry when explicitly injected (the test/tenant override seam), else the family's
      * AiConfig `fleet.harnessBinaries.*` leaf — the SSOT owning the default and its env binding
      * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CODEX_DESKTOP_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN` /
-     * `NEO_FLEET_CLAUDE_DESKTOP_BIN` / `NEO_FLEET_ANTIGRAVITY_BIN`). The codex leaf default is the
+     * `NEO_FLEET_CLAUDE_DESKTOP_BIN` / `NEO_FLEET_ANTIGRAVITY_BIN` /
+     * `NEO_FLEET_KIMI_CODE_BIN` / `NEO_FLEET_OPENCODE_BIN`). The codex leaf default is the
      * ChatGPT-app-bundled CLI — an
      * alpha channel that self-updates with its app, so production fleets pin the leaf;
      * `status().binaryVersion` surfaces what actually ran. The app-bundle families default to
@@ -817,6 +900,356 @@ class FleetLifecycleService extends Base {
         const leafKey = HARNESS_BINARY_LEAF_KEYS[harnessType];
 
         return this.harnessBinaryPaths?.[harnessType] || (leafKey ? AiConfig.fleet.harnessBinaries[leafKey] : null);
+    }
+
+    /**
+     * @summary Prove the installed harness can encode Fleet's remote MCP grammar before any repo or
+     * home mutation. This is a blocking admission gate, not the later best-effort version surface:
+     * each family is checked against the exact grammar Fleet will generate.
+     * @param {Object} agent Raw agent definition.
+     * @returns {Promise<Object>} Non-secret `{harnessType,binaryPath,launchBinaryPath}` proof. For
+     *     Codex Desktop, `binaryPath` is the bundled Codex config consumer and
+     *     `launchBinaryPath` is the desktop harness executable; other families use one path for both.
+     */
+    async assertRemoteMcpCapability(agent) {
+        const
+            {harnessType, id} = agent,
+            binaryFamily      = harnessType === 'codex-desktop' ? 'codex' : harnessType,
+            configured        = this.getHarnessBinaryPath(binaryFamily),
+            binaryPath        = configured && this.resolveExecutable(configured, process.env.PATH),
+            configuredLaunch  = this.getHarnessBinaryPath(harnessType),
+            launchBinaryPath  = configuredLaunch && this.resolveExecutable(configuredLaunch, process.env.PATH);
+
+        if (!binaryPath) {
+            throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: harness binary '${configured || binaryFamily}' is unavailable for agent '${id}'.`)
+        }
+        if (!launchBinaryPath) {
+            throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: launch binary '${configuredLaunch || harnessType}' is unavailable for agent '${id}'.`)
+        }
+
+        let args;
+        let accepts;
+
+        if (harnessType === 'codex' || harnessType === 'codex-desktop') {
+            args    = ['mcp', 'add', '--help'];
+            accepts = output => output.includes('--url') && output.includes('--bearer-token-env-var')
+        } else if (harnessType === 'claude-code') {
+            args    = ['mcp', 'add', '--help'];
+            accepts = output => output.includes('--transport') && output.includes('--header')
+        } else if (harnessType === 'kimi-code') {
+            args    = ['--version'];
+            accepts = output => /(?:^|\s)0\.29\.1(?:\s|$)/.test(output)
+        } else if (harnessType === 'opencode') {
+            args    = ['--version'];
+            accepts = output => /(?:^|\s)1\.18\.5(?:\s|$)/.test(output)
+        } else {
+            throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: harnessType '${harnessType}' has no remote MCP artifact grammar.`)
+        }
+
+        let output;
+
+        try {
+            output = await this.execForCapability(binaryPath, args)
+        } catch {
+            throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed '${harnessType}' capability probe failed for agent '${id}'.`)
+        }
+
+        if (!accepts(output)) {
+            throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed '${harnessType}' does not expose Fleet's required remote MCP grammar for agent '${id}'.`)
+        }
+
+        return {harnessType, binaryPath, launchBinaryPath}
+    }
+
+    /**
+     * @summary Ask an installed adapter to read the generated remote MCP projection before spawn.
+     * Codex and Codex Desktop expose a secret-free normalized `mcp list --json` view, so this gate
+     * proves the generated project config is trusted, parsed, and still maps only MC + KB to the
+     * selected remote plane. The probe receives no repository or plane credential. Other adapter
+     * families retain their exact version/grammar admission plus renderer fixtures until they expose
+     * an equivalent non-mutating normalized read.
+     * @param {Object} options
+     * @param {Object} options.agent Raw agent definition.
+     * @param {String} options.binaryPath Capability-proven installed adapter binary.
+     * @param {String} options.repoPath Canonical prepared checkout path.
+     * @param {String} options.instanceHome Canonical prepared harness instance home.
+     * @param {Object} options.mcpMatrix Effective MCP enabled-state matrix.
+     * @param {Object} options.mcpTransport Resolved non-secret remote transport plan.
+     * @param {Object[]} options.mcpPlan Exact non-secret renderer input returned by workspace preparation.
+     * @returns {Promise<Object>} Redacted receipt plus a producer-bound MC/KB capture plan.
+     */
+    async inspectPreparedRemoteMcpAdapter({
+        agent,
+        binaryPath,
+        repoPath,
+        instanceHome,
+        mcpMatrix,
+        mcpTransport,
+        mcpPlan
+    } = {}) {
+        const
+            harnessType   = agent?.harnessType,
+            agentIdentity = typeof agent?.githubUsername === 'string'
+                ? agent.githubUsername.trim().replace(/^@/, '')
+                : '';
+
+        if (!['codex', 'codex-desktop'].includes(harnessType)) {
+            return {harnessType, inspected: false, serverNames: []}
+        }
+
+        if (!path.isAbsolute(binaryPath || '') ||
+            !path.isAbsolute(repoPath || '') ||
+            !path.isAbsolute(instanceHome || '') ||
+            !mcpMatrix ||
+            typeof mcpMatrix !== 'object' ||
+            !mcpTransport ||
+            mcpTransport.mode !== 'remote-http' ||
+            !mcpTransport.resources ||
+            !Array.isArray(mcpPlan) ||
+            !/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(agentIdentity)) {
+            throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: malformed prepared Codex inspection input for agent '${agent?.id || 'unknown'}'.`)
+        }
+
+        const codexHome = harnessType === 'codex-desktop'
+            ? path.join(instanceHome, 'codex-home')
+            : instanceHome;
+        let rows;
+
+        try {
+            const output = await this.execForPreparedCodexInspection(binaryPath, {
+                cwd: repoPath,
+                codexHome
+            });
+
+            rows = parseCodexMcpList(output)
+        } catch {
+            throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' could not consume the generated MCP projection for agent '${agent.id}'.`)
+        }
+
+        const
+            expectedNames = MCP_SERVERS.map(({key}) => `neo-mjs-${key}`),
+            neoRows       = rows.filter(row => typeof row?.name === 'string' && row.name.startsWith('neo-mjs-')),
+            byName        = new Map(neoRows.map(row => [row.name, row])),
+            planByKey     = new Map(mcpPlan.map(server => [server?.key, server]));
+
+        if (neoRows.length !== expectedNames.length ||
+            byName.size !== expectedNames.length ||
+            expectedNames.some(name => !byName.has(name)) ||
+            mcpPlan.length !== MCP_SERVERS.length ||
+            planByKey.size !== MCP_SERVERS.length ||
+            MCP_SERVERS.some(({key}) => !planByKey.has(key)) ||
+            new Set(mcpPlan.map(server => server?.sourceRoot)).size !== 1) {
+            throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' did not expose the exact Fleet MCP server set for agent '${agent.id}'.`)
+        }
+
+        for (const {key} of MCP_SERVERS) {
+            const
+                name      = `neo-mjs-${key}`,
+                row       = byName.get(name),
+                planRow   = planByKey.get(key),
+                transport = row.transport || {},
+                enabled   = mcpMatrix[key] === true;
+
+            if (planRow?.name !== name ||
+                planRow.enabled !== enabled ||
+                row.enabled !== enabled ||
+                !path.isAbsolute(planRow.command || '') ||
+                !path.isAbsolute(planRow.sourceRoot || '') ||
+                !Array.isArray(planRow.args) ||
+                !planRow.args.every(value => typeof value === 'string') ||
+                !Array.isArray(planRow.runtimeEnv) ||
+                !planRow.runtimeEnv.every(value => /^[A-Z][A-Z0-9_]*$/.test(value))) {
+                throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: prepared plan did not preserve the exact generated descriptor for '${name}'.`)
+            }
+
+            if (REMOTE_MCP_SERVER_KEYS.has(key)) {
+                const
+                    resource         = mcpTransport.resources[key],
+                    staticHeaders    = transport.http_headers,
+                    envHeaderAliases = transport.env_http_headers;
+
+                if (transport.type !== 'streamable_http' ||
+                    transport.url !== resource?.url ||
+                    transport.bearer_token_env_var !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
+                    planRow.mode !== 'remote-http' ||
+                    planRow.url !== resource?.url ||
+                    planRow.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
+                    (staticHeaders && Object.keys(staticHeaders).length > 0) ||
+                    (envHeaderAliases && Object.keys(envHeaderAliases).length > 0)) {
+                    throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' reported a non-canonical remote projection for '${name}'.`)
+                }
+            } else if (transport.type !== 'stdio' || planRow.mode !== 'stdio') {
+                throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' moved local-only '${name}' off stdio.`)
+            }
+        }
+
+        const captureServers = {};
+
+        for (const key of REMOTE_MCP_SERVER_KEYS) {
+            const
+                planRow   = planByKey.get(key),
+                transport = byName.get(planRow.name).transport;
+
+            captureServers[key] = {
+                name   : planRow.name,
+                enabled: planRow.enabled,
+                stdio  : {
+                    command: planRow.command,
+                    args   : [...planRow.args],
+                    envVars: [...planRow.runtimeEnv]
+                },
+                remote: {
+                    url             : transport.url,
+                    credentialEnvVar: transport.bearer_token_env_var
+                }
+            }
+        }
+
+        return {
+            harnessType,
+            inspected  : true,
+            serverNames: expectedNames,
+            capturePlan: {
+                producer        : 'installed-codex-mcp-list',
+                harnessType,
+                repoPath,
+                sourceRoot      : mcpPlan[0].sourceRoot,
+                expectedIdentity: `@${agentIdentity}`,
+                servers         : captureServers
+            }
+        }
+    }
+
+    /**
+     * @summary Empirically bind a generated Codex adapter to the AC4 capture in one call.
+     *
+     * The caller supplies only preparation/readback inputs plus the data-only capture spec. This
+     * method performs the installed `codex mcp list --json` inspection itself and passes its private
+     * receipt directly into the driver; no public field can claim that an arbitrary literal plan was
+     * produced by an installed adapter.
+     *
+     * @param {Object} options Inspection inputs accepted by
+     *     {@link inspectPreparedRemoteMcpAdapter}, plus `captureSpec`.
+     * @param {Object} options.captureSpec Data-only AC4 capture request.
+     * @param {String} options.resolvedMcpCredential Plane bearer already resolved by
+     *     FleetTenantService; never sourced from this process's ambient environment.
+     * @returns {Promise<Object>} Capture result; never the executable capture plan.
+     */
+    async capturePreparedRemoteMcpLatencyPair(options={}) {
+        const
+            {captureSpec, resolvedMcpCredential, ...inspection} = options,
+            receipt                                             = await this.inspectPreparedRemoteMcpAdapter(inspection);
+
+        if (!receipt?.inspected || !receipt.capturePlan) {
+            throw new Error(
+                'FleetLifecycleService.capturePreparedRemoteMcpLatencyPair: installed Codex ' +
+                'inspection did not produce a capture plan.'
+            )
+        }
+
+        if (typeof resolvedMcpCredential !== 'string' || !resolvedMcpCredential) {
+            throw new Error(
+                'FleetLifecycleService.capturePreparedRemoteMcpLatencyPair: resolved plane credential is required.'
+            )
+        }
+
+        const run = (await import('../../scripts/diagnostics/captureParityLatencyPair.mjs'))
+            .captureParityLatencyPair;
+
+        return run(captureSpec, {
+            capturePlan    : receipt.capturePlan,
+            planeCredential: resolvedMcpCredential
+        })
+    }
+
+    /**
+     * @summary Execute one bounded, secret-free installed-capability probe through the lifecycle's
+     * injectable `execFile` seam.
+     * @param {String} command
+     * @param {String[]} args
+     * @returns {Promise<String>} Combined stdout/stderr for grammar matching only.
+     * @protected
+     */
+    execForCapability(command, args) {
+        const env = {};
+
+        for (const key of AMBIENT_ENV_ALLOWLIST) {
+            if (process.env[key] !== undefined) env[key] = process.env[key];
+        }
+
+        return new Promise((resolve, reject) => {
+            let   settled = false;
+            const done    = (error, stdout='', stderr='') => {
+                if (settled) return;
+                settled = true;
+                error ? reject(error) : resolve(`${stdout}${stderr}`)
+            };
+
+            try {
+                const pending = this.getExecFileFn()(command, args, {timeout: 5000, env}, done);
+
+                if (pending?.then) {
+                    pending.then(result => {
+                        if (typeof result === 'string' || Buffer.isBuffer(result)) {
+                            done(null, result)
+                        } else {
+                            done(null, result?.stdout, result?.stderr)
+                        }
+                    }, done)
+                }
+            } catch (error) {
+                done(error)
+            }
+        })
+    }
+
+    /**
+     * @summary Execute Codex's non-mutating generated-config read with the exact prepared cwd/home.
+     * The environment is the benign runtime allowlist plus `CODEX_HOME`; neither Fleet credential
+     * slot is present, so parsing cannot become an authentication side channel.
+     * @param {String} command
+     * @param {Object} options
+     * @param {String} options.cwd
+     * @param {String} options.codexHome
+     * @returns {Promise<String>} Combined stdout/stderr for bounded parsing only.
+     * @protected
+     */
+    execForPreparedCodexInspection(command, {cwd, codexHome}) {
+        const env = {CODEX_HOME: codexHome};
+
+        for (const key of AMBIENT_ENV_ALLOWLIST) {
+            if (process.env[key] !== undefined) env[key] = process.env[key];
+        }
+
+        return new Promise((resolve, reject) => {
+            let   settled = false;
+            const done    = (error, stdout='', stderr='') => {
+                if (settled) return;
+                settled = true;
+                error ? reject(error) : resolve(`${stdout}${stderr}`)
+            };
+
+            try {
+                const pending = this.getExecFileFn()(command, ['mcp', 'list', '--json'], {
+                    cwd,
+                    env,
+                    timeout  : 5000,
+                    maxBuffer: 1024 * 1024
+                }, done);
+
+                if (pending?.then) {
+                    pending.then(result => {
+                        if (typeof result === 'string' || Buffer.isBuffer(result)) {
+                            done(null, result)
+                        } else {
+                            done(null, result?.stdout, result?.stderr)
+                        }
+                    }, done)
+                }
+            } catch (error) {
+                done(error)
+            }
+        })
     }
 
     /**

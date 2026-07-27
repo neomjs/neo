@@ -5,9 +5,13 @@
  */
 export {
     MCP_SERVERS,
+    REMOTE_HTTP_HARNESS_TYPES,
+    REMOTE_MCP_CREDENTIAL_ENV_VAR,
     defaultMcpMatrix,
     listMcpServers,
     normalizeMcpOverrides,
-    resolveMcpMatrix
+    normalizeMcpTransport,
+    resolveMcpMatrix,
+    supportsRemoteMcpTransport
 } from '../../../src/ai/fleet/mcpServers.mjs';
 export {default} from '../../../src/ai/fleet/mcpServers.mjs';

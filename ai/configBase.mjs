@@ -176,6 +176,17 @@ class ConfigBase extends ConfigProvider {
                      */
                     claudeDesktop: leaf('/Applications/Claude.app/Contents/MacOS/Claude', 'NEO_FLEET_CLAUDE_DESKTOP_BIN', 'string'),
                     /**
+                     * The Kimi Code CLI — PATH-resolved by default.
+                     * @type {string}
+                     */
+                    kimiCode: leaf('kimi', 'NEO_FLEET_KIMI_CODE_BIN', 'string'),
+                    /**
+                     * The OpenCode CLI — PATH-resolved by default. The macOS desktop app is not a
+                     * CLI substitute; hosts with only the app bundle fail the preflight by design.
+                     * @type {string}
+                     */
+                    openCode: leaf('opencode', 'NEO_FLEET_OPENCODE_BIN', 'string'),
+                    /**
                      * The codex harness binary. The default is the ChatGPT-app-bundled CLI — an
                      * alpha channel that self-updates with its app; production fleets pin this
                      * leaf, and the lifecycle status's `binaryVersion` surfaces what actually ran.
