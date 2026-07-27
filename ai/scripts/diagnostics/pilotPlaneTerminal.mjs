@@ -45,7 +45,7 @@
  * reader gets one citation that is maintained, instead of decaying references scattered through code.
  */
 
-import {verifyReplayContinuity} from './walReplayPlan.mjs';
+import {planWalReplay, verifyReplayContinuity} from './walReplayPlan.mjs';
 
 /**
  * Whether the substrate can attribute a durable WAL segment to the plane that wrote it.
@@ -166,27 +166,62 @@ function validateContinuityReceipt(continuity) {
  * has begun there is no rollback to offer, so the only honest terminals are "continuity proven by a
  * receipt" and "contained".
  *
- * Consumes `verifyReplayContinuity`'s verdict rather than re-deriving continuity, because that verifier is
- * bound to the pre-state digest and the receipted plan, and can therefore distinguish a genuine replay
- * from a double-apply or a drained work list. Re-deriving it here would produce a second opinion with less
- * evidence.
+ * ## Why this PLANS as well as verifies
+ *
+ * An earlier shape accepted a caller-supplied plan and reconciled it against its own receipt. That proved
+ * **internal self-consistency, not provenance** — a fully self-consistent *empty* plan
+ * (`toApply: []`, `plannedIdsByStage: {embedded: [], graph: []}`, a `targetStateDigest` computed from the
+ * real pre-state) reconciled cleanly, landed nothing, lost nothing, and settled `committed`. A fabricated
+ * "there was nothing to do" was indistinguishable from a genuine no-op.
+ *
+ * So the plan is now **derived here from the source corpus**. There is no plan argument to forge: the only
+ * inputs are the payload entries and the two observed stage states, and forging a commit would require
+ * supplying a corpus whose every planned id appears in the after-state — which is performing the replay.
+ *
+ * An **empty corpus refuses**. Nothing to replay is not a promotion that moved nothing; it is not a
+ * promotion. Certifying it would reintroduce the zero-effect certification this leaf exists to prevent, one
+ * layer up from where the reviewer first found it.
  * @param {Object} spec
- * @param {Object} spec.continuity `verifyReplayContinuity(...)` output, receipt included.
+ * @param {Object[]} spec.payloadEntries      Parsed WAL records from the SOURCE plane — the authority.
+ * @param {Object} spec.appliedStagesBefore   `{<stage>: Set}` observed before replay.
+ * @param {Object} spec.appliedStagesAfter    `{<stage>: Set}` observed after replay.
+ * @param {String[]} [spec.requiredStages]    Stages a row must carry to count as applied.
  * @returns {Object} `{terminal, reason, eligibility, receipt}`
  */
 export function evaluatePromotion(spec) {
     // Nullish-coalesced rather than a `= {}` default parameter, which fires only for `undefined` and would
     // let `evaluatePromotion(null)` THROW. A throw is an exit without a terminal — the exact silent abandon
     // this module exists to make impossible — so the guard has to cover null too.
-    const {appliedStagesBefore, appliedStagesAfter, plan} = spec ?? {};
+    const {payloadEntries, appliedStagesBefore, appliedStagesAfter, requiredStages} = spec ?? {};
 
-    if (!plan || typeof plan !== 'object') {
+    if (!Array.isArray(payloadEntries)) {
         return settle(
             'failed-contained',
-            'no replay plan was supplied, so nothing can be verified. A promotion that died mid-replay ' +
-            'reaches this branch identically to a mis-wired caller — both are unprovable, and the governing ' +
-            'rule settles unprovable as contained.'
+            'payloadEntries must be the source corpus this promotion replayed. A promotion terminal cannot ' +
+            'accept a pre-built plan: a self-consistent plan proves only that its own projection matches its ' +
+            'own receipt, never that it was derived from the corpus it claims to describe.'
         );
+    }
+
+    if (payloadEntries.length === 0) {
+        return settle(
+            'failed-contained',
+            'the source corpus is empty, so there is nothing to promote. An empty replay is not a promotion ' +
+            'that moved nothing — it is not a promotion, and certifying it would be the zero-effect ' +
+            'certification this leaf exists to prevent.'
+        );
+    }
+
+    // THE PLAN IS DERIVED, NOT ACCEPTED. `planWalReplay` refuses duplicate source ids and unusable ids, and
+    // returns a frozen plan whose receipt is computed from THIS corpus against THIS pre-state.
+    const plan = planWalReplay({
+        payloadEntries,
+        appliedStages: appliedStagesBefore,
+        ...(requiredStages ? {requiredStages} : {})
+    });
+
+    if (!plan.ok) {
+        return settle('failed-contained', `the corpus could not be planned: ${plan.reason ?? 'no reason given'}`);
     }
 
     // THE VERIFICATION RUNS HERE. An earlier shape accepted `verifyReplayContinuity`'s OUTPUT, and a

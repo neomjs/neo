@@ -9,7 +9,7 @@ import {
     evaluatePromotion,
     validateOverlayScan
 } from '../../../../../../ai/scripts/diagnostics/pilotPlaneTerminal.mjs';
-import {planWalReplay} from '../../../../../../ai/scripts/diagnostics/walReplayPlan.mjs';
+import {digestAppliedStages} from '../../../../../../ai/scripts/diagnostics/walReplayPlan.mjs';
 
 // AC5's parenthetical — "never a silent abandon" — is the whole specification. So most assertions here are
 // about the ABSENCE of exits: every path names a terminal, an unprovable claim never opens eligibility, and
@@ -25,12 +25,6 @@ import {planWalReplay} from '../../../../../../ai/scripts/diagnostics/walReplayP
 
 const S         = ids => new Set(ids),
       allStages = ids => ({embedded: S(ids), graph: S(ids)});
-
-// A real plan from the real planner — not a hand-built object, which is the entire point.
-const realPlan = () => planWalReplay({
-    payloadEntries: [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}],
-    appliedStages : allStages(['seed'])
-});
 
 test.describe('terminal set and the eligibility authority', () => {
     test('every terminal is named', () => {
@@ -54,69 +48,76 @@ test.describe('terminal set and the eligibility authority', () => {
     });
 });
 
-test.describe('evaluatePromotion — the verification runs HERE, so evidence cannot be typed', () => {
-    test('a real replay against a real plan commits, and carries the verifier\'s receipt', () => {
-        // POSITIVE CONTROL for the whole promotion path: without it, every refusal below could be a blanket
+test.describe('evaluatePromotion — the PLAN is derived here, so neither verdict nor plan can be supplied', () => {
+    const entries = [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}];
+
+    test('a real corpus whose planned work landed commits, and carries the verifier receipt', () => {
+        // POSITIVE CONTROL for the whole promotion path. Without it every refusal below could be a blanket
         // failure and the module would look correct while being useless.
         const result = evaluatePromotion({
+            payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
-            appliedStagesAfter : allStages(['seed', 'a', 'b']),
-            plan               : realPlan()
+            appliedStagesAfter : allStages(['seed', 'a', 'b'])
         });
 
         expect(result.terminal).toBe('committed');
         expect(result.eligibility).toBe('opened');
         expect(result.receipt.plannedTotal).toBe(2);
         expect(result.receipt.appliedByStage).toEqual({embedded: 2, graph: 2});
-        expect(result.reason).toContain('embedded + graph');
     });
 
-    test('⭐ a hand-typed but structurally COMPLETE receipt cannot commit', () => {
-        // The falsified shape. Validating receipt structure only checked the shape of a claim, never its
-        // provenance — and a complete receipt is a thing a caller can simply type. There is no longer a
-        // `continuity` input to forge: the verifier is called from inside.
-        const typed = evaluatePromotion({
-            continuity: {
-                ok     : true, monotonic: true,
-                receipt: {requiredStages: ['embedded', 'graph'], plannedTotal: 2, appliedByStage: {embedded: 2, graph: 2}}
-            }
-        });
+    test('⭐ a caller-forged SELF-CONSISTENT empty plan cannot commit — there is no plan input', () => {
+        // The falsified shape. A forged plan with `toApply: []`, matching empty `plannedIdsByStage`, and a
+        // `targetStateDigest` computed from the REAL pre-state reconciled cleanly, landed nothing, lost
+        // nothing, and settled `committed`. Reconciliation proved self-consistency, never provenance.
+        const before = allStages(['seed']),
+              forged = {
+                  ok            : true,
+                  toApply       : [],
+                  alreadyApplied: [],
+                  receipt       : {
+                      sourceEntries      : 0,
+                      toApplyCount       : 0,
+                      alreadyAppliedCount: 0,
+                      requiredStages     : ['embedded', 'graph'],
+                      targetStateDigest  : digestAppliedStages(before),
+                      plannedIdsByStage  : {embedded: [], graph: []},
+                      pendingByStage     : {embedded: 0, graph: 0}
+                  }
+              },
+              result = evaluatePromotion({appliedStagesBefore: before, appliedStagesAfter: before, plan: forged});
 
-        expect(typed.terminal).toBe('failed-contained');
-        expect(typed.eligibility).toBe('denied');
-        expect(typed.reason).toContain('no replay plan');
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.eligibility).toBe('denied');
+        expect(result.reason).toContain('cannot accept a pre-built plan');
+        expect(result.reason).toContain('never that it was derived from the corpus');
     });
 
-    test('⭐ a forged plan cannot commit — the verifier reconciles it against its own receipt', () => {
-        const plan = realPlan(),
-              // Same receipt, drained work list: the shape a queue-consuming executor would produce.
-              drained = evaluatePromotion({
-                  appliedStagesBefore: allStages(['seed']),
-                  appliedStagesAfter : allStages(['seed']),
-                  plan               : {ok: true, toApply: [], alreadyApplied: [], receipt: plan.receipt}
-              });
+    test('⭐ an EMPTY corpus refuses — nothing to replay is not a promotion that moved nothing', () => {
+        const before = allStages(['seed']),
+              result = evaluatePromotion({payloadEntries: [], appliedStagesBefore: before, appliedStagesAfter: before});
 
-        expect(drained.terminal).toBe('failed-contained');
-        expect(drained.reason).toContain('mutated after planning');
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('nothing to promote');
+        expect(result.reason).toContain('zero-effect certification');
     });
 
-    test('a replay verified against the WRONG pre-state cannot commit', () => {
-        // The plan was computed against {seed}; verifying it against an empty target is meaningless.
+    test('a corpus the planner refuses cannot commit, and the planner reason surfaces', () => {
         const result = evaluatePromotion({
+            payloadEntries     : [{id: 'a'}, {id: 'a'}],
             appliedStagesBefore: allStages([]),
-            appliedStagesAfter : allStages(['a', 'b']),
-            plan               : realPlan()
+            appliedStagesAfter : allStages(['a'])
         });
 
         expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('pre-state');
+        expect(result.reason).toContain('duplicate source id');
     });
 
     test('a planned id that never landed cannot commit', () => {
         const result = evaluatePromotion({
+            payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
-            appliedStagesAfter : allStages(['seed', 'a']),   // 'b' never landed
-            plan               : realPlan()
+            appliedStagesAfter : allStages(['seed', 'a'])   // 'b' never landed
         });
 
         expect(result.terminal).toBe('failed-contained');
@@ -125,27 +126,29 @@ test.describe('evaluatePromotion — the verification runs HERE, so evidence can
 
     test('a target that LOST a prior receipt cannot commit', () => {
         const result = evaluatePromotion({
+            payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
-            appliedStagesAfter : allStages(['a', 'b']),       // 'seed' regressed
-            plan               : realPlan()
+            appliedStagesAfter : allStages(['a', 'b'])       // 'seed' regressed
         });
 
         expect(result.terminal).toBe('failed-contained');
         expect(result.reason).toContain('lost');
     });
 
-    test('a refused plan cannot commit, and the planner reason surfaces', () => {
-        const bad    = planWalReplay({payloadEntries: [{id: 'a'}, {id: 'a'}], appliedStages: allStages([])}),
-              result = evaluatePromotion({
-                  appliedStagesBefore: allStages([]), appliedStagesAfter: allStages(['a']), plan: bad
-              });
+    test('a fabricated continuity VERDICT cannot commit either — that input is gone too', () => {
+        const typed = evaluatePromotion({
+            continuity: {
+                ok     : true, monotonic: true,
+                receipt: {requiredStages: ['embedded', 'graph'], plannedTotal: 2, appliedByStage: {embedded: 2, graph: 2}}
+            }
+        });
 
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.reason).toContain('duplicate source id');
+        expect(typed.terminal).toBe('failed-contained');
+        expect(typed.reason).toContain('payloadEntries must be the source corpus');
     });
 
     test('absent evidence settles contained rather than refusing — the refusal WOULD BE the abandon', () => {
-        for (const spec of [undefined, null, {}, {plan: null}, {plan: 'x'}, 42]) {
+        for (const spec of [undefined, null, {}, {payloadEntries: 'x'}, 42]) {
             const result = evaluatePromotion(spec);
 
             expect(result.terminal).toBe('failed-contained');
@@ -154,7 +157,7 @@ test.describe('evaluatePromotion — the verification runs HERE, so evidence can
     });
 
     test('a caller cannot supply the terminal', () => {
-        const result = evaluatePromotion({plan: {ok: false, reason: 'nope'}, terminal: 'committed', eligibility: 'opened'});
+        const result = evaluatePromotion({payloadEntries: [], terminal: 'committed', eligibility: 'opened'});
 
         expect(result.terminal).toBe('failed-contained');
         expect(result.eligibility).toBe('denied');
@@ -266,8 +269,8 @@ test.describe('no path exits without a named terminal', () => {
     test('both evaluators always return a member of PILOT_TERMINALS', () => {
         const inputs = [
             undefined, null, {}, 'string', 42, [],
-            {plan: realPlan()}, {plan: {}}, {continuity: {ok: true, monotonic: true}},
-            {appliedStagesBefore: allStages(['seed']), appliedStagesAfter: allStages(['seed', 'a', 'b']), plan: realPlan()},
+            {plan: {}}, {continuity: {ok: true, monotonic: true}},
+            {payloadEntries: [{id: 'a', timestamp: 1}], appliedStagesBefore: allStages([]), appliedStagesAfter: allStages(['a'])},
             {overlayScan: []}, {overlayScan: {planeIdSource: 'x', scannedSegmentCount: 0, taggedSegments: []}},
             {preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']}
         ];
