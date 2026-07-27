@@ -6,8 +6,7 @@ import {resolvePlaneDataRoot} from '../../../planeConfig.mjs';
 import {
     MEMORY_CORE_GRAPH_DB_ENV,
     TURN_PRESENCE_DEFAULTS,
-    TURN_PRESENCE_ENV,
-    resolveMemoryCoreGraphPath
+    TURN_PRESENCE_ENV
 } from './helpers/TurnPresenceConfig.mjs';
 
 function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
@@ -199,7 +198,7 @@ class ConfigBase extends ConfigProvider {
                  * Production graph SQLite path. Declarative leaf; env override via `NEO_MEMORY_DB_PATH`.
                  * @type {string}
                  */
-                graphProd      : leaf(resolveMemoryCoreGraphPath({env: {}, rootDir: cwd}), MEMORY_CORE_GRAPH_DB_ENV, 'string', {planeMember: false, planeMemberReason: 'open membership decision — the graph SQLite is the plane core artifact with a plane-anchored default yet no declared membership; tracked by #15872 (membership + anchor alignment + the KB/NL memoryCoreDbPathProd sibling divergence). Explicit non-member until that ticket rules.'}),
+                graphProd      : leaf(path.resolve(planeDataRoot, 'sqlite/memory-core-graph.sqlite'), MEMORY_CORE_GRAPH_DB_ENV, 'string', {planeMember: true}),
                 /**
                  * Unit-test graph path: in-memory SQLite (ephemeral, per-process). Declarative leaf.
                  * @type {string}
@@ -886,6 +885,10 @@ class ConfigBase extends ConfigProvider {
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'datasets.rlaif.trajectories',
     'remRunStateDir',
+    // The plane's core durable artifact. Its default was previously cwd-anchored while every other member
+    // derived from the plane anchor, so a different-cwd process (daemon, host CLI) resolved a path outside
+    // the plane its siblings agreed on — and boot member-coherence never covered it.
+    'storagePaths.graphProd',
     'memoryWal.dirProd',
     'memoryWal.daemonDataDir',
     'messageWal.daemonDataDir',

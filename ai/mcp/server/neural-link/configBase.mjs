@@ -61,7 +61,14 @@ class ConfigBase extends ConfigProvider {
              * Path to the memory core SQLite database for action logging.
              * @type {string}
              */
-            memoryCoreDbPathProd: leaf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+            // Plane-anchored, sharing Memory Core's relative path: same env, SAME artifact. `KBRecorderService` /
+            // `RecorderService` write telemetry tables into it, while the readers (`GapInferenceEngine`,
+            // `DreamService`) resolve MC's `storagePaths.graph`. The previous homedir default therefore split
+            // writers from readers on any seat with the env unset — the recorders wrote to a file the
+            // consumers never open, and gap inference silently produced no edges. Converging the default is
+            // the repair.
+            memoryCoreDbPathProd: leaf(path.resolve(planeDataRoot, 'sqlite/memory-core-graph.sqlite'), 'NEO_MEMORY_DB_PATH', 'string',
+                {planeMember: false, planeMemberReason: 'consumer of the Memory Core graph SQLite, not its owner: MC declares `storagePaths.graphProd` and asserts it at its own boot. Mirrors the Chroma persist-dir precedent in the Knowledge Base config — a shared artifact is claimed by its owner and not re-claimed by consumers, so one boot failure names one cause instead of three.'}),
             /**
              * @summary Per-process test destination shared with Knowledge Base telemetry.
              * @type {string}
