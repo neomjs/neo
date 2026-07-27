@@ -30,11 +30,17 @@ const ROOT       = path.resolve(__dirname, '../..');
  * on someone else's host, long after the commit that broke the invariant. By then the failure presents
  * as "the deployment's Knowledge Base is empty", which is where it was actually found.
  *
- * The asymmetry that makes it permanent: the fail-closed CONSUMER is scheduled, while the shipped
- * repair (`PullRequestSyncer.repairDuplicateArtifacts`, reachable only through `SyncService.runFullSync`)
- * has no scheduled invoker at all — its only callers are the `ai:sync-github-workflow` CLI and
- * release-time `publish.mjs`. So a duplicate blocks ingestion continuously and is repaired only when
- * someone runs a command by hand.
+ * What makes it permanent is not a missing repair, and not a missing schedule. `SyncService.runFullSync`
+ * carries `PullRequestSyncer.repairDuplicateArtifacts` at stage 7-b, and the orchestrator does schedule
+ * it — `githubWorkflowSync`, default every two hours, enabled on local deployments and correctly
+ * disabled on cloud ones, which must never sync this repo. The repair RUNS.
+ *
+ * It just never lands. Stage 7-d takes a terminal integrity verdict AFTER the repair and throws when the
+ * corpus is unclean, and the aggregate verdict then fails the run before the generated-content commit.
+ * A corpus with one duplicate therefore repairs itself on disk every couple of hours and is never
+ * delivered — the fix accumulates in a working tree while the committed corpus stays broken, so every
+ * consumer keeps reading the broken state. The failure mode is delivery, not detection or repair, which
+ * is why "it is already automated" is not reassurance here.
  *
  * An invariant of the committed corpus belongs where the corpus changes. Same shape as the config-leaf
  * parity manifest: assert at commit time rather than discover at runtime.
