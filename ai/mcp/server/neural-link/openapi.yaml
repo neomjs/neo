@@ -2185,7 +2185,7 @@ paths:
         Manages the global Neo.config object (get/set).
 
         **When to Use:**
-        To inspect or modify the global configuration of the framework at runtime.
+        To inspect or modify the global configuration of the engine at runtime.
       tags: [Configuration]
       requestBody:
         required: true
