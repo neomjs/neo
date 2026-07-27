@@ -229,7 +229,13 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                     items     : [strategy, swarm]
                 }
             };
-            const data = {path: [{cls: ['neo-dock-stack-handle']}, {id: 'swarm-button'}]};
+            // Production DragDrop shape: the original nested mousedown survives as `target`,
+            // while the custom drag:start `path` begins at the draggable button.
+            const data = {
+                path      : [{id: 'swarm-button'}],
+                target    : {cls: ['neo-dock-stack-handle']},
+                targetPath: [{cls: ['neo-dock-stack-handle']}, {id: 'swarm-button'}]
+            };
 
             await DockTabSortZone.prototype.onDragStart.call(zone, data);
 
@@ -566,6 +572,35 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
 
             // proxy-less call (torn down mid-gesture) stays safe — the flag still resets
             DockTabSortZone.prototype.endWindowDrag.call({dragProxy: null, isWindowDragging: true})
+        })
+
+        test('a winning remote pointer claim outranks popup-scale source-boundary overlap for that frame', () => {
+            const fired = [];
+            const zone  = {
+                boundaryContainerRect: {bottom: 100, height: 100, right: 100, width: 100, x: 0, y: 0},
+                dragCoordinator      : {pointerClaimArbiter: {resolve: () => ({stableId: 'workspace-a'})}},
+                dragPlaceholder      : null,
+                fire                 : name => fired.push(name),
+                isWindowDragging     : true,
+                lastIntersectionRatio: 0,
+                lastProxyDims        : {height: 80, width: 80},
+                onWindowDragContinue : () => fired.push('continue'),
+                reattachArmed        : true,
+                reattachThreshold    : 0.6
+            };
+            const frame = {
+                proxyRect: {bottom: 80, height: 80, right: 80, width: 80, x: 0, y: 0}
+            };
+
+            expect(DockTabSortZone.prototype.checkWindowBoundary.call(zone, frame)).toBe(true);
+            expect(fired, 'the claimed remote frame cannot retire the source vessel').toEqual([]);
+
+            zone.dragCoordinator.pointerClaimArbiter.resolve = () => null;
+
+            expect(DockTabSortZone.prototype.checkWindowBoundary.call(zone, frame)).toBe(true);
+            expect(fired, 'the next claim-free source frame delegates to ordinary re-entry').toEqual([
+                'dragBoundaryEntry'
+            ])
         })
     });
 

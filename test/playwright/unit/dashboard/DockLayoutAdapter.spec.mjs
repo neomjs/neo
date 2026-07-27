@@ -907,6 +907,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
 
             expect(decorated).toBe(pane);
             expect(grip.cls).toEqual(['neo-dock-stack-handle']);
+            expect(grip.id).toBe('neo-dock-stack-handle-live');
 
             const restored = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item);
 
@@ -933,6 +934,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             expect(header.text[1]).toMatchObject({
                 'aria-hidden': true,
                 cls          : ['neo-dock-stack-handle'],
+                id           : 'neo-dock-stack-handle-swarm',
                 tag          : 'span',
                 title        : 'Drag whole stack'
             });
