@@ -48,22 +48,74 @@ function isElementVisible(element) {
 }
 
 /**
+ * Adapter states a cockpit head can render, as `is-<state>` classes (`FleetGrid.mjs` renders
+ * `is-${adapterState}`; `FleetCockpit` seeds `sample` and promotes on a capability answer).
+ * @type {String[]}
+ */
+const ADAPTER_STATES = ['live', 'sample', 'stale', 'degraded'];
+
+/**
+ * @summary Resolves the single adapter state a class list advertises, or `unknown`.
+ *
+ * Mirrors `adapterWitness.resolveAdapterState`. The duplication is forced, not chosen: this file is
+ * CommonJS because Electron cannot load an ESM preload in a sandboxed renderer, so it cannot import the
+ * ESM module. A spec asserts the two state lists stay identical.
+ * @param {Object} classList
+ * @returns {String}
+ */
+function resolveAdapterStateFromClassList(classList) {
+    const matched = ADAPTER_STATES.filter(state => classList.contains(`is-${state}`));
+
+    return matched.length === 1 ? matched[0] : 'unknown';
+}
+
+/**
+ * @summary Reports which adapter state a cockpit head is actually rendering, plus its label text.
+ *
+ * Scoped selectors were the defect this replaces: reading `.fm-fleet-head.is-sample .fm-fleet-stale`
+ * can only ever observe the ONE state we do not want to ship. A promoted (live) cockpit made that
+ * selector match nothing and the field reported `null` — indistinguishable from a broken selector or
+ * an absent cockpit, so the witness could not report success at all, only failure. The state is now
+ * read from the element and returned as data, which makes `live` a positive observation and keeps
+ * absence distinct from every rendered state.
+ * @param {String} headSelector  The adapter head carrying the `is-<state>` class.
+ * @param {String} labelSelector The label inside that head.
+ * @returns {{state: String|null, label: String|null}} `state` is `null` only when the head is absent.
+ */
+function readAdapterHead(headSelector, labelSelector) {
+    const head = document.querySelector(headSelector);
+
+    if (!head) return {state: null, label: null};
+
+    return {
+        // EXACTLY ONE known class, or `unknown`. First-match resolution reported a confident answer
+        // about a contradictory DOM: a head carrying `is-live is-sample` resolved to whichever state
+        // sat earlier in the list. Ambiguity and unrecognised-state now share the same fail-closed
+        // outcome — not ready, not conclusive.
+        state: resolveAdapterStateFromClassList(head.classList),
+        label: head.querySelector(labelSelector)?.textContent?.trim() ?? null
+    }
+}
+
+/**
  * Reads the product-owned DOM markers needed by the packaged first-paint contract.
  * @summary Produces a bounded semantic snapshot without exposing page state or transport to the renderer.
  * @returns {Object}
  */
 function collectFirstPaintSnapshot() {
     const
-        activityLabel = document.querySelector('.fm-fleet-cockpit .fm-stream-head.is-sample .fm-stream-state')?.textContent?.trim() ?? null,
-        cards         = [...document.querySelectorAll('.fm-fleet-cockpit .fm-agent-card')],
-        cockpit       = document.querySelector('.fm-fleet-cockpit'),
-        rosterLabel   = document.querySelector('.fm-fleet-cockpit .fm-fleet-head.is-sample .fm-fleet-stale')?.textContent?.trim() ?? null;
+        cards      = [...document.querySelectorAll('.fm-fleet-cockpit .fm-agent-card')],
+        cockpit    = document.querySelector('.fm-fleet-cockpit'),
+        rosterHead = readAdapterHead('.fm-fleet-cockpit .fm-fleet-head', '.fm-fleet-stale'),
+        streamHead = readAdapterHead('.fm-fleet-cockpit .fm-stream-head', '.fm-stream-state');
 
     return {
-        activityLabel,
+        activityLabel   : streamHead.label,
         cardCount       : cards.filter(isElementVisible).length,
         cockpitVisible  : Boolean(cockpit && isElementVisible(cockpit)),
-        rosterLabel,
+        rosterLabel     : rosterHead.label,
+        rosterState     : rosterHead.state,
+        streamState     : streamHead.state,
         tourControlCount: document.querySelectorAll(TOUR_CONTROL_SELECTOR).length
     }
 }
@@ -98,10 +150,16 @@ const firstPaintTimer = setInterval(function reportFirstPaint() {
     const
         elapsed  = Date.now() - t0,
         snapshot = collectFirstPaintSnapshot(),
+        // Ready = the cockpit rendered RECOGNISED adapter heads, in ANY honest state. Pinning the
+        // sample labels here meant a cockpit wired to the live fleet could never become ready: it
+        // would wait out the full timeout and report `timedOut: true`, so the product receipt was
+        // reachable only while the product was unfinished. Label-vs-state AGREEMENT is judged by the
+        // shell, which owns the verdict — the preload only observes. `tourControlCount === 0` stays:
+        // the receipt is for the product first paint, not a demo tour.
         ready    = snapshot.cockpitVisible &&
             snapshot.cardCount > 0 &&
-            snapshot.rosterLabel === 'static roster · offline' &&
-            snapshot.activityLabel === 'sample · live feed pending' &&
+            snapshot.rosterState !== null && snapshot.rosterState !== 'unknown' &&
+            snapshot.streamState !== null && snapshot.streamState !== 'unknown' &&
             snapshot.tourControlCount === 0,
         timedOut = elapsed > FIRST_PAINT_TIMEOUT_MS;
 

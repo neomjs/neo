@@ -19,8 +19,12 @@ import {app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, protocol, ses
 import {createReadStream}                                                                   from 'node:fs';
 import {fileURLToPath}                                                                      from 'node:url';
 import path                                                                                 from 'node:path';
-import {createAppLifecycle}                                                                 from './appLifecycle.mjs';
-import {createFleetCapability}                                                              from './fleetCapability.mjs';
+import {
+    ADAPTER_STATE_NAMES,
+    computeFirstPaintVerdict
+} from './adapterWitness.mjs';
+import {createAppLifecycle}    from './appLifecycle.mjs';
+import {createFleetCapability} from './fleetCapability.mjs';
 import {
     APP_HOST,
     CONTENT_SECURITY_POLICY,
@@ -445,10 +449,16 @@ function sanitizeBootReport(report) {
  * @returns {Object|null}
  */
 function sanitizeFirstPaintReport(report) {
-    const boundedText = value => value === null || (typeof value === 'string' && value.length <= 100);
+    const
+        boundedText   = value => value === null || (typeof value === 'string' && value.length <= 100),
+        // `null` = head absent. Any other value must be one of the states the witness knows how to
+        // check, so an unmapped state cannot arrive as a plausible-looking string and pass silently.
+        adapterState  = value => value === null || (typeof value === 'string' && ADAPTER_STATE_NAMES.includes(value));
 
     if (
         !report ||
+        !adapterState(report.rosterState) ||
+        !adapterState(report.streamState) ||
         !boundedText(report.activityLabel) ||
         !Number.isInteger(report.cardCount) ||
         report.cardCount < 0 ||
@@ -469,6 +479,8 @@ function sanitizeFirstPaintReport(report) {
         firstPaintMs        : report.rendererFirstPaintMs === null ? null : Math.round(process.uptime() * 1000),
         rendererFirstPaintMs: report.rendererFirstPaintMs,
         rosterLabel         : report.rosterLabel,
+        rosterState         : report.rosterState,
+        streamState         : report.streamState,
         timedOut            : report.timedOut === true,
         tourControlCount    : report.tourControlCount
     }
@@ -1224,21 +1236,30 @@ app.whenReady().then(async () => {
             boot2.viewportId &&
             boot1.viewportId !== boot2.viewportId
         ),
-        firstPaintPassed = firstPaint.cockpitVisible === true &&
-            firstPaint.cardCount > 0 &&
-            firstPaint.rosterLabel === 'static roster · offline' &&
-            firstPaint.activityLabel === 'sample · live feed pending' &&
-            firstPaint.tourControlCount === 0 &&
-            firstPaint.firstPaintMs !== null &&
-            firstPaint.firstPaintMs <= 60000 &&
-            firstPaint.timedOut === false,
+        // The verdict arithmetic lives in `adapterWitness.mjs` so it is unit-testable without Electron:
+        // it had NO coverage while it sat here, and the verdict is what the release gate reads.
+        //
+        // NOTE on `tourControlCount`: it is not a term in the verdict, but it DOES gate the final result
+        // transitively — the preload only reports `ready` when no tour controls are present, so a demo
+        // tour makes the report arrive via the timeout path and `timedOut === false` then fails. The
+        // product-first-paint policy is intended; describing it as "removed from the verdict" was true
+        // of the expression and false of the behaviour.
+        verdict = computeFirstPaintVerdict({
+            firstPaint,
+            packagedMode,
+            brainMode,
+            brainUp: brain.mode ? brain.up === true : null
+        }),
+        {adaptersCoherent, firstPaintPassed, productWitnessPassed, productWitnessUnmet} = verdict,
         firstPaintReceipt = {
             ...firstPaint,
+            adaptersCoherent,
             brainMode,
-            brainUp             : brain.mode ? brain.up === true : null,
+            brainUp: brain.mode ? brain.up === true : null,
             packagedMode,
-            passed              : firstPaintPassed,
-            productWitnessPassed: packagedMode && brain.mode && brain.up === true && firstPaintPassed
+            passed : firstPaintPassed,
+            productWitnessPassed,
+            productWitnessUnmet
         },
         results = {
             assetFailures,
