@@ -13,15 +13,16 @@ setup({
     }
 });
 
-import {test, expect}         from '@playwright/test';
-import Neo                    from '../../../../../../src/Neo.mjs';
-import * as core              from '../../../../../../src/core/_export.mjs';
-import InstanceManager        from '../../../../../../src/manager/Instance.mjs';
-import AiConfig               from '../../../../../../ai/config.template.mjs';
-import ChromaManager          from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
-import StorageRouter          from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
-import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
-import logger                 from '../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import {test, expect}              from '@playwright/test';
+import Neo                         from '../../../../../../src/Neo.mjs';
+import * as core                   from '../../../../../../src/core/_export.mjs';
+import InstanceManager             from '../../../../../../src/manager/Instance.mjs';
+import AiConfig                    from '../../../../../../ai/config.template.mjs';
+import ChromaManager               from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import {LOOPBACK_PROBE_HEALTH_KEY} from '../../../../../../ai/services/memory-core/helpers/loopbackFamilyProbe.mjs';
+import StorageRouter               from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import ChromaLifecycleService      from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import logger                      from '../../../../../../ai/mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Coverage for the identity observability block in the healthcheck payload.
@@ -403,7 +404,8 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
             getMemoryCollection      : StorageRouter.getMemoryCollection,
             getSummaryCollection     : StorageRouter.getSummaryCollection,
-            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus
+            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus,
+            loopbackConnectProbe     : HealthService.loopbackConnectProbe
         };
 
         ChromaManager.connected = true;
@@ -446,12 +448,82 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         TextEmbeddingService.embedText            = originalEmbedText;
+        HealthService.loopbackConnectProbe        = originals.loopbackConnectProbe;
 
         HealthService.setStdioIdentityState(null);
         HealthService.runtimeFreshnessReader = null;
         HealthService.clearStartupDependencyState();
         HealthService.clearCache();
     });
+
+    // The producer gate. Review feedback surfaced the omission that made these necessary:
+    // deleting the assignment in `#performHealthCheck` left the pure helper spec AND the Server spec
+    // green, because the Server spec builds its payload BY HAND. Nothing asserted that HealthService
+    // actually writes the key. These three close that — and they are the only tests in the suite that
+    // exercise producer and consumer through one real call.
+
+    /** Forces the primary Chroma connection to fail, which is the gate the probe is allowed to run behind. */
+    const failPrimaryConnection = () => {
+        ChromaManager.connected = false;
+        ChromaManager.connect   = async () => false;
+    };
+
+    test('a FAILED primary connection invokes the injected loopback seam and attaches the shared-key verdict', async () => {
+        const dials = [];
+
+        failPrimaryConnection();
+        HealthService.loopbackConnectProbe = ({host, port, timeoutMs}) => {
+            dials.push({host, port, timeoutMs});
+            // IPv6-only listener: the asymmetry a single host cannot stage on demand.
+            return Promise.resolve(host === '::1');
+        };
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck(),
+              probe  = health.database.connection[LOOPBACK_PROBE_HEALTH_KEY];
+
+        expect(health.status).toBe('unhealthy');
+        // The seam was really reached — not merely available.
+        expect(dials.map(dial => dial.host)).toEqual(['127.0.0.1', '::1']);
+        expect(dials.every(dial => dial.timeoutMs > 0 && dial.port > 0)).toBe(true);
+        // ...and the producer wrote the verdict under the SHARED key the Server reads.
+        expect(probe).toBeTruthy();
+        expect(probe.verdict).toBe('mismatch');
+        expect(probe.conclusive).toBe(true);
+        expect(probe.answering).toEqual(['[::1]']);
+    })
+
+    test('a HEALTHY connection performs NO loopback dials and exposes no key', async () => {
+        // The gate in the other direction: `healthcheck()` also serves the MCP tool on every call, so a
+        // probe leaking onto the healthy path would dial two sockets per invocation forever.
+        let dialed = 0;
+
+        HealthService.loopbackConnectProbe = () => {
+            dialed++;
+            return Promise.resolve(true);
+        };
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(dialed).toBe(0);
+        expect(health.database.connection[LOOPBACK_PROBE_HEALTH_KEY]).toBeUndefined();
+    })
+
+    test('a THROWING loopback diagnostic cannot escape the already-unhealthy healthcheck', async () => {
+        // A diagnostic that can fail the boot it is diagnosing is worse than no diagnostic. The probe
+        // degrades to `inconclusive` and the healthcheck still resolves with its real verdict.
+        failPrimaryConnection();
+        HealthService.loopbackConnectProbe = () => { throw new Error('probe exploded') };
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck(),
+              probe  = health.database.connection[LOOPBACK_PROBE_HEALTH_KEY];
+
+        expect(health.status).toBe('unhealthy');
+        expect(probe.verdict).toBe('inconclusive');
+        expect(probe.conclusive).toBe(false);
+    })
 
     test('direct healthcheck refreshes cached timestamp and collection counts without mutating the cache', async () => {
         const cached = await HealthService.healthcheck();
