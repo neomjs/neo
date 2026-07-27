@@ -21,9 +21,13 @@ on:
       - 'resources/content/archive/**'
       - 'buildScripts/util/check-content-logical-identity.mjs'
       - '.github/workflows/content-logical-identity-lint.yml'
-  # `main` is audited too, and not for symmetry: the release publisher grafts `dev`'s tree onto `main`
-  # with `git commit-tree`, which runs no hooks by construction, so a collision reaching `dev` would
-  # otherwise arrive on the release line completely unobserved.
+  # `main` is audited as a BACKSTOP, and it is worth being precise about why it is only that. Each
+  # release gives `main` exactly one commit, built with low-level plumbing: a new commit object whose
+  # parent is `main` and whose tree is `dev`'s tree, reused as-is. So `main`'s corpus is byte-identical
+  # to the `dev` corpus it was cut from, and any collision arriving on `main` was already on `dev`,
+  # where the push leg above fires first. What earns `main` its own leg is that the release commit is
+  # created by `git commit-tree` — which runs no hooks by construction, so it is the one writer that
+  # cannot carry an in-process assertion. This leg is the only observation point left for it.
   push:
     branches: [dev, main]
     paths:
