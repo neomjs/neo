@@ -3,6 +3,8 @@ import {
     ELIGIBILITY_EFFECT,
     OVERLAY_TAGGING_PRODUCER,
     PILOT_TERMINALS,
+    PROMOTION_REPLAY_PRODUCER,
+    deriveReplayCompletion,
     diffSegmentIdentity,
     eligibilityEffect,
     evaluateDemotion,
@@ -15,13 +17,19 @@ import {digestAppliedStages} from '../../../../../../ai/scripts/diagnostics/walR
 // about the ABSENCE of exits: every path names a terminal, an unprovable claim never opens eligibility, and
 // no caller may hand in the verdict OR the evidence behind it.
 //
-// Five earlier shapes were falsified by peer probe. Each is pinned below, because the pattern recurred:
+// Six earlier shapes were falsified by peer probe. Each is pinned below, because the pattern recurred:
 // every one of them checked the SHAPE of a claim and mistook that for checking the claim.
 //   * two caller booleans passed as proof of replay        -> verification runs HERE
 //   * a structurally valid typed receipt passed as proof   -> verification runs HERE
 //   * a bare [] claiming an impossible scan                -> capability gate
 //   * an invented planeIdSource string unlocking clean     -> capability gate
 //   * segment COUNTS offered as proof of no-loss           -> set inclusion by id
+//   * a self-consistent SUBSET of the corpus certifying    -> capability gate
+//
+// The last one is why BOTH certifying terminals are now gated shut. Deriving the plan here closed the forged
+// plan, but not the unknown denominator: a caller passing part of the corpus verifies as cleanly as one
+// passing all of it, and no validation rule inside this module can tell the two apart. What was missing was
+// never a stricter check — it was a producer of fact.
 
 const S         = ids => new Set(ids),
       allStages = ids => ({embedded: S(ids), graph: S(ids)});
@@ -48,25 +56,149 @@ test.describe('terminal set and the eligibility authority', () => {
     });
 });
 
-test.describe('evaluatePromotion — the PLAN is derived here, so neither verdict nor plan can be supplied', () => {
-    const entries = [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}];
+const entries = [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}];
 
-    test('a real corpus whose planned work landed commits, and carries the verifier receipt', () => {
-        // POSITIVE CONTROL for the whole promotion path. Without it every refusal below could be a blanket
-        // failure and the module would look correct while being useless.
+test.describe('⭐ evaluatePromotion — `committed` is MECHANICALLY unreachable while the producer is absent', () => {
+    // The gate replaced a validation approach, and the reason is the reviewer's subset attack. The previous
+    // shape settled `committed` on `payloadEntries: [a]` with an unchanged before/after, certifying a
+    // zero-effect promotion truthfully. Refusing `plannedTotal: 0` would have closed that one case while
+    // leaving arbitrary non-empty truncation alive: a caller passing HALF the real corpus verifies exactly as
+    // cleanly, because nothing in this module can know what the whole corpus was. The missing thing is a
+    // source authority, not a stricter rule — so the terminal closes rather than the loophole.
+
+    test('the producer does not exist, it is held as a constant, and it is a FUNCTION slot', () => {
+        expect(PROMOTION_REPLAY_PRODUCER).toBeNull();
+
+        // A function rather than a string, unlike OVERLAY_TAGGING_PRODUCER: replay completeness is an
+        // executable obligation, so the slot cannot be satisfied by naming something.
+        expect(typeof PROMOTION_REPLAY_PRODUCER).not.toBe('string');
+    });
+
+    test('⭐ the reviewer\'s exact zero-effect subset attack stays contained', () => {
+        // `payload=[a]`, `before={seed,a}`, `after={seed,a}` — this settled `committed` with `plannedTotal: 0`.
+        const state  = allStages(['seed', 'a']),
+              result = evaluatePromotion({
+                  payloadEntries: [{id: 'a', timestamp: 1}], appliedStagesBefore: state, appliedStagesAfter: state
+              });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.eligibility).toBe('denied');
+    });
+
+    test('⭐ a NON-EMPTY truncation of a real corpus is contained too — the general case, not just the empty one', () => {
+        // What a `plannedTotal: 0` refusal would have missed. Half the corpus, genuinely replayed, fully
+        // self-consistent: planner agrees, continuity agrees, receipt is real. Only the denominator is a lie.
         const result = evaluatePromotion({
+            payloadEntries     : [entries[0]],                   // 'b' silently omitted from the "source"
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['seed', 'a'])
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.eligibility).toBe('denied');
+
+        // And the component proof CONFIRMS the truncation is otherwise clean — which is what makes the gate
+        // load-bearing rather than redundant. If this were `ok: false`, validation would have sufficed.
+        expect(deriveReplayCompletion({
+            payloadEntries     : [entries[0]],
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['seed', 'a'])
+        }).ok).toBe(true);
+    });
+
+    test('⭐ NO input combination yields `committed` — exhaustive over every unlock shape', () => {
+        const before = allStages(['seed']),
+              after  = allStages(['seed', 'a', 'b']),
+              // A caller-supplied producer name, path, array, count, digest, manifest or receipt must never
+              // unlock the gate. Each candidate is a different theory of what might be accepted as authority.
+              candidates = [
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, producer: 'replay adapter'},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, PROMOTION_REPLAY_PRODUCER: () => true},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, sourceCorpusReceipt: {complete: true, rows: 8234}},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, walRoots: ['/memory-wal', '/memory-wal/messages']},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, manifest: {segments: 12, digest: 'sha256:deadbeef'}},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, fenced: true, quiesced: true},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, terminal: 'committed', eligibility: 'opened'},
+                  {payloadEntries: entries, appliedStagesBefore: before, appliedStagesAfter: after, requiredStages: ['embedded']},
+                  {payloadEntries: [], appliedStagesBefore: before, appliedStagesAfter: before},
+                  {}, null, undefined, 42, 'committed'
+              ];
+
+        for (const spec of candidates) {
+            const result = evaluatePromotion(spec);
+
+            expect(result.terminal, `${JSON.stringify(spec)} must stay contained`).toBe('failed-contained');
+            expect(result.eligibility).toBe('denied');
+            expect(result.receipt).toBeNull();
+        }
+    });
+
+    test('the refusal names the missing authority and the subset problem, not a bad argument', () => {
+        // What an operator reads. It must not send them hunting for a better `payloadEntries`, because no
+        // `payloadEntries` can help — and it must state WHY, since "contained" alone looks like a bug.
+        const {reason} = evaluatePromotion({
             payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
             appliedStagesAfter : allStages(['seed', 'a', 'b'])
         });
 
-        expect(result.terminal).toBe('committed');
-        expect(result.eligibility).toBe('opened');
-        expect(result.receipt.plannedTotal).toBe(2);
-        expect(result.receipt.appliedByStage).toEqual({embedded: 2, graph: 2});
+        expect(reason).toContain('no complete dual-corpus replay producer exists');
+        expect(reason).toContain('any SUBSET of the real corpus verifies exactly as cleanly');
+        expect(reason).toContain('two WAL families');
+        expect(reason).toContain('skip torn rows');
+        expect(reason).toContain('true state of every promotion attempted today');
     });
 
-    test('⭐ a caller-forged SELF-CONSISTENT empty plan cannot commit — there is no plan input', () => {
+    test('the gate is consulted BEFORE any caller input — a malformed spec reports the producer', () => {
+        // Ordering is the whole guarantee. If a shape check ran first, the gate would look like something a
+        // better-formed argument could get past.
+        const {reason} = evaluatePromotion({payloadEntries: 'not-an-array'});
+
+        expect(reason).toContain('no complete dual-corpus replay producer');
+        expect(reason).not.toContain('must be the source corpus');
+    });
+
+    test('absent evidence settles contained rather than throwing — the refusal WOULD BE the abandon', () => {
+        for (const spec of [undefined, null, {}, {payloadEntries: 'x'}, 42]) {
+            const result = evaluatePromotion(spec);
+
+            expect(result.terminal).toBe('failed-contained');
+            expect(result.eligibility).toBe('denied');
+        }
+    });
+});
+
+// ⭐ THE COMPONENT PROOF THE GATE WOULD OTHERWISE HIDE. While `PROMOTION_REPLAY_PRODUCER` is null nothing
+// reaches the derivation through `evaluatePromotion`, and a gate that makes a path unreachable also makes it
+// unverifiable. That is not hypothetical: the sibling capture module's post-gate block was left referencing
+// four renamed variables, its suite stayed green because the gate short-circuited first, and @neo-gpt found
+// the `ReferenceError` only by forcing the capability on in memory.
+//
+// These assertions prove the MATH — that the planner and the continuity verifier agree, and that each way a
+// replay can be unprovable is detected. They deliberately assert `ok`/`reason`/`receipt` and NEVER a terminal
+// or an eligibility, because agreeing about a corpus says nothing about whether that corpus was the whole
+// plane. Minting authority here is the terminal's job, and the terminal is gated.
+test.describe('⭐ deriveReplayCompletion — the math, directly executed, minting no authority', () => {
+    test('a real corpus whose planned work landed verifies, and carries the verifier receipt', () => {
+        // POSITIVE CONTROL for the whole derivation. Without it every refusal below could be a blanket failure
+        // and the module would look correct while being useless.
+        const result = deriveReplayCompletion({
+            payloadEntries     : entries,
+            appliedStagesBefore: allStages(['seed']),
+            appliedStagesAfter : allStages(['seed', 'a', 'b'])
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.receipt.plannedTotal).toBe(2);
+        expect(result.receipt.appliedByStage).toEqual({embedded: 2, graph: 2});
+
+        // Component proof, not a terminal: it must not be usable as an eligibility source.
+        expect(result).not.toHaveProperty('terminal');
+        expect(result).not.toHaveProperty('eligibility');
+    });
+
+    test('⭐ a caller-forged SELF-CONSISTENT empty plan is refused — there is no plan input', () => {
         // The falsified shape. A forged plan with `toApply: []`, matching empty `plannedIdsByStage`, and a
         // `targetStateDigest` computed from the REAL pre-state reconciled cleanly, landed nothing, lost
         // nothing, and settled `committed`. Reconciliation proved self-consistency, never provenance.
@@ -85,82 +217,72 @@ test.describe('evaluatePromotion — the PLAN is derived here, so neither verdic
                       pendingByStage     : {embedded: 0, graph: 0}
                   }
               },
-              result = evaluatePromotion({appliedStagesBefore: before, appliedStagesAfter: before, plan: forged});
+              result = deriveReplayCompletion({appliedStagesBefore: before, appliedStagesAfter: before, plan: forged});
 
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.eligibility).toBe('denied');
+        expect(result.ok).toBe(false);
         expect(result.reason).toContain('cannot accept a pre-built plan');
         expect(result.reason).toContain('never that it was derived from the corpus');
     });
 
-    test('⭐ an EMPTY corpus refuses — nothing to replay is not a promotion that moved nothing', () => {
+    test('⭐ an EMPTY corpus is refused — nothing to replay is not a promotion that moved nothing', () => {
         const before = allStages(['seed']),
-              result = evaluatePromotion({payloadEntries: [], appliedStagesBefore: before, appliedStagesAfter: before});
+              result = deriveReplayCompletion({payloadEntries: [], appliedStagesBefore: before, appliedStagesAfter: before});
 
-        expect(result.terminal).toBe('failed-contained');
+        expect(result.ok).toBe(false);
         expect(result.reason).toContain('nothing to promote');
         expect(result.reason).toContain('zero-effect certification');
     });
 
-    test('a corpus the planner refuses cannot commit, and the planner reason surfaces', () => {
-        const result = evaluatePromotion({
+    test('a corpus the planner refuses is refused, and the planner reason surfaces', () => {
+        const result = deriveReplayCompletion({
             payloadEntries     : [{id: 'a'}, {id: 'a'}],
             appliedStagesBefore: allStages([]),
             appliedStagesAfter : allStages(['a'])
         });
 
-        expect(result.terminal).toBe('failed-contained');
+        expect(result.ok).toBe(false);
         expect(result.reason).toContain('duplicate source id');
     });
 
-    test('a planned id that never landed cannot commit', () => {
-        const result = evaluatePromotion({
+    test('a planned id that never landed is refused', () => {
+        const result = deriveReplayCompletion({
             payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
             appliedStagesAfter : allStages(['seed', 'a'])   // 'b' never landed
         });
 
-        expect(result.terminal).toBe('failed-contained');
+        expect(result.ok).toBe(false);
         expect(result.reason).toContain('never landed');
     });
 
-    test('a target that LOST a prior receipt cannot commit', () => {
-        const result = evaluatePromotion({
+    test('a target that LOST a prior receipt is refused', () => {
+        const result = deriveReplayCompletion({
             payloadEntries     : entries,
             appliedStagesBefore: allStages(['seed']),
             appliedStagesAfter : allStages(['a', 'b'])       // 'seed' regressed
         });
 
-        expect(result.terminal).toBe('failed-contained');
+        expect(result.ok).toBe(false);
         expect(result.reason).toContain('lost');
     });
 
-    test('a fabricated continuity VERDICT cannot commit either — that input is gone too', () => {
-        const typed = evaluatePromotion({
+    test('a fabricated continuity VERDICT is refused too — that input is gone as well', () => {
+        const typed = deriveReplayCompletion({
             continuity: {
                 ok     : true, monotonic: true,
                 receipt: {requiredStages: ['embedded', 'graph'], plannedTotal: 2, appliedByStage: {embedded: 2, graph: 2}}
             }
         });
 
-        expect(typed.terminal).toBe('failed-contained');
+        expect(typed.ok).toBe(false);
         expect(typed.reason).toContain('payloadEntries must be the source corpus');
     });
 
-    test('absent evidence settles contained rather than refusing — the refusal WOULD BE the abandon', () => {
+    test('a null or malformed spec is refused rather than throwing', () => {
+        // `= {}` fires only for `undefined`, so a null argument would THROW — an exit with no verdict at all.
         for (const spec of [undefined, null, {}, {payloadEntries: 'x'}, 42]) {
-            const result = evaluatePromotion(spec);
-
-            expect(result.terminal).toBe('failed-contained');
-            expect(result.eligibility).toBe('denied');
+            expect(deriveReplayCompletion(spec).ok, `${JSON.stringify(spec)} must refuse`).toBe(false);
         }
-    });
-
-    test('a caller cannot supply the terminal', () => {
-        const result = evaluatePromotion({payloadEntries: [], terminal: 'committed', eligibility: 'opened'});
-
-        expect(result.terminal).toBe('failed-contained');
-        expect(result.eligibility).toBe('denied');
     });
 });
 
@@ -285,8 +407,12 @@ test.describe('no path exits without a named terminal', () => {
                 expect(result.eligibility).toBe(eligibilityEffect(result.terminal));
                 // Only a commit may carry an opened eligibility, whatever the input.
                 if (result.eligibility === 'opened') expect(result.terminal).toBe('committed');
-                // And demotion can NEVER reach a non-contained terminal at this head.
-                if (evaluate === evaluateDemotion) expect(result.terminal).toBe('failed-contained');
+                // ⭐ And at THIS head neither evaluator can reach a certifying terminal at all: both are held
+                // shut by a capability constant. This is the whole-module statement of the two gates — if a
+                // future edit opens either without landing its producer, this fails regardless of which
+                // argument path the edit took.
+                expect(result.terminal).toBe('failed-contained');
+                expect(result.eligibility).toBe('denied');
             }
         }
     });

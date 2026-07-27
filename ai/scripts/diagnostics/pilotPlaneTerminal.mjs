@@ -38,6 +38,19 @@
  * it never closed it, because the pilot never mutated the durable plane. Modelling that as `unchanged`
  * keeps the strictness intact instead of quietly widening it.
  *
+ * ## Both certifying terminals are currently gated shut, and that is the finding
+ *
+ * `demoted-clean` and `committed` are each unreachable, held closed by a capability constant rather than by a
+ * validation rule ({@link OVERLAY_TAGGING_PRODUCER}, {@link PROMOTION_REPLAY_PRODUCER}). Neither gate is a
+ * placeholder awaiting a stricter check: in both cases the missing thing is a **producer of fact**, and no
+ * amount of argument validation substitutes for one. Clean demotion needs a plane id the WAL appender never
+ * writes; promotion needs a complete ordered mutation source that nothing in the running system reads.
+ *
+ * So today every pilot settles `failed-contained` — eligibility denied, overlay quarantined. That is not this
+ * module failing to do its job; it *is* the job. The honest statement about pilot-plane promotion at this head
+ * is "cannot be certified", and a module that returned anything else would be manufacturing the certification
+ * the acceptance criterion asks it to earn. Each gate names the adapter that would open it.
+ *
  * ## Where the authority is recorded
  *
  * `learn/agentos/tooling/PilotPlaneRunbook.md` carries the provenance — which rule is adopted, which
@@ -66,6 +79,47 @@ import {planWalReplay, verifyReplayContinuity} from './walReplayPlan.mjs';
  * @type {String|null}
  */
 export const OVERLAY_TAGGING_PRODUCER = null;
+
+/**
+ * Whether an executable producer exists that can replay the plane's complete mutation source.
+ *
+ * **`null` because no such producer exists**, and the audit that established this found five independent
+ * reasons — each of which alone is disqualifying:
+ *
+ * 1. **No consumed source-read boundary.** An exact-tree search finds no production caller for
+ *    `evaluatePromotion`, `planWalReplay`, `verifyReplayContinuity` or `parseJsonl`. There is no place in the
+ *    running system that reads the source corpus and could issue a receipt for having read all of it.
+ * 2. **The owning store readers cannot be promoted into that authority.** Their operational reads
+ *    deliberately **skip** malformed and torn rows, which is correct for serving and fatal for a completeness
+ *    proof: a promotion proof must *refuse* on a row it cannot parse, because an unreadable row is
+ *    potentially the one that was lost.
+ * 3. **The plane has TWO WAL families, and the corpus scan does not distinguish them.** `messageWal.dir`
+ *    derives to `path.join(memoryWal.dir, 'messages')`, so `readWalSegments` returns memory and message
+ *    segments in one undifferentiated list. Replay assumes `embedded + graph`; the message family is
+ *    graph-only. A receipt bound to memory records alone would certify an **incomplete** plane. Worse, that
+ *    family's `dirProd` is a nullable override, so a deployment can relocate it out of the scanned root —
+ *    the denominator moves with configuration.
+ * 4. **Naïve message replay emits stale wakes.** `MailboxService._projectMessageWalRecord` defaults
+ *    `pumpWake = true`, and the codebase already knows this: its recovery path passes `pumpWake: false`
+ *    explicitly. A replay reaching the default would re-fire historical wakes as if they were new.
+ * 5. **There is no plane-wide writer fence.** During the audit the live memory corpus moved from 8,233 to
+ *    8,234 rows *between two scans*. A stable double-read is not quiescence — the append lock is per-file and
+ *    fail-open by design — so no scan can claim to have seen a whole plane.
+ *
+ * The governing bound is stated in the runbook's provenance section: journal replay has no source authority,
+ * and count evidence never supplies row identity. Counts are the trap worth naming here, because they look
+ * like measurement — `8,234 rows replayed` is a true sentence that establishes nothing about *which* rows.
+ *
+ * A **function**, not a string, unlike {@link OVERLAY_TAGGING_PRODUCER}. That difference is deliberate: a
+ * capability named by a string is one a future edit can satisfy by naming it, whereas replay completeness is
+ * an *executable* obligation. The producer that may replace this null has to resolve both configured WAL
+ * roots, fence both source writers, have each owning store strictly enumerate its own canonical payload
+ * files, bind per-family content and record digests, derive the memory and message plans separately, replay
+ * messages without wake pumping or mutable-state overwrite, observe the target before and after, and emit one
+ * composite receipt. That is an adapter, not a receipt-shaped object — so the slot holds a function.
+ * @type {Function|null}
+ */
+export const PROMOTION_REPLAY_PRODUCER = null;
 
 /**
  * The complete terminal set. A pilot transition ends in exactly one of these — there is no unnamed exit.
@@ -189,27 +243,80 @@ function validateContinuityReceipt(continuity) {
  * @returns {Object} `{terminal, reason, eligibility, receipt}`
  */
 export function evaluatePromotion(spec) {
-    // Nullish-coalesced rather than a `= {}` default parameter, which fires only for `undefined` and would
-    // let `evaluatePromotion(null)` THROW. A throw is an exit without a terminal — the exact silent abandon
-    // this module exists to make impossible — so the guard has to cover null too.
-    const {payloadEntries, appliedStagesBefore, appliedStagesAfter, requiredStages} = spec ?? {};
-
-    if (!Array.isArray(payloadEntries)) {
+    // THE CAPABILITY GATE, CONSULTED BEFORE ANY CALLER INPUT IS READ. Not after a shape check, not after a
+    // "well-formed corpus" test — first, because every alternative ordering makes the gate look satisfiable by
+    // supplying better arguments. No caller-supplied producer name, path, array, count, digest, manifest or
+    // receipt can unlock it: the capability is not a parameter.
+    //
+    // The reviewer's attack that closed the previous shape: `payloadEntries: [a]`, `before: {seed, a}`,
+    // `after: {seed, a}` settled `committed` with `plannedTotal: 0` — a truthful, self-consistent, entirely
+    // zero-effect certification. Refusing `plannedTotal: 0` would have closed that ONE control while leaving
+    // arbitrary non-empty truncation alive: any subset of the real corpus still certifies, because nothing
+    // here can know what the whole corpus was. The subset problem is not a validation bug to patch, it is the
+    // absence of a source authority — so the honest repair closes the terminal, not the loophole.
+    if (typeof PROMOTION_REPLAY_PRODUCER !== 'function') {
         return settle(
             'failed-contained',
-            'payloadEntries must be the source corpus this promotion replayed. A promotion terminal cannot ' +
-            'accept a pre-built plan: a self-consistent plan proves only that its own projection matches its ' +
-            'own receipt, never that it was derived from the corpus it claims to describe.'
+            'no complete dual-corpus replay producer exists, so a promotion cannot be certified at all. ' +
+            'Without one, `payloadEntries` is whatever a caller chose to pass, and any SUBSET of the real ' +
+            'corpus verifies exactly as cleanly as the whole of it — a proof over an unknown denominator is ' +
+            'not a proof. The plane also has two WAL families (memory and the nested message family, which is ' +
+            'graph-only), no writer fence, and store readers that skip torn rows where a completeness proof ' +
+            'must refuse. See PROMOTION_REPLAY_PRODUCER for the five findings and the adapter that would ' +
+            'replace this null. The overlay is quarantined and eligibility stays denied — which is the true ' +
+            'state of every promotion attempted today, not a failure of this call.'
         );
     }
 
+    const completion = deriveReplayCompletion(spec);
+
+    // The terminal owns the authority; the derivation owns the math. `deriveReplayCompletion` returns no
+    // terminal and no eligibility precisely so that being exported cannot make it a second, ungated door.
+    return completion.ok ?
+        settle('committed', completion.reason, completion.receipt) :
+        settle('failed-contained', completion.reason);
+}
+
+/**
+ * @summary Derives whether a corpus's replay is provably complete — the math, carrying no authority.
+ *
+ * **Exported because the gate would otherwise hide it.** While {@link PROMOTION_REPLAY_PRODUCER} is `null`
+ * nothing reaches this code through {@link evaluatePromotion}, and a gate that makes a path unreachable also
+ * makes it unverifiable — a defect behind it is invisible to every test. That is not hypothetical: the sibling
+ * capture module's post-gate block was left referencing four renamed variables, its suite stayed green because
+ * the gate short-circuited first, and the reviewer found the `ReferenceError` only by forcing the capability on
+ * in memory. So this is reachable directly and carries its own positive controls.
+ *
+ * **It is a component proof, not a terminal.** It returns `{ok, reason, receipt}` — no `terminal`, no
+ * `eligibility`. It may prove that the planner and the continuity verifier agree; it must never mint
+ * data-consuming eligibility, because agreeing about a corpus says nothing about whether that corpus was the
+ * whole plane. Only {@link evaluatePromotion} converts this into a terminal, and only past the gate.
+ * @param {Object} spec See {@link evaluatePromotion}.
+ * @returns {Object} `{ok, reason, receipt?}`
+ */
+export function deriveReplayCompletion(spec) {
+    // Nullish-coalesced rather than a `= {}` default parameter, which fires only for `undefined` and would
+    // let `deriveReplayCompletion(null)` THROW. A throw is an exit without a verdict — the exact silent
+    // abandon this module exists to make impossible — so the guard has to cover null too.
+    const {payloadEntries, appliedStagesBefore, appliedStagesAfter, requiredStages} = spec ?? {};
+
+    if (!Array.isArray(payloadEntries)) {
+        return {
+            ok    : false,
+            reason: 'payloadEntries must be the source corpus this promotion replayed. A promotion terminal ' +
+                    'cannot accept a pre-built plan: a self-consistent plan proves only that its own ' +
+                    'projection matches its own receipt, never that it was derived from the corpus it claims ' +
+                    'to describe.'
+        };
+    }
+
     if (payloadEntries.length === 0) {
-        return settle(
-            'failed-contained',
-            'the source corpus is empty, so there is nothing to promote. An empty replay is not a promotion ' +
-            'that moved nothing — it is not a promotion, and certifying it would be the zero-effect ' +
-            'certification this leaf exists to prevent.'
-        );
+        return {
+            ok    : false,
+            reason: 'the source corpus is empty, so there is nothing to promote. An empty replay is not a ' +
+                    'promotion that moved nothing — it is not a promotion, and certifying it would be the ' +
+                    'zero-effect certification this leaf exists to prevent.'
+        };
     }
 
     // THE PLAN IS DERIVED, NOT ACCEPTED. `planWalReplay` refuses duplicate source ids and unusable ids, and
@@ -221,7 +328,7 @@ export function evaluatePromotion(spec) {
     });
 
     if (!plan.ok) {
-        return settle('failed-contained', `the corpus could not be planned: ${plan.reason ?? 'no reason given'}`);
+        return {ok: false, reason: `the corpus could not be planned: ${plan.reason ?? 'no reason given'}`};
     }
 
     // THE VERIFICATION RUNS HERE. An earlier shape accepted `verifyReplayContinuity`'s OUTPUT, and a
@@ -234,27 +341,28 @@ export function evaluatePromotion(spec) {
     const continuity = verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter, plan});
 
     if (!continuity.ok) {
-        return settle('failed-contained', `continuity verification refused: ${continuity.reason ?? 'no reason given'}`);
+        return {ok: false, reason: `continuity verification refused: ${continuity.reason ?? 'no reason given'}`};
     }
 
     // Belt-and-braces on the verifier's own contract rather than on a caller's assertion: if a future change
     // let it return `ok` without establishing monotonicity, this must not silently become a commit.
     if (continuity.monotonic !== true) {
-        return settle(
-            'failed-contained',
-            'continuity verification did not establish monotonic replay, so loss or double-apply is not excluded'
-        );
+        return {
+            ok    : false,
+            reason: 'continuity verification did not establish monotonic replay, so loss or double-apply is ' +
+                    'not excluded'
+        };
     }
 
     const receiptFault = validateContinuityReceipt(continuity);
 
-    if (receiptFault) return settle('failed-contained', receiptFault);
+    if (receiptFault) return {ok: false, reason: receiptFault};
 
-    return settle(
-        'committed',
-        `replay onto the durable plane verified monotonic across ${continuity.receipt.requiredStages.join(' + ')}`,
-        continuity.receipt
-    );
+    return {
+        ok     : true,
+        reason : `replay onto the durable plane verified monotonic across ${continuity.receipt.requiredStages.join(' + ')}`,
+        receipt: continuity.receipt
+    };
 }
 
 /**

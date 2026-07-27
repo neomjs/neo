@@ -33,11 +33,18 @@ Derived by [`ai/scripts/diagnostics/pilotPlaneTerminal.mjs`](../../../ai/scripts
 No entry point accepts a terminal as an argument: the receipt attests to evidence, not to the operator's
 reading of it.
 
-| Terminal | Meaning | Eligibility effect |
-|---|---|---|
-| `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` |
-| `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | `unchanged` |
-| `failed-contained` | The claim could not be proven, whatever the cause | `denied` |
+| Terminal | Meaning | Eligibility effect | Reachable today |
+|---|---|---|---|
+| `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` | ❌ gated on `PROMOTION_REPLAY_PRODUCER` |
+| `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | `unchanged` | ❌ gated on `OVERLAY_TAGGING_PRODUCER` |
+| `failed-contained` | The claim could not be proven, whatever the cause | `denied` | ✅ the only terminal any run reaches |
+
+**Both certifying terminals are gated shut**, each by a capability constant rather than a validation rule.
+Neither gate is a placeholder awaiting a stricter check: in both cases the missing thing is a **producer of
+fact**, and no amount of argument validation substitutes for one. So today *every* pilot settles
+`failed-contained` — eligibility denied, overlay quarantined. That is not the tooling failing to do its job;
+it is the honest statement about pilot-plane transitions at this head, and each section below names the
+adapter that would open its gate.
 
 Eligibility is **three-valued on purpose.** Only a strict `committed` *opens* data-consuming eligibility.
 A clean demotion does not open it — it never closed it, because the pilot never mutated the durable plane.
@@ -49,6 +56,59 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 
 ## Promotion
 
+> ### ⚠️ `committed` is MECHANICALLY UNREACHABLE today, and that is the honest state
+>
+> A promotion proof needs a **complete ordered mutation source**. No producer for one exists, and five
+> independent findings each block it on their own:
+>
+> 1. **No consumed source-read boundary.** No production caller exists for `evaluatePromotion`,
+>    `planWalReplay`, `verifyReplayContinuity` or `parseJsonl` — nothing in the running system reads the
+>    corpus and could issue a receipt for having read all of it.
+> 2. **The owning store readers cannot become that authority.** Their operational reads deliberately *skip*
+>    malformed and torn rows. Correct for serving; fatal for a completeness proof, which must refuse on a row
+>    it cannot parse — that row is potentially the one that was lost.
+> 3. **The plane has two WAL families.** `messageWal.dir` derives to `path.join(memoryWal.dir, 'messages')`,
+>    so a corpus scan returns memory and message segments in one undifferentiated list. Replay assumes
+>    `embedded + graph`; the message family is graph-only. A receipt over memory records alone certifies an
+>    **incomplete** plane — and because that family's `dirProd` is a nullable override, a deployment can move
+>    it out of the scanned root, so the denominator moves with configuration.
+> 4. **Naïve message replay emits stale wakes.** `MailboxService._projectMessageWalRecord` defaults
+>    `pumpWake = true`; its own recovery path passes `pumpWake: false` explicitly. A replay reaching the
+>    default re-fires historical wakes as if they were new.
+> 5. **No plane-wide writer fence.** During the audit the live memory corpus moved 8,233 → 8,234 rows
+>    *between two scans*. A stable double-read is not quiescence; the append lock is per-file and fail-open.
+>
+> ADR-0027 OQ8 states the bound: journal replay has no source authority, and count evidence never supplies
+> row identity.
+>
+> `evaluatePromotion` therefore consults `PROMOTION_REPLAY_PRODUCER` **before it reads a single argument**, and
+> while that constant is `null` **every promotion settles `failed-contained` regardless of what you pass.**
+> No producer name, path, array, count, digest, manifest or receipt unlocks it — the capability is not a
+> parameter. The slot holds a **function**, not a string, because replay completeness is an executable
+> obligation rather than something a future edit can satisfy by naming it.
+>
+> **Why a gate and not a stricter check.** The previous shape settled `committed` on a one-entry corpus with an
+> unchanged before/after — a truthful, self-consistent, entirely zero-effect certification. Refusing that
+> specific case would have closed one probe while leaving **arbitrary non-empty truncation** alive: a caller
+> passing half the real corpus verifies exactly as cleanly, because nothing inside the module can know what the
+> whole corpus was. A proof over an unknown denominator is not a proof, and the missing thing is a producer of
+> fact, not a rule.
+>
+> **The producer that may replace the null** must resolve both configured WAL roots, fence both source writers,
+> have each owning store strictly enumerate its own canonical payload files, bind per-family content *and*
+> record digests, derive the memory and message plans separately, replay messages without wake pumping or
+> mutable-state overwrite, observe the target before and after, and emit one composite receipt. That is an
+> executable adapter, not a receipt-shaped object.
+>
+> Steps 1–6 below therefore describe the procedure a landed producer would follow. Its arithmetic is not
+> hypothetical: `deriveReplayCompletion` is exported and directly tested, because **a gate that makes a path
+> unreachable also makes it unverifiable** — a defect behind one is invisible to every test. That is not a
+> theoretical worry; the sibling capture module's post-gate block was left referencing four renamed variables
+> and its suite stayed green because the gate short-circuited first. `deriveReplayCompletion` returns
+> `{ok, reason, receipt}` and deliberately **no terminal and no eligibility**: it may prove the math, and it
+> must never mint authority, because agreeing about a corpus says nothing about whether that corpus was the
+> whole plane.
+
 1. **Baseline the replay volume.** `walVolumeBaseline.mjs` decides fork-then-replay vs dual-journal from
    measured per-seat WAL volume. Supply the three factual inputs — replay throughput, concurrent native
    inflow, and the accepted cutover window — and the budget is **derived** as
@@ -58,21 +118,28 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
    omitted inflow **refuses** rather than assuming a quiesced plane (pass `0` explicitly).
    If inflow meets or exceeds throughput the posture is `dual-journal` — replay never converges, so
    fork-then-replay is impossible at *any* window rather than merely over budget.
-2. **Plan the replay.** `walReplayPlan.mjs` → `planWalReplay(...)`. Duplicate source ids refuse: a
-   payload that cannot be uniquely keyed cannot be proven non-double-applied.
+2. **Read the source corpus.** The producer enumerates its canonical payload files and refuses on any row it
+   cannot parse. Duplicate source ids also refuse: a payload that cannot be uniquely keyed cannot be proven
+   non-double-applied.
 3. **Record the applied-stage sets** for the durable plane **before** applying anything. The verification is
    bound to this pre-state — without it there is no baseline and nothing can be proven.
 4. **Apply** the planned entries to the durable plane.
 5. **Record the applied-stage sets again**, after.
-6. **Settle.** `evaluatePromotion({appliedStagesBefore, appliedStagesAfter, plan})` → the terminal and the
-   receipt. Record both.
+6. **Settle.** `evaluatePromotion({payloadEntries, appliedStagesBefore, appliedStagesAfter})` → the terminal
+   and the receipt. Record both. (Today this returns `failed-contained` from the capability gate above,
+   whatever you pass.)
 
-> **There is no separate "verify" step, deliberately.** `evaluatePromotion` **runs** the continuity
-> verification itself rather than accepting a verdict, because a verdict — even a structurally complete one
-> with stages, totals and per-stage counts — is a thing a caller can simply type. Validating its shape checks
-> the shape of a claim, never its provenance. Passing the raw observations instead removes the forgeable
-> intermediate: forging a `committed` would require a self-consistent plan whose every planned id appears in
-> the after-state, which is *doing* the replay rather than claiming it.
+> **There is no separate "plan" or "verify" step, deliberately.** `evaluatePromotion` takes the **source
+> corpus** and derives the plan itself, then runs the continuity verification — rather than accepting either.
+> Both were once arguments, and both were forgeable. A structurally complete continuity verdict is a thing a
+> caller can simply type; and a self-consistent *plan* proved only that its own projection matched its own
+> receipt, never that it was derived from the corpus it claimed to describe — a forged empty plan with a
+> `targetStateDigest` computed from the real pre-state reconciled cleanly, landed nothing, and settled
+> `committed`. Validating a claim's shape checks the shape, never the provenance.
+>
+> Deriving from the corpus removes both forgeable intermediates: a `committed` now needs a corpus whose every
+> planned id appears in the after-state, which is *doing* the replay rather than claiming it. What it does
+> **not** remove is the unknown denominator — hence the gate above.
 >
 > Concurrent gains from other seats are permitted and reported separately, not treated as corruption.
 
@@ -139,6 +206,12 @@ authority"* — only the derived terminal is.
 
 - **ADR-0027 §2.7.4** — [committed-only eligibility, forward completion, no cross-store rollback](../decisions/0027-autonomous-data-recovery-actuator.md).
   This is the adopted authority for everything above.
+- **ADR-0027 OQ8** — the bound behind the promotion gate: journal replay has **no source authority**, and any
+  later replay action requires a *complete ordered mutation source*. Count evidence never supplies row
+  identity — which is the trap worth naming, because a count looks like a measurement. *"8,234 rows replayed"*
+  is a true sentence that establishes nothing about **which** rows. `pilotPlaneTerminal` defers to this
+  citation rather than repeating it in JSDoc, so the reference has one maintained home instead of decaying
+  copies in code.
 - **D#15758 Option G** reaches the same shape for cloud cohorts, phrased as *"post-mutation but
   reversible-by-proof"*. It is an **unadopted divergence row** in an open divergence window, so it is
   cited here as converging evidence and never as a source of authority. If that Discussion adopts a
