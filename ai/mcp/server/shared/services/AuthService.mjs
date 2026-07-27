@@ -1,15 +1,16 @@
 import Base                                          from '../../../../../src/core/Base.mjs';
 import {createHash}                                  from 'crypto';
-import {statSync}                                    from 'fs';
+import {readFileSync, statSync}                      from 'fs';
 import {isLocalBearerToken, matchesLocalBearerToken} from '../helpers/localBearer.mjs';
 import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.mjs';
 
 /**
- * @summary Orchestrates OIDC, GitLab-PAT, and disposable local-bearer authorization.
+ * @summary Installs the configured Streamable HTTP authentication strategy.
  *
- * This service acts as the **Authorization Anchor** for the MCP ecosystem. It implements
- * the **Discovery-First Pattern**, where it dynamically resolves security endpoints from the
- * identity provider's `.well-known/openid-configuration`.
+ * This service acts as the **Authorization Anchor** for the MCP ecosystem. It dispatches the
+ * declared OIDC, provider-PAT, seat-token, or disposable local-bearer strategy before Transport
+ * opens the listener. OIDC implements the **Discovery-First Pattern**, dynamically resolving
+ * security endpoints from the identity provider's `.well-known/openid-configuration`.
  *
  * Key Architectural Concepts:
  * - **Dynamic Resolution:** Autonomously fetches and parses OIDC discovery documents.
@@ -61,35 +62,69 @@ class AuthService extends Base {
      */
     async setup(options) {
         const {app, aiConfig, mcpServerUrl, logger, resourceName} = options;
+        const
+            {auth}            = aiConfig,
+            hasCustomAuth     = typeof aiConfig.authMiddleware === 'function',
+            hasOidcEndpoint   = Boolean(auth.host || auth.issuerUrl),
+            isProxyOnlyCompat = auth.mode === 'oidc' && !hasOidcEndpoint && auth.trustProxyIdentity;
+
+        this.#validateFirstProviderSubjectPolicy(aiConfig);
+
+        // Custom-auth compatibility branch — classify custom auth before the default OIDC mode
+        // can dereference an absent endpoint, while Transport retains the one custom middleware
+        // mount until full ingress ownership migrates.
+        if (hasCustomAuth) {
+            logger.info('[AuthService] Custom authorization middleware selected (compatibility branch)');
+            return
+        }
+
+        // Trusted-proxy compatibility branch — proxy identity remains resolved in Transport
+        // until the full ingress/trust boundary migrates. Reaching this state is still an
+        // explicit auth installer choice, not gateless HTTP.
+        if (isProxyOnlyCompat) {
+            logger.info('[AuthService] Trusted-proxy authorization selected (compatibility branch)');
+            return
+        }
+
+        if (auth.mode === 'oidc' && !hasOidcEndpoint) {
+            throw new Error(
+                'AuthService: no Streamable HTTP authentication installer is configured; ' +
+                'configure an OIDC endpoint, a built-in auth.mode, custom authMiddleware, or trusted-proxy identity'
+            )
+        }
 
         const {requireBearerAuth} = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
         const {InvalidTokenError} = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
 
         // Local-bearer mode is possession-only: no PRM, discovery, identity lookup, or provisioning.
-        if (aiConfig.auth.mode === 'local-bearer') {
+        if (auth.mode === 'local-bearer') {
             this.setupLocalBearer({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
             return
         }
 
         // Seat-token mode: request-time SUBJECT binding — a registry-verified token resolves to
         // its minted AgentIdentity, plane-scoped and generation-invalidated (never possession-only).
-        if (aiConfig.auth.mode === 'seat-token') {
+        if (auth.mode === 'seat-token') {
             this.setupSeatToken({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
             return
         }
 
         // GitLab-PAT mode installs a naked-401 bearer path (no `aud`, no PRM advertisement) and
         // returns early — the OIDC discovery + introspection flow below does not apply.
-        if (aiConfig.auth.mode === 'gitlab-pat') {
+        if (auth.mode === 'gitlab-pat') {
             this.setupGitlabPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
             return
         }
 
         // GitHub-PAT mode installs the same naked-401 bearer path against the GitHub `/user`
         // endpoint and returns early — the OIDC flow below does not apply.
-        if (aiConfig.auth.mode === 'github-pat') {
-            this.setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+        if (auth.mode === 'github-pat') {
+            await this.setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
             return
+        }
+
+        if (auth.mode !== 'oidc') {
+            throw new Error(`AuthService: unsupported auth.mode "${auth.mode}"`)
         }
 
         const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
@@ -431,6 +466,83 @@ class AuthService extends Base {
     }
 
     /**
+     * @summary Validates the explicit first-provider-subject admission policy.
+     *
+     * The baseline policy is deliberately scoped to the rosterless local GitHub profile. It must
+     * not reinterpret empty PAT allowlists mode-generally or alter GitLab-PAT's shipped admit-any-
+     * validated-user default. Custom/proxy combinations are ambiguous because they introduce a
+     * second identity authority beside the provider subject.
+     * @param {Object} aiConfig Resolved ConfigProvider tree
+     * @returns {void}
+     * @throws {Error} When the policy's legal state is not fully declared
+     */
+    #validateFirstProviderSubjectPolicy(aiConfig) {
+        const {auth} = aiConfig;
+
+        if (!auth.pinFirstProviderSubject) {
+            return
+        }
+
+        if (auth.mode !== 'github-pat') {
+            throw new Error('AuthService: first-provider-subject policy requires auth.mode "github-pat"')
+        }
+
+        if (this.#normalizePatAllowlist(auth.allowedUsers).length > 0) {
+            throw new Error('AuthService: first-provider-subject policy cannot be combined with auth.allowedUsers')
+        }
+
+        const
+            hasDirectBootstrapPat = typeof auth.providerBootstrapPat === 'string'
+                && auth.providerBootstrapPat.trim().length > 0,
+            hasBootstrapPatFile   = typeof auth.providerBootstrapPatFile === 'string'
+                && auth.providerBootstrapPatFile.trim().length > 0;
+
+        if (hasDirectBootstrapPat === hasBootstrapPatFile) {
+            throw new Error(
+                'AuthService: first-provider-subject policy requires exactly one of ' +
+                'auth.providerBootstrapPat or auth.providerBootstrapPatFile'
+            )
+        }
+
+        if (auth.trustProxyIdentity) {
+            throw new Error('AuthService: first-provider-subject policy cannot be combined with trusted-proxy identity')
+        }
+
+        if (typeof aiConfig.authMiddleware === 'function') {
+            throw new Error('AuthService: first-provider-subject policy cannot be combined with custom authMiddleware')
+        }
+    }
+
+    /**
+     * @summary Resolves the bootstrap PAT from the one validated direct-value or file carrier.
+     *
+     * Secret-file content is read once, before middleware installation and listener creation.
+     * Errors name only the carrier; they never include the file contents or credential.
+     * @param {Object} auth Resolved `AiConfig.auth` subtree
+     * @returns {String} Bootstrap PAT
+     * @throws {Error} When the configured file cannot be read or contains no credential
+     */
+    #resolveProviderBootstrapPat(auth) {
+        if (typeof auth.providerBootstrapPat === 'string' && auth.providerBootstrapPat.trim().length > 0) {
+            return auth.providerBootstrapPat.trim()
+        }
+
+        let value;
+
+        try {
+            value = readFileSync(auth.providerBootstrapPatFile.trim(), 'utf8').trim()
+        } catch {
+            throw new Error('AuthService: cannot read auth.providerBootstrapPatFile')
+        }
+
+        if (!value) {
+            throw new Error('AuthService: auth.providerBootstrapPatFile contains no credential')
+        }
+
+        return value
+    }
+
+    /**
      * @summary Validates the one-budget deadline used by PAT verifier cache misses.
      *
      * Node accepts unsigned 32-bit delays in `AbortSignal.timeout()`, but its timer layer warns
@@ -633,9 +745,14 @@ class AuthService extends Base {
      * @param {Object}   deps
      * @param {Function} deps.requireBearerAuth SDK bearer-auth middleware factory
      * @param {Function} deps.InvalidTokenError SDK error class for rejected tokens
+     * @returns {Promise<void>}
      */
-    setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
+    async setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
         const verifier = this.createGithubPatVerifier({aiConfig, logger, InvalidTokenError});
+
+        if (aiConfig.auth.pinFirstProviderSubject) {
+            await verifier.establishPinnedProviderSubject(this.#resolveProviderBootstrapPat(aiConfig.auth))
+        }
 
         app.use(requireBearerAuth({verifier, requiredScopes: []}));
 
@@ -663,7 +780,7 @@ class AuthService extends Base {
      * @param {Object}   options.aiConfig
      * @param {Object}   options.logger
      * @param {Function} options.InvalidTokenError
-     * @returns {{verifyAccessToken: Function}}
+     * @returns {{verifyAccessToken: Function, establishPinnedProviderSubject: Function}}
      */
     createGithubPatVerifier({aiConfig, logger, InvalidTokenError}) {
         const
@@ -673,7 +790,10 @@ class AuthService extends Base {
             validationTimeoutMs = this.#validatePatValidationTimeoutMs(aiConfig.auth.patValidationTimeoutMs),
             allowedUsers        = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
             requireUser         = allowedUsers.length > 0,
+            pinSubject          = aiConfig.auth.pinFirstProviderSubject === true,
             cache               = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
+
+        let pinnedProviderSubject = null;
 
         // AuthInfo shape mirrors the GitLab-PAT verifier: `expiresAt` is REQUIRED by the SDK
         // `requireBearerAuth` (it rejects expiry-less auth info before `req.auth` is set), and
@@ -701,61 +821,117 @@ class AuthService extends Base {
             providerDisplayName: user.name || user.login
         });
 
-        return {
-            verifyAccessToken: async (token) => {
-                const
-                    tokenHash = createHash('sha256').update(token).digest('hex'),
-                    cached    = cache.get(tokenHash);
+        /**
+         * Applies the process-lifetime admission decision after provider validation but before
+         * AuthInfo can reach Express. Bootstrap is the only call allowed to establish the pin.
+         * @param {Object} info Provider-validated AuthInfo
+         * @param {Boolean} establishPin True only for the pre-listen bootstrap call
+         * @returns {Object} The admitted AuthInfo
+         */
+        const admitProviderSubject = (info, establishPin) => {
+            if (!pinSubject) {
+                return info
+            }
 
-                if (cached && cached.expiresAt > Date.now()) {
-                    return buildInfo(token, cached.user, cached.scopes)
+            if (establishPin) {
+                if (pinnedProviderSubject !== null) {
+                    throw new InvalidTokenError('First provider subject is already established for this process')
                 }
 
-                const signal = AbortSignal.timeout(validationTimeoutMs);
+                pinnedProviderSubject = info.userId;
+                return info
+            }
 
-                try {
-                    const userResponse = await fetch(`${apiBaseUrl}/user`, {
-                        headers: {
-                            'Accept'              : 'application/vnd.github+json',
-                            'Authorization'       : `Bearer ${token}`,
-                            'User-Agent'          : 'neo-agent-os',
-                            'X-GitHub-Api-Version': '2022-11-28'
-                        },
-                        signal
-                    });
+            if (!pinnedProviderSubject) {
+                throw new InvalidTokenError('First provider subject has not been established')
+            }
 
-                    if (!userResponse.ok) {
-                        cache.delete(tokenHash);
-                        throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
-                    }
+            if (info.userId !== pinnedProviderSubject) {
+                throw new InvalidTokenError('GitHub provider subject does not match the process pin')
+            }
 
-                    // Classic PATs advertise granted scopes here; fine-grained PATs omit the header.
-                    const
-                        scopeHeader = userResponse.headers?.get?.('x-oauth-scopes') || '',
-                        scopes      = scopeHeader.split(',').map(scope => scope.trim()).filter(Boolean),
-                        user        = await userResponse.json();
+            return info
+        };
 
-                    if (requireUser && !allowedUsers.includes(user.login)) {
-                        cache.delete(tokenHash);
-                        throw new InvalidTokenError('GitHub user is not allowed')
-                    }
+        /**
+         * Provider validation with an explicit bootstrap-only pin establishment branch.
+         * @param {String} token Presented PAT
+         * @param {Boolean} [establishPin=false] True only before middleware installation
+         * @returns {Promise<Object>} Admitted AuthInfo
+         */
+        const verify = async (token, establishPin=false) => {
+            const
+                tokenHash = createHash('sha256').update(token).digest('hex'),
+                cached    = cache.get(tokenHash);
 
-                    signal.throwIfAborted();
-                    cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
+            if (cached && cached.expiresAt > Date.now()) {
+                return admitProviderSubject(buildInfo(token, cached.user, cached.scopes), establishPin)
+            }
 
-                    logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
+            const signal = AbortSignal.timeout(validationTimeoutMs);
 
-                    return buildInfo(token, user, scopes)
-                } catch (error) {
+            try {
+                const userResponse = await fetch(`${apiBaseUrl}/user`, {
+                    headers: {
+                        'Accept'              : 'application/vnd.github+json',
+                        'Authorization'       : `Bearer ${token}`,
+                        'User-Agent'          : 'neo-agent-os',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    },
+                    signal
+                });
+
+                if (!userResponse.ok) {
                     cache.delete(tokenHash);
+                    throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
+                }
 
-                    if (signal.aborted) {
-                        throw new InvalidTokenError(`GitHub PAT validation timed out after ${validationTimeoutMs}ms`)
-                    }
+                // Classic PATs advertise granted scopes here; fine-grained PATs omit the header.
+                const
+                    scopeHeader = userResponse.headers?.get?.('x-oauth-scopes') || '',
+                    scopes      = scopeHeader.split(',').map(scope => scope.trim()).filter(Boolean),
+                    user        = await userResponse.json();
 
+                if (typeof user.login !== 'string' || user.login.trim().length === 0) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError('GitHub PAT validation returned no provider login')
+                }
+
+                if (requireUser && !allowedUsers.includes(user.login)) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError('GitHub user is not allowed')
+                }
+
+                signal.throwIfAborted();
+
+                const info = admitProviderSubject(buildInfo(token, user, scopes), establishPin);
+
+                cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
+
+                logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
+
+                return info
+            } catch (error) {
+                cache.delete(tokenHash);
+
+                if (signal.aborted) {
+                    throw new InvalidTokenError(`GitHub PAT validation timed out after ${validationTimeoutMs}ms`)
+                }
+
+                if (error instanceof InvalidTokenError) {
                     throw error
                 }
+
+                // Fetch/header/JSON implementations may echo credential-bearing request data in
+                // their native error messages. Collapse every unexpected provider failure to one
+                // redacted auth error before it can reach startup logs or an HTTP response.
+                throw new InvalidTokenError('GitHub PAT validation failed before provider identity was established')
             }
+        };
+
+        return {
+            verifyAccessToken             : token => verify(token),
+            establishPinnedProviderSubject: token => verify(token, true)
         }
     }
 }

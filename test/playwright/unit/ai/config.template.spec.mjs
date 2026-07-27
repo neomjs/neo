@@ -548,18 +548,31 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
-    test('ships default-off GitLab-PAT hardening leaves as CSV-backed arrays', () => {
+    test('ships explicit PAT admission leaves with safe defaults', () => {
         expect(Config.auth.allowedClientIds).toEqual([]);
         expect(Config.auth.allowedUsers).toEqual([]);
+        expect(Config.auth.pinFirstProviderSubject).toBe(false);
+        expect(Config.auth.providerBootstrapPat).toBe('');
+        expect(Config.auth.providerBootstrapPatFile).toBe('');
 
         const isolatedConfig = createIsolatedConfig();
 
         try {
             isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', ['mcp-oauth-app']);
             isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_USERS', ['neo-gpt']);
+            isolatedConfig.setEnvOverride('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', true);
+            isolatedConfig.setEnvOverride('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT', 'fixture-bootstrap-pat');
 
             expect(isolatedConfig.auth.allowedClientIds).toEqual(['mcp-oauth-app']);
             expect(isolatedConfig.auth.allowedUsers).toEqual(['neo-gpt']);
+            expect(isolatedConfig.auth.pinFirstProviderSubject).toBe(true);
+            expect(isolatedConfig.auth.providerBootstrapPat).toBe('fixture-bootstrap-pat');
+
+            isolatedConfig.setEnvOverride('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT', '');
+            isolatedConfig.setEnvOverride('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE', '/run/secrets/mcp-auth-token');
+
+            expect(isolatedConfig.auth.providerBootstrapPat).toBe('');
+            expect(isolatedConfig.auth.providerBootstrapPatFile).toBe('/run/secrets/mcp-auth-token');
         } finally {
             isolatedConfig.destroy();
         }

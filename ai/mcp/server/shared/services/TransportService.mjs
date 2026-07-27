@@ -186,18 +186,20 @@ class TransportService extends Base {
         const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(aiConfig.mcpHttpHost, aiConfig.mcpHttpPort);
         this.mcpServerUrl = mcpServerUrl;
 
-        // Optional Authorization: OIDC/OAuth (host / issuerUrl), GitLab-PAT, or local-bearer.
-        if (aiConfig.auth.host || aiConfig.auth.issuerUrl || aiConfig.auth.mode === 'gitlab-pat' || isLocalBearer) {
-            const { default: AuthService } = await import('./AuthService.mjs');
-            await AuthService.setup({
-                app,
-                aiConfig,
-                mcpServerUrl,
-                logger,
-                resourceName
-            });
-        }
+        // AuthService owns the legal Streamable-HTTP state machine. Transport delegates every
+        // boot instead of maintaining a built-in subset that drifts whenever a mode is added.
+        const { default: AuthService } = await import('./AuthService.mjs');
+        await AuthService.setup({
+            app,
+            aiConfig,
+            mcpServerUrl,
+            logger,
+            resourceName
+        });
 
+        // Custom-auth compatibility branch: the mount stays here during ingress ownership
+        // migration. AuthService classifies this state and deliberately mounts nothing, so there
+        // is exactly one middleware installation rather than a double-auth chain.
         if (typeof aiConfig.authMiddleware === 'function') {
             app.use(aiConfig.authMiddleware);
         }
@@ -253,10 +255,10 @@ class TransportService extends Base {
             // - Finally, the `sessionId` from the transport is appended to whichever context
             //   shape was resolved, making it available to downstream RequestContextService readers.
             //
-            // `req.auth` is populated by the `requireBearerAuth` middleware when OIDC is
-            // configured; when auth is disabled (local dev, no `aiConfig.auth.host` /
-            // `.issuerUrl`) the context is empty and downstream services fall through to
-            // single-tenant behavior.
+            // `req.auth` is populated by whichever bearer installer AuthService selected.
+            // Custom middleware may provide its own shape, while proxy-only compatibility is
+            // resolved above from the trusted header. A truly unconfigured HTTP boot never
+            // reaches this request path: AuthService rejects it before the listener opens.
             const authResult = this.resolveAuthContext(req, aiConfig);
             if (authResult.error) {
                 res.status(authResult.status).json({ error: authResult.error });

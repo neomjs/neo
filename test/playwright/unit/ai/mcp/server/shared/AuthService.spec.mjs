@@ -14,6 +14,9 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
@@ -798,11 +801,11 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
 
     // Installs the REAL SDK requireBearerAuth via setupGithubPat; returns the captured middleware.
     // The single-middleware assertion also confirms the naked-401 shape (no mcpAuthMetadataRouter).
-    function installPatMiddleware(config = aiConfig) {
+    async function installPatMiddleware(config = aiConfig) {
         const middlewares = [],
               app         = {use: mw => middlewares.push(mw)};
 
-        AuthService.setupGithubPat({app, aiConfig: config, logger}, {requireBearerAuth, InvalidTokenError});
+        await AuthService.setupGithubPat({app, aiConfig: config, logger}, {requireBearerAuth, InvalidTokenError});
 
         expect(middlewares.length).toBe(1);
         return middlewares[0];
@@ -811,7 +814,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     test('a valid GitHub PAT passes requireBearerAuth → next() called + req.auth populated', async () => {
         globalThis.fetch = async () => ({ok: true, json: async () => ({id: 7, login: 'octocat', name: 'The Octocat'})});
 
-        const mw  = installPatMiddleware(),
+        const mw  = await installPatMiddleware(),
               req = mockReq('Bearer ghp-valid'),
               res = mockRes();
 
@@ -829,7 +832,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     });
 
     test('a missing token yields a naked 401 — WWW-Authenticate: Bearer, no resource_metadata', async () => {
-        const mw  = installPatMiddleware(),
+        const mw  = await installPatMiddleware(),
               req = mockReq(),
               res = mockRes();
 
@@ -846,7 +849,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     test('an invalid PAT (GitHub 401) is rejected — next() not called', async () => {
         globalThis.fetch = async () => ({ok: false, status: 401, json: async () => ({})});
 
-        const mw  = installPatMiddleware(),
+        const mw  = await installPatMiddleware(),
               req = mockReq('Bearer ghp-bad'),
               res = mockRes();
 
@@ -860,7 +863,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     test('allowedUsers gate passes through real requireBearerAuth with GitHub login identity intact', async () => {
         globalThis.fetch = async () => ({ok: true, json: async () => ({login: 'neo-kimi-phoebe', name: 'Phoebe'})});
 
-        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
+        const mw  = await installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
               req = mockReq('Bearer ghp-valid'),
               res = mockRes();
 
@@ -876,7 +879,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     test('allowedUsers gate rejects an unlisted user through real requireBearerAuth', async () => {
         globalThis.fetch = async () => ({ok: true, json: async () => ({login: 'outsider'})});
 
-        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
+        const mw  = await installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
               req = mockReq('Bearer ghp-outsider'),
               res = mockRes();
 
@@ -885,6 +888,460 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
 
         expect(nextCalled).toBe(false);
         expect(res.statusCode).toBe(401);
+    });
+});
+
+/**
+ * @summary Guards the Streamable-HTTP activation foundation.
+ *
+ * Transport delegates every HTTP boot to AuthService, so this owner must classify the shipped
+ * compatibility states before touching OIDC endpoints: custom middleware, proxy-only identity,
+ * every built-in strategy, configured OIDC, and the truly-unconfigured/unknown failures.
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — setup state discrimination', () => {
+    let AuthService;
+
+    const logger = {info: () => {}, warn: () => {}, error: () => {}};
+
+    function createOptions({auth = {}, authMiddleware} = {}) {
+        const middlewares = [];
+
+        return {
+            app: {
+                middlewares,
+                use(middleware) {
+                    middlewares.push(middleware)
+                }
+            },
+            aiConfig: {
+                auth: {
+                    mode              : 'oidc',
+                    host              : null,
+                    issuerUrl         : null,
+                    port              : 8080,
+                    realm             : 'master',
+                    trustProxyIdentity: false,
+                    ...auth
+                },
+                authMiddleware
+            },
+            mcpServerUrl: new URL('http://127.0.0.1:3000'),
+            logger,
+            resourceName: 'AuthSetupStateSpec'
+        }
+    }
+
+    test.beforeAll(async () => {
+        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default
+    });
+
+    test('custom middleware is classified before default OIDC and is not mounted twice', async () => {
+        const customMiddleware = () => {};
+        const options          = createOptions({authMiddleware: customMiddleware});
+
+        await expect(AuthService.setup(options)).resolves.toBeUndefined();
+
+        // Compatibility seam: Transport still owns the one custom mount during migration.
+        expect(options.app.middlewares).toEqual([])
+    });
+
+    test('proxy-only compatibility does not dereference the absent default-OIDC endpoint', async () => {
+        const options = createOptions({auth: {trustProxyIdentity: true}});
+
+        await expect(AuthService.setup(options)).resolves.toBeUndefined();
+
+        // Compatibility seam: Transport still resolves the trusted-proxy header during migration.
+        expect(options.app.middlewares).toEqual([])
+    });
+
+    test('dispatches every non-OIDC built-in without a Transport-owned legal-mode list', async () => {
+        const
+            methodByMode = {
+                'gitlab-pat'  : 'setupGitlabPat',
+                'github-pat'  : 'setupGithubPat',
+                'local-bearer': 'setupLocalBearer',
+                'seat-token'  : 'setupSeatToken'
+            },
+            originals    = Object.fromEntries(Object.values(methodByMode).map(method => [method, AuthService[method]])),
+            calls        = [];
+
+        try {
+            for (const [mode, method] of Object.entries(methodByMode)) {
+                AuthService[method] = async () => calls.push(mode)
+            }
+
+            for (const mode of Object.keys(methodByMode)) {
+                await AuthService.setup(createOptions({auth: {mode}}))
+            }
+        } finally {
+            Object.assign(AuthService, originals)
+        }
+
+        expect(calls).toEqual(Object.keys(methodByMode))
+    });
+
+    test('configured OIDC remains the fifth built-in and installs metadata + bearer middleware', async () => {
+        const options = createOptions({auth: {host: 'localhost'}});
+
+        await AuthService.setup(options);
+
+        expect(options.app.middlewares).toHaveLength(2)
+    });
+
+    test('truly unconfigured HTTP fails named instead of reaching null.includes', async () => {
+        await expect(AuthService.setup(createOptions()))
+            .rejects.toThrow('AuthService: no Streamable HTTP authentication installer is configured')
+    });
+
+    test('an unknown auth mode fails named instead of falling through to OIDC', async () => {
+        await expect(AuthService.setup(createOptions({auth: {mode: 'invented-mode'}})))
+            .rejects.toThrow('AuthService: unsupported auth.mode "invented-mode"')
+    });
+});
+
+/**
+ * @summary Proves the rosterless local GitHub profile's process-lifetime admission policy.
+ *
+ * The configured bootstrap PAT is validated before middleware installation, establishing the
+ * exact provider login before Transport can open a listener. Subsequent credentials are admitted
+ * only when they resolve to that login; a new setup call models restart and owns a fresh pin.
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — first provider subject pin', () => {
+    let AuthService, requireBearerAuth, InvalidTokenError, originalFetch;
+
+    const loggerEntries = [];
+    const logger        = {
+        info : message => loggerEntries.push(String(message)),
+        warn : message => loggerEntries.push(String(message)),
+        error: message => loggerEntries.push(String(message))
+    };
+
+    function createOptions(overrides = {}) {
+        const middlewares = [];
+
+        return {
+            app: {
+                middlewares,
+                use(middleware) {
+                    middlewares.push(middleware)
+                }
+            },
+            aiConfig: {
+                auth: {
+                    mode                    : 'github-pat',
+                    host                    : null,
+                    issuerUrl               : null,
+                    trustProxyIdentity      : false,
+                    githubApiBaseUrl        : 'https://api.github.com',
+                    patCacheTtlSeconds      : 300,
+                    patValidationTimeoutMs  : 5000,
+                    allowedUsers            : [],
+                    allowedClientIds        : [],
+                    pinFirstProviderSubject : true,
+                    providerBootstrapPat    : 'ghp-bootstrap',
+                    providerBootstrapPatFile: '',
+                    ...overrides
+                }
+            },
+            mcpServerUrl: new URL('http://127.0.0.1:3000'),
+            logger,
+            resourceName: 'ProviderSubjectPinSpec'
+        }
+    }
+
+    function mockReq(token) {
+        const headers = token ? {authorization: `Bearer ${token}`} : {};
+
+        return {headers, get(name) { return headers[String(name).toLowerCase()] }}
+    }
+
+    function mockRes() {
+        return {
+            statusCode: 200,
+            headers   : {},
+            body      : undefined,
+            ended     : false,
+            status(code) { this.statusCode = code; return this },
+            set(field, value) {
+                if (field && typeof field === 'object') {
+                    Object.entries(field).forEach(([key, item]) => {
+                        this.headers[String(key).toLowerCase()] = item
+                    })
+                } else {
+                    this.headers[String(field).toLowerCase()] = value
+                }
+                return this
+            },
+            json(payload) { this.body = payload; this.ended = true; return this },
+            send(payload) { this.body = payload; this.ended = true; return this },
+            end(payload) {
+                if (payload !== undefined) {
+                    this.body = payload
+                }
+                this.ended = true;
+                return this
+            }
+        }
+    }
+
+    async function runMiddleware(middleware, token) {
+        const
+            req = mockReq(token),
+            res = mockRes();
+
+        let nextError = 'not-called';
+        await middleware(req, res, error => { nextError = error });
+
+        return {nextError, req, res}
+    }
+
+    test.beforeAll(async () => {
+        AuthService       = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        requireBearerAuth = (await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js')).requireBearerAuth;
+        InvalidTokenError = (await import('@modelcontextprotocol/sdk/server/auth/errors.js')).InvalidTokenError
+    });
+
+    test.beforeEach(() => {
+        originalFetch = globalThis.fetch;
+        loggerEntries.length = 0
+    });
+
+    test.afterEach(() => {
+        globalThis.fetch = originalFetch
+    });
+
+    test('rejects illegal pin combinations before installing middleware', async () => {
+        for (const overrides of [
+            {mode: 'oidc'},
+            {allowedUsers: ['neo-gpt']},
+            {providerBootstrapPat: ''},
+            {providerBootstrapPat: '   '},
+            {providerBootstrapPatFile: '/run/secrets/mcp-auth-token'},
+            {trustProxyIdentity: true}
+        ]) {
+            const options = createOptions(overrides);
+
+            await expect(AuthService.setup(options)).rejects.toThrow(/first-provider-subject/i);
+            expect(options.app.middlewares).toHaveLength(0)
+        }
+
+        const customOptions = createOptions();
+        customOptions.aiConfig.authMiddleware = () => {};
+
+        await expect(AuthService.setup(customOptions)).rejects.toThrow(/first-provider-subject/i);
+        expect(customOptions.app.middlewares).toHaveLength(0)
+    });
+
+    test('an invalid bootstrap PAT fails setup before any bearer middleware can be mounted', async () => {
+        globalThis.fetch = async () => ({ok: false, status: 401, json: async () => ({})});
+
+        const options = createOptions();
+
+        await expect(AuthService.setup(options)).rejects.toBeInstanceOf(InvalidTokenError);
+        expect(options.app.middlewares).toHaveLength(0)
+    });
+
+    test('reads one mounted bootstrap PAT before middleware installation', async () => {
+        const
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-auth-bootstrap-')),
+            patPath = path.join(tempDir, 'mcp-auth-token'),
+            calls   = [];
+
+        fs.writeFileSync(patPath, 'ghp-file-bootstrap\n');
+
+        globalThis.fetch = async (_url, {headers}) => {
+            const token = headers.Authorization.replace(/^Bearer /, '');
+
+            calls.push(token);
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({login: 'neo-gpt'})
+            }
+        };
+
+        const options = createOptions({
+            providerBootstrapPat    : '',
+            providerBootstrapPatFile: patPath
+        });
+
+        try {
+            await AuthService.setup(options)
+        } finally {
+            fs.rmSync(tempDir, {recursive: true, force: true})
+        }
+
+        expect(calls).toEqual(['ghp-file-bootstrap']);
+        expect(options.app.middlewares).toHaveLength(1);
+        expect(loggerEntries.join('\n')).not.toContain('ghp-file-bootstrap')
+    });
+
+    test('fails closed on missing or empty bootstrap files without exposing credential material', async () => {
+        const
+            tempDir     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-auth-bootstrap-invalid-')),
+            emptyPath   = path.join(tempDir, 'empty-token'),
+            missingPath = path.join(tempDir, 'missing-token');
+
+        fs.writeFileSync(emptyPath, ' \n');
+
+        try {
+            const missing = createOptions({
+                providerBootstrapPat    : '',
+                providerBootstrapPatFile: missingPath
+            });
+
+            await expect(AuthService.setup(missing))
+                .rejects.toThrow('cannot read auth.providerBootstrapPatFile');
+            expect(missing.app.middlewares).toHaveLength(0);
+
+            const empty = createOptions({
+                providerBootstrapPat    : '',
+                providerBootstrapPatFile: emptyPath
+            });
+
+            await expect(AuthService.setup(empty))
+                .rejects.toThrow('auth.providerBootstrapPatFile contains no credential');
+            expect(empty.app.middlewares).toHaveLength(0)
+        } finally {
+            fs.rmSync(tempDir, {recursive: true, force: true})
+        }
+
+        expect(loggerEntries.join('\n')).not.toContain('empty-token');
+        expect(loggerEntries.join('\n')).not.toContain('missing-token')
+    });
+
+    test('a provider response without a login cannot establish the process pin', async () => {
+        globalThis.fetch = async () => ({
+            ok     : true,
+            headers: {get: () => ''},
+            json   : async () => ({id: 1})
+        });
+
+        const options = createOptions();
+
+        await expect(AuthService.setup(options)).rejects.toThrow('GitHub PAT validation returned no provider login');
+        expect(options.app.middlewares).toHaveLength(0)
+    });
+
+    test('unexpected bootstrap verifier failures cannot expose credential material', async () => {
+        const bootstrapPat = 'ghp_BOOTSTRAP_SENTINEL\nInjected';
+
+        globalThis.fetch = async () => {
+            throw new TypeError(`Headers.append rejected "Bearer ${bootstrapPat}"`)
+        };
+
+        const options = createOptions({providerBootstrapPat: bootstrapPat});
+
+        let observedError;
+
+        try {
+            await AuthService.setup(options)
+        } catch (error) {
+            observedError = error
+        }
+
+        expect(observedError).toBeInstanceOf(InvalidTokenError);
+        expect(observedError.message).toBe('GitHub PAT validation failed before provider identity was established');
+        expect(observedError.message).not.toContain('BOOTSTRAP_SENTINEL');
+        expect(observedError.message).not.toContain('Injected');
+        expect(options.app.middlewares).toHaveLength(0)
+    });
+
+    test('the verifier cannot replace an established process pin', async () => {
+        globalThis.fetch = async (_url, {headers}) => {
+            const token = headers.Authorization.replace(/^Bearer /, '');
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({login: token})
+            }
+        };
+
+        const
+            options  = createOptions(),
+            verifier = AuthService.createGithubPatVerifier({
+                aiConfig         : options.aiConfig,
+                logger,
+                InvalidTokenError
+            });
+
+        await verifier.establishPinnedProviderSubject('first-user');
+
+        await expect(verifier.establishPinnedProviderSubject('second-user'))
+            .rejects.toThrow('First provider subject is already established for this process')
+    });
+
+    test('bootstraps before mount, admits the pinned login, and rejects a second valid login', async () => {
+        const calls = [];
+
+        globalThis.fetch = async (_url, {headers}) => {
+            const token = headers.Authorization.replace(/^Bearer /, '');
+
+            calls.push(token);
+
+            const login = token === 'ghp-outsider' ? 'other-user' : 'neo-gpt';
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({id: login === 'neo-gpt' ? 1 : 2, login, name: login})
+            }
+        };
+
+        const options = createOptions();
+
+        await AuthService.setup(options);
+
+        // Bootstrap validation happened before the middleware became reachable.
+        expect(calls).toEqual(['ghp-bootstrap']);
+        expect(options.app.middlewares).toHaveLength(1);
+
+        const sameSubject = await runMiddleware(options.app.middlewares[0], 'ghp-same-user');
+
+        expect(sameSubject.nextError).toBeUndefined();
+        expect(sameSubject.req.auth?.userId).toBe('neo-gpt');
+
+        const otherSubject = await runMiddleware(options.app.middlewares[0], 'ghp-outsider');
+
+        expect(otherSubject.nextError).toBe('not-called');
+        expect(otherSubject.res.statusCode).toBe(401);
+        expect(otherSubject.req.auth).toBeUndefined();
+        expect(loggerEntries.join('\n')).not.toContain('ghp-bootstrap');
+        expect(loggerEntries.join('\n')).not.toContain('ghp-same-user');
+        expect(loggerEntries.join('\n')).not.toContain('ghp-outsider')
+    });
+
+    test('restart creates a fresh process pin and revalidates the current bootstrap PAT', async () => {
+        const calls = [];
+
+        globalThis.fetch = async (_url, {headers}) => {
+            const token = headers.Authorization.replace(/^Bearer /, '');
+
+            calls.push(token);
+
+            const login = token.includes('second') ? 'second-user' : 'first-user';
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({login})
+            }
+        };
+
+        const firstBoot = createOptions({providerBootstrapPat: 'ghp-first-bootstrap'});
+        await AuthService.setup(firstBoot);
+
+        const secondBoot = createOptions({providerBootstrapPat: 'ghp-second-bootstrap'});
+        await AuthService.setup(secondBoot);
+
+        expect(calls.slice(0, 2)).toEqual(['ghp-first-bootstrap', 'ghp-second-bootstrap']);
+
+        const oldSubjectAfterRestart = await runMiddleware(secondBoot.app.middlewares[0], 'ghp-first-request');
+
+        expect(oldSubjectAfterRestart.res.statusCode).toBe(401);
+        expect(oldSubjectAfterRestart.req.auth).toBeUndefined()
     });
 });
 
