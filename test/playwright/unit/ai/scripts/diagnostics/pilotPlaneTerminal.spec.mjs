@@ -24,12 +24,19 @@ import {digestAppliedStages} from '../../../../../../ai/scripts/diagnostics/walR
 //   * a bare [] claiming an impossible scan                -> capability gate
 //   * an invented planeIdSource string unlocking clean     -> capability gate
 //   * segment COUNTS offered as proof of no-loss           -> set inclusion by id
-//   * a self-consistent SUBSET of the corpus certifying    -> capability gate
+//   * a self-consistent SUBSET of the corpus certifying    -> unconditional containment
+//   * a NO-OP FUNCTION satisfying the promotion gate       -> unconditional containment
 //
-// The last one is why BOTH certifying terminals are now gated shut. Deriving the plan here closed the forged
-// plan, but not the unknown denominator: a caller passing part of the corpus verifies as cleanly as one
-// passing all of it, and no validation rule inside this module can tell the two apart. What was missing was
-// never a stricter check — it was a producer of fact.
+// The last two are why BOTH certifying terminals are now unreachable, and why they are closed DIFFERENTLY.
+// Deriving the plan here closed the forged plan but not the unknown denominator: a caller passing part of the
+// corpus verifies as cleanly as one passing all of it, and no validation rule can tell them apart. What was
+// missing was never a stricter check — it was a producer of fact.
+//
+// The first attempt at that repair was itself the same defect: a `typeof PROMOTION_REPLAY_PRODUCER !== 'function'`
+// gate type-checked the capability but never INVOKED it, so a no-op stub fell through to caller-owned
+// observations. Demotion keeps a gate because its logic is complete and only its input is missing; promotion has
+// no branch and no parameter, because a capability that must *act* cannot be verified by checking that it
+// *exists*. Requiring a thing is not proving a fact — the recurring shape in every row above.
 
 const S         = ids => new Set(ids),
       allStages = ids => ({embedded: S(ids), graph: S(ids)});
@@ -58,20 +65,58 @@ test.describe('terminal set and the eligibility authority', () => {
 
 const entries = [{id: 'a', timestamp: 1}, {id: 'b', timestamp: 2}];
 
-test.describe('⭐ evaluatePromotion — `committed` is MECHANICALLY unreachable while the producer is absent', () => {
-    // The gate replaced a validation approach, and the reason is the reviewer's subset attack. The previous
-    // shape settled `committed` on `payloadEntries: [a]` with an unchanged before/after, certifying a
-    // zero-effect promotion truthfully. Refusing `plannedTotal: 0` would have closed that one case while
+test.describe('⭐ evaluatePromotion — `committed` is UNCONDITIONALLY unreachable, with no branch and no argument', () => {
+    // Unconditional containment replaced a validation approach, and the reason is the reviewer's subset attack.
+    // The previous shape settled `committed` on `payloadEntries: [a]` with an unchanged before/after, certifying
+    // a zero-effect promotion truthfully. Refusing `plannedTotal: 0` would have closed that one case while
     // leaving arbitrary non-empty truncation alive: a caller passing HALF the real corpus verifies exactly as
     // cleanly, because nothing in this module can know what the whole corpus was. The missing thing is a
     // source authority, not a stricter rule — so the terminal closes rather than the loophole.
+    //
+    // The intermediate attempt — a `typeof ... === 'function'` gate — is documented in its own test below,
+    // because it failed for a DIFFERENT reason worth keeping: checking that a capability exists never shows
+    // that it ran.
 
-    test('the producer does not exist, it is held as a constant, and it is a FUNCTION slot', () => {
+    test('the producer does not exist, and it is recorded as a constant', () => {
         expect(PROMOTION_REPLAY_PRODUCER).toBeNull();
+    });
 
-        // A function rather than a string, unlike OVERLAY_TAGGING_PRODUCER: replay completeness is an
-        // executable obligation, so the slot cannot be satisfied by naming something.
-        expect(typeof PROMOTION_REPLAY_PRODUCER).not.toBe('string');
+    test('⭐ a NO-OP FUNCTION STUB cannot open the path, because there is no branch to open', () => {
+        // THE DEFECT THIS TEST EXISTS FOR. The first version of this repair gated on
+        // `typeof PROMOTION_REPLAY_PRODUCER !== 'function'` and fell through to the derivation otherwise. The
+        // reviewer killed it in one line: the producer was type-checked but never INVOKED, so `() => {}` passed
+        // the check and handed caller-owned observations straight through.
+        //
+        // It was the same defect one level up from the one this module already fixed once — the predecessor gate
+        // checked that a `planeIdSource` STRING was present. Swapping a string slot for a function slot changed
+        // nothing: `typeof x === 'function'` is exactly as satisfiable-by-typing as `typeof x === 'string'`.
+        // Requiring a thing is not proving a fact, whatever the thing's type.
+        //
+        // So the terminal now reads NOTHING — no constant, and no parameter. `evaluatePromotion.length === 0` is
+        // the structural assertion that matters: a function that accepts no observations cannot be handed forged
+        // ones, and no value of any constant can route around a branch that does not exist.
+        expect(evaluatePromotion.length).toBe(0);
+
+        // Called with a fully-landed, fully-consistent corpus AND a function-shaped stub in every position a
+        // caller could hope is consulted. All ignored.
+        const result = evaluatePromotion({
+            payloadEntries           : entries,
+            appliedStagesBefore      : allStages(['seed']),
+            appliedStagesAfter       : allStages(['seed', 'a', 'b']),
+            PROMOTION_REPLAY_PRODUCER: () => true,
+            producer                 : () => ({complete: true}),
+            replayProducer           : function realAdapter() { return {ok: true}; }
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.eligibility).toBe('denied');
+        expect(result.receipt).toBeNull();
+    });
+
+    test('the refusal states the producer must be INVOKED and own its observations, not merely exist', () => {
+        // The distinction the reviewer drew. Recorded in the operator-facing string so the next person to wire
+        // an adapter does not repeat the type-check.
+        expect(evaluatePromotion().reason).toContain('invoked and own its observations, not merely exist');
     });
 
     test('⭐ the reviewer\'s exact zero-effect subset attack stays contained', () => {
@@ -97,8 +142,9 @@ test.describe('⭐ evaluatePromotion — `committed` is MECHANICALLY unreachable
         expect(result.terminal).toBe('failed-contained');
         expect(result.eligibility).toBe('denied');
 
-        // And the component proof CONFIRMS the truncation is otherwise clean — which is what makes the gate
-        // load-bearing rather than redundant. If this were `ok: false`, validation would have sufficed.
+        // And the component proof CONFIRMS the truncation is otherwise clean — which is what makes the
+        // containment load-bearing rather than redundant. If this were `ok: false`, validation would have
+        // sufficed and no terminal would have needed closing.
         expect(deriveReplayCompletion({
             payloadEntries     : [entries[0]],
             appliedStagesBefore: allStages(['seed']),
@@ -150,9 +196,9 @@ test.describe('⭐ evaluatePromotion — `committed` is MECHANICALLY unreachable
         expect(reason).toContain('true state of every promotion attempted today');
     });
 
-    test('the gate is consulted BEFORE any caller input — a malformed spec reports the producer', () => {
-        // Ordering is the whole guarantee. If a shape check ran first, the gate would look like something a
-        // better-formed argument could get past.
+    test('no caller input is read AT ALL — a malformed spec still reports the producer', () => {
+        // Ordering used to be the guarantee ("the gate runs before any shape check"). It is now stronger than
+        // ordering: nothing is read, so there is no ordering to get wrong.
         const {reason} = evaluatePromotion({payloadEntries: 'not-an-array'});
 
         expect(reason).toContain('no complete dual-corpus replay producer');
@@ -169,11 +215,15 @@ test.describe('⭐ evaluatePromotion — `committed` is MECHANICALLY unreachable
     });
 });
 
-// ⭐ THE COMPONENT PROOF THE GATE WOULD OTHERWISE HIDE. While `PROMOTION_REPLAY_PRODUCER` is null nothing
-// reaches the derivation through `evaluatePromotion`, and a gate that makes a path unreachable also makes it
-// unverifiable. That is not hypothetical: the sibling capture module's post-gate block was left referencing
-// four renamed variables, its suite stayed green because the gate short-circuited first, and @neo-gpt found
-// the `ReferenceError` only by forcing the capability on in memory.
+// ⭐ THE COMPONENT PROOF NOTHING ELSE REACHES. `evaluatePromotion` no longer calls this at all — it settles
+// contained unconditionally — so these assertions are the ONLY thing keeping the derivation alive and correct.
+// That is deliberate rather than an accident of the repair: unreachable code that nothing exercises is code
+// that rots silently, and this is a leaf a future adapter has to be able to trust.
+//
+// Not hypothetical. The sibling capture module's post-gate block was left referencing four renamed variables;
+// its suite stayed green because the gate short-circuited before reaching it, and @neo-gpt found the
+// `ReferenceError` only by forcing the capability on in memory. Removing the branch removes that failure mode
+// entirely — there is no short-circuit left to hide behind — but only because the math kept its own controls.
 //
 // These assertions prove the MATH — that the planner and the continuity verifier agree, and that each way a
 // replay can be unprovable is detected. They deliberately assert `ok`/`reason`/`receipt` and NEVER a terminal

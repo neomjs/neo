@@ -38,18 +38,25 @@
  * it never closed it, because the pilot never mutated the durable plane. Modelling that as `unchanged`
  * keeps the strictness intact instead of quietly widening it.
  *
- * ## Both certifying terminals are currently gated shut, and that is the finding
+ * ## Both certifying terminals are currently unreachable, and that is the finding
  *
- * `demoted-clean` and `committed` are each unreachable, held closed by a capability constant rather than by a
- * validation rule ({@link OVERLAY_TAGGING_PRODUCER}, {@link PROMOTION_REPLAY_PRODUCER}). Neither gate is a
- * placeholder awaiting a stricter check: in both cases the missing thing is a **producer of fact**, and no
- * amount of argument validation substitutes for one. Clean demotion needs a plane id the WAL appender never
- * writes; promotion needs a complete ordered mutation source that nothing in the running system reads.
+ * `demoted-clean` and `committed` are each unreachable, and neither is held closed by a validation rule. In both
+ * cases the missing thing is a **producer of fact**, and no amount of argument validation substitutes for one:
+ * clean demotion needs a plane id the WAL appender never writes; promotion needs a complete ordered mutation
+ * source that nothing in the running system reads.
+ *
+ * They are closed **differently**, and the difference is a lesson rather than an inconsistency. Demotion
+ * consults {@link OVERLAY_TAGGING_PRODUCER} as a gate, because the logic behind it is complete and only its
+ * input is missing. Promotion has **no gate and no branch at all** — {@link evaluatePromotion} settles contained
+ * unconditionally and takes no argument. A gate was tried there first and was wrong: type-checking a capability
+ * proves it exists, never that it ran, so a no-op stub satisfied the check and handed caller observations to the
+ * derivation behind it. Where a capability must *do* something rather than merely *be* something, a conditional
+ * is a dormant success path pretending to be a guard.
  *
  * So today every pilot settles `failed-contained` — eligibility denied, overlay quarantined. That is not this
  * module failing to do its job; it *is* the job. The honest statement about pilot-plane promotion at this head
  * is "cannot be certified", and a module that returned anything else would be manufacturing the certification
- * the acceptance criterion asks it to earn. Each gate names the adapter that would open it.
+ * the acceptance criterion asks it to earn. Each closure names the adapter that would open it.
  *
  * ## Where the authority is recorded
  *
@@ -110,13 +117,23 @@ export const OVERLAY_TAGGING_PRODUCER = null;
  * and count evidence never supplies row identity. Counts are the trap worth naming here, because they look
  * like measurement — `8,234 rows replayed` is a true sentence that establishes nothing about *which* rows.
  *
- * A **function**, not a string, unlike {@link OVERLAY_TAGGING_PRODUCER}. That difference is deliberate: a
- * capability named by a string is one a future edit can satisfy by naming it, whereas replay completeness is
- * an *executable* obligation. The producer that may replace this null has to resolve both configured WAL
- * roots, fence both source writers, have each owning store strictly enumerate its own canonical payload
- * files, bind per-family content and record digests, derive the memory and message plans separately, replay
- * messages without wake pumping or mutable-state overwrite, observe the target before and after, and emit one
- * composite receipt. That is an adapter, not a receipt-shaped object — so the slot holds a function.
+ * **This constant does not gate anything, and that is the correction.** {@link evaluatePromotion} does not read
+ * it — the terminal is unconditionally contained. An earlier revision made it a gate via
+ * `typeof PROMOTION_REPLAY_PRODUCER !== 'function'`, reasoning that a function slot was stronger than
+ * {@link OVERLAY_TAGGING_PRODUCER}'s string slot because "a function cannot be forged by a name." That was
+ * wrong: `typeof x === 'function'` is exactly as satisfiable-by-typing as `typeof x === 'string'`, so a no-op
+ * stub passed the check and reopened the caller-owned path behind it. **Requiring a thing is not proving a
+ * fact, whatever the thing's type.** The slot therefore documents a missing capability rather than guarding a
+ * branch, because the honest number of reachable success paths today is zero, not one-behind-a-check.
+ *
+ * The producer that may replace this null must be **invoked**, and must **own the observations** it reports —
+ * existing is not enough, and a caller handing in observations is the defect, not the interface. It has to
+ * resolve both configured WAL roots, fence both source writers, have each owning store strictly enumerate its
+ * own canonical payload files, bind per-family content and record digests, derive the memory and message plans
+ * separately, replay messages without wake pumping or mutable-state overwrite, **observe the target before and
+ * after itself**, and emit one composite receipt. Wiring it is therefore a deliberate change to
+ * {@link evaluatePromotion}'s contract — not a constant flip, which is the whole point of leaving no branch for
+ * a constant flip to open.
  * @type {Function|null}
  */
 export const PROMOTION_REPLAY_PRODUCER = null;
@@ -242,39 +259,37 @@ function validateContinuityReceipt(continuity) {
  * @param {String[]} [spec.requiredStages]    Stages a row must carry to count as applied.
  * @returns {Object} `{terminal, reason, eligibility, receipt}`
  */
-export function evaluatePromotion(spec) {
-    // THE CAPABILITY GATE, CONSULTED BEFORE ANY CALLER INPUT IS READ. Not after a shape check, not after a
-    // "well-formed corpus" test — first, because every alternative ordering makes the gate look satisfiable by
-    // supplying better arguments. No caller-supplied producer name, path, array, count, digest, manifest or
-    // receipt can unlock it: the capability is not a parameter.
+export function evaluatePromotion() {
+    // UNCONDITIONALLY CONTAINED. No branch, and NO PARAMETER — `spec` is not even accepted, because a
+    // signature that reads caller observations is the thing being refused.
     //
-    // The reviewer's attack that closed the previous shape: `payloadEntries: [a]`, `before: {seed, a}`,
-    // `after: {seed, a}` settled `committed` with `plannedTotal: 0` — a truthful, self-consistent, entirely
-    // zero-effect certification. Refusing `plannedTotal: 0` would have closed that ONE control while leaving
-    // arbitrary non-empty truncation alive: any subset of the real corpus still certifies, because nothing
-    // here can know what the whole corpus was. The subset problem is not a validation bug to patch, it is the
-    // absence of a source authority — so the honest repair closes the terminal, not the loophole.
-    if (typeof PROMOTION_REPLAY_PRODUCER !== 'function') {
-        return settle(
-            'failed-contained',
-            'no complete dual-corpus replay producer exists, so a promotion cannot be certified at all. ' +
-            'Without one, `payloadEntries` is whatever a caller chose to pass, and any SUBSET of the real ' +
-            'corpus verifies exactly as cleanly as the whole of it — a proof over an unknown denominator is ' +
-            'not a proof. The plane also has two WAL families (memory and the nested message family, which is ' +
-            'graph-only), no writer fence, and store readers that skip torn rows where a completeness proof ' +
-            'must refuse. See PROMOTION_REPLAY_PRODUCER for the five findings and the adapter that would ' +
-            'replace this null. The overlay is quarantined and eligibility stays denied — which is the true ' +
-            'state of every promotion attempted today, not a failure of this call.'
-        );
-    }
-
-    const completion = deriveReplayCompletion(spec);
-
-    // The terminal owns the authority; the derivation owns the math. `deriveReplayCompletion` returns no
-    // terminal and no eligibility precisely so that being exported cannot make it a second, ungated door.
-    return completion.ok ?
-        settle('committed', completion.reason, completion.receipt) :
-        settle('failed-contained', completion.reason);
+    // An earlier shape of this repair wrote the gate as `if (typeof PROMOTION_REPLAY_PRODUCER !== 'function')`
+    // and fell through to the derivation otherwise. The reviewer killed it in one line: **the producer was
+    // type-checked but never invoked**, so any function-shaped stub — `() => {}` — passed the check and handed
+    // caller-owned observations straight to `deriveReplayCompletion`, reopening the unknown denominator.
+    //
+    // That was the SAME defect one level up from the one this module already fixed once. The predecessor gate
+    // asked a caller to name a `planeIdSource` and only checked a string was present; I replaced a string slot
+    // with a function slot and argued a function "cannot be forged by a name." It can: `typeof x === 'function'`
+    // is exactly as satisfiable-by-typing as `typeof x === 'string'`. Requiring a THING is not proving a FACT,
+    // whatever the thing's type — and a conditional implies a reachable other branch, which was the lie.
+    //
+    // So there is no dormant success path to rot behind a check. When a real adapter lands it must be
+    // **invoked** and must **own the observations** it reports; wiring that is a deliberate change to this
+    // function's contract, not a constant flip. The math it will need is already proven — see
+    // {@link deriveReplayCompletion}, which is exported and directly controlled precisely so that removing the
+    // branch does not also remove the coverage.
+    return settle(
+        'failed-contained',
+        'no complete dual-corpus replay producer exists, so a promotion cannot be certified at all. Without ' +
+        'one, the source corpus is whatever a caller chose to pass, and any SUBSET of the real corpus verifies ' +
+        'exactly as cleanly as the whole of it — a proof over an unknown denominator is not a proof. The plane ' +
+        'also has two WAL families (memory and the nested message family, which is graph-only), no writer ' +
+        'fence, and store readers that skip torn rows where a completeness proof must refuse. See ' +
+        'PROMOTION_REPLAY_PRODUCER for the five findings and the adapter that would replace this null; it must ' +
+        'be invoked and own its observations, not merely exist. The overlay is quarantined and eligibility ' +
+        'stays denied — which is the true state of every promotion attempted today, not a failure of this call.'
+    );
 }
 
 /**

@@ -35,16 +35,17 @@ reading of it.
 
 | Terminal | Meaning | Eligibility effect | Reachable today |
 |---|---|---|---|
-| `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` | ❌ gated on `PROMOTION_REPLAY_PRODUCER` |
+| `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` | ❌ no branch reaches it; needs an invoked replay adapter |
 | `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | `unchanged` | ❌ gated on `OVERLAY_TAGGING_PRODUCER` |
 | `failed-contained` | The claim could not be proven, whatever the cause | `denied` | ✅ the only terminal any run reaches |
 
-**Both certifying terminals are gated shut**, each by a capability constant rather than a validation rule.
-Neither gate is a placeholder awaiting a stricter check: in both cases the missing thing is a **producer of
-fact**, and no amount of argument validation substitutes for one. So today *every* pilot settles
+**Both certifying terminals are closed**, and neither by a validation rule. In both cases the missing thing is
+a **producer of fact**, and no amount of argument validation substitutes for one. They are closed
+*differently* — demotion by a capability gate, promotion by having no branch at all — and the section below
+explains why that asymmetry is the right shape rather than an inconsistency. So today *every* pilot settles
 `failed-contained` — eligibility denied, overlay quarantined. That is not the tooling failing to do its job;
 it is the honest statement about pilot-plane transitions at this head, and each section below names the
-adapter that would open its gate.
+adapter that would open its path.
 
 Eligibility is **three-valued on purpose.** Only a strict `committed` *opens* data-consuming eligibility.
 A clean demotion does not open it — it never closed it, because the pilot never mutated the durable plane.
@@ -81,11 +82,22 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 > ADR-0027 OQ8 states the bound: journal replay has no source authority, and count evidence never supplies
 > row identity.
 >
-> `evaluatePromotion` therefore consults `PROMOTION_REPLAY_PRODUCER` **before it reads a single argument**, and
-> while that constant is `null` **every promotion settles `failed-contained` regardless of what you pass.**
-> No producer name, path, array, count, digest, manifest or receipt unlocks it — the capability is not a
-> parameter. The slot holds a **function**, not a string, because replay completeness is an executable
-> obligation rather than something a future edit can satisfy by naming it.
+> `evaluatePromotion` therefore **takes no argument and contains no branch**: every promotion settles
+> `failed-contained`, regardless of what you pass. No producer name, path, array, count, digest, manifest or
+> receipt unlocks it, because nothing is read.
+>
+> **It was a gate first, and that was wrong — worth recording, because the mistake is subtle.** The first
+> version checked `typeof PROMOTION_REPLAY_PRODUCER !== 'function'` and fell through to the derivation
+> otherwise, on the reasoning that a *function* slot was stronger than the demotion gate's *string* slot since
+> "a function cannot be forged by a name." It can: the producer was type-checked but never **invoked**, so a
+> no-op stub `() => {}` satisfied the check and handed caller-owned observations straight through. That is the
+> same defect the demotion gate already fixed once, one level up — **requiring a thing is not proving a fact,
+> whatever the thing's type.** Where a capability must *act* rather than merely *exist*, a conditional is a
+> dormant success path pretending to be a guard, so the branch is gone entirely.
+>
+> This is why the two closures differ, and the asymmetry is deliberate rather than untidy. Demotion keeps a
+> gate because its logic is complete and only its *input* is missing. Promotion has no branch because what is
+> missing is an *actor*.
 >
 > **Why a gate and not a stricter check.** The previous shape settled `committed` on a one-entry corpus with an
 > unchanged before/after — a truthful, self-consistent, entirely zero-effect certification. Refusing that
