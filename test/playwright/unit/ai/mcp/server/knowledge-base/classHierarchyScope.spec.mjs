@@ -87,5 +87,28 @@ test.describe('knowledge-base get_class_hierarchy — the scope claim reaches th
         // this one tool; the wider sweep across both openapi surfaces is tracked separately.
         expect(tool.description).not.toMatch(/framework/i);
         expect(handbook.handbook).not.toMatch(/framework/i);
+    });
+
+    test('the handbook prose cannot contradict the schema it ships beside', async () => {
+        const
+            handbook   = await callTool('get_mcp_tool_handbook', {toolId: 'get_class_hierarchy'}),
+            openApiDoc = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/knowledge-base/openapi.yaml'), 'utf8')),
+            operation  = openApiDoc.paths['/knowledge/hierarchy'].get,
+            rootParam  = operation.parameters.find(parameter => parameter.name === 'root');
+
+        // DERIVED from the schema rather than restated, so flipping `required` forces the prose to
+        // follow instead of leaving the two to disagree. This caught a real drift: the description
+        // called `root` optional two lines above `required: true`, and claimed a missing build artifact
+        // yields an empty/partial map — which is `ApiSource`'s ingestion-enrichment behaviour, not this
+        // tool's. `QueryService.getClassHierarchy` THROWS on both an absent root and an absent artifact.
+        // Describing a sibling consumer of the same artifact is the same misattribution this whole
+        // surface exists to prevent, so it gets a guard rather than a correction.
+        expect(/\(Optional\)/.test(handbook.handbook)).toBe(!rootParam.required);
+        expect(/REQUIRED/.test(handbook.handbook)).toBe(Boolean(rootParam.required));
+
+        // The fail-loud contract is what a caller plans around; a degrade-to-partial claim would send
+        // them to check for thin results instead of handling an error.
+        expect(handbook.handbook).toMatch(/fails LOUD/);
+        expect(handbook.handbook).not.toMatch(/empty or partial/)
     })
 });

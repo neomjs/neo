@@ -694,15 +694,17 @@ paths:
         your own or any tenant's repositories, whatever else this deployment has ingested. Use
         `query_documents` or `ask_knowledge_base` for non-Neo.mjs code.
 
-        Reads a generated build artifact rather than the embedded corpus, so it is independent of
-        ingestion state. A deployment that has not run the Neo.mjs docs build returns an empty or
-        partial map with incomplete `extends` metadata.
+        Reads a generated build artifact, not the embedded corpus, so it is independent of ingestion
+        state. It fails LOUD rather than degrading: an absent artifact errors telling you to sync the
+        knowledge base, instead of returning a thinner map indistinguishable from a complete one.
 
         **Input:**
-        - `root`: (Optional) Filter to subclasses of this class (e.g. 'Neo.component.Base').
+        - `root`: (REQUIRED) Returns this class plus its subclasses (e.g. 'Neo.component.Base').
+          Bounds the payload; omitting it errors.
 
         **Output:**
-        A JSON object keyed by class name, each value carrying metadata (source file, parent class).
+        A JSON object keyed by class name whose value is that class's parent class name, or `null`
+        where it has none. A `root` with no entry and no subclasses returns `{message}` instead.
       tags: [Documents]
       parameters:
         - name: root
