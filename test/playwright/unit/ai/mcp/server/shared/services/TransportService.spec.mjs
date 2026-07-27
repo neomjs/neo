@@ -157,109 +157,24 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         TransportService.destroy();
     });
 
-    test.describe('resolveAuthContext proxy-identity injection', () => {
-        let TransportService;
+    test.describe('authentication ownership boundary', () => {
+        test('Transport contains no authentication interpreter or installer', () => {
+            const source = fs.readFileSync(
+                new URL('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs', import.meta.url),
+                'utf8'
+            );
 
-        test.beforeAll(async () => {
-            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
-        });
-
-        test('OIDC precedence: native req.auth overrides proxy headers', () => {
-            const req = {
-                auth   : { userId: 'oidc-user', username: 'oidc-user', source: 'jwt' },
-                headers: { 'x-preferred-username': 'spoofed-user' }
-            };
-            const aiConfig = { auth: { trustProxyIdentity: true } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBeUndefined();
-            expect(result.auth).toEqual({
-                userId  : 'oidc-user',
-                username: 'oidc-user',
-                source  : 'jwt'
-            });
-        });
-
-        test('Active proxy identity injection (canonical header)', () => {
-            const req = {
-                auth   : undefined,
-                headers: { 'x-preferred-username': 'proxy-user' }
-            };
-            const aiConfig = { auth: { trustProxyIdentity: true } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBeUndefined();
-            expect(result.auth).toEqual({
-                userId  : 'proxy-user',
-                username: 'proxy-user',
-                source  : 'proxy-header'
-            });
-        });
-
-        test('OAuth2-proxy variant header fallback', () => {
-            const req = {
-                auth   : undefined,
-                headers: { 'x-auth-request-preferred-username': 'oauth2-user' }
-            };
-            const aiConfig = { auth: { trustProxyIdentity: true } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBeUndefined();
-            expect(result.auth).toEqual({
-                userId  : 'oauth2-user',
-                username: 'oauth2-user',
-                source  : 'proxy-header'
-            });
-        });
-
-        test('Gate-disabled behavior: ignores headers when trustProxyIdentity is false', () => {
-            const req = {
-                auth   : undefined,
-                headers: { 'x-preferred-username': 'ignored-user' }
-            };
-            const aiConfig = { auth: { trustProxyIdentity: false } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBeUndefined();
-            expect(result.auth).toBeUndefined();
-        });
-
-        test('Both headers provided: prioritizes canonical over oauth2-proxy', () => {
-            const req = {
-                auth   : undefined,
-                headers: {
-                    'x-preferred-username'             : 'primary-user',
-                    'x-auth-request-preferred-username': 'secondary-user'
-                }
-            };
-            const aiConfig = { auth: { trustProxyIdentity: true } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBeUndefined();
-            expect(result.auth).toEqual({
-                userId  : 'primary-user',
-                username: 'primary-user',
-                source  : 'proxy-header'
-            });
-        });
-
-        test('Header-spoof resistance / required identity: returns 401 when enabled but headers are missing', () => {
-            const req = {
-                auth   : undefined,
-                headers: {}
-            };
-            const aiConfig = { auth: { trustProxyIdentity: true } };
-
-            const result = TransportService.resolveAuthContext(req, aiConfig);
-
-            expect(result.error).toBe('Unauthorized: Missing proxy identity header');
-            expect(result.status).toBe(401);
-            expect(result.auth).toBeUndefined();
+            for (const forbidden of [
+                'auth.mode',
+                'authMiddleware',
+                'trustProxyIdentity',
+                'x-preferred-username',
+                'x-auth-request-preferred-username',
+                'resolveAuthContext',
+                'isLocalBearer'
+            ]) {
+                expect(source).not.toContain(forbidden)
+            }
         });
     });
 
@@ -476,6 +391,267 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                 releaseAuth?.();
                 AuthService.setup = originalSetup
             }
+        });
+    });
+
+    /**
+     * @summary Consumed HTTP proof for non-downgrading OIDC + trusted-proxy composition.
+     *
+     * These four cells cross the real Express route, SDK bearer middleware, OIDC verifier, and
+     * MCP initialize boundary. Authorization presence is terminal: only true absence may reach
+     * trusted proxy identity, and every rejection occurs before connection/session creation.
+     */
+    test.describe('trusted-proxy and OIDC composition HTTP ingress', () => {
+        let TransportService, McpServer, originalFetch, capturedAuth;
+
+        const
+            logger       = {info: () => {}, warn: () => {}, error: () => {}},
+            oidcAudience = 'http://127.0.0.1:43199/mcp';
+
+        function oidcProxyConfig() {
+            return {
+                mcpHttpHost  : '127.0.0.1',
+                mcpListenHost: '127.0.0.1',
+                mcpHttpPort  : 0,
+                publicUrl    : oidcAudience,
+                auth         : {
+                    mode              : 'oidc',
+                    host              : 'https://oidc.test',
+                    port              : 443,
+                    realm             : 'neo',
+                    issuerUrl         : null,
+                    clientId          : 'neo-mcp',
+                    clientSecret      : '',
+                    trustProxyIdentity: true
+                }
+            }
+        }
+
+        function initializeBody() {
+            return JSON.stringify({
+                jsonrpc: '2.0',
+                id     : 1,
+                method : 'initialize',
+                params : {
+                    protocolVersion: '2024-11-05',
+                    capabilities   : {},
+                    clientInfo     : {name: 'oidc-proxy-test', version: '1.0.0'}
+                }
+            })
+        }
+
+        async function setupOidcProxy() {
+            const mcpServer = new McpServer({name: 'oidc-proxy-test', version: '1.0.0'});
+
+            await TransportService.setup({
+                server: {
+                    mcpServer,
+                    onSessionClosed    : () => {},
+                    buildRequestContext: async reqAuth => {
+                        capturedAuth.push(reqAuth);
+                        return {
+                            userId  : reqAuth?.userId,
+                            username: reqAuth?.username,
+                            source  : reqAuth?.source
+                        }
+                    }
+                },
+                aiConfig    : oidcProxyConfig(),
+                logger,
+                resourceName: 'OidcProxyIngressTest'
+            });
+
+            return TransportService.httpServer.address().port
+        }
+
+        async function setupProxyOnly() {
+            const
+                mcpServer       = new McpServer({name: 'proxy-only-test', version: '1.0.0'}),
+                originalConnect = mcpServer.connect.bind(mcpServer);
+
+            let connectCalls = 0;
+
+            mcpServer.connect = async transport => {
+                connectCalls++;
+                return originalConnect(transport)
+            };
+
+            await TransportService.setup({
+                server: {
+                    mcpServer,
+                    onSessionClosed    : () => {},
+                    buildRequestContext: async reqAuth => {
+                        capturedAuth.push(reqAuth);
+                        return {
+                            userId  : reqAuth?.userId,
+                            username: reqAuth?.username,
+                            source  : reqAuth?.source
+                        }
+                    }
+                },
+                aiConfig: {
+                    mcpHttpHost  : '127.0.0.1',
+                    mcpListenHost: '127.0.0.1',
+                    mcpHttpPort  : 0,
+                    auth         : {
+                        mode              : 'oidc',
+                        host              : null,
+                        issuerUrl         : null,
+                        trustProxyIdentity: true
+                    }
+                },
+                logger,
+                resourceName: 'ProxyOnlyIngressTest'
+            });
+
+            return {
+                getConnectCalls: () => connectCalls,
+                port           : TransportService.httpServer.address().port
+            }
+        }
+
+        function initialize(port, headers={}) {
+            return originalFetch(`http://127.0.0.1:${port}/mcp`, {
+                method : 'POST',
+                headers: {
+                    Accept        : 'application/json, text/event-stream',
+                    'Content-Type': 'application/json',
+                    ...headers
+                },
+                body: initializeBody()
+            })
+        }
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+            McpServer        = (await import('@modelcontextprotocol/sdk/server/mcp.js')).McpServer
+        });
+
+        test.beforeEach(() => {
+            originalFetch = globalThis.fetch;
+            capturedAuth  = [];
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports = new Map();
+            TransportService.mcpServers = new Map();
+
+            globalThis.fetch = async (url, options={}) => {
+                if (!String(url).startsWith('https://oidc.test/')) {
+                    return originalFetch(url, options)
+                }
+
+                const token = new URLSearchParams(options.body).get('token');
+
+                return {
+                    ok  : true,
+                    json: async () => token === 'valid-oidc'
+                        ? {
+                            active            : true,
+                            aud               : oidcAudience,
+                            preferred_username: 'oidc-user',
+                            sub               : 'oidc-subject',
+                            client_id         : 'neo-mcp',
+                            exp               : Math.floor(Date.now() / 1000) + 3600
+                        }
+                        : {active: false}
+                }
+            }
+        });
+
+        test.afterEach(async () => {
+            globalThis.fetch = originalFetch;
+
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        });
+
+        test('valid bearer + conflicting proxy identity uses OIDC', async () => {
+            const
+                port     = await setupOidcProxy(),
+                response = await initialize(port, {
+                    Authorization         : 'Bearer valid-oidc',
+                    'X-Preferred-Username': 'proxy-spoof'
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.headers.get('mcp-session-id')).toBeTruthy();
+            expect(capturedAuth).toHaveLength(1);
+            expect(capturedAuth[0]).toMatchObject({
+                userId: 'oidc-user',
+                source: 'oidc'
+            })
+        });
+
+        test('invalid or malformed bearer + valid proxy challenges without downgrade', async () => {
+            const port = await setupOidcProxy();
+
+            for (const authorization of ['Bearer invalid-oidc', 'Basic malformed']) {
+                const response = await initialize(port, {
+                    Authorization         : authorization,
+                    'X-Preferred-Username': 'proxy-user'
+                });
+
+                expect(response.status).toBe(401);
+                expect(response.headers.get('mcp-session-id')).toBeNull()
+            }
+
+            expect(capturedAuth).toEqual([]);
+            expect(TransportService.transports.size).toBe(0)
+        });
+
+        test('absent bearer + trusted proxy identity initializes through proxy auth', async () => {
+            const
+                port     = await setupOidcProxy(),
+                response = await initialize(port, {'X-Preferred-Username': 'proxy-user'});
+
+            expect(response.status).toBe(200);
+            expect(response.headers.get('mcp-session-id')).toBeTruthy();
+            expect(capturedAuth).toHaveLength(1);
+            expect(capturedAuth[0]).toMatchObject({
+                userId: 'proxy-user',
+                source: 'proxy-header'
+            })
+        });
+
+        test('absent bearer + missing proxy identity rejects before MCP dispatch', async () => {
+            const
+                port     = await setupOidcProxy(),
+                response = await initialize(port);
+
+            expect(response.status).toBe(401);
+            expect(response.headers.get('mcp-session-id')).toBeNull();
+            expect(capturedAuth).toEqual([]);
+            expect(TransportService.transports.size).toBe(0)
+        });
+
+        test('proxy-only rejects before connect, then admits a trusted identity', async () => {
+            const {port, getConnectCalls} = await setupProxyOnly();
+            const missing                 = await initialize(port);
+
+            expect(missing.status).toBe(401);
+            expect(missing.headers.get('mcp-session-id')).toBeNull();
+            expect(getConnectCalls()).toBe(0);
+            expect(TransportService.transports.size).toBe(0);
+
+            const trusted = await initialize(port, {'X-Preferred-Username': 'proxy-only-user'});
+
+            expect(trusted.status).toBe(200);
+            expect(trusted.headers.get('mcp-session-id')).toBeTruthy();
+            expect(getConnectCalls()).toBe(1);
+            expect(capturedAuth).toHaveLength(1);
+            expect(capturedAuth[0]).toMatchObject({
+                userId: 'proxy-only-user',
+                source: 'proxy-header'
+            })
         });
     });
 

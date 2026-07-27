@@ -12,8 +12,8 @@ import RequestContextService from './RequestContextService.mjs';
  * - **Session Management:** Handles the lifecycle of stateful MCP sessions via `Mcp-Session-Id`.
  * - **Transport Abstraction:** Decouples the Express app and CORS configuration from the
  *   individual server logic (e.g. Knowledge Base, Memory Core).
- * - **Auth Integration:** Automatically wires up the configured OIDC, GitLab-PAT, or
- *   possession-only local-bearer strategy.
+ * - **Authenticated Context Consumption:** Delegates authentication installation to AuthService,
+ *   then consumes the resulting `req.auth` without interpreting authentication configuration.
  * - **CORS Enforcement:** Ensures cross-origin compatibility for modern browser-based AI agents.
  * - **Request-Context Propagation:** Each `/mcp` request is wrapped in
  *   `RequestContextService.run({userId, username, sessionId}, ...)` before dispatching to the MCP
@@ -43,32 +43,6 @@ class TransportService extends Base {
          * @protected
          */
         singleton: true
-    }
-
-    /**
-     * Resolves the base authentication context, handling proxy identity injection.
-     * @param {Object} req The Express request
-     * @param {Object} aiConfig The server configuration
-     * @returns {Object} Result object containing `auth` or `error` with `status`.
-     */
-    resolveAuthContext(req, aiConfig) {
-        let baseAuth = req.auth;
-
-        if (!baseAuth && aiConfig.auth.trustProxyIdentity) {
-            const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
-            if (proxyUserId) {
-                baseAuth = {
-                    userId  : proxyUserId,
-                    username: proxyUserId,
-                    source  : 'proxy-header'
-                };
-            } else {
-                req.app?.locals?.logger?.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
-                return { error: 'Unauthorized: Missing proxy identity header', status: 401 };
-            }
-        }
-
-        return { auth: baseAuth };
     }
 
     /**
@@ -131,11 +105,6 @@ class TransportService extends Base {
      */
     async setup(options) {
         const { server, aiConfig, logger, resourceName } = options;
-        const isLocalBearer                              = aiConfig.auth.mode === 'local-bearer';
-
-        if (isLocalBearer && aiConfig.mcpListenHost !== '127.0.0.1') {
-            throw new Error("Local-bearer mode requires mcpListenHost to be the literal IPv4 loopback address '127.0.0.1'")
-        }
 
         const { createMcpExpressApp }           = await import('@modelcontextprotocol/sdk/server/express.js');
         const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
@@ -149,23 +118,11 @@ class TransportService extends Base {
 
         this.app = app;
 
-        // Browser-originated requests are outside the trusted-loopback contract. Presence is the
-        // discriminator: even an empty Origin header is rejected before wildcard CORS, auth, or
-        // MCP dispatch; non-browser clients legitimately omit Origin.
-        if (isLocalBearer) {
-            app.use((req, res, next) => {
-                if (Object.hasOwn(req.headers, 'origin')) {
-                    res.status(403).json({
-                        jsonrpc: '2.0',
-                        error  : {code: -32000, message: 'Origin header is not allowed in local-bearer mode'},
-                        id     : null
-                    });
-                    return
-                }
-
-                next()
-            })
-        }
+        // AuthService alone interprets authentication state. Its universal pre-CORS phase
+        // installs any strategy guard whose order is security-significant; Transport merely
+        // supplies the Express boundary.
+        const { default: AuthService } = await import('./AuthService.mjs');
+        AuthService.setupPreCors({app, aiConfig});
 
         app.use(cors.default({
             origin        : '*',
@@ -188,7 +145,6 @@ class TransportService extends Base {
 
         // AuthService owns the legal Streamable-HTTP state machine. Transport delegates every
         // boot instead of maintaining a built-in subset that drifts whenever a mode is added.
-        const { default: AuthService } = await import('./AuthService.mjs');
         await AuthService.setup({
             app,
             aiConfig,
@@ -196,13 +152,6 @@ class TransportService extends Base {
             logger,
             resourceName
         });
-
-        // Custom-auth compatibility branch: the mount stays here during ingress ownership
-        // migration. AuthService classifies this state and deliberately mounts nothing, so there
-        // is exactly one middleware installation rather than a double-auth chain.
-        if (typeof aiConfig.authMiddleware === 'function') {
-            app.use(aiConfig.authMiddleware);
-        }
 
         app.all('/mcp', async (req, res) => {
             const sessionId = req.headers['mcp-session-id'];
@@ -256,15 +205,10 @@ class TransportService extends Base {
             //   shape was resolved, making it available to downstream RequestContextService readers.
             //
             // `req.auth` is populated by whichever bearer installer AuthService selected.
-            // Custom middleware may provide its own shape, while proxy-only compatibility is
-            // resolved above from the trusted header. A truly unconfigured HTTP boot never
-            // reaches this request path: AuthService rejects it before the listener opens.
-            const authResult = this.resolveAuthContext(req, aiConfig);
-            if (authResult.error) {
-                res.status(authResult.status).json({ error: authResult.error });
-                return;
-            }
-            let baseAuth = authResult.auth;
+            // Custom, proxy, and built-in strategies all bind the same consumed req.auth shape.
+            // A truly unconfigured HTTP boot never reaches this path: AuthService rejects it
+            // before the listener opens.
+            const baseAuth = req.auth;
 
             let requestContext;
 

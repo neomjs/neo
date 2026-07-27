@@ -51,6 +51,42 @@ class AuthService extends Base {
     }
 
     /**
+     * @summary Installs authentication guards that must execute before transport CORS.
+     *
+     * Transport calls this phase for every Streamable HTTP boot without interpreting the
+     * configured strategy. Custom middleware owns its complete ingress contract and therefore
+     * suppresses built-in guards. The local-bearer strategy is the sole built-in with a
+     * pre-CORS concern: its listener must be literal IPv4 loopback, and any present Origin
+     * header must be rejected before CORS, bearer verification, or MCP session creation.
+     * @param {Object} options
+     * @param {Object} options.app Express application instance
+     * @param {Object} options.aiConfig Server configuration object
+     * @returns {void}
+     */
+    setupPreCors({app, aiConfig}) {
+        if (typeof aiConfig.authMiddleware === 'function' || aiConfig.auth.mode !== 'local-bearer') {
+            return
+        }
+
+        if (aiConfig.mcpListenHost !== '127.0.0.1') {
+            throw new Error("Local-bearer mode requires mcpListenHost to be the literal IPv4 loopback address '127.0.0.1'")
+        }
+
+        app.use((req, res, next) => {
+            if (Object.hasOwn(req.headers, 'origin')) {
+                res.status(403).json({
+                    jsonrpc: '2.0',
+                    error  : {code: -32000, message: 'Origin header is not allowed in local-bearer mode'},
+                    id     : null
+                });
+                return
+            }
+
+            next()
+        })
+    }
+
+    /**
      * @summary Sets up the configured authorization strategy for an Express application.
      * @param {Object} options
      * @param {Object} options.app The Express application instance
@@ -70,19 +106,18 @@ class AuthService extends Base {
 
         this.#validateFirstProviderSubjectPolicy(aiConfig);
 
-        // Custom-auth compatibility branch — classify custom auth before the default OIDC mode
-        // can dereference an absent endpoint, while Transport retains the one custom middleware
-        // mount until full ingress ownership migrates.
+        // Custom middleware owns the complete authentication boundary and takes precedence over
+        // every built-in state. Mount it exactly once here; Transport never interprets the leaf.
         if (hasCustomAuth) {
-            logger.info('[AuthService] Custom authorization middleware selected (compatibility branch)');
+            app.use(aiConfig.authMiddleware);
+            logger.info('[AuthService] Custom authorization middleware selected');
             return
         }
 
-        // Trusted-proxy compatibility branch — proxy identity remains resolved in Transport
-        // until the full ingress/trust boundary migrates. Reaching this state is still an
-        // explicit auth installer choice, not gateless HTTP.
+        // Proxy-only is the explicit no-OIDC compatibility state. The middleware owns header
+        // extraction, rejection, and req.auth creation before Transport can dispatch a session.
         if (isProxyOnlyCompat) {
-            logger.info('[AuthService] Trusted-proxy authorization selected (compatibility branch)');
+            this.setupProxyIdentity({app, logger});
             return
         }
 
@@ -255,15 +290,97 @@ class AuthService extends Base {
             resourceName,
         }));
 
+        // In the explicit OIDC+proxy state, bearer PRESENCE is terminal. The proxy middleware
+        // only runs its identity path when Authorization is absent; malformed or invalid
+        // credentials continue into the SDK bearer challenge and can never downgrade.
+        if (auth.trustProxyIdentity) {
+            this.setupProxyIdentity({app, logger}, {fallbackOnly: true})
+        }
+
         const authMiddleware = requireBearerAuth({
             verifier           : tokenVerifier,
             requiredScopes     : [],
             resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(mcpServerUrl),
         });
 
-        app.use(authMiddleware);
+        app.use(auth.trustProxyIdentity
+            ? this.wrapOidcBearerMiddleware(authMiddleware)
+            : authMiddleware
+        );
 
         logger.info(`[AuthService] Authorization enabled (Issuer: ${oauthUrls.issuer})`);
+    }
+
+    /**
+     * @summary Installs trusted-proxy identity authentication.
+     *
+     * Proxy-only mode always requires a trusted identity header. OIDC composition passes
+     * `fallbackOnly=true`: any present Authorization header bypasses proxy interpretation and is
+     * left exclusively to the SDK bearer middleware, while true absence may bind the proxy
+     * subject. This service trusts the header only after the deployment's documented
+     * strip/authenticate/inject ingress boundary.
+     * @param {Object} options
+     * @param {Object} options.app Express application instance
+     * @param {Object} options.logger Logger instance
+     * @param {Object} [policy]
+     * @param {Boolean} [policy.fallbackOnly=false] Defer every present Authorization header
+     * @returns {void}
+     */
+    setupProxyIdentity({app, logger}, {fallbackOnly=false}={}) {
+        app.use(this.createProxyIdentityMiddleware({logger, fallbackOnly}));
+        logger.info(`[AuthService] Trusted-proxy authorization enabled (${fallbackOnly ? 'OIDC fallback' : 'proxy-only'})`)
+    }
+
+    /**
+     * @summary Builds the trusted-proxy identity middleware.
+     * @param {Object} options
+     * @param {Object} options.logger Logger instance
+     * @param {Boolean} [options.fallbackOnly=false] Defer every present Authorization header
+     * @returns {Function} Express middleware
+     */
+    createProxyIdentityMiddleware({logger, fallbackOnly=false}) {
+        return (req, res, next) => {
+            if (fallbackOnly && Object.hasOwn(req.headers, 'authorization')) {
+                next();
+                return
+            }
+
+            const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
+
+            if (!proxyUserId) {
+                logger.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
+                res.status(401).json({error: 'Unauthorized: Missing proxy identity header'});
+                return
+            }
+
+            req.auth = {
+                userId  : proxyUserId,
+                username: proxyUserId,
+                source  : 'proxy-header'
+            };
+
+            next()
+        }
+    }
+
+    /**
+     * @summary Wraps OIDC bearer authentication with the trusted-proxy absence fallback.
+     *
+     * The preceding proxy middleware can create req.auth only when Authorization is absent. A
+     * proxy-bound request skips the SDK challenge; every request with Authorization still runs
+     * the unmodified bearer middleware, preserving terminal invalid/malformed-token behavior.
+     * @param {Function} authMiddleware SDK bearer middleware
+     * @returns {Function} Express middleware
+     */
+    wrapOidcBearerMiddleware(authMiddleware) {
+        return (req, res, next) => {
+            if (!Object.hasOwn(req.headers, 'authorization') && req.auth?.source === 'proxy-header') {
+                next();
+                return
+            }
+
+            return authMiddleware(req, res, next)
+        }
     }
 
     /**
