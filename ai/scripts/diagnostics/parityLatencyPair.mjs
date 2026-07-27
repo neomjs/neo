@@ -41,7 +41,8 @@
 export const MIN_SAMPLES = 3;
 
 /**
- * The comparable event both legs must measure, as decided by the parity steward.
+ * The **boot** comparable event, as decided by the parity steward: a cold runtime launch through to
+ * separate MC and KB authenticated readiness.
  *
  * Exported as a **named constant that callers still pass explicitly** rather than as a default. The
  * distinction is the point: a default would silently re-open the hole `comparableEvent` exists to close,
@@ -50,8 +51,23 @@ export const MIN_SAMPLES = 3;
  * definition safe to leave implicit.
  * @type {String}
  */
-export const PARITY_COMPARABLE_EVENT = 'runtime launch until fresh clients initialize and an ' +
-    'authenticated healthcheck returns identity proof from BOTH memory-core and knowledge-base';
+export const PARITY_BOOT_EVENT = 'cold runtime launch until fresh clients initialize and an authenticated ' +
+    'healthcheck returns identity proof from memory-core and knowledge-base separately (seat-ready = ' +
+    'max of the two)';
+
+/**
+ * The **hot-call** comparable event, as decided by the parity steward: already-established sessions, one
+ * untimed warm-up, then the same non-mutating authenticated healthcheck timed ≥3 times per service, with
+ * **no process or stack start inside the measured window**.
+ *
+ * This exists as a second constant because a single shared event collapsed the two dimensions: reusing one
+ * generic event for both legs made the hot-call leg measure process start, which is the boot definition and
+ * explicitly not the selected hot-call one. Two dimensions require two events, or the pair compares a
+ * thing to itself.
+ * @type {String}
+ */
+export const PARITY_HOT_CALL_EVENT = 'on already-established sessions after one untimed warm-up, a ' +
+    'non-mutating authenticated healthcheck timed per service with no process or stack start in the window';
 
 /**
  * The cache state under which a comparable pair must be taken, as decided by the parity steward:
@@ -120,6 +136,40 @@ export function summarizeSamples(samples, label = 'samples') {
 }
 
 /**
+ * @summary Derives one seat-ready sample from separate per-service observations.
+ *
+ * The steward's boot definition times memory-core and knowledge-base **separately**, and the seat is ready
+ * when the later of the two is ready — so seat-ready is `max`, not a mean and not whichever was measured.
+ * Averaging would report a seat as ready while a service it depends on is still starting; taking one
+ * service's figure would silently drop the other's contribution.
+ *
+ * Both observations are required. A missing one is not a zero: it is an unmeasured service, and defaulting
+ * it to zero would make the faster service alone define readiness.
+ * @param {Object} spec
+ * @param {Number} spec.memoryCoreMs Authenticated-readiness time for memory-core.
+ * @param {Number} spec.knowledgeBaseMs Authenticated-readiness time for knowledge-base.
+ * @returns {Object} `{ok, reason?, seatReadyMs?, slowerService?}`
+ */
+export function deriveSeatReadyMs({memoryCoreMs, knowledgeBaseMs} = {}) {
+    for (const [label, value] of [['memoryCoreMs', memoryCoreMs], ['knowledgeBaseMs', knowledgeBaseMs]]) {
+        if (!isPositiveFinite(value)) {
+            return {
+                ok    : false,
+                reason: `${label} must be a positive finite number, received ${JSON.stringify(value)}. Both ` +
+                        'services are required: a missing observation is an unmeasured service, not a zero, ' +
+                        'and treating it as zero would let the faster service alone define seat-readiness.'
+            };
+        }
+    }
+
+    return {
+        ok           : true,
+        seatReadyMs  : Math.max(memoryCoreMs, knowledgeBaseMs),
+        slowerService: memoryCoreMs >= knowledgeBaseMs ? 'memory-core' : 'knowledge-base'
+    };
+}
+
+/**
  * @summary Compares a parity leg against the stdio baseline for one dimension (boot or hot-call).
  * @param {Object} spec
  * @param {Number[]} spec.stdioSamples  Baseline timings — what the seat has today.
@@ -164,9 +214,12 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
         parity,
         overheadRatio: parity.medianMs / stdio.medianMs,
         overheadMs   : parity.medianMs - stdio.medianMs,
-        // A comparison between two noisy legs is not worth a verdict. Surfaced as data rather than
-        // silently folded into the ratio, so a caller can see WHY a ratio should not be leaned on.
-        trustworthy  : stdio.spreadRatio <= 2 && parity.spreadRatio <= 2
+        // Spread is REPORTED, not scored. An earlier shape minted `trustworthy: spreadRatio <= 2`, which
+        // was an unratified policy of exactly the kind this module refuses elsewhere: a 2x cutoff nobody
+        // selected, hardened into a boolean that downstream readers would treat as a verdict. Having
+        // declined to invent the acceptability bound and then inventing a trustworthiness bound is the same
+        // defect one level down. A caller who has a ratified ceiling passes it (see `spreadCeiling`).
+        worstSpreadRatio: Math.max(stdio.spreadRatio, parity.spreadRatio)
     };
 }
 
@@ -182,14 +235,14 @@ export function compareLatencyLeg({stdioSamples, paritySamples, dimension = 'lat
  * @param {Number} spec.acceptableOverhead Maximum tolerable parity/stdio median ratio. REQUIRED — no
  *                                         default, because tolerability is an operational decision
  *                                         about how the seat is used, not a derivable property.
- * @param {String} spec.cacheConvention    The cache state the samples were taken under — normally
- *                                         `PARITY_CACHE_CONVENTION`. REQUIRED, and recorded into the
- *                                         result: a latency pair that does not carry its cache
- *                                         conditions cannot be reproduced or compared to a later pair,
- *                                         which makes it a number rather than a measurement.
- * @returns {Object} `{ok, reason?, pair, conditions, verdict?, exceeded?, trustworthy?}`
+ * @param {Object} spec.conditions         What the samples were taken under. REQUIRED:
+ *                                         `{cacheConvention, imageDigest, configHead, hostLoad?}`. A
+ *                                         latency pair that cannot be reproduced is a number, not a
+ *                                         measurement, and cache state alone does not pin a run — the
+ *                                         image and the config head move independently of it.
+ * @returns {Object} `{ok, reason?, pair, conditions?, verdict?, exceeded?, worstSpreadRatio?}`
  */
-export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, cacheConvention} = {}) {
+export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, conditions} = {}) {
     const bootLeg = compareLatencyLeg({dimension: 'boot', ...boot}),
           callLeg = compareLatencyLeg({dimension: 'hotCall', ...hotCall});
 
@@ -198,25 +251,32 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, cacheCon
 
     const pair = {boot: bootLeg, hotCall: callLeg};
 
-    if (typeof cacheConvention !== 'string' || cacheConvention.trim() === '') {
+    // THE TWO DIMENSIONS MUST MEASURE DIFFERENT EVENTS. Reusing one event for both collapsed the pair into
+    // a comparison of a thing to itself: the hot-call leg ended up timing process start, which is the boot
+    // definition. `compareLatencyLeg` cannot catch this — each leg is individually well-formed — so it has
+    // to be checked where both are visible.
+    if (bootLeg.comparableEvent === callLeg.comparableEvent) {
         return {
             ok    : false,
             pair,
-            reason: 'cacheConvention must state the cache state the samples were taken under (normally ' +
-                    'PARITY_CACHE_CONVENTION). Cold-with-build, cold-without-build and fully warm are ' +
-                    'three parity numbers an order of magnitude apart, and the figures themselves do not ' +
-                    'say which they are — so a pair without its conditions is not reproducible.'
+            reason: 'boot and hotCall declare the SAME comparableEvent, so the pair does not measure two ' +
+                    'dimensions. Hot-call must exclude process/stack start (see PARITY_HOT_CALL_EVENT); ' +
+                    'timing a fresh launch under a hot-call label reports boot latency twice.'
         };
     }
 
+    const conditionsFault = validateConditions(conditions);
+
+    if (conditionsFault) return {ok: false, pair, reason: conditionsFault};
+
     if (!isPositiveFinite(acceptableOverhead)) {
         return {
-            ok    : false,
+            ok: false,
             // The pair still ships: it is the acceptance criterion, and it is now on the record even
             // though nobody has yet decided what "acceptable" means. Its conditions ship with it, so the
             // recorded pair stays interpretable rather than becoming a bare ratio.
             pair,
-            conditions: {cacheConvention},
+            conditions,
             reason: `acceptableOverhead must be a positive finite number, received ${JSON.stringify(acceptableOverhead)}. ` +
                     'It has no default on purpose: whether a given parity/stdio ratio is tolerable is an ' +
                     'operational decision about how the seat is used, not something derivable here. The ' +
@@ -227,12 +287,40 @@ export function evaluateLatencyPair({boot, hotCall, acceptableOverhead, cacheCon
     const exceeded = Object.values(pair).filter(leg => leg.overheadRatio > acceptableOverhead).map(leg => leg.dimension);
 
     return {
-        ok        : true,
+        ok     : true,
         pair,
-        conditions: {cacheConvention},
-        verdict   : exceeded.length === 0 ? 'within-budget' : 'exceeds-budget',
+        conditions,
+        verdict: exceeded.length === 0 ? 'within-budget' : 'exceeds-budget',
         exceeded,
-        // Both legs must be individually trustworthy before the verdict means anything.
-        trustworthy: bootLeg.trustworthy && callLeg.trustworthy
+        // Reported, not scored — see `compareLatencyLeg`. A reader with a ratified dispersion ceiling can
+        // compare against it; this module does not mint one.
+        worstSpreadRatio: Math.max(bootLeg.worstSpreadRatio, callLeg.worstSpreadRatio)
     };
+}
+
+/**
+ * @summary Validates the reproducibility conditions, returning a refusal reason or `null`.
+ *
+ * Cache convention alone does not pin a run. The image digest and the config head move independently of
+ * cache state, so a pair recorded with only a cache note cannot be re-taken — which is how a figure like a
+ * build-dominated `261033ms` survives as an apparently comparable number. `hostLoad` is optional and
+ * passed through when present: it is worth recording and rarely available with any precision.
+ * @param {Object} conditions
+ * @returns {String|null}
+ */
+function validateConditions(conditions) {
+    if (!conditions || typeof conditions !== 'object') {
+        return 'conditions is required: {cacheConvention, imageDigest, configHead}. A latency pair that ' +
+               'cannot be reproduced is a number rather than a measurement.';
+    }
+
+    for (const key of ['cacheConvention', 'imageDigest', 'configHead']) {
+        if (typeof conditions[key] !== 'string' || conditions[key].trim() === '') {
+            return `conditions.${key} must be a non-empty string. Cold-with-build, cold-without-build and ` +
+                   'fully warm are parity numbers an order of magnitude apart, and the image and config ' +
+                   'head move independently of cache state — so all three are needed to re-take a pair.';
+        }
+    }
+
+    return null;
 }

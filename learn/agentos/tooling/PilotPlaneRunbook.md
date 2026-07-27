@@ -33,11 +33,15 @@ Derived by [`ai/scripts/diagnostics/pilotPlaneTerminal.mjs`](../../../ai/scripts
 No entry point accepts a terminal as an argument: the receipt attests to evidence, not to the operator's
 reading of it.
 
-| Terminal | Meaning | Data-consuming eligibility |
+| Terminal | Meaning | Eligibility effect |
 |---|---|---|
-| `committed` | Replay onto the durable plane verified monotonic — no loss, no double-apply | **open** |
-| `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | **open** |
-| `failed-contained` | The claim could not be proven, whatever the cause | **denied** |
+| `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` |
+| `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | `unchanged` |
+| `failed-contained` | The claim could not be proven, whatever the cause | `denied` |
+
+Eligibility is **three-valued on purpose.** Only a strict `committed` *opens* data-consuming eligibility.
+A clean demotion does not open it — it never closed it, because the pilot never mutated the durable plane.
+Collapsing those two into one boolean read as a widening of the committed-only rule, which it must not be.
 
 `failed-contained` is not an error code, it is a **state you are allowed to stay in.** It is the correct
 outcome of a run that could not prove itself, and it is strictly better than the two things operators
@@ -68,11 +72,26 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 
 ## Demotion
 
-1. **Scan the durable corpus for overlay-tagged segments.** This is the load-bearing step and the one
-   most likely to be skipped, so the evaluator makes it structurally unskippable: the argument is
-   required, and an absent scan settles `failed-contained`. **Unscanned is unproven, not clean.**
-2. **Record durable segment counts** at clone time and now.
-3. **Settle.** `evaluateDemotion({durableOverlayTaggedSegments, preCloneSegmentCount, postPilotSegmentCount})`.
+> ### ⚠️ `demoted-clean` is not reachable yet, and that is the honest state
+>
+> The leak scan needs each durable segment's **plane id**. No producer for it exists: the WAL appender
+> writes `{...record, segmentKey}` and carries no plane id, so nothing can currently distinguish an
+> overlay-written segment from a natively-written one. Until that producer lands, `overlayScan.planeIdSource`
+> cannot be populated honestly and **every demotion settles `failed-contained`**.
+>
+> That is the correct terminal for an unprovable claim, not a bug to work around. The earlier shape of this
+> evaluator accepted a bare empty array as "no leak", which let a caller claim a scan the substrate cannot
+> perform — converting a missing capability into a clean bill of health. Do not pass a synthetic
+> `planeIdSource` to get a green terminal; the terminal would be false and the receipt would attest to
+> nothing.
+
+1. **Scan the durable corpus for overlay-tagged segments.** The evaluator requires a *structure*, not a
+   list: `{planeIdSource, scannedSegmentCount, taggedSegments}`. A bare array is refused, because `[]` is
+   indistinguishable from "nobody looked". **Unscanned is unproven, not clean.**
+2. **Record durable segment IDs** at clone time and now — *ids*, not counts. Cardinality is not identity:
+   `3 → 3` looks stable while a delete-and-add has destroyed committed history, so the check is set
+   inclusion over every pre-clone id.
+3. **Settle.** `evaluateDemotion({overlayScan, preCloneSegmentIds, postPilotSegmentIds})`.
 4. **Retire the overlay** — only on `demoted-clean`.
 
 > ### Why demotion does NOT compare durable-plane fingerprints
