@@ -2835,6 +2835,51 @@ components:
                         count:
                           type: integer
                           example: 56
+                loopbackProbe:
+                  type: object
+                  nullable: true
+                  description: >-
+                    Present ONLY when the primary Chroma connection FAILED and the configured host is a
+                    loopback address. Absent on the successful/healthy path, and absent for a
+                    non-loopback host such as a compose service name where no loopback claim could be
+                    true. Note the gate is on the connection OUTCOME, not on the caller: an unhealthy
+                    `healthcheck` tool call does probe, because the field exists to explain that
+                    failure. Purely observational — a successful connect proves a TCP listener accepted,
+                    never the identity of the process that answered.
+                  properties:
+                    verdict:
+                      type: string
+                      enum: [mismatch, no-listener, listener-reachable, ambiguous-host, inconclusive, skipped]
+                      example: mismatch
+                    conclusive:
+                      type: boolean
+                      description: >-
+                        True only when the observation answers the question an `lsof` would have. False
+                        for `inconclusive` (a family timed out, so nothing may be asserted) and `skipped`.
+                      example: true
+                    dialed:
+                      type: string
+                      description: The configured literal this server dials, never a normalised stand-in.
+                      example: "127.0.0.1"
+                    answering:
+                      type: array
+                      items:
+                        type: string
+                      example: ["[::1]"]
+                    empty:
+                      type: array
+                      items:
+                        type: string
+                      example: ["127.0.0.1"]
+                    unknown:
+                      type: array
+                      items:
+                        type: string
+                      example: []
+                    reason:
+                      type: string
+                      nullable: true
+                      example: "no result for 127.0.0.1"
         features:
           type: object
           properties:
