@@ -55,6 +55,21 @@ function isElementVisible(element) {
 const ADAPTER_STATES = ['live', 'sample', 'stale', 'degraded'];
 
 /**
+ * @summary Resolves the single adapter state a class list advertises, or `unknown`.
+ *
+ * Mirrors `adapterWitness.resolveAdapterState`. The duplication is forced, not chosen: this file is
+ * CommonJS because Electron cannot load an ESM preload in a sandboxed renderer, so it cannot import the
+ * ESM module. A spec asserts the two state lists stay identical.
+ * @param {Object} classList
+ * @returns {String}
+ */
+function resolveAdapterStateFromClassList(classList) {
+    const matched = ADAPTER_STATES.filter(state => classList.contains(`is-${state}`));
+
+    return matched.length === 1 ? matched[0] : 'unknown';
+}
+
+/**
  * @summary Reports which adapter state a cockpit head is actually rendering, plus its label text.
  *
  * Scoped selectors were the defect this replaces: reading `.fm-fleet-head.is-sample .fm-fleet-stale`
@@ -73,9 +88,11 @@ function readAdapterHead(headSelector, labelSelector) {
     if (!head) return {state: null, label: null};
 
     return {
-        // An unrecognised class set reports `unknown` rather than silently falling back to a known
-        // state: a new adapter state added upstream must surface here as unhandled, not as `sample`.
-        state: ADAPTER_STATES.find(state => head.classList.contains(`is-${state}`)) ?? 'unknown',
+        // EXACTLY ONE known class, or `unknown`. First-match resolution reported a confident answer
+        // about a contradictory DOM: a head carrying `is-live is-sample` resolved to whichever state
+        // sat earlier in the list. Ambiguity and unrecognised-state now share the same fail-closed
+        // outcome — not ready, not conclusive.
+        state: resolveAdapterStateFromClassList(head.classList),
         label: head.querySelector(labelSelector)?.textContent?.trim() ?? null
     }
 }

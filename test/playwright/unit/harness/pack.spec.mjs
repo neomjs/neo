@@ -129,6 +129,7 @@ test.describe('harness pack stage', () => {
         });
 
         expect(modules).toEqual([
+            'adapterWitness.mjs',
             'appLifecycle.mjs',
             'brain.mjs',
             'contentPolicy.mjs',
