@@ -1,0 +1,58 @@
+name: Content Logical Identity Lint
+
+# The third and widest layer of one invariant: no two archived artifacts may claim the same logical
+# name. The other two are `lint-staged` (hand-authored commits) and an in-process assertion in
+# `SyncService.commitRebaseAndPushGeneratedContent` (the automated sync, which commits `--no-verify`
+# and so cannot be reached by a git hook at all).
+#
+# `push` is the load-bearing trigger here, not `pull_request`. Corpus artifacts do not arrive by pull
+# request — the sync path pushes them straight to `dev` — so a PR-only check would watch a road this
+# defect never travels. The `pull_request` leg is still worth its seconds: it catches a hand-authored
+# archive change before merge.
+#
+# Full-tree audit rather than a changed-files subset: the invariant is a property of the whole corpus,
+# and a collision needs only ONE of its two sides to be touched by the commit under test. A subset
+# check would pass on the untouched side and report green over a corpus that refuses to embed.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'resources/content/archive/**'
+      - 'buildScripts/util/check-content-logical-identity.mjs'
+      - '.github/workflows/content-logical-identity-lint.yml'
+  # `main` is audited as a BACKSTOP, and it is worth being precise about why it is only that. Each
+  # release gives `main` exactly one commit, built with low-level plumbing: a new commit object whose
+  # parent is `main` and whose tree is `dev`'s tree, reused as-is. So `main`'s corpus is byte-identical
+  # to the `dev` corpus it was cut from, and any collision arriving on `main` was already on `dev`,
+  # where the push leg above fires first. What earns `main` its own leg is that the release commit is
+  # created by `git commit-tree` — which runs no hooks by construction, so it is the one writer that
+  # cannot carry an in-process assertion. This leg is the only observation point left for it.
+  push:
+    branches: [dev, main]
+    paths:
+      - 'resources/content/archive/**'
+      - 'buildScripts/util/check-content-logical-identity.mjs'
+      - '.github/workflows/content-logical-identity-lint.yml'
+
+concurrency:
+  group: content-logical-identity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # No `npm ci` at all: the check imports only `node:fs`, `node:path`, `node:process` and
+      # `node:url`, so there is nothing to install. Adding an install would make this the slowest
+      # leg of a job that otherwise finishes in about a second.
+      - name: Audit archived-content logical identity
+        run: node ./buildScripts/util/check-content-logical-identity.mjs --all

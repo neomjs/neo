@@ -10,7 +10,12 @@ import PullRequestSyncer       from './sync/PullRequestSyncer.mjs';
 import RepositoryService       from './RepositoryService.mjs';
 import {formatIntegrityReport} from './shared/contentInventory.mjs';
 import {exec}                  from 'child_process';
+import path                    from 'path';
 import {promisify}             from 'util';
+// Pure predicate shared with the `lint-staged` guard, so the invariant has ONE definition and the two
+// enforcement points cannot drift. Same direction as the `buildScripts/util/sanitizer.mjs` import in
+// every `ai/mcp/server/*/mcp-server.mjs`.
+import {findLogicalIdentityCollisions} from '../../../buildScripts/util/check-content-logical-identity.mjs';
 
 const execAsync = promisify(exec);
 
@@ -439,6 +444,29 @@ class SyncService extends Base {
 
         if (nonSyncFiles.length > 0) {
             throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
+        }
+
+        // The logical-identity invariant has to be asserted HERE, and this is the only place it can be.
+        // The `lint-staged` guard cannot see this commit: the `--no-verify` below is load-bearing and
+        // correct — generated content legitimately carries trailing whitespace that the whitespace hook
+        // rejects — so it disables every git hook, this one included. A corpus invariant enforced only
+        // by a hook the sole automated committer bypasses is not enforced at all.
+        //
+        // Scoped to the STAGED set, not the whole corpus: a collision this run did not touch is not this
+        // commit's to fix, and a full-corpus assertion would refuse every sync until an unrelated repair
+        // lands — turning a guard against new damage into a block on all progress.
+        const collisions = findLogicalIdentityCollisions({
+            archiveRoot: path.join(cwd, 'resources/content/archive'),
+            targets    : stagedStdout.trim().split('\n').filter(Boolean).map(file => path.join(cwd, file))
+        });
+
+        if (collisions.length > 0) {
+            throw new Error(
+                'Automated sync commit rejected: this run would commit two artifacts claiming one logical ' +
+                `name — ${collisions.map(item => `${item.key} (${item.paths.length} copies)`).join('; ')}. ` +
+                'Embedding refuses this state, so committing it stalls Knowledge Base ingestion for the ' +
+                'whole corpus. Repair via PullRequestSyncer.repairDuplicateArtifacts before retrying.'
+            );
         }
 
         // Automated generated-data commits (neo repo): --no-verify because generated content fails whitespace
