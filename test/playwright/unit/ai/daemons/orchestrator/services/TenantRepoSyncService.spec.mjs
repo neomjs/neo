@@ -2275,7 +2275,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             consecutiveFailures                  : 1,
             ingestContractVersion                : null,
             lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
-            lastCommittedMaterializationAttemptId: null
+            lastCommittedMaterializationAttemptId: null,
+            // The failure REASON is persisted alongside the count. Previously only the count survived
+            // a sweep, which is what left a wedged lane reporting `consecutiveFailures` with a null
+            // cause. This mirror is deliberate: the exact-shape assertion is the contract,
+            // so a field added to durable state has to be declared here or the addition is unwitnessed.
+            // `lastSourceErrorCode` is null because this mirror throws a bare Error with no `KB_*` code.
+            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode: null,
+            lastErrorAt        : expect.any(Number)
         });
     });
 
@@ -3046,6 +3054,202 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(Object.keys(persisted.revisions)).toHaveLength(2000);
         expect(persisted.revisions['t1/org/repo-1999'].lastIngestedRev.endsWith('1999')).toBe(true);
     });
+
+    /**
+     * A wedged lane has to stay diagnosable from a remote MCP client, which is the only interface a
+     * cloud deployment exposes.
+     *
+     * The defect these cover, observed on a live deployment: four repos at `consecutiveFailures: 4`
+     * with `lastErrorCode: null` and `lastSourceErrorCode: null`, all reporting `status: "not-due"`
+     * while the sweep completed every cadence with `exitCode: 0`. Two causes, and the first makes the
+     * second unfixable on its own — the code was written ONLY onto the in-memory record for the sweep
+     * that failed, so it survived one cadence and was gone; and the backoff branch then rebuilt a
+     * record with neither the code nor any hint that a failure was why the repo stopped being tried.
+     * Counters persisted, reasons did not.
+     */
+    test.describe('a wedged lane keeps its reason (#16056)', () => {
+        const failingMirror = () => ({
+            async cloneIfMissing() {},
+            async fetch() {
+                const error = new Error('GitMirror failed to fetch');
+
+                error.code     = 'KB_GITMIRROR_FETCH_FAILED';
+                // Deliberately carries what must NEVER reach durable state.
+                error.stderr   = 'remote: HTTP Basic: Access denied for https://oauth2:glpat-SECRETVALUE@gitlab.example.net/ai/x.git';
+                error.exitCode = 128;
+
+                throw error
+            },
+            async resolveRevision() { return 'a'.repeat(40) },
+            async listRevisionPaths() { return [] },
+            async readRevisionFile() { return '' }
+        });
+
+        const repoFor = mirrorRootPath => ({
+            tenantId: 't1', repoSlug: 'org/wedged', mirrorRoot: mirrorRootPath,
+            cloneUrl: 'https://gitlab.example.net/ai/x.git'
+        });
+
+        test('a failure PERSISTS its cause, so it outlives the sweep that produced it', async () => {
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.runTask({
+                reason                       : 'periodic',
+                taskStateService,
+                tenantReposConfig            : {tenantRepos: [repoFor(mirrorRoot)]},
+                gitMirror                    : failingMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                seedBootstrap                : false
+            });
+
+            const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/wedged'];
+
+            expect(persisted.consecutiveFailures).toBe(1);
+            // The point of the ticket: the count was already durable, the REASON was not.
+            expect(persisted.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+            expect(persisted.lastSourceErrorCode).toBe('KB_GITMIRROR_FETCH_FAILED');
+            expect(typeof persisted.lastErrorAt).toBe('number');
+
+            // Redaction: codes only. A credential arrived in `stderr` above, so this asserts the
+            // boundary rather than trusting it.
+            const serialized = JSON.stringify(persisted);
+
+            expect(serialized).not.toMatch(/glpat-/);
+            expect(serialized).not.toMatch(/Access denied/);
+            expect(serialized).not.toMatch(/gitlab\.example\.net/)
+        });
+
+        test('a backoff-suppressed repo REPORTS the retained cause, and says it is suppressed', async () => {
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {
+                    't1/org/wedged': {
+                        lastIngestedRev                      : null,
+                        lastRunAttemptAt                     : Date.now(),
+                        consecutiveFailures                  : 4,
+                        ingestContractVersion                : null,
+                        lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastCommittedMaterializationAttemptId: null,
+                        lastErrorCode                        : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                        lastSourceErrorCode                  : 'KB_GITMIRROR_FETCH_FAILED',
+                        lastErrorAt                          : Date.now() - 5_000
+                    }
+                }
+            });
+
+            const result = await TenantRepoSyncService.runTask({
+                reason                       : 'periodic',
+                taskStateService,
+                tenantReposConfig            : {tenantRepos: [repoFor(mirrorRoot)]},
+                gitMirror                    : failingMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                seedBootstrap                : false
+            });
+
+            const [repoState] = result.details.repos;
+
+            // `not-due` conflated "ran recently" with "wedged after repeated failure", which is what
+            // made a broken lane read as an idle one.
+            expect(repoState.status).toBe('backoff-suppressed');
+            expect(repoState.consecutiveFailures).toBe(4);
+            expect(repoState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+            expect(repoState.lastSourceErrorCode).toBe('KB_GITMIRROR_FETCH_FAILED');
+            expect(repoState.lastErrorAt).toBeTruthy();
+            expect(repoState.nextDueAt).toBeTruthy()
+        });
+
+        test('a healthy repo held back by cadence stays plain not-due and carries NO cause', async () => {
+            // The positive control. Without it, the assertion above is satisfied by a change that
+            // labels every held-back repo as suppressed and attaches a cause to all of them.
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {
+                    't1/org/wedged': {
+                        lastIngestedRev                      : 'b'.repeat(40),
+                        lastRunAttemptAt                     : Date.now(),
+                        consecutiveFailures                  : 0,
+                        ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastCommittedMaterializationAttemptId: null
+                    }
+                }
+            });
+
+            const result = await TenantRepoSyncService.runTask({
+                reason                       : 'periodic',
+                taskStateService,
+                tenantReposConfig            : {tenantRepos: [repoFor(mirrorRoot)]},
+                gitMirror                    : failingMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                seedBootstrap                : false
+            });
+
+            const [repoState] = result.details.repos;
+
+            expect(repoState.status).toBe('not-due');
+            expect(repoState.lastErrorCode).toBeUndefined();
+            expect(repoState.lastSourceErrorCode).toBeUndefined()
+        });
+
+        test('a repo that heals CLEARS its persisted cause', async () => {
+            // A durable reason beside a zero failure count reads as a live fault, so healing has to
+            // retract it explicitly rather than leave the last known error lying around.
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {
+                    't1/org/healed': {
+                        lastIngestedRev                      : null,
+                        lastRunAttemptAt                     : Date.now() - 600_000,
+                        consecutiveFailures                  : 3,
+                        ingestContractVersion                : null,
+                        lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastCommittedMaterializationAttemptId: null,
+                        lastErrorCode                        : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                        lastSourceErrorCode                  : 'KB_GITMIRROR_FETCH_FAILED',
+                        lastErrorAt                          : Date.now() - 600_000
+                    }
+                }
+            });
+
+            await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/healed'});
+
+            await TenantRepoSyncService.runTask({
+                reason           : 'periodic',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug: 'org/healed', mirrorRoot,
+                    cloneUrl: 'https://gitlab.example.net/ai/healed.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                seedBootstrap                : false
+            });
+
+            const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/healed'];
+
+            expect(persisted.consecutiveFailures).toBe(0);
+            expect(persisted.lastErrorCode).toBeNull();
+            expect(persisted.lastSourceErrorCode).toBeNull();
+            expect(persisted.lastErrorAt).toBeNull()
+        })
+    })
 });
 
 test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {
@@ -3269,4 +3473,5 @@ test.describe('syncTenantRepos manual CLI (#15748)', () => {
         expect(resolveExitCode({status: 'failed', details: {reasonCode: 'KB_TENANT_REPO_SYNC_SYNC_FAILED'}})).toBe(1);
         expect(resolveExitCode({status: 'skipped', details: {reason: 'no-tenant-repos-configured'}})).toBe(1);
     });
+
 });

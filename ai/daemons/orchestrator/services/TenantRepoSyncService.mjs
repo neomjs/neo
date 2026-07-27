@@ -1080,19 +1080,39 @@ class TenantRepoSyncService extends Base {
                 });
 
                 if (!dueState.due) {
-                    const nextDueAtMs = (priorState?.lastRunAttemptAt ?? 0) + dueState.effectiveCadenceMs;
+                    const
+                        nextDueAtMs  = (priorState?.lastRunAttemptAt ?? 0) + dueState.effectiveCadenceMs,
+                        failureCount = priorState?.consecutiveFailures ?? 0,
+                        // A repo held back because it FAILED is not the same state as one that simply ran
+                        // recently, and reporting both as `not-due` is what made a wedged lane read as an
+                        // idle one. Backoff is the only reason a failing repo stops being retried, so it
+                        // is also the only place the distinction can be drawn.
+                        backoffSuppressed = failureCount > 0;
+
                     notDueCount++;
-                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} not yet due (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${priorState?.consecutiveFailures ?? 0}, backoffX=${dueState.backoffMultiplier}).`);
+                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} ${backoffSuppressed ? 'suppressed by backoff' : 'not yet due'} (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${failureCount}, backoffX=${dueState.backoffMultiplier}${backoffSuppressed ? `, lastErrorCode=${priorState?.lastErrorCode ?? 'none'}` : ''}).`);
                     repoStates.push({
                         tenantId           : repo.tenantId,
                         repoSlug           : repo.repoSlug,
                         lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
                         lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
-                        status             : 'not-due',
+                        status             : backoffSuppressed ? 'backoff-suppressed' : 'not-due',
                         checkpointStatus,
                         nextDueAt          : new Date(nextDueAtMs).toISOString(),
                         effectiveCadenceMs : dueState.effectiveCadenceMs,
-                        consecutiveFailures: priorState?.consecutiveFailures ?? 0
+                        consecutiveFailures: failureCount,
+                        // Carry the RETAINED cause forward. The failure path already persists these
+                        // (see the per-repo catch below); this branch used to rebuild a record without
+                        // them, so the reason a lane was wedged existed on disk and vanished from the
+                        // one surface an operator can read — exactly when it mattered most. Only
+                        // attached while a failure is outstanding, so a healthy repo stays quiet.
+                        ...(backoffSuppressed ? {
+                            lastErrorCode      : priorState?.lastErrorCode ?? null,
+                            lastSourceErrorCode: priorState?.lastSourceErrorCode ?? null,
+                            lastErrorAt        : priorState?.lastErrorAt
+                                ? new Date(priorState.lastErrorAt).toISOString()
+                                : null
+                        } : {})
                     });
                     return; // skip semaphore + work entirely
                 }
@@ -1224,7 +1244,14 @@ class TenantRepoSyncService extends Base {
                     lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
                     lastCommittedMaterializationAttemptId: materializationReceipt?.attemptId
                         || priorState?.lastCommittedMaterializationAttemptId
-                        || null
+                        || null,
+                    // Cleared explicitly, not merely omitted. The retained cause is now durable, so a
+                    // repo that heals would otherwise keep publishing the reason it used to fail —
+                    // a stale cause beside a zero failure count is worse than none, because it reads
+                    // as a live fault. Written as nulls so the shape stays uniform across both paths.
+                    lastErrorCode      : null,
+                    lastSourceErrorCode: null,
+                    lastErrorAt        : null
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -1295,7 +1322,20 @@ class TenantRepoSyncService extends Base {
                     consecutiveFailures                  : nextFailureCount,
                     ingestContractVersion                : priorState?.ingestContractVersion ?? null,
                     lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastCommittedMaterializationAttemptId: priorState?.lastCommittedMaterializationAttemptId || null
+                    lastCommittedMaterializationAttemptId: priorState?.lastCommittedMaterializationAttemptId || null,
+                    // PERSIST the cause, not just the count. Before this, `lastErrorCode` existed only
+                    // on the in-memory record for the sweep that failed: it was published for one
+                    // cadence and then overwritten by the next sweep, which — once backoff parked the
+                    // repo — reported it as merely not-due with no reason at all. So a lane could fail
+                    // four times and present as `consecutiveFailures: 4, lastErrorCode: null`, which is
+                    // what made a wedged deployment undiagnosable from a remote client. Counters
+                    // survived because they were persisted; the reason did not because it was not.
+                    //
+                    // Codes only. `getSourceErrorCode` admits nothing outside `^KB_[A-Z0-9_]+$`, so no
+                    // stderr, URL, credential or free-text message can reach durable state through here.
+                    lastErrorCode      : code ?? null,
+                    lastSourceErrorCode: sourceErrorCode ?? null,
+                    lastErrorAt        : Date.now()
                 };
 
                 const failedRepoState = {

@@ -26,6 +26,28 @@ export const TENANT_REPO_INGEST_CONTRACT_VERSION = 2;
 const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
 
 /**
+ * Bounded diagnostic-code vocabulary for the retained failure cause.
+ *
+ * This is the read-side half of the redaction boundary, and it is deliberately redundant with the
+ * writer's own filter. A failure's underlying error carries `stderr`, a remote URL and — for a
+ * credential-bearing clone URL — the credential itself, so the cause has to travel as a CODE and
+ * nothing else. Validating on read as well as on write means a record hand-edited on disk, or written
+ * by an older build with a looser writer, still cannot project free text into a diagnostic surface.
+ * @type {RegExp}
+ */
+const BOUNDED_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/u;
+
+/**
+ * @summary Admits a bounded `KB_*` diagnostic code, or nothing.
+ * @param {*} value Candidate code from persisted state.
+ * @returns {String|null}
+ * @private
+ */
+function normalizeBoundedErrorCode(value) {
+    return typeof value === 'string' && BOUNDED_ERROR_CODE_PATTERN.test(value) ? value : null;
+}
+
+/**
  * @summary Internal checkpoint-revalidation classifications.
  *
  * `INVALID` is a fail-closed reader sentinel, not a per-repo deployment
@@ -62,7 +84,11 @@ export function normalizeTenantRepoCheckpointState(value) {
             consecutiveFailures                  : 0,
             ingestContractVersion                : null,
             lastAttemptedIngestContractVersion   : null,
-            lastCommittedMaterializationAttemptId: null
+            lastCommittedMaterializationAttemptId: null,
+            // A bare SHA predates the retained-cause contract, so there is no cause to recover.
+            lastErrorCode      : null,
+            lastSourceErrorCode: null,
+            lastErrorAt        : null
         };
     }
 
@@ -84,7 +110,12 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastAttemptedIngestContractVersion   : normalizeContractVersion(value.lastAttemptedIngestContractVersion),
         lastCommittedMaterializationAttemptId: normalizeMaterializationAttemptId(
             value.lastCommittedMaterializationAttemptId
-        )
+        ),
+        // The retained failure cause. Absent on records written before it existed, which normalizes to
+        // null rather than dropping the record — a missing reason is not a malformed checkpoint.
+        lastErrorCode      : normalizeBoundedErrorCode(value.lastErrorCode),
+        lastSourceErrorCode: normalizeBoundedErrorCode(value.lastSourceErrorCode),
+        lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null
     };
 }
 
