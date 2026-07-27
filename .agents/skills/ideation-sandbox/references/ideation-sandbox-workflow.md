@@ -65,24 +65,19 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 | Option | When this would be right | Evidence / falsifier (≥1 source per option) |
 |---|---|---|
 
-- **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to a separate **gated convergence pass** after the divergence window closes.
+- **No adopt/reject + no author-lean column**; the matrix is **open for peer-added rows** (peers ADD options, not pressure the author's), ≥2 alternatives each with ≥1 falsifying source. Adopt/reject + residual-risk move to the **gated convergence pass**.
 
-**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options); the **gated convergence pass** opens only after the window closes.
+**Process gate:** divergence matrix in the body before any `[RESOLVED_TO_AC]` tag; ≥1 non-author peer cycle during the **divergence window** (peers ADD options).
 
-**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks the §6.2 quorum (floor-2 active families with signal + ≥ 1 non-author family APPROVED; Tier-2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC) or has unresolved DEFERRED/VETO; see §6 below for full 2-axis substrate.
+**Closure is an author fold marker — never a clock, never a count (#15996, D#15998).** After ≥1 substantive non-author cycle the author dispositions **every** live option / falsifier / blocker, then posts **`[DIVERGENCE_FOLDED @ <last-substantive-comment-id>]`**. **The gated convergence pass opens on that marker.** A later option / falsifier / blocker **reopens** divergence for that delta, **pre-graduation only** — afterwards use §6.5 dissent / liveness + `revalidationTrigger`, or a successor Discussion. **An unsupported marker leaves divergence open** (§5.2 point 1 checks it). Forbidden: an invented `until <ts>` — only an operator-set bound, cited as theirs — and any comment / fold / pass count.
 
-The full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 and ticket-create-workflow.md §1d (substantive-rationale exception documented there). **Per §6 (high-blast only)**, graduation is ALSO blocked when the Signal Ledger lacks §6.2 quorum or carries unresolved DEFERRED/VETO.
+
+Rationale for the closure rule (why a clock, a count, and a consecutive-passes predicate all fail), the full divergence rules (valid-options-only, correlation-ceiling, option-cards, gated convergence columns), source anchors, and exception semantics are in [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
 ### 5.1.1. Reflective Pause Trigger (Friction-Driven Proposals)
 
-**Trigger:** If the Discussion originates from friction (e.g., test failures, build errors, tool limitations) rather than a planned feature, you MUST apply a **Reflective Pause**. You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant") where you want to fix the immediate symptom. You must explicitly counteract this regression drift.
-
-**Gate:** Before drafting the Double Diamond matrix or proposing graduation, you MUST:
-1. **Halt reactive code generation:** Do not propose a code fix for the immediate friction.
-2. **Root-Cause Falsification:** Execute falsifying tool calls (e.g., `grep_search`, `ask_knowledge_base`) to empirically validate whether the friction is a symptom of a deeper architectural misalignment or missing primitive.
-3. **Document the Pivot:** The Double Diamond matrix MUST include at least one option that addresses the root cause (not just the symptom) and explicitly reference the falsifying evidence.
-
-**Graduation Block:** If the Double Diamond matrix only addresses the immediate friction symptom without evidence of a root-cause sweep, graduation is blocked.
+**Trigger:** a Discussion originating from **friction** (test failures, build errors, tool limitations) rather than a planned feature MUST apply a **Reflective Pause** before drafting the matrix — halt the reactive fix, run root-cause falsification, and carry ≥1 root-cause option with its evidence. **Graduation is blocked on a symptom-only matrix.** Full gate: [`../audits/reflective-pause-trigger.md`](../audits/reflective-pause-trigger.md).
 
 ### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
 
@@ -100,7 +95,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 **8-point cross-substrate sweep checklist** (canonical; adopted from Discussion `#11188` OQ4):
 
-1. **Authority sweep** — Which artifact is canonical: discussion body, latest comment, epic body, ticket AC, or ADR? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation. ADR handling records `Decision Record: REQUIRED|OPTIONAL|NOT_NEEDED`.
+1. **Authority sweep** — Which artifact is canonical: discussion body, latest comment, epic body, ticket AC, or ADR? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation. ADR handling records `Decision Record: REQUIRED|OPTIONAL|NOT_NEEDED`. **Fold completeness (§5.1):** every pre-marker live option, falsifier, and blocker maps to an explicit disposition in the folded body — a *different* question from canonical-and-consistent.
 2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
 3. **Path determinism sweep** — Can the path/key be computed from stable identity alone? If not, name the metadata/index/search contract explicitly.
 4. **State mutability sweep** — Which fields decide lifecycle placement (`closedAt`, `mergedAt`, `answerChosenAt`, etc.)? Are they enforced by substrate, mutable, or only socially expected?
@@ -134,7 +129,7 @@ Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-
 
 ### 6.2 Signal Patterns + Quorum Rule (high-blast only)
 
-**Quorum rule** (per Epic `#11796` / Discussion `#11793` — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic. Family-keying replaces the prior hardcoded "3× cross-family signals" because active membership is variable (operator-benched families, same-family siblings); same-family aggregation (§6.4) resolves multi-identity families. Full rationale + background: [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
+**Quorum rule** (`#11796` / D`#11793` — family-keyed, membership-derived): graduation requires **(a)** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus`) signing with any signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`), AND **(b)** ≥ 1 *non-author* active family signing `[GRADUATION_APPROVED]`. **Tier 2** (core-value / §critical_gates / consensus-gate mutations) also requires an explicit `## Unresolved Liveness` entry per benched family + a capability-grounded `revalidationTrigger` AC in the graduating Epic. §6.4 aggregates multi-identity families. Rationale (incl. why family-keying replaced fixed signal counts): [`audits/consensus-mandate.md §quorum-rule`](../audits/consensus-mandate.md).
 
 **Four signal patterns** (full definitions + VETO collapse rule: [`audits/consensus-mandate.md §signal-patterns-table`](../audits/consensus-mandate.md)):
 
@@ -193,7 +188,7 @@ Axis 1 (this section, §6) is the Discussion-graduation gate; Axis 2 is the PR-m
 
 ### 6.9 Empirical Anchors
 
-Empirical anchors for §6 consensus-mandate behavior — including the original `#11216` graduation (the rule's own dogfooded recursion), the `#11210` → `#11213` + PR `#11212` / `#11215` axis-1+2 enforcement cases, the `#11214` → `#11218` dogfood example, the `#11782` → `#11731` first-empirical-hit-of-hardcoded-3× failure mode, and the Epic `#11796` / Discussion `#11793` family-keyed-quorum extension (recursive substrate validation depth-2) — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
+Empirical anchors for §6 consensus-mandate behavior — the `#11216` self-dogfooded graduation, the `#11210`/`#11214` enforcement and dogfood cases, the `#11782` → `#11731` hardcoded-3× failure, and the `#11796` family-keyed extension — are archived in [`audits/consensus-mandate.md §empirical-anchors`](../audits/consensus-mandate.md).
 
 ### 6.10 30-Day Post-Merge Validation (AC10)
 
