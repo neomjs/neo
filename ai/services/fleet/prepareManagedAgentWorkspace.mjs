@@ -162,7 +162,7 @@ export class ManagedWorkspacePreparationError extends Error {
  * @param {Function}[options.resolveMatrix]       Sparse-at-rest MCP resolver seam.
  * @param {Object}  [options.fileSystem]          Promise filesystem seam.
  * @param {Function}[options.log]                 Hydration logger.
- * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, hydration: Object, artifacts: Object[]}>}
+ * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
  * @throws {ManagedWorkspacePreparationError} for unsupported adapters or divergent owned content.
  */
 export async function prepareManagedAgentWorkspace({
@@ -231,7 +231,23 @@ export async function prepareManagedAgentWorkspace({
         fileSystem
     });
 
-    return {repoPath: canonicalRepoPath, instanceHome, mcpMatrix, hydration, artifacts};
+    // The plan contains executable paths, public URLs, and ENV-SLOT NAMES only — never values.
+    // Returning the exact renderer input lets a post-render consumer bind its observations to the
+    // generated adapter without re-deriving a second stdio grammar from source or ambient config.
+    return {
+        repoPath: canonicalRepoPath,
+        instanceHome,
+        mcpMatrix,
+        mcpPlan : plan.map(server => ({
+            ...server,
+            args              : [...server.args],
+            runtimeEnv        : [...server.runtimeEnv],
+            requiredRuntimeEnv: [...server.requiredRuntimeEnv],
+            secretEnv         : [...server.secretEnv]
+        })),
+        hydration,
+        artifacts
+    };
 }
 
 /** @private */
@@ -251,6 +267,7 @@ function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTranspor
             url             : remote?.url ?? null,
             credentialEnvVar: remote ? mcpTransport.credentialEnvVar : null,
             command         : nodePath,
+            sourceRoot      : mainCheckout,
             args            : [
                 path.join(mainCheckout, descriptor.entrypoint),
                 ...(entry.key === 'neural-link' ? ['--cwd', repoPath] : [])

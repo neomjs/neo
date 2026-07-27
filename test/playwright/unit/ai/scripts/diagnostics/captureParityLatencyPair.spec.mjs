@@ -1,206 +1,437 @@
 import {test, expect} from '@playwright/test';
 import {
+    ParityLatencyCaptureActor,
     SEAT_ADAPTER_PRODUCER,
     assembleLatencyPair,
     captureParityLatencyPair,
-    checkCapturePrerequisites
+    checkCapturePrerequisites,
+    deriveDatasetDigest,
+    deriveImageManifestDigest,
+    isRetryableParityStartupError
 } from '../../../../../../ai/scripts/diagnostics/captureParityLatencyPair.mjs';
 import {
     MIN_SAMPLES,
     PARITY_CACHE_CONVENTION
 } from '../../../../../../ai/scripts/diagnostics/parityLatencyPair.mjs';
 
-// This module's whole job is to produce samples OR refuse — never to produce a plausible number when its
-// prerequisites are absent. So the assertions are mostly about the refusal being unreachable-by-argument,
-// with positive controls proving the orchestration works once the gate opens.
-//
-// The gate is currently CLOSED (the generated seat-adapter path does not exist), so the reachable-today
-// behaviour is refusal. The post-gate path is exercised through `checkCapturePrerequisites` and through the
-// probe-shape assertions, which do not depend on the constant.
+const
+    PUBLIC_CONDITIONS = {cacheConvention: PARITY_CACHE_CONVENTION},
+    IDENTITY_PROOF    = {
+        identity       : '@neo-gpt',
+        capabilities   : [],
+        grantedToOthers: []
+    },
+    EMPTY_HEALTH      = {
+        'memory-core': {
+            database: {connection: {collections: {
+                memories : {count: 0},
+                summaries: {count: 0}
+            }}}
+        },
+        'knowledge-base': {
+            database: {connection: {collections: {
+                knowledgeBase: {count: 0}
+            }}}
+        }
+    },
+    DATASET_DIGEST    = deriveDatasetDigest(EMPTY_HEALTH, IDENTITY_PROOF),
+    BOUND_CONDITIONS  = {
+        cacheConvention: PARITY_CACHE_CONVENTION,
+        imageDigest    : 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+        datasetDigest  : DATASET_DIGEST,
+        configHead     : '1111111111111111111111111111111111111111',
+        runtimeDigest  : 'sha256:2222222222222222222222222222222222222222222222222222222222222222',
+        hostLoad       : 'darwin/arm64; cpus=12; load1=0.20; load5=0.25; load15=0.30'
+    },
+    CAPTURE_PLAN = {
+        producer        : SEAT_ADAPTER_PRODUCER,
+        harnessType     : 'codex',
+        repoPath        : '/managed/seat/repo',
+        sourceRoot      : '/installed/neo',
+        expectedIdentity: '@neo-gpt',
+        servers         : {
+            'memory-core': {
+                name   : 'neo-mjs-memory-core',
+                enabled: true,
+                stdio  : {
+                    command: '/usr/bin/node',
+                    args   : ['/installed/neo/ai/mcp/server/memory-core/mcp-server.mjs'],
+                    envVars: ['NEO_AGENT_IDENTITY']
+                },
+                remote: {
+                    url             : 'http://127.0.0.1:13130/mc/mcp',
+                    credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                }
+            },
+            'knowledge-base': {
+                name   : 'neo-mjs-knowledge-base',
+                enabled: true,
+                stdio  : {
+                    command: '/usr/bin/node',
+                    args   : ['/installed/neo/ai/mcp/server/knowledge-base/mcp-server.mjs'],
+                    envVars: ['NEO_AGENT_IDENTITY']
+                },
+                remote: {
+                    url             : 'http://127.0.0.1:13130/kb/mcp',
+                    credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                }
+            }
+        }
+    };
 
-const CONDITIONS = {
-    cacheConvention: PARITY_CACHE_CONVENTION,
-    imageDigest    : 'sha256:e3b0c44298fc1c149afbf4c8996fb924',
-    configHead     : '067a01facf',
-    hostLoad       : 'idle; load1=0.38'
-};
-
-// Both topologies, both dimensions, per service — the shape the comparator now binds on all four slots.
-const perService = base => ({memoryCoreMs: base, knowledgeBaseMs: base + 5}),
-      bootProbe  = () => Promise.resolve({stdio: perService(100), parity: perService(210)}),
-      hotProbe   = () => Promise.resolve({stdio: perService(10),  parity: perService(12)});
-
-test.describe('⭐ the capture is BLOCKED on the seat-adapter producer, not satisfiable by argument', () => {
-    test('the producer does not exist yet, and that is held as a constant', () => {
-        // A caller-supplied "the adapter exists" would be a claim, not a fact. Holding it here means the gate
-        // cannot be opened by typing — the same reason `pilotPlaneTerminal` holds its capability constant.
-        expect(SEAT_ADAPTER_PRODUCER).toBeNull();
+test.describe('capture prerequisites — producer receipt, not caller probes', () => {
+    test('the producer is the installed Codex normalized-read boundary', () => {
+        expect(SEAT_ADAPTER_PRODUCER).toBe('installed-codex-mcp-list')
     });
 
-    test('⭐ NO argument combination produces a measurement, and the refusal is flagged `blocked`', async () => {
-        const candidates = [
-            {sampleCount: 3,  conditions: CONDITIONS, acceptableOverhead: 3, probeSeatReady: bootProbe, probeHotCall: hotProbe},
-            {sampleCount: 50, conditions: CONDITIONS, acceptableOverhead: 1, probeSeatReady: bootProbe, probeHotCall: hotProbe},
-            {sampleCount: 3,  conditions: CONDITIONS, acceptableOverhead: 1e9, probeSeatReady: bootProbe, probeHotCall: hotProbe},
-            {}, null, undefined
+    test('a missing private producer handoff blocks the otherwise valid public request', async () => {
+        const result = await captureParityLatencyPair({
+            sampleCount       : MIN_SAMPLES,
+            conditions        : PUBLIC_CONDITIONS,
+            acceptableOverhead: 3
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.blocked).toBe(true);
+        expect(result.reason).toContain('exact secret-free installed Codex receipt');
+        expect(result.reason).toContain('public capture spec cannot claim or substitute')
+    });
+
+    test('the data-only sample floor + ruled cache convention passes', () => {
+        expect(checkCapturePrerequisites({
+            sampleCount: MIN_SAMPLES,
+            conditions : PUBLIC_CONDITIONS
+        })).toBeNull()
+    });
+
+    test('the public object cannot smuggle a plan or probe callbacks', () => {
+        expect(checkCapturePrerequisites({
+            sampleCount: MIN_SAMPLES,
+            conditions : PUBLIC_CONDITIONS,
+            capturePlan: CAPTURE_PLAN
+        })).toContain("unsupported public capture field 'capturePlan'");
+
+        const reason = checkCapturePrerequisites({
+            sampleCount       : MIN_SAMPLES,
+            conditions        : PUBLIC_CONDITIONS,
+            acceptableOverhead: 3,
+            probeHotCall      : () => {}
+        });
+
+        expect(reason).toContain("unsupported public capture field 'probeHotCall'");
+        expect(reason).toContain('data-only')
+    });
+
+    test('caller-authored derived conditions are refused instead of trusted', () => {
+        for (const key of ['imageDigest', 'datasetDigest', 'configHead', 'runtimeDigest', 'hostLoad']) {
+            const reason = checkCapturePrerequisites({
+                sampleCount: MIN_SAMPLES,
+                conditions : {...PUBLIC_CONDITIONS, [key]: 'caller-text'}
+            });
+
+            expect(reason, key).toContain('producer-owned observations')
+        }
+    });
+
+    test('sample floor and exact cache regime remain executable', () => {
+        expect(checkCapturePrerequisites({
+            sampleCount: MIN_SAMPLES - 1,
+            conditions : PUBLIC_CONDITIONS
+        })).toContain(`at least ${MIN_SAMPLES}`);
+
+        expect(checkCapturePrerequisites({
+            sampleCount: MIN_SAMPLES,
+            conditions : {cacheConvention: 'cold-with-build'}
+        })).toContain('exactly PARITY_CACHE_CONVENTION')
+    });
+
+    test('the private handoff accepts only one exact loopback /mc + /kb ingress', async () => {
+        const mutations = [
+            plan => { plan.servers['memory-core'].remote.url = 'https://tenant.example.com/mc/mcp'; return plan },
+            plan => { plan.servers['knowledge-base'].remote.url = 'http://127.0.0.1:13131/kb/mcp'; return plan },
+            plan => { plan.servers['memory-core'].remote.url = 'http://127.0.0.1:13130/mcp'; return plan },
+            plan => { plan.servers['memory-core'].remote.credentialEnvVar = 'GH_TOKEN'; return plan },
+            plan => { plan.servers['memory-core'].stdio.command = 'node'; return plan },
+            plan => { plan.sourceRoot = 'relative'; return plan },
+            plan => { plan.expectedIdentity = 'neo-gpt'; return plan },
+            plan => { plan.servers['memory-core'].extra = true; return plan }
         ];
 
-        for (const spec of candidates) {
-            const result = await captureParityLatencyPair(spec);
+        for (const mutate of mutations) {
+            const result = await captureParityLatencyPair({
+                sampleCount: MIN_SAMPLES,
+                conditions : PUBLIC_CONDITIONS
+            }, {
+                capturePlan: mutate(structuredClone(CAPTURE_PLAN))
+            });
 
             expect(result.ok).toBe(false);
-            expect(result.blocked).toBe(true);
-            expect(result).not.toHaveProperty('verdict');
-            expect(result).not.toHaveProperty('pair');
+            expect(result.blocked).toBe(true)
         }
     });
 
-    test('the refusal names the producer and refuses the direct-probe substitute explicitly', async () => {
-        // The message an operator reads if they run this before the producer lands. It must not send them hunting
-        // for a bad argument, and it must not read as an invitation to probe directly instead.
-        const {reason} = await captureParityLatencyPair({
-            sampleCount   : 3, conditions: CONDITIONS, acceptableOverhead: 3,
-            probeSeatReady: bootProbe, probeHotCall: hotProbe
-        });
+    test('a valid installed plan still refuses without Fleet-resolved plane authority', async () => {
+        const result = await captureParityLatencyPair({
+            sampleCount: MIN_SAMPLES,
+            conditions : PUBLIC_CONDITIONS
+        }, {capturePlan: CAPTURE_PLAN});
 
-        expect(reason).toContain('generated seat-adapter path does not exist');
-        expect(reason).toContain('will not substitute a direct SDK probe');
-        expect(reason).toContain('different question');
-    });
-
-    test('the structural blocker is reported BEFORE any caller-input complaint', () => {
-        // Ordering matters: a missing adapter plus a bad sampleCount must report the adapter, because that is
-        // the fact that determines what the operator can do next.
-        const reason = checkCapturePrerequisites({sampleCount: 1, conditions: null});
-
-        expect(reason).toContain('seat-adapter path');
-        expect(reason).not.toContain('sampleCount');
+        expect(result.ok).toBe(false);
+        expect(result.blocked).toBe(true);
+        expect(result.reason).toContain('resolved plane credential')
     });
 });
 
-// The gate closes off `captureParityLatencyPair`, so the post-gate clauses are exercised through the
-// validator's injected `producer` seam. Two source-text assertions were written here first and deleted: a
-// behavioural claim witnessed by `toString()` passes even when the logic is broken and fails on a rename,
-// which is coverage in name only.
-test.describe('checkCapturePrerequisites — the post-gate contract, genuinely exercised', () => {
-    const PRODUCER = 'generated seat adapter (hypothetical)';
+test.describe('default actor — session, source, and cleanup contracts', () => {
+    test('retries listener races but never retries auth, plane, or identity failures', () => {
+        expect(isRetryableParityStartupError(Object.assign(new Error('connect'), {
+            code: 'ECONNREFUSED'
+        }))).toBe(true);
+        expect(isRetryableParityStartupError(new Error('503 service unavailable'))).toBe(true);
 
-    test('with a producer present, the sample floor is enforced', () => {
-        expect(checkCapturePrerequisites({producer: PRODUCER, sampleCount: MIN_SAMPLES - 1, conditions: CONDITIONS}))
-            .toContain(`at least ${MIN_SAMPLES}`);
-        expect(checkCapturePrerequisites({producer: PRODUCER, sampleCount: 2.5, conditions: CONDITIONS}))
-            .toContain('must be an integer');
-
-        // Positive control: the floor itself passes, so the refusals above are not a blanket failure.
-        expect(checkCapturePrerequisites({producer: PRODUCER, sampleCount: MIN_SAMPLES, conditions: CONDITIONS}))
-            .toBeNull();
-    });
-
-    test('⭐ every one of the four conditions is required, asserted field by field', () => {
-        // Reconstructing conditions after a run is how a pair becomes unreproducible while looking complete.
-        // Dropping each field individually proves no single omission hides behind the others.
-        for (const key of ['cacheConvention', 'imageDigest', 'configHead', 'hostLoad']) {
-            const {[key]: _dropped, ...partial} = CONDITIONS,
-                  reason                        = checkCapturePrerequisites({producer: PRODUCER, sampleCount: MIN_SAMPLES, conditions: partial});
-
-            expect(reason, `omitting ${key} must refuse`).toContain(`conditions.${key}`);
-            expect(reason).toContain('not reproducible');
+        for (const error of [
+            new Error('401 unauthorized'),
+            new Error('served the wrong plane'),
+            new Error('canonical identity mismatch')
+        ]) {
+            expect(isRetryableParityStartupError(error)).toBe(false)
         }
     });
 
-    test('⭐ the ruled cache regime is enforced, not merely recorded', () => {
-        // A caller describing a disallowed regime accurately is not a caller measuring an allowed one.
-        const reason = checkCapturePrerequisites({
-            producer  : PRODUCER, sampleCount: MIN_SAMPLES,
-            conditions: {...CONDITIONS, cacheConvention: 'cold-with-three-image-build'}
+    test('terminates an HTTP session before closing its local SDK client', async () => {
+        const
+            actor = new ParityLatencyCaptureActor({capturePlan: CAPTURE_PLAN}),
+            order = [];
+
+        await actor.closeSession({
+            topology : 'parity',
+            key      : 'memory-core',
+            transport: {
+                sessionId: 'session-1',
+                async terminateSession() {
+                    order.push('delete')
+                }
+            },
+            client: {
+                async close() {
+                    order.push('close')
+                }
+            }
         });
 
-        expect(reason).toContain('exactly PARITY_CACHE_CONVENTION');
-        expect(reason).toContain('deployment receipt rather than a latency leg');
+        expect(order).toEqual(['delete', 'close'])
     });
 
-    test('a blank or non-string producer still blocks, so the seam cannot be abused to open the gate', () => {
-        for (const producer of ['', '   ', 42, null, undefined]) {
-            expect(checkCapturePrerequisites({producer, sampleCount: MIN_SAMPLES, conditions: CONDITIONS}))
-                .toContain('seat-adapter path');
+    test('a partial topology connection closes its successful sibling before refusing', async () => {
+        const
+            actor  = new ParityLatencyCaptureActor({capturePlan: CAPTURE_PLAN}),
+            closed = [];
+
+        actor.openSessionWithRetry = async ({key}) => {
+            if (key === 'knowledge-base') throw new Error('kb-control');
+
+            return {
+                session: {
+                    client   : {close: async () => closed.push('client')},
+                    transport: {},
+                    topology : 'stdio',
+                    key
+                },
+                health       : EMPTY_HEALTH['memory-core'],
+                identityProof: IDENTITY_PROOF
+            }
+        };
+
+        await expect(actor.connectTopology({
+            topology   : 'stdio',
+            startedAt  : 0,
+            capturePlan: CAPTURE_PLAN
+        })).rejects.toThrow(/kb-control/);
+        expect(closed).toEqual(['client'])
+    });
+
+    test('source binding refuses dirty bytes and binds ignored runtime configs', async () => {
+        const
+            head                = BOUND_CONDITIONS.configHead,
+            runtimeFiles        = [],
+            makeActorWithStatus = dirty => new ParityLatencyCaptureActor({
+                capturePlan: CAPTURE_PLAN,
+                fileSystem : {
+                    async readFile(filePath) {
+                        runtimeFiles.push(filePath);
+
+                        return Buffer.from(`runtime:${filePath}`)
+                    }
+                },
+                execFileFn(command, args, options, callback) {
+                    if (args.includes('rev-parse')) {
+                        callback(null, `${head}\n`)
+                    } else if (args.includes('status')) {
+                        callback(null, dirty && args.includes(CAPTURE_PLAN.sourceRoot) ? '?? drift.mjs\n' : '')
+                    } else {
+                        callback(new Error('unexpected command'))
+                    }
+                }
+            });
+
+        const binding = await makeActorWithStatus(false).readSourceBinding();
+
+        expect(binding.configHead).toBe(head);
+        expect(binding.runtimeDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(runtimeFiles).toHaveLength(3);
+
+        await expect(makeActorWithStatus(true).readSourceBinding()).rejects.toThrow(/clean before capture/)
+    });
+
+    test('server images must prove label, requested-ref, and packaged revision equality', async () => {
+        const
+            calls = [],
+            head  = BOUND_CONDITIONS.configHead,
+            actor = new ParityLatencyCaptureActor({
+                capturePlan: CAPTURE_PLAN,
+                execFileFn(command, args, options, callback) {
+                    calls.push(args);
+
+                    if (args[0] === 'image') {
+                        callback(null, `${head}|${head}\n`)
+                    } else if (args[0] === 'run') {
+                        callback(null, `${head}\n`)
+                    } else {
+                        callback(new Error('unexpected command'))
+                    }
+                }
+            });
+
+        await actor.assertServerImageSourceBinding({
+            service     : 'mc-server',
+            imageId     : BOUND_CONDITIONS.imageDigest,
+            expectedHead: head
+        });
+        expect(calls.map(args => args[0])).toEqual(['image', 'run']);
+
+        actor.execFileFn = (command, args, options, callback) => callback(null, 'wrong|wrong\n');
+
+        await expect(actor.assertServerImageSourceBinding({
+            service     : 'mc-server',
+            imageId     : BOUND_CONDITIONS.imageDigest,
+            expectedHead: head
+        })).rejects.toThrow(/not bound to exact source head/)
+    });
+});
+
+test.describe('data-only assembly', () => {
+    const observation = index => ({
+        boot: {
+            stdio : {memoryCoreMs: 100 + index, knowledgeBaseMs: 105 + index},
+            parity: {memoryCoreMs: 210 + index, knowledgeBaseMs: 215 + index}
+        },
+        hotCall: {
+            stdio : {memoryCoreMs: 10 + index, knowledgeBaseMs: 11 + index},
+            parity: {memoryCoreMs: 12 + index, knowledgeBaseMs: 13 + index}
         }
     });
-});
 
-test.describe('probe contract — the orchestration refuses partial readings', () => {
-    test('the structural gate takes precedence over a mis-wired caller', async () => {
-        // An operator running this before the producer lands must see the real cause, not "bad probe".
-        const missing = await captureParityLatencyPair({
-            sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3
-        });
-
-        expect(missing.ok).toBe(false);
-        expect(missing.blocked).toBe(true);
-        expect(missing.reason).toContain('seat-adapter path');
-    });
-});
-
-// ⭐ THE CONTROL THE GATE WAS HIDING. While `SEAT_ADAPTER_PRODUCER` is null, nothing reaches the capture
-// assembly through `captureParityLatencyPair`, so a defect behind the gate is invisible to every test. That
-// is not hypothetical: a rename of the sample arrays left the handoff referencing four retired variables,
-// this suite stayed green because the gate short-circuited first, and @neo-gpt found the `ReferenceError`
-// only by forcing the capability on in memory.
-//
-// The assembly is therefore reachable directly. The capability gate stays on the terminal, so nothing here
-// bypasses a check that guards a measurement's honesty — it performs the capture it is handed, while whether
-// a capture may be attempted at all remains the terminal's decision.
-test.describe('⭐ assembleLatencyPair — the post-gate path, actually executed', () => {
-    const perService = base => ({memoryCoreMs: base, knowledgeBaseMs: base + 5}),
-          probes     = {
-              probeSeatReady: () => Promise.resolve({stdio: perService(100), parity: perService(210)}),
-              probeHotCall  : () => Promise.resolve({stdio: perService(10),  parity: perService(12)})
-          };
-
-    test('a full capture reaches a real verdict with BOTH hot-call legs', async () => {
-        const result = await assembleLatencyPair({
-            sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes
+    test('accepts exactly the captured observation count', () => {
+        const observations = Array.from({length: MIN_SAMPLES}, (_, index) => observation(index));
+        const result       = assembleLatencyPair({
+            sampleCount       : MIN_SAMPLES,
+            observations,
+            conditions        : BOUND_CONDITIONS,
+            acceptableOverhead: 3
         });
 
         expect(result.ok).toBe(true);
-        expect(result.verdict).toBe('within-budget');
-        // Names both services, which is what proves the four-slot handoff is wired to the real arrays.
-        expect(Object.keys(result.pair.hotCall)).toEqual(['memoryCore', 'knowledgeBase']);
-        expect(result.pair.boot.parity.sampleCount).toBe(MIN_SAMPLES);
-        expect(result.conditions).toBe(CONDITIONS);
+        expect(result.pair.boot.parity.sampleCount).toBe(MIN_SAMPLES)
     });
 
-    test('a flattened probe reading is refused with its SLOT and sample index named', async () => {
-        for (const [label, bad] of [
-            ['boot.stdio',     {probeSeatReady: () => Promise.resolve({stdio: 100, parity: perService(210)})}],
-            ['boot.parity',    {probeSeatReady: () => Promise.resolve({stdio: perService(100), parity: 210})}],
-            ['hotCall.stdio',  {probeHotCall:   () => Promise.resolve({stdio: 10, parity: perService(12)})}],
-            ['hotCall.parity', {probeHotCall:   () => Promise.resolve({stdio: perService(10), parity: 12})}]
-        ]) {
-            const result = await assembleLatencyPair({
-                sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes, ...bad
-            });
+    test('refuses missing samples and flattened per-service slots', () => {
+        expect(assembleLatencyPair({
+            sampleCount       : MIN_SAMPLES,
+            observations      : [],
+            conditions        : BOUND_CONDITIONS,
+            acceptableOverhead: 3
+        }).reason).toContain(`exactly ${MIN_SAMPLES}`);
 
-            expect(result.ok, `${label} must refuse`).toBe(false);
-            expect(result.reason).toContain(label);
-            expect(result.reason).toContain('sample 0');
-        }
-    });
+        const observations = Array.from({length: MIN_SAMPLES}, (_, index) => observation(index));
 
-    test('a per-service reading missing ONE service is an unmeasured service, not a zero', async () => {
-        const result = await assembleLatencyPair({
-            sampleCount : MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3, ...probes,
-            probeHotCall: () => Promise.resolve({stdio: {memoryCoreMs: 10}, parity: perService(12)})
+        observations[1].hotCall.parity = 12;
+
+        const result = assembleLatencyPair({
+            sampleCount       : MIN_SAMPLES,
+            observations,
+            conditions        : BOUND_CONDITIONS,
+            acceptableOverhead: 3
         });
 
         expect(result.ok).toBe(false);
-        expect(result.reason).toContain('unmeasured service');
+        expect(result.reason).toContain('sample 1');
+        expect(result.reason).toContain('hotCall.parity')
+    });
+});
+
+test.describe('producer-derived reproducibility evidence', () => {
+    test('the canonical empty MC + KB corpus has one stable digest', () => {
+        expect(deriveDatasetDigest(EMPTY_HEALTH, IDENTITY_PROOF)).toBe(DATASET_DIGEST);
+        expect(deriveDatasetDigest(EMPTY_HEALTH, {
+            ...IDENTITY_PROOF,
+            identity: '@another-seat'
+        })).not.toBe(DATASET_DIGEST)
     });
 
-    test('the probes are still required, and that is a plain refusal', async () => {
-        const result = await assembleLatencyPair({sampleCount: MIN_SAMPLES, conditions: CONDITIONS, acceptableOverhead: 3});
+    test('dataset evidence refuses absent, negative, or non-integer counts', () => {
+        for (const count of [undefined, -1, 0.5, '0']) {
+            expect(() => deriveDatasetDigest({
+                'memory-core': {
+                    database: {connection: {collections: {
+                        memories : {count},
+                        summaries: {count: 0}
+                    }}}
+                },
+                'knowledge-base': {
+                    database: {connection: {collections: {
+                        knowledgeBase: {count: 0}
+                    }}}
+                }
+            }, IDENTITY_PROOF)).toThrow(/dataset count/)
+        }
+    });
 
-        expect(result.ok).toBe(false);
-        expect(result.reason).toContain('must both be functions');
-        expect(result).not.toHaveProperty('blocked');
+    test('dataset evidence refuses an unbound or permission-bearing subject', () => {
+        for (const proof of [
+            undefined,
+            {...IDENTITY_PROOF, identity: 'neo-gpt'},
+            {...IDENTITY_PROOF, capabilities: ['memory:read']},
+            {...IDENTITY_PROOF, grantedToOthers: ['@other']}
+        ]) {
+            expect(() => deriveDatasetDigest(EMPTY_HEALTH, proof)).toThrow(/identity proof/)
+        }
+    });
+
+    test('image manifest digest is order-independent and covers every capture service', () => {
+        const rows = [
+            {Service: 'mc-server', ID: 'sha256:mc'},
+            {Service: 'capture-ingress', ID: 'sha256:caddy'},
+            {Service: 'chroma', ID: 'sha256:chroma'},
+            {Service: 'kb-server', ID: 'sha256:kb'},
+            {Service: 'embedding-server', ID: 'sha256:embed'}
+        ];
+        const forward = deriveImageManifestDigest(rows.map(row => JSON.stringify(row)).join('\n'));
+        const reverse = deriveImageManifestDigest(JSON.stringify([...rows].reverse()));
+
+        expect(forward.digest).toBe(reverse.digest);
+        expect(forward.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+        expect(forward.services).toEqual([
+            'capture-ingress',
+            'chroma',
+            'embedding-server',
+            'kb-server',
+            'mc-server'
+        ])
+    });
+
+    test('an incomplete image manifest refuses', () => {
+        expect(() => deriveImageManifestDigest(JSON.stringify([
+            {Service: 'chroma', ID: 'sha256:chroma'}
+        ]))).toThrow(/omitted/)
     });
 });

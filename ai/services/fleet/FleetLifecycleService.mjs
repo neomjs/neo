@@ -975,7 +975,8 @@ class FleetLifecycleService extends Base {
      * @param {String} options.instanceHome Canonical prepared harness instance home.
      * @param {Object} options.mcpMatrix Effective MCP enabled-state matrix.
      * @param {Object} options.mcpTransport Resolved non-secret remote transport plan.
-     * @returns {Promise<Object>} Redacted `{harnessType, inspected, serverNames}` receipt.
+     * @param {Object[]} options.mcpPlan Exact non-secret renderer input returned by workspace preparation.
+     * @returns {Promise<Object>} Redacted receipt plus a producer-bound MC/KB capture plan.
      */
     async inspectPreparedRemoteMcpAdapter({
         agent,
@@ -983,9 +984,14 @@ class FleetLifecycleService extends Base {
         repoPath,
         instanceHome,
         mcpMatrix,
-        mcpTransport
+        mcpTransport,
+        mcpPlan
     } = {}) {
-        const harnessType = agent?.harnessType;
+        const
+            harnessType   = agent?.harnessType,
+            agentIdentity = typeof agent?.githubUsername === 'string'
+                ? agent.githubUsername.trim().replace(/^@/, '')
+                : '';
 
         if (!['codex', 'codex-desktop'].includes(harnessType)) {
             return {harnessType, inspected: false, serverNames: []}
@@ -998,7 +1004,9 @@ class FleetLifecycleService extends Base {
             typeof mcpMatrix !== 'object' ||
             !mcpTransport ||
             mcpTransport.mode !== 'remote-http' ||
-            !mcpTransport.resources) {
+            !mcpTransport.resources ||
+            !Array.isArray(mcpPlan) ||
+            !/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(agentIdentity)) {
             throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: malformed prepared Codex inspection input for agent '${agent?.id || 'unknown'}'.`)
         }
 
@@ -1021,11 +1029,16 @@ class FleetLifecycleService extends Base {
         const
             expectedNames = MCP_SERVERS.map(({key}) => `neo-mjs-${key}`),
             neoRows       = rows.filter(row => typeof row?.name === 'string' && row.name.startsWith('neo-mjs-')),
-            byName        = new Map(neoRows.map(row => [row.name, row]));
+            byName        = new Map(neoRows.map(row => [row.name, row])),
+            planByKey     = new Map(mcpPlan.map(server => [server?.key, server]));
 
         if (neoRows.length !== expectedNames.length ||
             byName.size !== expectedNames.length ||
-            expectedNames.some(name => !byName.has(name))) {
+            expectedNames.some(name => !byName.has(name)) ||
+            mcpPlan.length !== MCP_SERVERS.length ||
+            planByKey.size !== MCP_SERVERS.length ||
+            MCP_SERVERS.some(({key}) => !planByKey.has(key)) ||
+            new Set(mcpPlan.map(server => server?.sourceRoot)).size !== 1) {
             throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' did not expose the exact Fleet MCP server set for agent '${agent.id}'.`)
         }
 
@@ -1033,11 +1046,20 @@ class FleetLifecycleService extends Base {
             const
                 name      = `neo-mjs-${key}`,
                 row       = byName.get(name),
+                planRow   = planByKey.get(key),
                 transport = row.transport || {},
                 enabled   = mcpMatrix[key] === true;
 
-            if (row.enabled !== enabled) {
-                throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' reported the wrong enabled state for '${name}'.`)
+            if (planRow?.name !== name ||
+                planRow.enabled !== enabled ||
+                row.enabled !== enabled ||
+                !path.isAbsolute(planRow.command || '') ||
+                !path.isAbsolute(planRow.sourceRoot || '') ||
+                !Array.isArray(planRow.args) ||
+                !planRow.args.every(value => typeof value === 'string') ||
+                !Array.isArray(planRow.runtimeEnv) ||
+                !planRow.runtimeEnv.every(value => /^[A-Z][A-Z0-9_]*$/.test(value))) {
+                throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: prepared plan did not preserve the exact generated descriptor for '${name}'.`)
             }
 
             if (REMOTE_MCP_SERVER_KEYS.has(key)) {
@@ -1049,16 +1071,95 @@ class FleetLifecycleService extends Base {
                 if (transport.type !== 'streamable_http' ||
                     transport.url !== resource?.url ||
                     transport.bearer_token_env_var !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
+                    planRow.mode !== 'remote-http' ||
+                    planRow.url !== resource?.url ||
+                    planRow.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
                     (staticHeaders && Object.keys(staticHeaders).length > 0) ||
                     (envHeaderAliases && Object.keys(envHeaderAliases).length > 0)) {
                     throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' reported a non-canonical remote projection for '${name}'.`)
                 }
-            } else if (transport.type !== 'stdio') {
+            } else if (transport.type !== 'stdio' || planRow.mode !== 'stdio') {
                 throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' moved local-only '${name}' off stdio.`)
             }
         }
 
-        return {harnessType, inspected: true, serverNames: expectedNames}
+        const captureServers = {};
+
+        for (const key of REMOTE_MCP_SERVER_KEYS) {
+            const
+                planRow   = planByKey.get(key),
+                transport = byName.get(planRow.name).transport;
+
+            captureServers[key] = {
+                name   : planRow.name,
+                enabled: planRow.enabled,
+                stdio  : {
+                    command: planRow.command,
+                    args   : [...planRow.args],
+                    envVars: [...planRow.runtimeEnv]
+                },
+                remote: {
+                    url             : transport.url,
+                    credentialEnvVar: transport.bearer_token_env_var
+                }
+            }
+        }
+
+        return {
+            harnessType,
+            inspected  : true,
+            serverNames: expectedNames,
+            capturePlan: {
+                producer        : 'installed-codex-mcp-list',
+                harnessType,
+                repoPath,
+                sourceRoot      : mcpPlan[0].sourceRoot,
+                expectedIdentity: `@${agentIdentity}`,
+                servers         : captureServers
+            }
+        }
+    }
+
+    /**
+     * @summary Empirically bind a generated Codex adapter to the AC4 capture in one call.
+     *
+     * The caller supplies only preparation/readback inputs plus the data-only capture spec. This
+     * method performs the installed `codex mcp list --json` inspection itself and passes its private
+     * receipt directly into the driver; no public field can claim that an arbitrary literal plan was
+     * produced by an installed adapter.
+     *
+     * @param {Object} options Inspection inputs accepted by
+     *     {@link inspectPreparedRemoteMcpAdapter}, plus `captureSpec`.
+     * @param {Object} options.captureSpec Data-only AC4 capture request.
+     * @param {String} options.resolvedMcpCredential Plane bearer already resolved by
+     *     FleetTenantService; never sourced from this process's ambient environment.
+     * @returns {Promise<Object>} Capture result; never the executable capture plan.
+     */
+    async capturePreparedRemoteMcpLatencyPair(options={}) {
+        const
+            {captureSpec, resolvedMcpCredential, ...inspection} = options,
+            receipt                                             = await this.inspectPreparedRemoteMcpAdapter(inspection);
+
+        if (!receipt?.inspected || !receipt.capturePlan) {
+            throw new Error(
+                'FleetLifecycleService.capturePreparedRemoteMcpLatencyPair: installed Codex ' +
+                'inspection did not produce a capture plan.'
+            )
+        }
+
+        if (typeof resolvedMcpCredential !== 'string' || !resolvedMcpCredential) {
+            throw new Error(
+                'FleetLifecycleService.capturePreparedRemoteMcpLatencyPair: resolved plane credential is required.'
+            )
+        }
+
+        const run = (await import('../../scripts/diagnostics/captureParityLatencyPair.mjs'))
+            .captureParityLatencyPair;
+
+        return run(captureSpec, {
+            capturePlan    : receipt.capturePlan,
+            planeCredential: resolvedMcpCredential
+        })
     }
 
     /**

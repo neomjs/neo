@@ -65,6 +65,28 @@ function makeEnsureRepo(repoPath = '/managed/agent/repo', events) {
     return fn;
 }
 
+function buildPreparedMcpPlan(args, mcpMatrix) {
+    return Object.entries(mcpMatrix).map(([key, enabled]) => {
+        const remote = args.mcpTransport?.resources?.[key];
+
+        return {
+            key,
+            name              : `neo-mjs-${key}`,
+            enabled,
+            mode              : remote ? 'remote-http' : 'stdio',
+            url               : remote?.url || null,
+            credentialEnvVar  : remote ? 'NEO_MCP_REMOTE_TOKEN' : null,
+            command           : '/usr/bin/node',
+            sourceRoot        : '/installed/neo',
+            args              : [`/installed/neo/ai/mcp/server/${key}/mcp-server.mjs`],
+            runtimeEnv        : ['NEO_AGENT_IDENTITY'],
+            requiredRuntimeEnv: ['NEO_AGENT_IDENTITY'],
+            secretEnv         : [],
+            unsupportedReason : null
+        }
+    })
+}
+
 /** Recording post-provisioning workspace/home preparation seam. */
 function makePrepareWorkspace(events) {
     const calls = [];
@@ -72,16 +94,19 @@ function makePrepareWorkspace(events) {
         events?.push('prepare');
         calls.push(args);
 
+        const mcpMatrix = {
+            'memory-core'    : true,
+            'knowledge-base' : true,
+            'neural-link'    : true,
+            'github-workflow': false,
+            'gitlab-workflow': false
+        };
+
         return {
             repoPath    : args.repoPath,
             instanceHome: `/instances/${args.agent.id}`,
-            mcpMatrix   : {
-                'memory-core'    : true,
-                'knowledge-base' : true,
-                'neural-link'    : true,
-                'github-workflow': false,
-                'gitlab-workflow': false
-            }
+            mcpMatrix,
+            mcpPlan     : buildPreparedMcpPlan(args, mcpMatrix)
         }
     };
     fn.calls    = calls;
@@ -261,6 +286,13 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
                 'github-workflow': false,
                 'gitlab-workflow': false
             },
+            mcpPlan: buildPreparedMcpPlan(prepareWorkspace.calls[0], {
+                'memory-core'    : true,
+                'knowledge-base' : true,
+                'neural-link'    : true,
+                'github-workflow': false,
+                'gitlab-workflow': false
+            }),
             mcpTransport: {
                 mode     : 'remote-http',
                 resources: {

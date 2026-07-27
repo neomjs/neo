@@ -201,6 +201,7 @@ export async function startAgentProvisioned({
             repoPath    : prepared.repoPath,
             instanceHome: prepared.instanceHome,
             mcpMatrix   : prepared.mcpMatrix,
+            mcpPlan     : prepared.mcpPlan,
             mcpTransport: {
                 mode     : 'remote-http',
                 resources: remotePlan.resources

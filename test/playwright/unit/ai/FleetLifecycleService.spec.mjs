@@ -77,6 +77,29 @@ function agentDef(id, extra = {}) {
     return {id, githubUsername: id, harnessType: 'codex', metadata: {launch: LAUNCH}, ...extra};
 }
 
+/** Exact non-secret renderer input returned by prepareManagedAgentWorkspace for a remote Codex seat. */
+function remoteMcpPlan(resources, matrix) {
+    return Object.entries(matrix).map(([key, enabled]) => {
+        const remote = ['memory-core', 'knowledge-base'].includes(key);
+
+        return {
+            key,
+            name              : `neo-mjs-${key}`,
+            enabled,
+            mode              : remote ? 'remote-http' : 'stdio',
+            url               : remote ? resources[key].url : null,
+            credentialEnvVar  : remote ? 'NEO_MCP_REMOTE_TOKEN' : null,
+            command           : process.execPath,
+            sourceRoot        : '/installed/neo',
+            args              : [`/installed/neo/ai/mcp/server/${key}/mcp-server.mjs`],
+            runtimeEnv        : ['NEO_AGENT_IDENTITY'],
+            requiredRuntimeEnv: ['NEO_AGENT_IDENTITY'],
+            secretEnv         : [],
+            unsupportedReason : null
+        }
+    })
+}
+
 /** Reset the singleton + inject fresh test doubles. Returns the spawn stub. */
 function install({agents = {}, creds = {}} = {}) {
     const spawnStub = makeSpawnStub();
@@ -1026,16 +1049,52 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
         };
 
         await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
-            agent       : {id: 'seat-codex', harnessType: 'codex'},
+            agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
             binaryPath  : process.execPath,
             repoPath    : '/managed/seat-codex/neo',
             instanceHome: '/instances/seat-codex',
             mcpMatrix   : matrix,
-            mcpTransport: {mode: 'remote-http', resources}
+            mcpTransport: {mode: 'remote-http', resources},
+            mcpPlan     : remoteMcpPlan(resources, matrix)
         })).resolves.toEqual({
             harnessType: 'codex',
             inspected  : true,
-            serverNames: Object.keys(matrix).map(key => `neo-mjs-${key}`)
+            serverNames: Object.keys(matrix).map(key => `neo-mjs-${key}`),
+            capturePlan: {
+                producer        : 'installed-codex-mcp-list',
+                harnessType     : 'codex',
+                repoPath        : '/managed/seat-codex/neo',
+                sourceRoot      : '/installed/neo',
+                expectedIdentity: '@neo-gpt',
+                servers         : {
+                    'memory-core': {
+                        name   : 'neo-mjs-memory-core',
+                        enabled: true,
+                        stdio  : {
+                            command: process.execPath,
+                            args   : ['/installed/neo/ai/mcp/server/memory-core/mcp-server.mjs'],
+                            envVars: ['NEO_AGENT_IDENTITY']
+                        },
+                        remote: {
+                            url             : resources['memory-core'].url,
+                            credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                        }
+                    },
+                    'knowledge-base': {
+                        name   : 'neo-mjs-knowledge-base',
+                        enabled: true,
+                        stdio  : {
+                            command: process.execPath,
+                            args   : ['/installed/neo/ai/mcp/server/knowledge-base/mcp-server.mjs'],
+                            envVars: ['NEO_AGENT_IDENTITY']
+                        },
+                        remote: {
+                            url             : resources['knowledge-base'].url,
+                            credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN'
+                        }
+                    }
+                }
+            }
         });
 
         expect(calls).toHaveLength(1);
@@ -1093,12 +1152,13 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
             };
 
             await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
-                agent       : {id: 'seat-codex', harnessType: 'codex'},
+                agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
                 binaryPath  : process.execPath,
                 repoPath    : '/managed/seat-codex/neo',
                 instanceHome: '/instances/seat-codex',
                 mcpMatrix   : matrix,
-                mcpTransport: {mode: 'remote-http', resources}
+                mcpTransport: {mode: 'remote-http', resources},
+                mcpPlan     : remoteMcpPlan(resources, matrix)
             })).rejects.toThrow(/inspectPreparedRemoteMcpAdapter/)
         }
 
@@ -1107,12 +1167,13 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
         };
 
         await expect(FleetLifecycleService.inspectPreparedRemoteMcpAdapter({
-            agent       : {id: 'seat-codex', harnessType: 'codex'},
+            agent       : {id: 'seat-codex', githubUsername: 'neo-gpt', harnessType: 'codex'},
             binaryPath  : process.execPath,
             repoPath    : '/managed/seat-codex/neo',
             instanceHome: '/instances/seat-codex',
             mcpMatrix   : matrix,
-            mcpTransport: {mode: 'remote-http', resources}
+            mcpTransport: {mode: 'remote-http', resources},
+            mcpPlan     : remoteMcpPlan(resources, matrix)
         })).rejects.toThrow(/could not consume the generated MCP projection/)
     });
 

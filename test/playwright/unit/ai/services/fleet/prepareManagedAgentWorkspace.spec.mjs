@@ -124,6 +124,20 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(hydrationCalls[0]).toMatchObject({mainCheckout, projectRoot: opts.repoPath});
         expect(result.repoPath).toBe(opts.repoPath);
         expect(result.hydration).toEqual({hydrated: true});
+        expect(result.mcpPlan).toHaveLength(5);
+        expect(result.mcpPlan.map(server => server.key)).toEqual([
+            'memory-core',
+            'knowledge-base',
+            'neural-link',
+            'github-workflow',
+            'gitlab-workflow'
+        ]);
+        expect(result.mcpPlan.every(server =>
+            Array.isArray(server.args) &&
+            Array.isArray(server.runtimeEnv) &&
+            Array.isArray(server.requiredRuntimeEnv) &&
+            Array.isArray(server.secretEnv)
+        )).toBe(true);
         expect(result.artifacts.map(item => item.status)).toEqual([
             WORKSPACE_ARTIFACT_STATES.CREATED,
             WORKSPACE_ARTIFACT_STATES.CREATED,
