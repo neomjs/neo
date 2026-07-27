@@ -1,7 +1,7 @@
 import http from 'node:http';
 
-const host = process.env.NEO_TEST_OIDC_HOST || '0.0.0.0';
-const port = Number(process.env.NEO_TEST_OIDC_PORT || 4000);
+const host           = process.env.NEO_TEST_OIDC_HOST || '0.0.0.0';
+const port           = Number(process.env.NEO_TEST_OIDC_PORT || 4000);
 const validAudiences = [
     'http://127.0.0.1:13002',
     'http://127.0.0.1:13003',
@@ -56,6 +56,31 @@ const server = http.createServer(async (request, response) => {
             introspection_endpoint: `http://${reqHost}/introspect`
         });
         return;
+    }
+
+    if (request.url === '/oauth2/auth') {
+        const
+            authenticatedUser = request.headers['x-test-authenticated-user'],
+            authMode          = request.headers['x-test-auth-mode'];
+
+        // Integration-only control: a successful auth decision with no user claim lets the
+        // reference-ingress test prove that caller-supplied identity headers were stripped.
+        if (authMode === 'allow-without-identity') {
+            response.writeHead(200);
+            response.end();
+            return
+        }
+
+        if (typeof authenticatedUser === 'string' && /^[A-Za-z0-9._-]+$/.test(authenticatedUser)) {
+            response.writeHead(200, {
+                'x-auth-request-preferred-username': authenticatedUser
+            });
+            response.end();
+            return
+        }
+
+        sendJson(response, 401, {error: 'Authentication required'});
+        return
     }
 
     if (request.method === 'POST' && request.url === '/introspect') {

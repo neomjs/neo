@@ -899,7 +899,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
  * every built-in strategy, configured OIDC, and the truly-unconfigured/unknown failures.
  */
 test.describe('Neo.ai.mcp.server.shared.services.AuthService — setup state discrimination', () => {
-    let AuthService;
+    let AuthService, ConfigBase;
 
     const logger = {info: () => {}, warn: () => {}, error: () => {}};
 
@@ -931,53 +931,224 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — setup state dis
         }
     }
 
+    function collectConfiguredAuthModes() {
+        const
+            descriptor = ConfigBase.config.data.auth,
+            modes      = new Set([descriptor.mode.default]);
+
+        const visit = value => {
+            if (!value || typeof value !== 'object') {
+                return
+            }
+
+            for (const requirement of value.requiredFor || []) {
+                for (const mode of requirement.modes || []) {
+                    modes.add(mode)
+                }
+            }
+
+            for (const nested of Object.values(value)) {
+                visit(nested)
+            }
+        };
+
+        visit(descriptor);
+
+        return [...modes]
+    }
+
+    function setupMethodForMode(mode) {
+        return `setup${mode.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('')}`
+    }
+
     test.beforeAll(async () => {
-        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default
+        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        ConfigBase  = (await import('../../../../../../../ai/configBase.mjs')).default
     });
 
-    test('custom middleware is classified before default OIDC and is not mounted twice', async () => {
+    test('pre-CORS phase suppresses built-in local guards when custom middleware owns auth', () => {
+        const options = createOptions({
+            auth          : {mode: 'local-bearer'},
+            authMiddleware: () => {}
+        });
+
+        options.aiConfig.mcpListenHost = '0.0.0.0';
+
+        expect(() => AuthService.setupPreCors(options)).not.toThrow();
+        expect(options.app.middlewares).toEqual([])
+    });
+
+    test('pre-CORS local guard owns bind validation and present-Origin rejection', () => {
+        const options = createOptions({auth: {mode: 'local-bearer'}});
+
+        options.aiConfig.mcpListenHost = '127.0.0.1';
+        AuthService.setupPreCors(options);
+
+        expect(options.app.middlewares).toHaveLength(1);
+
+        const
+            req = {headers: {origin: ''}},
+            res = {
+                statusCode: 200,
+                body      : null,
+                status(statusCode) {
+                    this.statusCode = statusCode;
+                    return this
+                },
+                json(body) {
+                    this.body = body
+                }
+            };
+
+        let nextCalled = false;
+
+        options.app.middlewares[0](req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(403);
+        expect(res.body.error.message).toContain('Origin header is not allowed')
+    });
+
+    test('custom middleware takes precedence and is mounted exactly once by AuthService', async () => {
         const customMiddleware = () => {};
         const options          = createOptions({authMiddleware: customMiddleware});
 
         await expect(AuthService.setup(options)).resolves.toBeUndefined();
 
-        // Compatibility seam: Transport still owns the one custom mount during migration.
-        expect(options.app.middlewares).toEqual([])
+        expect(options.app.middlewares).toEqual([customMiddleware])
     });
 
-    test('proxy-only compatibility does not dereference the absent default-OIDC endpoint', async () => {
+    test('proxy-only installs its owner middleware without dereferencing default OIDC', async () => {
         const options = createOptions({auth: {trustProxyIdentity: true}});
 
         await expect(AuthService.setup(options)).resolves.toBeUndefined();
 
-        // Compatibility seam: Transport still resolves the trusted-proxy header during migration.
-        expect(options.app.middlewares).toEqual([])
+        expect(options.app.middlewares).toHaveLength(1);
+
+        const
+            req = {
+                headers: {'x-preferred-username': 'proxy-user'}
+            },
+            res = {
+                status() {
+                    throw new Error('proxy identity should not reject')
+                }
+            };
+
+        let nextCalled = false;
+
+        options.app.middlewares[0](req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(true);
+        expect(req.auth).toEqual({
+            userId  : 'proxy-user',
+            username: 'proxy-user',
+            source  : 'proxy-header'
+        })
     });
 
-    test('dispatches every non-OIDC built-in without a Transport-owned legal-mode list', async () => {
+    test('proxy-only rejects a missing identity before transport dispatch', async () => {
+        const options = createOptions({auth: {trustProxyIdentity: true}});
+
+        await AuthService.setup(options);
+
         const
-            methodByMode = {
-                'gitlab-pat'  : 'setupGitlabPat',
-                'github-pat'  : 'setupGithubPat',
-                'local-bearer': 'setupLocalBearer',
-                'seat-token'  : 'setupSeatToken'
-            },
-            originals    = Object.fromEntries(Object.values(methodByMode).map(method => [method, AuthService[method]])),
-            calls        = [];
+            req = {headers: {}},
+            res = {
+                statusCode: 200,
+                body      : null,
+                status(statusCode) {
+                    this.statusCode = statusCode;
+                    return this
+                },
+                json(body) {
+                    this.body = body
+                }
+            };
+
+        let nextCalled = false;
+
+        options.app.middlewares[0](req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+        expect(res.body).toEqual({error: 'Unauthorized: Missing proxy identity header'});
+        expect(req.auth).toBeUndefined()
+    });
+
+    test('OIDC proxy fallback defers every present Authorization header', () => {
+        const middleware = AuthService.createProxyIdentityMiddleware({
+            logger,
+            fallbackOnly: true
+        });
+
+        for (const authorization of ['Bearer valid', 'Bearer malformed', 'Basic credentials', '']) {
+            const req = {
+                headers: {
+                    authorization,
+                    'x-preferred-username': 'must-not-downgrade'
+                }
+            };
+
+            let nextCalled = false;
+
+            middleware(req, {}, () => { nextCalled = true; });
+
+            expect(nextCalled).toBe(true);
+            expect(req.auth).toBeUndefined()
+        }
+    });
+
+    test('OIDC proxy fallback binds the canonical header only when Authorization is absent', () => {
+        const middleware = AuthService.createProxyIdentityMiddleware({
+            logger,
+            fallbackOnly: true
+        });
+        const req = {
+            headers: {
+                'x-preferred-username'             : 'canonical-user',
+                'x-auth-request-preferred-username': 'secondary-user'
+            }
+        };
+
+        let nextCalled = false;
+
+        middleware(req, {}, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(true);
+        expect(req.auth).toEqual({
+            userId  : 'canonical-user',
+            username: 'canonical-user',
+            source  : 'proxy-header'
+        })
+    });
+
+    test('dispatches every ConfigProvider-derived built-in in both directions', async () => {
+        const
+            sourceModes     = collectConfiguredAuthModes(),
+            defaultMode     = ConfigBase.config.data.auth.mode.default,
+            dispatchedModes = sourceModes.filter(mode => mode !== defaultMode),
+            methods         = dispatchedModes.map(setupMethodForMode),
+            originals       = Object.fromEntries(methods.map(method => [method, AuthService[method]])),
+            calls           = [];
 
         try {
-            for (const [mode, method] of Object.entries(methodByMode)) {
+            for (const [index, mode] of dispatchedModes.entries()) {
+                const method = methods[index];
+
+                expect(typeof AuthService[method]).toBe('function');
                 AuthService[method] = async () => calls.push(mode)
             }
 
-            for (const mode of Object.keys(methodByMode)) {
+            for (const mode of dispatchedModes) {
                 await AuthService.setup(createOptions({auth: {mode}}))
             }
         } finally {
             Object.assign(AuthService, originals)
         }
 
-        expect(calls).toEqual(Object.keys(methodByMode))
+        expect(calls).toEqual(dispatchedModes);
+        expect(new Set([defaultMode, ...calls])).toEqual(new Set(sourceModes))
     });
 
     test('configured OIDC remains the fifth built-in and installs metadata + bearer middleware', async () => {

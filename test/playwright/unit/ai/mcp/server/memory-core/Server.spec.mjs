@@ -287,12 +287,11 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
-    test('#15990: GitHub-PAT admission precedes AgentIdentity auto-provisioning', async () => {
+    test('#15992: the same GitHub identity is admitted or excluded by profile before provisioning', async () => {
         await GraphService.initAsync();
 
         const
-            admittedUser                               = 'github-pinned-15990',
-            deniedUser                                 = 'github-outsider-15990',
+            admittedUser                               = 'github-profile-15992',
             serverInstance                             = await createServerWithoutBoot(),
             [{default: TransportService}, {McpServer}] = await Promise.all([
                 import('../../../../../../../ai/mcp/server/shared/services/TransportService.mjs'),
@@ -317,22 +316,18 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 return originalFetch(url, options)
             }
 
-            const
-                token = options.headers.Authorization.replace(/^Bearer /, ''),
-                login = token === 'github-outsider-pat' ? deniedUser : admittedUser;
-
             return {
                 ok     : true,
                 headers: {get: () => ''},
                 json   : async () => ({
-                    id  : login === admittedUser ? 15990 : 15991,
-                    login,
-                    name: login
+                    id   : 15992,
+                    login: admittedUser,
+                    name : admittedUser
                 })
             }
         };
 
-        const aiConfig = {
+        const profileConfig = allowedUsers => ({
             mcpHttpHost  : '127.0.0.1',
             mcpListenHost: '127.0.0.1',
             mcpHttpPort  : 0,
@@ -344,22 +339,22 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 githubApiBaseUrl            : 'https://api.github.test',
                 patCacheTtlSeconds          : 300,
                 patValidationTimeoutMs      : 5000,
-                allowedUsers                : [],
+                allowedUsers,
                 allowedClientIds            : [],
-                pinFirstProviderSubject     : true,
-                providerBootstrapPat        : 'github-bootstrap-pat',
+                pinFirstProviderSubject     : false,
+                providerBootstrapPat        : '',
                 providerBootstrapPatFile    : '',
                 autoProvisionIdentitySources: ['github-pat']
             }
-        };
+        });
 
-        const sendInitialize = token => originalFetch(
+        const sendInitialize = () => originalFetch(
             `http://127.0.0.1:${TransportService.httpServer.address().port}/mcp`,
             {
                 method : 'POST',
                 headers: {
                     Accept        : 'application/json, text/event-stream',
-                    Authorization : `Bearer ${token}`,
+                    Authorization : 'Bearer same-provider-identity',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -375,25 +370,40 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             }
         );
 
-        try {
-            await TransportService.setup({
-                server: {
-                    createMcpServer: () => new McpServer({
-                        name   : 'github-provisioning-15990',
-                        version: '1.0.0'
-                    }),
-                    buildRequestContext: async reqAuth => {
-                        contextCalls.push(reqAuth.userId);
-                        return serverInstance.buildRequestContext(reqAuth)
-                    },
-                    onSessionClosed: () => {}
-                },
-                aiConfig,
-                logger      : {info: () => {}, warn: () => {}, error: () => {}},
-                resourceName: 'GithubProvisioning15990'
-            });
+        const closeTransport = async () => {
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
 
-            const admitted = await sendInitialize('github-same-subject-pat');
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        };
+
+        const startProfile = allowedUsers => TransportService.setup({
+            server: {
+                createMcpServer: () => new McpServer({
+                    name   : 'github-profile-admission-15992',
+                    version: '1.0.0'
+                }),
+                buildRequestContext: async reqAuth => {
+                    contextCalls.push(reqAuth.userId);
+                    return serverInstance.buildRequestContext(reqAuth)
+                },
+                onSessionClosed: () => {}
+            },
+            aiConfig    : profileConfig(allowedUsers),
+            logger      : {info: () => {}, warn: () => {}, error: () => {}},
+            resourceName: 'GithubProfileAdmission15992'
+        });
+
+        try {
+            await startProfile([admittedUser]);
+
+            const admitted = await sendInitialize();
 
             expect(admitted.status).toBe(200);
             expect(admitted.headers.get('mcp-session-id')).toBeTruthy();
@@ -412,25 +422,17 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             expect(admittedNode.properties.description)
                 .toBe('Auto-provisioned Agent OS identity for an authenticated Memory Core principal.');
 
-            const denied = await sendInitialize('github-outsider-pat');
+            await closeTransport();
+            await startProfile(['another-profile-member']);
+
+            const denied = await sendInitialize();
 
             expect(denied.status).toBe(401);
             expect(denied.headers.get('mcp-session-id')).toBeNull();
             expect(contextCalls).toEqual([admittedUser]);
-            expect(rawGraphNode(`@${deniedUser}`)).toBeNull();
         } finally {
             globalThis.fetch = originalFetch;
-
-            if (TransportService.httpServer?.listening) {
-                await new Promise((resolve, reject) => {
-                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
-                })
-            }
-
-            TransportService.app        = null;
-            TransportService.httpServer = null;
-            TransportService.transports.clear();
-            TransportService.mcpServers.clear();
+            await closeTransport();
             serverInstance.destroy()
         }
     });

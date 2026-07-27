@@ -238,6 +238,34 @@ services:
     ports:
       - "13002:3002"
 
+  # Exact documented strip -> authenticate -> inject reference ingress. The test stack overrides
+  # only coordinates; route semantics come directly from ai/mcp/deploy/proxy/Caddyfile.
+  reference-ingress:
+    image: caddy:2-alpine
+    environment:
+      - NEO_MCP_PROXY_SITE=:8080
+      - NEO_MCP_PROXY_AUTH_UPSTREAM=oidc-server:4000
+      - NEO_MCP_PROXY_KB_UPSTREAM=kb-server:3000
+      - NEO_MCP_PROXY_MC_UPSTREAM=mc-server:3001
+    volumes:
+      - ../mcp/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      kb-server:
+        condition: service_started
+      mc-server:
+        condition: service_started
+      oidc-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8080"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - neo-mcp-test-network
+    ports:
+      - "13004:8080"
+
 networks:
   neo-mcp-test-network:
     driver: bridge

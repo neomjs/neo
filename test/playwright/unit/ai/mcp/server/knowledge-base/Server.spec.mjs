@@ -113,4 +113,133 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
             serverInstance.destroy()
         }
     });
+
+    test('#15992: the same GitHub identity is admitted or excluded before KB dispatch', async () => {
+        const
+            admittedUser                               = 'github-kb-profile-15992',
+            serverInstance                             = await createServerWithoutBoot(),
+            [{default: TransportService}, {McpServer}] = await Promise.all([
+                import('../../../../../../../ai/mcp/server/shared/services/TransportService.mjs'),
+                import('@modelcontextprotocol/sdk/server/mcp.js')
+            ]),
+            originalFetch = globalThis.fetch,
+            contextCalls  = [];
+
+        TransportService.app        = null;
+        TransportService.httpServer = null;
+        TransportService.transports = new Map();
+        TransportService.mcpServers = new Map();
+
+        globalThis.fetch = async (url, options={}) => {
+            if (!String(url).startsWith('https://api.github.test/')) {
+                return originalFetch(url, options)
+            }
+
+            return {
+                ok     : true,
+                headers: {get: () => ''},
+                json   : async () => ({
+                    id   : 15992,
+                    login: admittedUser,
+                    name : admittedUser
+                })
+            }
+        };
+
+        const profileConfig = allowedUsers => ({
+            mcpHttpHost  : '127.0.0.1',
+            mcpListenHost: '127.0.0.1',
+            mcpHttpPort  : 0,
+            auth         : {
+                mode                        : 'github-pat',
+                host                        : null,
+                issuerUrl                   : null,
+                trustProxyIdentity          : false,
+                githubApiBaseUrl            : 'https://api.github.test',
+                patCacheTtlSeconds          : 300,
+                patValidationTimeoutMs      : 5000,
+                allowedUsers,
+                allowedClientIds            : [],
+                pinFirstProviderSubject     : false,
+                providerBootstrapPat        : '',
+                providerBootstrapPatFile    : '',
+                autoProvisionIdentitySources: []
+            }
+        });
+
+        const sendInitialize = () => originalFetch(
+            `http://127.0.0.1:${TransportService.httpServer.address().port}/mcp`,
+            {
+                method : 'POST',
+                headers: {
+                    Accept        : 'application/json, text/event-stream',
+                    Authorization : 'Bearer same-provider-identity',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id     : 1,
+                    method : 'initialize',
+                    params : {
+                        protocolVersion: '2024-11-05',
+                        capabilities   : {},
+                        clientInfo     : {name: 'github-kb-profile-15992', version: '1.0.0'}
+                    }
+                })
+            }
+        );
+
+        const closeTransport = async () => {
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        };
+
+        const startProfile = allowedUsers => TransportService.setup({
+            server: {
+                createMcpServer: () => new McpServer({
+                    name   : 'github-kb-profile-admission-15992',
+                    version: '1.0.0'
+                }),
+                buildRequestContext: async reqAuth => {
+                    contextCalls.push(reqAuth.userId);
+                    return serverInstance.buildRequestContext(reqAuth)
+                },
+                onSessionClosed: () => {}
+            },
+            aiConfig    : profileConfig(allowedUsers),
+            logger      : {info: () => {}, warn: () => {}, error: () => {}},
+            resourceName: 'GithubKbProfileAdmission15992'
+        });
+
+        try {
+            await startProfile([admittedUser]);
+
+            const admitted = await sendInitialize();
+
+            expect(admitted.status).toBe(200);
+            expect(admitted.headers.get('mcp-session-id')).toBeTruthy();
+            expect(contextCalls).toEqual([admittedUser]);
+
+            await closeTransport();
+            await startProfile(['another-profile-member']);
+
+            const denied = await sendInitialize();
+
+            expect(denied.status).toBe(401);
+            expect(denied.headers.get('mcp-session-id')).toBeNull();
+            expect(contextCalls).toEqual([admittedUser])
+        } finally {
+            globalThis.fetch = originalFetch;
+            await closeTransport();
+            serverInstance.destroy()
+        }
+    });
 });
