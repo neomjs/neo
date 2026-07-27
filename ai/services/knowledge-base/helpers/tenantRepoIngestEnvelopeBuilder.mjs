@@ -101,7 +101,17 @@ export function createTenantRepoMaterializationDigest({
                 parserId     : typeof file.parserId === 'string' ? file.parserId : null,
                 parserVersion: typeof file.parserVersion === 'string' ? file.parserVersion : null
             }))
-            .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+            .sort((left, right) => {
+                const
+                    leftKey  = JSON.stringify(left),
+                    rightKey = JSON.stringify(right);
+
+                if (leftKey === rightKey) {
+                    return 0;
+                }
+
+                return leftKey < rightKey ? -1 : 1;
+            });
 
     return createHash('sha256')
         .update(JSON.stringify({

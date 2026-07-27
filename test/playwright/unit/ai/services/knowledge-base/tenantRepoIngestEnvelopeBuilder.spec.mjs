@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test';
 
+import {createHash} from 'node:crypto';
 import fs          from 'fs-extra';
 import os          from 'os';
 import path        from 'path';
@@ -65,21 +66,38 @@ test.describe('TenantRepoIngestEnvelopeBuilder (#11789)', () => {
             headRevision    : 'head-a',
             manifestSnapshot: {
                 repoSlug      : 'org/repo',
-                pathsAfterPush: ['src/b.js', 'src/a.js', 'src/a.js']
+                pathsAfterPush: ['z.md', 'a_b.md', 'aB.md', 'ä.md', 'a_b.md']
             },
             files: [
-                {sourcePath: 'src/b.js', rootKind: 'bare-repo', parserId: 'beta', parserVersion: '2'},
-                {sourcePath: 'src/a.js', rootKind: 'bare-repo', parserId: 'alpha', parserVersion: '1'}
+                {sourcePath: 'z.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                {sourcePath: 'a_b.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                {sourcePath: 'aB.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                {sourcePath: 'ä.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'}
             ]
         };
-        const digest = createTenantRepoMaterializationDigest(envelope);
+        const
+            digest         = createTenantRepoMaterializationDigest(envelope),
+            expectedDigest = createHash('sha256')
+                .update(JSON.stringify({
+                    formatVersion : 1,
+                    repoSlug      : 'org/repo',
+                    headRevision  : 'head-a',
+                    pathsAfterPush: ['aB.md', 'a_b.md', 'z.md', 'ä.md'],
+                    parserBindings: [
+                        {sourcePath: 'aB.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                        {sourcePath: 'a_b.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                        {sourcePath: 'z.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'},
+                        {sourcePath: 'ä.md', rootKind: 'bare-repo', parserId: 'markdown', parserVersion: '1'}
+                    ]
+                }))
+                .digest('hex');
 
-        expect(digest).toMatch(/^[a-f0-9]{64}$/u);
+        expect(digest).toBe(expectedDigest);
         expect(createTenantRepoMaterializationDigest({
             ...envelope,
             manifestSnapshot: {
                 ...envelope.manifestSnapshot,
-                pathsAfterPush: ['src/a.js', 'src/b.js']
+                pathsAfterPush: ['ä.md', 'z.md', 'a_b.md', 'aB.md']
             },
             files: [...envelope.files].reverse()
         })).toBe(digest);
