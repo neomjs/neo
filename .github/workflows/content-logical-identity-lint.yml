@@ -21,8 +21,11 @@ on:
       - 'resources/content/archive/**'
       - 'buildScripts/util/check-content-logical-identity.mjs'
       - '.github/workflows/content-logical-identity-lint.yml'
+  # `main` is audited too, and not for symmetry: the release publisher grafts `dev`'s tree onto `main`
+  # with `git commit-tree`, which runs no hooks by construction, so a collision reaching `dev` would
+  # otherwise arrive on the release line completely unobserved.
   push:
-    branches: [dev]
+    branches: [dev, main]
     paths:
       - 'resources/content/archive/**'
       - 'buildScripts/util/check-content-logical-identity.mjs'
