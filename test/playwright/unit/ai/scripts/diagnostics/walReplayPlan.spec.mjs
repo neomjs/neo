@@ -37,16 +37,16 @@ test.describe('parseJsonl — a malformed line refuses instead of shrinking the 
 test.describe('planWalReplay — no loss', () => {
     test('every input lands in exactly one bucket, and the buckets sum to the input', () => {
         const plan = planWalReplay({
-            payloadEntries: [entry('a', 3), entry('b', 1), entry('c', 2), entry('b', 9)],
+            payloadEntries: [entry('a', 3), entry('b', 1), entry('c', 2)],
             appliedIds    : new Set(['c'])
         });
 
         expect(plan.ok).toBe(true);
         expect(plan.toApply.map(e => e.id)).toEqual(['b', 'a']);   // timestamp order: b(1), a(3)
         expect(plan.alreadyApplied).toEqual(['c']);
-        expect(plan.duplicateInSource).toEqual(['b']);
-        // The invariant as arithmetic, not as trust.
-        expect(plan.receipt.toApplyCount + plan.receipt.alreadyAppliedCount + plan.receipt.duplicateCount)
+        // The invariant as arithmetic, not as trust. Two buckets only — a repeated id refuses outright
+        // rather than being collapsed into a third "safe" bucket.
+        expect(plan.receipt.toApplyCount + plan.receipt.alreadyAppliedCount)
             .toBe(plan.receipt.sourceEntries);
     })
 
@@ -106,11 +106,25 @@ test.describe('planWalReplay — no double-apply', () => {
         expect(second.alreadyApplied).toEqual(['a', 'b']);
     })
 
-    test('a duplicated id within the source is applied ONCE, not twice', () => {
-        const plan = planWalReplay({payloadEntries: [entry('a', 1), entry('a', 2)], appliedIds: new Set()});
+    test('⭐ a duplicated source id REFUSES — dedup made the arithmetic lie', () => {
+        // The falsified contract bucketed a repeat as a benign re-flush. But two entries sharing an id
+        // with DIFFERENT payloads meant one document was applied and the other discarded while the
+        // buckets still balanced: loss reporting as success. "The counts add up" is not "nothing was
+        // lost". Refusing costs nothing observable — the live corpus has 8168 rows / 8168 unique ids.
+        const conflicting = planWalReplay({
+            payloadEntries: [{id: 'same', timestamp: 1, document: 'A'}, {id: 'same', timestamp: 2, document: 'B'}],
+            appliedIds    : new Set()
+        });
 
-        expect(plan.toApply).toHaveLength(1);
-        expect(plan.duplicateInSource).toEqual(['a']);
+        expect(conflicting.ok).toBe(false);
+        expect(conflicting.reason).toContain('duplicate source id "same"');
+        expect(conflicting.reason).toContain('indices 0 and 1');
+        expect(conflicting.reason).toContain('integrity event');
+        expect(conflicting).not.toHaveProperty('toApply');
+
+        // Identical repeats refuse too: this planner does not inspect payloads, so it cannot know they
+        // are safe to collapse, and guessing is what produced the defect.
+        expect(planWalReplay({payloadEntries: [entry('a', 1), entry('a', 1)], appliedIds: new Set()}).ok).toBe(false);
     })
 });
 
@@ -154,15 +168,35 @@ test.describe('verifyReplayContinuity — the verifier must be able to FAIL', ()
         expect(result.reason).toContain('never landed');
     })
 
-    test('⭐ UNPLANNED writes refuse — the target gained what the plan did not authorise', () => {
+    test('⭐ UNRELATED concurrent writes are ALLOWED and reported — the pilot owns no exclusivity', () => {
+        // The falsified contract refused any receipt the plan had not authorised, which asserted
+        // exclusive ownership of the native target. The pilot runs beside a shared/native-primary plane
+        // where other seats keep writing, so unrelated gains during replay are expected and legitimate.
+        // Continuity is scoped to the PLANNED ids; unrelated monotonic growth is reported, not judged.
+        // Writer quiescence is a lease question for the promotion runbook, not a verifier's presumption.
         const result = verifyReplayContinuity({
             appliedBefore: new Set(['seed']),
-            appliedAfter : new Set(['seed', 'a', 'b', 'stowaway']),
+            appliedAfter : new Set(['seed', 'a', 'b', 'other-seat-write']),
+            plan
+        });
+
+        expect(result.ok).toBe(true);
+        expect(result.unrelatedGains).toEqual(['other-seat-write']);
+        // `applied` counts only what the plan authorised, so a concurrent write cannot inflate it.
+        expect(result.applied).toBe(2);
+    })
+
+    test('a concurrent write does NOT mask a planned id that never landed', () => {
+        // The pairing that makes the relaxation safe: allowing unrelated gains must not let loss hide
+        // behind them. 'b' is missing while an unrelated id appeared.
+        const result = verifyReplayContinuity({
+            appliedBefore: new Set(['seed']),
+            appliedAfter : new Set(['seed', 'a', 'other-seat-write']),
             plan
         });
 
         expect(result.ok).toBe(false);
-        expect(result.reason).toContain('unplanned');
+        expect(result.reason).toContain('never landed');
     })
 
     test('a refused plan cannot be verified — the refusal propagates', () => {

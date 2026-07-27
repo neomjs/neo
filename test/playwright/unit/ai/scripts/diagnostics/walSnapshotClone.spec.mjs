@@ -80,6 +80,29 @@ test.describe('planSnapshotClone — the durable-root invariant is delegated AND
         expect(result.preCloneFingerprint.digest).toMatch(/^[0-9a-f]{64}$/);
     })
 
+    test('⭐ an OMITTED canonicalDataRoot refuses — the isolation clause would silently be skipped', () => {
+        // Fail-open closed. `assertPlaneCoherence` guards its overlay-isolation clause with
+        // `canonicalDataRoot &&`, so omitting the comparator skips the very check this planner exists to
+        // enforce — the clone would report `ok:true` with isolation never verified. Optional upstream for
+        // general callers, mandatory at this boundary.
+        const result = planSnapshotClone({
+            overlayPlaneId : 'neo-local-pilot',
+            overlayDataRoot: '/planes/pilot',
+            segments       : CORPUS,
+            realpathFn     : identityRealpath
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('canonicalDataRoot must be an absolute path');
+        expect(result.reason).toContain('isolation');
+        expect(result).not.toHaveProperty('preCloneFingerprint');
+    })
+
+    test('a RELATIVE canonicalDataRoot refuses — a relative comparator cannot prove separation', () => {
+        expect(plan({canonicalDataRoot: 'planes/canonical'}).reason).toContain('absolute path');
+        expect(plan({canonicalDataRoot: null}).reason).toContain('absolute path');
+    })
+
     test('⭐ an overlay that RESOLVES TO THE DURABLE ROOT is refused, by the shared predicate', () => {
         // The hazard itself: an overlay mistaken for canonical would mutate the durable plane.
         // Aliasing realpath makes the pilot root resolve onto the canonical one, exactly as a symlink

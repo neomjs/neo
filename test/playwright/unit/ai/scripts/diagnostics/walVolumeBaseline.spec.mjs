@@ -4,6 +4,7 @@ import os             from 'node:os';
 import path           from 'node:path';
 import {
     decideWalPosture,
+    isWalSegment,
     readWalSegments,
     reduceWalWindow
 } from '../../../../../../ai/scripts/diagnostics/walVolumeBaseline.mjs';
@@ -73,6 +74,24 @@ test.describe('readWalSegments — the walker, against a real fixture', () => {
         } finally {
             await fs.rm(linkParent, {recursive: true, force: true});
         }
+    })
+});
+
+test.describe('isWalSegment — the inclusion predicate is named, not incidental', () => {
+    test('⭐ drain-lock sentinels are NOT segments — a bare isFile() counted them as corpus', () => {
+        // Two live examples on the reference plane inflated both segment count and volume with files
+        // that carry no entries and are never replayed.
+        expect(isWalSegment('.drain-lock')).toBe(false);
+        expect(isWalSegment('messages/.drain-lock')).toBe(false);
+        expect(isWalSegment('wal-2026-07-26.jsonl')).toBe(true);
+        expect(isWalSegment('messages/message-wal-2026-07-26.jsonl')).toBe(true);
+        expect(isWalSegment('wal-2026-07-26.embedded.jsonl')).toBe(true);
+    })
+
+    test('non-JSONL and hidden files are excluded', () => {
+        expect(isWalSegment('README.md')).toBe(false);
+        expect(isWalSegment('wal.jsonl.tmp')).toBe(false);
+        expect(isWalSegment('.hidden.jsonl')).toBe(false);
     })
 });
 
@@ -148,7 +167,10 @@ test.describe('decideWalPosture — the constant is deferred, never invented', (
 
         expect(result.ok).toBe(false);
         expect(result.reason).toContain('no default on purpose');
+        // ...and the refusal states the DIMENSIONS, because a throughput alone has the wrong units.
         expect(result.reason).toContain('measured replay throughput');
+        expect(result.reason).toContain('accepted cutover window');
+        expect(result.reason).toContain('wrong');
     })
 
     test('fork-then-replay when the PEAK-projected corpus fits the budget', () => {

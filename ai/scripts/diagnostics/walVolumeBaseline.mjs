@@ -13,8 +13,16 @@
  * ## The constant is DEFERRED, on purpose
  *
  * This module does **not** invent a megabyte threshold. `replayBudgetMb` is a required caller input with
- * no default, because the only honest source for it is a measured replay throughput — which is a
- * *different* acceptance criterion of the same ticket, not something to guess here. Shipping a plausible
+ * no default — and it is a **size**, which a throughput alone cannot supply: throughput has units of
+ * MB *per unit time*. The budget is the product of two separate facts —
+ *
+ *     replayBudgetMb = measured replay throughput (MB/s) × the accepted cutover window (s)
+ *
+ * — so the caller must have chosen an acceptable promotion/demotion duration before it can name a
+ * budget at all. The replay-proof AC supplies the throughput; the window is an operational decision
+ * about how long a cutover may take. Stating the dimensional relationship rather than saying "from
+ * measured throughput" matters: the earlier wording implied one input where there are two, and a
+ * budget derived from throughput alone would be a number without units. Shipping a plausible
  * constant would encode one observation as a calibrated bound; that exact move was withdrawn once
  * already this cycle after peers falsified it. So: this half supplies the volume, that half supplies the
  * budget, and the decision is their comparison.
@@ -65,8 +73,20 @@ function isPositiveFinite(value) {
  * @param {String} dir WAL directory (relative or absolute).
  * @returns {Promise<Object[]>} `[{name, bytes, mtimeMs}]` with `name` relative to `dir`.
  */
+export function isWalSegment(name) {
+    // NAMED, not incidental. A bare `isFile()` counted the drain daemons' `.drain-lock` sentinels as
+    // corpus — two live examples on the reference plane — inflating segment count and volume with files
+    // that carry no entries and are never replayed. WAL segments are JSONL; locks, temp files and
+    // dotfiles are not, and a predicate that says so is auditable where an accident is not.
+    return name.endsWith('.jsonl') && !path.basename(name).startsWith('.');
+}
+
 export async function readWalSegments(dir) {
-    const segments = [];
+    const segments = [],
+          // A `stat`-following walk can reach ONE inode twice when a subdirectory is a symlink alias of
+          // another, double-counting its bytes. Cross-instrument agreement does not catch this: both
+          // instruments used the same broad predicate and both over-counted identically.
+          visited  = new Set();
 
     const walk = async (current, prefix) => {
         const entries = await fs.readdir(current, {withFileTypes: true});
@@ -76,11 +96,17 @@ export async function readWalSegments(dir) {
                   name = prefix ? `${prefix}/${entry.name}` : entry.name,
                   // `stat`, never `lstat`: a symlinked segment or directory must report its TARGET.
                   // `isDirectory()`/`isFile()` on the Dirent would classify a symlink as neither.
-                  info = await fs.stat(full);
+                  info = await fs.stat(full),
+                  // Identity is the resolved path, so an alias and its target are ONE entry.
+                  real = await fs.realpath(full);
+
+            if (visited.has(real)) continue;
+
+            visited.add(real);
 
             if (info.isDirectory()) {
                 await walk(full, name);
-            } else if (info.isFile()) {
+            } else if (info.isFile() && isWalSegment(name)) {
                 segments.push({name, bytes: info.size, mtimeMs: info.mtimeMs});
             }
         }
@@ -156,8 +182,9 @@ export function reduceWalWindow({segments, windowDays, nowMs} = {}) {
  * @param {Object} spec
  * @param {Object} spec.baseline       An `ok` {@link reduceWalWindow} result.
  * @param {Number} spec.pilotDays      Planned pilot duration.
- * @param {Number} spec.replayBudgetMb Corpus size one forward replay pass can absorb. REQUIRED — no
- *                                     default, because only a measured replay throughput may set it.
+ * @param {Number} spec.replayBudgetMb Corpus size one forward pass can absorb WITHIN the accepted
+ *                                     cutover window — i.e. measured throughput (MB/s) x that window
+ *                                     (s). REQUIRED, no default: a throughput alone has the wrong units.
  * @returns {Object} `{ok, reason?, posture, projectedMb, projectedFromMeanMb, headroomMb, rationale}`
  */
 export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
@@ -168,8 +195,9 @@ export function decideWalPosture({baseline, pilotDays, replayBudgetMb} = {}) {
     if (!isPositiveFinite(replayBudgetMb)) {
         return refuse(
             `replayBudgetMb must be a positive finite number, received ${JSON.stringify(replayBudgetMb)}. ` +
-            'It has no default on purpose: the only honest source is a measured replay throughput ' +
-            '(the replay-proof AC), never a plausible-looking constant chosen here.'
+            'It has no default on purpose, and it is a SIZE: derive it as measured replay throughput ' +
+            '(MB/s) times the accepted cutover window (s). A throughput alone cannot set it — wrong ' +
+            'units — and a plausible-looking constant chosen here would encode one observation as a bound.'
         );
     }
 
