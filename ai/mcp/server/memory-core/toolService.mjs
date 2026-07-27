@@ -133,8 +133,12 @@ const exploreMemoryHistoryOp = args => exploreMemoryHistory({
             buildModel: () => SessionService.model
         }),
         listIdentities: async () => {
-            const {online, idle, benched} = await WakeSubscriptionService.whoIsOnline();
-            return [...(online || []), ...(idle || []), ...(benched || [])]
+            // Every rostered identity, regardless of liveness bucket — this leg is a roster census,
+            // not an availability question. `dark` and `neverConnected` were split OUT of `idle`
+            // when who_is_online learned to distinguish membership from freshness; omitting them
+            // here would silently shrink the census the moment an identity went quiet.
+            const {online, idle, dark, neverConnected, benched} = await WakeSubscriptionService.whoIsOnline();
+            return [...(online || []), ...(idle || []), ...(dark || []), ...(neverConnected || []), ...(benched || [])]
         },
         // the team-visible session-summary coverage leg — recovers the peer sessions the tenant-bound
         // recency walk structurally cannot see (query_recent_turns is caller-userId-bound)

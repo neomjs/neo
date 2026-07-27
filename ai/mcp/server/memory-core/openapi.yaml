@@ -443,12 +443,17 @@ paths:
         instead of stalling the merge gate silently.
 
 
-        Terse by default: {summary, online[], idle[], benched[]} (identity arrays). Pass verbose:true
+        Terse by default: {summary, windows, online[], idle[], dark[], neverConnected[], benched[]}
+        (identity arrays). Buckets separate liveness from membership: idle is stale but within the
+        configured cutoff, dark is stale beyond it, neverConnected has no activity on this deployment
+        at all. windows carries the applied freshness/cutoff values, and the summary states them.
+        Pass verbose:true
         for the full per-agent projection + signal description. Signal (precedence): (1) participationStatus
-        hard gate — operator_benched / temporarily_unreachable report offline; (2) add_memory-recency —
-        a rostered agent's most-recent AGENT_MEMORY write within the freshness window means recently
-        active. add_memory is the universal, deployment-agnostic activity write (no harness beacon); the
-        read is roster-scoped and graph-backed (survives an embed-drain).
+        hard gate — operator_benched / temporarily_unreachable report offline; (2) a fresh turn-presence
+        beacon, which decides online before any absence verdict, because add_memory lands at turn
+        boundaries and a first or long turn is present without a recent write; (3) add_memory-recency —
+        the deployment-agnostic fallback where no beacon is emitted, roster-scoped and graph-backed
+        (survives an embed-drain).
       tags: [Health]
       requestBody:
         required: false
@@ -473,30 +478,51 @@ paths:
               schema:
                 type: object
                 description: >
-                  Terse default: {generatedAt, summary, online[], idle[], benched[]}. With verbose:true:
-                  {generatedAt, signalStatus, agents[]}.
+                  Terse default: {generatedAt, summary, windows, online[], idle[], dark[],
+                  neverConnected[], benched[]}. With verbose:true: {generatedAt, signalStatus, agents[]}.
                 properties:
                   generatedAt:
                     type: string
                     description: ISO timestamp the projection was computed at.
                   summary:
                     type: string
-                    description: Terse default — e.g. "3 online · 7 idle · 2 benched".
+                    description: >
+                      Terse default — e.g. "3 online · 7 idle · 2 dark · 1 never-connected · 2 benched
+                      (online ≤ 15m, idle ≤ 4h)". States the applied windows, because the same counts
+                      mean different things under different calibrations.
+                  windows:
+                    type: object
+                    description: Terse default — the resolved windows the buckets were computed with.
+                    properties:
+                      activityFreshMs: {type: number}
+                      idleCutoffMs: {type: number}
                   online:
                     type: array
                     items: {type: string}
-                    description: Terse default — identities with fresh add_memory activity.
+                    description: >
+                      Terse default — identities acting now: fresh add_memory activity, or a fresh
+                      turn-presence beacon carrying an agent whose write is stale or not yet written.
                   idle:
                     type: array
                     items: {type: string}
-                    description: Terse default — rostered + active identities with no fresh activity.
+                    description: Terse default — stale activity, but within idleCutoffMs.
+                  dark:
+                    type: array
+                    items: {type: string}
+                    description: Terse default — stale beyond idleCutoffMs. Rostered, not recently seen.
+                  neverConnected:
+                    type: array
+                    items: {type: string}
+                    description: >
+                      Terse default — rostered but never observed on THIS deployment: no add_memory
+                      write on record and no live turn presence. A membership fact, not a freshness one.
                   benched:
                     type: array
                     items: {type: string}
                     description: Terse default — identities whose participationStatus is not 'active'.
                   signalStatus:
                     type: string
-                    description: verbose:true only — describes the add_memory-recency signal.
+                    description: verbose:true only — describes the liveness signal precedence.
                   agents:
                     type: array
                     description: verbose:true only — full per-agent projection.
@@ -508,6 +534,10 @@ paths:
                         family: {type: string, nullable: true}
                         participationStatus: {type: string}
                         online: {type: boolean}
+                        state:
+                          type: string
+                          enum: [online, idle, dark, neverConnected, benched]
+                          description: The projected bucket. Mutually exclusive with the other four.
                         reason: {type: string}
                         signals: {type: object}
         '500':
