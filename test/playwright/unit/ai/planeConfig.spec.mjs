@@ -445,3 +445,105 @@ test.describe('healthcheck contract — the observed plane is a DECLARED schema 
         });
     }
 });
+
+// One env must resolve to ONE default across every config base that binds it. The graph SQLite was the
+// counterexample, and the shape of the bug is the reason this guard is general rather than a pin:
+//
+//   MC anchored `sqlite/memory-core-graph.sqlite` under the plane root; KB and Neural Link anchored
+//   `memory-core.sqlite` under the HOME directory. Every container sets the env, so the divergence was
+//   fully masked in deployment and bit only where nothing sets it — host CLI, daemons, local seats.
+//
+// There it did real damage: `KBRecorderService` / the NL `RecorderService` write telemetry tables into
+// their leaf's path, while the READERS (`GapInferenceEngine`, `DreamService`) resolve Memory Core's
+// `storagePaths.graph`. So the recorders wrote to a file the consumers never open, and
+// `GapInferenceEngine`'s `sqlite_master` probe degraded silently — gap inference produced no
+// NL_ACTION_SEQUENCE edges and nothing reported a fault.
+test.describe('⭐ one env ⇒ one resolved default across every declaring config base', () => {
+    const graphEnv = 'NEO_MEMORY_DB_PATH';
+
+    /** Collects `{dotted, default}` for every leaf in a descriptor tree bound to `envName`. */
+    const leavesBoundTo = (descriptorData, envName, prefix = '') => {
+        const found = [];
+
+        for (const [key, value] of Object.entries(descriptorData ?? {})) {
+            if (!value || typeof value !== 'object') continue;
+
+            const dotted = prefix ? `${prefix}.${key}` : key;
+
+            if (Object.hasOwn(value, 'default') && Object.hasOwn(value, 'env')) {
+                if (value.env === envName) found.push({dotted, default: value.default});
+            } else {
+                found.push(...leavesBoundTo(value, envName, dotted));
+            }
+        }
+
+        return found;
+    };
+
+    test('every leaf binding NEO_MEMORY_DB_PATH resolves the SAME absolute default', async () => {
+        // The KB config base re-wraps the registered Tier-1 singleton at module scope, so the template must be
+        // fully evaluated FIRST — the same registration shape the derivation witnesses earlier in this file
+        // use, and whose comment explains exactly this. An earlier version imported KB directly and passed
+        // only because a prior test here had already registered Tier-1: order-dependent green. @neo-gpt caught
+        // it from a clean export, where it threw `Cannot create proxy with a non-object as target` at
+        // ConfigProvider:529.
+        const templateModule = await import('../../../../ai/config.template.mjs');
+
+        if (!Neo.ai?.Config) {
+            Neo.ai        = Neo.ai || {};
+            Neo.ai.Config = templateModule.default;
+        }
+
+        const kb    = await import('../../../../ai/mcp/server/knowledge-base/configBase.mjs'),
+              nl    = await import('../../../../ai/mcp/server/neural-link/configBase.mjs'),
+              bound = [['memory-core', McConfigBase], ['knowledge-base', kb.default], ['neural-link', nl.default]]
+                  .flatMap(([base, ctor]) => leavesBoundTo(ctor.config.data, graphEnv).map(e => ({...e, base})));
+
+        // Guards its own denominator: a rename that dropped these bindings must fail here rather than
+        // pass vacuously over an empty set.
+        expect(bound.length).toBeGreaterThanOrEqual(3);
+
+        const distinct = new Set(bound.map(entry => entry.default));
+
+        expect(distinct.size,
+            `divergent defaults for ${graphEnv}: ` +
+            bound.map(entry => `${entry.base}/${entry.dotted}=${entry.default}`).join(' | ')
+        ).toBe(1);
+
+        const [resolved] = [...distinct];
+
+        expect(path.isAbsolute(resolved)).toBe(true);
+        expect(resolved.startsWith(ConfigBase.config.data.plane.dataRoot.default)).toBe(true);
+        // The retired filename must not come back, and neither must the homedir anchor.
+        expect(resolved).not.toContain('memory-core.sqlite');
+        expect(resolved.startsWith(os.homedir() + path.sep + '.neo-ai-data' + path.sep)).toBe(false);
+    })
+
+    test('⭐ RED control: the WALKER detects divergence across synthetic descriptor trees', () => {
+        // NOT a tautology over two hardcoded strings — that version exercised none of the walker and could
+        // not fail. The part that can actually be wrong is `leavesBoundTo`: it must find env-bound leaves at
+        // arbitrary depth and miss none. Mutation-verified: removing its recursion turns this red.
+        const envName = 'NEO_SYNTHETIC_SHARED_ENV',
+              leafOf  = defaultValue => ({default: defaultValue, env: envName, type: 'string', parse: null}),
+              // Different depths, each beside a decoy bound to another env — the shape that defeats a
+              // shallow or first-match walk.
+              baseA   = {storagePaths: {graphProd: leafOf('/plane/sqlite/memory-core-graph.sqlite')},
+                         decoy       : {default: 'x', env: 'NEO_OTHER_ENV', type: 'string', parse: null}},
+              baseB   = {memoryCoreDbPathProd: leafOf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'))};
+
+        const found = [...leavesBoundTo(baseA, envName), ...leavesBoundTo(baseB, envName)];
+
+        expect(found.map(entry => entry.dotted).sort()).toEqual(['memoryCoreDbPathProd', 'storagePaths.graphProd']);
+        expect(new Set(found.map(entry => entry.default)).size).toBe(2);
+
+        // GREEN counterpart: converge them and the same walker+comparison reports one default. Without it
+        // the control proves only that it can say "different", never that it can say "same".
+        const converged = [
+            ...leavesBoundTo({storagePaths: {graphProd: leafOf('/plane/sqlite/memory-core-graph.sqlite')}}, envName),
+            ...leavesBoundTo({memoryCoreDbPathProd: leafOf('/plane/sqlite/memory-core-graph.sqlite')}, envName)
+        ];
+
+        expect(converged).toHaveLength(2);
+        expect(new Set(converged.map(entry => entry.default)).size).toBe(1);
+    })
+});

@@ -85,11 +85,12 @@ x-plane-env: &plane-env
   NEO_KB_LOG_PATH: /app/.neo-ai-data-parity/logs
   # Neural-link member (ai/mcp/server/neural-link/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_NL_LOG_PATH: /app/.neo-ai-data-parity/logs
-  # Graph SQLite — explicitly placed although NOT yet a declared plane member: MC's
-  # `storagePaths.graphProd` is absent from its PLANE_MEMBER_PATHS and its default anchors
-  # to cwd (not the plane root), with divergent sibling defaults on the KB/neural-link
-  # `memoryCoreDbPathProd` leaves. Member-set gap tracked as a narrow follow-up on #15803;
-  # explicit placement here is coherence-valid either way.
+  # Graph SQLite — Memory Core's declared plane member (`storagePaths.graphProd`, plane-anchored),
+  # asserted at MC's boot. The KB and neural-link `memoryCoreDbPathProd` leaves bind this same env
+  # and now derive the same plane-anchored default, but are explicit NON-members: a shared artifact
+  # is claimed by its owner, not re-claimed by consumers (the Chroma persist-dir precedent), so one
+  # boot failure names one cause. This explicit placement is retained deliberately — it pins the
+  # parity plane's location independently of any default.
   NEO_MEMORY_DB_PATH: /app/.neo-ai-data-parity/sqlite/memory-core-graph.sqlite
 
 # Canonical direct-local authentication profile. Ordinary forks have no generated roster, so the
