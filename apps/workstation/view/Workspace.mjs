@@ -2243,7 +2243,8 @@ class Workspace extends Container {
                 url               : `./index.html?popout=${itemId}&hostId=${me.id}`
                     + `&vesselFlow=tear-out&vesselGrant=${ownerGrant.token}`
                     + `&vesselGeneration=${ownerGrant.generation}`
-                    + `&vesselAdmission=${admissionToken}`,
+                    + `&vesselAdmission=${admissionToken}`
+                    + `&theme=${encodeURIComponent(me.theme)}`,
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
                 windowName
