@@ -90,6 +90,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 - **Review Intake Guard:** Pairs with `post-review-pickup` so a fresh session checks for an author lane before entering review-only mode, unless a review-first rationale applies.
 - **Prior-art sweep gate:** Before scoring, a cheap 3–10-call Memory Core sweep (`memory-mining`) of the PR's decision space — a prior session may have settled the shape or an ADR may already govern it. PR-review is V-B-A's last line of defense, where CI-green ≠ AC-met (per `AGENTS.md` §verify_before_assert).
+- **Reviewer-instrument audit:** The same V-B-A turned on the reviewer's own tools, loaded conditionally when the diff adds a capability gate, flag or field, or when a review is about to assert an absence. Two shapes that every other dimension is blind to because both yield green code and confident findings: a gate satisfied by a capability *existing* rather than *running* (and its converse, a gate wrongly accused of being forgeable), and an absence claim from a search with no positive control and no named tree/SHA.
 
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
