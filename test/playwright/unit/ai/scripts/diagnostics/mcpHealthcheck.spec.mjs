@@ -323,7 +323,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(compose.services.orchestrator.depends_on['mc-server']).toEqual({condition: 'service_healthy'});
     });
 
-    test('production compose pins cloud-profile local wake and mailbox boundaries', () => {
+    test('production compose pins cloud-profile local wake boundaries, and does NOT pin the mailbox policy', () => {
         const compose         = readProductionCompose();
         const orchestratorEnv = environmentMap(compose.services.orchestrator);
         const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
@@ -339,7 +339,13 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             NEO_ORCHESTRATOR_OLLAMA_ENABLED                     : 'false'
         });
 
-        expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
+        // The cloud profile legitimately pins the wake/model boundaries above — a cloud deployment must
+        // not sync our dev repo or spawn local models. It must NOT pin the mailbox policy: doing so
+        // overrode the library default of `open` and left members of a single-organisation deployment
+        // unable to message each other without a grant per pair. A deployment is a trust boundary, so
+        // peer-trust is the default and `blocked` belongs to a multi-tenant install that sets it
+        // together with `NEO_MEMORY_SHARING_DEFAULT_POLICY=private`.
+        expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBeUndefined();
     });
 
     test('production compose persists the sandman handoff across its writer and reader', () => {
