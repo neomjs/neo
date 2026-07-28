@@ -207,11 +207,22 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('reports idle ingestion progress before any observed run (#14028)', () => {
+    test('distinguishes NEVER-ATTEMPTED from idle, and discloses its process scope (#14028)', () => {
+        // `idle` used to cover two different facts: a run finished and nothing is in flight, versus
+        // this process has never ingested at all. On a live deployment the second presented as
+        // `status: "idle", errorCount: 0` with every timestamp null, which reads as healthy while four
+        // tenant repos had failed four times each.
+        //
+        // The scope disclosure is the other half, and it is why a better status alone is not enough:
+        // progress state is IN-MEMORY per process, and the pull-mode tenant-repo lane ingests in the
+        // orchestrator — so a Knowledge Base server saying `never-attempted` is not evidence that the
+        // deployment never ingested. Without that, the clearer status would license a wrong conclusion
+        // more confidently than the vague one did.
         expect(Service.getIngestionProgress()).toMatchObject({
-            status        : 'idle',
+            status        : 'never-attempted',
             active        : false,
             phase         : 'idle',
+            observedScope : 'this-process-only',
             stalled       : false,
             totalSources  : 0,
             seenSources   : 0,
@@ -221,6 +232,101 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             remaining     : 0,
             lastRunSummary: null
         });
+
+        expect(Service.getIngestionProgress().crossProcessHint).toMatch(/orchestrator/);
+    });
+
+    test('a run that FAILED before progress tracking started is not reported as idle with zero errors', () => {
+        // The sharp case behind the status split. `resolveTenantContext` can throw upstream of
+        // `startIngestionProgress`, and the catch records a SYNTHETIC failed ledger — so the outcome was
+        // always reachable, it just was not reported at the level a caller reads. The top level said
+        // `idle` / `errorCount: 0` while the nested `lastRunSummary` said `failed` with a real count.
+        Service.finishIngestionProgress({
+            summary: {
+                durationMs         : 12,
+                embeddingsGenerated: 0,
+                deleted            : 0,
+                ingested           : 0,
+                skippedOversized   : 0,
+                tenantId           : 'neo-shared',
+                errors             : [{code: 'KB_INGEST_FAILED', message: 'tenant context could not be resolved'}]
+            },
+            status: 'failed'
+        });
+
+        const progress = Service.getIngestionProgress();
+
+        expect(progress.status).toBe('failed');
+        expect(progress.status).not.toBe('idle');
+        expect(progress.active).toBe(false);
+        // The count must not read zero beside a failed run — that is the same false reassurance the
+        // status was giving.
+        expect(progress.errorCount).toBe(1);
+        expect(progress.lastRunSummary.status).toBe('failed');
+        // And the scope disclosure survives on this state too.
+        expect(progress.observedScope).toBe('this-process-only');
+    });
+
+    test('POSITIVE CONTROL: a CLEAN finished run still reports idle, so `failed` is discriminating', () => {
+        // Without this, the assertion above would pass against an implementation that hardcoded
+        // `failed` for every finished run, and the status split would be measuring nothing.
+        Service.finishIngestionProgress({
+            summary: {
+                durationMs         : 8,
+                embeddingsGenerated: 2,
+                deleted            : 0,
+                ingested           : 2,
+                skippedOversized   : 0,
+                tenantId           : 'neo-shared',
+                errors             : []
+            },
+            status: 'completed'
+        });
+
+        const progress = Service.getIngestionProgress();
+
+        expect(progress.status).toBe('idle');
+        expect(progress.errorCount).toBe(0);
+    });
+
+    test('the scope disclosure is carried on the ACTIVE state, not only when idle', () => {
+        // A partial disclosure is read as a complete one: a caller that happens to poll mid-run would
+        // otherwise get a number with no statement of what it covers.
+        Service.startIngestionProgress({startedAt: Date.now(), tenantContext: {tenantId: 'neo-shared'}, totalSources: 3});
+
+        const active = Service.getIngestionProgress();
+
+        expect(active.active).toBe(true);
+        expect(active.observedScope).toBe('this-process-only');
+        expect(active.crossProcessHint).toMatch(/orchestrator/);
+
+        Service.activeIngestionProgress = null;
+    });
+
+    test('the OpenAPI contract declares every status the producer can emit, and both scope fields', () => {
+        // The producer and its public schema disagreed at an earlier head: the service emitted
+        // `never-attempted` plus two scope fields while the schema still constrained status to
+        // active/idle vocabulary and declared neither field. A wire contract that omits what the
+        // producer sends is not a laxer contract, it is a wrong one.
+        const
+            spec   = fs.readFileSync(new URL('../../../../../../ai/mcp/server/knowledge-base/openapi.yaml', import.meta.url), 'utf8'),
+            schema = spec.slice(spec.indexOf('IngestionProgressResponse:'));
+
+        for (const status of ['never-attempted', 'failed', 'idle', 'running']) {
+            expect(schema.slice(0, 2000)).toContain(status);
+        }
+
+        expect(schema.slice(0, 2500)).toContain('observedScope');
+        expect(schema.slice(0, 2500)).toContain('crossProcessHint');
+
+        // The caller-visible tier too. `description` is handbook-only; an agent choosing whether to
+        // trust a negative answer sees `x-neo-tool-summary` in `tools/list` and nothing else, so the
+        // scope caveat has to live there or no agent ever reads it.
+        const summaryLine = spec.split('\n').find(line => line.includes('x-neo-tool-summary') && /ngestion progress/i.test(line));
+
+        expect(summaryLine).toBeTruthy();
+        expect(summaryLine).toMatch(/THIS PROCESS/);
+        expect(summaryLine.split('x-neo-tool-summary:')[1].trim().length).toBeLessThanOrEqual(120);
     });
 
     test('reports active ingestion progress and preserves the last-run summary (#14028)', async () => {

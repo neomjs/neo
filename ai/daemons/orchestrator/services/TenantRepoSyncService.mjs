@@ -9,6 +9,7 @@ import {
     createTenantRepoMaterializationDigest
 } from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {
+    classifyTenantRepoAccessFailure,
     isTenantRepoAccessReadinessOutcome,
     normalizeTenantRepoCredentialRef,
     TenantRepoAccessCode,
@@ -107,6 +108,29 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
             handoffSlot();
         }
     };
+}
+
+/**
+ * Classifies a SYNC-path failure into the access vocabulary.
+ *
+ * Delegates to the shared lane classifier so a discriminating cause — under-scoped credential,
+ * rejected credential, absent-or-denied repository, unreachable host — survives into the readiness
+ * cache and the persisted checkpoint instead of being flattened.
+ *
+ * The one remapping: `PROBE_FAILED` means "no exit status, unclassifiable", which is honest on the
+ * probe path but would over-claim here, since it names a probe that did not run. On this path we DO
+ * know the sync failed, so an unclassifiable cause is `SYNC_FAILED` — the fallback stays accurate
+ * while everything the classifier can actually name comes through intact.
+ *
+ * @param {Error} error Redacted failure.
+ * @returns {String} A `TenantRepoAccessCode` value.
+ */
+function classifySyncFailure(error) {
+    const classified = classifyTenantRepoAccessFailure(error);
+
+    return classified === TenantRepoAccessCode.PROBE_FAILED
+        ? TenantRepoAccessCode.SYNC_FAILED
+        : classified;
 }
 
 function getSourceErrorCode(error, outerCode) {
@@ -632,11 +656,14 @@ class TenantRepoSyncService extends Base {
             previous  = this.accessReadinessCache.get(key) || {},
             checkedAt = new Date().toISOString(),
             maxAgeMs  = getAccessReadinessMaxAgeMs(repo, globalCadenceMs),
+            // Classified through the shared lane classifier, NOT flattened to SYNC_FAILED. This
+            // previously recognised one error code and collapsed every other cause, so an
+            // under-scoped credential, an absent repository and an unreachable host all persisted
+            // as "sync failed" — three different operator fixes behind one indistinguishable code,
+            // which is exactly the state that left a wedged deployment undiagnosable from outside.
             code      = ready
                 ? TenantRepoAccessCode.READY
-                : (error?.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'
-                    ? TenantRepoAccessCode.CREDENTIAL_INVALID
-                    : TenantRepoAccessCode.SYNC_FAILED);
+                : classifySyncFailure(error);
 
         this.accessReadinessCache.set(key, {
             ...previous,
@@ -1080,19 +1107,40 @@ class TenantRepoSyncService extends Base {
                 });
 
                 if (!dueState.due) {
-                    const nextDueAtMs = (priorState?.lastRunAttemptAt ?? 0) + dueState.effectiveCadenceMs;
+                    const
+                        nextDueAtMs  = (priorState?.lastRunAttemptAt ?? 0) + dueState.effectiveCadenceMs,
+                        failureCount = priorState?.consecutiveFailures ?? 0,
+                        // A repo held back because it FAILED is not the same state as one that simply ran
+                        // recently, and reporting both as `not-due` is what made a wedged lane read as an
+                        // idle one. Backoff is the only reason a failing repo stops being retried, so it
+                        // is also the only place the distinction can be drawn.
+                        backoffSuppressed = failureCount > 0;
+
                     notDueCount++;
-                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} not yet due (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${priorState?.consecutiveFailures ?? 0}, backoffX=${dueState.backoffMultiplier}).`);
+                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} ${backoffSuppressed ? 'suppressed by backoff' : 'not yet due'} (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${failureCount}, backoffX=${dueState.backoffMultiplier}${backoffSuppressed ? `, lastErrorCode=${priorState?.lastErrorCode ?? 'none'}` : ''}).`);
                     repoStates.push({
                         tenantId           : repo.tenantId,
                         repoSlug           : repo.repoSlug,
                         lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
                         lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
-                        status             : 'not-due',
+                        status             : backoffSuppressed ? 'backoff-suppressed' : 'not-due',
                         checkpointStatus,
                         nextDueAt          : new Date(nextDueAtMs).toISOString(),
                         effectiveCadenceMs : dueState.effectiveCadenceMs,
-                        consecutiveFailures: priorState?.consecutiveFailures ?? 0
+                        consecutiveFailures: failureCount,
+                        // Carry the RETAINED cause forward. The failure path already persists these
+                        // (see the per-repo catch below); this branch used to rebuild a record without
+                        // them, so the reason a lane was wedged existed on disk and vanished from the
+                        // one surface an operator can read — exactly when it mattered most. Only
+                        // attached while a failure is outstanding, so a healthy repo stays quiet.
+                        ...(backoffSuppressed ? {
+                            lastErrorCode      : priorState?.lastErrorCode ?? null,
+                            lastSourceErrorCode: priorState?.lastSourceErrorCode ?? null,
+                            lastAccessCode     : priorState?.lastAccessCode ?? null,
+                            lastErrorAt        : priorState?.lastErrorAt
+                                ? new Date(priorState.lastErrorAt).toISOString()
+                                : null
+                        } : {})
                     });
                     return; // skip semaphore + work entirely
                 }
@@ -1224,7 +1272,15 @@ class TenantRepoSyncService extends Base {
                     lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
                     lastCommittedMaterializationAttemptId: materializationReceipt?.attemptId
                         || priorState?.lastCommittedMaterializationAttemptId
-                        || null
+                        || null,
+                    // Cleared explicitly, not merely omitted. The retained cause is now durable, so a
+                    // repo that heals would otherwise keep publishing the reason it used to fail —
+                    // a stale cause beside a zero failure count is worse than none, because it reads
+                    // as a live fault. Written as nulls so the shape stays uniform across both paths.
+                    lastErrorCode      : null,
+                    lastSourceErrorCode: null,
+                    lastAccessCode     : null,
+                    lastErrorAt        : null
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -1295,7 +1351,30 @@ class TenantRepoSyncService extends Base {
                     consecutiveFailures                  : nextFailureCount,
                     ingestContractVersion                : priorState?.ingestContractVersion ?? null,
                     lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
-                    lastCommittedMaterializationAttemptId: priorState?.lastCommittedMaterializationAttemptId || null
+                    lastCommittedMaterializationAttemptId: priorState?.lastCommittedMaterializationAttemptId || null,
+                    // PERSIST the cause, not just the count. Before this, `lastErrorCode` existed only
+                    // on the in-memory record for the sweep that failed: it was published for one
+                    // cadence and then overwritten by the next sweep, which — once backoff parked the
+                    // repo — reported it as merely not-due with no reason at all. So a lane could fail
+                    // four times and present as `consecutiveFailures: 4, lastErrorCode: null`, which is
+                    // what made a wedged deployment undiagnosable from a remote client. Counters
+                    // survived because they were persisted; the reason did not because it was not.
+                    //
+                    // Codes only. `getSourceErrorCode` admits nothing outside `^KB_[A-Z0-9_]+$`, so no
+                    // stderr, URL, credential or free-text message can reach durable state through here.
+                    //
+                    // Three fields because they answer three different questions, and collapsing them
+                    // loses the one an operator acts on: `lastErrorCode` is the stable OUTER code a
+                    // caller branches on, `lastSourceErrorCode` names the OPERATION that failed
+                    // (`KB_GITMIRROR_FETCH_FAILED`), and `lastAccessCode` is the CAUSE — under-scoped
+                    // credential vs rejected credential vs absent-or-denied repository vs unreachable
+                    // host. Operation plus counter told an operator that acquisition failed; only the
+                    // cause tells them which fix to apply, and without host access it is the only thing
+                    // that can.
+                    lastErrorCode      : code ?? null,
+                    lastSourceErrorCode: sourceErrorCode ?? null,
+                    lastAccessCode     : classifySyncFailure(e),
+                    lastErrorAt        : Date.now()
                 };
 
                 const failedRepoState = {

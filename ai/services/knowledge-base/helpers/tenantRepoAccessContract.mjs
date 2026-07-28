@@ -27,6 +27,8 @@ export const TenantRepoAccessStatus = Object.freeze({
 export const TenantRepoAccessCode = Object.freeze({
     CREDENTIAL_RESOLVED: 'KB_TENANT_REPO_ACCESS_CREDENTIAL_RESOLVED',
     CREDENTIAL_INVALID : 'KB_TENANT_REPO_ACCESS_CREDENTIAL_INVALID',
+    CREDENTIAL_REJECTED: 'KB_TENANT_REPO_ACCESS_CREDENTIAL_REJECTED',
+    INSUFFICIENT_SCOPE : 'KB_TENANT_REPO_ACCESS_INSUFFICIENT_SCOPE',
     READY              : 'KB_TENANT_REPO_ACCESS_READY',
     TIMEOUT            : 'KB_TENANT_REPO_ACCESS_TIMEOUT',
     TRANSPORT_FAILED   : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
@@ -45,6 +47,8 @@ const TENANT_REPO_ACCESS_CODES_BY_STATUS = Object.freeze({
     ]),
     [TenantRepoAccessStatus.DEGRADED]: Object.freeze([
         TenantRepoAccessCode.CREDENTIAL_INVALID,
+        TenantRepoAccessCode.CREDENTIAL_REJECTED,
+        TenantRepoAccessCode.INSUFFICIENT_SCOPE,
         TenantRepoAccessCode.TIMEOUT,
         TenantRepoAccessCode.TRANSPORT_FAILED,
         TenantRepoAccessCode.DENIED_OR_NOT_FOUND,
@@ -67,6 +71,53 @@ const TENANT_REPO_ACCESS_CODES_BY_STATUS = Object.freeze({
  */
 export function isTenantRepoAccessReadinessOutcome(status, code) {
     return TENANT_REPO_ACCESS_CODES_BY_STATUS[status]?.includes(code) === true;
+}
+
+// Stderr signatures, matched against ALREADY-REDACTED text. They exist because a remote operator
+// with no host access must be able to tell "the credential is wrong" from "the credential lacks the
+// scope" from "the network never reached the host" — three different fixes. Order is load-bearing:
+// a scope failure also says "denied", and an auth failure also says "not found" on some providers,
+// so the narrower signature has to win.
+const ACCESS_TRANSPORT_RE = /could not resolve host|temporary failure in name resolution|network is unreachable|failed to connect|connection (?:timed out|refused|reset)|ssh: connect to host/iu;
+const ACCESS_SCOPE_RE     = /write access to repository not granted|insufficient scope|requires? the [^\n]{0,40}scope|403 forbidden|resource not accessible by (?:personal access token|integration)/iu;
+const ACCESS_REJECTED_RE  = /authentication failed|invalid username or password|could not read username|terminal prompts disabled|permission denied \(publickey|bad credentials|401 unauthorized/iu;
+const ACCESS_ABSENT_RE    = /repository not found|does not appear to be a git repository|remote:? .{0,20}not found/iu;
+
+/**
+ * @summary Classifies a redacted Git access failure into the public access-readiness vocabulary.
+ *
+ * Single classifier for the whole lane. It lives beside the vocabulary it returns so the probe path
+ * and the sync path cannot disagree — before this was shared, the sync path recognised exactly ONE
+ * error code and flattened every other cause to `SYNC_FAILED`, discarding a classification the probe
+ * path had already computed correctly. A remote operator then saw "sync failed" for an under-scoped
+ * token, an absent repository, and an unreachable host alike.
+ *
+ * `DENIED_OR_NOT_FOUND` stays a deliberately COMBINED cause. Providers answer 404 for both "no
+ * access" and "does not exist" on purpose, so that repository existence is not leakable by probing.
+ * Splitting it would mean inventing a distinction the provider refuses to make; reporting the honest
+ * combined cause is the accurate answer.
+ *
+ * @param {Error} error Redacted access error (never carries credential material).
+ * @returns {String} A `TenantRepoAccessCode` value.
+ */
+export function classifyTenantRepoAccessFailure(error) {
+    if (error?.code === 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT') return TenantRepoAccessCode.TIMEOUT;
+    // The credential REFERENCE could not be resolved at all — a config defect, upstream of any
+    // network call, and distinct from a credential the remote rejected.
+    if (error?.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID') return TenantRepoAccessCode.CREDENTIAL_INVALID;
+
+    const stderr = String(error?.stderr || '');
+
+    if (ACCESS_TRANSPORT_RE.test(stderr)) return TenantRepoAccessCode.TRANSPORT_FAILED;
+    if (ACCESS_SCOPE_RE.test(stderr))     return TenantRepoAccessCode.INSUFFICIENT_SCOPE;
+    if (ACCESS_REJECTED_RE.test(stderr))  return TenantRepoAccessCode.CREDENTIAL_REJECTED;
+    if (ACCESS_ABSENT_RE.test(stderr))    return TenantRepoAccessCode.DENIED_OR_NOT_FOUND;
+
+    // A Git process that ran and exited non-zero without a recognised signature is still evidence
+    // that acquisition was refused; only a failure with no exit status at all is unclassifiable.
+    if (Number.isInteger(error?.exitCode)) return TenantRepoAccessCode.DENIED_OR_NOT_FOUND;
+
+    return TenantRepoAccessCode.PROBE_FAILED;
 }
 
 /**

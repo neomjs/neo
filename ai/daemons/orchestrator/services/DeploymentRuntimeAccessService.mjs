@@ -16,6 +16,25 @@ export const DEPLOYMENT_RUNTIME_LIFECYCLE_OPERATIONS = Object.freeze([
     'restart'
 ]);
 
+/**
+ * The orchestrator's own Compose service key.
+ *
+ * Needed because the orchestrator has to be READABLE through the bridge it publishes — it is the only
+ * process holding the tenant-repo-sync failure text, and excluding it made a wedged deployment
+ * undiagnosable from a remote client — while never becoming a LIFECYCLE target of that same bridge.
+ *
+ * That asymmetry is structural rather than a policy preference, which is why it is a constant here and
+ * not a config knob: restarting the orchestrator through its own bridge kills the process serving the
+ * request, so the caller cannot observe the outcome and the audit entry dies with it. There is no
+ * deployment for which self-restart-via-self-bridge is the right behaviour, so it is not offered.
+ *
+ * Kept honest by a fixture asserting this string equals the orchestrator service key in
+ * `ai/deploy/docker-compose.yml` — a rename there must fail a test rather than silently disarm the
+ * lifecycle refusal by making it match nothing.
+ * @type {String}
+ */
+export const DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY = 'orchestrator';
+
 const DEFAULT_RESPONSE_MAX_BYTES      = 1024 * 1024;
 const DOCKER_SOCKET_FORBIDDEN_CODES   = new Set(['EACCES', 'EPERM']);
 const DOCKER_SOCKET_UNAVAILABLE_CODES = new Set(['ENOENT', 'ECONNREFUSED']);
@@ -218,6 +237,7 @@ export class DeploymentRuntimeAccessService extends Base {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
+        this.assertNotSelfLifecycleTarget(serviceKey);
 
         const target = await this.resolveServiceTarget(serviceKey);
 
@@ -420,6 +440,39 @@ export class DeploymentRuntimeAccessService extends Base {
                 reason : 'compose-service-mismatch',
                 message: 'Docker target did not prove the requested Compose service identity',
                 details: this.createLookupDetails({serviceKey, filters, matchCount: 1})
+            });
+        }
+    }
+
+    /**
+     * Refuses a lifecycle operation aimed at the orchestrator itself.
+     *
+     * The allowlist is one list for both envelopes — `readObserve` and `applyLifecycle` both resolve
+     * through `resolveServiceTarget` — so allowlisting the orchestrator for reads necessarily
+     * allowlists it for restart as well. This is the asymmetry that makes "readable but not
+     * restartable" expressible without a second config surface to keep in sync.
+     *
+     * Deliberately NOT configurable. Restarting the orchestrator through the bridge the orchestrator
+     * publishes kills the process serving the request mid-flight: the caller gets a dropped connection
+     * rather than an outcome, and the audit record dies with the writer. A knob here would only offer
+     * a way to be wrong.
+     *
+     * @param {String} serviceKey Compose service key.
+     * @returns {void}
+     * @throws When `serviceKey` names this orchestrator.
+     */
+    assertNotSelfLifecycleTarget(serviceKey) {
+        if (serviceKey === DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-self-lifecycle-refused',
+                message: `Deployment runtime lifecycle operations cannot target '${serviceKey}' — it publishes `
+                    + 'this bridge, so restarting it through the bridge would kill the process serving the '
+                    + 'request before any outcome could be reported. Read operations on it ARE permitted; '
+                    + 'restart it from the host.',
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey
+                }
             });
         }
     }
