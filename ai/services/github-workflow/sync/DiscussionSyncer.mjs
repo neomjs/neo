@@ -1,15 +1,20 @@
-import aiConfig                                                       from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                           from '../../../../src/core/Base.mjs';
-import crypto                                                         from 'crypto';
-import fs                                                             from 'fs/promises';
-import logger                                                         from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                         from 'gray-matter';
-import path                                                           from 'path';
-import GraphqlService                                                 from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                             from './ReleaseNotesSyncer.mjs';
-import {FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import contentPath                                                    from '../shared/contentPath.mjs';
-import {buildContentInventory}                                        from '../shared/contentInventory.mjs';
+import aiConfig           from '../../../mcp/server/github-workflow/config.mjs';
+import Base               from '../../../../src/core/Base.mjs';
+import crypto             from 'crypto';
+import fs                 from 'fs/promises';
+import logger             from '../../../mcp/server/github-workflow/logger.mjs';
+import matter             from 'gray-matter';
+import path               from 'path';
+import GraphqlService     from '../GraphqlService.mjs';
+import ReleaseNotesSyncer from './ReleaseNotesSyncer.mjs';
+import {
+    FETCH_DISCUSSION_COMMENTS_PAGE,
+    FETCH_DISCUSSION_REPLIES_PAGE,
+    FETCH_DISCUSSIONS_FOR_SYNC,
+    FETCH_SINGLE_DISCUSSION_FOR_SYNC
+} from '../queries/discussionQueries.mjs';
+import contentPath             from '../shared/contentPath.mjs';
+import {buildContentInventory} from '../shared/contentInventory.mjs';
 import {
     createContentIndexEntry,
     updateContentIndex
@@ -19,7 +24,9 @@ import {classifyDiscussionRoutingDisposition}                from '../shared/dis
 import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
 import {verifyDiscussionFrontmatter}                         from './verifyFrontmatterIntegrity.mjs';
 
-const issueSyncConfig = aiConfig.issueSync;
+const
+    conversationPageSizes = Object.freeze({comments: 50, replies: 20}),
+    issueSyncConfig       = aiConfig.issueSync;
 
 /**
  * @summary Handles the fetching and local synchronization of GitHub Discussions.
@@ -262,9 +269,138 @@ class DiscussionSyncer extends Base {
     }
 
     /**
-     * @summary Projects the bounded GitHub comment/reply connections into explicit mirror-completeness
-     * evidence. Missing connection metadata is unknown, never assumed complete; a cap hit therefore
-     * survives in the artifact as a fail-closed signal for downstream deterministic consumers.
+     * @summary Validates the exhaustion metadata required to paginate one GitHub connection safely.
+     * @param {Object} connection GraphQL connection carrying nodes, totalCount, and pageInfo.
+     * @param {String} label Human-readable connection identity for failures.
+     * @returns {void}
+     * @throws {Error} When nodes/count/pageInfo are missing or a continuation lacks a cursor.
+     * @private
+     */
+    #validateConversationConnection(connection, label) {
+        const valid = Array.isArray(connection?.nodes) &&
+            Number.isInteger(connection?.totalCount) &&
+            connection.totalCount >= 0 &&
+            typeof connection?.pageInfo?.hasNextPage === 'boolean';
+
+        if (!valid) {
+            throw new Error(`${label} returned incomplete pagination metadata.`)
+        }
+
+        if (connection.pageInfo.hasNextPage &&
+            (typeof connection.pageInfo.endCursor !== 'string' || connection.pageInfo.endCursor.length === 0)) {
+            throw new Error(`${label} has another page but no continuation cursor.`)
+        }
+    }
+
+    /**
+     * @summary Appends one validated GraphQL continuation page and advances the connection state.
+     * @param {Object} connection Accumulated target connection.
+     * @param {Object} page Newly fetched continuation page.
+     * @param {String} label Human-readable connection identity for failures.
+     * @param {String} requestedCursor Cursor used to request this page.
+     * @returns {void}
+     * @throws {Error} When a non-terminal page repeats its input cursor.
+     * @private
+     */
+    #appendConversationPage(connection, page, label, requestedCursor) {
+        this.#validateConversationConnection(page, label);
+
+        if (page.pageInfo.hasNextPage && page.pageInfo.endCursor === requestedCursor) {
+            throw new Error(`${label} returned a non-advancing continuation cursor.`)
+        }
+
+        connection.nodes.push(...page.nodes);
+        connection.totalCount = page.totalCount;
+        connection.pageInfo   = {...page.pageInfo}
+    }
+
+    /**
+     * @summary Exhausts the reply connection for one Discussion comment.
+     * @param {Object} comment Discussion comment carrying `paginationId` and its first reply page.
+     * @param {Number} discussionNumber Parent Discussion number for diagnostics.
+     * @returns {Promise<void>}
+     * @throws {Error} When GitHub omits continuation metadata, the parent ID, or a usable page.
+     * @private
+     */
+    async #hydrateCommentReplies(comment, discussionNumber) {
+        const
+            label   = `Discussion #${discussionNumber} comment replies`,
+            replies = comment.replies;
+
+        this.#validateConversationConnection(replies, label);
+
+        while (replies.pageInfo.hasNextPage) {
+            if (!comment.paginationId) {
+                throw new Error(`${label} requires the parent comment paginationId.`)
+            }
+
+            const cursor = replies.pageInfo.endCursor;
+            const data   = await GraphqlService.query(FETCH_DISCUSSION_REPLIES_PAGE, {
+                commentId : comment.paginationId,
+                cursor,
+                maxReplies: conversationPageSizes.replies
+            });
+
+            this.#appendConversationPage(replies, data.node?.replies, label, cursor)
+        }
+    }
+
+    /**
+     * @summary Exhausts every top-level comment and nested reply page for one Discussion.
+     *
+     * The bulk and force-refetch entry points both pass through this primitive before rendering, so
+     * neither can persist a capped conversation. A malformed/non-advancing connection fails loud
+     * instead of turning `conversationComplete: false` into accepted corpus output.
+     *
+     * @param {Object} discussion Discussion sync node carrying the first nested connection pages.
+     * @returns {Promise<void>}
+     * @throws {Error} When pagination cannot prove the full conversation was observed.
+     * @private
+     */
+    async #hydrateDiscussionConversation(discussion) {
+        const
+            comments = discussion.comments,
+            label    = `Discussion #${discussion.number} comments`;
+
+        this.#validateConversationConnection(comments, label);
+
+        while (comments.pageInfo.hasNextPage) {
+            const cursor = comments.pageInfo.endCursor;
+            const data   = await GraphqlService.query(FETCH_DISCUSSION_COMMENTS_PAGE, {
+                owner      : aiConfig.owner,
+                repo       : aiConfig.repo,
+                number     : discussion.number,
+                cursor,
+                maxComments: conversationPageSizes.comments,
+                maxReplies : conversationPageSizes.replies
+            });
+
+            this.#appendConversationPage(
+                comments,
+                data?.repository?.discussion?.comments,
+                label,
+                cursor
+            )
+        }
+
+        for (const comment of comments.nodes) {
+            await this.#hydrateCommentReplies(comment, discussion.number)
+        }
+
+        const completeness = this.#getConversationCompleteness(discussion);
+
+        if (!completeness.conversationComplete) {
+            throw new Error(
+                `Discussion #${discussion.number} conversation pagination ended incomplete ` +
+                `(${completeness.conversationCommentCountObserved}/${completeness.conversationCommentCountTotal} comments, ` +
+                `${completeness.conversationReplyCountObserved}/${completeness.conversationReplyCountTotal} replies).`
+            )
+        }
+    }
+
+    /**
+     * @summary Projects exhausted GitHub comment/reply connections into explicit mirror-completeness
+     * evidence. Missing connection metadata stays unknown rather than being assumed complete.
      * @param {Object} discussion The fetched Discussion sync node.
      * @returns {Object} Stable flat frontmatter fields for the v1 completeness contract.
      * @private
@@ -326,6 +462,7 @@ class DiscussionSyncer extends Base {
     #renderDiscussionMarkdown(discussion) {
         const contentTrust        = createContentTrustSummary();
         const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
+        const conversation        = this.#getConversationCompleteness(discussion);
         const routingDisposition  = classifyDiscussionRoutingDisposition({
             author     : discussion.author?.login,
             authorTrust: projectedDiscussion.authorTrust,
@@ -347,8 +484,12 @@ class DiscussionSyncer extends Base {
             routingDispositionReason       : routingDisposition.reasonCode,
             routingDispositionEvidence     : routingDisposition.evidence,
             contentTrust,
-            ...this.#getConversationCompleteness(discussion)
+            ...conversation
         };
+
+        if (!conversation.conversationComplete) {
+            throw new Error(`Discussion #${discussion.number} cannot be rendered from an incomplete conversation.`)
+        }
 
         let body = projectedDiscussion.body || '';
 
@@ -438,8 +579,8 @@ class DiscussionSyncer extends Base {
                     repo       : aiConfig.repo,
                     limit      : pageSize,
                     cursor,
-                    maxComments: 50,
-                    maxReplies : 20
+                    maxComments: conversationPageSizes.comments,
+                    maxReplies : conversationPageSizes.replies
                 });
             } catch (error) {
                 if (!this.#isResourceLimitError(error) || pageSize === 1) {
@@ -516,6 +657,10 @@ class DiscussionSyncer extends Base {
 
         if (deniedFetchedNumbers.size > 0) {
             allDiscussions = allDiscussions.filter(discussion => !deniedFetchedNumbers.has(discussion.number));
+        }
+
+        for (const discussion of allDiscussions) {
+            await this.#hydrateDiscussionConversation(discussion)
         }
 
         const inventory            = await buildContentInventory(issueSyncConfig, {type: 'discussions', filePrefix: issueSyncConfig.discussionFilenamePrefix});
@@ -664,8 +809,8 @@ class DiscussionSyncer extends Base {
                         owner      : aiConfig.owner,
                         repo       : aiConfig.repo,
                         number     : discussionNumber,
-                        maxComments: 50,
-                        maxReplies : 20
+                        maxComments: conversationPageSizes.comments,
+                        maxReplies : conversationPageSizes.replies
                     },
                     true
                 );
@@ -675,6 +820,8 @@ class DiscussionSyncer extends Base {
                     logger.warn(`Discussion #${discussionNumber} not found on GitHub, skipping refetch`);
                     continue;
                 }
+
+                await this.#hydrateDiscussionConversation(discussion);
 
                 const planBuckets = this.#planBuckets(metadata, [discussion], inventory);
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
