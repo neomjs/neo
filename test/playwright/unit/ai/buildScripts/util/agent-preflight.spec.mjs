@@ -9,6 +9,7 @@ import {
     normalizeSignatureShape,
     parseArgs,
     runAgentPreflight,
+    validateChangeClass,
     validatePrBody
 }                     from '../../../../../../buildScripts/util/agent-preflight.mjs';
 
@@ -54,6 +55,10 @@ test.describe('agent-preflight utility', () => {
         expect(help).toContain('Usage: agent-preflight [options] [files...]');
         expect(help).toContain('default mode may repair');
         expect(help).toContain('block alignment');
+        expect(help).toContain('--change-class <class>');
+        expect(help).toContain('capability, restoration, or zero-delta');
+        expect(help).toContain('--commit-subject <subject>');
+        expect(help).toContain('--pr-title <title>');
         expect(help).toContain('--pr-body <file>');
         expect(help).toContain('--pr-draft');
         expect(help).toContain('--no-fix');
@@ -61,18 +66,32 @@ test.describe('agent-preflight utility', () => {
     });
 
     test('parses files, optional PR body, and fix mode through Commander', () => {
-        expect(parseArgs(['--pr-body', 'body.md', '--pr-draft', '--no-fix', 'src/a.mjs'])).toEqual({
-            files  : ['src/a.mjs'],
-            fix    : false,
-            help   : false,
-            prBody : 'body.md',
-            prDraft: true
+        expect(parseArgs([
+            '--change-class', 'capability',
+            '--commit-subject', 'feat(build): add a guard (#16111)',
+            '--pr-title', 'feat(build): add a guard (#16111)',
+            '--pr-body', 'body.md',
+            '--pr-draft',
+            '--no-fix',
+            'src/a.mjs'
+        ])).toEqual({
+            changeClass  : 'capability',
+            commitSubject: 'feat(build): add a guard (#16111)',
+            files        : ['src/a.mjs'],
+            fix          : false,
+            help         : false,
+            prBody       : 'body.md',
+            prDraft      : true,
+            prTitle      : 'feat(build): add a guard (#16111)'
         });
     });
 
     test('uses Commander option validation for unknown flags and missing values', () => {
         expect(() => parseArgs(['--bogus'])).toThrow();
-        expect(() => parseArgs(['--pr-body'])).toThrow()
+        expect(() => parseArgs(['--pr-body'])).toThrow();
+        expect(() => parseArgs(['--change-class'])).toThrow();
+        expect(() => parseArgs(['--commit-subject'])).toThrow();
+        expect(() => parseArgs(['--pr-title'])).toThrow()
     });
 
     test('filters source gates to .mjs files', () => {
@@ -288,6 +307,113 @@ test.describe('agent-preflight utility', () => {
         expect(stderr).toContain('Visible/body-closing misses:');
         expect(stderr).toContain('Structural template anchors are missing');
         expect(stderr).toContain('agent-preflight: 1 gate(s) failed: pr-body')
+    })
+});
+
+test.describe('agent-preflight — ordered change classes (#16111)', () => {
+    test('remains backward compatible when no semantic inputs are supplied', () => {
+        expect(validateChangeClass()).toEqual({
+            errors      : [],
+            expectedType: null,
+            skipped     : true,
+            valid       : true
+        })
+    });
+
+    test('accepts valid feat, fix, and chore controls', () => {
+        expect(validateChangeClass({
+            changeClass  : 'capability',
+            commitSubject: 'feat(build): add a preflight capability (#16111)',
+            prTitle      : 'feat(build)!: add a preflight capability (#16111)'
+        }).valid).toBe(true);
+        expect(validateChangeClass({
+            changeClass  : 'restoration',
+            commitSubject: 'fix(build): restore existing validation (#16111)'
+        }).valid).toBe(true);
+        expect(validateChangeClass({
+            changeClass: 'zero-delta',
+            prTitle    : 'chore(build): refresh generated metadata (#16111)'
+        }).valid).toBe(true)
+    });
+
+    test('rejects the exact capability misclassification shapes from #10061 and PR #16110', () => {
+        const result = validateChangeClass({
+            changeClass  : 'capability',
+            commitSubject: 'chore(claude): add per-agent skill discovery (#10059)',
+            prTitle      : 'fix(memory-core): make summary receipts replayable (#16105)'
+        });
+
+        expect(result.valid).toBe(false);
+        expect(result.expectedType).toBe('feat');
+        expect(result.errors).toEqual([
+            'commit subject declares `chore`, but change class `capability` requires `feat`.',
+            'PR title declares `fix`, but change class `capability` requires `feat`.'
+        ])
+    });
+
+    test('rejects chore for a restoration delta', () => {
+        const result = validateChangeClass({
+            changeClass  : 'restoration',
+            commitSubject: 'chore(core): restore the existing lifecycle (#16111)'
+        });
+
+        expect(result.valid).toBe(false);
+        expect(result.errors[0]).toContain('change class `restoration` requires `fix`')
+    });
+
+    test('fails closed for partial inputs, unknown classes, and missing prefixes', () => {
+        expect(validateChangeClass({
+            commitSubject: 'feat(build): add a guard (#16111)'
+        }).errors).toContain(
+            '`--change-class` is required when `--commit-subject` or `--pr-title` is provided.'
+        );
+        expect(validateChangeClass({
+            changeClass: 'capability'
+        }).errors).toContain(
+            '`--change-class` requires at least one `--commit-subject` or `--pr-title` to validate.'
+        );
+        expect(validateChangeClass({
+            changeClass  : 'documentation',
+            commitSubject: 'docs: explain the guard (#16111)'
+        }).errors).toContain(
+            'Unknown change class `documentation`; expected capability, restoration, or zero-delta.'
+        );
+        expect(validateChangeClass({
+            changeClass  : 'toString',
+            commitSubject: 'feat(build): evade an inherited-key check (#16111)'
+        }).errors).toContain(
+            'Unknown change class `toString`; expected capability, restoration, or zero-delta.'
+        );
+        expect(validateChangeClass({
+            changeClass  : 'capability',
+            commitSubject: 'add a guard'
+        }).errors[0]).toContain('missing a valid Conventional Commit prefix')
+    });
+
+    test('checks commit subject and PR title against the same declared class in the CLI path', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv: [
+                '--change-class', 'capability',
+                '--commit-subject', 'feat(build): add a guard (#16111)',
+                '--pr-title', 'fix(build): add a guard (#16111)'
+            ],
+            collectStaleOverlayFindingsImpl: () => [],
+            cwd                            : '/repo',
+            execFileSyncImpl               : cmd => cmd === 'git' ? '' : '',
+            existsSyncImpl                 : () => false,
+            readFileSyncImpl               : () => '',
+            stderr                         : {write: value => { stderr += value }},
+            stdout                         : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(1);
+        expect(stdout).toContain('0 .mjs files in scope');
+        expect(stderr).toContain('change-class validation failed');
+        expect(stderr).toContain('PR title declares `fix`');
+        expect(stderr).toContain('1 gate(s) failed: change-class')
     })
 });
 
