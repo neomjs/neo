@@ -1603,7 +1603,32 @@ class MailboxService extends Base {
             }
 
             if (!canReply) {
-                throw new Error(`Unauthorized: Cannot send to ${to}. Requires CAN_REPLY_TO permission or prior message history.`);
+                // Name the POSTURE, not just the missing grant.
+                //
+                // The previous wording — "Requires CAN_REPLY_TO permission or prior message history" —
+                // is true and sends the reader to the wrong remedy. It reads as a per-pair problem, so
+                // an operator reaches for `grant_permission` pairwise; on a 15-member deployment that is
+                // 210 directed grants, and 28 more per hire. The actual cause is a deployment-level
+                // selector that happens to resolve to strict isolation, and one policy change replaces
+                // all of them.
+                //
+                // Observed: a private single-org deployment where every member could read every other
+                // member's MEMORIES (`memorySharing.defaultPolicy` at its `'team'` default) while none
+                // could send another a message. Reading someone's stored reasoning is strictly more
+                // sensitive than pinging them, so that combination is almost certainly unintended
+                // rather than chosen — and the old message gave no hint that a policy decided it.
+                //
+                // Deliberately NOT applied to the `BLOCKED_BY` refusal above: an explicit block IS a
+                // per-pair decision, and steering that reader toward a deployment-wide policy change
+                // would advise overriding someone's stated intent.
+                throw new Error(
+                    `Unauthorized: Cannot send to ${to}. This deployment resolves ` +
+                    `mailbox.defaultReplyPolicy='blocked' (strict isolation, intended for multi-tenant ` +
+                    `installations), so initiating contact with a specific identity requires a prior ` +
+                    `CAN_REPLY_TO grant or earlier message history with them. If every member of this ` +
+                    `deployment is a peer of the same operator, change that deployment-level policy ` +
+                    `rather than granting each pair.`
+                );
             }
         }
 
