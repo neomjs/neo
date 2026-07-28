@@ -10,7 +10,9 @@ export const PRELOAD_ESM_PROBE_MARKER      = '__neoSandboxedEsmPreloadProbe';
 const CONVERSION_STEPS = [
     'rename preload.cjs to preload.mjs',
     'replace require(\'electron\') with ESM imports',
+    'replace the forced ADAPTER_STATES duplication with an adapterWitness.mjs import and delete its drift guard in adapterWitness.spec.mjs',
     'repoint main.mjs, electron-builder.yml, and preload.spec.mjs',
+    'update the harness row in learn/benefits/ArchitectureOverview.md',
     'record the resolved constraint in ADR-0034'
 ].join('; ');
 

@@ -1,7 +1,7 @@
 /**
  * @module harness/preloadEsmCapabilityProbe
- * @summary Boots a temporary sandboxed Electron renderer with an ESM preload and fails the harness
- * smoke preflight as soon as the upstream constraint changes.
+ * @summary Boots a temporary sandboxed Electron renderer with an ESM preload that imports Electron
+ * and a sibling ESM module, then fails the harness smoke preflight when both become supported.
  */
 
 import {app, BrowserWindow}                 from 'electron';
@@ -43,20 +43,27 @@ function waitForDocument(contents, errors) {
 }
 
 /**
- * @summary Executes the real pinned-Electron sandboxed ESM preload capability probe.
+ * @summary Executes the real pinned-Electron sandboxed ESM preload and sibling-import probe.
  * @returns {Promise<{message: String, ok: Boolean, status: String}>}
  */
 async function runProbe() {
     const
-        probeDir    = mkdtempSync(path.join(tmpdir(), 'neo-preload-esm-probe-')),
-        preloadPath = path.join(probeDir, 'preload.mjs'),
-        errors      = [];
+        probeDir       = mkdtempSync(path.join(tmpdir(), 'neo-preload-esm-probe-')),
+        dependencyPath = path.join(probeDir, 'probeDependency.mjs'),
+        preloadPath    = path.join(probeDir, 'preload.mjs'),
+        errors         = [];
     let win;
 
     try {
+        writeFileSync(dependencyPath, [
+            'export const siblingImportLoaded = true;',
+            ''
+        ].join('\n'));
+
         writeFileSync(preloadPath, [
             'import {contextBridge} from \'electron\';',
-            `contextBridge.exposeInMainWorld('${PRELOAD_ESM_PROBE_MARKER}', Object.freeze({loaded: true}));`,
+            'import {siblingImportLoaded} from \'./probeDependency.mjs\';',
+            `contextBridge.exposeInMainWorld('${PRELOAD_ESM_PROBE_MARKER}', Object.freeze({loaded: siblingImportLoaded}));`,
             ''
         ].join('\n'));
 

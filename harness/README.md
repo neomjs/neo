@@ -48,10 +48,13 @@ real pinned-Electron capability probe. The expected rejection passes; successful
 unexpected errors, silence, or timeout all fail closed.
 
 When that probe reports **“#16036 conversion is unblocked”**, rename `preload.cjs` to `preload.mjs`,
-replace its `require('electron')` with ESM imports, repoint `main.mjs`,
+replace its `require('electron')` with ESM imports, replace the forced `ADAPTER_STATES` duplication
+with an import from `adapterWitness.mjs`, delete its drift guard in
+`test/playwright/unit/harness/adapterWitness.spec.mjs`, repoint `main.mjs`,
 `electron-builder.yml`, and `test/playwright/unit/harness/preload.spec.mjs`, adapt that spec's VM
-loader for ESM, and record the resolved constraint in ADR-0034. Do not disable the sandbox or add a
-bundler to make the probe green.
+loader for ESM, update the harness row in `learn/benefits/ArchitectureOverview.md`, and record the
+resolved constraint in ADR-0034. Do not disable the sandbox or add a bundler to make the probe
+green.
 
 ## The Brain rides supervised (Arm B — the hosting-spike verdict)
 

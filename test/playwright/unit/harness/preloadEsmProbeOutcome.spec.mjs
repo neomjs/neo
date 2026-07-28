@@ -22,6 +22,9 @@ test.describe('sandboxed ESM preload capability outcome', () => {
         expect(result.status).toBe('support-detected');
         expect(result.message).toContain('#16036 conversion is unblocked');
         expect(result.message).toContain('rename preload.cjs to preload.mjs');
+        expect(result.message).toContain('adapterWitness.mjs import');
+        expect(result.message).toContain('delete its drift guard in adapterWitness.spec.mjs');
+        expect(result.message).toContain('learn/benefits/ArchitectureOverview.md');
         expect(result.message).toContain('ADR-0034')
     });
 
