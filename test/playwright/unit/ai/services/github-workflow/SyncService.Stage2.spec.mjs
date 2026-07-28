@@ -227,6 +227,30 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         expect(result.syncStats ?? result).toBeTruthy();
     });
 
+    test('pull-only emission skips local-to-GitHub issue mutation but still pulls (#15977)', async () => {
+        let pushCalls = 0,
+            pullCalls = 0;
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+        IssueSyncer.pushToGitHub = async () => { pushCalls++; return {count: 0} };
+        IssueSyncer.pullFromGitHub = async metadata => {
+            pullCalls++;
+            return {
+                newMetadata: metadata,
+                stats      : {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}
+            }
+        };
+
+        const result = await SyncService.emitGeneratedContentAndDerive({pushLocalChanges: false});
+
+        expect(pushCalls).toBe(0);
+        expect(pullCalls).toBe(1);
+        expect(result.pushStats).toEqual({
+            skipped: true,
+            reason : 'pull-only generated-content emission'
+        })
+    });
+
     test('runFullSync executes Stage 2 ingestion by dynamically invoking IssueIngestor', async () => {
         const result = await SyncService.runFullSync();
 

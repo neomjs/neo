@@ -637,6 +637,32 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(queryCalls).toBe(2);
     });
 
+    test('clean-slate bootstrap uses the bounded outer page size and follows every cursor (#15977)', async () => {
+        const
+            first  = buildDiscussion(26001),
+            second = buildDiscussion(26002),
+            calls  = [];
+
+        GraphqlService.query = async (query, variables) => {
+            calls.push({...variables});
+
+            return {
+                repository: {
+                    discussions: variables.cursor === null
+                        ? {nodes: [first], pageInfo: {hasNextPage: true, endCursor: 'page-2'}}
+                        : {nodes: [second], pageInfo: {hasNextPage: false, endCursor: null}}
+                }
+            }
+        };
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}, lastSync: null});
+
+        expect(calls).toHaveLength(2);
+        expect(calls.map(({limit}) => limit)).toEqual([30, 30]);
+        expect(calls.map(({cursor}) => cursor)).toEqual([null, 'page-2']);
+        expect(stats.synced).toEqual([26001, 26002])
+    });
+
     test('containment: skips and excludes a denylisted discussion (by number)', async () => {
         const allowed = buildDiscussion(25001, {closed: false});
         const denied  = buildDiscussion(25002, {closed: false});

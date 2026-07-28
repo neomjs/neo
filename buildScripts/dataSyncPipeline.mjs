@@ -20,7 +20,8 @@ export const GENERATED_DATA_PATHS = [
     ':(glob)apps/devindex/resources/data/*.json*',
     'apps/portal/resources/data',
     'apps/portal/sitemap.xml',
-    'apps/portal/llms.txt'
+    'apps/portal/llms.txt',
+    'resources/content'
 ];
 
 /**
@@ -69,6 +70,20 @@ const
             command   : 'npm',
             label     : 'install dependencies',
             tokenScope: 'none'
+        },
+        {
+            // Corpus generation is deliberately pull-only in CI. The child receives the READER
+            // identity, while the Publisher App remains unavailable until the final git push.
+            //
+            // SyncService isolates facets and persists each successful facet before returning one
+            // aggregate failure. An ephemeral runner would lose that progress if this child failure
+            // aborted the parent immediately, so the pipeline publishes the allowlisted progress
+            // first and then reports the original failure.
+            args                             : ['./ai/scripts/maintenance/syncGithubWorkflow.mjs', '--emit-only'],
+            command                          : process.execPath,
+            label                            : 'GitHub Workflow corpus',
+            publishGeneratedProgressOnFailure: true,
+            tokenScope                       : 'reader'
         },
         {
             args      : ['run', 'devindex:optin'],
@@ -267,6 +282,7 @@ export function isGeneratedDataPath(filePath) {
         || filePath === 'apps/portal/sitemap.xml'
         || filePath === 'apps/portal/llms.txt'
         || filePath.startsWith('apps/portal/resources/data/')
+        || filePath.startsWith('resources/content/')
 }
 
 /**
@@ -480,7 +496,8 @@ async function recoverStaleAttempt({
  * @param {String}   options.cwd Repository root.
  * @param {Function} options.execute Child-process executor.
  * @param {Function} options.log Telemetry sink.
- * @returns {Promise<void>}
+ * @returns {Promise<void|{deferredError: Error}>} Deferred corpus failure whose safe generated
+ * progress must be published before the original error is reported.
  */
 export async function emitGeneratedData({
     attempt,
@@ -503,7 +520,15 @@ export async function emitGeneratedData({
         return
     }
 
-    for (const {args, command, label, tokenScope} of emissionCommands) {
+    let deferredError = null;
+
+    for (const {
+        args,
+        command,
+        label,
+        publishGeneratedProgressOnFailure = false,
+        tokenScope
+    } of emissionCommands) {
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
 
         try {
@@ -523,8 +548,21 @@ export async function emitGeneratedData({
                 `\`${tokenScope}\`. If this is an authentication failure, the stage requires a scope ` +
                 `that grants it — never an ambient credential.\n${error.message}`;
 
+            if (publishGeneratedProgressOnFailure) {
+                deferredError = error;
+                log(
+                    `[DataSync] emit attempt=${attempt} stage=${label} result=deferred-failure ` +
+                    'action=publish-generated-progress-then-fail'
+                );
+                continue
+            }
+
             throw error
         }
+    }
+
+    if (deferredError) {
+        return {deferredError}
     }
 }
 
@@ -566,7 +604,7 @@ export async function runDataSyncPipeline({
         const baseSha = await readSha(execute, cwd, 'HEAD');
 
         log(`[DataSync] attempt=${attempt}/${maxAttempts} base=${baseSha}`);
-        await emit({attempt, baseSha, cwd, execute, log});
+        const {deferredError = null} = await emit({attempt, baseSha, cwd, execute, log}) || {};
 
         // TERMINAL, not merely quiet. Returning early from `emit` ended the emission loop and then
         // fell straight through to the publish path below, which only stayed harmless because an
@@ -612,6 +650,10 @@ export async function runDataSyncPipeline({
 
         if (!status.trim()) {
             log(`[DataSync] publish attempt=${attempt}/${maxAttempts} result=no-generated-changes`);
+
+            if (deferredError) {
+                throw deferredError
+            }
 
             return {attempts: attempt, baseSha, changed: false, pushed: false}
         }
@@ -710,6 +752,14 @@ export async function runDataSyncPipeline({
         }
 
         log(`[DataSync] publish attempt=${attempt}/${maxAttempts} result=pushed base=${baseSha}`);
+
+        if (deferredError) {
+            log(
+                `[DataSync] publish attempt=${attempt}/${maxAttempts} ` +
+                'result=pushed-generated-progress-before-stage-failure'
+            );
+            throw deferredError
+        }
 
         return {attempts: attempt, baseSha, changed: true, pushed: true}
     }

@@ -620,7 +620,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             found : true,
             source: 'description'
         });
-        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('scheduled `githubWorkflowSync` lane refreshes the local markdown mirror');
+        expect(handbook.handbook.replace(/\s+/g, ' ')).toContain('scheduled Data Sync pipeline refreshes the local markdown mirror');
         expect(handbook.handbook).not.toContain('sync_all');
 
         expect(missing).toEqual({
