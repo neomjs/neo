@@ -44,6 +44,25 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
     maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
 });
 
+/**
+ * @summary Extends the deployment inspection with an opt-in, identity-authorized mailbox
+ * read-state observation while preserving the snapshot-only shape when the request is absent.
+ * @param {Object} [args]
+ * @returns {Promise<Object>}
+ */
+const inspectDeployment = async args => {
+    const inspection = await readDeploymentInspection(args);
+
+    if (!args?.mailboxReadState) {
+        return inspection
+    }
+
+    return {
+        ...inspection,
+        mailboxReadState: await MailboxService.inspectReadState(args.mailboxReadState)
+    }
+};
+
 // `get_sandman_handoff` — serves the Dream Pipeline's morning surface to agents with no repo
 // checkout. The path rides the resolved `handoffFilePath` formula leaf (prod/test by
 // construction; `NEO_HANDOFF_FILE_PATH` is honored inside the leaf) — never a second path source.
@@ -207,7 +226,7 @@ const serviceMapping = {
     get_sqlite_holder_diagnostics:
                               HealthService          .getSqliteHolderDiagnostics.bind(HealthService),
     get_deployment_state_snapshot: readDeploymentInspection,
-    inspect_deployment           : readDeploymentInspection,
+    inspect_deployment           : inspectDeployment,
     get_sandman_handoff          : readSandmanHandoffTool,
     mark_read                    : MailboxService         .markRead                .bind(MailboxService),
     archive_message              : MailboxService         .archiveMessage          .bind(MailboxService),

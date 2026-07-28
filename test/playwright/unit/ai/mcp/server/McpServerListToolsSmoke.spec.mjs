@@ -436,6 +436,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'resume_session'}),
             missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
             addMemory     = byName.add_memory,
+            inspectDeploy = byName.inspect_deployment,
             resumeSession = byName.resume_session,
             handbookTool  = byName.get_mcp_tool_handbook;
 
@@ -455,6 +456,14 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(resumeSession.description).toBe('Validate whether a session id is safe to resume.');
         expect(resumeSession.description).not.toContain('SESSION_BUSY');
         expect(addMemory.inputSchema.properties.prompt.type).toBe('string');
+        expect(inspectDeploy.inputSchema.properties.mailboxReadState).toMatchObject({
+            type    : 'object',
+            required: ['messageId', 'recipient']
+        });
+        expect(inspectDeploy.inputSchema.properties.mailboxReadState.properties).toMatchObject({
+            messageId: {type: 'string'},
+            recipient: {type: 'string'}
+        });
 
         for (const tool of tools) {
             expect(tool.description.length, `memory-core.${tool.name} description is not compact`).toBeLessThanOrEqual(120);
@@ -515,6 +524,18 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 mcSnapshot       = await memoryCoreApi.callTool('get_deployment_state_snapshot', args),
                 kbInspection     = await knowledgeBaseApi.callTool('inspect_deployment', args),
                 mcInspection     = await memoryCoreApi.callTool('inspect_deployment', args);
+
+            const
+                {ageMs: kbSnapshotAge, ...kbSnapshotShape}     = kbSnapshot,
+                {ageMs: kbInspectionAge, ...kbInspectionShape} = kbInspection,
+                {ageMs: mcSnapshotAge, ...mcSnapshotShape}     = mcSnapshot,
+                {ageMs: mcInspectionAge, ...mcInspectionShape} = mcInspection;
+
+            expect(kbInspectionShape).toEqual(kbSnapshotShape);
+            expect(mcInspectionShape).toEqual(mcSnapshotShape);
+            for (const age of [kbSnapshotAge, kbInspectionAge, mcSnapshotAge, mcInspectionAge]) {
+                expect(age).toEqual(expect.any(Number));
+            }
 
             for (const result of [kbSnapshot, mcSnapshot, kbInspection, mcInspection]) {
                 expect(result).toMatchObject({

@@ -1,4 +1,5 @@
 import {test, expect}  from '@playwright/test';
+import Ajv             from 'ajv';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -482,6 +483,21 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(coalesceWindow.type).toBe('integer');
         expect(coalesceWindow.minimum).toBe(0);
         expect(coalesceWindow.maximum).toBe(300);
+    });
+
+    test('memory-core inspect_deployment output compiles for AJV clients (#16086)', () => {
+        const
+            doc       = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            operation = doc.paths['/deployment/inspect'].post,
+            schema    = toOpenApiJsonSchema(buildOutputZodSchema(doc, operation)),
+            route     = schema.properties.mailboxReadState.properties.route;
+
+        expect(route).toEqual({
+            nullable: true,
+            type    : 'string',
+            enum    : ['direct', 'broadcast']
+        });
+        expect(() => new Ajv({strict: false}).compile(schema)).not.toThrow();
     });
 
     test('knowledge-base query schemas expose skill, adr, and concept content types', async () => {
