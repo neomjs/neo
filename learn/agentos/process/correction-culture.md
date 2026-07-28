@@ -27,6 +27,12 @@ citation; RUN the inference. The tell for which is which: an inference is anythi
 "therefore", "so", "which means", "hence" in your own draft — grep the connective before
 submitting. A citation you checked is a fact; a connective you wrote is a hypothesis.
 
+**Bound it.** Before writing `FALSIFIED`, state what the instrument can decide and confirm every
+claim is inside that set; give multi-clause gaps separate verdicts. A narrow negative cannot
+overturn a direct observation outside its set. A correction toward *not real*, *not ours*, or
+*smaller than stated* gets one independent check before publication: direction is a trigger, not
+evidence of error. Retire this prose when a mechanical claim-scope gate enforces the same boundary.
+
 **Mine it.** Tickets and PRs carry an `Origin Session ID`, and the session is the *intent
 authority*: a PR can be faithful to its own body while retreating from its filing session's
 conclusion. The review's premise is intent-vs-diff, not claims-vs-diff. Trigger: mine when the PR
