@@ -58,7 +58,7 @@ function buildSyncGithubWorkflowDevBranchGuard(delegate, getBranch = defaultSync
             throw new Error(
                 `syncGithubWorkflow REJECTED: working-tree is on branch '${branch || '(detached)'}', not 'dev'. ` +
                 `syncGithubWorkflow writes to resources/content/{issues,pulls,discussions,release-notes}/ and metadata, which would pollute a non-dev branch. ` +
-                `Switch to 'dev' and rerun npm run ai:sync-github-workflow, or let the scheduled githubWorkflowSync lane run from its canonical dev context.`
+                `Switch to 'dev' and rerun npm run ai:sync-github-workflow, or let the scheduled Data Sync pipeline emit from its canonical dev context.`
             );
         }
 

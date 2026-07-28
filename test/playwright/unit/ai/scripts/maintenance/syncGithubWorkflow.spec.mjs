@@ -49,10 +49,10 @@ test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
         expect(delegateCalls).toBe(0);
     });
 
-    test('names the scheduled githubWorkflowSync lane in remediation', async () => {
+    test('names the scheduled Data Sync pipeline in remediation', async () => {
         const guarded = buildSyncGithubWorkflowDevBranchGuard(async () => {}, async () => 'codex/feature');
 
-        await expect(guarded()).rejects.toThrow(/scheduled githubWorkflowSync lane/);
+        await expect(guarded()).rejects.toThrow(/scheduled Data Sync pipeline/);
     });
 
     test('rejects detached HEAD before delegate work begins', async () => {
@@ -87,20 +87,32 @@ test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
         const source = await fs.readFile(cliScriptPath, 'utf8');
 
         const
-            guardIndex  = source.indexOf('await assertSyncGithubWorkflowDevBranch();'),
-            startIndex  = source.indexOf('Starting full GitHub Workflow sync'),
-            leaseIndex  = source.indexOf('outcome = await withHeavyMaintenanceLease('),
-            syncIndex   = source.indexOf('async () => GH_SyncService.runFullSync()'),
+            guardIndex = source.indexOf('await assertSyncGithubWorkflowDevBranch();'),
+            startIndex = source.indexOf('Starting full GitHub Workflow sync'),
+            leaseIndex = source.indexOf('outcome = await withHeavyMaintenanceLease('),
+            syncIndex  = source.indexOf(': GH_SyncService.runFullSync()', leaseIndex),
+            emitIndex  = source.indexOf(
+                'GH_SyncService.emitGeneratedContentAndDerive({pushLocalChanges: false})',
+                leaseIndex
+            ),
             autorunGate = source.indexOf("if (import.meta.url === pathToFileURL(process.argv[1] || '').href)");
 
         expect(guardIndex, 'branch guard call must exist').toBeGreaterThan(-1);
         expect(startIndex, 'start log must exist').toBeGreaterThan(-1);
         expect(leaseIndex, 'heavy-maintenance lease call must exist').toBeGreaterThan(-1);
         expect(syncIndex, 'real sync delegate must exist').toBeGreaterThan(-1);
+        expect(emitIndex, 'pull-only emission delegate must exist').toBeGreaterThan(-1);
         expect(autorunGate, 'import-safe CLI autorun gate must exist').toBeGreaterThan(-1);
 
         expect(guardIndex).toBeLessThan(startIndex);
         expect(guardIndex).toBeLessThan(leaseIndex);
         expect(guardIndex).toBeLessThan(syncIndex);
+        expect(guardIndex).toBeLessThan(emitIndex);
+    });
+
+    test('a held lease fails scheduled emission but keeps manual deferral non-erroring', async () => {
+        const source = await fs.readFile(cliScriptPath, 'utf8');
+
+        expect(source).toContain('process.exit(emitOnly ? 1 : 0)')
     });
 });

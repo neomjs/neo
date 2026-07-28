@@ -57,7 +57,7 @@ class LocalFileService extends Base {
                 logger.warn(`[LocalFileService] ${label} index entry not found for #${normalizedId}`);
                 return {
                     error  : 'File not found',
-                    message: `No local markdown index entry found for ${label.toLowerCase()} #${normalizedId}. Use live GitHub for current state; the scheduled githubWorkflowSync lane regenerates resources/content/_index.json.`,
+                    message: `No local markdown index entry found for ${label.toLowerCase()} #${normalizedId}. Use live GitHub for current state; the scheduled Data Sync pipeline regenerates resources/content/_index.json.`,
                     code   : 'NOT_FOUND'
                 };
             }
@@ -68,7 +68,7 @@ class LocalFileService extends Base {
                 logger.warn(`[LocalFileService] ${label} indexed path is stale for #${normalizedId}: ${filePath}`);
                 return {
                     error  : 'Stale content index',
-                    message: `Indexed markdown file for ${label.toLowerCase()} #${normalizedId} does not exist. Use live GitHub for current state; the scheduled githubWorkflowSync lane regenerates resources/content/_index.json.`,
+                    message: `Indexed markdown file for ${label.toLowerCase()} #${normalizedId} does not exist. Use live GitHub for current state; the scheduled Data Sync pipeline regenerates resources/content/_index.json.`,
                     code   : 'STALE_INDEX'
                 };
             }

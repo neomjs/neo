@@ -19,7 +19,12 @@ import {classifyDiscussionRoutingDisposition}                from '../shared/dis
 import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
 import {verifyDiscussionFrontmatter}                         from './verifyFrontmatterIntegrity.mjs';
 
-const issueSyncConfig = aiConfig.issueSync;
+const
+    // A clean-slate `first: 50` discussion query exceeds GitHub's GraphQL resource budget once
+    // comments and replies are projected. Thirty is the measured safe outer page size. Cursor
+    // pagination remains unchanged, so this bounds per-query cost without truncating the corpus.
+    discussionOuterPageSize = 30,
+    issueSyncConfig         = aiConfig.issueSync;
 
 /**
  * @summary Handles the fetching and local synchronization of GitHub Discussions.
@@ -417,7 +422,7 @@ class DiscussionSyncer extends Base {
             const data = await GraphqlService.query(FETCH_DISCUSSIONS_FOR_SYNC, {
                 owner      : aiConfig.owner,
                 repo       : aiConfig.repo,
-                limit      : 50,
+                limit      : discussionOuterPageSize,
                 cursor,
                 maxComments: 50,
                 maxReplies : 20

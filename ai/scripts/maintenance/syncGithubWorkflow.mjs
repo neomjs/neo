@@ -12,15 +12,16 @@ import {
 
 /**
  * @module ai/scripts/maintenance/syncGithubWorkflow
- * @summary CLI wrapper invoking `GH_SyncService.runFullSync()` for full
- * issue / PR / discussion / release-notes substrate emission into
- * `resources/content/`.
+ * @summary CLI wrapper for full manual GitHub Workflow sync and pull-only
+ * scheduled corpus emission into `resources/content/`.
  *
  * **Why this operator CLI is the canonical manual entry point:**
  *
- * The scheduled `githubWorkflowSync` lane and this CLI resolve to the same
- * `GH_SyncService.runFullSync()` orchestration entry point. The long-running sync
- * is deliberately absent from the agent MCP surface: clean-slate emission can span
+ * The scheduled Data Sync pipeline invokes this CLI with `--emit-only`, delegating to
+ * `GH_SyncService.emitGeneratedContentAndDerive({pushLocalChanges: false})`. Operators
+ * retain the default `GH_SyncService.runFullSync()` mode, including its intentional
+ * local-to-GitHub issue push. The long-running sync is deliberately absent from the
+ * agent MCP surface: clean-slate emission can span
  * ~8.5k issues + ~2.8k PRs + ~165 discussions + ~166 release notes and must stay
  * behind the shared heavy-maintenance lease rather than an MCP request timeout.
  *
@@ -28,8 +29,8 @@ import {
  * - avoids an MCP request-timeout ceiling
  * - surfaces full stderr/stdout progress (each syncer logs phase-by-phase via
  *   `ai/mcp/server/github-workflow/logger.mjs`)
- * - leaves the underlying service untouched (no special-case "full vs delta"
- *   code path — the same `runFullSync()` runs in both invocations)
+ * - keeps scheduled CI read-only at the GitHub API boundary while preserving the
+ *   operator's full bi-directional mode
  *
  * **SDK boundary**: imports route through `ai/services.mjs` (the canonical SDK
  * entry point per `Neo.ai.services`), which handles Neo namespace bootstrap +
@@ -39,12 +40,12 @@ import {
  * `ai/mcp/server/...` or `ai/services/...` deep imports.
  *
  * The authority boundary is the regeneratable-cache model: this script exists
- * to rebuild workflow mirrors outside the MCP request-timeout envelope while preserving
- * the same service path as the scheduled `githubWorkflowSync` lane.
+ * to rebuild workflow mirrors outside the MCP request-timeout envelope.
  *
  * @example
  *   npm run ai:sync-github-workflow
  *   npm run ai:sync-github-workflow -- --verbose
+ *   npm run ai:sync-github-workflow -- --emit-only
  *
  *   # Full output streamed to stdout/stderr (no MCP timeout ceiling).
  *   # Exit code 0 on success / 1 on failure.
@@ -66,11 +67,14 @@ async function assertSyncGithubWorkflowDevBranch() {
 }
 
 /**
- * @summary CLI entry point for the full GitHub Workflow mirror sync.
+ * @summary CLI entry point for full manual sync or scheduled pull-only corpus emission.
  * @returns {Promise<void>}
  */
 async function syncGithubWorkflow() {
-    const verbose = process.argv.includes('--verbose');
+    const
+        emitOnly = process.argv.includes('--emit-only'),
+        verbose  = process.argv.includes('--verbose');
+
     GH_Config.data.logLevel = verbose ? 'debug' : 'info';
 
     try {
@@ -80,7 +84,9 @@ async function syncGithubWorkflow() {
         process.exit(1);
     }
 
-    console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
+    console.log(emitOnly
+        ? '🔄 Starting pull-only GitHub Workflow corpus emission...'
+        : '🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
     // Run the full workflow sync under the shared heavy-maintenance lease so this CLI
     // cannot collide with orchestrator maintenance tasks or another manual graph-heavy
@@ -89,13 +95,15 @@ async function syncGithubWorkflow() {
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(
-            async () => GH_SyncService.runFullSync(),
+            async () => emitOnly
+                ? GH_SyncService.emitGeneratedContentAndDerive({pushLocalChanges: false})
+                : GH_SyncService.runFullSync(),
             {
                 leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
                 owner       : 'syncGithubWorkflow',
                 reason      : 'manual-cli',
                 staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
-                metadata    : {script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}
+                metadata    : {emitOnly, script: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', verbose}
             }
         );
     } catch (e) {
@@ -106,11 +114,11 @@ async function syncGithubWorkflow() {
     if (outcome.status === 'held') {
         const held = outcome.lease;
         console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
-        console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
-        process.exit(0);
+        console.log('   This script will not run while another heavy-maintenance task is active.');
+        process.exit(emitOnly ? 1 : 0);
     }
 
-    console.log('✅ Sync complete:', outcome.result);
+    console.log(emitOnly ? '✅ Corpus emission complete:' : '✅ Sync complete:', outcome.result);
     process.exit(0);
 }
 
