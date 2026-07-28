@@ -410,7 +410,7 @@ Just a short body, well under 5000 bytes.
 
     test('checkSectionTriggers returns no errors for large sections without rare triggers (#11320)', () => {
         const padding = 'A'.repeat(6000);
-        const text = `
+        const text    = `
 ## §2 Large Common Section
 <!-- trigger: always relevant → read ./sub-rule.md -->
 ${padding}
@@ -420,7 +420,7 @@ ${padding}
 
     test('checkSectionTriggers returns error for large sections with rare triggers (#11320)', () => {
         const padding = 'B'.repeat(6000);
-        const text = `
+        const text    = `
 ## §3 OpenAPI Edge Case
 <!-- trigger: modifies openapi.yaml → read ./openapi-audit.md -->
 ${padding}
@@ -434,7 +434,7 @@ ${padding}
 
     test('parseSectionTriggers extracts anchor, trigger, subRulePath, and body size (#11320)', () => {
         const padding = 'C'.repeat(100);
-        const text = `
+        const text    = `
 ## §4 Test Section
 <!-- trigger: test condition → read ./test-rule.md -->
 ${padding}
@@ -448,11 +448,11 @@ ${padding}
     });
 
     test('checkOversizedWorkflowMaps passes when one-line pointer addition is within maxPositiveDeltaBytes (#11437)', () => {
-        const changedFiles = new Set(['pr-review-guide.md', 'some-other-file.md']);
+        const changedFiles   = new Set(['pr-review-guide.md', 'some-other-file.md']);
         const oversizedFiles = ['pr-review-guide.md', 'pull-request-workflow.md'];
-        const maxDelta = 250;
+        const maxDelta       = 250;
 
-        const getSizeFn = (file) => file === 'pr-review-guide.md' ? 1200 : 0;
+        const getSizeFn     = (file) => file === 'pr-review-guide.md' ? 1200 : 0;
         const getBaseSizeFn = (file) => file === 'pr-review-guide.md' ? 1000 : 0; // Delta: 200
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
@@ -460,11 +460,11 @@ ${padding}
     });
 
     test('checkOversizedWorkflowMaps fails when PR #11434-style inline addition exceeds maxPositiveDeltaBytes (#11437)', () => {
-        const changedFiles = new Set(['pull-request-workflow.md']);
+        const changedFiles   = new Set(['pull-request-workflow.md']);
         const oversizedFiles = ['pr-review-guide.md', 'pull-request-workflow.md'];
-        const maxDelta = 250;
+        const maxDelta       = 250;
 
-        const getSizeFn = (file) => 1500;
+        const getSizeFn     = (file) => 1500;
         const getBaseSizeFn = (file) => 1000; // Delta: 500
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
@@ -474,11 +474,11 @@ ${padding}
     });
 
     test('checkOversizedWorkflowMaps fails when long pr-review-guide.md anti-pattern row exceeds maxPositiveDeltaBytes (#11437)', () => {
-        const changedFiles = new Set(['pr-review-guide.md']);
+        const changedFiles   = new Set(['pr-review-guide.md']);
         const oversizedFiles = ['pr-review-guide.md'];
-        const maxDelta = 250;
+        const maxDelta       = 250;
 
-        const getSizeFn = (file) => 2300;
+        const getSizeFn     = (file) => 2300;
         const getBaseSizeFn = (file) => 1000; // Delta: 1300
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
@@ -487,11 +487,11 @@ ${padding}
     });
 
     test('checkOversizedWorkflowMaps ignores deleted oversized files', () => {
-        const changedFiles = new Set(['pr-review-guide.md']);
+        const changedFiles   = new Set(['pr-review-guide.md']);
         const oversizedFiles = ['pr-review-guide.md'];
-        const maxDelta = 250;
+        const maxDelta       = 250;
 
-        const getSizeFn = (file) => null; // File deleted
+        const getSizeFn     = (file) => null; // File deleted
         const getBaseSizeFn = (file) => 1000;
 
         const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
@@ -673,6 +673,89 @@ ${padding}
         expect(errors[1]).toContain('dangling section ref consensus-mandate §missing-aggregation');
     });
 
+    test('checkSkillReferenceIntegrity treats bare and backticked targets equally across supported section ids (#16041)', () => {
+        const targetRelPath = '.agents/skills/example/references/target-workflow.md';
+        const sourceRelPath = '.agents/skills/example/SKILL.md';
+        const cases         = [{
+            family : 'bare numeric',
+            heading: '### 6. Existing top-level section',
+            valid  : '6',
+            invalid: '7'
+        }, {
+            family : 'dotted numeric',
+            heading: '### 5.1 Existing numeric section',
+            valid  : '5.1',
+            invalid: '5.9'
+        }, {
+            family : 'named',
+            heading: '### §template-block Existing named section',
+            valid  : 'template-block',
+            invalid: 'missing-template'
+        }, {
+            family : 'digit-leading alphanumeric',
+            heading: '### 1d. Existing workflow section',
+            valid  : '1d',
+            invalid: '1x'
+        }];
+
+        for (const item of cases) {
+            const files = [{
+                relPath: targetRelPath,
+                text   : item.heading
+            }, {
+                relPath: sourceRelPath,
+                text   : [
+                    `Valid ${item.family} bare ref: target-workflow.md §${item.valid}.`,
+                    `Invalid ${item.family} bare ref: target-workflow.md §${item.invalid}.`,
+                    `Valid ${item.family} backticked ref: \`target-workflow.md\` §${item.valid}.`,
+                    `Invalid ${item.family} backticked ref: \`target-workflow.md\` §${item.invalid}.`
+                ].join('\n')
+            }];
+
+            const errors = checkSkillReferenceIntegrity([sourceRelPath], files);
+
+            expect(errors, item.family).toHaveLength(2);
+            expect(errors[0]).toContain(`${sourceRelPath}:2`);
+            expect(errors[0]).toContain(`dangling section ref target-workflow.md §${item.invalid}`);
+            expect(errors[1]).toContain(`${sourceRelPath}:4`);
+            expect(errors[1]).toContain(`dangling section ref target-workflow.md §${item.invalid}`);
+        }
+    });
+
+    test('checkSkillReferenceIntegrity distinguishes unsupported syntax from a missing bare-numeric heading (#16041)', () => {
+        const targetRelPath = '.agents/skills/example/references/target-workflow.md';
+        const sourceRelPath = '.agents/skills/example/SKILL.md';
+        const files         = [{
+            relPath: targetRelPath,
+            text   : '### 1. Existing top-level heading'
+        }, {
+            relPath: sourceRelPath,
+            text   : [
+                'Unsupported syntax: target-workflow.md §1-invalid.',
+                'Missing heading: `target-workflow.md` §2.'
+            ].join('\n')
+        }];
+
+        const errors = checkSkillReferenceIntegrity([sourceRelPath], files);
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0]).toContain('unsupported section-ref syntax target-workflow.md §1-invalid');
+        expect(errors[1]).toContain('dangling section ref target-workflow.md §2');
+    });
+
+    test('checkSkillReferenceIntegrity keeps unqualified bare numeric prose outside the reference grammar (#16041)', () => {
+        const relPath = '.agents/skills/example/references/example-workflow.md';
+        const files   = [{
+            relPath,
+            text: [
+                '### 1. Existing top-level heading',
+                'Descriptive unqualified ref: §2.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([relPath], files)).toEqual([]);
+    });
+
     test('parseUnifiedDiffChangedLines maps base diffs to current-file line numbers (#12557)', () => {
         const diffText = [
             'diff --git a/.agents/skills/pr-review/references/pr-review-guide.md b/.agents/skills/pr-review/references/pr-review-guide.md',
@@ -692,7 +775,7 @@ ${padding}
 
     test('checkSkillReferenceIntegrity only scans changed lines when base ownership is provided (#12557)', () => {
         const relPath = '.agents/skills/pr-review/references/pr-review-guide.md';
-        const files = [{
+        const files   = [{
             relPath,
             text: [
                 '## 9. Strategic Fit',
@@ -717,7 +800,7 @@ ${padding}
 
     test('checkSkillReferenceIntegrity only scans changed named section refs when base ownership is provided (#12582)', () => {
         const relPath = '.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md';
-        const files = [{
+        const files   = [{
             relPath: '.agents/skills/ideation-sandbox/audits/consensus-mandate.md',
             text   : '## §template-block — Graduated-Artifact Required Sections'
         }, {
@@ -739,6 +822,33 @@ ${padding}
         expect(errors).toHaveLength(1);
         expect(errors[0]).toContain('ideation-sandbox-workflow.md:2');
         expect(errors[0]).toContain('dangling section ref consensus-mandate §missing-template');
+    });
+
+    test('checkSkillReferenceIntegrity keeps changed-line ownership for digit-leading section refs (#16041)', () => {
+        const targetRelPath = '.agents/skills/ticket-create/references/ticket-create-workflow.md';
+        const sourceRelPath = '.agents/skills/ideation-sandbox/audits/double-diamond-divergence-guard.md';
+        const files         = [{
+            relPath: targetRelPath,
+            text   : '### 1d. The Ungraduated-Discussion Cross-Check'
+        }, {
+            relPath: sourceRelPath,
+            text   : [
+                'Valid changed ref: ticket-create-workflow.md §1d.',
+                'Pre-existing stale ref: `ticket-create-workflow.md` §1x.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([sourceRelPath], files, {
+            changedLinesByRelPath: new Map([[sourceRelPath, new Set([1])]])
+        })).toEqual([]);
+
+        const errors = checkSkillReferenceIntegrity([sourceRelPath], files, {
+            changedLinesByRelPath: new Map([[sourceRelPath, new Set([2])]])
+        });
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain(`${sourceRelPath}:2`);
+        expect(errors[0]).toContain('dangling section ref ticket-create-workflow.md §1x');
     });
 
     test('downstream docs skip only applies to link-path-only skill diffs whose docs omit the moved target (#12557)', () => {
