@@ -12,7 +12,26 @@ import path                                           from 'path';
  * JSONL shape: I/O at the edge only, deterministic content.
  */
 
-const HEAL_LEDGER_FILENAME = 'heal-events.jsonl';
+/**
+ * Filename of the heal-event ledger inside its directory. Exported for the same reason as the
+ * directory name: the backup/restore lane must address this file by its exact name rather than
+ * guessing "the first `.jsonl` in the folder", which silently picks the wrong file the moment a
+ * second ledger lands beside it.
+ * @type {String}
+ */
+export const HEAL_LEDGER_FILENAME = 'heal-events.jsonl';
+
+/**
+ * Directory name holding the heal-event ledger, relative to the orchestrator data directory.
+ *
+ * Exported because the ledger has no config leaf of its own — its location is derived from the
+ * resolved `orchestrator.dataDir` by every consumer. That derivation was written out longhand at
+ * three separate sites, and the backup lane needs a fourth: a producer and a backup that disagree
+ * about where the ledger lives would not fail, it would silently bundle nothing, which is precisely
+ * the class of defect the ledger exists to make visible. One name, one home.
+ * @type {String}
+ */
+export const HEAL_LEDGER_DIR_NAME = 'data-heal-events';
 
 /**
  * Event types the ledger recognises for the folded status surface. `freeze` adds a collection to the

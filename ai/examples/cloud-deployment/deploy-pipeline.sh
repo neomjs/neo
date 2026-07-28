@@ -21,7 +21,11 @@ set -euo pipefail
 # tied to the caller's working directory. Deploy from a STABLE host checkout —
 # the backup-bundle bind-mount is a relative path; see PipelineWiring.md.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../ai/deploy/docker-compose.yml}"
+# `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so `../..` is ALREADY `ai/` — re-adding `ai/`
+# here produced `ai/ai/deploy/...`, a path that has never existed. It went unnoticed because the
+# spec fakes `docker`, and a fake docker ignores `-f`, so a wrong compose path could not fail a
+# test. Any operator who did not set NEO_DEPLOY_COMPOSE_FILE was relying on a broken default.
+COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../deploy/docker-compose.yml}"
 
 # A stable project name pins named-volume identity across redeploys. Export the
 # same value consumed by docker-compose.yml for its top-level project name and
@@ -140,6 +144,39 @@ echo "[deploy] host-checkout: $(git -C "$SCRIPT_DIR" describe --tags --always 2>
 echo "[deploy] compose:  $COMPOSE_FILE"
 echo "[deploy] project:  $PROJECT_NAME"
 echo "[deploy] profiles: ${profile_args[*]}"
+
+# SURVIVABILITY GATE — runs BEFORE anything touches containers.
+#
+# Refuses unless a verified, non-empty, restorable pre-transition bundle exists. `up -d --build`
+# recreates containers, and a redeploy that crosses into an unrecoverable plane is exactly the
+# failure this guards: a deployment lost its Memory Core corpus, and the only bundle in its ledger
+# completed 25 minutes AFTER the new stack came up, capturing an already-empty plane.
+#
+# On a GENUINE first install there is no bundle yet and nothing to protect, so pass --initialize:
+#
+#     NEO_DEPLOY_INITIALIZE=1 ai/examples/cloud-deployment/deploy-pipeline.sh
+#
+# That is an explicit declaration on purpose. A first deployment and a plane that was destroyed or
+# relocated both present as ABSENCE, and no heuristic separates them — so refusing on absence alone
+# would block the first legitimate deploy, while proceeding on absence is how the incident happened.
+# The gate records a marker beside the bundles (on the bind-mount `down -v` does not touch), so a
+# later absence is informative rather than ambiguous. --initialize on an already-initialized host is
+# REFUSED: the escape hatch must not become the bypass.
+#
+# Scope, stated honestly: this guards the path we ship. It cannot intercept a hand-typed
+# `docker compose down -v`.
+# No array. Under `set -u`, expanding an EMPTY bash array as `"${arr[@]}"` is an unbound-variable
+# error on bash 3.2 — which macOS ships and CI does not, so this failed on maintainer machines while
+# hosted CI stayed green on it. Two explicit invocations are clearer than the `${arr[@]+...}`
+# incantation that works around it, and they cannot regress the same way.
+PREFLIGHT="$SCRIPT_DIR/../../scripts/maintenance/redeployPreflight.mjs"
+
+echo "[deploy] running redeploy survivability preflight..."
+if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ]; then
+    node "$PREFLIGHT" --initialize
+else
+    node "$PREFLIGHT"
+fi
 
 # Build + recreate containers, KEEPING named volumes and the backup bind-mount.
 # `--wait` blocks until every service with a healthcheck reports healthy and

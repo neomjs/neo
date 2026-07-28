@@ -1,9 +1,9 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}            from '@playwright/test';
 import {execFileSync, spawnSync} from 'node:child_process';
-import fs             from 'node:fs/promises';
-import os             from 'node:os';
-import path           from 'node:path';
-import process        from 'node:process';
+import fs                        from 'node:fs/promises';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import process                   from 'node:process';
 
 /**
  * Guards the revision-pinning contract of `ai/examples/cloud-deployment/deploy-pipeline.sh`.
@@ -103,7 +103,38 @@ async function createFakeBin(plainLines, peelLine = '') {
  * @param {Object} probe `{fetchFails, peelTo}` — the remote's answers.
  * @returns {Object} `{code, output}`.
  */
-function runPipelineWithProbe(fake, selector, {fetchFails = false, peelTo = ''} = {}) {
+/**
+ * Environment that lets a revision-pinning fixture past the survivability preflight.
+ *
+ * The script now refuses to touch containers without a verified pre-transition bundle. A test
+ * fixture has none — it is a GENUINE first deployment — so the honest way through is the same
+ * explicit declaration a real first install uses, not a skip flag. `NEO_BACKUP_PATH` is redirected
+ * into the fake-bin temp dir so the marker the gate writes never touches real deployment state.
+ *
+ * Passing `declareInitialization: false` runs the pipeline with the gate fully armed, which is how
+ * the refusal itself is asserted below. This spec's subject is revision resolution, so it must not
+ * become a bundle-construction harness — but it also must not silently disarm a safety gate, and an
+ * env var that turned the preflight off would be exactly the bypass the gate refuses to have.
+ *
+ * @param {Object} fake The `createFakeBin` result.
+ * @param {Boolean} declareInitialization
+ * @returns {Object}
+ */
+function preflightEnv(fake, declareInitialization) {
+    return {
+        // INSIDE the per-test temp dir, never `fake.bin/..` — that resolved to `os.tmpdir()` itself, so
+        // every test AND every run on the machine shared one backup root. The gate's own contract is
+        // that `--initialize` works once per host, so a shared root made the first initializing test
+        // write a marker that made all the later ones refuse. Diagnosed by @neo-gpt.
+        //
+        // It also made the suite non-idempotent in a way a single local run cannot show: the first run
+        // passed because the marker did not exist yet, and created the state that failed the second.
+        NEO_BACKUP_PATH      : path.join(fake.bin, 'preflight-backups'),
+        NEO_DEPLOY_INITIALIZE: declareInitialization ? '1' : '0'
+    }
+}
+
+function runPipelineWithProbe(fake, selector, {declareInitialization = true, fetchFails = false, peelTo = ''} = {}) {
     // `spawnSync` rather than `execFileSync`, and NO shell. Both streams are needed on the SUCCESS
     // path too — the peel note is a stderr WARNING, and `execFileSync` discards stderr when the
     // command succeeds, so an assertion about it could never pass even when the script emits it
@@ -122,7 +153,8 @@ function runPipelineWithProbe(fake, selector, {fetchFails = false, peelTo = ''} 
             FAKE_LS_PLAIN   : '',
             FAKE_PEEL_TO    : peelTo,
             NEO_REF         : selector,
-            PATH            : `${fake.bin}:${process.env.PATH}`
+            PATH            : `${fake.bin}:${process.env.PATH}`,
+            ...preflightEnv(fake, declareInitialization)
         },
         stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -141,7 +173,7 @@ function runPipelineWithProbe(fake, selector, {fetchFails = false, peelTo = ''} 
  * @param {String} selector Value for `NEO_REF`.
  * @returns {Object} `{code, output}`.
  */
-function runPipeline(fake, selector) {
+function runPipeline(fake, selector, {declareInitialization = true} = {}) {
     try {
         const output = execFileSync('bash', [scriptPath], {
             cwd     : repoRoot,
@@ -151,7 +183,8 @@ function runPipeline(fake, selector) {
                 FAKE_LS_PEEL : fake.peelLine,
                 FAKE_LS_PLAIN: fake.plainLines,
                 NEO_REF      : selector,
-                PATH         : `${fake.bin}:${process.env.PATH}`
+                PATH         : `${fake.bin}:${process.env.PATH}`,
+                ...preflightEnv(fake, declareInitialization)
             },
             stdio: ['ignore', 'pipe', 'pipe']
         });
@@ -201,6 +234,52 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
               result = runPipeline(fake, FULL_SHA.slice(0, 10));
 
         expect(result.code).not.toBe(0);
+        expect(await dockerInvocations(fake.dockerLog)).toBe(0)
+    });
+
+    test('every SCRIPT_DIR-relative path in the script actually RESOLVES', async () => {
+        // Both instances of one bug shipped here: `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so
+        // `../..` is ALREADY `ai/`, and two lines re-added `ai/` on top of it. Mine broke CI loudly.
+        // The pre-existing `COMPOSE_FILE` default pointed at `ai/ai/deploy/docker-compose.yml` and broke
+        // NOTHING — because the spec fakes `docker`, and a fake docker ignores `-f`. A path that only a
+        // real deployment would exercise is exactly the path a faked harness cannot witness.
+        //
+        // So this asserts resolution directly rather than trusting the next author to count `../`.
+        const source    = await fs.readFile(scriptPath, 'utf8'),
+              scriptRel = path.dirname(scriptPath),
+              refs      = [...source.matchAll(/\$SCRIPT_DIR\/([A-Za-z0-9/._-]+)/g)].map(match => match[1]),
+              unique    = [...new Set(refs)];
+
+        // Positive control: if the regex stops matching, this test silently asserts nothing.
+        expect(unique.length).toBeGreaterThan(1);
+
+        for (const ref of unique) {
+            const resolved = path.resolve(scriptRel, ref);
+
+            await expect(
+                fs.access(resolved),
+                `deploy-pipeline.sh references $SCRIPT_DIR/${ref}, which resolves to a path that does not exist: ${resolved}`
+            ).resolves.toBeUndefined();
+        }
+    });
+
+    test('the survivability preflight refuses BEFORE Docker, even with a perfectly resolvable revision', async () => {
+        // My change to this script broke the six positive-path tests here, and the honest repair is not
+        // just to hand the fixture a declaration — it is to assert at this seam what the gate does.
+        //
+        // Revision resolution succeeding is precisely the dangerous case: everything about the deploy
+        // looks correct, and the only thing standing between it and an unrecoverable plane is this
+        // gate. So the assertion is ordering, proven by the strongest available witness — Docker was
+        // never invoked at all.
+        const fake   = await createFakeBin(''),
+              result = runPipelineWithProbe(fake, FULL_SHA, {declareInitialization: false, peelTo: FULL_SHA});
+
+        expect(result.code).toBe(1);
+        expect(result.output).toMatch(/REFUSING to proceed/);
+        expect(result.output).toMatch(/REFUSE_NO_VERIFIED_BUNDLE/);
+        // The resolvable revision is not what stopped it — the revision resolved fine.
+        expect(result.output).toContain(FULL_SHA);
+        // The load-bearing half: nothing touched containers.
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 
