@@ -1,18 +1,20 @@
-import {test, expect}  from '@playwright/test';
-import {execFile}      from 'child_process';
-import {readFile}      from 'fs/promises';
-import {parse}         from 'parse5';
-import path            from 'path';
-import {promisify}     from 'util';
-import {fileURLToPath} from 'url';
+import {test, expect}    from '@playwright/test';
+import {execFile}        from 'child_process';
+import {readFile}        from 'fs/promises';
+import {parse}           from 'parse5';
+import path              from 'path';
+import {promisify}       from 'util';
+import {runInNewContext} from 'vm';
+import {fileURLToPath}   from 'url';
 
 const
-    __dirname             = path.dirname(fileURLToPath(import.meta.url)),
-    REPO_ROOT             = path.resolve(__dirname, '../../../..'),
-    WORKSTATION_HTML_PATH = path.join(REPO_ROOT, 'apps/workstation/index.html'),
-    COLOR_SCHEME_META     = '<meta name="color-scheme" content="dark">',
-    MICRO_LOADER_SCRIPT   = '<script src="../../src/MicroLoader.mjs" type="module"></script>',
-    execFileAsync         = promisify(execFile);
+    __dirname               = path.dirname(fileURLToPath(import.meta.url)),
+    REPO_ROOT               = path.resolve(__dirname, '../../../..'),
+    WORKSTATION_CONFIG_PATH = path.join(REPO_ROOT, 'apps/workstation/neo-config.json'),
+    WORKSTATION_HTML_PATH   = path.join(REPO_ROOT, 'apps/workstation/index.html'),
+    DARK_SCHEME_MAPPING     = "'neo-theme-neo-dark': 'dark'",
+    MICRO_LOADER_SCRIPT     = '<script src="../../src/MicroLoader.mjs" type="module"></script>',
+    execFileAsync           = promisify(execFile);
 
 /**
  * @summary Returns every parsed HTML element in document order.
@@ -41,6 +43,16 @@ function getAttribute(node, name) {
 }
 
 /**
+ * @summary Reports whether a parsed element explicitly carries one attribute.
+ * @param {Object} node
+ * @param {String} name
+ * @returns {Boolean}
+ */
+function hasAttribute(node, name) {
+    return node.attrs?.some(attribute => attribute.name === name) ?? false
+}
+
+/**
  * @summary Inspects the Workstation HTML bootstrap ordering without executing application code.
  * @param {String} source
  * @returns {Object}
@@ -52,26 +64,143 @@ function inspectWorkstationBootstrap(source) {
         head     = elements.find(node => node.tagName === 'head'),
         metas    = elements.filter(node => node.tagName === 'meta'
             && getAttribute(node, 'name')?.toLowerCase() === 'color-scheme'),
-        loaders  = elements.filter(node => node.tagName === 'script'
+        loaders         = elements.filter(node => node.tagName === 'script'
             && getAttribute(node, 'src')?.split(/[?#]/)[0].endsWith('/src/MicroLoader.mjs')),
-        meta     = metas[0],
-        loader   = loaders[0],
-        directHead = metas.length === 1 && meta.parentNode === head,
-        exactDark  = metas.length === 1 && getAttribute(meta, 'content') === 'dark',
-        ordered    = metas.length === 1
+        bootstrapScripts = elements.filter(node => node.tagName === 'script'
+            && !getAttribute(node, 'src')
+            && node.childNodes?.some(child => child.value?.includes('WorkstationBootstrap'))),
+        bootstrapScript = bootstrapScripts[0],
+        loader          = loaders[0],
+        scriptText      = bootstrapScript?.childNodes?.map(child => child.value || '').join('') || '',
+        directHead      = bootstrapScripts.length === 1 && bootstrapScript.parentNode === head,
+        parserBlocking  = bootstrapScripts.length === 1
+            && !hasAttribute(bootstrapScript, 'async')
+            && !hasAttribute(bootstrapScript, 'defer')
+            && [null, '', 'text/javascript'].includes(getAttribute(bootstrapScript, 'type')),
+        ordered         = bootstrapScripts.length === 1
             && loaders.length === 1
-            && meta.sourceCodeLocation.startOffset < loader.sourceCodeLocation.startOffset;
+            && bootstrapScript.sourceCodeLocation.startOffset < loader.sourceCodeLocation.startOffset;
 
     return {
-        contents    : metas.map(node => getAttribute(node, 'content')),
+        bootstrapCount: bootstrapScripts.length,
         directHead,
-        loaderCount : loaders.length,
-        loaderOffset: loader?.sourceCodeLocation.startOffset ?? null,
-        metaCount   : metas.length,
-        metaOffset  : meta?.sourceCodeLocation.startOffset ?? null,
+        loaderCount   : loaders.length,
+        loaderOffset  : loader?.sourceCodeLocation.startOffset ?? null,
+        metaCount     : metas.length,
         ordered,
-        valid       : directHead && exactDark && loaders.length === 1 && ordered
+        parserBlocking,
+        scriptEnd     : bootstrapScript?.sourceCodeLocation.endOffset ?? null,
+        scriptStart   : bootstrapScript?.sourceCodeLocation.startOffset ?? null,
+        scriptText,
+        valid         : metas.length === 0
+            && directHead
+            && parserBlocking
+            && loaders.length === 1
+            && ordered
     }
+}
+
+/**
+ * @summary Executes the parser-blocking Workstation prepaint contract against a minimal document.
+ * @param {String} source Workstation HTML source.
+ * @param {String} search URL search to expose to the bootstrap.
+ * @returns {Object} Inserted meta and frozen carried authority.
+ */
+function runWorkstationBootstrap(source, search) {
+    const
+        {scriptText} = inspectWorkstationBootstrap(source),
+        inserted     = [],
+        context      = {
+            document: {
+                createElement(tagName) {
+                    if (tagName !== 'meta') throw new Error(`unexpected bootstrap element: ${tagName}`);
+
+                    return {tagName}
+                },
+                currentScript: {
+                    before(node) {
+                        inserted.push(node)
+                    }
+                }
+            },
+            location: {search},
+            URLSearchParams
+        };
+
+    context.globalThis = context;
+    runInNewContext(scriptText, context);
+
+    return {
+        bootstrap: {
+            colorScheme: context.WorkstationBootstrap?.colorScheme,
+            theme      : context.WorkstationBootstrap?.theme
+        },
+        frozen: Object.isFrozen(context.WorkstationBootstrap),
+        metas : inserted.map(({content, name, tagName}) => ({content, name, tagName}))
+    }
+}
+
+/**
+ * @summary Validates structural ordering plus the opposing-theme runtime matrix.
+ * @param {String} source Workstation HTML source.
+ * @returns {Boolean}
+ */
+function validatesWorkstationBootstrap(source) {
+    const contract = inspectWorkstationBootstrap(source);
+
+    if (!contract.valid) return false;
+
+    try {
+        const
+            dark  = runWorkstationBootstrap(source, '?theme=neo-theme-neo-dark'),
+            light = runWorkstationBootstrap(source, '?theme=neo-theme-neo-light');
+
+        return JSON.stringify(dark) === JSON.stringify({
+            bootstrap: {colorScheme: 'dark', theme: 'neo-theme-neo-dark'},
+            frozen   : true,
+            metas    : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}]
+        }) && JSON.stringify(light) === JSON.stringify({
+            bootstrap: {colorScheme: 'light', theme: 'neo-theme-neo-light'},
+            frozen   : true,
+            metas    : [{content: 'light', name: 'color-scheme', tagName: 'meta'}]
+        })
+    } catch {
+        return false
+    }
+}
+
+/**
+ * @summary Executes the App-Worker theme resolver after installing the Neo unit-test realm.
+ * @returns {Promise<Object>} Resolution matrix for carried, absent, and invalid values.
+ */
+async function runWorkstationAppThemeProbe() {
+    const script = `
+        import Neo from './src/Neo.mjs';
+        import * as core from './src/core/_export.mjs';
+        import {setup} from './test/playwright/setup.mjs';
+
+        setup({appConfig: {name: 'WorkstationThemeResolverTest'}});
+
+        const
+            {resolveBootstrapTheme} = await import('./apps/workstation/app.mjs'),
+            themes = ['neo-theme-neo-dark', 'neo-theme-neo-light'],
+            resolve = search => resolveBootstrapTheme({search, themes});
+
+        console.log(JSON.stringify({
+            dark      : resolve('?theme=neo-theme-neo-dark'),
+            invalid   : resolve('?theme=neo-theme-candidate'),
+            light     : resolve('?theme=neo-theme-neo-light'),
+            missing   : resolve(''),
+            schemeList: resolve('?theme=dark%20light')
+        }))
+    `;
+    const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+        cwd     : REPO_ROOT,
+        encoding: 'utf8',
+        timeout : 15_000
+    });
+
+    return JSON.parse(stdout.trim().split('\n').at(-1))
 }
 
 /**
@@ -284,41 +413,76 @@ async function runNativeWindowRouteProbe(scenario) {
 }
 
 test.describe('Workstation popup canvas bootstrap (#16092)', () => {
-    test('Workstation declares one direct-head dark canvas before MicroLoader bootstrap', async () => {
+    test('Workstation resolves one parser-blocking active-theme canvas before MicroLoader', async () => {
         const
-            source   = await readFile(WORKSTATION_HTML_PATH, 'utf8'),
-            contract = inspectWorkstationBootstrap(source);
+            [source, configSource] = await Promise.all([
+                readFile(WORKSTATION_HTML_PATH, 'utf8'),
+                readFile(WORKSTATION_CONFIG_PATH, 'utf8')
+            ]),
+            config   = JSON.parse(configSource),
+            contract = inspectWorkstationBootstrap(source),
+            dark     = runWorkstationBootstrap(source, '?theme=neo-theme-neo-dark'),
+            light    = runWorkstationBootstrap(source, '?theme=neo-theme-neo-light');
 
-        expect(contract.metaCount).toBe(1);
-        expect(contract.contents).toEqual(['dark']);
+        expect(config.themes).toEqual(['neo-theme-neo-dark', 'neo-theme-neo-light']);
+        expect(contract.metaCount, 'the runtime script owns the only color-scheme meta').toBe(0);
+        expect(contract.bootstrapCount).toBe(1);
         expect(contract.directHead).toBe(true);
+        expect(contract.parserBlocking).toBe(true);
         expect(contract.loaderCount).toBe(1);
-        expect(contract.metaOffset).toBeLessThan(contract.loaderOffset);
+        expect(contract.scriptStart).toBeLessThan(contract.loaderOffset);
         expect(contract.ordered).toBe(true);
-        expect(contract.valid).toBe(true)
+        expect(contract.valid).toBe(true);
+        expect(dark).toEqual({
+            bootstrap: {colorScheme: 'dark', theme: 'neo-theme-neo-dark'},
+            frozen   : true,
+            metas    : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}]
+        });
+        expect(light).toEqual({
+            bootstrap: {colorScheme: 'light', theme: 'neo-theme-neo-light'},
+            frozen   : true,
+            metas    : [{content: 'light', name: 'color-scheme', tagName: 'meta'}]
+        })
     });
 
-    test('Workstation bootstrap contract rejects removal, duplication, late placement, and a scheme list', async () => {
+    test('Workstation bootstrap rejects removal, duplication, late placement, scheme lists, and arbitrary themes', async () => {
         const
             source    = await readFile(WORKSTATION_HTML_PATH, 'utf8'),
-            metaLine  = `    ${COLOR_SCHEME_META}\n`,
+            contract  = inspectWorkstationBootstrap(source),
+            script    = source.slice(contract.scriptStart, contract.scriptEnd),
             mutations = {
                 afterLoader: source
-                    .replace(metaLine, '')
-                    .replace(MICRO_LOADER_SCRIPT, `${MICRO_LOADER_SCRIPT}\n    ${COLOR_SCHEME_META}`),
-                duplicate : source.replace(COLOR_SCHEME_META, `${COLOR_SCHEME_META}\n    ${COLOR_SCHEME_META}`),
-                removal   : source.replace(metaLine, ''),
-                schemeList: source.replace('content="dark"', 'content="dark light"')
+                    .replace(script, '')
+                    .replace(MICRO_LOADER_SCRIPT, `${MICRO_LOADER_SCRIPT}\n    ${script}`),
+                duplicate : source.replace(script, `${script}\n    ${script}`),
+                removal   : source.replace(script, ''),
+                schemeList: source.replace(DARK_SCHEME_MAPPING, "'neo-theme-neo-dark': 'dark light'")
             };
 
         expect(Object.fromEntries(Object.entries(mutations).map(([name, html]) => [
             name,
-            inspectWorkstationBootstrap(html).valid
+            validatesWorkstationBootstrap(html)
         ]))).toEqual({
             afterLoader: false,
             duplicate  : false,
             removal    : false,
             schemeList : false
+        });
+        expect(runWorkstationBootstrap(source, '').bootstrap)
+            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'});
+        expect(runWorkstationBootstrap(source, '?theme=neo-theme-candidate').bootstrap)
+            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'});
+        expect(runWorkstationBootstrap(source, '?theme=dark%20light').bootstrap)
+            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'})
+    });
+
+    test('the App Worker resolves the same carried theme before creating its viewport', async () => {
+        await expect(runWorkstationAppThemeProbe()).resolves.toEqual({
+            dark      : 'neo-theme-neo-dark',
+            invalid   : 'neo-theme-neo-dark',
+            light     : 'neo-theme-neo-light',
+            missing   : 'neo-theme-neo-dark',
+            schemeList: 'neo-theme-neo-dark'
         })
     });
 });
