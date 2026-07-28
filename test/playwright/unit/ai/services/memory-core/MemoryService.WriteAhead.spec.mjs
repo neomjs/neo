@@ -43,6 +43,8 @@ import {drainMemoryWal}                              from './util.mjs';
  * the service reads (assertion-targeting only) — pinning a different dir via env is worker-order
  * dependent, because another spec in the worker may construct the singleton first.
  */
+let MEMORY_ACCEPTED_MESSAGE;
+
 test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
     test.describe.configure({mode: 'serial'});
 
@@ -54,7 +56,8 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         testWalDir     = aiConfig.memoryWal.dir;
 
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        MemoryService        = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+        ({default: MemoryService, MEMORY_ACCEPTED_MESSAGE} =
+            await import('../../../../../../ai/services/memory-core/MemoryService.mjs'));
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
@@ -119,6 +122,63 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect((await readPendingWalRecords({dir: testWalDir})).length).toBe(before);
     });
 
+    test('the response distinguishes ACCEPTED from QUERYABLE, and reports a measured backlog', async () => {
+        // The disclosure the write path previously omitted. `message: "Memory successfully added"` was
+        // true about acceptance and read as queryability, so an immediate read-back returning nothing
+        // read as data loss — which on a live deployment cost three sessions and wrote a phantom
+        // outage into the corpus as durable history.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt: 'visibility prompt', thought: 'visibility thought', response: 'visibility response'
+        }));
+
+        // Durable AND not-yet-queryable, stated as two separate facts rather than one word.
+        expect(result.id).toBeTruthy();
+        expect(result.error).toBeUndefined();
+        expect(result.visibility.queryable).toBe(false);
+        expect(result.visibility.state).toBe('deferred');
+        expect(result.visibility.thisWritePending).toBe(true);
+
+        // The signal must be ACTIONABLE, not a prose caveat: a depth a caller can branch on, and one
+        // that counts this write, so a fresh write is never reported as 0 pending.
+        expect(result.visibility.pendingDrainDepth).toBeGreaterThan(0);
+        expect(typeof result.visibility.oldestPendingAgeMs).toBe('number');
+
+        // It must not swing the other way either — the write IS durable, so nothing in the response
+        // may read as failure or partial success.
+        expect(result.message).not.toMatch(/fail|error|partial|lost|unsaved/i);
+
+        // No fabricated ETA. There is no drain cadence to derive one from, and a plausible number with
+        // nothing behind it is the exact class of value this disclosure exists to remove.
+        expect(result.visibility.expectedVisibleBy).toBeUndefined();
+
+        // The caveat has to steer AWAY from the retry, because retrying was the observed behaviour and
+        // it duplicates the memory without making the first copy visible sooner.
+        expect(result.visibility.hint).toMatch(/retry/i);
+    });
+
+    test('accepted and queryable cannot collapse back into one boolean', async () => {
+        // Refactor guard, per the AC. The failure this protects is subtle: someone folds `visibility`
+        // into `message`, or makes `queryable` mirror the save's success, and the response silently
+        // returns to answering the wrong question while every other test stays green.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt: 'collapse prompt', thought: 'collapse thought', response: 'collapse response'
+        }));
+
+        // Two independent fields. A single boolean cannot express "durable but not retrievable".
+        expect(result.visibility).toBeTruthy();
+        expect(result.visibility.queryable).toBe(false);
+        expect(result.id).toBeTruthy();
+
+        // POSITIVE CONTROL on the drain surface: with writes pending it must NOT claim everything is
+        // queryable. Without this, `allWritesQueryable` could be hardcoded true and the poll a caller
+        // is told to trust would confirm visibility that does not exist.
+        const drain = await MemoryService.describeDrainState();
+
+        expect(drain.observable).toBe(true);
+        expect(drain.pendingDrainDepth).toBeGreaterThan(0);
+        expect(drain.allWritesQueryable).toBe(false);
+    });
+
     test('AC2: a DOWN content store cannot fail the save — the write path never touches it', async () => {
         collectionMode = 'throw';
         const touchesBefore = collectionTouches;
@@ -130,7 +190,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(result.code).toBeUndefined();
         expect(result.error).toBeUndefined();
         expect(result.id).toBeTruthy();
-        expect(result.message).toBe('Memory successfully added');
+        expect(result.message).toBe(MEMORY_ACCEPTED_MESSAGE);
 
         // Strongest form of never-fail: addMemory performed ZERO collection resolutions —
         // the embed daemon is the only consumer of the content store on the memory write side.
@@ -174,7 +234,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             expect(result.code).toBeUndefined();
             expect(result.error).toBeUndefined();
             expect(result.id).toBeTruthy();
-            expect(result.message).toBe('Memory successfully added');
+            expect(result.message).toBe(MEMORY_ACCEPTED_MESSAGE);
 
             // Let the scheduled projection attempt run and fail under the stub. The failure must
             // stay logged/fail-soft, not turn into a rejected add_memory result or unhandled throw.

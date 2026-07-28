@@ -553,12 +553,31 @@ paths:
       operationId: add_memory
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: Persist one consolidated turn memory for the active agent session.
+      x-neo-tool-summary: Persist one turn memory. Durable on return; NOT queryable yet — an immediate read-back may find nothing.
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
 
         **MANDATORY FINAL STEP:** You MUST call this tool at the end of every turn, *before* generating your final response to the user.
         **CRITICAL:** This is the primary endpoint for making agents stateful. Forgetting to call this results in permanent data loss for the session.
+
+        **ACCEPTED IS NOT YET QUERYABLE — read this before concluding a write was lost.** On return the
+        memory is durably logged and cannot be lost. It is not yet retrievable: the write-ahead log
+        drains to the vector store asynchronously, so `query_raw_memories` or `query_recent_turns`
+        called immediately afterwards may not return it. **That is expected and is not data loss.**
+
+        The response says so in `visibility`: `queryable: false`, `pendingDrainDepth` (how many
+        accepted writes are ahead of the drain, including this one), and `oldestPendingAgeMs`. There is
+        deliberately no predicted visible-by time — no drain cadence exists to derive one from, and a
+        made-up ETA would be worse than none.
+
+        **Do not retry the write.** A retry stores a second copy and does not make the first visible
+        any sooner. To confirm visibility, poll `healthcheck` and read `memoryWalDrain`:
+        `allWritesQueryable: true` (equivalently `pendingDrainDepth: 0`) is the only state meaning
+        every accepted write has landed in the queryable store.
+
+        This caveat exists because its absence cost a live deployment three sessions: a team wrote,
+        read back, saw nothing, concluded the write had silently no-opped, and recorded that phantom
+        outage into their own corpus as durable history. Every write had landed.
 
         **Session Isolation:** If `sessionId` is omitted from the payload, it is automatically resolved from the request-bound `Mcp-Session-Id` header (when present).
       tags: [Memories]
@@ -3152,7 +3171,47 @@ components:
           example: "2025-10-08T12:00:00.000Z"
         message:
           type: string
-          example: "Memory successfully added"
+          description: >-
+            States ACCEPTANCE, not queryability. Deliberately no longer reads "successfully added" —
+            that wording answered "was it accepted?" while callers read it as "is it retrievable?".
+          example: "Memory accepted and durably logged; queryability is deferred until the embed drain reconciles it (see `visibility`)."
+        visibility:
+          type: object
+          description: >-
+            Whether this write is retrievable yet. The write is DURABLE on return and cannot be lost;
+            it is not yet queryable, because the write-ahead log drains to the vector store
+            asynchronously. Present so a caller branches on a field instead of on prose — an immediate
+            read-back returning nothing is expected here and is NOT data loss. Poll `healthcheck`
+            (`memoryWalDrain`) to confirm visibility; do not retry the write, which duplicates it
+            without making the first copy visible sooner.
+          properties:
+            queryable:
+              type: boolean
+              description: Always false on a fresh write — acceptance and queryability are distinct states.
+              example: false
+            state:
+              type: string
+              enum: [deferred, deferred-depth-unavailable]
+              description: >-
+                `deferred` is the normal path. `deferred-depth-unavailable` means the drain depth could
+                not be read — it never reports a reassuring zero it did not measure.
+            pendingDrainDepth:
+              type: integer
+              nullable: true
+              description: >-
+                Accepted writes not yet reconciled into the queryable store, INCLUDING this one — so a
+                fresh write is never 0. `null` when the depth could not be read.
+              example: 3
+            oldestPendingAgeMs:
+              type: integer
+              nullable: true
+              description: Age of the oldest unreconciled write. `null` when nothing is pending or the read failed.
+            thisWritePending:
+              type: boolean
+              description: Whether this specific write is among the unreconciled records.
+            hint:
+              type: string
+              description: What to do instead of retrying.
         mailbox:
           description: |
             Per-turn A2A mailbox delta signal — unread-inbox awareness piggybacked on every

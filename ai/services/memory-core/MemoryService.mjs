@@ -19,6 +19,35 @@ import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConc
 import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
 
 /**
+ * The `add_memory` success message. Deliberately says ACCEPTED rather than "successfully added":
+ * the previous wording answered "was it accepted?" while callers read it as "is it queryable?",
+ * and an immediate read-back returning nothing then reads as data loss. It must also not swing the
+ * other way — the write IS durable at this point, so nothing here may imply failure or partial
+ * success. `visibility` on the same response carries the actionable half.
+ * @type {String}
+ */
+/**
+ * Coerces a WAL record timestamp to epoch ms.
+ *
+ * The WAL persists `timestamp: Date.now()` — a NUMBER — so `Date.parse` on it returns NaN. My first
+ * pass assumed an ISO string and silently reported `oldestPendingAgeMs: null` for every backlog,
+ * which would have shipped a field that is always null while looking measured. Both forms are
+ * accepted because the store's own segment-key derivation tolerates both.
+ *
+ * @param {String|Number|undefined} value
+ * @returns {Number|null}
+ */
+function walTimestampToEpochMs(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+
+    const parsed = Date.parse(value ?? '');
+
+    return Number.isFinite(parsed) ? parsed : null
+}
+
+export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged; queryability is deferred until the embed drain reconciles it (see `visibility`).';
+
+/**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
  * a `MemoryService` ⇄ `SessionService` import cycle). Kept exported here for back-compat with
  * existing importers.
@@ -490,7 +519,23 @@ class MemoryService extends Base {
                 logger.warn(`[MemoryService] Turn presence terminalization skipped (non-fatal): ${error.message}`);
             }
 
-            return {id: memoryId, sessionId, timestamp, message: "Memory successfully added", mailbox};
+            // 7. Disclose that ACCEPTANCE is not yet QUERYABILITY.
+            //
+            // The old response was `message: "Memory successfully added"` and nothing else. That
+            // sentence is true — the WAL append above makes the write durable — and it answers
+            // "was it accepted?" while a caller is asking "can I rely on it?". An immediate
+            // read-back is the natural way to check the second, returns nothing while the embed
+            // drain is still pending, and reads as DATA LOSS. On a live deployment that cost a team
+            // three sessions and wrote a phantom outage into their own corpus as durable history.
+            //
+            // The failure direction is what makes it expensive: a caller who assumes immediate
+            // visibility concludes the write vanished, which is the most alarming available wrong
+            // answer and the one most likely to trigger a redeploy — which really does destroy the
+            // corpus. So the disclosure has to be structured, not just prose: an agent branches on
+            // fields, and a caveat it has to read is a caveat it can skip.
+            const visibility = await this.describeWriteVisibility({memoryId, walDir});
+
+            return {id: memoryId, sessionId, timestamp, message: MEMORY_ACCEPTED_MESSAGE, visibility, mailbox};
         } catch (error) {
             // Reaches here only for WAL acceptance or validation-adjacent failures. Graph
             // projection, embed, and every model-dependent step are off this path by construction.
@@ -523,6 +568,101 @@ class MemoryService extends Base {
      * @returns {void}
      * @private
      */
+    /**
+     * @summary Reports the memory WAL drain backlog, so "is my write visible yet?" is answerable.
+     *
+     * The disclosure on `add_memory` tells a caller queryability is deferred; this is what they poll
+     * to find out when it is not. Shipping the disclosure without this would just relocate the
+     * uncertainty — an honest caveat with no instrument behind it leaves the caller exactly as stuck,
+     * and still guessing.
+     *
+     * Measured only, for the same reason as the per-write disclosure: no drain cadence exists to
+     * derive an ETA from, so this reports depth and age and declines to predict.
+     *
+     * @returns {Promise<Object>}
+     */
+    async describeDrainState() {
+        const walDir = aiConfig.memoryWal.dir;
+
+        try {
+            const pending = await readPendingWalRecords({dir: walDir}),
+                  oldest  = pending.reduce(
+                      (min, record) => {
+                          const at = walTimestampToEpochMs(record?.timestamp);
+
+                          return at !== null && (min === null || at < min) ? at : min
+                      },
+                      null
+                  );
+
+            return {
+                observable        : true,
+                pendingDrainDepth : pending.length,
+                oldestPendingAgeMs: oldest === null ? null : Math.max(0, Date.now() - oldest),
+                // Zero pending is the ONLY state that means every accepted write is queryable, and it
+                // is stated positively so a caller does not have to infer it from an absent field.
+                allWritesQueryable: pending.length === 0
+            }
+        } catch (error) {
+            logger.warn(`[MemoryService] Drain-state read degraded (non-fatal): ${error.message}`);
+
+            // Says it could not measure rather than reporting a reassuring zero. A drain read that
+            // fails is not an empty backlog, and reporting 0 here would recreate the original defect
+            // one layer up: a caller trusting a number that means "unknown".
+            return {observable: false, pendingDrainDepth: null, oldestPendingAgeMs: null, allWritesQueryable: null}
+        }
+    }
+
+    /**
+     * @summary Describes whether a just-accepted write is queryable yet, and how far behind it is.
+     *
+     * Returns MEASURED state only. There is deliberately no `expectedVisibleBy`: the embed drain has
+     * no cadence leaf and the daemon exposes no interval, so any ETA would be a plausible number with
+     * nothing behind it — the exact class of value this disclosure exists to eliminate. Reporting
+     * "you are behind N records, the oldest pending for Xms" is smaller and true, and a caller can act
+     * on it. `pendingDrainDepth` counts this write too, so a freshly accepted memory is never 0.
+     *
+     * Fails soft: this is a disclosure attached to an already-successful durable write, so a WAL read
+     * problem must degrade the disclosure rather than turn a successful save into an error. That is
+     * the one place a soft failure is correct here, and it is scoped to a filesystem read.
+     *
+     * @param {Object} options
+     * @param {String} options.memoryId Id of the write just accepted.
+     * @param {String} options.walDir Resolved WAL directory.
+     * @returns {Promise<Object>}
+     */
+    async describeWriteVisibility({memoryId, walDir}) {
+        try {
+            const pending = await readPendingWalRecords({dir: walDir}),
+                  oldest  = pending.reduce(
+                      (min, record) => {
+                          const at = walTimestampToEpochMs(record?.timestamp);
+
+                          return at !== null && (min === null || at < min) ? at : min
+                      },
+                      null
+                  );
+
+            return {
+                queryable         : false,
+                state             : 'deferred',
+                pendingDrainDepth : pending.length,
+                oldestPendingAgeMs: oldest === null ? null : Math.max(0, Date.now() - oldest),
+                thisWritePending  : pending.some(record => record?.id === memoryId),
+                hint              : 'An immediate read-back may not return this write. Poll `healthcheck` for `memoryWalDrain` rather than retrying the write — a retry duplicates it and does not make the first one visible sooner.'
+            }
+        } catch (error) {
+            logger.warn(`[MemoryService] Write-visibility disclosure degraded (non-fatal): ${error.message}`);
+
+            return {
+                queryable        : false,
+                state            : 'deferred-depth-unavailable',
+                pendingDrainDepth: null,
+                hint             : 'An immediate read-back may not return this write. Drain depth could not be read; poll `healthcheck` for `memoryWalDrain`.'
+            }
+        }
+    }
+
     _scheduleMemoryGraphProjection(options, attempt = 1) {
         // Read the reactive AiConfig leaves at the use site (re-read per retry attempt) so a runtime
         // healing-mutation (recovery actuator setData) is reflected — never captured at module load.
