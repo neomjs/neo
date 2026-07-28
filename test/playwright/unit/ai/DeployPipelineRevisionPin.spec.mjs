@@ -122,7 +122,14 @@ async function createFakeBin(plainLines, peelLine = '') {
  */
 function preflightEnv(fake, declareInitialization) {
     return {
-        NEO_BACKUP_PATH      : path.join(fake.bin, '..', 'preflight-backups'),
+        // INSIDE the per-test temp dir, never `fake.bin/..` — that resolved to `os.tmpdir()` itself, so
+        // every test AND every run on the machine shared one backup root. The gate's own contract is
+        // that `--initialize` works once per host, so a shared root made the first initializing test
+        // write a marker that made all the later ones refuse. Diagnosed by @neo-gpt.
+        //
+        // It also made the suite non-idempotent in a way a single local run cannot show: the first run
+        // passed because the marker did not exist yet, and created the state that failed the second.
+        NEO_BACKUP_PATH      : path.join(fake.bin, 'preflight-backups'),
         NEO_DEPLOY_INITIALIZE: declareInitialization ? '1' : '0'
     }
 }

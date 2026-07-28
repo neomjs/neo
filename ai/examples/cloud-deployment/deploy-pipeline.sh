@@ -165,11 +165,18 @@ echo "[deploy] profiles: ${profile_args[*]}"
 #
 # Scope, stated honestly: this guards the path we ship. It cannot intercept a hand-typed
 # `docker compose down -v`.
-preflight_args=()
-if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ]; then preflight_args+=(--initialize); fi
+# No array. Under `set -u`, expanding an EMPTY bash array as `"${arr[@]}"` is an unbound-variable
+# error on bash 3.2 — which macOS ships and CI does not, so this failed on maintainer machines while
+# hosted CI stayed green on it. Two explicit invocations are clearer than the `${arr[@]+...}`
+# incantation that works around it, and they cannot regress the same way.
+PREFLIGHT="$SCRIPT_DIR/../../scripts/maintenance/redeployPreflight.mjs"
 
 echo "[deploy] running redeploy survivability preflight..."
-node "$SCRIPT_DIR/../../scripts/maintenance/redeployPreflight.mjs" "${preflight_args[@]}"
+if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ]; then
+    node "$PREFLIGHT" --initialize
+else
+    node "$PREFLIGHT"
+fi
 
 # Build + recreate containers, KEEPING named volumes and the backup bind-mount.
 # `--wait` blocks until every service with a healthcheck reports healthy and
