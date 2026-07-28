@@ -76,6 +76,8 @@ import {collectLaneStateToolEvidenceFromJsonl,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../ai/scripts/lifecycle/materialArtifactKey.mjs';
+import {appendHookProjection,
+        readConfiguredHookProjection} from '../../ai/scripts/lifecycle/hookProjectionReader.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
@@ -97,8 +99,8 @@ const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
  * every turn-end instead of degrading. On resolution failure the hook takes its existing
  * fail-open posture — allow the stop — which is the hook's own safety default, NOT a shadow copy of
  * a config default (there is no hardcoded policy literal here to drift from the leaves).
- * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean}|null>} `null` when the
- * config tree could not be resolved, which the caller treats as allow-and-audit.
+ * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean, projection: Object}|null>}
+ * `null` when the config tree could not be resolved, which the caller treats as allow-and-audit.
  * @protected
  */
 async function resolveStopHookPolicy() {
@@ -108,9 +110,22 @@ async function resolveStopHookPolicy() {
 
         const {default: AiConfig} = await import('../../ai/config.mjs');
 
+        const projection = AiConfig.stopHook.projection;
+
         return {
             deferenceMirror : AiConfig.stopHook.deferenceMirror,
-            laneContinuation: AiConfig.stopHook.laneContinuation
+            laneContinuation: AiConfig.stopHook.laneContinuation,
+            projection      : {
+                path              : projection.path,
+                targetId          : projection.targetId,
+                capability        : projection.capability,
+                agentId           : projection.agentId,
+                harnessType       : projection.harnessType,
+                instanceKeyDigest : projection.instanceKeyDigest,
+                workspaceKeyDigest: projection.workspaceKeyDigest,
+                maxRows           : projection.maxRows,
+                maxBytes          : projection.maxBytes
+            }
         };
     } catch (e) {
         auditLog(`CONFIG-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): could not resolve stopHook policy (${e.message}); allowing stop.`);
@@ -305,10 +320,9 @@ const MIRROR_POINTER = `This hook is a MIRROR, not a leash: a hit means you slip
 // later) — else the clause becomes a new sophisticated-hold costume ("I'm friction→gold-ing the hook").
 const SELF_IMPROVABILITY_CLAUSE = `friction→gold applies to THIS hook: if it fired wrong — a false positive, or it reads as a leash not a mirror — open a ticket to sharpen it rather than silently absorbing it. But that ticket is a separate design-time lane, NOT a license to stop this turn: obey the hook now, improve it later. "I'm filing a friction→gold ticket" is not itself a valid stop. The hook is mutable substrate, not a command.`;
 
-// The orchestrator/wake daemon writes the current agent's lane-state here (computation preserved, the
-// wake-INTERRUPT dropped); this hook reads it on a block — cheap, no network, inside the 10s budget —
-// and injects the live board so the refuse-directive is ACTIONABLE at the moment the next-action
-// decision happens. This is the hook-READ side; the daemon-WRITE side is a sibling lane.
+// The typed cutover no longer calls this legacy reader from the active hook directive. The utilities
+// remain until the planned removal phase deletes the legacy writer/file and their focused regression
+// history; missing/invalid typed projection now falls to the bare policy, never back to this file.
 const LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
 
 // Freshness window for the daemon-written state: anything older degrades exactly like a missing
@@ -467,26 +481,21 @@ export function formatCapacityAdvisory(state, {threshold = 3} = {}) {
 }
 
 /**
- * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (lifecycle +
- * teeth-test) + the Computed Golden Path release-goal direction (the release-goal anchor) + the
- * capacity advisory (review seats outrank new artifacts past the own-open-PR threshold) + the agent's
- * live lane-state board + the always-present mirror-pointer (discoverability) + the self-improvability
- * clause (the floor is mutable substrate) + the trigger `cause`. Reminder is WHAT-to-do, the direction
- * is WHICH-lane-serves-the-release-goal, capacity is WHICH-KIND-of-lane-first, the board is
- * WHAT'S-actionable-now, the mirror-pointer is WHY-this-is-not-a-leash, the clause is
- * HOW-to-fix-it-when-wrong, the cause is WHY-blocked. Fail-open on the direction + capacity + board
- * (missing/bad file → bare reminder). ONE best-effort file read shared by all three formatters;
- * exported + unit-tested.
+ * @summary Composes the directive injected on a block: the curated no-hold reminder, the
+ * discoverability mirror, the self-improvability clause, and optional typed live-lane projection
+ * enrichment. Missing/invalid typed enrichment returns the byte-identical bare directive; the legacy
+ * `lifecycle-state.json` is never consulted on this active path.
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
+ * @param {String[]} [holdMatches]
+ * @param {Object} [options]
+ * @param {String} [options.projectionRender]
  * @returns {String}
  */
-export function composeBlockDirective(cause, holdMatches = []) {
-    const state     = readLifecycleState(),
-          direction = formatGoldenPathDirection(state),
-          capacity  = formatCapacityAdvisory(state),
-          board     = formatLifecycleBoard(state),
-          costume   = formatHoldCostumeCallout(holdMatches);
-    return `${IDLE_REMINDER}${direction}${capacity}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+export function composeBlockDirective(cause, holdMatches = [], {projectionRender = ''} = {}) {
+    const costume   = formatHoldCostumeCallout(holdMatches),
+          directive = `${IDLE_REMINDER}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+
+    return appendHookProjection(directive, projectionRender)
 }
 
 /**
@@ -742,7 +751,11 @@ async function main() {
         process.exit(0);
     }
 
-    const {deferenceMirror: DEFERENCE_MIRROR, laneContinuation: LANE_CONTINUATION} = policy;
+    const {
+        deferenceMirror : DEFERENCE_MIRROR,
+        laneContinuation: LANE_CONTINUATION,
+        projection      : PROJECTION
+    } = policy;
 
     // Resolve the agent's FINAL message text (last_assistant_message, or JSONL-extracted from the
     // transcript) — NOT the raw transcript: raw Claude JSONL is JSON-escaped, so the fence parser
@@ -802,9 +815,21 @@ async function main() {
 
         if (deferenceDecision.action === 'block') {
             auditLog(`BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+
+            let projectionRender = '';
+            try {
+                projectionRender = readConfiguredHookProjection({
+                    config: PROJECTION,
+                    now   : Date.now()
+                }).render
+            } catch (e) {
+                // Projection enrichment is informational. A reader bug must never alter Stop admission.
+                auditLog(`PROJECTION-ERROR (identity=${identity}): ${e.message}; using bare Stop directive.`);
+            }
+
             process.stdout.write(JSON.stringify({
                 decision: 'block',
-                reason  : deferenceDecision.reason
+                reason  : appendHookProjection(deferenceDecision.reason, projectionRender)
             }), () => process.exit(0));
             return;
         }
@@ -931,7 +956,18 @@ async function main() {
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
-        const directive = composeBlockDirective(reason, holdMatches);
+        let projectionRender = '';
+        try {
+            projectionRender = readConfiguredHookProjection({
+                config: PROJECTION,
+                now   : Date.now()
+            }).render
+        } catch (e) {
+            // Projection enrichment is informational. A reader bug must never alter Stop admission.
+            auditLog(`PROJECTION-ERROR (identity=${identity}): ${e.message}; using bare Stop directive.`);
+        }
+
+        const directive = composeBlockDirective(reason, holdMatches, {projectionRender});
         process.stdout.write(JSON.stringify({decision: 'block', reason: directive}), () => process.exit(0));
         return;
     }

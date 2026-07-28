@@ -427,7 +427,7 @@ select Bird Views, copy a Bird-View narrative, or change turn admission.
 |---|---|---|
 | Fresh lifecycle | Bounded response-required rows with `actionableSince` and visible “as of” | None |
 | Empty lifecycle | Explicit honest-empty status when density permits | None |
-| Missing/ambiguous/stale/degraded lifecycle | No action rows; concise unavailable/stale/degraded marker | None |
+| Reader concludes binding is ambiguous, or lifecycle channel is missing/stale/degraded | No action rows; concise unavailable/stale/degraded marker | None |
 | Fresh route | Bounded `route.items`, route version, and visible “as of” | None |
 | Empty route | Honest empty; advisory context remains visibly non-executable | None |
 | Missing/stale/degraded route | No ranked rows; concise channel status | None |

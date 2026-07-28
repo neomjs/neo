@@ -4,6 +4,8 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 
+import {makeHookProjectionFixture} from './fixtures/hookProjection.mjs';
+
 import {
     CODEX_STOP_BLOCK_INJECTION_SUPPORTED,
     buildNoHoldReminder,
@@ -477,9 +479,10 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
      * @param {Boolean} [options.enforce=false]
      * @param {Boolean} [options.capture=false]
      * @param {String} [options.promptContextText]
+     * @param {Object|null} [options.hookProjection=null]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(payload, {enforce = false, capture = false, promptContextText} = {}) {
+    function runHook(payload, {enforce = false, capture = false, promptContextText, hookProjection = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-lane-hook-')),
                   // Spawned counterpart of the CONTINUATION_ON injection above: the child process
@@ -488,6 +491,20 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
 
             if (enforce) env.NEO_CODEX_LANE_STATE_ENFORCE = '1';
             if (capture) env.NEO_CODEX_LANE_STATE_CAPTURE = '1';
+            if (hookProjection !== null) {
+                const projectionPath = path.join(dir, 'hook-projection-current.json'),
+                      binding        = hookProjection.consumerBinding;
+
+                fs.writeFileSync(projectionPath, JSON.stringify(hookProjection), 'utf8');
+                Object.assign(env, {
+                    NEO_HOOK_PROJECTION_PATH                : projectionPath,
+                    NEO_HOOK_PROJECTION_TARGET_ID           : hookProjection.publication.targetId,
+                    NEO_AGENT_IDENTITY                      : binding.agentId,
+                    NEO_HOOK_PROJECTION_HARNESS_TYPE        : binding.harnessType,
+                    NEO_HOOK_PROJECTION_INSTANCE_KEY_DIGEST : binding.instanceKeyDigest,
+                    NEO_HOOK_PROJECTION_WORKSPACE_KEY_DIGEST: binding.workspaceKeyDigest
+                })
+            }
             if (promptContextText) {
                 fs.writeFileSync(path.join(dir, 'codex-prompt-context.json'), JSON.stringify({
                     createdAt    : new Date().toISOString(),
@@ -613,6 +630,28 @@ test.describe('codex-lane-state-stop - spawned hook', () => {
         expect(log).toContain('promptSource=none');
         expect(log).toContain('operatorInLoop=false');
         expect(log).toContain('Unknown laneContinuation');
+    });
+
+    test('enforced block appends the typed lifecycle then global route without changing admission', async () => {
+        const {stdout, log} = await runHook({
+            session_id            : 'typed-projection',
+            last_assistant_message: block('{"laneContinuation":"verified-no-lane"}')
+        }, {
+            enforce       : true,
+            hookProjection: makeHookProjectionFixture({harnessType: 'codex'})
+        });
+
+        const decision       = JSON.parse(stdout),
+              lifecycleIndex = decision.reason.indexOf('Lifecycle hook-lifecycle-action'),
+              routeIndex     = decision.reason.indexOf('Route hook-route-v1');
+
+        expect(decision.decision).toBe('block');
+        expect(log).toContain('BLOCK');
+        expect(decision.reason).toContain('Live lane awareness — source data only');
+        expect(lifecycleIndex).toBeGreaterThan(-1);
+        expect(routeIndex).toBeGreaterThan(lifecycleIndex);
+        expect(decision.reason).toContain('issue-15315');
+        expect(decision.reason).toContain("Unknown laneContinuation 'verified-no-lane'");
     });
 
     test('malformed transcript fallback fails open instead of trapping Stop', async () => {
