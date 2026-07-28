@@ -755,25 +755,24 @@ export class DeploymentStateBridgeService extends Base {
  * `validateOffHostSyncConfig` owns that contract, because the `offHostSync` keys are plain nested
  * values inside the `maintenance` object leaf rather than leaves of their own.
  *
- * Fails soft to an `unreadable` posture rather than throwing: this is one section of a diagnostic
- * snapshot, and a snapshot that cannot be produced at all is strictly worse than one honestly
- * reporting that it could not resolve this section. `unreadable` is a declared member of
- * `DURABILITY_POSTURES` precisely because this caller can emit it.
+ * Deliberately NOT wrapped in a catch. An earlier revision fell back to `posture: 'unreadable'` on
+ * any throw, reasoning that a degraded section beats an unproducible snapshot. That reasoning is
+ * wrong here, and the reactive-config SSOT says why: the tree is guaranteed, so the only things this can throw
+ * on are a missing leaf or a programming defect — precisely the failures that must fail loud rather
+ * than be laundered into a plausible-looking diagnostic value. A posture reading `unreadable` would
+ * have been indistinguishable from a real deployment condition, which is the same wrong-subject
+ * failure this whole projection exists to remove.
+ *
+ * Invalid OPERATOR config is a different case and stays non-throwing: it already has an explicit
+ * representation via `unmet` plus `offHostSyncConfigValid: false`.
  * @returns {Object}
  */
 function resolveConfiguredDurabilityPosture() {
-    try {
-        return resolveDurabilityPosture({
-            deploymentMode       : AiConfig.orchestrator.deploymentMode,
-            offHostBackupRequired: AiConfig.orchestrator.cloudOnly.offHostBackupRequired,
-            validationOutcome    : validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync)
-        })
-    } catch (error) {
-        return {
-            posture: 'unreadable',
-            reason : 'The off-host durability posture could not be resolved from config.'
-        }
-    }
+    return resolveDurabilityPosture({
+        deploymentMode       : AiConfig.orchestrator.deploymentMode,
+        offHostBackupRequired: AiConfig.orchestrator.cloudOnly.offHostBackupRequired,
+        validationOutcome    : validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync)
+    })
 }
 
 function summarizeInspect(inspect) {

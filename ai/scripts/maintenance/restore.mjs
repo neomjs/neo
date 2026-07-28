@@ -521,10 +521,13 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // self-diagnostic probe and the later orchestrator always receive the structured unknown.
     if (meta) {
         meta.embeddingAdvisories = embeddingAdvisories;
+        // Surfaced so a caller can decide NON-EMPTINESS from this same streaming pass instead of
+        // re-reading metadata or writing a second predicate that could disagree with this one.
+        meta.streamedCounts      = streamedCounts;
         return meta
     }
 
-    return {embeddingAdvisories, legacy: true}
+    return {embeddingAdvisories, legacy: true, streamedCounts}
 }
 
 /**
@@ -664,8 +667,13 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
  * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
  * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
- * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`, or
- * `BUNDLE_INVALID`. It exists so a caller gating on this probe branches on a value rather than
+ * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
+ * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH structurally valid
+ * and non-empty; `rowTotal` reports the row count it was decided on. That strength lives here rather
+ * than in a caller so a shell gate consumes one authoritative verdict instead of re-reading metadata
+ * and growing a second predicate able to disagree with this one.
+ *
+ * It exists so a caller gating on this probe branches on a value rather than
  * pattern-matching English out of `reason`, which would silently stop working the moment the prose
  * is reworded. `BUNDLE_ROOT_MISSING` and `NO_BUNDLES` are deliberately separate: the bundle root is
  * bind-mounted from a path relative to the compose project directory, so a run from a different host
@@ -714,8 +722,31 @@ export async function verifyLatestBackupRestorable({
     };
 
     try {
-        const meta = await validateFn(bundleRoot, layout, logger);
-        return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
+        const meta = await validateFn(bundleRoot, layout, logger),
+              // Non-emptiness is decided HERE, from the validator's own streaming pass, because a
+              // structurally-parseable bundle is not the same thing as a usable recovery source.
+              // A bundle carrying only the six required directories and a minimal meta parsed clean
+              // and returned `RESTORABLE` — the ticket's explicitly forbidden precondition, and the
+              // exact shape of the incident: the one bundle in the ledger completed after the plane
+              // was already empty. `code` has to be stronger than the prose it replaced.
+              //
+              // Vector-collection rows are the measure because they ARE the recovery payload. A
+              // bundle whose corpus is empty cannot restore a corpus, whatever else it contains.
+              rowTotal = Object.values(meta?.streamedCounts ?? {}).reduce((sum, count) => sum + count, 0);
+
+        if (rowTotal === 0) {
+            return {
+                restorable         : false,
+                code               : 'BUNDLE_EMPTY',
+                bundleRoot,
+                reason             : `bundle parses but carries zero recoverable rows: ${bundleRoot}`,
+                checkedAt,
+                rowTotal,
+                embeddingAdvisories: meta?.embeddingAdvisories ?? []
+            }
+        }
+
+        return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, rowTotal, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
     } catch (error) {
         return {restorable: false, code: 'BUNDLE_INVALID', bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
     }

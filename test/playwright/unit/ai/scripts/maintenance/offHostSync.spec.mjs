@@ -28,7 +28,11 @@ import {
     validateOffHostSyncConfig,
     writeBackupReceipt
 } from '../../../../../../ai/scripts/maintenance/offHostSync.mjs';
-import {__private__, readBackupReceipt} from '../../../../../../ai/services/memory-core/helpers/offHostSyncStore.mjs';
+import {
+    __private__,
+    OFFHOST_SYNC_ERROR_CODE,
+    readBackupReceipt
+} from '../../../../../../ai/services/memory-core/helpers/offHostSyncStore.mjs';
 
 const VALID_CONFIG = {
     argv        : ['-e', 'process.exit(0)'],
@@ -42,8 +46,42 @@ const makeTmp = () => mkdtempSync(path.join(tmpdir(), 'neo-offhost-'));
 
 test.describe('offHostSync config validation (ticket-owned contract)', () => {
     test('empty command is disabled, not an error', () => {
-        expect(validateOffHostSyncConfig({command: ''})).toEqual({enabled: false, error: null, value: null});
-        expect(validateOffHostSyncConfig(undefined)).toEqual({enabled: false, error: null, value: null});
+        // `errorCode` is declared here because this exact-shape assertion IS the contract: a field
+        // added to the outcome has to be named or the addition goes unwitnessed. Disabled-but-valid
+        // carries a null code, so the field discriminates a defect rather than merely existing.
+        expect(validateOffHostSyncConfig({command: ''})).toEqual({enabled: false, error: null, errorCode: null, value: null});
+        expect(validateOffHostSyncConfig(undefined)).toEqual({enabled: false, error: null, errorCode: null, value: null});
+    });
+
+    test('every validation failure carries a stable code that never quotes the offending value', () => {
+        // The code is what a remotely readable surface may carry; the prose is not, because the
+        // placeholder and NUL branches interpolate the token and an operator can put a credential in
+        // `argv`. Asserted as a set so the codes are DISTINCT rather than one constant reused.
+        const secret = 'ghp_LEAK_CANARY',
+              cases  = [
+                  [null,                                            'CONFIG_NOT_OBJECT'],
+                  [{command: 42},                                   'COMMAND_NOT_STRING'],
+                  [{command: 'aws', argv: 7},                       'ARGV_NOT_STRING_ARRAY'],
+                  [{command: `aws\0${secret}`},                     'NUL_BYTE'],
+                  [{command: 'aws', argv: [`--pw=${secret}{bad}`]}, 'ARGV_PLACEHOLDER_INVALID'],
+                  [{command: 'aws', envAllowlist: ['lower']},       'ENV_ALLOWLIST_INVALID'],
+                  [{command: 'aws', timeoutMs: 1},                  'TIMEOUT_OUT_OF_RANGE'],
+                  [{command: 'aws', killGraceMs: -1},               'KILL_GRACE_OUT_OF_RANGE']
+              ];
+
+        const observed = cases.map(([config, expected]) => {
+            const outcome = validateOffHostSyncConfig(config);
+
+            expect(outcome.enabled).toBe(false);
+            expect(outcome.errorCode).toBe(OFFHOST_SYNC_ERROR_CODE[expected]);
+            // The CODE is safe to project even when the prose is not.
+            expect(outcome.errorCode).not.toContain(secret);
+            expect(outcome.errorCode).toMatch(/^KB_OFFHOST_SYNC_[A-Z_]+$/u);
+
+            return outcome.errorCode
+        });
+
+        expect(new Set(observed).size).toBe(cases.length);
     });
 
     test('a disabled hook with malformed keys is a validation failure, not a silent pass', () => {

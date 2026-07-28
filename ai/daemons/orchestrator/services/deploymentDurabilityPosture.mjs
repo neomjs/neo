@@ -24,10 +24,18 @@
  */
 
 /**
- * Upper bound for the human-readable `reason`. The reason may quote a config validation error,
- * which echoes an offending `argv` token — bounded so a pathological config cannot inflate the
- * snapshot. Credential VALUES never reach here: the off-host contract keeps secrets in the
- * process environment and the config carries only allowlisted env NAMES.
+ * Upper bound for the human-readable `reason`.
+ *
+ * The reason is now assembled from FIXED sentences per posture and never interpolates config
+ * content, so the bound is defence-in-depth rather than the primary control.
+ *
+ * An earlier revision of this file claimed *"Credential VALUES never reach here: the off-host
+ * contract keeps secrets in the process environment and the config carries only allowlisted env
+ * NAMES."* That was reasoning about `envAllowlist` and it was wrong about `argv`: a hostile-config
+ * probe fed `argv: ['--password=ghp_…{bad}']`, the validator echoed the offending token into its
+ * prose, and the token appeared verbatim in the projected posture that `inspect_deployment` returns.
+ * The claim was a convention, not an enforced property — which is exactly why the enforcement now
+ * lives in the code path and a witness test asserts it.
  * @type {Number}
  */
 export const MAX_POSTURE_REASON_LENGTH = 240;
@@ -40,18 +48,18 @@ export const MAX_POSTURE_REASON_LENGTH = 240;
  * intent, never that the last sync succeeded — that is the backup receipt's `offHostSync.status`,
  * and conflating the two would let a declaration stand in as evidence of an outcome.
  *
- * `unreadable` is not a posture the derivation below returns; it is what a CALLER projects when the
- * config could not be read at all. It is listed here because a consumer validating this field must
- * accept every value that can appear in it — an enum omitting a value its own producers emit is
- * exactly the kind of false completeness claim this ticket is about.
+ * An earlier revision also listed `unreadable`, for a caller that caught any throw while reading
+ * config. That caller is gone: a missing leaf or programming defect must fail loud rather than be
+ * laundered into a diagnostic value a consumer cannot distinguish from a real deployment condition.
+ * With no producer left, keeping it would be the mirror of the mistake that put it here — an enum
+ * advertising a state the system cannot actually be in.
  * @type {String[]}
  */
 export const DURABILITY_POSTURES = Object.freeze([
     'configured',
     'not-required',
     'opted-out',
-    'unmet',
-    'unreadable'
+    'unmet'
 ]);
 
 /**
@@ -119,8 +127,13 @@ export function resolveDurabilityPosture({deploymentMode, offHostBackupRequired,
     } else if (!configValid) {
         // Invalid config is reported even when the deployment does not require off-host backup:
         // a malformed hook is a defect regardless of whether anything depends on it.
+        //
+        // The validator's PROSE is deliberately not interpolated here. It echoes the offending token,
+        // and an operator can put a credential in `argv`, so quoting it would publish that value on a
+        // remotely readable surface. `configErrorCode` below classifies the defect instead; the prose
+        // stays available to whoever holds the config locally.
         posture = required ? 'unmet' : 'not-required';
-        reason  = `The off-host sync config is invalid and will never run: ${validationOutcome.error}`;
+        reason  = 'The off-host sync config is invalid and will never run; see `configErrorCode` for the defect class.';
     } else if (optedOut) {
         posture = 'opted-out';
         reason  = 'Off-host backup is explicitly not required for this deployment (deliberate opt-out).';
@@ -136,6 +149,9 @@ export function resolveDurabilityPosture({deploymentMode, offHostBackupRequired,
 
     return {
         cloudDeployment,
+        // The stable classification of a config defect, or null when the config is valid. This is the
+        // ONLY failure detail that crosses into the remotely readable snapshot.
+        configErrorCode       : validationOutcome?.errorCode ?? null,
         offHostBackupRequired : required,
         offHostSyncConfigured : configured,
         offHostSyncConfigValid: configValid,

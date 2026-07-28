@@ -1,6 +1,9 @@
-import {readFileSync}              from 'node:fs';
-import {test, expect}              from '@playwright/test';
-import {validateOffHostSyncConfig} from '../../../../../../../ai/scripts/maintenance/offHostSync.mjs';
+import {readFileSync} from 'node:fs';
+import {test, expect} from '@playwright/test';
+import {
+    OFFHOST_SYNC_ERROR_CODE,
+    validateOffHostSyncConfig
+} from '../../../../../../../ai/services/memory-core/helpers/offHostSyncStore.mjs';
 import {
     DURABILITY_POSTURES,
     MAX_POSTURE_REASON_LENGTH,
@@ -123,6 +126,62 @@ test.describe('off-host durability posture (#16055)', () => {
         for (const value of emitted) expect(DURABILITY_POSTURES).toContain(value)
     });
 
+    test('HOSTILE CONFIG: a secret-like argv token never reaches the projected posture', () => {
+        // Reviewer falsifier, reproduced before the fix: `argv: ['--password=ghp_…{bad}']` failed the
+        // placeholder grammar, the validator echoed the offending token into its prose, and the
+        // posture interpolated that prose into `reason` — which `inspect_deployment` returns
+        // unfiltered. The module had asserted in JSDoc that credential values "never reach here";
+        // that was reasoning about `envAllowlist` and simply untrue of `argv`. A convention is not an
+        // enforced property, so the enforcement is in the code path and this is its witness.
+        const secret = 'ghp_SUPERSECRET_VALUE',
+              result = posture({
+                  deploymentMode: 'cloud',
+                  offHostSync   : {command: 'rclone', argv: [`--password=${secret}{bad}`]}
+              });
+
+        // The WHOLE projection, not just `reason` — a leak anywhere in the object is a leak.
+        expect(JSON.stringify(result)).not.toContain(secret);
+        expect(JSON.stringify(result)).not.toContain('ghp_');
+
+        // POSITIVE CONTROL: the validator really did see this config and really did reject it, so the
+        // clean projection above is redaction rather than the config having been ignored.
+        const outcome = validateOffHostSyncConfig({command: 'rclone', argv: [`--password=${secret}{bad}`]});
+
+        expect(outcome.enabled).toBe(false);
+        expect(outcome.error).toContain(secret);           // the prose DOES carry it, by design
+        expect(outcome.errorCode).toBe(OFFHOST_SYNC_ERROR_CODE.ARGV_PLACEHOLDER_INVALID);
+
+        // And the defect is still classified, so redaction did not cost diagnosability.
+        expect(result.posture).toBe('unmet');
+        expect(result.configErrorCode).toBe(OFFHOST_SYNC_ERROR_CODE.ARGV_PLACEHOLDER_INVALID);
+        expect(result.offHostSyncConfigValid).toBe(false)
+    });
+
+    test('a valid config carries no configErrorCode, so the field discriminates', () => {
+        expect(posture({deploymentMode: 'cloud', offHostSync: {command: 'rclone'}}).configErrorCode).toBeNull();
+        expect(posture({deploymentMode: 'cloud'}).configErrorCode).toBeNull()
+    });
+
+    test('the resolved-config path does NOT swallow a throw into a plausible posture', () => {
+        // The reactive-config SSOT guarantees the tree, so the only reachable throws are a missing leaf
+        // or a programming defect — failures that must fail loud. A previous revision returned
+        // `posture: 'unreadable'` on any throw, which a consumer could not tell apart from a real
+        // deployment condition. With the catch gone, the enum must not advertise the state either.
+        // Asserted STRUCTURALLY, on the resolver's body, rather than by scanning the file for the
+        // string — the JSDoc explains the removed behaviour and therefore quotes it, so a text guard
+        // would trip on its own explanation and prove nothing about the code.
+        const source = readFileSync(BRIDGE_PATH, 'utf8'),
+              start  = source.indexOf('function resolveConfiguredDurabilityPosture()'),
+              body   = source.slice(start, source.indexOf('\n}', start));
+
+        expect(start).toBeGreaterThan(-1);
+        expect(body).not.toContain('catch');
+        expect(body).not.toContain('try');
+        expect(DURABILITY_POSTURES).not.toContain('unreadable');
+        // The narrower, genuinely-fallible case stays non-throwing: invalid OPERATOR config.
+        expect(posture({deploymentMode: 'cloud', offHostSync: {timeoutMs: 1}}).posture).toBe('unmet')
+    });
+
     test('the reason is bounded, so a pathological config cannot inflate the snapshot', () => {
         const result = posture({
             deploymentMode: 'cloud',
@@ -167,12 +226,4 @@ test.describe('off-host durability posture (#16055)', () => {
         expect(source).not.toContain("if (outcome.status === 'missing') return null;")
     });
 
-    test('`unreadable` is in the declared set because a caller can emit it', () => {
-        // An enum omitting a value its own producers write is a false completeness claim: a consumer
-        // validating against it would reject a legitimate snapshot.
-        const source = readFileSync(BRIDGE_PATH, 'utf8');
-
-        expect(source).toContain("posture: 'unreadable'");
-        expect(DURABILITY_POSTURES).toContain('unreadable')
-    })
 });

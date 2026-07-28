@@ -759,4 +759,43 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         writeBundle('backup-2026-06-04T00-00-00');
         expect((await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent})).code).toBe('RESTORABLE');
     });
+
+    test('RESTORABLE means non-empty, not merely parseable — an empty bundle is refused', async () => {
+        // Reviewer falsifier, reproduced before the fix: a bundle carrying only the six required
+        // directories plus a minimal meta parsed clean and returned `{restorable: true, code:
+        // 'RESTORABLE'}`. That is the ticket's explicitly forbidden precondition, and the exact shape
+        // of the incident — the one bundle in the ledger completed 25 minutes AFTER the new stack came
+        // up, capturing an already-empty plane. A machine-readable code is only worth having when its
+        // predicate is stronger than the prose it replaced.
+        const emptyBundle = path.join(probeRoot, 'backup-2026-07-01T00-00-00');
+
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox']) {
+            fs.mkdirSync(path.join(emptyBundle, sub), {recursive: true});
+        }
+        fsExtra.writeJsonSync(path.join(emptyBundle, 'bundle-meta.json'), {
+            bundleVersion: 1,
+            integrity    : [],
+            subsystems   : {},
+            topology     : {chromaUnified: true, shared_topology: true}
+        });
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.code).toBe('BUNDLE_EMPTY');
+        expect(verdict.rowTotal).toBe(0);
+        // Distinct from every other refusal, so a gate can tell "nothing to restore from" apart from
+        // "nothing here at all" and "here but torn".
+        expect(verdict.code).not.toBe('NO_BUNDLES');
+        expect(verdict.code).not.toBe('BUNDLE_INVALID');
+
+        // POSITIVE CONTROL: a populated bundle in the same root still passes, so the new predicate
+        // discriminates rather than refusing everything.
+        writeBundle('backup-2026-07-02T00-00-00');
+
+        const populated = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(populated.code).toBe('RESTORABLE');
+        expect(populated.rowTotal).toBeGreaterThan(0);
+    });
 });
