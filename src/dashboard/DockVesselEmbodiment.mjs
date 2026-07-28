@@ -1,4 +1,5 @@
-import Component from '../component/Base.mjs';
+import Component          from '../component/Base.mjs';
+import DragProxyContainer from '../draggable/DragProxyContainer.mjs';
 
 /**
  * @module Neo.dashboard.DockVesselEmbodiment
@@ -185,5 +186,344 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
         },
 
         stage
+    }
+}
+
+/**
+ * Whether one target-local proxy rectangle is finite and drawable.
+ * @param {Object} rect
+ * @returns {Boolean}
+ * @private
+ */
+function isMeasurableProxyRect(rect) {
+    return Boolean(rect) &&
+        Number.isFinite(rect.x) && Number.isFinite(rect.y) &&
+        Number.isFinite(rect.width) && rect.width > 0 &&
+        Number.isFinite(rect.height) && rect.height > 0
+}
+
+/**
+ * Creates one host-local target-proxy embodiment over {@link createDockVesselEmbodiment}.
+ *
+ * The nested registry preserves the pane's exact slot in the parked source popup while the SAME
+ * live pane renders inside one target-window {@link Neo.draggable.DragProxyContainer}. Its
+ * generation fence makes a late renderer settlement from a restored predecessor unable to retire
+ * a successor proxy. The host remains the lifecycle authority: pointer movement calls
+ * {@link #move}, convert-out/cancel calls {@link #restore}, and a committed transfer calls
+ * {@link #promote}. No document or native-window state enters this helper.
+ *
+ * @param {Object} seams
+ * @param {Function} [seams.createProxy] Injectable proxy factory for focused tests.
+ * @param {Function} seams.resolvePane `(itemId) => Neo.component.Base|null`
+ * @param {Function} seams.resolveProxyConfig `({draggedItem, proxyRect, sourceSortZone,
+ *     sourceWindowId, targetWindowId}) => Object|null`
+ * @returns {Object}
+ */
+export function createDockVesselProxyEmbodiment({
+    createProxy=config => Neo.create(config),
+    resolvePane,
+    resolveProxyConfig
+} = {}) {
+    if (
+        typeof createProxy !== 'function' ||
+        typeof resolvePane !== 'function' ||
+        typeof resolveProxyConfig !== 'function'
+    ) {
+        throw new Error(
+            'createDockVesselProxyEmbodiment requires createProxy, resolvePane, and resolveProxyConfig seams'
+        )
+    }
+
+    let active     = null,
+        generation = 0;
+
+    const embodiment = createDockVesselEmbodiment({
+        resolvePane,
+        resolveTarget: targetWindowId => active?.targetWindowId === targetWindowId
+            ? active.proxy
+            : null
+    });
+
+    /**
+     * @summary Retires one exact proxy without destroying its reusable live pane.
+     * @param {Object} record
+     * @private
+     */
+    const retireProxy = record => {
+        if (!record || active !== record) return false;
+
+        active = null;
+
+        if (!record.proxy?.isDestroyed) {
+            record.proxy.hidden = true;
+            record.proxy.destroy()
+        }
+
+        return true
+    };
+
+    /**
+     * @summary Resolves an optional exact identity against the current generation.
+     * @param {Object} identity
+     * @returns {Object|null}
+     * @private
+     */
+    const resolveRecord = ({itemId, sourceWindowId, targetWindowId} = {}) => {
+        if (
+            !active || active.itemId !== itemId ||
+            (sourceWindowId != null && active.sourceWindowId !== sourceWindowId) ||
+            (targetWindowId != null && active.targetWindowId !== targetWindowId)
+        ) {
+            return null
+        }
+
+        return active
+    };
+
+    return {
+        /**
+         * @summary Restores any active proxy during host teardown, then retires transient state.
+         */
+        destroy() {
+            let record = active;
+
+            if (record && !record.promoted) {
+                embodiment.restore({
+                    itemId  : record.itemId,
+                    windowId: record.targetWindowId
+                })
+            }
+
+            record && active === record && retireProxy(record);
+            embodiment.destroy()
+        },
+
+        /**
+         * @summary Reports whether one pane still has an exact source-slot reservation.
+         * @param {String} itemId
+         * @returns {Boolean}
+         */
+        isStaged(itemId) {
+            return embodiment.isStaged(itemId)
+        },
+
+        /**
+         * @summary Moves or updates one admitted target-local live proxy.
+         *
+         * The move is synchronously fail-closed: by return time the pane either has a recorded
+         * exact source slot and a target proxy parent, or no proxy is admitted. Renderer
+         * settlement continues behind the generation fence and is exposed through
+         * {@link #snapshot} for release gating.
+         * @param {Object} data
+         * @param {Neo.component.Base} data.draggedItem
+         * @param {Object} data.proxyRect Target-window-local `{x,y,width,height}`
+         * @param {Neo.draggable.container.SortZone} data.sourceSortZone
+         * @param {String|Number} [data.sourceWindowId] Exact physical source vessel identity.
+         *     Falls back to the source sort zone's window for ordinary cross-window drags.
+         * @param {String|Number} data.targetWindowId
+         * @returns {Boolean}
+         */
+        move({draggedItem, proxyRect, sourceSortZone, sourceWindowId, targetWindowId} = {}) {
+            const itemId = draggedItem?.dockItemId;
+
+            sourceWindowId ??= sourceSortZone?.windowId;
+
+            if (
+                !itemId || sourceWindowId == null || targetWindowId == null ||
+                !isMeasurableProxyRect(proxyRect)
+            ) {
+                return false
+            }
+
+            if (active && (
+                active.itemId !== itemId ||
+                active.sourceWindowId !== sourceWindowId ||
+                active.targetWindowId !== targetWindowId
+            )) {
+                if (!this.restore({itemId: active.itemId})) return false
+            }
+
+            if (!active) {
+                let proxyConfig;
+
+                try {
+                    proxyConfig = resolveProxyConfig({
+                        draggedItem,
+                        proxyRect,
+                        sourceSortZone,
+                        sourceWindowId,
+                        targetWindowId
+                    })
+                } catch {
+                    return false
+                }
+
+                if (!proxyConfig || typeof proxyConfig !== 'object') return false;
+
+                const record = {
+                    generation: ++generation,
+                    itemId,
+                    promoted  : false,
+                    proxy     : null,
+                    settled   : false,
+                    sourceWindowId,
+                    targetWindowId
+                };
+
+                try {
+                    record.proxy = createProxy({
+                        ...proxyConfig,
+                        module          : DragProxyContainer,
+                        height          : `${proxyRect.height}px`,
+                        items           : [],
+                        moveInMainThread: false,
+                        style           : {
+                            ...(proxyConfig.style || {}),
+                            left: `${proxyRect.x}px`,
+                            top : `${proxyRect.y}px`
+                        },
+                        width   : `${proxyRect.width}px`,
+                        windowId: targetWindowId
+                    })
+                } catch {
+                    return false
+                }
+
+                if (!record.proxy) return false;
+
+                active = record;
+
+                let settlement;
+
+                try {
+                    settlement = embodiment.stage({itemId, windowId: targetWindowId})
+                } catch {
+                    retireProxy(record);
+                    return false
+                }
+
+                if (!embodiment.isStaged(itemId)) {
+                    retireProxy(record);
+                    return false
+                }
+
+                Promise.resolve(settlement).then(admitted => {
+                    if (active !== record) return false;
+
+                    record.settled = admitted === true;
+
+                    if (!record.settled) {
+                        retireProxy(record)
+                    }
+
+                    return record.settled
+                }, () => {
+                    active === record && retireProxy(record);
+                    return false
+                })
+            }
+
+            active.proxy.hidden = false;
+            active.proxy.height = `${proxyRect.height}px`;
+            active.proxy.width  = `${proxyRect.width}px`;
+            active.proxy.style  = {
+                ...(active.proxy.style || {}),
+                left: `${proxyRect.x}px`,
+                top : `${proxyRect.y}px`
+            };
+
+            return embodiment.isStaged(itemId) && resolvePane(itemId)?.parent === active.proxy
+        },
+
+        /**
+         * @summary Promotes one committed pane out of transient source-slot ownership.
+         * @description The proxy is retired without destroying the pane; the queued committed
+         * projection reparents that same cached instance into its document-owned target.
+         * @param {Object} identity
+         * @param {String} identity.itemId
+         * @param {String|Number} [identity.sourceWindowId]
+         * @param {String|Number} [identity.targetWindowId]
+         * @returns {Boolean}
+         */
+        promote(identity = {}) {
+            const record = resolveRecord(identity);
+
+            if (!record || !embodiment.promote({
+                itemId  : record.itemId,
+                windowId: record.targetWindowId
+            })) {
+                return false
+            }
+
+            record.promoted = true;
+            retireProxy(record);
+
+            return true
+        },
+
+        /**
+         * @summary Restores one zero-mutation proxy through the parked popup's live placeholder.
+         * @param {Object} identity
+         * @param {String} identity.itemId
+         * @param {String|Number} [identity.sourceWindowId]
+         * @param {String|Number} [identity.targetWindowId]
+         * @returns {Boolean}
+         */
+        restore(identity = {}) {
+            const record = resolveRecord(identity);
+
+            if (!record || record.promoted || !embodiment.restore({
+                itemId  : record.itemId,
+                windowId: record.targetWindowId
+            })) {
+                return false
+            }
+
+            retireProxy(record);
+
+            return true
+        },
+
+        /**
+         * @summary Restores the active proxy when either participating native window departs.
+         * @param {String|Number} windowId
+         * @returns {Boolean}
+         */
+        restoreByWindow(windowId) {
+            const record = active;
+
+            return record && (
+                record.sourceWindowId === windowId || record.targetWindowId === windowId
+            )
+                ? this.restore({itemId: record.itemId})
+                : false
+        },
+
+        /**
+         * @summary Returns clone-safe target-proxy truth for semantic release witnesses.
+         * @param {String|null} [itemId=null]
+         * @returns {Object|null}
+         */
+        snapshot(itemId=null) {
+            const
+                record = active,
+                pane   = record && resolvePane(record.itemId),
+                proxy  = record?.proxy;
+
+            if (!record || (itemId != null && record.itemId !== itemId)) return null;
+
+            return {
+                cls           : Array.isArray(proxy?.cls) ? [...proxy.cls] : [],
+                generation    : record.generation,
+                itemId        : record.itemId,
+                ownsPane      : pane?.parent === proxy,
+                proxyId       : proxy?.id ?? null,
+                settled       : record.settled,
+                sourceWindowId: record.sourceWindowId,
+                targetWindowId: record.targetWindowId,
+                visible       : Boolean(proxy) && !proxy.isDestroyed && proxy.hidden !== true &&
+                    proxy.style?.display !== 'none' && String(proxy.style?.opacity ?? 1) !== '0'
+            }
+        }
     }
 }

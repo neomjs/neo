@@ -11,9 +11,8 @@ import DockZoneModel         from './DockZoneModel.mjs';
  * `learn/agentos/decisions/0029-harness-docking-design.md`) over exclusively LANDED machinery.
  *
  * It owns the target registration lifecycle (create on workspace mount, destroy on unmount) and
- * binds the five owner seams of {@link Neo.dashboard.CrossWindowDragTarget} to the workspace's
- * landed pipeline, adding exactly ONE new decision: foreign-vs-local drop discrimination at
- * commit time.
+ * binds the owner seams of {@link Neo.dashboard.CrossWindowDragTarget} to the workspace's landed
+ * pipeline, adding exactly ONE new decision: foreign-vs-local drop discrimination at commit time.
  *
  * - **Local drop** (the payload's source workspace IS this one — two windows may project the
  *   same document): the converted operation rides the owner's landed single-document commit
@@ -116,11 +115,29 @@ class DockCrossWindowParticipation extends Base {
          */
         previewToOperation: null,
         /**
+         * Owner seam forwarded to the target: promotes the target-local live drag embodiment
+         * after a successful semantic commit.
+         * @member {Function|null} promoteDragEmbodiment=null
+         */
+        promoteDragEmbodiment: null,
+        /**
+         * Owner seam forwarded to the target: restores the target-local live drag embodiment on
+         * leave or any non-commit terminal.
+         * @member {Function|null} restoreDragEmbodiment=null
+         */
+        restoreDragEmbodiment: null,
+        /**
          * §2.3 registry identity, forwarded to the target: only targets sharing the drag source's
          * `sortGroup` are arbitration candidates.
          * @member {String|null} sortGroup=null
          */
         sortGroup: null,
+        /**
+         * Owner seam forwarded to the target: stages/updates an explicitly licensed target-local
+         * live drag embodiment.
+         * @member {Function|null} stageDragEmbodiment=null
+         */
+        stageDragEmbodiment: null,
         /**
          * §2.3 registry identity, forwarded to the target: the window this workspace renders in.
          * @member {String|Number|null} windowId=null
@@ -151,13 +168,16 @@ class DockCrossWindowParticipation extends Base {
         let me = this;
 
         me.target = Neo.create(CrossWindowDragTarget, {
-            clearPreview      : me.clearPreview,
-            commitOperation   : me.commitDrop.bind(me),
-            dragCoordinator   : me.dragCoordinator,
-            hitTest           : me.hitTest,
-            previewFor        : me.previewFor,
-            previewToOperation: me.previewToOperation,
-            sortGroup         : me.sortGroup,
+            clearPreview         : me.clearPreview,
+            commitOperation      : me.commitDrop.bind(me),
+            dragCoordinator      : me.dragCoordinator,
+            hitTest              : me.hitTest,
+            previewFor           : me.previewFor,
+            previewToOperation   : me.previewToOperation,
+            promoteDragEmbodiment: me.promoteDragEmbodiment,
+            restoreDragEmbodiment: me.restoreDragEmbodiment,
+            sortGroup            : me.sortGroup,
+            stageDragEmbodiment  : me.stageDragEmbodiment,
             // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
             // and never encodes windowId or registration order
             stableTargetId: me.workspaceId,
