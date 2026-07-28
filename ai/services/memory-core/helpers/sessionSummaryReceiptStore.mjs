@@ -1,0 +1,410 @@
+import {isDeepStrictEqual}    from 'node:util';
+import {gunzipSync, gzipSync} from 'node:zlib';
+
+import {verifyPersistedVector} from './verifyPersistedVector.mjs';
+
+/**
+ * @module ai/services/memory-core/helpers/sessionSummaryReceiptStore
+ * @summary Durable, bounded replay receipts for derived session-summary rows.
+ *
+ * Chroma is a disposable projection and may lose a just-acknowledged write when the
+ * supervisor force-recycles the daemon. The SQLite `SummarizationJobs` row therefore
+ * retains exactly one compressed result envelope per session: new synthesis overwrites
+ * the prior envelope, and `purgeSession()` removes it with the coordinator row. This is
+ * deliberately not an append-only journal.
+ */
+
+export const SESSION_SUMMARY_RECEIPT_ENCODING = 'gzip-json-v1';
+
+const DEFAULT_RECOVERY_BATCH_SIZE = 100;
+
+/**
+ * @summary Validates the exact deterministic summary row carried by a receipt.
+ * @param {Object} receipt
+ * @param {String} receipt.sessionId
+ * @param {String} receipt.summaryId
+ * @param {String} receipt.document
+ * @param {Object} receipt.metadata
+ * @returns {Object} The validated receipt.
+ */
+function validateReceipt(receipt) {
+    if (typeof receipt?.sessionId !== 'string' || !receipt.sessionId) {
+        throw new TypeError('Session-summary receipt requires a non-empty sessionId.');
+    }
+    if (receipt.summaryId !== `summary_${receipt.sessionId}`) {
+        throw new TypeError(`Session-summary receipt id must be summary_${receipt.sessionId}.`);
+    }
+    if (typeof receipt.document !== 'string') {
+        throw new TypeError('Session-summary receipt document must be a string.');
+    }
+    if (!receipt.metadata || typeof receipt.metadata !== 'object' || Array.isArray(receipt.metadata)) {
+        throw new TypeError('Session-summary receipt metadata must be an object.');
+    }
+
+    return receipt;
+}
+
+/**
+ * @summary Encodes one exact Chroma summary row as a compact SQLite BLOB.
+ * @param {Object} receipt Exact summary row.
+ * @returns {Buffer}
+ */
+export function encodeSessionSummaryReceipt(receipt) {
+    const validated = validateReceipt(receipt);
+
+    return gzipSync(Buffer.from(JSON.stringify({
+        version  : 1,
+        sessionId: validated.sessionId,
+        summaryId: validated.summaryId,
+        document : validated.document,
+        metadata : validated.metadata
+    }), 'utf8'));
+}
+
+/**
+ * @summary Decodes and validates one durable session-summary result envelope.
+ * @param {Buffer|Uint8Array} envelope
+ * @param {String} encoding
+ * @returns {{version:Number,sessionId:String,summaryId:String,document:String,metadata:Object}}
+ */
+export function decodeSessionSummaryReceipt(envelope, encoding) {
+    if (encoding !== SESSION_SUMMARY_RECEIPT_ENCODING) {
+        throw new Error(`Unsupported session-summary receipt encoding: ${String(encoding)}.`);
+    }
+    if (!envelope) {
+        throw new Error('Session-summary receipt envelope is empty.');
+    }
+
+    let receipt;
+
+    try {
+        receipt = JSON.parse(gunzipSync(Buffer.from(envelope)).toString('utf8'));
+    } catch (error) {
+        throw new Error(`Session-summary receipt envelope is corrupt: ${error.message}`, {cause: error});
+    }
+
+    if (receipt?.version !== 1) {
+        throw new Error(`Unsupported session-summary receipt version: ${String(receipt?.version)}.`);
+    }
+
+    return validateReceipt(receipt);
+}
+
+/**
+ * @summary Atomically stages the exact result envelope before `summarizeSession()` may return.
+ *
+ * The current coordinator status/lease is preserved while an active job is finishing.
+ * A direct re-synthesis over an already-completed row reopens it as `pending`, preventing
+ * the old completion state from acknowledging the newly staged result prematurely.
+ *
+ * @param {Object} options
+ * @param {Object} options.db Open better-sqlite3 connection.
+ * @param {String} options.sessionId
+ * @param {String} options.summaryId
+ * @param {String} options.document
+ * @param {Object} options.metadata
+ * @param {Number} [options.now=Date.now()]
+ * @returns {{bytes:Number,encoding:String,stagedAt:Number}}
+ */
+export function stageSessionSummaryReceipt({
+    db,
+    sessionId,
+    summaryId,
+    document,
+    metadata,
+    now = Date.now()
+} = {}) {
+    if (!db?.open) {
+        throw new Error('Cannot stage session-summary receipt: SQLite graph is unavailable.');
+    }
+
+    const envelope = encodeSessionSummaryReceipt({sessionId, summaryId, document, metadata});
+    const stagedAt = Number(now);
+
+    db.prepare(`
+        INSERT INTO SummarizationJobs (
+            session_id,
+            status,
+            lease_token,
+            expires_at,
+            retry_count,
+            result_envelope,
+            result_encoding,
+            result_staged_at,
+            result_acknowledged_at,
+            result_last_replayed_at
+        )
+        VALUES (?, 'pending', NULL, NULL, 0, ?, ?, ?, NULL, NULL)
+        ON CONFLICT(session_id) DO UPDATE SET
+            status = CASE
+                WHEN SummarizationJobs.status = 'completed' THEN 'pending'
+                ELSE SummarizationJobs.status
+            END,
+            lease_token = CASE
+                WHEN SummarizationJobs.status = 'completed' THEN NULL
+                ELSE SummarizationJobs.lease_token
+            END,
+            expires_at = CASE
+                WHEN SummarizationJobs.status = 'completed' THEN NULL
+                ELSE SummarizationJobs.expires_at
+            END,
+            result_envelope         = excluded.result_envelope,
+            result_encoding         = excluded.result_encoding,
+            result_staged_at        = excluded.result_staged_at,
+            result_acknowledged_at  = NULL,
+            result_last_replayed_at = NULL
+    `).run(sessionId, envelope, SESSION_SUMMARY_RECEIPT_ENCODING, stagedAt);
+
+    return {
+        bytes   : envelope.byteLength,
+        encoding: SESSION_SUMMARY_RECEIPT_ENCODING,
+        stagedAt
+    };
+}
+
+/**
+ * @summary Marks a staged result completed only when its durable envelope exists.
+ * @param {Object} options
+ * @param {Object} options.db Open better-sqlite3 connection.
+ * @param {String} options.sessionId
+ * @param {Number} [options.now=Date.now()]
+ * @returns {Boolean}
+ */
+export function acknowledgeSessionSummaryReceipt({db, sessionId, now = Date.now()} = {}) {
+    if (!db?.open) {
+        throw new Error('Cannot acknowledge session-summary receipt: SQLite graph is unavailable.');
+    }
+
+    const result = db.prepare(`
+        UPDATE SummarizationJobs
+        SET status                 = 'completed',
+            lease_token            = NULL,
+            expires_at             = NULL,
+            result_acknowledged_at = ?
+        WHERE session_id = ?
+          AND result_envelope IS NOT NULL
+          AND result_encoding = ?
+    `).run(Number(now), sessionId, SESSION_SUMMARY_RECEIPT_ENCODING);
+
+    if (result.changes !== 1) {
+        throw new Error(`Cannot acknowledge session summary ${sessionId}: no durable result envelope exists.`);
+    }
+
+    return true;
+}
+
+/**
+ * @summary Compares one Chroma read-back row with its durable exact envelope.
+ * @param {Object|undefined} row
+ * @param {Object} receipt
+ * @returns {Boolean}
+ */
+function isExactSummaryRow(row, receipt) {
+    return row?.document === receipt.document &&
+        isDeepStrictEqual(row.metadata, receipt.metadata);
+}
+
+/**
+ * @summary Converts Chroma's parallel result arrays into an id-keyed row map.
+ * @param {Object} result
+ * @returns {Map<String,{document:String,metadata:Object}>}
+ */
+function mapSummaryRows(result) {
+    const rows = new Map();
+
+    for (let index = 0; index < (result?.ids?.length || 0); index++) {
+        rows.set(result.ids[index], {
+            document: result.documents?.[index],
+            metadata: result.metadatas?.[index]
+        });
+    }
+
+    return rows;
+}
+
+/**
+ * @summary Finalizes one recovered receipt without overwriting a newer staged result.
+ * @param {Object} options
+ * @param {Object} options.db
+ * @param {Object} options.row SQLite receipt row.
+ * @param {Boolean} options.replayed
+ * @param {Number} options.now
+ * @returns {Boolean} Whether this exact receipt still owned the coordinator row.
+ */
+function finalizeRecoveredReceipt({db, row, replayed, now}) {
+    const result = db.prepare(`
+        UPDATE SummarizationJobs
+        SET status                  = 'completed',
+            lease_token             = NULL,
+            expires_at              = NULL,
+            result_acknowledged_at  = COALESCE(result_acknowledged_at, ?),
+            result_last_replayed_at = CASE WHEN ? = 1 THEN ? ELSE result_last_replayed_at END
+        WHERE session_id = ?
+          AND result_envelope = ?
+          AND result_encoding = ?
+          AND result_staged_at = ?
+    `).run(
+        now,
+        replayed ? 1 : 0,
+        now,
+        row.session_id,
+        row.result_envelope,
+        row.result_encoding,
+        row.result_staged_at
+    );
+
+    return result.changes === 1;
+}
+
+/**
+ * @summary Replays durable summary envelopes into Chroma without model synthesis.
+ *
+ * Recovery skips a still-live `in_progress` lease to avoid racing the writer between
+ * staging and its immediate acknowledgement. Completed, pending, failed, and expired
+ * staged receipts are exact-replayed as needed, strictly read back, and finalized.
+ * Corrupt envelopes or failed read-backs throw while retaining the only replay copy.
+ *
+ * @param {Object} options
+ * @param {Object} options.db Open better-sqlite3 connection.
+ * @param {Object} options.collection Chroma summary collection.
+ * @param {String|null} [options.sessionId=null] Optional single-session recovery scope.
+ * @param {Number} [options.expectedDimension] Expected vector dimension for the existing
+ *     fail-soft vector integrity check.
+ * @param {Object} [options.log]
+ * @param {Number} [options.now=Date.now()]
+ * @param {Number} [options.batchSize=100]
+ * @returns {Promise<{scanned:Number,present:Number,replayed:Number,completed:Number,skippedActive:Number,superseded:Number}>}
+ */
+export async function recoverSessionSummaryReceipts({
+    db,
+    collection,
+    sessionId = null,
+    expectedDimension,
+    log,
+    now = Date.now(),
+    batchSize = DEFAULT_RECOVERY_BATCH_SIZE
+} = {}) {
+    if (!db?.open) {
+        throw new Error('Cannot recover session-summary receipts: SQLite graph is unavailable.');
+    }
+    if (!collection?.get || !collection?.upsert) {
+        throw new TypeError('Cannot recover session-summary receipts: Chroma summary collection is unavailable.');
+    }
+
+    const numericBatchSize = Number.isInteger(batchSize) && batchSize > 0
+        ? batchSize
+        : DEFAULT_RECOVERY_BATCH_SIZE;
+    const stats = {
+        scanned      : 0,
+        present      : 0,
+        replayed     : 0,
+        completed    : 0,
+        skippedActive: 0,
+        superseded   : 0
+    };
+    let afterRowId = 0;
+
+    while (true) {
+        const rows = sessionId
+            ? db.prepare(`
+                SELECT rowid AS receipt_rowid, *
+                FROM SummarizationJobs
+                WHERE session_id = ?
+                  AND result_envelope IS NOT NULL
+                LIMIT 1
+            `).all(sessionId)
+            : db.prepare(`
+                SELECT rowid AS receipt_rowid, *
+                FROM SummarizationJobs
+                WHERE rowid > ?
+                  AND result_envelope IS NOT NULL
+                ORDER BY rowid ASC
+                LIMIT ?
+            `).all(afterRowId, numericBatchSize);
+
+        if (rows.length === 0) break;
+        afterRowId = rows.at(-1).receipt_rowid;
+        stats.scanned += rows.length;
+
+        const recoverable = [];
+
+        for (const row of rows) {
+            if (row.status === 'in_progress' && Number(row.expires_at) >= Number(now)) {
+                stats.skippedActive++;
+                continue;
+            }
+
+            const receipt = decodeSessionSummaryReceipt(row.result_envelope, row.result_encoding);
+
+            if (receipt.sessionId !== row.session_id) {
+                throw new Error(`Session-summary receipt row ${row.session_id} contains payload for ${receipt.sessionId}.`);
+            }
+
+            recoverable.push({row, receipt});
+        }
+
+        if (recoverable.length > 0) {
+            const liveResult = await collection.get({
+                ids    : recoverable.map(item => item.receipt.summaryId),
+                include: ['documents', 'metadatas']
+            });
+            let liveRows = mapSummaryRows(liveResult);
+
+            const toReplay = recoverable.filter(item =>
+                !isExactSummaryRow(liveRows.get(item.receipt.summaryId), item.receipt)
+            );
+
+            if (toReplay.length > 0) {
+                await collection.upsert({
+                    ids      : toReplay.map(item => item.receipt.summaryId),
+                    documents: toReplay.map(item => item.receipt.document),
+                    metadatas: toReplay.map(item => item.receipt.metadata)
+                });
+
+                const readBack = await collection.get({
+                    ids    : toReplay.map(item => item.receipt.summaryId),
+                    include: ['documents', 'metadatas']
+                });
+                liveRows = mapSummaryRows(readBack);
+
+                for (const item of toReplay) {
+                    if (!isExactSummaryRow(liveRows.get(item.receipt.summaryId), item.receipt)) {
+                        throw new Error(`Session-summary receipt replay verification failed for ${item.receipt.summaryId}.`);
+                    }
+
+                    await verifyPersistedVector(
+                        collection,
+                        item.receipt.summaryId,
+                        expectedDimension,
+                        log,
+                        'replayed session summary'
+                    );
+                }
+            }
+
+            const replayedIds = new Set(toReplay.map(item => item.receipt.summaryId));
+
+            for (const item of recoverable) {
+                const replayed = replayedIds.has(item.receipt.summaryId);
+
+                if (replayed) {
+                    stats.replayed++;
+                    log?.info?.(`[sessionSummaryReceiptStore] Replayed durable session summary ${item.receipt.summaryId}.`);
+                } else {
+                    stats.present++;
+                }
+
+                if (finalizeRecoveredReceipt({db, row: item.row, replayed, now: Number(now)})) {
+                    stats.completed++;
+                } else {
+                    stats.superseded++;
+                    log?.warn?.(`[sessionSummaryReceiptStore] Receipt ${item.receipt.summaryId} was superseded during recovery; left for the next pass.`);
+                }
+            }
+        }
+
+        if (sessionId || rows.length < numericBatchSize) break;
+    }
+
+    return stats;
+}

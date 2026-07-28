@@ -231,19 +231,48 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
         expect(sqlite).toBeTruthy();
 
         sqlite.prepare(`
-            INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
-            VALUES (?, 'completed', NULL, NULL, 2)
-        `).run(sessionId);
+            INSERT INTO SummarizationJobs (
+                session_id,
+                status,
+                lease_token,
+                expires_at,
+                retry_count,
+                result_envelope,
+                result_encoding,
+                result_staged_at,
+                result_acknowledged_at,
+                result_last_replayed_at
+            )
+            VALUES (?, 'completed', NULL, NULL, 2, ?, 'gzip-json-v1', 100, 101, 102)
+        `).run(sessionId, Buffer.from('superseded-receipt'));
 
         try {
             expect(SDK.Memory_SessionService.claimSummarizationJob(sessionId, 'repair-token', {allowCompletedRepair: true})).toBe(true);
 
-            const row = sqlite.prepare('SELECT status, lease_token, expires_at, retry_count FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+            const row = sqlite.prepare(`
+                SELECT
+                    status,
+                    lease_token,
+                    expires_at,
+                    retry_count,
+                    result_envelope,
+                    result_encoding,
+                    result_staged_at,
+                    result_acknowledged_at,
+                    result_last_replayed_at
+                FROM SummarizationJobs
+                WHERE session_id = ?
+            `).get(sessionId);
 
             expect(row.status).toBe('in_progress');
             expect(row.lease_token).toBe('repair-token');
             expect(row.expires_at).toBeGreaterThan(Date.now());
             expect(row.retry_count).toBe(3);
+            expect(row.result_envelope).toBeNull();
+            expect(row.result_encoding).toBeNull();
+            expect(row.result_staged_at).toBeNull();
+            expect(row.result_acknowledged_at).toBeNull();
+            expect(row.result_last_replayed_at).toBeNull();
         } finally {
             sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
         }
@@ -275,6 +304,84 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
             SDK.Memory_SessionService.findSessionsToSummarize = originalFind;
             SDK.Memory_SessionService.claimSummarizationJob   = originalClaim;
             SDK.Memory_SessionService.summarizeSession        = originalSummarize;
+        }
+    });
+
+    test('#16105: summarizeSessions recovers an exact receipt before any claim or model path', async () => {
+        const originalRecover   = SDK.Memory_SessionService.recoverSessionSummaryReceipts;
+        const originalClaim     = SDK.Memory_SessionService.claimSummarizationJob;
+        const originalSummarize = SDK.Memory_SessionService.summarizeSession;
+        const order             = [];
+
+        SDK.Memory_SessionService.recoverSessionSummaryReceipts = async ({sessionId}) => {
+            order.push(`recover:${sessionId}`);
+            return {replayed: 1, completed: 1};
+        };
+        SDK.Memory_SessionService.claimSummarizationJob = sessionId => {
+            order.push(`claim:${sessionId}`);
+            return false;
+        };
+        SDK.Memory_SessionService.summarizeSession = async sessionId => {
+            order.push(`model:${sessionId}`);
+            throw new Error('summary model must not run after recovery finalized the job');
+        };
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizeSessions({
+                sessionId: 'receipt-first'
+            });
+
+            expect(result.processed).toBe(0);
+            expect(order).toEqual([
+                'recover:receipt-first',
+                'claim:receipt-first'
+            ]);
+        } finally {
+            SDK.Memory_SessionService.recoverSessionSummaryReceipts = originalRecover;
+            SDK.Memory_SessionService.claimSummarizationJob         = originalClaim;
+            SDK.Memory_SessionService.summarizeSession              = originalSummarize;
+        }
+    });
+
+    test('#16105: missing durable envelope cannot produce processed/completed receipt', async () => {
+        const sessionId       = `receipt-required-${crypto.randomUUID()}`;
+        const GraphService    = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const sqlite          = GraphService.db?.storage?.db;
+        const originalRecover = SDK.Memory_SessionService.recoverSessionSummaryReceipts;
+        const originalClaim   = SDK.Memory_SessionService.claimSummarizationJob;
+        const originalSummary = SDK.Memory_SessionService.summarizeSession;
+
+        expect(sqlite).toBeTruthy();
+        sqlite.prepare(`
+            INSERT INTO SummarizationJobs (session_id, status)
+            VALUES (?, 'pending')
+        `).run(sessionId);
+
+        SDK.Memory_SessionService.recoverSessionSummaryReceipts = async () => ({replayed: 0});
+        SDK.Memory_SessionService.claimSummarizationJob         = () => true;
+        SDK.Memory_SessionService.summarizeSession              = async () => ({
+            sessionId,
+            summaryId: `summary_${sessionId}`
+        });
+
+        try {
+            const result = await SDK.Memory_SessionService.summarizeSessions({sessionId});
+
+            expect(result.processed).toBe(0);
+            expect(result.sessions).toEqual([]);
+            expect(sqlite.prepare(`
+                SELECT status, result_envelope
+                FROM SummarizationJobs
+                WHERE session_id = ?
+            `).get(sessionId)).toEqual({
+                status         : 'failed',
+                result_envelope: null
+            });
+        } finally {
+            SDK.Memory_SessionService.recoverSessionSummaryReceipts = originalRecover;
+            SDK.Memory_SessionService.claimSummarizationJob         = originalClaim;
+            SDK.Memory_SessionService.summarizeSession              = originalSummary;
+            sqlite.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
         }
     });
 
