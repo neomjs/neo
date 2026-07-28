@@ -2,12 +2,16 @@ import {normalizeAgentIdentityNodeId} from '../../../graph/normalizeAgentIdentit
 
 /**
  * @module ai/services/memory-core/helpers/mailboxReadStateClassifier
- * @summary Pure carrier-aware classifier for one mailbox recipient's durable read state.
+ * @summary Shared mailbox identity comparison and pure carrier-aware read-state classification.
  *
  * Direct messages persist `readAt` on the `MESSAGE` node, while receipt-backed broadcasts
  * persist it on the recipient's `DELIVERED_TO` edge. This helper accepts already-read raw graph
  * rows and returns the stable observation envelope shared by the explicit-path CLI and the live
  * Memory Core diagnostic. It performs no I/O, repair, configuration lookup, or mutation.
+ *
+ * The exported identity normalizer also feeds `MailboxService`'s production authorization,
+ * visibility, retraction, and Task-transition comparisons. It is therefore not a diagnostic-only
+ * primitive: changing its equivalence rules changes both the observation path and mailbox authority.
  */
 
 /**
@@ -27,13 +31,17 @@ export function createMailboxReadStateFailure(state, error, context={}) {
 }
 
 /**
- * @summary Canonicalizes a stored mailbox target using MailboxService's comparison rules.
+ * @summary Canonicalizes mailbox identities for diagnostic routing and production authorization.
  *
  * Direct `AGENT:<identity>` wrappers remain comparison-compatible, while persisted
  * `AGENT:<family>/<model>` aliases stay untouched because roster-based alias resolution belongs to
  * send-time validation. Direct values without an address-kind colon and legacy
  * `AGENT:<identity>` wrappers flow through `normalizeAgentIdentityNodeId`, which trims whitespace
  * and collapses any run of leading `@` characters.
+ *
+ * `MailboxService.sameMailboxIdentity()` normalizes both operands through this function before
+ * send-policy, inbox-visibility, sender-retraction, and A2A Task authority decisions. Do not broaden
+ * or narrow these rules for diagnostic convenience without preserving those production consumers.
  *
  * @param {*} identity Stored edge target or request-bound identity.
  * @returns {*} Canonical direct identity or unchanged non-direct mailbox address.
