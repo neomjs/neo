@@ -6,8 +6,10 @@
     "main": "main.mjs",
     "scripts": {
         "prestart": "node prepareAssets.mjs",
-        "presmoke": "node prepareAssets.mjs",
+        "presmoke": "node prepareAssets.mjs && npm run probe:preload-esm",
+        "presmoke:brain": "node prepareAssets.mjs && npm run probe:preload-esm",
         "prewitness:lifecycle": "node prepareAssets.mjs",
+        "probe:preload-esm": "electron preloadEsmCapabilityProbe.mjs",
         "start": "electron main.mjs",
         "smoke": "cross-env NEO_HARNESS_SMOKE=1 electron main.mjs",
         "smoke:brain": "cross-env NEO_HARNESS_SMOKE=1 NEO_HARNESS_BRAIN=1 electron main.mjs",
