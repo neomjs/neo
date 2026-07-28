@@ -12,14 +12,14 @@ import path                                                          from 'path'
 import {execFileSync}                                                from 'child_process';
 import {fileURLToPath}                                               from 'url';
 
-const __filename    = fileURLToPath(import.meta.url);
-const __dirname     = path.dirname(__filename);
-const ROOT_DIR      = path.resolve(__dirname, '../../..');
-const SKILLS_DIR    = path.join(ROOT_DIR, '.agents/skills');
-const CLAUDE_DIR    = path.join(ROOT_DIR, '.claude/skills');
-const MANIFEST_PATH = path.join(SKILLS_DIR, 'skills.manifest.json');
-const SCHEMA_PATH   = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
-const REPORT_TOP_N  = 15;
+const __filename                = fileURLToPath(import.meta.url);
+const __dirname                 = path.dirname(__filename);
+const ROOT_DIR                  = path.resolve(__dirname, '../../..');
+const SKILLS_DIR                = path.join(ROOT_DIR, '.agents/skills');
+const CLAUDE_DIR                = path.join(ROOT_DIR, '.claude/skills');
+const MANIFEST_PATH             = path.join(SKILLS_DIR, 'skills.manifest.json');
+const SCHEMA_PATH               = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
+const REPORT_TOP_N              = 15;
 const SKILL_GROWTH_JUSTIFIED_RE = /\[skill-growth-justified:\s*[^\]\n]+\]/i;
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -152,16 +152,16 @@ async function skillMarkdownSizeReport({top = REPORT_TOP_N} = {}) {
         .sort();
 
     const rows = files.map(filePath => {
-        const text    = requireText(filePath);
-        const bytes   = Buffer.byteLength(text, 'utf8');
-        const lines   = text.split('\n').length;
-        const headings = countMatches(text, /^#{1,6}\s+/gm);
-        const musts   = countMatches(text, /\bMUST\b|\bMANDATORY\b|\bFORBIDDEN\b/g);
-        const history = countMatches(text, /\b(PR|Issue|Discussion)\s+#\d+|#\d{4,}|empirical anchor|lineage|histor/ig);
-        const lineRefs = countMatches(text, /[A-Za-z0-9_.\/-]+\.(mjs|md|js|json):\d+/g);
+        const text       = requireText(filePath);
+        const bytes      = Buffer.byteLength(text, 'utf8');
+        const lines      = text.split('\n').length;
+        const headings   = countMatches(text, /^#{1,6}\s+/gm);
+        const musts      = countMatches(text, /\bMUST\b|\bMANDATORY\b|\bFORBIDDEN\b/g);
+        const history    = countMatches(text, /\b(PR|Issue|Discussion)\s+#\d+|#\d{4,}|empirical anchor|lineage|histor/ig);
+        const lineRefs   = countMatches(text, /[A-Za-z0-9_.\/-]+\.(mjs|md|js|json):\d+/g);
         const provenance = countMatches(text, /archaeolog|provenance|incident|origin|lineage|empirical anchor/ig);
-        const triggers = countMatches(text, /trigger|when to read|read .* before|<!--\s*trigger:/ig);
-        const signals = Math.round(bytes / 1000) + headings + history * 2 + lineRefs * 3 + provenance * 2 + Math.max(0, musts - 10);
+        const triggers   = countMatches(text, /trigger|when to read|read .* before|<!--\s*trigger:/ig);
+        const signals    = Math.round(bytes / 1000) + headings + history * 2 + lineRefs * 3 + provenance * 2 + Math.max(0, musts - 10);
 
         const row = {
             file: path.relative(ROOT_DIR, filePath),
@@ -208,7 +208,7 @@ function formatSkillMarkdownSizeReport(report) {
 
 async function payloadBytes(skillName) {
     const files = await walkFiles(path.join(SKILLS_DIR, skillName, 'references'));
-    let bytes   = 0;
+    let   bytes = 0;
 
     for (const file of files) {
         bytes += statSync(file).size;
@@ -238,7 +238,7 @@ function checkPerFileBudgets(files, perFileBudget) {
 }
 
 function parseSectionTriggers(text) {
-    const index = [];
+    const index    = [];
     const sections = text.split(/^(?=#{2,6}\s)/m);
 
     for (const section of sections) {
@@ -247,7 +247,7 @@ function parseSectionTriggers(text) {
         const headerMatch = section.match(/^(#{2,6})\s+([^\n]+)/);
         if (!headerMatch) continue;
 
-        const anchor = headerMatch[2].trim();
+        const anchor        = headerMatch[2].trim();
         const bodySizeBytes = Buffer.byteLength(section, 'utf8');
 
         const triggerMatch = section.match(/^<!-- trigger:\s+(.+?)\s+→\s+read\s+(.+?\.md)\s*-->$/m);
@@ -266,7 +266,7 @@ function parseSectionTriggers(text) {
 
 function checkSectionTriggers(filePath, text, rarePatterns = []) {
     const errors = [];
-    const index = parseSectionTriggers(text);
+    const index  = parseSectionTriggers(text);
 
     for (const entry of index) {
         if (entry.bodySizeBytes > 5000) {
@@ -297,10 +297,16 @@ function normalizeRelPath(filePath) {
     return path.normalize(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-const NAMED_SECTION_REF_SOURCE   = '[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
-const NUMERIC_SECTION_REF_SOURCE = '\\d+\\.\\d+(?:\\.\\d+)*';
-const SECTION_REF_SOURCE         = `${NUMERIC_SECTION_REF_SOURCE}|${NAMED_SECTION_REF_SOURCE}`;
-const SECTION_REF_TARGET_SOURCE  = [
+const NAMED_SECTION_REF_SOURCE         = '[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const NUMERIC_SECTION_REF_SOURCE       = '\\d+\\.\\d+(?:\\.\\d+)*';
+const DIGIT_LEADING_SECTION_REF_SOURCE = '\\d+(?:\\.\\d+)*[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const SECTION_REF_SOURCE               = [
+    NUMERIC_SECTION_REF_SOURCE,
+    DIGIT_LEADING_SECTION_REF_SOURCE,
+    NAMED_SECTION_REF_SOURCE
+].join('|');
+const SECTION_REF_CANDIDATE_SOURCE = '[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const SECTION_REF_TARGET_SOURCE    = [
     '\\.agents\\/skills\\/[A-Za-z0-9_.\\/-]+',
     '(?:\\.{1,2}\\/|references\\/)[A-Za-z0-9_.\\/-]+',
     '[A-Za-z0-9_.\\/-]+\\.md',
@@ -311,20 +317,25 @@ function isNumericSectionRef(sectionRef) {
     return new RegExp(`^${NUMERIC_SECTION_REF_SOURCE}$`).test(sectionRef);
 }
 
+/**
+ * @summary Reports whether one section id belongs to the lint's shared reference grammar.
+ * @param {String} sectionRef
+ * @returns {Boolean}
+ */
+function isSupportedSectionRef(sectionRef) {
+    return new RegExp(`^(?:${SECTION_REF_SOURCE})$`).test(sectionRef);
+}
+
 function extractHeadingAnchors(text) {
     const anchors = new Set();
 
     for (const line of text.split('\n')) {
-        const numericMatch = line.match(/^#{1,6}\s+(?:§)?(\d+(?:\.\d+)*)(?:\b|[^\d.])/);
+        const match = line.match(new RegExp(
+            `^#{1,6}\\s+(?:§)?(${SECTION_REF_CANDIDATE_SOURCE})(?:\\b|[^A-Za-z0-9_.-])`
+        ));
 
-        if (numericMatch) {
-            anchors.add(numericMatch[1]);
-        }
-
-        const namedMatch = line.match(new RegExp(`^#{1,6}\\s+§(${NAMED_SECTION_REF_SOURCE})(?:\\b|[^A-Za-z0-9_.-])`));
-
-        if (namedMatch) {
-            anchors.add(namedMatch[1]);
+        if (match && isSupportedSectionRef(match[1])) {
+            anchors.add(match[1]);
         }
     }
 
@@ -373,8 +384,8 @@ function resolveSkillMarkdownTarget(rawTarget, sourceRelPath, index) {
     if (rawTarget.includes('*')) return null;
     if (/[<>{}[\]]/.test(rawTarget)) return null;
 
-    const target = rawTarget.replace(/^`|`$/g, '').replace(/[#?].*$/, '');
-    let relPath  = null;
+    const target  = rawTarget.replace(/^`|`$/g, '').replace(/[#?].*$/, '');
+    let   relPath = null;
 
     if (target.startsWith('.agents/skills/')) {
         relPath = target;
@@ -395,7 +406,7 @@ function resolveSkillMarkdownTarget(rawTarget, sourceRelPath, index) {
 }
 
 function collectMarkdownPointerTargets(line) {
-    const targets = new Set();
+    const targets  = new Set();
     const patterns = [
         /\[[^\]]+\]\(([^)\s]+\.md(?:#[^)]+)?)\)/g,
         /<!--\s*trigger:[\s\S]*?\bread\s+([^\s]+\.md)\s*-->/g,
@@ -415,8 +426,11 @@ function collectMarkdownPointerTargets(line) {
 }
 
 function collectMarkdownSectionRefs(line) {
-    const refs = [];
-    const markdownLinkSectionRefPattern = new RegExp(`\\[[^\\]]*?§(${SECTION_REF_SOURCE})[^\\]]*?\\]\\(([^)\\s]+\\.md(?:#[^)]+)?)\\)`, 'g');
+    const refs                          = [];
+    const markdownLinkSectionRefPattern = new RegExp(
+        `\\[[^\\]]*?§(${SECTION_REF_CANDIDATE_SOURCE})[^\\]]*?\\]\\(([^)\\s]+\\.md(?:#[^)]+)?)\\)`,
+        'g'
+    );
     let match;
 
     while ((match = markdownLinkSectionRefPattern.exec(line))) {
@@ -431,6 +445,17 @@ function collectMarkdownSectionRefs(line) {
 
 function stripMarkdownLinks(line) {
     return line.replace(/\[[^\]]+\]\([^)]+\)/g, '');
+}
+
+/**
+ * @summary Makes inline-code and bare Markdown filename targets equivalent for section refs.
+ * @param {String} line
+ * @returns {String}
+ */
+function normalizeInlineCodeSectionTargets(line) {
+    const pattern = new RegExp(`\`(${SECTION_REF_TARGET_SOURCE})\`(?=\\s+§${SECTION_REF_CANDIDATE_SOURCE})`, 'g');
+
+    return line.replace(pattern, '$1');
 }
 
 function ensureChangedLineSet(changedLinesByRelPath, relPath) {
@@ -454,8 +479,8 @@ function ensureChangedLineSet(changedLinesByRelPath, relPath) {
  */
 function parseUnifiedDiffChangedLines(diffText) {
     const changedLinesByRelPath = new Map();
-    let currentRelPath          = null;
-    let newLineNo              = null;
+    let   currentRelPath        = null;
+    let   newLineNo             = null;
 
     for (const line of diffText.split('\n')) {
         if (line.startsWith('diff --git ')) {
@@ -535,11 +560,11 @@ function areSetsEqual(a, b) {
  * @returns {{isPathOnly: Boolean, changedTargets: Set<String>}}
  */
 function analyzeMarkdownLinkPathOnlyDiff(diffText) {
-    const changedTargets = new Set();
-    const blocks         = [];
-    let block            = null;
-    let inHunk           = false;
-    let sawTargetChange  = false;
+    const changedTargets  = new Set();
+    const blocks          = [];
+    let   block           = null;
+    let   inHunk          = false;
+    let   sawTargetChange = false;
 
     const flush = () => {
         if (block && (block.removed.length || block.added.length)) {
@@ -653,6 +678,10 @@ function validateSectionRef({sourceRelPath, lineNo, target, sectionRef, index, e
         errors.push(`${sourceRelPath}:${lineNo} → broken section-ref target ${target} for §${sectionRef}`);
         return;
     }
+    if (!isSupportedSectionRef(sectionRef)) {
+        errors.push(`${sourceRelPath}:${lineNo} → unsupported section ref ${target} §${sectionRef}`);
+        return;
+    }
 
     const anchors = index.headingIndex.get(targetRelPath);
     if (!anchors) return;
@@ -707,8 +736,11 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
                 });
             }
 
-            const sectionRefPattern = new RegExp(`(?:(${SECTION_REF_TARGET_SOURCE})\\s+)?§(${SECTION_REF_SOURCE})`, 'g');
-            const lineWithoutMarkdownLinks = stripMarkdownLinks(line);
+            const sectionRefPattern = new RegExp(
+                `(?:(${SECTION_REF_TARGET_SOURCE})\\s+)?§(${SECTION_REF_CANDIDATE_SOURCE})`,
+                'g'
+            );
+            const lineWithoutMarkdownLinks = stripMarkdownLinks(normalizeInlineCodeSectionTargets(line));
             let match;
 
             while ((match = sectionRefPattern.exec(lineWithoutMarkdownLinks))) {
@@ -758,10 +790,14 @@ function checkRemovedSkillFileReferences(removedRelPaths, allTextFiles) {
                 }
             }
 
-            const sectionRefPattern = new RegExp(`(${SECTION_REF_TARGET_SOURCE})\\s+§(?:${SECTION_REF_SOURCE})`, 'g');
+            const sectionRefPattern = new RegExp(
+                `(${SECTION_REF_TARGET_SOURCE})\\s+§(?:${SECTION_REF_CANDIDATE_SOURCE})`,
+                'g'
+            );
+            const normalizedLine = normalizeInlineCodeSectionTargets(line);
             let match;
 
-            while ((match = sectionRefPattern.exec(line))) {
+            while ((match = sectionRefPattern.exec(normalizedLine))) {
                 const targetRelPath = resolveSkillMarkdownTarget(match[1], sourceRelPath, index);
 
                 if (targetRelPath && removed.has(targetRelPath)) {
@@ -775,7 +811,7 @@ function checkRemovedSkillFileReferences(removedRelPaths, allTextFiles) {
 }
 
 function validateManifestSchema(manifest, schema) {
-    const errors = [];
+    const errors   = [];
     const rootKeys = new Set([...schema.required, '$schema']);
 
     for (const key of Object.keys(manifest)) {
@@ -796,7 +832,7 @@ function validateManifestSchema(manifest, schema) {
         errors.push('skills must be an object');
     }
 
-    const defaults = manifest.defaults || {};
+    const defaults    = manifest.defaults || {};
     const defaultKeys = new Set(Object.keys(schema.properties.defaults.properties));
 
     for (const key of Object.keys(defaults)) {
@@ -1055,7 +1091,7 @@ function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getS
             if (currentSize === null) continue;
 
             const baseSize = getBaseSizeFn(file);
-            const delta = currentSize - baseSize;
+            const delta    = currentSize - baseSize;
 
             if (delta > maxDelta) {
                 errors.push(`Oversized workflow map ${file} grew by ${delta} bytes (max allowed delta is ${maxDelta}). Extract substantive additions to a sibling file behind a one-line trigger pointer.`);
@@ -1112,13 +1148,13 @@ async function lint({base = null} = {}) {
         errors.push(`manifest skill keys must match .agents/skills directories. dirs=${skillDirs.join(', ')} manifest=${manifestKeys.join(', ')}`);
     }
 
-    const changed = new Set(changedFiles(base));
+    const changed           = new Set(changedFiles(base));
     const touchedSkillNames = changedSkillNames(base);
-    const messages = commitMessages(base);
+    const messages          = commitMessages(base);
 
     if (base) {
         const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
-        const maxDelta = manifest.defaults.maxPositiveDeltaBytes || 0;
+        const maxDelta       = manifest.defaults.maxPositiveDeltaBytes || 0;
 
         const oversizedErrors = checkOversizedWorkflowMaps(
             changed,
@@ -1178,7 +1214,7 @@ async function lint({base = null} = {}) {
         }
 
         const perFileBudget = skill.perFilePayloadBudget ?? manifest.defaults.perFilePayloadBudget;
-        const files = await payloadFileSizes(skillName);
+        const files         = await payloadFileSizes(skillName);
 
         if (Number.isInteger(perFileBudget) && perFileBudget > 0) {
             errors.push(...checkPerFileBudgets(files, perFileBudget));
@@ -1186,7 +1222,7 @@ async function lint({base = null} = {}) {
 
         const rarePatterns = manifest.defaults.rareTriggerPatterns || ['openapi', 'audit', 'edge-case', 'deprecation'];
         for (const {path: filePath} of files) {
-            const text = requireText(filePath);
+            const text   = requireText(filePath);
             const result = checkSectionTriggers(filePath, text, rarePatterns);
             errors.push(...result.errors);
         }
@@ -1267,7 +1303,7 @@ async function main() {
         return;
     }
 
-    const errors  = await lint(options);
+    const errors = await lint(options);
 
     if (errors.length) {
         console.error('[lint-skill-manifest] FAILED');
