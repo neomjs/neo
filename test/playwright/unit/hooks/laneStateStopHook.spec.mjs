@@ -7,10 +7,11 @@ import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantR
         formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {collectMaterialArtifactsFromJsonl,
         evaluateMaterialArtifactKey} from '../../../../ai/scripts/lifecycle/materialArtifactKey.mjs';
-import {spawn} from 'node:child_process';
-import fs      from 'node:fs';
-import os      from 'node:os';
-import path    from 'node:path';
+import {makeHookProjectionFixture} from './fixtures/hookProjection.mjs';
+import {spawn}                     from 'node:child_process';
+import fs                          from 'node:fs';
+import os                          from 'node:os';
+import path                        from 'node:path';
 
 const block = body => '```lane-state\n' + body + '\n```';
 
@@ -287,6 +288,16 @@ test.describe('laneStateStopHook — formatHoldCostumeCallout + composeBlockDire
         expect(without).not.toContain('Hold-costume detected');
         expect(without).toContain('Turn-end refused'); // the bare directive core remains
     });
+
+    test('composeBlockDirective keeps the bare directive byte-identical unless typed enrichment is present', () => {
+        const cause = 'no lane-state block emitted at turn-terminal',
+              bare  = composeBlockDirective(cause);
+
+        expect(composeBlockDirective(cause, [], {projectionRender: ''})).toBe(bare);
+        expect(composeBlockDirective(cause, [], {
+            projectionRender: 'Live lane awareness — typed fixture'
+        })).toBe(`${bare}\n\nLive lane awareness — typed fixture`)
+    });
 });
 
 test.describe('laneStateStopHook — input resolution (assistant final text + prompting user message)', () => {
@@ -539,10 +550,11 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
      * operator-vs-wake classification surface. Otherwise the final text rides `last_assistant_message`
      * with no transcript → no confirmable prompt → fail-closed autonomous.
      * @param {String} finalText
-     * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean, toolCommand: String|null}} [opts]
+     * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean,
+     *   hookProjection: (Object|null), toolCommand: String|null}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null, transcriptRecords = null, preseedLog = null, extraEnv = null} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, hookProjection = null, toolCommand = null, transcriptRecords = null, preseedLog = null, extraEnv = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
@@ -562,6 +574,21 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
 
             if (lifecycleState !== null) {
                 fs.writeFileSync(path.join(dir, 'lifecycle-state.json'), JSON.stringify(lifecycleState), 'utf8');
+            }
+
+            if (hookProjection !== null) {
+                const projectionPath = path.join(dir, 'hook-projection-current.json'),
+                      binding        = hookProjection.consumerBinding;
+
+                fs.writeFileSync(projectionPath, JSON.stringify(hookProjection), 'utf8');
+                Object.assign(env, {
+                    NEO_HOOK_PROJECTION_PATH                : projectionPath,
+                    NEO_HOOK_PROJECTION_TARGET_ID           : hookProjection.publication.targetId,
+                    NEO_AGENT_IDENTITY                      : binding.agentId,
+                    NEO_HOOK_PROJECTION_HARNESS_TYPE        : binding.harnessType,
+                    NEO_HOOK_PROJECTION_INSTANCE_KEY_DIGEST : binding.instanceKeyDigest,
+                    NEO_HOOK_PROJECTION_WORKSPACE_KEY_DIGEST: binding.workspaceKeyDigest
+                })
             }
 
             if (preseedLog !== null) {
@@ -863,7 +890,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(stdout).toBe('');
     });
 
-    test('ENFORCE block injects the Golden Path release-goal direction from lifecycle-state (#13751)', async () => {
+    test('Phase-4 cutover ignores even fresh legacy lifecycle-state enrichment', async () => {
         const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
             enforce       : true,
             promptingText : '[WAKE] 1 event',
@@ -872,8 +899,29 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(log).toContain('BLOCK');
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
-        expect(decision.reason).toContain('Release-goal direction');
-        expect(decision.reason).toContain('issue-14442 — score 13.50 — Business engine');
+        expect(decision.reason).not.toContain('Release-goal direction');
+        expect(decision.reason).not.toContain('issue-14442');
+    });
+
+    test('ENFORCE block appends the typed lifecycle then global route without changing admission', async () => {
+        const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
+            enforce       : true,
+            promptingText : '[WAKE] 1 event',
+            hookProjection: makeHookProjectionFixture({harnessType: 'claude-code'})
+        });
+
+        expect(log).toContain('BLOCK');
+
+        const decision       = JSON.parse(stdout),
+              lifecycleIndex = decision.reason.indexOf('Lifecycle hook-lifecycle-action'),
+              routeIndex     = decision.reason.indexOf('Route hook-route-v1');
+
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('Live lane awareness — source data only');
+        expect(lifecycleIndex).toBeGreaterThan(-1);
+        expect(routeIndex).toBeGreaterThan(lifecycleIndex);
+        expect(decision.reason).toContain('issue-15315');
+        expect(decision.reason).toContain("Unknown laneContinuation 'verified-no-lane'");
     });
 
     test('a STALE lifecycle-state degrades like a missing file — dead writers cannot serve "live" advisories (#15265)', async () => {
@@ -997,7 +1045,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(JSON.parse(stdout).decision).toBe('block');
     });
 
-    test('capacity advisory: past the own-open-PR threshold the block directive weights review seats first', async () => {
+    test('Phase-4 cutover never falls back to the legacy capacity advisory', async () => {
         const {stdout} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
             enforce      : true,
             promptingText: '[WAKE] 1 event',
@@ -1008,8 +1056,8 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
 
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
-        expect(decision.reason).toContain('Capacity: 3 own PRs already open');
-        expect(decision.reason).toContain('review seat');
+        expect(decision.reason).not.toContain('Capacity: 3 own PRs already open');
+        expect(decision.reason).not.toContain('review seat');
     });
 });
 

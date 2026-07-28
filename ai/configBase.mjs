@@ -119,7 +119,68 @@ class ConfigBase extends ConfigProvider {
                  * operator/deployment-owned, never self-licensable by an agent mid-turn.
                  * @type {boolean}
                  */
-                laneContinuation: leaf(false, 'NEO_STOP_HOOK_LANE_CONTINUATION', 'boolean')
+                laneContinuation: leaf(false, 'NEO_STOP_HOOK_LANE_CONTINUATION', 'boolean'),
+                /**
+                 * Optional typed live-lane-awareness projection consumed by Claude/Codex Stop
+                 * entrypoints. The path and categorical attestation are injected by the trusted
+                 * seat boot boundary; the hook reader never derives them from cwd, session, title,
+                 * or raw filesystem paths. Until all six attestation leaves are present the reader
+                 * returns no enrichment and the existing bare hook policy is byte-for-byte
+                 * unchanged.
+                 *
+                 * Row and byte caps live HERE rather than in the pure reader. This makes density an
+                 * operator/config decision and prevents a primitive-local fallback from silently
+                 * diverging across harnesses.
+                 * @member {Object} data.stopHook.projection
+                 */
+                projection: {
+                    /**
+                     * Trusted absolute path to this seat's published `current.json`.
+                     * @type {String|null}
+                     */
+                    path: leaf(null, 'NEO_HOOK_PROJECTION_PATH', 'string'),
+                    /**
+                     * Server-derived target id expected inside `publication.targetId`.
+                     * @type {String|null}
+                     */
+                    targetId: leaf(null, 'NEO_HOOK_PROJECTION_TARGET_ID', 'string'),
+                    /**
+                     * Fixed capability carried by the typed live-lane projection contract.
+                     * @type {String}
+                     */
+                    capability: leaf('self-awareness', null, 'string'),
+                    /**
+                     * Canonical seat identity. Reuses the established process-lifetime identity
+                     * injection; the reader only canonicalizes `@` form and never infers identity.
+                     * @type {String|null}
+                     */
+                    agentId: leaf(null, 'NEO_AGENT_IDENTITY', 'string'),
+                    /**
+                     * Categorical harness family attested by the seat launcher.
+                     * @type {String|null}
+                     */
+                    harnessType: leaf(null, 'NEO_HOOK_PROJECTION_HARNESS_TYPE', 'string'),
+                    /**
+                     * Opaque instance category digest; raw user-data paths never enter the file.
+                     * @type {String|null}
+                     */
+                    instanceKeyDigest: leaf(null, 'NEO_HOOK_PROJECTION_INSTANCE_KEY_DIGEST', 'string'),
+                    /**
+                     * Opaque workspace category digest; raw checkout paths never enter the file.
+                     * @type {String|null}
+                     */
+                    workspaceKeyDigest: leaf(null, 'NEO_HOOK_PROJECTION_WORKSPACE_KEY_DIGEST', 'string'),
+                    /**
+                     * Maximum logical lifecycle/route/context rows rendered into one hook message.
+                     * @type {Number}
+                     */
+                    maxRows: leaf(12, 'NEO_HOOK_PROJECTION_MAX_ROWS', 'number'),
+                    /**
+                     * Maximum UTF-8 bytes of projection enrichment rendered into one hook message.
+                     * @type {Number}
+                     */
+                    maxBytes: leaf(4096, 'NEO_HOOK_PROJECTION_MAX_BYTES', 'number')
+                }
             },
             /**
              * The current in-flight release version whose milestone / epic work counts as "current

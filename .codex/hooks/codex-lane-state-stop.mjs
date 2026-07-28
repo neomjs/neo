@@ -25,6 +25,8 @@ import {classifyPromptingContext,
 import {collectLaneStateToolEvidenceFromJsonl,
         collectLaneStateToolEvidenceFromMessages,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {appendHookProjection,
+        readConfiguredHookProjection} from '../../ai/scripts/lifecycle/hookProjectionReader.mjs';
 
 export const CODEX_STOP_BLOCK_INJECTION_SUPPORTED = true;
 export const CODEX_PROMPT_CONTEXT_TTL_MS           = 10 * 60 * 1000;
@@ -592,8 +594,8 @@ export function classifyCodexStopPayload(input = {}, {enforcing = false, logDir,
  * decode. The bootstrap is a GUARDED DYNAMIC import rather than a top-level one: a top-level import
  * throws before `main()`'s try/catch exists, so a broken overlay would trap every turn-end instead
  * of degrading to this hook's fail-open allow.
- * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean}|null>} `null` when the
- * config tree could not be resolved.
+ * @returns {Promise<{deferenceMirror: Boolean, laneContinuation: Boolean, projection: Object}|null>}
+ * `null` when the config tree could not be resolved.
  * @protected
  */
 async function resolveStopHookPolicy() {
@@ -603,9 +605,22 @@ async function resolveStopHookPolicy() {
 
         const {default: AiConfig} = await import('../../ai/config.mjs');
 
+        const projection = AiConfig.stopHook.projection;
+
         return {
             deferenceMirror : AiConfig.stopHook.deferenceMirror,
-            laneContinuation: AiConfig.stopHook.laneContinuation
+            laneContinuation: AiConfig.stopHook.laneContinuation,
+            projection      : {
+                path              : projection.path,
+                targetId          : projection.targetId,
+                capability        : projection.capability,
+                agentId           : projection.agentId,
+                harnessType       : projection.harnessType,
+                instanceKeyDigest : projection.instanceKeyDigest,
+                workspaceKeyDigest: projection.workspaceKeyDigest,
+                maxRows           : projection.maxRows,
+                maxBytes          : projection.maxBytes
+            }
         };
     } catch (e) {
         auditLog(`CONFIG-ERROR: could not resolve stopHook policy (${e.message}); allowing stop.`);
@@ -651,7 +666,22 @@ async function main() {
 
     if (result.action === 'block') {
         auditLog(`BLOCK (session=${session}, source=${result.source}, promptSource=${result.promptSource}, operatorInLoop=${result.operatorInLoop}, autonomousHandoff=${!!result.autonomousHandoff}, handoffReason=${result.handoffReason || 'none'}, handoffWindowMs=${result.handoffWindowMs ?? 'none'}): ${result.reason}`);
-        process.stdout.write(JSON.stringify({decision: 'block', reason: result.reason}), () => process.exit(0));
+
+        let projectionRender = '';
+        try {
+            projectionRender = readConfiguredHookProjection({
+                config: policy.projection,
+                now   : Date.now()
+            }).render
+        } catch (e) {
+            // Projection enrichment is informational. A reader bug must never alter Stop admission.
+            auditLog(`PROJECTION-ERROR: ${e.message}; using bare Stop directive.`);
+        }
+
+        process.stdout.write(JSON.stringify({
+            decision: 'block',
+            reason  : appendHookProjection(result.reason, projectionRender)
+        }), () => process.exit(0));
         return;
     }
 
