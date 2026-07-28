@@ -467,7 +467,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `identity-firewall`: The L2 Channel Separation and Prompt Firewall defense mechanisms.
 - `hostile-content-quarantine`: Incident playbook for externally-authored hostile content (astroturfing, spam, injection-bearing artifacts) — detect, never engage, quarantined read, ingestion clock, moderation matrix.
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
-- `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
+- `unit-test`: Authoring or explicitly executing custom Playwright unit tests; review-only placement/idiom audits stay under `pr-review`.
 - `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `memory-mining`: Querying Memory Core before diagnosing regressions, proposing architectural claims, or beginning an implementation / PR-review — prevents re-derivation of prior reasoning across sessions and harnesses.

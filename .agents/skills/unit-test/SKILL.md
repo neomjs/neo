@@ -1,6 +1,6 @@
 ---
 name: unit-test
-description: "Expert QA knowledge on writing, formatting, and executing Playwright tests natively in the Neo.mjs single-thread layout. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright unit tests, or if the user asks you to write, fix, or run unit tests."
+description: "Neo.mjs Playwright unit-test author/executor workflow. Standard Playwright patterns will fail. Triggers: Use before writing, modifying, fixing, or explicitly running unit tests. Do not trigger solely because PR review inspects a diff containing, adding, or moving tests, or checks placement; pr-review owns review evidence."
 ---
 # Unit Test Workflow
-If you are tasked with unit testing, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/unit-test/references/unit-test.md` before writing any code.
+Before writing, modifying, fixing, or explicitly running unit tests, read and follow `.agents/skills/unit-test/references/unit-test.md`. Review-only placement/idiom audits stay under `pr-review` and do not activate this workflow.
