@@ -120,7 +120,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 
 Skeleton tickets are forbidden. Every ticket body MUST contain:
 
-- **Context** — why this ticket exists now. What prompted it. What observational evidence supports the premise.
+- **Context** — why this exists and its evidence. Incident tickets name the observed operation when known, mark unknowns, and separate observation from inference; quotations are leads, not causes. *(Retire with §8 once lint enforces this without syntax proxies.)*
 - **The Problem** — deep background, insights from recent Memory Core explorations, reproducer if applicable. Historical "why" for the agent picking up the ticket later.
 - **The Architectural Reality** — exactly which Neo.mjs patterns, class topologies, or service boundaries this issue interacts with. Cite file:line when known. Distinguishes intent-level framing (Problem) from structural specificity (Reality).
 - **The Fix** — concrete prescription: files, symbols, architectural primitives touched. What changes, and where.
@@ -159,6 +159,7 @@ When drafting ticket bodies, read [`learn/agentos/process/reference-hygiene.md`]
 | Skipping duplicate sweep | Pollutes Knowledge Base; splits swarm attention |
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
+| Quotation as root cause | Text search tests attribution, not the event |
 | Over-fragmentation | one-PR work split into micro-tickets; bundle by default — a split replaces scope, not adds |
 
 ## 9. When to Escalate to Discussion Instead
