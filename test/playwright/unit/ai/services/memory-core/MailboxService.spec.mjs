@@ -132,6 +132,33 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     }
 
     /**
+     * @summary Seeds one MESSAGE and its bounded carrier topology through the live graph owner.
+     * @param {Object} options
+     * @param {String} options.messageId
+     * @param {String} [options.recipient='@bob']
+     * @param {Boolean} [options.broadcast=false]
+     * @param {*} [options.readAt=null]
+     * @returns {void}
+     */
+    function seedReadStateCarrier({messageId, recipient='@bob', broadcast=false, readAt=null}) {
+        GraphService.upsertNode({
+            id        : messageId,
+            type      : 'MESSAGE',
+            name      : 'read-state diagnostic fixture',
+            properties: {
+                subject: 'diagnostic fixture',
+                readAt
+            }
+        });
+
+        GraphService.linkNodes(messageId, broadcast ? 'AGENT:*' : recipient, 'SENT_TO', 1, {});
+
+        if (broadcast) {
+            GraphService.linkNodes(messageId, recipient, 'DELIVERED_TO', 1, {readAt});
+        }
+    }
+
+    /**
      * Damages one edge type of a message's GRAPH PROJECTION — cache and storage both — while leaving
      * the message WAL record intact. That is the state the repair path exists for: the WAL holds the
      * truth, the projection has lost a piece, and `repairMessageGraphIntegrity` rebuilds the piece
@@ -189,6 +216,119 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         const pending = await readPendingMessageWalRecords({dir: messageWalDir});
         expect(pending).toHaveLength(0);
+    });
+
+    test('#16086: inspectReadState reads the owner SQLite without normal mailbox reads, repair, or mutation', async () => {
+        const messageId = 'MESSAGE:inspect-read-state-direct';
+        seedReadStateCarrier({messageId});
+
+        const
+            sqlite       = GraphService.db.storage.db,
+            graphLogRows = sqlite.prepare('SELECT COUNT(*) AS count FROM GraphLog').get().count,
+            beforeNode   = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(messageId).data,
+            beforeEdges  = sqlite.prepare('SELECT data FROM Edges WHERE source = ? ORDER BY id').all(messageId),
+            forbidden    = [
+                'getMessage',
+                'listMessages',
+                'repairMessageGraphIntegrity',
+                'drainPendingMessageGraphProjections',
+                'markRead',
+                'archiveMessage'
+            ],
+            originals    = Object.fromEntries(forbidden.map(name => [name, MailboxService[name]]));
+
+        try {
+            for (const name of forbidden) {
+                MailboxService[name] = () => {
+                    throw new Error(`forbidden diagnostic dependency: ${name}`);
+                };
+            }
+
+            const result = await RequestContextService.run(
+                {agentIdentityNodeId: '@bob', userId: 'bob', source: 'env-var'},
+                () => MailboxService.inspectReadState({messageId, recipient: '@bob'})
+            );
+
+            expect(result).toMatchObject({
+                ok       : true,
+                state    : 'unread',
+                messageId,
+                recipient: '@bob',
+                route    : 'direct',
+                carrier  : {kind: 'MESSAGE', rowId: messageId, readAt: null}
+            });
+        } finally {
+            Object.assign(MailboxService, originals);
+        }
+
+        expect(sqlite.prepare('SELECT COUNT(*) AS count FROM GraphLog').get().count).toBe(graphLogRows);
+        expect(sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(messageId).data).toBe(beforeNode);
+        expect(sqlite.prepare('SELECT data FROM Edges WHERE source = ? ORDER BY id').all(messageId)).toEqual(beforeEdges);
+    });
+
+    test('#16086: inspectReadState enforces own/delegated inbox authority for broadcast carriers', async () => {
+        const messageId = 'MESSAGE:inspect-read-state-broadcast';
+        seedReadStateCarrier({
+            messageId,
+            broadcast: true,
+            readAt   : '2026-07-28T08:01:00.000Z'
+        });
+
+        await expect(RequestContextService.run(
+            {agentIdentityNodeId: '@alice', userId: 'alice', source: 'oidc'},
+            () => MailboxService.inspectReadState({messageId, recipient: '@bob'})
+        )).rejects.toThrow(/CAN_READ_INBOX_OF/);
+
+        await RequestContextService.run(
+            {agentIdentityNodeId: '@bob', userId: 'bob', source: 'oidc'},
+            () => PermissionService.grantPermission({to: '@alice', scope: 'CAN_READ_INBOX_OF'})
+        );
+
+        const result = await RequestContextService.run(
+            {agentIdentityNodeId: '@alice', userId: 'alice', source: 'oidc'},
+            () => MailboxService.inspectReadState({messageId, recipient: '@bob'})
+        );
+
+        expect(result).toMatchObject({
+            ok       : true,
+            state    : 'read',
+            messageId,
+            recipient: '@bob',
+            route    : 'broadcast',
+            carrier  : {
+                kind     : 'DELIVERED_TO',
+                recipient: '@bob',
+                readAt   : '2026-07-28T08:01:00.000Z'
+            }
+        });
+    });
+
+    test('#16086: inspect_deployment returns identical classifier output for stdio and HTTP identity contexts', async () => {
+        const messageId = 'MESSAGE:inspect-deployment-read-state';
+        seedReadStateCarrier({messageId});
+
+        const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+        const outputs    = [];
+
+        for (const source of ['env-var', 'oidc']) {
+            outputs.push(await RequestContextService.run(
+                {agentIdentityNodeId: '@bob', userId: 'bob', source},
+                () => callTool('inspect_deployment', {
+                    mailboxReadState: {messageId, recipient: '@bob'}
+                })
+            ));
+        }
+
+        expect(outputs[0].mailboxReadState).toMatchObject({
+            ok       : true,
+            state    : 'unread',
+            messageId,
+            recipient: '@bob',
+            route    : 'direct'
+        });
+        expect(outputs[1].mailboxReadState).toEqual(outputs[0].mailboxReadState);
+        await expect(MailboxService.inspectReadState({messageId, recipient: '@bob'}))
+            .rejects.toThrow(/no agent identity context bound/);
     });
 
     test('addMessage stamps the normalized canonical user_id, keeping @-form only as the sender label (#13578)', async () => {

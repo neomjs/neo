@@ -27,9 +27,14 @@ import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {resolveResidentFamilyById}    from '../graph/agentFamilyResolution.mjs';
 import {getMissingMemoryWalLeaves}    from './helpers/memoryWalStore.mjs';
-import {execFile}                     from 'child_process';
-import {promisify}                    from 'util';
-import crypto                         from 'crypto';
+import {
+    classifyMailboxReadState,
+    normalizeMailboxIdentityForComparison,
+    validateMailboxReadStateRequest
+} from './helpers/mailboxReadStateClassifier.mjs';
+import {execFile}  from 'child_process';
+import {promisify} from 'util';
+import crypto      from 'crypto';
 
 const
     execFileAsync                        = promisify(execFile),
@@ -124,26 +129,6 @@ function normalizeMailboxTarget(to, sentBy) {
     }
     if (!to.includes(':')) return normalizeAgentIdentityNodeId(to);
     return to;
-}
-
-/**
- * @summary Canonicalizes direct mailbox identities for authorization comparisons.
- *
- * Direct legacy `AGENT:<identity>` wrappers remain comparison-compatible, but graph-backed
- * `AGENT:<family>/<model>` aliases are intentionally not re-resolved after persistence: send-time
- * validation owns alias resolution and stores the canonical recipient id. Re-resolving a persisted
- * family alias could change authorization when the roster changes.
- *
- * @param {*} identity Stored edge target or request-bound identity.
- * @returns {*} Canonical direct identity or unchanged non-direct mailbox address.
- * @private
- */
-function normalizeMailboxIdentityForComparison(identity) {
-    if (typeof identity === 'string' && identity.startsWith('AGENT:') && identity.includes('/')) {
-        return identity;
-    }
-
-    return normalizeMailboxTarget(identity);
 }
 
 /**
@@ -2315,6 +2300,61 @@ class MailboxService extends Base {
             if (relatedPullRequests.length > 0) result.relatedPullRequests = relatedPullRequests;
         }
         return result;
+    }
+
+    /**
+     * @summary Observes one mailbox recipient's durable read-state carrier without invoking a
+     * normal mailbox read, repair, mark-read, archive, WAL replay, or graph mutation.
+     *
+     * This is the database-owner adapter for the optional `inspect_deployment.mailboxReadState`
+     * branch. The Memory Core server already owns the live graph SQLite in both production Compose
+     * and local-parity layouts, so it reads only the named `MESSAGE` row plus its bounded
+     * `SENT_TO`/`DELIVERED_TO` cohort and delegates every classification decision to the shared
+     * pure helper. Own-inbox reads are allowed; cross-inbox reads require `CAN_READ_INBOX_OF`.
+     *
+     * @param {Object} args
+     * @param {String} args.messageId MESSAGE node id.
+     * @param {String} args.recipient Affected direct recipient identity.
+     * @returns {Promise<Object>} Stable carrier-classification observation envelope.
+     */
+    async inspectReadState({messageId, recipient}={}) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
+            throw RequestContextService.unboundIdentityError('inspect mailbox read state');
+        }
+
+        const
+            me        = normalizeMailboxIdentityForComparison(boundIdentity),
+            validated = validateMailboxReadStateRequest({messageId, recipient});
+
+        if (!sameMailboxIdentity(me, validated.recipient)) {
+            if (!PermissionService.hasPermission(me, validated.recipient, 'CAN_READ_INBOX_OF')) {
+                throw new Error(`Unauthorized: no CAN_READ_INBOX_OF permission for ${validated.recipient}`);
+            }
+        }
+
+        const
+            db     = GraphService.requireDb('MailboxService.inspectReadState'),
+            sqlite = db.storage?.db;
+
+        if (!sqlite) {
+            throw new Error('[MailboxService.inspectReadState] graph SQLite owner is unavailable');
+        }
+
+        const
+            messageRows = sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ?').all(validated.messageId),
+            edgeRows    = sqlite.prepare(`
+                SELECT id, source, target, type, data
+                FROM Edges
+                WHERE source = ? AND type IN ('SENT_TO', 'DELIVERED_TO')
+                ORDER BY id
+            `).all(validated.messageId);
+
+        return classifyMailboxReadState({
+            ...validated,
+            messageRows,
+            edgeRows
+        })
     }
 
     /**
