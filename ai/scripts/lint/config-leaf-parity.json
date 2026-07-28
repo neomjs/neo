@@ -118,6 +118,7 @@
         "orchestrator.chroma.maxRuntimeMs",
         "orchestrator.cloudOnly",
         "orchestrator.cloudOnly.composeServiceRecoveryEnabled",
+        "orchestrator.cloudOnly.offHostBackupRequired",
         "orchestrator.cloudOnly.tenantRepoSyncEnabled",
         "orchestrator.dataDir",
         "orchestrator.dbPath",

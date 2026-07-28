@@ -9,13 +9,14 @@ Backups are stored in `.neo-ai-data/backups/backup-<timestamp>/` and contain the
 - `graph/`: Memory Core SQLite graph as JSONL
 - `concepts/`: Concept Ontology JSONL
 - `trajectories/`: RLAIF training trajectories JSONL
+- `ledgers/`: incident ledgers — `heal-attempts.json`, `heal-events.jsonl`, `recovery-runs/`. Present only on bundles taken after ledger capture landed; a bundle without it restores normally.
 
 ## Prerequisites
 Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` processes).
 
 ## Atomic-Bundle Restore CLI (`ai:restore`)
 
-`npm run ai:restore -- <bundle-path>` (entrypoint `ai/scripts/maintenance/restore.mjs`) inverts the Daily Snapshot Pipeline: it reads a bundle, validates structure + JSONL parseability + topology compatibility, then restores each subsystem (KB, MC memories/summaries, graph, concepts, RLAIF trajectories) through the canonical Zod-validated SDK boundary. Use this for a full-bundle restore; the per-subsystem procedures below are the manual fallback when you need to recover a single store.
+`npm run ai:restore -- <bundle-path>` (entrypoint `ai/scripts/maintenance/restore.mjs`) inverts the Daily Snapshot Pipeline: it reads a bundle, validates structure + JSONL parseability + topology compatibility, then restores each subsystem (KB, MC memories/summaries, graph, concepts, RLAIF trajectories, mailbox archive, incident ledgers) through the canonical Zod-validated SDK boundary — flat members via direct file restore. Use this for a full-bundle restore; the per-subsystem procedures below are the manual fallback when you need to recover a single store.
 
 ### Flags
 
@@ -36,7 +37,7 @@ Two operations share this CLI and need **opposite** read-state policies. Read-st
 |---|---|---|
 | **Operation** | Disaster recovery | Live operational re-seed |
 | **Meaning** | The bundle IS the new state; reproduce it exactly | The graph is rebuilt from a lagged snapshot, **with writers quiesced first** |
-| **Scope** | Whatever you ask for (all six substrates by default) | **Graph only** — pinned |
+| **Scope** | Whatever you ask for (every substrate by default; `--only-substrate` narrows it, e.g. `--only-substrate ledgers`) | **Graph only** — pinned |
 | **Read receipts** | Discarded with everything else | **Preserved** — pinned |
 | **Mode** | Yours to state | `replace` — pinned |
 | **`--force`** | Yours | Yours — deliberately *not* pinned; the destructive acknowledgment never rides inside a convenience name |
@@ -57,7 +58,9 @@ Two operations share this CLI and need **opposite** read-state policies. Read-st
 
 ### Pre-flight validation
 
-Before any write touches a service, the orchestrator validates the bundle: the required subdirectories exist, each `.jsonl` is parseable (a torn write / corruption fails fast), and `bundle-meta.json` (when present) parses and passes the topology check. A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
+Before any write touches a service, the orchestrator validates the bundle: the required subdirectories exist, every `.jsonl` in each declared bundle member is parseable (a torn write / corruption fails fast), the incident ledgers' non-JSONL `heal-attempts.json` and nested `recovery-runs/*.jsonl` are parsed too, and `bundle-meta.json` (when present) parses and passes the topology check. A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
+
+**Scope of that promise, stated precisely:** validation covers files reachable from the declared bundle layout. It is not a guarantee about arbitrary content an operator drops into a bundle directory, and the restorability probe (`verifyLatestBackupRestorable`) reports `RESTORABLE` only when the bundle is both structurally valid **and** carries a non-zero row count — a bundle that parses cleanly while containing nothing is not a recovery source.
 
 ### Production-target safeguard
 

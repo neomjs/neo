@@ -13,7 +13,9 @@ import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
 import AiConfig from '../../config.mjs';
 
-import {classifyRowVector} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {classifyRowVector}                          from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {HEAL_LEDGER_DIR_NAME, HEAL_LEDGER_FILENAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {INCIDENT_LEDGER_BUNDLE_MEMBERS}             from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
     KB_DatabaseService,
     KB_LifecycleService,
@@ -153,7 +155,11 @@ const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datas
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
 
 const REQUIRED_BUNDLE_SUBDIRS = ['kb', 'mc', 'graph', 'concepts', 'trajectories'];
-const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
+// `ledgers` is OPTIONAL, not required, and that is a compatibility decision rather than a hedge:
+// every bundle written before incident ledgers were captured lacks the subfolder, and promoting it
+// to required would make those bundles unrestorable — turning a durability improvement into a
+// recovery regression for exactly the archives an operator reaches for first.
+const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox', 'ledgers'];
 
 /**
  * Executes a full-substrate restore from a previously-produced bundle.
@@ -169,7 +175,7 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String}  [options.sentToCullTargetFile]         Override the default sent-to-cull target file.
  * @param {String[]}[options.filterLabels=[]]              Per-incident customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
- * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
+ * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox','ledgers']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
  * @param {Boolean} [options.preserveReadState=false]      Selects the read-state policy for a `'replace'` graph restore, because the two operations that share this CLI need opposite ones. `false` (default) is DISASTER RECOVERY: the bundle is reproduced exactly, and mailbox read receipts committed after the bundle was captured are discarded with everything else. `true` is an OPERATIONAL RE-SEED: committed `DELIVERED_TO` `readAt`/`archivedAt` are captured inside the truncate transaction and re-applied wherever the bundle left them null, so acknowledged `mark_read` writes survive rebuilding the graph from a lagged snapshot. Only null-in-bundle rows are touched, so a fresher bundle is never regressed. No-op under `'merge'`, which never truncates. Forwarded as `preserveDeliveryReadState`.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
@@ -184,6 +190,7 @@ export async function runRestore({
     conceptsTargetDir       = DEFAULT_CONCEPTS_DIR,
     trajectoriesTargetFile  = DEFAULT_TRAJECTORIES_FILE,
     sentToCullTargetFile    = DEFAULT_SENT_TO_CULL_FILE,
+    ledgerTargets,
     filterLabels            = [],
     filterEdgeTypes         = [],
     onlySubstrate           = null,
@@ -208,6 +215,7 @@ export async function runRestore({
     const resolvedRoot = path.resolve(bundleRoot);
 
     const layout = {
+        ledgers     : path.join(resolvedRoot, 'ledgers'),
         kb          : path.join(resolvedRoot, 'kb'),
         mc          : path.join(resolvedRoot, 'mc'),
         graph       : path.join(resolvedRoot, 'graph'),
@@ -228,8 +236,22 @@ export async function runRestore({
         Memory_LifecycleService.ready()
     ]);
 
+    // Resolved ONCE, above the replace preflight, so the occupancy check and the restore itself
+    // cannot disagree about which paths are the targets — a preflight that guards different files
+    // from the ones the run writes guards nothing.
+    const resolvedLedgerTargets = ledgerTargets ?? {
+        healAttemptsFile: AiConfig.orchestrator.recoveryActuator.healAttemptsPath,
+        healEventsDir   : path.join(AiConfig.orchestrator.dataDir, HEAL_LEDGER_DIR_NAME),
+        recoveryRunsDir : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir
+    };
+
     if (mode === 'replace' && !force) {
-        const occupancy = await assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir});
+        const occupancy = await assessTargetOccupancy({
+            conceptsTargetDir,
+            ledgerTargets: resolvedLedgerTargets,
+            sentToCullTargetFile,
+            trajectoriesTargetFile
+        });
         const populated = occupancy.filter(o => o.nonEmpty).map(o => `${o.subsystem}=${o.size}`);
         if (populated.length > 0) {
             throw new Error(
@@ -244,7 +266,10 @@ export async function runRestore({
     // Per-substrate gate: null `onlySubstrate` = all subsystems (existing behavior).
     // Non-null array restricts to listed names. Validates against the known substrate set
     // so typos fail fast instead of silently no-op'ing the entire restore.
-    const ALL_SUBSTRATES = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
+    // Adding a `shouldRestore('x')` branch without registering `x` here makes the substrate
+    // unreachable by `--only-substrate` AND rejects any operator who names it — the branch runs only
+    // on the all-substrates path. Declaration and handling are one act.
+    const ALL_SUBSTRATES = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox', 'ledgers'];
     if (Array.isArray(onlySubstrate)) {
         const unknown = onlySubstrate.filter(s => !ALL_SUBSTRATES.includes(s));
         if (unknown.length > 0) {
@@ -349,6 +374,20 @@ export async function runRestore({
             confirmation,
             subsystem : 'mailbox',
             logger
+        });
+    }
+
+    if (shouldRestore('ledgers') && await fs.pathExists(layout.ledgers)) {
+        // The point of bundling the ledgers is that they come BACK. A volume replacement wipes the
+        // orchestrator data directory; restore is what makes the incident record readable again, so
+        // without this half the bundle would carry evidence nobody could retrieve.
+        subsystems.ledgers = await restoreIncidentLedgers({
+            confirmation,
+            force,
+            logger,
+            mode,
+            sourceDir: layout.ledgers,
+            targets  : resolvedLedgerTargets
         });
     }
 
@@ -486,6 +525,42 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // evidence the bundle itself proves (schema shape, declared-vs-streamed counts, declared-vs-
     // expected dimension, per-row vectors). Provider/model identity is advisory: no write-time
     // vector provenance exists in the substrate, and admission never contacts a provider.
+    // The two ledger members the top-level scan cannot reach: `heal-attempts.json` is not `.jsonl`, and
+    // the recovery-run files are NESTED. Both were accepted malformed while the verdict still read
+    // `RESTORABLE`. A probe may only attest what it has actually parsed.
+    if (await fs.pathExists(layout.ledgers)) {
+        const attemptsPath = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts);
+
+        if (await fs.pathExists(attemptsPath)) {
+            try {
+                JSON.parse(await fs.readFile(attemptsPath, 'utf8'))
+            } catch (err) {
+                throw new Error(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
+            }
+        }
+
+        const runsDir = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
+
+        if (await fs.pathExists(runsDir)) {
+            for (const file of (await fs.readdir(runsDir)).filter(name => name.endsWith('.jsonl'))) {
+                const stream = fs.createReadStream(path.join(runsDir, file), {encoding: 'utf8'}),
+                      rl     = readline.createInterface({crlfDelay: Infinity, input: stream});
+                let   lineNo = 0;
+
+                for await (const line of rl) {
+                    if (!line.trim()) continue;
+                    lineNo++;
+
+                    try {
+                        JSON.parse(line)
+                    } catch (err) {
+                        throw new Error(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
+                    }
+                }
+            }
+        }
+    }
+
     validateEmbeddingContractSchema({expectedDimension, meta, streamedCounts});
     const embeddingAdvisories = assessEmbeddingCompatibility({expectedDimension, logger, meta});
 
@@ -493,10 +568,13 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // self-diagnostic probe and the later orchestrator always receive the structured unknown.
     if (meta) {
         meta.embeddingAdvisories = embeddingAdvisories;
+        // Surfaced so a caller can decide NON-EMPTINESS from this same streaming pass instead of
+        // re-reading metadata or writing a second predicate that could disagree with this one.
+        meta.streamedCounts      = streamedCounts;
         return meta
     }
 
-    return {embeddingAdvisories, legacy: true}
+    return {embeddingAdvisories, legacy: true, streamedCounts}
 }
 
 /**
@@ -635,7 +713,19 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * @param {Object}   [options.logger=console] Log sink.
  * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
  * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
- * @returns {Promise<{restorable: Boolean, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
+ * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH structurally valid
+ * and non-empty; `rowTotal` reports the row count it was decided on. That strength lives here rather
+ * than in a caller so a shell gate consumes one authoritative verdict instead of re-reading metadata
+ * and growing a second predicate able to disagree with this one.
+ *
+ * It exists so a caller gating on this probe branches on a value rather than
+ * pattern-matching English out of `reason`, which would silently stop working the moment the prose
+ * is reworded. `BUNDLE_ROOT_MISSING` and `NO_BUNDLES` are deliberately separate: the bundle root is
+ * bind-mounted from a path relative to the compose project directory, so a run from a different host
+ * checkout finds a directory that never existed — reporting "no bundle" for bundles sitting safely
+ * in a prior checkout is the wrong answer to the operator's actual question.
  */
 export async function verifyLatestBackupRestorable({
     backupRoot,
@@ -650,7 +740,11 @@ export async function verifyLatestBackupRestorable({
     const checkedAt = new Date().toISOString();
 
     if (!await fsModule.pathExists(backupRoot)) {
-        return {restorable: false, bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+        // Distinct from NO_BUNDLES on purpose. The cloud profile bind-mounts the bundle root from a
+        // path RELATIVE to the compose project directory, so a deployment run from a different host
+        // checkout addresses a directory that never existed rather than an empty one. Reporting "no
+        // bundle" for bundles sitting safely in a prior checkout would answer about the wrong subject.
+        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
     }
 
     // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
@@ -661,24 +755,51 @@ export async function verifyLatestBackupRestorable({
         .reverse();
 
     if (bundleNames.length === 0) {
-        return {restorable: false, bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
     }
 
     const bundleRoot = path.join(backupRoot, bundleNames[0]);
-    const layout     = {
+    // `ledgers` belongs in the probe's layout because the probe ATTESTS a restore that will write
+    // them. Omitting it meant malformed ledger content passed unexamined while the verdict still said
+    // `RESTORABLE` — the probe vouching for a member it never looked at.
+    const layout = {
         kb          : path.join(bundleRoot, 'kb'),
         mc          : path.join(bundleRoot, 'mc'),
         graph       : path.join(bundleRoot, 'graph'),
         concepts    : path.join(bundleRoot, 'concepts'),
         trajectories: path.join(bundleRoot, 'trajectories'),
-        mailbox     : path.join(bundleRoot, 'mailbox')
+        mailbox     : path.join(bundleRoot, 'mailbox'),
+        ledgers     : path.join(bundleRoot, 'ledgers')
     };
 
     try {
-        const meta = await validateFn(bundleRoot, layout, logger);
-        return {restorable: true, bundleRoot, reason: null, checkedAt, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
+        const meta = await validateFn(bundleRoot, layout, logger),
+              // Non-emptiness is decided HERE, from the validator's own streaming pass, because a
+              // structurally-parseable bundle is not the same thing as a usable recovery source.
+              // A bundle carrying only the six required directories and a minimal meta parsed clean
+              // and returned `RESTORABLE` — the ticket's explicitly forbidden precondition, and the
+              // exact shape of the incident: the one bundle in the ledger completed after the plane
+              // was already empty. `code` has to be stronger than the prose it replaced.
+              //
+              // Vector-collection rows are the measure because they ARE the recovery payload. A
+              // bundle whose corpus is empty cannot restore a corpus, whatever else it contains.
+              rowTotal = Object.values(meta?.streamedCounts ?? {}).reduce((sum, count) => sum + count, 0);
+
+        if (rowTotal === 0) {
+            return {
+                restorable         : false,
+                code               : 'BUNDLE_EMPTY',
+                bundleRoot,
+                reason             : `bundle parses but carries zero recoverable rows: ${bundleRoot}`,
+                checkedAt,
+                rowTotal,
+                embeddingAdvisories: meta?.embeddingAdvisories ?? []
+            }
+        }
+
+        return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, rowTotal, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
     } catch (error) {
-        return {restorable: false, bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
+        return {restorable: false, code: 'BUNDLE_INVALID', bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
     }
 }
 
@@ -728,7 +849,7 @@ export async function checkTopology({meta, forceTopologyMismatch, logger}) {
  * @param {String} options.conceptsTargetDir
  * @returns {Promise<Array<{subsystem: String, nonEmpty: Boolean, size: Number}>>}
  */
-async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir}) {
+async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir, ledgerTargets}) {
     const results = [];
 
     try {
@@ -769,6 +890,35 @@ async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFi
         results.push({subsystem: 'mailbox', nonEmpty: false, size: 0});
     }
 
+    // The incident ledgers are replace targets too, and were initially omitted here. The omission was
+    // invisible because `assertDestructiveTargetAllowed` still fired on them — but that guard
+    // classifies target LOCATION and confirmation; it does not enforce `--force`. So a populated
+    // ledger on a disposable path could be overwritten with `force: false`, contrary to this
+    // function's whole purpose. A test asserting "the guard was called" proved the wrong
+    // proposition; what has to hold is that the run REFUSES.
+    if (ledgerTargets) {
+        for (const [subsystem, target] of [
+            ['ledgers.healAttempts', ledgerTargets.healAttemptsFile],
+            ['ledgers.healEvents',   ledgerTargets.healEventsDir],
+            ['ledgers.recoveryRuns', ledgerTargets.recoveryRunsDir]
+        ]) {
+            if (!target || !await fs.pathExists(target)) {
+                results.push({subsystem, nonEmpty: false, size: 0});
+                continue
+            }
+
+            const stat = await fs.stat(target);
+
+            if (stat.isDirectory()) {
+                const entries = (await fs.readdir(target)).filter(name => name.endsWith('.jsonl'));
+
+                results.push({subsystem, nonEmpty: entries.length > 0, size: entries.length})
+            } else {
+                results.push({subsystem, nonEmpty: stat.size > 0, size: stat.size})
+            }
+        }
+    }
+
     return results
 }
 
@@ -784,7 +934,116 @@ async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFi
  * @param {Object} options
  * @returns {Promise<{copied: Number, skipped: Number, mode: String}>}
  */
-async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, subsystem, logger}) {
+/**
+ * Restores the three incident ledgers from the bundle's `ledgers/` subfolder.
+ *
+ * Bundling the ledgers is only half the guarantee — a volume replacement wipes the orchestrator data
+ * directory, so restore is what makes the incident record readable again. Without this the bundle
+ * would carry evidence nobody could retrieve.
+ *
+ * Singletons are addressed by their EXACT filename rather than by "the first `.jsonl` in the
+ * folder", which is what `restoreFlatFile` does and which would silently pick the wrong file once a
+ * second ledger lands beside them. `heal-attempts.json` is not `.jsonl` at all, so neither existing
+ * flat helper reaches it.
+ *
+ * @param {Object} options
+ * @param {String} options.sourceDir Absolute `ledgers/` path inside the bundle.
+ * @param {Object} options.targets Resolved `{healAttemptsFile, healEventsDir, recoveryRunsDir}`.
+ * @returns {Promise<{healAttempts: Object, healEvents: Object, recoveryRuns: Object, mode: String}>}
+ */
+async function restoreIncidentLedgers({sourceDir, targets, mode, force, confirmation, logger}) {
+    /**
+     * Authorizes one named ledger WITHOUT mutating anything, returning the plan its mutation phase
+     * will execute.
+     *
+     * Split from the copy on purpose. The three ledgers previously ran through `Promise.all` while
+     * each did guard-check-THEN-mutate, so a guard that refused SLOWLY on one ledger let a sibling
+     * whose guard resolved quickly complete its overwrite before `runRestore` rejected. The run
+     * reported failure having already destroyed data — worse than either outcome alone, because an
+     * operator seeing a refusal reasonably concludes nothing happened.
+     *
+     * @param {String} fileName
+     * @param {String} targetFile
+     * @param {String} subsystem
+     * @returns {Promise<Object>}
+     */
+    const planNamed = async (fileName, targetFile, subsystem) => {
+        const source = path.join(sourceDir, fileName);
+
+        if (!await fs.pathExists(source)) {
+            return {outcome: {copied: false, mode, note: `source absent: ${fileName}`}}
+        }
+
+        if (mode === 'replace') {
+            await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
+                confirmation,
+                mode     : 'replace',
+                operation: `restore.${subsystem}.replace`,
+                source   : {path: source},
+                subsystem,
+                target   : {path: targetFile, repoRoot: PROJECT_ROOT}
+            });
+        } else if (!force && await fs.pathExists(targetFile)) {
+            logger.log?.(`[Restore][${subsystem}] preserved existing ${fileName} (merge mode without --force)`);
+            return {outcome: {copied: false, skipped: true, mode}}
+        }
+
+        return {apply: async () => {
+            await fs.ensureDir(path.dirname(targetFile));
+            await fs.copy(source, targetFile, {overwrite: true});
+
+            return {copied: true, mode}
+        }}
+    };
+
+    // PHASE 1 — authorize EVERY ledger before ANY of them mutates. Sequential, so the first refusal
+    // returns while the filesystem is still untouched; concurrency here would reintroduce the exact
+    // race this split exists to close.
+    //
+    // Looked up by the STABLE bundle member name and written to the RESOLVED host path. Searching by
+    // `path.basename(target)` coupled the bundle's contents to the reading host's config: a relocated
+    // `healAttemptsPath` made a perfectly good bundle read as `source absent`.
+    const attemptsPlan = await planNamed(
+              INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts, targets.healAttemptsFile, 'ledgers.healAttempts'
+          ),
+          eventsPlan   = await planNamed(
+              HEAL_LEDGER_FILENAME, path.join(targets.healEventsDir, HEAL_LEDGER_FILENAME), 'ledgers.healEvents'
+          ),
+          runsSource   = path.join(sourceDir, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
+
+    // `restoreFlatDir` fires its own guard as step one, so its authorization is hoisted here and the
+    // call below runs pre-authorized rather than re-asking mid-mutation.
+    if (mode === 'replace' && await fs.pathExists(runsSource)) {
+        await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
+            confirmation,
+            mode     : 'replace',
+            operation: 'restore.ledgers.recoveryRuns.replace',
+            source   : {path: runsSource},
+            subsystem: 'ledgers.recoveryRuns',
+            target   : {path: targets.recoveryRunsDir, repoRoot: PROJECT_ROOT}
+        });
+    }
+
+    // PHASE 2 — every authorization has passed; now mutate.
+    const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
+        attemptsPlan.apply ? attemptsPlan.apply() : attemptsPlan.outcome,
+        eventsPlan.apply   ? eventsPlan.apply()   : eventsPlan.outcome,
+        restoreFlatDir({
+            confirmation,
+            force,
+            logger,
+            mode,
+            preAuthorized: true,
+            sourceDir    : runsSource,
+            subsystem    : 'ledgers.recoveryRuns',
+            targetDir    : targets.recoveryRunsDir
+        })
+    ]);
+
+    return {healAttempts, healEvents, mode, recoveryRuns}
+}
+
+async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, subsystem, logger, preAuthorized = false}) {
     if (!await fs.pathExists(sourceDir)) {
         return {copied: 0, skipped: 0, mode, note: `source absent: ${sourceDir}`}
     }
@@ -792,7 +1051,10 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
     const sourceEntries = await fs.readdir(sourceDir);
     const sourceFiles   = sourceEntries.filter(f => f.endsWith('.jsonl'));
 
-    if (mode === 'replace') {
+    // `preAuthorized` exists for callers that must authorize a GROUP of targets before any member
+    // mutates — asking again here would be redundant, not safer. It never skips the emptyDir below:
+    // the authorization moved earlier, it did not disappear.
+    if (mode === 'replace' && !preAuthorized) {
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
@@ -801,6 +1063,8 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
             source   : {path: sourceDir},
             confirmation
         });
+        await fs.emptyDir(targetDir);
+    } else if (mode === 'replace') {
         await fs.emptyDir(targetDir);
     } else {
         await fs.ensureDir(targetDir);

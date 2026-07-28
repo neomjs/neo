@@ -17,7 +17,107 @@ const MAX_RECEIPT_BYTES     = 64 * 1024,
       MAX_TAIL_BYTES        = 4 * 1024,
       STALE_TEMP_HORIZON_MS = 60_000;
 
+// Config-contract bounds for the `maintenance.backup.offHostSync` subtree, living beside the
+// validator that enforces them. See `validateOffHostSyncConfig` below for why the contract belongs
+// to this layer rather than to the maintenance script that runs the sync.
+const ANY_PLACEHOLDER     = /\{[^}]*\}/,
+      ENV_NAME_PATTERN    = /^[A-Z_][A-Z0-9_]*$/,
+      GRACE_MAX_MS        = 60000,
+      PLACEHOLDER_PATTERN = /^\{(bundleDir|bundleName)\}$/,
+      TIMEOUT_MAX_MS      = 30 * 60 * 1000,
+      TIMEOUT_MIN_MS      = 1000;
+
+/**
+ * Stable classification of an off-host-sync config defect. Projected remotely INSTEAD of the
+ * human-readable `error`, which interpolates the offending value.
+ * @type {Object}
+ */
+export const OFFHOST_SYNC_ERROR_CODE = Object.freeze({
+    ARGV_NOT_STRING_ARRAY   : 'KB_OFFHOST_SYNC_ARGV_NOT_STRING_ARRAY',
+    ARGV_PLACEHOLDER_INVALID: 'KB_OFFHOST_SYNC_ARGV_PLACEHOLDER_INVALID',
+    COMMAND_NOT_STRING      : 'KB_OFFHOST_SYNC_COMMAND_NOT_STRING',
+    CONFIG_NOT_OBJECT       : 'KB_OFFHOST_SYNC_CONFIG_NOT_OBJECT',
+    ENV_ALLOWLIST_INVALID   : 'KB_OFFHOST_SYNC_ENV_ALLOWLIST_INVALID',
+    KILL_GRACE_OUT_OF_RANGE : 'KB_OFFHOST_SYNC_KILL_GRACE_OUT_OF_RANGE',
+    NUL_BYTE                : 'KB_OFFHOST_SYNC_NUL_BYTE',
+    TIMEOUT_OUT_OF_RANGE    : 'KB_OFFHOST_SYNC_TIMEOUT_OUT_OF_RANGE'
+});
+
 const now = () => new Date().toISOString();
+
+/**
+ * Validates the nested offHostSync config keys. The contract is owned here rather than by a leaf
+ * because the keys are plain nested values inside the `maintenance.backup` object leaf, which
+ * declares no per-key `leaf()` nodes and therefore binds no per-key env override or type parser.
+ *
+ * **Why this lives in the store rather than the maintenance script:** the off-host durability
+ * posture on the deployment-state snapshot must answer "is this hook configured
+ * and valid?", and the orchestrator's `DeploymentStateBridgeService` is a READ-ONLY projector that
+ * deliberately never imports `ai/scripts/maintenance/offHostSync.mjs` — that script's module body is
+ * CLI machinery and pulls `node:child_process` into the diagnostic path. Duplicating the predicate
+ * for the bridge would have created two enablement resolvers able to disagree, so the single
+ * implementation moved to this shared, side-effect-free layer that both consumers already import.
+ * The script re-exports it, so its callers and its owning ticket's spec are unaffected.
+ *
+ * @param {Object} [config={}] The `AiConfig.maintenance.backup.offHostSync` subtree (may be undefined).
+ * @returns {{enabled: Boolean, error: String|null, errorCode: String|null, value: Object}}
+ * `error` is operator-facing prose that MAY interpolate the offending config value; `errorCode` is a
+ * stable classification that never does. A caller writing to a remotely readable surface must carry
+ * the code and drop the prose.
+ */
+export function validateOffHostSyncConfig(config = {}) {
+    const {
+        argv          = [],
+        command       = '',
+        envAllowlist  = [],
+        killGraceMs   = 5000,
+        timeoutMs     = 600000
+    } = config ?? {};
+
+    // `errorCode` is the ONLY half of a failure that is safe to project remotely. `error` carries
+    // the operator-facing detail, which for the placeholder and NUL cases interpolates the offending
+    // `argv` token verbatim — and an operator can put a credential in argv. A caller that projects
+    // `error` into a remotely readable surface leaks it; the code says the same thing about the
+    // DEFECT while saying nothing about the VALUE.
+    const fail = (errorCode, error) => ({enabled: false, error, errorCode, value: null});
+
+    // Validate EVERY key before the disabled early-return: a disabled hook with malformed keys is a
+    // validation failure, not a silent pass.
+    if (config === null || typeof config !== 'object' || Array.isArray(config)) return fail(OFFHOST_SYNC_ERROR_CODE.CONFIG_NOT_OBJECT, 'config must be an object');
+    if (typeof command !== 'string') return fail(OFFHOST_SYNC_ERROR_CODE.COMMAND_NOT_STRING, 'command must be a string');
+    // Array-shape before any traversal: null/object/number argv must return a validation outcome,
+    // never a thrown TypeError.
+    if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail(OFFHOST_SYNC_ERROR_CODE.ARGV_NOT_STRING_ARRAY, 'argv must be an array of strings');
+    if (command.includes('\0') || argv.some(token => token.includes('\0'))) {
+        return fail(OFFHOST_SYNC_ERROR_CODE.NUL_BYTE, 'command/argv must not contain NUL bytes')
+    }
+
+    for (const token of argv) {
+        if (ANY_PLACEHOLDER.test(token) && !PLACEHOLDER_PATTERN.test(token)) {
+            return fail(OFFHOST_SYNC_ERROR_CODE.ARGV_PLACEHOLDER_INVALID, `argv token must be a whole-token placeholder {bundleDir} or {bundleName}, got: ${token}`)
+        }
+    }
+
+    if (!Array.isArray(envAllowlist) || envAllowlist.some(name => typeof name !== 'string' || !ENV_NAME_PATTERN.test(name))) {
+        return fail(OFFHOST_SYNC_ERROR_CODE.ENV_ALLOWLIST_INVALID, 'envAllowlist entries must match /^[A-Z_][A-Z0-9_]*$/')
+    }
+
+    if (!Number.isInteger(timeoutMs) || timeoutMs < TIMEOUT_MIN_MS || timeoutMs > TIMEOUT_MAX_MS) {
+        return fail(OFFHOST_SYNC_ERROR_CODE.TIMEOUT_OUT_OF_RANGE, `timeoutMs must be an integer between ${TIMEOUT_MIN_MS} and ${TIMEOUT_MAX_MS}`)
+    }
+    if (!Number.isInteger(killGraceMs) || killGraceMs < 0 || killGraceMs > GRACE_MAX_MS) {
+        return fail(OFFHOST_SYNC_ERROR_CODE.KILL_GRACE_OUT_OF_RANGE, `killGraceMs must be an integer between 0 and ${GRACE_MAX_MS}`)
+    }
+
+    if (command.trim() === '') return {enabled: false, error: null, errorCode: null, value: null};
+
+    return {
+        enabled  : true,
+        error    : null,
+        errorCode: null,
+        value    : {argv, command: command.trim(), envAllowlist, killGraceMs, timeoutMs}
+    }
+}
 
 /**
  * Bounds a string to the LAST maxBytes bytes with UTF-8-safe output: partial lead sequences are

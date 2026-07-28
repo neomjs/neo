@@ -12,7 +12,11 @@ import {
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
 } from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
-import {readBackupReceipt}           from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
+import {
+    readBackupReceipt,
+    validateOffHostSyncConfig
+} from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
+import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     queryHealLedger,
@@ -239,22 +243,36 @@ export class DeploymentStateBridgeService extends Base {
 
     /**
      * Projects the durable backup receipt (`AiConfig.backupPath/last-backup-receipt.json`) into the
-     * snapshot with explicit freshness semantics: absent-before-first-run omits the block entirely
-     * (never fabricated); unreadable/corrupt/oversize/wrong-version receipts project a stable
-     * `{status: 'unreadable', kind, finishedAt}` shape so consumers never infer corruption from an
-     * absent block. The receipt file survives orchestrator restart by construction; the projection
-     * is last-known, never refreshed-on-read.
+     * snapshot with explicit freshness semantics: unreadable/corrupt/oversize/wrong-version receipts
+     * project a stable `{status: 'unreadable', kind, finishedAt}` shape so consumers never infer
+     * corruption from an absent `lastBackup`. The receipt file survives orchestrator restart by
+     * construction; the projection is last-known, never refreshed-on-read.
+     *
+     * The `durability` block is projected UNCONDITIONALLY, including when no receipt exists yet.
+     * That is deliberate and is the point of the block: a posture is a property of the deployment's
+     * CONFIGURATION, not of its last run, so it is exactly knowable before any backup has ever
+     * happened — which is when it matters most. Returning `null` for a never-backed-up deployment
+     * (the previous behaviour) omitted the whole maintenance section, making "no backup has ever
+     * run here" indistinguishable from "nothing about maintenance is worth reporting". A deployment
+     * one command away from unrecoverable data loss read as silence.
+     *
+     * `lastBackup` keeps its absent-before-first-run semantics and is simply omitted in that case.
      * @returns {Promise<Object|null>}
      */
     async collectMaintenanceSnapshot({receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json')} = {}) {
+        // Module-scope, deliberately not a method: this projection depends only on resolved config
+        // and its own argument, never on instance state, and the contract spec asserts that by
+        // invoking it detached.
+        const durability = resolveConfiguredDurabilityPosture();
 
         try {
             const outcome = await readBackupReceipt({filePath: receiptPath});
 
-            if (outcome.status === 'missing') return null;
+            if (outcome.status === 'missing') return {durability};
 
             if (outcome.status === 'unreadable') {
                 return {
+                    durability,
                     lastBackup: {
                         finishedAt: outcome.finishedAt,
                         kind      : outcome.kind,
@@ -263,9 +281,10 @@ export class DeploymentStateBridgeService extends Base {
                 }
             }
 
-            return {lastBackup: outcome.receipt}
+            return {durability, lastBackup: outcome.receipt}
         } catch (error) {
             return {
+                durability,
                 lastBackup: {
                     finishedAt: null,
                     kind      : 'corrupt',
@@ -274,6 +293,7 @@ export class DeploymentStateBridgeService extends Base {
             }
         }
     }
+
 
     /**
      * Collects one bounded per-service state envelope.
@@ -727,6 +747,32 @@ export class DeploymentStateBridgeService extends Base {
     now() {
         return this.nowFn ? this.nowFn() : Date.now();
     }
+}
+
+/**
+ * Resolves the off-host durability posture by reading the resolved leaves at this use site and
+ * handing them to the pure derivation. The enablement predicate is NOT re-implemented here —
+ * `validateOffHostSyncConfig` owns that contract, because the `offHostSync` keys are plain nested
+ * values inside the `maintenance` object leaf rather than leaves of their own.
+ *
+ * Deliberately NOT wrapped in a catch. An earlier revision fell back to `posture: 'unreadable'` on
+ * any throw, reasoning that a degraded section beats an unproducible snapshot. That reasoning is
+ * wrong here, and the reactive-config SSOT says why: the tree is guaranteed, so the only things this can throw
+ * on are a missing leaf or a programming defect — precisely the failures that must fail loud rather
+ * than be laundered into a plausible-looking diagnostic value. A posture reading `unreadable` would
+ * have been indistinguishable from a real deployment condition, which is the same wrong-subject
+ * failure this whole projection exists to remove.
+ *
+ * Invalid OPERATOR config is a different case and stays non-throwing: it already has an explicit
+ * representation via `unmet` plus `offHostSyncConfigValid: false`.
+ * @returns {Object}
+ */
+function resolveConfiguredDurabilityPosture() {
+    return resolveDurabilityPosture({
+        deploymentMode       : AiConfig.orchestrator.deploymentMode,
+        offHostBackupRequired: AiConfig.orchestrator.cloudOnly.offHostBackupRequired,
+        validationOutcome    : validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync)
+    })
 }
 
 function summarizeInspect(inspect) {

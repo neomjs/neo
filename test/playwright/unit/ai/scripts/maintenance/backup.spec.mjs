@@ -348,4 +348,77 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
         expect(await countNonEmptyJsonlLines(file)).toBe(3);
     });
+
+    test('the bundle captures all three incident ledgers, reporting WHICH one was empty', async () => {
+        // The other half of ledger survival. Before this, `orchestrator-state` was excluded from the
+        // bundle — a fact the runbook already admitted as a standing caveat — so a volume replacement
+        // destroyed the self-heal and recovery record with no copy anywhere.
+        const silentLogger  = {error: () => {}, log: () => {}, warn: () => {}},
+              ledgerRoot    = path.join(workRoot, 'ledger-src', 'orchestrator-daemon'),
+              altBundleRoot = path.join(workRoot, 'bundle-with-ledgers'),
+              ledgerSources = {
+                  healAttemptsFile: path.join(ledgerRoot, 'heal-attempts.json'),
+                  healEventsDir   : path.join(ledgerRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(ledgerRoot, 'recovery-runs')
+              };
+
+        fs.mkdirSync(ledgerSources.healEventsDir, {recursive: true});
+        fs.mkdirSync(ledgerSources.recoveryRunsDir, {recursive: true});
+        fs.writeFileSync(ledgerSources.healAttemptsFile, JSON.stringify({'kb:chunks': {attempts: 2}}));
+        fs.writeFileSync(path.join(ledgerSources.healEventsDir, 'heal-events.jsonl'), '{"type":"freeze"}\n');
+        // recovery-runs deliberately left EMPTY, so the per-ledger breakdown has something to
+        // discriminate: a single aggregate count could not say which ledger had nothing in it.
+
+        const result = await runBackup({
+            bundleRoot: altBundleRoot,
+            conceptsSourceDir,
+            ledgerSources,
+            logger    : silentLogger,
+            trajectoriesSourceFile
+        });
+
+        const ledgersDir = path.join(altBundleRoot, 'ledgers');
+
+        expect(fs.existsSync(path.join(ledgersDir, 'heal-attempts.json'))).toBe(true);
+        expect(fs.existsSync(path.join(ledgersDir, 'heal-events.jsonl'))).toBe(true);
+        expect(JSON.parse(fs.readFileSync(path.join(ledgersDir, 'heal-attempts.json'), 'utf8'))['kb:chunks'].attempts).toBe(2);
+
+        // `recovery-runs` keeps its own subfolder — flattening per-run files beside the two singletons
+        // would let a run id collide with a ledger filename.
+        expect(fs.existsSync(path.join(ledgersDir, 'recovery-runs'))).toBe(true);
+
+        // The per-ledger breakdown is the point: an aggregate of 2 would not tell an operator that the
+        // recovery-run ledger specifically had nothing to bundle.
+        expect(result.subsystems.ledgers.healAttempts.copied).toBe(1);
+        expect(result.subsystems.ledgers.healEvents.copied).toBe(1);
+        expect(result.subsystems.ledgers.recoveryRuns.copied).toBe(0);
+        expect(result.subsystems.ledgers.copied).toBe(2);
+    });
+
+    test('an absent ledger is a note, not a backup failure', async () => {
+        // A deployment that has never healed has no ledger. That is not a defect and must not fail a
+        // backup — the same non-fatal contract concepts and trajectories already have.
+        const silentLogger  = {error: () => {}, log: () => {}, warn: () => {}},
+              altBundleRoot = path.join(workRoot, 'bundle-no-ledgers'),
+              missingRoot   = path.join(workRoot, 'never-existed', 'orchestrator-daemon');
+
+        const result = await runBackup({
+            bundleRoot   : altBundleRoot,
+            conceptsSourceDir,
+            ledgerSources: {
+                healAttemptsFile: path.join(missingRoot, 'heal-attempts.json'),
+                healEventsDir   : path.join(missingRoot, 'data-heal-events'),
+                recoveryRunsDir : path.join(missingRoot, 'recovery-runs')
+            },
+            logger       : silentLogger,
+            trajectoriesSourceFile
+        });
+
+        expect(result.subsystems.ledgers.copied).toBe(0);
+        expect(result.subsystems.ledgers.healAttempts.note).toMatch(/source not present/);
+        expect(result.subsystems.ledgers.healEvents.note).toMatch(/source not present/);
+        // The subfolder still exists, so a consumer never has to distinguish "no ledgers" from
+        // "this bundle predates ledger capture" by the absence of a directory.
+        expect(fs.existsSync(path.join(altBundleRoot, 'ledgers'))).toBe(true);
+    });
 });
