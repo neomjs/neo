@@ -131,12 +131,18 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             prompt: 'visibility prompt', thought: 'visibility thought', response: 'visibility response'
         }));
 
-        // Durable AND not-yet-queryable, stated as two separate facts rather than one word.
+        // Durable AND not-yet-SEMANTICALLY-queryable, stated as separate facts rather than one word.
         expect(result.id).toBeTruthy();
         expect(result.error).toBeUndefined();
-        expect(result.visibility.queryable).toBe(false);
-        expect(result.visibility.state).toBe('deferred');
+        expect(result.visibility.semanticQueryable).toBe(false);
+        expect(result.visibility.state).toBe('embed-deferred');
         expect(result.visibility.thisWritePending).toBe(true);
+
+        // The axis that must NOT be understated. `query_recent_turns` is served by the WAL overlay, so
+        // it returns this write now — the sibling `AC3` test below proves that end-to-end with the
+        // embed down. An unqualified "not queryable" would steer a caller away from the one read that
+        // works, trading the phantom-data-loss conclusion for its mirror image.
+        expect(result.visibility.recencyQueryable).toBe(true);
 
         // The signal must be ACTIONABLE, not a prose caveat: a depth a caller can branch on, and one
         // that counts this write, so a fresh write is never reported as 0 pending.
@@ -164,19 +170,91 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             prompt: 'collapse prompt', thought: 'collapse thought', response: 'collapse response'
         }));
 
-        // Two independent fields. A single boolean cannot express "durable but not retrievable".
+        // Independent per-axis fields. A single boolean cannot express "durable, recency-readable now,
+        // semantically searchable later" — and the axes must disagree here, which is the whole point.
         expect(result.visibility).toBeTruthy();
-        expect(result.visibility.queryable).toBe(false);
+        expect(result.visibility.semanticQueryable).toBe(false);
+        expect(result.visibility.recencyQueryable).toBe(true);
         expect(result.id).toBeTruthy();
 
+        // The collapse guard proper: no field may be a bare `queryable` again. That name is what made
+        // the previous revision assert something false about `query_recent_turns`, so its reappearance
+        // is the regression signal.
+        expect(result.visibility.queryable).toBeUndefined();
+
         // POSITIVE CONTROL on the drain surface: with writes pending it must NOT claim everything is
-        // queryable. Without this, `allWritesQueryable` could be hardcoded true and the poll a caller
-        // is told to trust would confirm visibility that does not exist.
+        // searchable. Without this, `allWritesSemanticallyQueryable` could be hardcoded true and the
+        // poll a caller is told to trust would confirm visibility that does not exist.
         const drain = await MemoryService.describeDrainState();
 
         expect(drain.observable).toBe(true);
         expect(drain.pendingDrainDepth).toBeGreaterThan(0);
-        expect(drain.allWritesQueryable).toBe(false);
+        expect(drain.allWritesSemanticallyQueryable).toBe(false);
+    });
+
+    test('RA2: when the embed marker lands BEFORE the disclosure is read, the envelope says reconciled', async () => {
+        // The race the previous revision could not express. `queryable` and `state` were hard-coded, so
+        // a write whose embed marker had already landed still reported `state: 'deferred'` alongside
+        // `pendingDrainDepth: 0` and `thisWritePending: false` — three fields describing two
+        // incompatible worlds. Euclid's exact-head probe reproduced it directly.
+        //
+        // This drives `describeWriteVisibility` on an ALREADY-MARKED record, so a hard-coded
+        // deferral fails here while a marker-derived one passes.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt: 'race prompt', thought: 'race thought', response: 'race response'
+        }));
+
+        expect(result.visibility.state).toBe('embed-deferred');
+
+        const pending = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
+
+        expect(pending).toHaveLength(1);
+
+        // Mark it exactly as the embed daemon would, then re-read the SAME disclosure.
+        await appendWalEmbedMarker(
+            {id: result.id, segmentKey: pending[0].segmentKey, embeddedAt: new Date().toISOString()},
+            {dir: testWalDir}
+        );
+
+        const after = await MemoryService.describeWriteVisibility({
+            memoryId  : result.id,
+            walDir    : testWalDir,
+            segmentKey: pending[0].segmentKey
+        });
+
+        // Derived, and internally consistent: nothing may claim deferral while the marker exists.
+        expect(after.semanticQueryable).toBe(true);
+        expect(after.state).toBe('reconciled');
+        expect(after.thisWritePending).toBe(false);
+        expect(after.recencyQueryable).toBe(true);
+
+        // The coherence invariant stated directly, so any future field added to this envelope has to
+        // respect it rather than merely happening to.
+        expect(after.semanticQueryable).toBe(!after.thisWritePending);
+    });
+
+    test('RA2: semanticQueryable is derived from a marker read, NOT from absence in the pending set', async () => {
+        // Fail-open guard. `pending.some(r => r.id === X)` is false both when X reconciled AND when X
+        // is not in the WAL at all, so deriving "your write is searchable" from that absence would
+        // report an UNOBSERVED record as reconciled. An id that was never written is the cheapest
+        // probe for that: it is absent from the pending set, and must NOT come back queryable.
+        const result = await asTenant(() => MemoryService.addMemory({
+            prompt: 'derive prompt', thought: 'derive thought', response: 'derive response'
+        }));
+
+        const pending = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
+
+        expect(pending).toHaveLength(1);
+
+        const phantom = await MemoryService.describeWriteVisibility({
+            memoryId  : 'MEMORY:never-written-phantom-id',
+            walDir    : testWalDir,
+            segmentKey: pending[0].segmentKey
+        });
+
+        // Absence must read as "not reconciled", never as "reconciled".
+        expect(phantom.semanticQueryable).toBe(false);
+        expect(phantom.state).toBe('embed-deferred');
     });
 
     test('AC2: a DOWN content store cannot fail the save — the write path never touches it', async () => {

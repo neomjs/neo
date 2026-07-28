@@ -1,19 +1,19 @@
-import Base                                                                                                                            from '../../../src/core/Base.mjs';
-import StorageRouter                                                                                                                   from './managers/StorageRouter.mjs';
-import crypto                                                                                                                          from 'crypto';
-import GraphService                                                                                                                    from './GraphService.mjs';
-import logger                                                                                                                          from '../../mcp/server/memory-core/logger.mjs';
-import SessionService                                                                                                                  from './SessionService.mjs';
-import TurnPresenceService                                                                                                             from './TurnPresenceService.mjs';
-import {withTimeout}                                                                                                                   from './helpers/withTimeout.mjs';
-import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
-import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                           from './helpers/turnDocumentText.mjs';
-import {isCollectionQuarantined}                                                                                                       from './helpers/quarantineStore.mjs';
-import {buildChatModel}                                                                                                                from '../../provider/buildChatModel.mjs';
-import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                     from '../../graph/identityRoots.mjs';
-import {normalizeAgentIdentityNodeId}                                                                                                  from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import Base                                                                                                                                              from '../../../src/core/Base.mjs';
+import StorageRouter                                                                                                                                     from './managers/StorageRouter.mjs';
+import crypto                                                                                                                                            from 'crypto';
+import GraphService                                                                                                                                      from './GraphService.mjs';
+import logger                                                                                                                                            from '../../mcp/server/memory-core/logger.mjs';
+import SessionService                                                                                                                                    from './SessionService.mjs';
+import TurnPresenceService                                                                                                                               from './TurnPresenceService.mjs';
+import {withTimeout}                                                                                                                                     from './helpers/withTimeout.mjs';
+import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords, readWalMarkedIds} from './helpers/memoryWalStore.mjs';
+import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                                             from './helpers/turnDocumentText.mjs';
+import {isCollectionQuarantined}                                                                                                                         from './helpers/quarantineStore.mjs';
+import {buildChatModel}                                                                                                                                  from '../../provider/buildChatModel.mjs';
+import aiConfig                                                                                                                                          from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                                          from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                                       from '../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId}                                                                                                                    from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
@@ -45,7 +45,7 @@ function walTimestampToEpochMs(value) {
     return Number.isFinite(parsed) ? parsed : null
 }
 
-export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged; queryability is deferred until the embed drain reconciles it (see `visibility`).';
+export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged to the write-ahead log; `query_recent_turns` returns it immediately, semantic recall waits for the embed drain (see `visibility`).';
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -519,21 +519,25 @@ class MemoryService extends Base {
                 logger.warn(`[MemoryService] Turn presence terminalization skipped (non-fatal): ${error.message}`);
             }
 
-            // 7. Disclose that ACCEPTANCE is not yet QUERYABILITY.
+            // 7. Disclose acceptance PLUS which read families can already see it.
             //
             // The old response was `message: "Memory successfully added"` and nothing else. That
             // sentence is true — the WAL append above makes the write durable — and it answers
-            // "was it accepted?" while a caller is asking "can I rely on it?". An immediate
-            // read-back is the natural way to check the second, returns nothing while the embed
-            // drain is still pending, and reads as DATA LOSS. On a live deployment that cost a team
-            // three sessions and wrote a phantom outage into their own corpus as durable history.
+            // "was it accepted?" while a caller is asking "can I rely on it?". A caller checking the
+            // second question with a SEMANTIC read gets nothing back while the embed drain is
+            // pending, and reads that as DATA LOSS. On a live deployment that cost a team three
+            // sessions and wrote a phantom outage into their own corpus as durable history.
             //
             // The failure direction is what makes it expensive: a caller who assumes immediate
-            // visibility concludes the write vanished, which is the most alarming available wrong
-            // answer and the one most likely to trigger a redeploy — which really does destroy the
-            // corpus. So the disclosure has to be structured, not just prose: an agent branches on
-            // fields, and a caveat it has to read is a caveat it can skip.
-            const visibility = await this.describeWriteVisibility({memoryId, walDir});
+            // semantic visibility concludes the write vanished, which is the most alarming available
+            // wrong answer and the one most likely to trigger a redeploy — which really does destroy
+            // the corpus. So the disclosure has to be structured, not just prose: an agent branches
+            // on fields, and a caveat it has to read is a caveat it can skip.
+            //
+            // It must also not over-correct. Telling a caller "not queryable" full stop would send
+            // them away from `query_recent_turns`, which returns this write immediately — trading one
+            // wrong conclusion for its mirror image. Hence per-axis fields rather than one boolean.
+            const visibility = await this.describeWriteVisibility({memoryId, walDir, segmentKey});
 
             return {id: memoryId, sessionId, timestamp, message: MEMORY_ACCEPTED_MESSAGE, visibility, mailbox};
         } catch (error) {
@@ -569,12 +573,17 @@ class MemoryService extends Base {
      * @private
      */
     /**
-     * @summary Reports the memory WAL drain backlog, so "is my write visible yet?" is answerable.
+     * @summary Reports the memory WAL embed-drain backlog, so "is my write semantically searchable
+     * yet?" is answerable.
      *
-     * The disclosure on `add_memory` tells a caller queryability is deferred; this is what they poll
-     * to find out when it is not. Shipping the disclosure without this would just relocate the
-     * uncertainty — an honest caveat with no instrument behind it leaves the caller exactly as stuck,
-     * and still guessing.
+     * The disclosure on `add_memory` tells a caller SEMANTIC queryability is deferred; this is what
+     * they poll to find out when it is not. Shipping the disclosure without this would just relocate
+     * the uncertainty — an honest caveat with no instrument behind it leaves the caller exactly as
+     * stuck, and still guessing.
+     *
+     * Scoped to the embed axis on purpose. Recency recall (`query_recent_turns`) is served from the
+     * WAL overlay and never waits on this backlog, so a non-zero depth here does NOT mean recent
+     * turns are unreadable.
      *
      * Measured only, for the same reason as the per-write disclosure: no drain cadence exists to
      * derive an ETA from, so this reports depth and age and declines to predict.
@@ -599,9 +608,11 @@ class MemoryService extends Base {
                 observable        : true,
                 pendingDrainDepth : pending.length,
                 oldestPendingAgeMs: oldest === null ? null : Math.max(0, Date.now() - oldest),
-                // Zero pending is the ONLY state that means every accepted write is queryable, and it
-                // is stated positively so a caller does not have to infer it from an absent field.
-                allWritesQueryable: pending.length === 0
+                // Zero pending is the ONLY state that means every accepted write is SEMANTICALLY
+                // queryable, and it is stated positively so a caller does not have to infer it from an
+                // absent field. Named for the axis: recency recall never waits on this backlog, so an
+                // unqualified `allWritesQueryable` would understate what already works.
+                allWritesSemanticallyQueryable: pending.length === 0
             }
         } catch (error) {
             logger.warn(`[MemoryService] Drain-state read degraded (non-fatal): ${error.message}`);
@@ -609,18 +620,56 @@ class MemoryService extends Base {
             // Says it could not measure rather than reporting a reassuring zero. A drain read that
             // fails is not an empty backlog, and reporting 0 here would recreate the original defect
             // one layer up: a caller trusting a number that means "unknown".
-            return {observable: false, pendingDrainDepth: null, oldestPendingAgeMs: null, allWritesQueryable: null}
+            return {
+                observable                    : false,
+                pendingDrainDepth             : null,
+                oldestPendingAgeMs            : null,
+                allWritesSemanticallyQueryable: null
+            }
         }
     }
 
     /**
-     * @summary Describes whether a just-accepted write is queryable yet, and how far behind it is.
+     * @summary Describes which read families can see a just-accepted write, and how far behind the
+     * deferred one is.
      *
-     * Returns MEASURED state only. There is deliberately no `expectedVisibleBy`: the embed drain has
-     * no cadence leaf and the daemon exposes no interval, so any ETA would be a plausible number with
-     * nothing behind it — the exact class of value this disclosure exists to eliminate. Reporting
-     * "you are behind N records, the oldest pending for Xms" is smaller and true, and a caller can act
-     * on it. `pendingDrainDepth` counts this write too, so a freshly accepted memory is never 0.
+     * ## Why the axis is named rather than a bare `queryable`
+     *
+     * "Queryable" is not one property. Two independent reconciliation streams sit behind this write,
+     * and only one of them delays a read:
+     *
+     * - **Recency (`query_recent_turns`) is immediate.** Graph projection is derived work after WAL
+     *   acceptance, and `readPendingRecencyRows` overlays graph-pending WAL rows while it catches up,
+     *   with `readPendingWalRecords` hydrating content Chroma does not have yet. So the row AND its
+     *   content are served from the WAL from the moment the append returns.
+     * - **Semantic recall (`query_raw_memories`) waits.** Vector search needs the embedding; there is
+     *   no overlay that can substitute for one.
+     *
+     * An earlier revision of this method reported a single `queryable: false`. That claim is FALSE for
+     * recency and would push a caller toward the mirror-image of the bug this disclosure exists to
+     * prevent: instead of concluding the write vanished, they would conclude it is unreadable when
+     * `query_recent_turns` would have returned it. The repository's own `AC3: with the embed down, a
+     * just-written turn is immediately recency-visible` fixture was green while that prose shipped —
+     * a passing positive control contradicting the documentation is the documentation's falsifier.
+     *
+     * ## Why the state is derived from a marker read
+     *
+     * `semanticQueryable` comes from `readWalMarkedIds` — a POSITIVE observation that this record's
+     * embed marker exists — not from its absence in the pending set. Absence is ambiguous (reconciled
+     * OR not present at all) and would fail open. It also keeps the envelope self-consistent: the
+     * embed daemon can win the race between the append and this read, and the previous revision then
+     * returned `state: 'deferred'` alongside `pendingDrainDepth: 0`, which cannot both be true.
+     *
+     * `thisWritePending` is the strict inverse of `semanticQueryable`, derived from that same single
+     * observation, so the two can never drift apart into a contradiction.
+     *
+     * `pendingDrainDepth` is deliberately a SEPARATE proposition from this write's own state: the
+     * backlog can be non-empty while this particular write has reconciled. Collapsing them is the
+     * conflation this method exists to avoid.
+     *
+     * There is deliberately no `expectedVisibleBy`: the embed drain has no cadence leaf and the daemon
+     * exposes no interval, so any ETA would be a plausible number with nothing behind it — the exact
+     * class of value this disclosure exists to eliminate.
      *
      * Fails soft: this is a disclosure attached to an already-successful durable write, so a WAL read
      * problem must degrade the disclosure rather than turn a successful save into an error. That is
@@ -629,12 +678,15 @@ class MemoryService extends Base {
      * @param {Object} options
      * @param {String} options.memoryId Id of the write just accepted.
      * @param {String} options.walDir Resolved WAL directory.
+     * @param {String} options.segmentKey Segment the write was appended to; scopes the marker read.
      * @returns {Promise<Object>}
      */
-    async describeWriteVisibility({memoryId, walDir}) {
+    async describeWriteVisibility({memoryId, walDir, segmentKey}) {
         try {
-            const pending = await readPendingWalRecords({dir: walDir}),
-                  oldest  = pending.reduce(
+            const marked     = await readWalMarkedIds({dir: walDir, segmentKey}),
+                  reconciled = marked.has(memoryId),
+                  pending    = await readPendingWalRecords({dir: walDir}),
+                  oldest     = pending.reduce(
                       (min, record) => {
                           const at = walTimestampToEpochMs(record?.timestamp);
 
@@ -644,21 +696,30 @@ class MemoryService extends Base {
                   );
 
             return {
-                queryable         : false,
-                state             : 'deferred',
+                // Immediate, and stated positively so a caller does not infer unavailability from an
+                // absent field. The WAL overlay serves this read the moment the append returns.
+                recencyQueryable  : true,
+                semanticQueryable : reconciled,
+                state             : reconciled ? 'reconciled' : 'embed-deferred',
                 pendingDrainDepth : pending.length,
                 oldestPendingAgeMs: oldest === null ? null : Math.max(0, Date.now() - oldest),
-                thisWritePending  : pending.some(record => record?.id === memoryId),
-                hint              : 'An immediate read-back may not return this write. Poll `healthcheck` for `memoryWalDrain` rather than retrying the write — a retry duplicates it and does not make the first one visible sooner.'
+                thisWritePending  : !reconciled,
+                hint              : reconciled
+                    ? 'Reconciled: both `query_recent_turns` and semantic recall return this write.'
+                    : '`query_recent_turns` returns this write NOW. Semantic recall (`query_raw_memories`) needs the embed drain — poll `healthcheck` for `memoryWalDrain` rather than retrying the write, which duplicates it without making the first one visible sooner.'
             }
         } catch (error) {
             logger.warn(`[MemoryService] Write-visibility disclosure degraded (non-fatal): ${error.message}`);
 
+            // `semanticQueryable: null` — could not measure. Reporting `false` here would assert a
+            // deferral that was never observed, and `true` would fail open.
             return {
-                queryable        : false,
-                state            : 'deferred-depth-unavailable',
+                recencyQueryable : true,
+                semanticQueryable: null,
+                state            : 'embed-state-unavailable',
                 pendingDrainDepth: null,
-                hint             : 'An immediate read-back may not return this write. Drain depth could not be read; poll `healthcheck` for `memoryWalDrain`.'
+                thisWritePending : null,
+                hint             : '`query_recent_turns` returns this write NOW. Embed reconciliation state could not be read; poll `healthcheck` for `memoryWalDrain`.'
             }
         }
     }

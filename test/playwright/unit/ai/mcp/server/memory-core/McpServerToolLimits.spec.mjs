@@ -173,6 +173,54 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.inputSchema.properties.staleAfterMs.type).toBe('number');
     });
 
+    test('healthcheck DECLARES memoryWalDrain, and every key its real producer returns is in the schema (#16060)', async () => {
+        // Output schemas are passthrough, so production can add a response field that `tools/list`
+        // never declares and CI stays green. `memoryWalDrain` shipped exactly that way: the runtime
+        // handler returned it, callers were told by `add_memory` to poll it, and the generated MCP
+        // output schema did not mention it — so a consumer reading the declared contract could not
+        // discover the instrument it was being pointed at.
+        const { tools } = await toolService.listTools();
+        const tool      = tools.find(item => item.name === 'healthcheck');
+
+        expect(tool).toBeTruthy();
+
+        // POSITIVE CONTROL on the assertion mechanism: `plane` was already declared, so if this
+        // lookup path were wrong, the control fails and the real assertion below cannot pass
+        // vacuously.
+        expect(tool.outputSchema.properties.plane).toBeTruthy();
+        expect(tool.outputSchema.properties.plane.properties.dataRoot.type).toBe('string');
+
+        const declared = tool.outputSchema.properties.memoryWalDrain;
+
+        expect(declared).toBeTruthy();
+        expect(declared.properties.observable.type).toBe('boolean');
+        expect(declared.properties.pendingDrainDepth.type).toBe('integer');
+        expect(declared.properties.allWritesSemanticallyQueryable.type).toBe('boolean');
+
+        // The generalizable limb, and the reason this test is worth its bytes: cross-check the DECLARED
+        // shape against what the REAL producer actually returns, rather than against a hand-written
+        // list that drifts. `describeDrainState` is the production function the handler calls, so a
+        // field added there without a schema entry fails here — including fields nobody thought to
+        // name in a review.
+        //
+        // Imported inside the test, not at module scope: this is a ToolService/schema spec, and hoisting
+        // a service import that reaches AiConfig would couple schema assertions to service boot order.
+        // Both the measured and the degraded branch of `describeDrainState` return the SAME key set, so
+        // this cross-check does not depend on a WAL existing here.
+        const {default: MemoryService} = await import('../../../../../../../ai/services/memory-core/MemoryService.mjs'),
+              produced                 = await MemoryService.describeDrainState(),
+              undeclared               = Object.keys(produced).filter(key => !declared.properties[key]);
+
+        expect(undeclared).toEqual([]);
+
+        // And the inverse direction, so the schema cannot advertise a contract the producer does not
+        // honour. Both directions matter: an undeclared field hides an instrument, a declared-but-absent
+        // field promises one that isn't there.
+        const unproduced = Object.keys(declared.properties).filter(key => !(key in produced));
+
+        expect(unproduced).toEqual([]);
+    });
+
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {
         const observedArgs   = [];
         const spyToolService = Neo.create(ToolService, {
