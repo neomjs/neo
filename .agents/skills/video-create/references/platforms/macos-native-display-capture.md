@@ -61,7 +61,7 @@ Do **not** read titles, URLs, documents, tabs, page text, profile/account labels
 
 Map each controllable Accessibility window to its native window ID at runtime. Geometry is evidence about placement, not identity: two windows can have identical bounds. A native ID is short-lived selection authority for this attempt only; never reuse it after the window disappears or the browser restarts.
 
-Freeze all `(application owner, native window ID)` pairs before launch. Multiple owners are permitted; count neither admits nor rejects. Continue only when launch provenance plus post-ready set difference proves one new pair. Never guess from process order, title, profile, or geometry.
+Take 17 observed one existing and one new launch-bound owner; admission with more existing owners is derived, not tested. Freeze the global owner/window set before launch; continue only when its post-ready difference proves one new launch-bound pair. Never guess from process order, title, profile, or geometry.
 
 ## 5. Receipt-before-mutation isolation
 
@@ -115,7 +115,7 @@ Never require or assume that the browser command PID equals the application-owne
 1. freeze the global pre-existing owner/window set;
 2. launch exactly one film browser command during a quiet, bounded window-creation interval and retain its process ancestry;
 3. wait for the app-owned semantic-ready receipt;
-4. re-census every plausible browser application owner;
+4. re-census every browser application owner globally;
 5. require one new owner/window pair whose owner is bound to the launch provenance;
 6. bind its native window ID to the physical predicates below.
 
