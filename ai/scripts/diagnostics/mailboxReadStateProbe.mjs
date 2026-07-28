@@ -156,14 +156,25 @@ function validateOptions({dbPath, messageId, recipient}={}) {
 }
 
 /**
- * @summary Enumerates the bounded legacy SQLite spellings accepted by MailboxService comparisons.
- * @param {String} recipient Canonical direct identity.
- * @returns {String[]}
+ * @summary Canonicalizes a stored mailbox target using MailboxService's comparison rules.
+ *
+ * Direct `AGENT:<identity>` wrappers remain comparison-compatible, while persisted
+ * `AGENT:<family>/<model>` aliases stay untouched because roster-based alias resolution belongs to
+ * send-time validation. Direct values without an address-kind colon and legacy
+ * `AGENT:<identity>` wrappers flow through `normalizeAgentIdentityNodeId`, which trims whitespace
+ * and collapses any run of leading `@` characters.
+ *
+ * @param {*} identity Stored edge target.
+ * @returns {*} Canonical direct identity or unchanged non-direct mailbox address.
  * @private
  */
-function getRecipientStorageVariants(recipient) {
-    const bare = recipient.slice(1);
-    return [...new Set([recipient, bare, `@${recipient}`, `AGENT:${recipient}`, `AGENT:${bare}`])]
+function normalizeMailboxIdentityForComparison(identity) {
+    if (typeof identity !== 'string') return identity;
+    if (identity.startsWith('AGENT:') && identity.includes('/')) return identity;
+    if (identity === 'AGENT:*') return identity;
+    if (identity.startsWith('AGENT:')) return normalizeAgentIdentityNodeId(identity.slice('AGENT:'.length));
+    if (!identity.includes(':')) return normalizeAgentIdentityNodeId(identity);
+    return identity
 }
 
 /**
@@ -365,12 +376,13 @@ export function inspectMailboxReadState({dbPath, messageId, recipient, DatabaseC
         }
 
         const
-            variants            = new Set(getRecipientStorageVariants(validated.recipient)),
-            sentTo              = edges.filter(edge => edge.type === 'SENT_TO'),
-            deliveries          = edges.filter(edge => edge.type === 'DELIVERED_TO'),
-            directRoutes        = sentTo.filter(edge => variants.has(edge.target)),
+            sentTo       = edges.filter(edge => edge.type === 'SENT_TO'),
+            deliveries   = edges.filter(edge => edge.type === 'DELIVERED_TO'),
+            directRoutes = sentTo.filter(edge =>
+                normalizeMailboxIdentityForComparison(edge.target) === validated.recipient),
             broadcastRoutes     = sentTo.filter(edge => edge.target === 'AGENT:*'),
-            recipientDeliveries = deliveries.filter(edge => variants.has(edge.target));
+            recipientDeliveries = deliveries.filter(edge =>
+                normalizeMailboxIdentityForComparison(edge.target) === validated.recipient);
 
         if (
             directRoutes.length > 1 ||

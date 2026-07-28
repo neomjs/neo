@@ -184,6 +184,26 @@ test.describe('mailboxReadStateProbe — carrier-first durable read-state classi
         });
     });
 
+    for (const [label, target] of [
+        ['padded', '  @neo-gpt  '],
+        ['multi-@', '@@@@neo-gpt']
+    ]) {
+        test(`matches a ${label} direct target using the production identity comparison`, () => {
+            insertMessage(null);
+            insertRoute({id: 'EDGE:sent-to', target, type: 'SENT_TO'});
+
+            expect(inspect()).toMatchObject({
+                ok     : true,
+                state  : 'unread',
+                route  : 'direct',
+                carrier: {
+                    kind : 'MESSAGE',
+                    rowId: 'MESSAGE:probe'
+                }
+            });
+        });
+    }
+
     test('classifies a receipt-backed broadcast with delivery readAt:null as unread', () => {
         insertMessage(null);
         insertRoute({id: 'EDGE:broadcast', target: 'AGENT:*', type: 'SENT_TO'});
@@ -227,6 +247,33 @@ test.describe('mailboxReadStateProbe — carrier-first durable read-state classi
             }
         });
     });
+
+    for (const [label, target] of [
+        ['padded', '  @neo-gpt  '],
+        ['multi-@', '@@@@neo-gpt']
+    ]) {
+        test(`matches a ${label} broadcast receipt using the production identity comparison`, () => {
+            insertMessage(null);
+            insertRoute({id: 'EDGE:broadcast', target: 'AGENT:*', type: 'SENT_TO'});
+            insertRoute({
+                id        : 'EDGE:delivery',
+                target,
+                type      : 'DELIVERED_TO',
+                properties: {readAt: null}
+            });
+
+            expect(inspect()).toMatchObject({
+                ok     : true,
+                state  : 'unread',
+                route  : 'broadcast',
+                carrier: {
+                    kind     : 'DELIVERED_TO',
+                    rowId    : 'EDGE:delivery',
+                    recipient: '@neo-gpt'
+                }
+            });
+        });
+    }
 
     test('reports a broadcast with no affected-recipient delivery edge as carrier missing, not unread', () => {
         insertMessage(null);
