@@ -27,6 +27,7 @@ import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {HEAL_LEDGER_DIR_NAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
     buildBackupReceipt,
     buildSyncChildEnv,
@@ -50,7 +51,9 @@ const execFileAsync = promisify(execFile);
  * ├── mc/                 # Memory Core memories + summaries as JSONL
  * ├── graph/              # Memory Core SQLite graph as JSONL
  * ├── concepts/           # Concept Ontology JSONL (nodes, edges)
- * └── trajectories/       # RLAIF training trajectories JSONL
+ * ├── trajectories/       # RLAIF training trajectories JSONL
+ * ├── mailbox/            # Mailbox sent-to-cull archive JSONL
+ * └── ledgers/            # Incident ledgers: heal-attempts.json, heal-events.jsonl, recovery-runs/
  * ```
  *
  * This script does NOT defrag; it captures the current state whatever shape it is in.
@@ -197,6 +200,9 @@ export function buildEmbeddingContract({subsystems}) {
  * @param {String}  [options.bundleRoot=null]            Absolute bundle path. If null, a timestamped dir under the default root is used.
  * @param {String}  [options.conceptsSourceDir]          Override for the Concept Ontology source directory.
  * @param {String}  [options.trajectoriesSourceFile]     Override for the RLAIF trajectories source file.
+ * @param {Object}  [options.ledgerSources]              Override for the incident-ledger source paths
+ *                                                       (`{healAttemptsFile, healEventsDir, recoveryRunsDir}`).
+ *                                                       Omitted in production — resolved from AiConfig at the use site.
  * @param {Object}  [options.logger=console]             Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, timestamp: String, subsystems: Object}>}
  */
@@ -205,10 +211,19 @@ export async function runBackup({
     conceptsSourceDir      = DEFAULT_CONCEPTS_DIR,
     trajectoriesSourceFile = DEFAULT_TRAJECTORIES_FILE,
     sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
+    ledgerSources,
     logger                 = console
 } = {}) {
     const timestamp    = new Date().toISOString().replace(/:/g, '-');
     const resolvedRoot = bundleRoot ?? path.join(AiConfig.backupPath, `backup-${timestamp}`);
+    // Resolved leaves read HERE rather than captured at module scope: `healAttemptsPath` and
+    // `recoveryRunStateDir` are plane members and therefore env-relocatable per deployment, so a
+    // module-scope capture would bundle whatever the path was at import time.
+    const resolvedLedgerSources = ledgerSources ?? {
+        healAttemptsFile: AiConfig.orchestrator.recoveryActuator.healAttemptsPath,
+        healEventsDir   : path.join(AiConfig.orchestrator.dataDir, HEAL_LEDGER_DIR_NAME),
+        recoveryRunsDir : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir
+    };
 
     const layout = {
         kb          : path.join(resolvedRoot, 'kb'),
@@ -216,7 +231,13 @@ export async function runBackup({
         graph       : path.join(resolvedRoot, 'graph'),
         concepts    : path.join(resolvedRoot, 'concepts'),
         trajectories: path.join(resolvedRoot, 'trajectories'),
-        mailbox     : path.join(resolvedRoot, 'mailbox')
+        mailbox     : path.join(resolvedRoot, 'mailbox'),
+        // The incident ledgers. They live in the orchestrator data directory, which on the cloud
+        // profile IS a named volume — so a volume replacement destroys the self-heal and recovery
+        // record together with the data whose loss they exist to explain, and the bundle did not
+        // cover them. Post-mortem capability co-located with its subject means the one class of
+        // event it most needs to describe is the one it can never describe.
+        ledgers     : path.join(resolvedRoot, 'ledgers')
     };
 
     await Promise.all(Object.values(layout).map(dir => fs.ensureDir(dir)));
@@ -228,36 +249,43 @@ export async function runBackup({
 
     const subsystems = {};
 
-    logger.log('[1/7] Exporting Knowledge Base...');
+    logger.log('[1/8] Exporting Knowledge Base...');
     subsystems.kb = await KB_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         backupPath: layout.kb
     });
 
-    logger.log('[2/7] Exporting Memory Core (memories + summaries)...');
+    logger.log('[2/8] Exporting Memory Core (memories + summaries)...');
     subsystems.mc = await Memory_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         include   : ['memories', 'summaries'],
         backupPath: layout.mc
     });
 
-    logger.log('[3/7] Exporting Memory Core graph...');
+    logger.log('[3/8] Exporting Memory Core graph...');
     subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         include   : ['graph'],
         backupPath: layout.graph
     });
 
-    logger.log('[4/7] Copying Concept Ontology...');
+    logger.log('[4/8] Copying Concept Ontology...');
     subsystems.concepts = await copyJsonlSource(conceptsSourceDir, layout.concepts, logger);
 
-    logger.log('[5/7] Copying RLAIF trajectories...');
+    logger.log('[5/8] Copying RLAIF trajectories...');
     subsystems.trajectories = await copyJsonlSource(trajectoriesSourceFile, layout.trajectories, logger);
 
-    logger.log('[6/7] Copying mailbox sent-to-cull archive...');
+    logger.log('[6/8] Copying mailbox sent-to-cull archive...');
     subsystems.mailbox = await copyJsonlSource(sentToCullSourceFile, layout.mailbox, logger);
 
-    logger.log('[7/7] Applying retention sweep...');
+    logger.log('[7/8] Copying incident ledgers (self-heal + recovery runs)...');
+    subsystems.ledgers = await copyIncidentLedgers({
+        destDir: layout.ledgers,
+        logger,
+        sources: resolvedLedgerSources
+    });
+
+    logger.log('[8/8] Applying retention sweep...');
     // Retention comes from Tier-1 AI maintenance policy; missing keys fail loud
     // at the direct resolved-leaf read site. Bundle root, retention sweep, receipt, and
     // snapshot-root all resolve from the same `AiConfig.backupPath` leaf (the CLI wrapper
@@ -569,6 +597,47 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
  * @param {Object} [logger=console] Log sink; receives `.warn(message)` calls for empty sources.
  * @returns {Promise<{copied: Number, note: String}>} `note` only present when the source is absent or empty.
  */
+/**
+ * Copies the three incident ledgers into the bundle's `ledgers/` subfolder.
+ *
+ * Why they are bundled rather than relocated: on the cloud profile the orchestrator data directory
+ * IS a named volume, so a volume replacement destroys the self-heal and recovery record together
+ * with the data whose loss they exist to explain. Relocating them to a surviving mount would decide
+ * the data-plane placement election that a separate ticket owns, so survival is obtained here by
+ * inclusion — the bundle already lands on a host bind-mount that a volume wipe does not touch.
+ *
+ * Each ledger is independently optional. A deployment that has never healed has no ledger, and that
+ * is not a backup failure — `copyJsonlSource` reports absence via `note` without throwing. The
+ * per-ledger breakdown is preserved in the returned shape so `bundle-meta.subsystems.ledgers` says
+ * WHICH ledger was empty rather than collapsing three answers into one count.
+ *
+ * @param {Object} options
+ * @param {String} options.destDir Absolute `ledgers/` path inside the bundle.
+ * @param {Object} options.sources Resolved `{healAttemptsFile, healEventsDir, recoveryRunsDir}`.
+ * @param {Object} [options.logger=console] Log sink.
+ * @returns {Promise<{copied: Number, healAttempts: Object, healEvents: Object, recoveryRuns: Object}>}
+ */
+async function copyIncidentLedgers({destDir, sources, logger = console}) {
+    // `recovery-runs` keeps its own subfolder because it is a directory of per-run files; flattening
+    // it into `ledgers/` alongside the two singletons would make a run id collide with a ledger name.
+    const recoveryRunsDest = path.join(destDir, 'recovery-runs');
+
+    await fs.ensureDir(recoveryRunsDest);
+
+    const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
+        copyJsonlSource(sources.healAttemptsFile, destDir, logger),
+        copyJsonlSource(sources.healEventsDir, destDir, logger),
+        copyJsonlSource(sources.recoveryRunsDir, recoveryRunsDest, logger)
+    ]);
+
+    return {
+        copied: (healAttempts.copied ?? 0) + (healEvents.copied ?? 0) + (recoveryRuns.copied ?? 0),
+        healAttempts,
+        healEvents,
+        recoveryRuns
+    }
+}
+
 async function copyJsonlSource(source, destDir, logger=console) {
     if (!await fs.pathExists(source)) {
         return {copied: 0, note: `source not present: ${source}`};

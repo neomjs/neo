@@ -105,7 +105,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 | Memory Core graph + sessions — the **primary store** | `shared-sqlite-data` named volume → `/app/.neo-ai-data/sqlite` | `down -v`, or the Compose project name changes |
 | Chroma vectors | `chroma-data` named volume → `/chroma/unified` (set via `PERSIST_DIRECTORY`) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
 | Sandman handoff + derived route artifacts | `shared-handoff-data` named volume → `/app/.neo-ai-data/handoff` (writer and reader share `NEO_HANDOFF_FILE_PATH`) | `down -v`, or the Compose project name changes |
-| Orchestrator task, tenant-repo revision/backoff, recovery, and diagnostic state | `orchestrator-state` named volume → `/app/.neo-ai-data/orchestrator-daemon` (bound through `NEO_AI_ORCHESTRATOR_DIR`) | `down -v`, or the Compose project name changes |
+| Orchestrator task, tenant-repo revision/backoff, recovery, and diagnostic state | `orchestrator-state` named volume → `/app/.neo-ai-data/orchestrator-daemon` (bound through `NEO_AI_ORCHESTRATOR_DIR`) | `down -v`, or the Compose project name changes. **The incident ledgers within it — `heal-attempts.json`, `heal-events.jsonl`, `recovery-runs/` — are now captured in the backup bundle's `ledgers/` folder and restorable (`--only-substrate ledgers`). Task state and tenant-repo revisions are not.** |
 | Backup bundles | host bind-mount `./.neo-ai-data/backups` on the `cloud`-profile `orchestrator` | the compose file's host location changes between runs |
 | TLS certs / CA | `caddy-data` / `caddy-config` named volumes (`ingress` profile) | `down -v` (re-issued on next start — watch ACME rate limits) |
 | Local model store — opt-in `local-model` profile | `local-model-data` named volume → `/root/.ollama` | `down -v`, or the project name changes (recoverable — re-pull the models) |
@@ -120,10 +120,21 @@ Three rules keep a redeploy job safe:
 
 Off-site copy is the disaster-recovery layer *above* redeploy-safety:
 redeploy-safety keeps named-volume state across a container *recreate*, while
-host-loss recovery requires exporting every load-bearing named volume. The
-current logical backup bundle does not include `orchestrator-state`; copy or
-export that volume separately before claiming that its task/revision/recovery
-state is off-host backed up.
+host-loss recovery requires exporting every load-bearing named volume.
+
+The bundle now covers the **incident ledgers** inside `orchestrator-state` —
+`heal-attempts.json`, `heal-events.jsonl`, and `recovery-runs/` land in the
+bundle's `ledgers/` folder and restore with `--only-substrate ledgers`. That
+closes a specific hole: the self-heal and recovery record used to be destroyed by
+the same operation whose cause it existed to explain, so the one class of event
+post-mortem capability most needed to describe was the one it never could.
+
+It does **not** cover the rest of the volume. Orchestrator task state and
+tenant-repo revision/backoff state are still bundle-absent, so copy or export
+`orchestrator-state` separately before claiming *those* are off-host backed up.
+The distinction matters: "the ledgers survive" is not "the volume survives", and
+treating the narrower guarantee as the broader one is how an operator discovers
+the gap during a recovery rather than before one.
 
 **Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store, Sandman handoff, orchestrator task/revision state, and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
 

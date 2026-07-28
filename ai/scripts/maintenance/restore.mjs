@@ -13,7 +13,8 @@ import kbConfig from '../../mcp/server/knowledge-base/config.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
 import AiConfig from '../../config.mjs';
 
-import {classifyRowVector} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {classifyRowVector}                          from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {HEAL_LEDGER_DIR_NAME, HEAL_LEDGER_FILENAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
     KB_DatabaseService,
     KB_LifecycleService,
@@ -153,7 +154,11 @@ const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datas
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
 
 const REQUIRED_BUNDLE_SUBDIRS = ['kb', 'mc', 'graph', 'concepts', 'trajectories'];
-const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
+// `ledgers` is OPTIONAL, not required, and that is a compatibility decision rather than a hedge:
+// every bundle written before incident ledgers were captured lacks the subfolder, and promoting it
+// to required would make those bundles unrestorable — turning a durability improvement into a
+// recovery regression for exactly the archives an operator reaches for first.
+const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox', 'ledgers'];
 
 /**
  * Executes a full-substrate restore from a previously-produced bundle.
@@ -169,7 +174,7 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String}  [options.sentToCullTargetFile]         Override the default sent-to-cull target file.
  * @param {String[]}[options.filterLabels=[]]              Per-incident customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
- * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
+ * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox','ledgers']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
  * @param {Boolean} [options.preserveReadState=false]      Selects the read-state policy for a `'replace'` graph restore, because the two operations that share this CLI need opposite ones. `false` (default) is DISASTER RECOVERY: the bundle is reproduced exactly, and mailbox read receipts committed after the bundle was captured are discarded with everything else. `true` is an OPERATIONAL RE-SEED: committed `DELIVERED_TO` `readAt`/`archivedAt` are captured inside the truncate transaction and re-applied wherever the bundle left them null, so acknowledged `mark_read` writes survive rebuilding the graph from a lagged snapshot. Only null-in-bundle rows are touched, so a fresher bundle is never regressed. No-op under `'merge'`, which never truncates. Forwarded as `preserveDeliveryReadState`.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
@@ -184,6 +189,7 @@ export async function runRestore({
     conceptsTargetDir       = DEFAULT_CONCEPTS_DIR,
     trajectoriesTargetFile  = DEFAULT_TRAJECTORIES_FILE,
     sentToCullTargetFile    = DEFAULT_SENT_TO_CULL_FILE,
+    ledgerTargets,
     filterLabels            = [],
     filterEdgeTypes         = [],
     onlySubstrate           = null,
@@ -208,6 +214,7 @@ export async function runRestore({
     const resolvedRoot = path.resolve(bundleRoot);
 
     const layout = {
+        ledgers     : path.join(resolvedRoot, 'ledgers'),
         kb          : path.join(resolvedRoot, 'kb'),
         mc          : path.join(resolvedRoot, 'mc'),
         graph       : path.join(resolvedRoot, 'graph'),
@@ -244,7 +251,10 @@ export async function runRestore({
     // Per-substrate gate: null `onlySubstrate` = all subsystems (existing behavior).
     // Non-null array restricts to listed names. Validates against the known substrate set
     // so typos fail fast instead of silently no-op'ing the entire restore.
-    const ALL_SUBSTRATES = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
+    // Adding a `shouldRestore('x')` branch without registering `x` here makes the substrate
+    // unreachable by `--only-substrate` AND rejects any operator who names it — the branch runs only
+    // on the all-substrates path. Declaration and handling are one act.
+    const ALL_SUBSTRATES = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox', 'ledgers'];
     if (Array.isArray(onlySubstrate)) {
         const unknown = onlySubstrate.filter(s => !ALL_SUBSTRATES.includes(s));
         if (unknown.length > 0) {
@@ -349,6 +359,24 @@ export async function runRestore({
             confirmation,
             subsystem : 'mailbox',
             logger
+        });
+    }
+
+    if (shouldRestore('ledgers') && await fs.pathExists(layout.ledgers)) {
+        // The point of bundling the ledgers is that they come BACK. A volume replacement wipes the
+        // orchestrator data directory; restore is what makes the incident record readable again, so
+        // without this half the bundle would carry evidence nobody could retrieve.
+        subsystems.ledgers = await restoreIncidentLedgers({
+            confirmation,
+            force,
+            logger,
+            mode,
+            sourceDir: layout.ledgers,
+            targets  : ledgerTargets ?? {
+                healAttemptsFile: AiConfig.orchestrator.recoveryActuator.healAttemptsPath,
+                healEventsDir   : path.join(AiConfig.orchestrator.dataDir, HEAL_LEDGER_DIR_NAME),
+                recoveryRunsDir : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir
+            }
         });
     }
 
@@ -795,6 +823,76 @@ async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFi
  * @param {Object} options
  * @returns {Promise<{copied: Number, skipped: Number, mode: String}>}
  */
+/**
+ * Restores the three incident ledgers from the bundle's `ledgers/` subfolder.
+ *
+ * Bundling the ledgers is only half the guarantee — a volume replacement wipes the orchestrator data
+ * directory, so restore is what makes the incident record readable again. Without this the bundle
+ * would carry evidence nobody could retrieve.
+ *
+ * Singletons are addressed by their EXACT filename rather than by "the first `.jsonl` in the
+ * folder", which is what `restoreFlatFile` does and which would silently pick the wrong file once a
+ * second ledger lands beside them. `heal-attempts.json` is not `.jsonl` at all, so neither existing
+ * flat helper reaches it.
+ *
+ * @param {Object} options
+ * @param {String} options.sourceDir Absolute `ledgers/` path inside the bundle.
+ * @param {Object} options.targets Resolved `{healAttemptsFile, healEventsDir, recoveryRunsDir}`.
+ * @returns {Promise<{healAttempts: Object, healEvents: Object, recoveryRuns: Object, mode: String}>}
+ */
+async function restoreIncidentLedgers({sourceDir, targets, mode, force, confirmation, logger}) {
+    /**
+     * Copies one named ledger file, honouring the same merge/replace/force contract the flat
+     * helpers use so the ledgers cannot become a hole in the destructive-guard coverage.
+     * @param {String} fileName
+     * @param {String} targetFile
+     * @param {String} subsystem
+     * @returns {Promise<Object>}
+     */
+    const copyNamed = async (fileName, targetFile, subsystem) => {
+        const source = path.join(sourceDir, fileName);
+
+        if (!await fs.pathExists(source)) {
+            return {copied: false, mode, note: `source absent: ${fileName}`}
+        }
+
+        if (mode === 'replace') {
+            await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
+                confirmation,
+                mode     : 'replace',
+                operation: `restore.${subsystem}.replace`,
+                source   : {path: source},
+                subsystem,
+                target   : {path: targetFile, repoRoot: PROJECT_ROOT}
+            });
+        } else if (!force && await fs.pathExists(targetFile)) {
+            logger.log?.(`[Restore][${subsystem}] preserved existing ${fileName} (merge mode without --force)`);
+            return {copied: false, skipped: true, mode}
+        }
+
+        await fs.ensureDir(path.dirname(targetFile));
+        await fs.copy(source, targetFile, {overwrite: true});
+
+        return {copied: true, mode}
+    };
+
+    const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
+        copyNamed(path.basename(targets.healAttemptsFile), targets.healAttemptsFile, 'ledgers.healAttempts'),
+        copyNamed(HEAL_LEDGER_FILENAME, path.join(targets.healEventsDir, HEAL_LEDGER_FILENAME), 'ledgers.healEvents'),
+        restoreFlatDir({
+            confirmation,
+            force,
+            logger,
+            mode,
+            sourceDir: path.join(sourceDir, 'recovery-runs'),
+            subsystem: 'ledgers.recoveryRuns',
+            targetDir: targets.recoveryRunsDir
+        })
+    ]);
+
+    return {healAttempts, healEvents, mode, recoveryRuns}
+}
+
 async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, subsystem, logger}) {
     if (!await fs.pathExists(sourceDir)) {
         return {copied: 0, skipped: 0, mode, note: `source absent: ${sourceDir}`}

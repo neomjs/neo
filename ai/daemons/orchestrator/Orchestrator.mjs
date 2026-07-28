@@ -42,7 +42,7 @@ import DataRecoveryActuatorService                                              
 import {auditChromaVectorCoverage}                                                from '../../scripts/maintenance/checkChromaIntegrity.mjs';
 import {createReEmbedMissingHeal, createReEmbedMissingHealOperation}              from '../../services/memory-core/helpers/reEmbedMissingHeal.mjs';
 import {appendHealEvent, healEventsToRecentRuns, queryHealLedger, readHealLedger} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {validateHealLedgerRetention}                                              from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {validateHealLedgerRetention, HEAL_LEDGER_DIR_NAME}                        from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {detectChronicUnsafeInput}                                                 from '../../services/memory-core/helpers/healActionDispatch.mjs';
 import {quarantineCollection, storeFenceTargets, unquarantineCollection}          from '../../services/memory-core/helpers/quarantineStore.mjs';
 import {createFreezeHealOperation, createStoreFenceOperations, runFreezeReprobe}  from '../../services/memory-core/helpers/freezeReprobeRunner.mjs';
@@ -436,7 +436,7 @@ export class Orchestrator extends Base {
             taskStateService           : this.taskStateService,
             tenantRepoSyncService      : this.tenantRepoSyncService,
             tenantRepoSyncEnabledReader: () => this.tenantRepoSyncEnabled,
-            healLedgerDir              : path.join(this.dataDir, 'data-heal-events'),
+            healLedgerDir              : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             writeLog                   : this.deploymentStateBridgeWriteLog
         });
     }
@@ -480,7 +480,7 @@ export class Orchestrator extends Base {
             expectedDimension: AiConfig.vectorDimension
         });
 
-        const healLedgerDir      = path.join(this.dataDir, 'data-heal-events');
+        const healLedgerDir      = path.join(this.dataDir, HEAL_LEDGER_DIR_NAME);
         const freezeRecordsDir   = path.join(this.dataDir, 'data-freeze-records');
         const restoreLedgerDir   = path.join(this.dataDir, 'restore-empty-target-ledger');
         const restoreStagingRoot = path.join(this.dataDir, 'restore-empty-target-staging');
@@ -741,7 +741,7 @@ export class Orchestrator extends Base {
     async runFreezeReprobeCycleIfActive(now = Date.now()) {
         return runFreezeReprobe({
             freezeRecordsDir   : path.join(this.dataDir, 'data-freeze-records'),
-            healLedgerDir      : path.join(this.dataDir, 'data-heal-events'),
+            healLedgerDir      : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             healLedgerRetention: validateHealLedgerRetention(
                 AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
                 AiConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
@@ -769,7 +769,7 @@ export class Orchestrator extends Base {
             // Systemic circuit-breaker: fold the heal-ledger → decide whether a cross-collection embedder outage
             // should suppress this cycle's heals (bounds read FRESH from the AiConfig recovery-actuator leaf).
             systemicCircuitGate: async ({now}) => {
-                const dir                               = path.join(this.dataDir, 'data-heal-events'),
+                const dir                               = path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
                       bounds                            = AiConfig.orchestrator.recoveryActuator.systemicCircuit,
                       {recentFailures, circuitOpenedAt} = foldSystemicCircuitState(await readHealLedger({dir}), {now, windowMs: bounds.windowMs});
                 return decideSystemicCircuit({recentFailures, circuitOpenedAt, now, bounds});
@@ -777,7 +777,7 @@ export class Orchestrator extends Base {
             recordCircuitEvent: async ({type, at, detail}) => appendHealEvent(
                 {type, collection: '*', status: type === 'circuit-open' ? 'open' : 'close', detail},
                 {
-                    dir: path.join(this.dataDir, 'data-heal-events'),
+                    dir: path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
                     now: at,
                     ...validateHealLedgerRetention(
                         AiConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
@@ -788,7 +788,7 @@ export class Orchestrator extends Base {
             // Chronic unsafe-input mis-wire detector (observability): fold the heal-ledger for sustained
             // unsafe-input per (action, collection); bounds read FRESH from the AiConfig recovery-actuator leaf.
             chronicUnsafeInputDetector: async ({now}) => {
-                const dir    = path.join(this.dataDir, 'data-heal-events'),
+                const dir    = path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
                       bounds = AiConfig.orchestrator.recoveryActuator.chronicUnsafeInput;
                 return detectChronicUnsafeInput(await readHealLedger({dir}), {threshold: bounds.threshold, windowMs: bounds.windowMs, now});
             }

@@ -570,6 +570,113 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         expect(meta.bundleVersion).toBe(1);
         expect(meta.topology.chromaUnified).toBe(true);
     });
+
+    test('the incident ledgers survive a volume replacement — bundled, then readable again after the data dir is gone', async () => {
+        // The load-bearing gap this ticket exists to close. On the cloud profile the orchestrator data
+        // directory IS a named volume, so `docker compose down -v` destroys the self-heal and recovery
+        // record together with the data whose loss they exist to explain — and the bundle did not cover
+        // them. Post-mortem capability co-located with its subject can never describe the one class of
+        // event it most needs to.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'ledger-survival', shared_topology: true}),
+              dataRoot   = path.join(workRoot, 'ledger-survival-plane', 'orchestrator-daemon'),
+              targets    = {
+                  healAttemptsFile: path.join(dataRoot, 'heal-attempts.json'),
+                  healEventsDir   : path.join(dataRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(dataRoot, 'recovery-runs')
+              },
+              ledgersDir = path.join(bundleRoot, 'ledgers');
+
+        fs.mkdirSync(path.join(ledgersDir, 'recovery-runs'), {recursive: true});
+        fs.writeFileSync(path.join(ledgersDir, 'heal-attempts.json'), JSON.stringify({'kb:chunks': {attempts: 3}}));
+        fs.writeFileSync(path.join(ledgersDir, 'heal-events.jsonl'), `${JSON.stringify({collection: 'kb:chunks', type: 'freeze'})}\n`);
+        fs.writeFileSync(path.join(ledgersDir, 'recovery-runs', 'run-a.jsonl'), `${JSON.stringify({recoveryRunId: 'run-a', status: 'failed'})}\n`);
+
+        // POSITIVE CONTROL for the whole assertion: the plane is GONE, not merely empty. That is what
+        // `-v` does. Every read below therefore proves the restore produced it, not that a fixture was
+        // sitting there already.
+        expect(fs.existsSync(dataRoot)).toBe(false);
+
+        const result = await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            ledgerTargets    : targets,
+            logger           : silentLogger,
+            onlySubstrate    : ['ledgers']
+        });
+
+        // Readable again, with content intact — the evidence is retrievable, not merely archived.
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8'))['kb:chunks'].attempts).toBe(3);
+        expect(fs.readFileSync(path.join(targets.healEventsDir, 'heal-events.jsonl'), 'utf8')).toContain('freeze');
+        expect(fs.readdirSync(targets.recoveryRunsDir)).toEqual(['run-a.jsonl']);
+
+        expect(result.subsystems.ledgers.healAttempts.copied).toBe(true);
+        expect(result.subsystems.ledgers.healEvents.copied).toBe(true);
+        expect(result.subsystems.ledgers.recoveryRuns.copied).toBe(1);
+    });
+
+    test('a legacy bundle with no ledgers/ still restores — the durability gain is not a recovery regression', async () => {
+        // `ledgers` is OPTIONAL by deliberate decision. Every bundle written before this change lacks
+        // the subfolder, and making it required would render exactly the archives an operator reaches
+        // for first unrestorable.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'legacy-no-ledgers', shared_topology: true});
+
+        expect(fs.existsSync(path.join(bundleRoot, 'ledgers'))).toBe(false);
+
+        const result = await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            logger           : silentLogger,
+            onlySubstrate    : ['ledgers']
+        });
+
+        // No throw, and no fabricated ledger section for a bundle that never carried one.
+        expect(result.subsystems.ledgers).toBeUndefined();
+    });
+
+    test('merge mode preserves an existing ledger; replace mode fires the destructive guard', async () => {
+        // The ledgers must not become a hole in the destructive-guard coverage just because they were
+        // added later than the substrates the guard was written for.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'ledger-modes', shared_topology: true}),
+              dataRoot   = path.join(workRoot, 'ledger-modes-plane', 'orchestrator-daemon'),
+              targets    = {
+                  healAttemptsFile: path.join(dataRoot, 'heal-attempts.json'),
+                  healEventsDir   : path.join(dataRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(dataRoot, 'recovery-runs')
+              },
+              ledgersDir = path.join(bundleRoot, 'ledgers');
+
+        fs.mkdirSync(path.join(ledgersDir, 'recovery-runs'), {recursive: true});
+        fs.writeFileSync(path.join(ledgersDir, 'heal-attempts.json'), JSON.stringify({fromBundle: true}));
+        fs.mkdirSync(dataRoot, {recursive: true});
+        fs.writeFileSync(targets.healAttemptsFile, JSON.stringify({liveOnHost: true}));
+
+        await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            ledgerTargets    : targets,
+            logger           : silentLogger,
+            onlySubstrate    : ['ledgers']
+        });
+
+        // merge without --force keeps what is on the host: a restore must not silently overwrite a
+        // ledger that has recorded events since the bundle was taken.
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).liveOnHost).toBe(true);
+
+        calls.guard.length = 0;
+
+        await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            force            : true,
+            ledgerTargets    : targets,
+            logger           : silentLogger,
+            mode             : 'replace',
+            onlySubstrate    : ['ledgers']
+        });
+
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).fromBundle).toBe(true);
+        expect(calls.guard.some(call => call.operation?.startsWith('restore.ledgers.'))).toBe(true);
+    });
 });
 
 test.describe('verifyLatestBackupRestorable — read-only restorability probe (#14030 AC2)', () => {
