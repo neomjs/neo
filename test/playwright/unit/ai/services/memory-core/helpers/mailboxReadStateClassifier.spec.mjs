@@ -77,17 +77,32 @@ function classify(messageRows, edgeRows) {
 }
 
 test.describe('mailboxReadStateClassifier — pure carrier matrix (#16086)', () => {
-    test('keeps one normalization authority for adapters and MailboxService comparisons', () => {
-        for (const [input, expected] of [
-            ['  @neo-gpt  ', '@neo-gpt'],
-            ['@@@@neo-gpt', '@neo-gpt'],
-            ['AGENT:neo-gpt', '@neo-gpt'],
-            ['AGENT:@neo-gpt', '@neo-gpt'],
-            ['AGENT:openai/gpt', 'AGENT:openai/gpt'],
-            ['AGENT:*', 'AGENT:*'],
-            ['role:librarian', 'role:librarian']
+    test('pins the shared diagnostic and authorization normalization contract (#16098)', () => {
+        for (const [label, input, expected] of [
+            ['canonical direct id',                 '@neo-gpt',                 '@neo-gpt'],
+            ['bare direct id',                      'neo-gpt',                  '@neo-gpt'],
+            ['leading-space direct id',             ' @neo-gpt',                '@neo-gpt'],
+            ['trailing-space direct id',            '@neo-gpt ',                '@neo-gpt'],
+            ['two-sided-space direct id',           '  @neo-gpt  ',             '@neo-gpt'],
+            ['tab-padded direct id',                '\t@neo-gpt',               '@neo-gpt'],
+            ['double-at direct id',                 '@@neo-gpt',                '@neo-gpt'],
+            ['triple-at direct id',                 '@@@neo-gpt',               '@neo-gpt'],
+            ['four-at direct id',                   '@@@@neo-gpt',              '@neo-gpt'],
+            ['bare AGENT wrapper',                  'AGENT:neo-gpt',            '@neo-gpt'],
+            ['canonical AGENT wrapper',             'AGENT:@neo-gpt',           '@neo-gpt'],
+            ['padded multi-at AGENT wrapper',       'AGENT:  @@neo-gpt  ',      '@neo-gpt'],
+            ['family/model alias',                  'AGENT:openai/gpt',         'AGENT:openai/gpt'],
+            ['broadcast sentinel',                  'AGENT:*',                  'AGENT:*'],
+            ['role address',                        'role:librarian',            'role:librarian'],
+            ['human address',                       'human:tobiu',               'human:tobiu'],
+            ['future-self alias',                   '@me',                      '@me'],
+            ['empty string',                        '',                         ''],
+            ['null',                                null,                       null],
+            ['undefined',                           undefined,                  undefined],
+            ['boolean',                             false,                      false],
+            ['number',                              0,                          0]
         ]) {
-            expect(normalizeMailboxIdentityForComparison(input)).toBe(expected);
+            expect(normalizeMailboxIdentityForComparison(input), label).toBe(expected);
         }
 
         expect(validateMailboxReadStateRequest({
