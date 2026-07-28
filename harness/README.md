@@ -38,6 +38,21 @@ crashes at import with `ERR_INVALID_ARG_TYPE` on a config path, run
 template; the daemon's own freshness assert fires too late to catch this because the Orchestrator
 singleton constructs at module import).
 
+## Why `preload.cjs` is intentionally CommonJS
+
+Every harness window remains sandboxed, and Electron 43.1.0 currently executes sandboxed preloads
+without an ESM context. An `.mjs` preload using `import {contextBridge} from 'electron'` therefore
+fails with `Cannot use import statement outside a module`; keeping `.cjs` is the honest security-
+preserving shape, not a legacy exception. Both `npm run smoke` and `npm run smoke:brain` first run a
+real pinned-Electron capability probe. The expected rejection passes; successful ESM loading,
+unexpected errors, silence, or timeout all fail closed.
+
+When that probe reports **“#16036 conversion is unblocked”**, rename `preload.cjs` to `preload.mjs`,
+replace its `require('electron')` with ESM imports, repoint `main.mjs`,
+`electron-builder.yml`, and `test/playwright/unit/harness/preload.spec.mjs`, adapt that spec's VM
+loader for ESM, and record the resolved constraint in ADR-0034. Do not disable the sandbox or add a
+bundler to make the probe green.
+
 ## The Brain rides supervised (Arm B — the hosting-spike verdict)
 
 The Electron main supervises system-Node children: the orchestrator daemon (which supervises the
