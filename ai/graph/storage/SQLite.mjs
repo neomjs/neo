@@ -131,17 +131,25 @@ class SQLite extends Base {
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_update AFTER UPDATE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (NEW.id, 'edges'); END;`);
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_delete AFTER DELETE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (OLD.id, 'edges'); END;`);
 
-        // Summarization coordinator job lease table.
+        // Summarization coordinator job lease + bounded replay receipt. One compressed envelope
+        // is retained per session (overwritten by newer synthesis, removed by purgeSession with
+        // the row), so Chroma recycle recovery never depends on an unbounded append journal.
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS SummarizationJobs (
                 session_id TEXT PRIMARY KEY,
                 status TEXT NOT NULL CHECK(status IN ('pending', 'in_progress', 'completed', 'failed')),
                 lease_token TEXT,
                 expires_at INTEGER,
-                retry_count INTEGER DEFAULT 0
+                retry_count INTEGER DEFAULT 0,
+                result_envelope BLOB,
+                result_encoding TEXT,
+                result_staged_at INTEGER,
+                result_acknowledged_at INTEGER,
+                result_last_replayed_at INTEGER
             );
         `);
 
+        this.migrateLegacySummarizationJobColumns();
         this.stampSchemaVersion();
     }
 
@@ -219,6 +227,27 @@ class SQLite extends Base {
 
         if (!this.hasColumn('GraphLog', 'event_payload')) {
             this.db.exec('ALTER TABLE GraphLog ADD COLUMN event_payload TEXT');
+        }
+    }
+
+    /**
+     * @summary Adds the nullable, backward-compatible durable result envelope to legacy
+     * `SummarizationJobs` tables without rewriting or invalidating existing lease rows.
+     * @protected
+     */
+    migrateLegacySummarizationJobColumns() {
+        const columns = {
+            result_envelope        : 'BLOB',
+            result_encoding        : 'TEXT',
+            result_staged_at       : 'INTEGER',
+            result_acknowledged_at : 'INTEGER',
+            result_last_replayed_at: 'INTEGER'
+        };
+
+        for (const [name, type] of Object.entries(columns)) {
+            if (!this.hasColumn('SummarizationJobs', name)) {
+                this.db.exec(`ALTER TABLE SummarizationJobs ADD COLUMN ${name} ${type}`);
+            }
         }
     }
 

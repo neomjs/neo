@@ -68,6 +68,7 @@ test.describe('Neo.ai.services.memory-core.SessionService — degraded session-s
         } else {
             await LifecycleService.ready();
         }
+        await SessionService.ready();
 
         // Save originals — sibling specs share the worker; an unrestored mock would leak.
         originalMemoryCollection   = SessionService.memoryCollection;

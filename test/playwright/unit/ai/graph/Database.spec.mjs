@@ -363,6 +363,62 @@ test.describe('Neo.ai.graph.Database', () => {
         }
     });
 
+    test('SQLite migrates legacy SummarizationJobs rows with nullable durable receipt columns (#16105)', async () => {
+        seedLegacyGraphFile();
+
+        const legacyDb = new BetterSqlite(dbPath);
+
+        try {
+            legacyDb.exec(`
+                CREATE TABLE SummarizationJobs (
+                    session_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL CHECK(status IN ('pending', 'in_progress', 'completed', 'failed')),
+                    lease_token TEXT,
+                    expires_at INTEGER,
+                    retry_count INTEGER DEFAULT 0
+                )
+            `);
+            legacyDb.prepare(`
+                INSERT INTO SummarizationJobs (
+                    session_id, status, lease_token, expires_at, retry_count
+                )
+                VALUES ('legacy-summary', 'completed', NULL, NULL, 7)
+            `).run();
+        } finally {
+            legacyDb.close();
+        }
+
+        const storage = Neo.create(SQLite, {dbPath});
+        await storage.initAsync();
+
+        try {
+            const columns = storage.db.prepare('PRAGMA table_info(SummarizationJobs)')
+                .all()
+                .map(column => column.name);
+
+            expect(columns).toEqual(expect.arrayContaining([
+                'result_envelope',
+                'result_encoding',
+                'result_staged_at',
+                'result_acknowledged_at',
+                'result_last_replayed_at'
+            ]));
+            expect(storage.db.prepare(`
+                SELECT session_id, status, retry_count, result_envelope
+                FROM SummarizationJobs
+                WHERE session_id = 'legacy-summary'
+            `).get()).toEqual({
+                session_id     : 'legacy-summary',
+                status         : 'completed',
+                retry_count    : 7,
+                result_envelope: null
+            });
+        } finally {
+            if (storage.db?.open) storage.db.close();
+            storage.destroy();
+        }
+    });
+
     test('SQLite initSchema refuses unsupported graph schema versions without wipe opt-in (#10233)', async () => {
         seedLegacyGraphFile({schemaVersion: 999});
 
