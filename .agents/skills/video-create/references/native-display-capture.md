@@ -81,6 +81,8 @@ Portable evidence semantics are mandatory; recorder commands and selectors are n
 
 The completed Build Week film is evidence for one macOS display-scoped workflow, not a universal operating-system recipe. Add another platform recipe only after a real film on that platform produces a reproducible receipt.
 
+When a `native-desktop` film stages browser windows on macOS, read the [macOS native-display capture recipe](platforms/macos-native-display-capture.md) before staging; it is a conditional Atlas, not a portable invariant.
+
 ## 7. During capture
 
 - Keep the stage bounded to the admitted region and sources.
