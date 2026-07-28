@@ -677,6 +677,111 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).fromBundle).toBe(true);
         expect(calls.guard.some(call => call.operation?.startsWith('restore.ledgers.'))).toBe(true);
     });
+
+    test('replace WITHOUT --force REFUSES a populated ledger target', async () => {
+        // My earlier assertion here proved the wrong proposition. It checked that
+        // `assertDestructiveTargetAllowed` was CALLED on the ledgers — but that guard classifies
+        // target location and confirmation; it does not enforce `--force`. The ledgers were missing
+        // from `assessTargetOccupancy`, so a populated ledger on a disposable path could be
+        // overwritten with `force: false`, contrary to the whole point of that preflight.
+        //
+        // "The guard fired" and "the run refused" are different claims, and only the second is the
+        // contract. This asserts the refusal.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'ledger-force', shared_topology: true}),
+              dataRoot   = path.join(workRoot, 'ledger-force-plane', 'orchestrator-daemon'),
+              targets    = {
+                  healAttemptsFile: path.join(dataRoot, 'heal-attempts.json'),
+                  healEventsDir   : path.join(dataRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(dataRoot, 'recovery-runs')
+              };
+
+        fs.mkdirSync(path.join(bundleRoot, 'ledgers'), {recursive: true});
+        fs.writeFileSync(path.join(bundleRoot, 'ledgers', 'heal-attempts.json'), JSON.stringify({fromBundle: true}));
+        fs.mkdirSync(dataRoot, {recursive: true});
+        fs.writeFileSync(targets.healAttemptsFile, JSON.stringify({mustNotBeLost: true}));
+
+        // The other occupancy subsystems are pointed at EMPTY paths. Without this the refusal fires on
+        // the repo's real `concepts`/`trajectories` data and the test passes while proving nothing
+        // about the ledgers — a confounded positive, which is what the first draft of this test was.
+        const isolate = {
+            conceptsTargetDir     : path.join(workRoot, 'ledger-force-empty', 'concepts'),
+            sentToCullTargetFile  : path.join(workRoot, 'ledger-force-empty', 'sent-to-cull.jsonl'),
+            trajectoriesTargetFile: path.join(workRoot, 'ledger-force-empty', 'trajectories.jsonl')
+        };
+
+        let refusal;
+
+        try {
+            await runRestore({
+                expectedDimension: 1,
+                bundleRoot,
+                force            : false,
+                ledgerTargets    : targets,
+                logger           : silentLogger,
+                mode             : 'replace',
+                onlySubstrate    : ['ledgers'],
+                ...isolate
+            })
+        } catch (error) {
+            refusal = error
+        }
+
+        expect(refusal?.message).toMatch(/Refusing replace mode without --force/);
+        // It must refuse BECAUSE of the ledger, naming it — otherwise another subsystem's occupancy
+        // could be carrying the assertion.
+        expect(refusal.message).toMatch(/ledgers\.healAttempts/);
+
+        // The refusal has to be real: the host file is untouched.
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).mustNotBeLost).toBe(true);
+
+        // POSITIVE CONTROL: with the ledger target EMPTY and nothing else occupied, the same call
+        // proceeds — so the refusal keys on ledger occupancy, not on the ledgers merely being listed.
+        fs.rmSync(targets.healAttemptsFile);
+
+        const allowed = await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            force            : false,
+            ledgerTargets    : targets,
+            logger           : silentLogger,
+            mode             : 'replace',
+            onlySubstrate    : ['ledgers'],
+            ...isolate
+        });
+
+        expect(allowed.subsystems.ledgers.healAttempts.copied).toBe(true);
+    });
+
+    test('a bundle written under a RELOCATED ledger path still restores', async () => {
+        // The member name was coupled to the host path at both ends: backup stored under
+        // `path.basename(source)` and restore searched `path.basename(target)`. Because
+        // `healAttemptsPath` is env-relocatable, a bundle written by a host using
+        // `custom-attempts.json` read as `source absent` on a default host — a restore reporting
+        // success having restored no incident record, which is the same "evidence nobody can
+        // retrieve" failure one layer down.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'ledger-relocated', shared_topology: true}),
+              dataRoot   = path.join(workRoot, 'ledger-relocated-plane', 'orchestrator-daemon'),
+              targets    = {
+                  // DIFFERENT basename from the bundle member on purpose.
+                  healAttemptsFile: path.join(dataRoot, 'custom-attempts.json'),
+                  healEventsDir   : path.join(dataRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(dataRoot, 'recovery-runs')
+              };
+
+        fs.mkdirSync(path.join(bundleRoot, 'ledgers'), {recursive: true});
+        fs.writeFileSync(path.join(bundleRoot, 'ledgers', 'heal-attempts.json'), JSON.stringify({survived: true}));
+
+        const result = await runRestore({
+            expectedDimension: 1,
+            bundleRoot,
+            ledgerTargets    : targets,
+            logger           : silentLogger,
+            onlySubstrate    : ['ledgers']
+        });
+
+        expect(result.subsystems.ledgers.healAttempts.copied).toBe(true);
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).survived).toBe(true);
+    });
 });
 
 test.describe('verifyLatestBackupRestorable — read-only restorability probe (#14030 AC2)', () => {
@@ -797,5 +902,41 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
 
         expect(populated.code).toBe('RESTORABLE');
         expect(populated.rowTotal).toBeGreaterThan(0);
+    });
+
+    test('the probe validates the LEDGER members it attests, including the non-JSONL and nested ones', async () => {
+        // The probe vouched for a member it never looked at. `ledgers` was absent from its layout, and
+        // even with it present the streaming scan reaches only top-level `*.jsonl` — so
+        // `heal-attempts.json` (not `.jsonl`) and `recovery-runs/*.jsonl` (nested) both passed
+        // malformed while the verdict read `RESTORABLE`. A probe may only attest what it parsed.
+        const bundle = path.join(probeRoot, 'backup-2026-08-01T00-00-00');
+
+        writeBundle('backup-2026-08-01T00-00-00');
+        fs.mkdirSync(path.join(bundle, 'ledgers', 'recovery-runs'), {recursive: true});
+
+        // (1) malformed JSON object
+        fs.writeFileSync(path.join(bundle, 'ledgers', 'heal-attempts.json'), '{NOT VALID JSON');
+
+        const brokenAttempts = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(brokenAttempts.restorable).toBe(false);
+        expect(brokenAttempts.code).toBe('BUNDLE_INVALID');
+        expect(brokenAttempts.reason).toMatch(/heal-attempts\.json/);
+
+        // (2) malformed NESTED recovery-run JSONL
+        fsExtra.writeJsonSync(path.join(bundle, 'ledgers', 'heal-attempts.json'), {ok: true});
+        fs.writeFileSync(path.join(bundle, 'ledgers', 'recovery-runs', 'run-bad.jsonl'), '{BROKEN\n');
+
+        const brokenRun = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(brokenRun.restorable).toBe(false);
+        expect(brokenRun.code).toBe('BUNDLE_INVALID');
+        expect(brokenRun.reason).toMatch(/recovery-runs\/run-bad\.jsonl/);
+
+        // POSITIVE CONTROL: well-formed ledgers restore the RESTORABLE verdict, so the new validation
+        // discriminates rather than rejecting any bundle that carries ledgers at all.
+        fs.writeFileSync(path.join(bundle, 'ledgers', 'recovery-runs', 'run-bad.jsonl'), `${JSON.stringify({recoveryRunId: 'ok'})}\n`);
+
+        expect((await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent})).code).toBe('RESTORABLE');
     });
 });

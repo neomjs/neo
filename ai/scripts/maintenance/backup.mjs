@@ -27,7 +27,8 @@ import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {HEAL_LEDGER_DIR_NAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
     buildBackupReceipt,
     buildSyncChildEnv,
@@ -620,12 +621,17 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
 async function copyIncidentLedgers({destDir, sources, logger = console}) {
     // `recovery-runs` keeps its own subfolder because it is a directory of per-run files; flattening
     // it into `ledgers/` alongside the two singletons would make a run id collide with a ledger name.
-    const recoveryRunsDest = path.join(destDir, 'recovery-runs');
+    const recoveryRunsDest = path.join(destDir, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
 
     await fs.ensureDir(recoveryRunsDest);
 
+    // Stored under the STABLE logical member name, never `path.basename(source)`. `healAttemptsPath`
+    // is an env-relocatable full path, so a host pointing it at `custom-attempts.json` would have
+    // written that name into the bundle while restore looked for the default — finding nothing and
+    // reporting success having restored no incident record. A member name belongs to the bundle
+    // FORMAT, not to the host that wrote it.
     const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
-        copyJsonlSource(sources.healAttemptsFile, destDir, logger),
+        copyJsonlSource(sources.healAttemptsFile, destDir, logger, INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts),
         copyJsonlSource(sources.healEventsDir, destDir, logger),
         copyJsonlSource(sources.recoveryRunsDir, recoveryRunsDest, logger)
     ]);
@@ -638,7 +644,7 @@ async function copyIncidentLedgers({destDir, sources, logger = console}) {
     }
 }
 
-async function copyJsonlSource(source, destDir, logger=console) {
+async function copyJsonlSource(source, destDir, logger=console, destFileName=null) {
     if (!await fs.pathExists(source)) {
         return {copied: 0, note: `source not present: ${source}`};
     }
@@ -662,11 +668,11 @@ async function copyJsonlSource(source, destDir, logger=console) {
 
     if (stat.size === 0) {
         logger.warn(`[Backup] source file is 0 bytes: ${source}`);
-        await fs.copy(source, path.join(destDir, path.basename(source)));
+        await fs.copy(source, path.join(destDir, destFileName ?? path.basename(source)));
         return {copied: 0, note: 'source file empty'};
     }
 
-    await fs.copy(source, path.join(destDir, path.basename(source)));
+    await fs.copy(source, path.join(destDir, destFileName ?? path.basename(source)));
     return {copied: 1};
 }
 

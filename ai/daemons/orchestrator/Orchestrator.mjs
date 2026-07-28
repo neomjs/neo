@@ -803,7 +803,7 @@ export class Orchestrator extends Base {
         // The bridge derives its heal-ledger dir from dataDir at construction — keep it coherent when dataDir
         // changes at runtime, else the actuator writes the NEW ledger while the bridge keeps reading the OLD one.
         if (this.deploymentStateBridgeService) {
-            this.deploymentStateBridgeService.healLedgerDir = path.join(value, 'data-heal-events');
+            this.deploymentStateBridgeService.healLedgerDir = path.join(value, HEAL_LEDGER_DIR_NAME);
         }
     }
     afterSetTaskDefinitions(value, oldValue) {

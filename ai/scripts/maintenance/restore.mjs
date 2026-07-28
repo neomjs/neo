@@ -15,6 +15,7 @@ import AiConfig from '../../config.mjs';
 
 import {classifyRowVector}                          from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
 import {HEAL_LEDGER_DIR_NAME, HEAL_LEDGER_FILENAME} from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {INCIDENT_LEDGER_BUNDLE_MEMBERS}             from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
     KB_DatabaseService,
     KB_LifecycleService,
@@ -235,8 +236,22 @@ export async function runRestore({
         Memory_LifecycleService.ready()
     ]);
 
+    // Resolved ONCE, above the replace preflight, so the occupancy check and the restore itself
+    // cannot disagree about which paths are the targets — a preflight that guards different files
+    // from the ones the run writes guards nothing.
+    const resolvedLedgerTargets = ledgerTargets ?? {
+        healAttemptsFile: AiConfig.orchestrator.recoveryActuator.healAttemptsPath,
+        healEventsDir   : path.join(AiConfig.orchestrator.dataDir, HEAL_LEDGER_DIR_NAME),
+        recoveryRunsDir : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir
+    };
+
     if (mode === 'replace' && !force) {
-        const occupancy = await assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir});
+        const occupancy = await assessTargetOccupancy({
+            conceptsTargetDir,
+            ledgerTargets: resolvedLedgerTargets,
+            sentToCullTargetFile,
+            trajectoriesTargetFile
+        });
         const populated = occupancy.filter(o => o.nonEmpty).map(o => `${o.subsystem}=${o.size}`);
         if (populated.length > 0) {
             throw new Error(
@@ -372,11 +387,7 @@ export async function runRestore({
             logger,
             mode,
             sourceDir: layout.ledgers,
-            targets  : ledgerTargets ?? {
-                healAttemptsFile: AiConfig.orchestrator.recoveryActuator.healAttemptsPath,
-                healEventsDir   : path.join(AiConfig.orchestrator.dataDir, HEAL_LEDGER_DIR_NAME),
-                recoveryRunsDir : AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir
-            }
+            targets  : resolvedLedgerTargets
         });
     }
 
@@ -514,6 +525,42 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // evidence the bundle itself proves (schema shape, declared-vs-streamed counts, declared-vs-
     // expected dimension, per-row vectors). Provider/model identity is advisory: no write-time
     // vector provenance exists in the substrate, and admission never contacts a provider.
+    // The two ledger members the top-level scan cannot reach: `heal-attempts.json` is not `.jsonl`, and
+    // the recovery-run files are NESTED. Both were accepted malformed while the verdict still read
+    // `RESTORABLE`. A probe may only attest what it has actually parsed.
+    if (await fs.pathExists(layout.ledgers)) {
+        const attemptsPath = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts);
+
+        if (await fs.pathExists(attemptsPath)) {
+            try {
+                JSON.parse(await fs.readFile(attemptsPath, 'utf8'))
+            } catch (err) {
+                throw new Error(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
+            }
+        }
+
+        const runsDir = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
+
+        if (await fs.pathExists(runsDir)) {
+            for (const file of (await fs.readdir(runsDir)).filter(name => name.endsWith('.jsonl'))) {
+                const stream = fs.createReadStream(path.join(runsDir, file), {encoding: 'utf8'}),
+                      rl     = readline.createInterface({crlfDelay: Infinity, input: stream});
+                let   lineNo = 0;
+
+                for await (const line of rl) {
+                    if (!line.trim()) continue;
+                    lineNo++;
+
+                    try {
+                        JSON.parse(line)
+                    } catch (err) {
+                        throw new Error(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
+                    }
+                }
+            }
+        }
+    }
+
     validateEmbeddingContractSchema({expectedDimension, meta, streamedCounts});
     const embeddingAdvisories = assessEmbeddingCompatibility({expectedDimension, logger, meta});
 
@@ -712,13 +759,17 @@ export async function verifyLatestBackupRestorable({
     }
 
     const bundleRoot = path.join(backupRoot, bundleNames[0]);
+    // `ledgers` belongs in the probe's layout because the probe ATTESTS a restore that will write
+    // them. Omitting it meant malformed ledger content passed unexamined while the verdict still said
+    // `RESTORABLE` — the probe vouching for a member it never looked at.
     const layout     = {
         kb          : path.join(bundleRoot, 'kb'),
         mc          : path.join(bundleRoot, 'mc'),
         graph       : path.join(bundleRoot, 'graph'),
         concepts    : path.join(bundleRoot, 'concepts'),
         trajectories: path.join(bundleRoot, 'trajectories'),
-        mailbox     : path.join(bundleRoot, 'mailbox')
+        mailbox     : path.join(bundleRoot, 'mailbox'),
+        ledgers     : path.join(bundleRoot, 'ledgers')
     };
 
     try {
@@ -798,7 +849,7 @@ export async function checkTopology({meta, forceTopologyMismatch, logger}) {
  * @param {String} options.conceptsTargetDir
  * @returns {Promise<Array<{subsystem: String, nonEmpty: Boolean, size: Number}>>}
  */
-async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir}) {
+async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir, ledgerTargets}) {
     const results = [];
 
     try {
@@ -837,6 +888,35 @@ async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFi
         results.push({subsystem: 'mailbox', nonEmpty: stat.size > 0, size: stat.size});
     } else {
         results.push({subsystem: 'mailbox', nonEmpty: false, size: 0});
+    }
+
+    // The incident ledgers are replace targets too, and were initially omitted here. The omission was
+    // invisible because `assertDestructiveTargetAllowed` still fired on them — but that guard
+    // classifies target LOCATION and confirmation; it does not enforce `--force`. So a populated
+    // ledger on a disposable path could be overwritten with `force: false`, contrary to this
+    // function's whole purpose. A test asserting "the guard was called" proved the wrong
+    // proposition; what has to hold is that the run REFUSES.
+    if (ledgerTargets) {
+        for (const [subsystem, target] of [
+            ['ledgers.healAttempts', ledgerTargets.healAttemptsFile],
+            ['ledgers.healEvents',   ledgerTargets.healEventsDir],
+            ['ledgers.recoveryRuns', ledgerTargets.recoveryRunsDir]
+        ]) {
+            if (!target || !await fs.pathExists(target)) {
+                results.push({subsystem, nonEmpty: false, size: 0});
+                continue
+            }
+
+            const stat = await fs.stat(target);
+
+            if (stat.isDirectory()) {
+                const entries = (await fs.readdir(target)).filter(name => name.endsWith('.jsonl'));
+
+                results.push({subsystem, nonEmpty: entries.length > 0, size: entries.length})
+            } else {
+                results.push({subsystem, nonEmpty: stat.size > 0, size: stat.size})
+            }
+        }
     }
 
     return results
@@ -907,15 +987,18 @@ async function restoreIncidentLedgers({sourceDir, targets, mode, force, confirma
         return {copied: true, mode}
     };
 
+    // Looked up by the STABLE bundle member name and written to the RESOLVED host path. Searching by
+    // `path.basename(target)` coupled the bundle's contents to the reading host's config: a relocated
+    // `healAttemptsPath` made a perfectly good bundle read as `source absent`.
     const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
-        copyNamed(path.basename(targets.healAttemptsFile), targets.healAttemptsFile, 'ledgers.healAttempts'),
+        copyNamed(INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts, targets.healAttemptsFile, 'ledgers.healAttempts'),
         copyNamed(HEAL_LEDGER_FILENAME, path.join(targets.healEventsDir, HEAL_LEDGER_FILENAME), 'ledgers.healEvents'),
         restoreFlatDir({
             confirmation,
             force,
             logger,
             mode,
-            sourceDir: path.join(sourceDir, 'recovery-runs'),
+            sourceDir: path.join(sourceDir, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns),
             subsystem: 'ledgers.recoveryRuns',
             targetDir: targets.recoveryRunsDir
         })
