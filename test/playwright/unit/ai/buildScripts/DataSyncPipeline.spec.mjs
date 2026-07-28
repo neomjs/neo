@@ -102,6 +102,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         expect(isGeneratedDataPath('apps/portal/llms.txt')).toBe(true);
         expect(isGeneratedDataPath('resources/content/.sync-metadata.json')).toBe(true);
         expect(isGeneratedDataPath('resources/content/archive/pulls/v13.0.0/chunk-1/pull-1.md')).toBe(true);
+        expect(isGeneratedDataPath('.neo-ai-data/concepts/nodes.jsonl')).toBe(false);
         expect(isGeneratedDataPath('src/ManualEdit.mjs')).toBe(false)
     });
 
@@ -134,7 +135,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         expect(calls.every(call => call.options.cwd === '/repo')).toBe(true)
     });
 
-    test('publishes one atomic generated commit when dev stays unchanged', async () => {
+    test('publishes one atomic corpus and Portal projection commit when dev stays unchanged', async () => {
         const fixture = await createRepositoryFixture();
 
         try {
@@ -144,7 +145,16 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
                 cwd : fixture.runner,
                 emit: async ({attempt, cwd}) => {
                     emissions++;
-                    await write(cwd, generatedFile, `generated:v1:attempt-${attempt}\n`)
+                    await write(cwd, generatedFile, `generated:v1:attempt-${attempt}\n`);
+                    await write(cwd, 'resources/content/issues/chunk-10/issue-15977.md', '# Issue 15977\n');
+                    await write(cwd, 'apps/portal/resources/data/tickets/index.json', '{"version":2}\n');
+                    await write(
+                        cwd,
+                        'apps/portal/resources/data/pulls/latest/active-chunk-5.json',
+                        '{"records":[]}\n'
+                    );
+                    await write(cwd, 'apps/portal/sitemap.xml', '<urlset><url /></urlset>\n');
+                    await write(cwd, 'apps/portal/llms.txt', 'v2\n')
                 },
                 log: () => {}
             });
@@ -152,6 +162,20 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             expect(result).toMatchObject({attempts: 1, changed: true, pushed: true});
             expect(emissions).toBe(1);
             expect(readRemoteFile(fixture, generatedFile)).toBe('generated:v1:attempt-1');
+            expect(readRemoteFile(
+                fixture,
+                'resources/content/issues/chunk-10/issue-15977.md'
+            )).toBe('# Issue 15977');
+            expect(readRemoteFile(
+                fixture,
+                'apps/portal/resources/data/tickets/index.json'
+            )).toBe('{"version":2}');
+            expect(readRemoteFile(
+                fixture,
+                'apps/portal/resources/data/pulls/latest/active-chunk-5.json'
+            )).toBe('{"records":[]}');
+            expect(readRemoteFile(fixture, 'apps/portal/sitemap.xml')).toBe('<urlset><url /></urlset>');
+            expect(readRemoteFile(fixture, 'apps/portal/llms.txt')).toBe('v2');
             expect(remoteSubjects(fixture)).toEqual([
                 'chore(data): Hourly data sync pipeline update [skip ci]',
                 'initial'
