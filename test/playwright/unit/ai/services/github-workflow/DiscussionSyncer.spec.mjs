@@ -20,6 +20,8 @@ import fs             from 'fs-extra';
 import matter         from 'gray-matter';
 import path           from 'path';
 import {
+    FETCH_DISCUSSION_COMMENTS_PAGE,
+    FETCH_DISCUSSION_REPLIES_PAGE,
     FETCH_DISCUSSIONS_FOR_SYNC,
     FETCH_SINGLE_DISCUSSION_FOR_SYNC
 } from '../../../../../../ai/services/github-workflow/queries/discussionQueries.mjs';
@@ -225,7 +227,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         })
     });
 
-    test('keeps comments and truncated comment pages outside the root-body lifecycle authority', async () => {
+    test('keeps comments outside the root-body lifecycle authority', async () => {
         const discussion = buildDiscussion(24008, {
             category: 'Ideas',
             comments: {
@@ -240,7 +242,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
                     createdAt: '2026-05-02T02:00:00Z',
                     replies  : {nodes: []}
                 }],
-                pageInfo: {hasNextPage: true, endCursor: 'truncated-after-50'}
+                pageInfo: {hasNextPage: false, endCursor: null}
             }
         });
         discussion.author = {login: 'neo-gpt'};
@@ -279,82 +281,124 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         for (const query of [FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC]) {
             expect(query.match(/\btotalCount\b/g)).toHaveLength(2);
             expect(query.match(/\bendCursor\b/g)).toHaveLength(query === FETCH_DISCUSSIONS_FOR_SYNC ? 3 : 2);
-            expect(query.match(/\bhasNextPage\b/g)).toHaveLength(query === FETCH_DISCUSSIONS_FOR_SYNC ? 3 : 2)
+            expect(query.match(/\bhasNextPage\b/g)).toHaveLength(query === FETCH_DISCUSSIONS_FOR_SYNC ? 3 : 2);
+            expect(query).toContain('paginationId: id')
         }
+
+        expect(FETCH_DISCUSSION_COMMENTS_PAGE).toContain('comments(first: $maxComments, after: $cursor)');
+        expect(FETCH_DISCUSSION_COMMENTS_PAGE).toContain('replies(first: $maxReplies)');
+        expect(FETCH_DISCUSSION_REPLIES_PAGE).toContain('node(id: $commentId)');
+        expect(FETCH_DISCUSSION_REPLIES_PAGE).toContain('replies(first: $maxReplies, after: $cursor)')
     });
 
-    test('persists explicit incompleteness when the top-level comment connection is capped', async () => {
+    test('exhausts top-level comment pages before rendering the discussion', async () => {
         const discussion = buildDiscussion(24009, {
             comments: {
-                nodes     : Array.from({length: 50}, (_, index) => ({
-                    author   : {login: 'neo-test'},
-                    body     : `Comment ${index}`,
-                    createdAt: `2026-05-02T01:${String(index).padStart(2, '0')}:00Z`,
-                    replies  : {nodes: [], totalCount: 0, pageInfo: {hasNextPage: false, endCursor: null}}
-                })),
+                nodes     : Array.from({length: 50}, (_, index) => buildComment(index)),
                 totalCount: 51,
                 pageInfo  : {hasNextPage: true, endCursor: 'comment-50'}
             }
         });
+        const calls = [];
 
-        GraphqlService.query = async () => ({
-            repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
-        });
+        GraphqlService.query = async (query, variables) => {
+            calls.push({query, variables});
 
-        await DiscussionSyncer.syncDiscussions({discussions: {}});
+            if (query.includes('FetchDiscussionCommentsPage')) {
+                return {
+                    repository: {
+                        discussion: {
+                            comments: {
+                                nodes     : [buildComment(50)],
+                                totalCount: 51,
+                                pageInfo  : {hasNextPage: false, endCursor: null}
+                            }
+                        }
+                    }
+                }
+            }
+
+            return {
+                repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
+            }
+        };
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
 
         const parsed = matter(await fs.readFile(
             path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24009.md'),
             'utf8'
         ));
 
+        expect(stats.synced).toEqual([24009]);
+        expect(calls.filter(({query}) => query.includes('FetchDiscussionCommentsPage'))).toHaveLength(1);
+        expect(calls.at(-1).variables).toMatchObject({
+            number: 24009,
+            cursor: 'comment-50'
+        });
         expect(parsed.data).toMatchObject({
-            conversationComplete            : false,
-            conversationCommentCountObserved: 50,
+            conversationComplete            : true,
+            conversationCommentCountObserved: 51,
             conversationCommentCountTotal   : 51,
             conversationReplyCountObserved  : 0,
-            conversationReplyCountTotal     : null
-        })
+            conversationReplyCountTotal     : 0
+        });
+        expect(parsed.content).toContain('Comment 50')
     });
 
-    test('persists explicit incompleteness when a nested reply connection is capped', async () => {
+    test('exhausts nested reply pages before rendering the discussion', async () => {
         const discussion = buildDiscussion(24010, {
             comments: {
-                nodes: [{
-                    author   : {login: 'neo-test'},
-                    body     : 'Parent comment',
-                    createdAt: '2026-05-02T01:00:00Z',
-                    replies  : {
-                        nodes: Array.from({length: 20}, (_, index) => ({
-                            author   : {login: 'neo-test'},
-                            body     : `Reply ${index}`,
-                            createdAt: `2026-05-02T02:${String(index).padStart(2, '0')}:00Z`
-                        })),
-                        totalCount: 21,
-                        pageInfo  : {hasNextPage: true, endCursor: 'reply-20'}
-                    }
-                }]
+                nodes: [buildComment(0, {
+                    replies      : Array.from({length: 20}, (_, index) => buildReply(index)),
+                    replyTotal   : 21,
+                    replyPageInfo: {hasNextPage: true, endCursor: 'reply-20'}
+                })]
             }
         });
+        const calls = [];
 
-        GraphqlService.query = async () => ({
-            repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
-        });
+        GraphqlService.query = async (query, variables) => {
+            calls.push({query, variables});
 
-        await DiscussionSyncer.syncDiscussions({discussions: {}});
+            if (query.includes('FetchDiscussionRepliesPage')) {
+                return {
+                    node: {
+                        replies: {
+                            nodes     : [buildReply(20)],
+                            totalCount: 21,
+                            pageInfo  : {hasNextPage: false, endCursor: null}
+                        }
+                    }
+                }
+            }
+
+            return {
+                repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
+            }
+        };
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
 
         const parsed = matter(await fs.readFile(
             path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24010.md'),
             'utf8'
         ));
 
+        expect(stats.synced).toEqual([24010]);
+        expect(calls.filter(({query}) => query.includes('FetchDiscussionRepliesPage'))).toHaveLength(1);
+        expect(calls.at(-1).variables).toMatchObject({
+            commentId: 'DC_0',
+            cursor   : 'reply-20'
+        });
         expect(parsed.data).toMatchObject({
-            conversationComplete            : false,
+            conversationComplete            : true,
             conversationCommentCountObserved: 1,
             conversationCommentCountTotal   : 1,
-            conversationReplyCountObserved  : 20,
+            conversationReplyCountObserved  : 21,
             conversationReplyCountTotal     : 21
-        })
+        });
+        expect(parsed.content).toContain('Reply 20')
     });
 
     test('marks accepted Q&A comments with a parseable answer callout', async () => {
@@ -939,6 +983,85 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(stats.refetched).toEqual({count: 0, discussions: []});
         expect(metadata.discussions[discussionNumber]).toBeUndefined();
     });
+
+    test('refetchDiscussionsByNumber exhausts comment and reply pages before writing', async () => {
+        const
+            discussionNumber = 24052,
+            comments         = Array.from({length: 50}, (_, index) => buildComment(index)),
+            metadata         = {discussions: {}},
+            calls            = [];
+
+        comments[0] = buildComment(0, {
+            replies      : Array.from({length: 20}, (_, index) => buildReply(index)),
+            replyTotal   : 21,
+            replyPageInfo: {hasNextPage: true, endCursor: 'reply-20'}
+        });
+
+        const discussion = buildDiscussion(discussionNumber, {
+            comments: {
+                nodes     : comments,
+                totalCount: 51,
+                pageInfo  : {hasNextPage: true, endCursor: 'comment-50'}
+            }
+        });
+
+        GraphqlService.query = async (query, variables) => {
+            calls.push({query, variables});
+
+            if (query.includes('FetchDiscussionCommentsPage')) {
+                return {
+                    repository: {
+                        discussion: {
+                            comments: {
+                                nodes     : [buildComment(50)],
+                                totalCount: 51,
+                                pageInfo  : {hasNextPage: false, endCursor: null}
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (query.includes('FetchDiscussionRepliesPage')) {
+                return {
+                    node: {
+                        replies: {
+                            nodes     : [buildReply(20)],
+                            totalCount: 21,
+                            pageInfo  : {hasNextPage: false, endCursor: null}
+                        }
+                    }
+                }
+            }
+
+            return {repository: {discussion}}
+        };
+
+        const stats  = await DiscussionSyncer.refetchDiscussionsByNumber([discussionNumber], metadata);
+        const parsed = matter(await fs.readFile(
+            path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', `discussion-${discussionNumber}.md`),
+            'utf8'
+        ));
+
+        expect(stats).toEqual({
+            refetched: {count: 1, discussions: [discussionNumber]},
+            errors   : []
+        });
+        expect(calls.map(({query}) => query.match(/\bquery\s+(\w+)/)?.[1])).toEqual([
+            'FetchSingleDiscussionForSync',
+            'FetchDiscussionCommentsPage',
+            'FetchDiscussionRepliesPage'
+        ]);
+        expect(parsed.data).toMatchObject({
+            conversationComplete            : true,
+            conversationCommentCountObserved: 51,
+            conversationCommentCountTotal   : 51,
+            conversationReplyCountObserved  : 21,
+            conversationReplyCountTotal     : 21
+        });
+        expect(parsed.content).toContain('Comment 50');
+        expect(parsed.content).toContain('Reply 20')
+    });
 });
 
 function buildDiscussion(number, config = {}) {
@@ -976,4 +1099,40 @@ function buildDiscussion(number, config = {}) {
         updatedAt: '2026-05-02T00:00:00Z',
         comments : normalizedComments
     };
+}
+
+/**
+ * @summary Creates one Discussion comment fixture with explicit reply-connection exhaustion facts.
+ * @param {Number} index Stable fixture ordinal.
+ * @param {Object} config Optional reply connection overrides.
+ * @returns {Object}
+ */
+function buildComment(index, config = {}) {
+    const replies = config.replies || [];
+
+    return {
+        paginationId: `DC_${index}`,
+        author      : {login: 'neo-test'},
+        body        : config.body || `Comment ${index}`,
+        createdAt   : `2026-05-02T01:${String(index).padStart(2, '0')}:00Z`,
+        replies     : {
+            nodes     : replies,
+            totalCount: config.replyTotal ?? replies.length,
+            pageInfo  : config.replyPageInfo || {hasNextPage: false, endCursor: null}
+        }
+    }
+}
+
+/**
+ * @summary Creates one Discussion reply fixture for continuation-page witnesses.
+ * @param {Number} index Stable fixture ordinal.
+ * @returns {Object}
+ */
+function buildReply(index) {
+    return {
+        author   : {login: 'neo-test'},
+        body     : `Reply ${index}`,
+        createdAt: `2026-05-02T02:${String(index).padStart(2, '0')}:00Z`,
+        isAnswer : false
+    }
 }

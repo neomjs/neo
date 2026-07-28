@@ -113,9 +113,10 @@ export const GET_DISCUSSION_CONVERSATION = `
 `;
 
 /**
- * @summary Fetches Discussions for local synchronization, including bounded nested comments and
- * replies plus each connection's `totalCount` / `pageInfo`. Those exhaustion facts let the shared
- * renderer persist explicit incompleteness instead of mistaking a 50/20 cap for a complete mirror.
+ * @summary Fetches Discussions for local synchronization, including the first nested comment/reply
+ * pages plus each connection's `totalCount` / `pageInfo`. The syncer drives those exhaustion facts
+ * through the continuation queries below before rendering, so the 50/20 page sizes never become
+ * corpus caps.
  *
  * Variables required:
  * - $owner: String!
@@ -168,6 +169,7 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
               endCursor
             }
             nodes {
+              paginationId: id
               author {
                 login
               }
@@ -244,6 +246,7 @@ export const FETCH_SINGLE_DISCUSSION_FOR_SYNC = `
             endCursor
           }
           nodes {
+            paginationId: id
             author {
               login
             }
@@ -265,6 +268,108 @@ export const FETCH_SINGLE_DISCUSSION_FOR_SYNC = `
                 isAnswer
               }
             }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * @summary Continues the top-level comment connection for one Discussion.
+ *
+ * Every returned comment includes the first reply page plus its exhaustion facts, matching the
+ * nested shape of the bulk and force-refetch queries. `paginationId` is an internal alias used only
+ * to continue a comment's reply connection; the renderer deliberately ignores it so persisted
+ * Markdown and content-trust signal paths keep their existing shape.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ * - $cursor: String
+ * - $maxComments: Int!
+ * - $maxReplies: Int!
+ */
+export const FETCH_DISCUSSION_COMMENTS_PAGE = `
+  query FetchDiscussionCommentsPage(
+    $owner: String!
+    $repo: String!
+    $number: Int!
+    $cursor: String
+    $maxComments: Int!
+    $maxReplies: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      discussion(number: $number) {
+        comments(first: $maxComments, after: $cursor) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            paginationId: id
+            author {
+              login
+            }
+            body
+            createdAt
+            isAnswer
+            replies(first: $maxReplies) {
+              totalCount
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                author {
+                  login
+                }
+                body
+                createdAt
+                isAnswer
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * @summary Continues the reply connection for one Discussion comment.
+ *
+ * The parent comment is addressed by the internal `paginationId` selected by the initial/comment
+ * page queries. Replies retain the exact renderer-facing fields of the first page.
+ *
+ * Variables required:
+ * - $commentId: ID!
+ * - $cursor: String
+ * - $maxReplies: Int!
+ */
+export const FETCH_DISCUSSION_REPLIES_PAGE = `
+  query FetchDiscussionRepliesPage(
+    $commentId: ID!
+    $cursor: String
+    $maxReplies: Int!
+  ) {
+    node(id: $commentId) {
+      ... on DiscussionComment {
+        replies(first: $maxReplies, after: $cursor) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            author {
+              login
+            }
+            body
+            createdAt
+            isAnswer
           }
         }
       }
