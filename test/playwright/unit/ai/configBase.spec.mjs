@@ -69,6 +69,38 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
         }
     });
 
+    test('Stop-hook projection binding + row/byte budgets are config-owned and inherited by overlays', () => {
+        const {instance, proxy} = createOverlayFixture('Neo.ai.unittest.HookProjectionConfigFixture', null);
+
+        try {
+            expect(proxy.stopHook.projection.capability).toBe('self-awareness');
+            expect(proxy.stopHook.projection.maxRows).toBe(12);
+            expect(proxy.stopHook.projection.maxBytes).toBe(4096);
+
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_PATH', '/runtime/hook/current.json');
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_TARGET_ID', 'target-id');
+            proxy.setEnvOverride('NEO_AGENT_IDENTITY', 'neo-gpt');
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_HARNESS_TYPE', 'codex');
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_INSTANCE_KEY_DIGEST', 'instance-digest');
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_WORKSPACE_KEY_DIGEST', 'workspace-digest');
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_MAX_ROWS', 7);
+            proxy.setEnvOverride('NEO_HOOK_PROJECTION_MAX_BYTES', 2048);
+
+            expect(proxy.stopHook.projection).toMatchObject({
+                path              : '/runtime/hook/current.json',
+                targetId          : 'target-id',
+                agentId           : 'neo-gpt',
+                harnessType       : 'codex',
+                instanceKeyDigest : 'instance-digest',
+                workspaceKeyDigest: 'workspace-digest',
+                maxRows           : 7,
+                maxBytes          : 2048
+            });
+        } finally {
+            instance.destroy();
+        }
+    });
+
     test('base formulas are inherited: the chroma coordinate formulas resolve on a subclass instance', () => {
         const {instance, proxy} = createOverlayFixture('Neo.ai.unittest.OverlayFormulaFixture', null);
 
