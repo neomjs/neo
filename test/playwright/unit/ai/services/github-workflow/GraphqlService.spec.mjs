@@ -149,6 +149,25 @@ test.describe('Neo.ai.services.github-workflow.GraphqlService — transient retr
         expect(callCount).toBe(1);
     });
 
+    test('preserves typed GraphQL error details for bounded caller recovery (#15977)', async () => {
+        const errors = [{
+            type   : 'RESOURCE_LIMITS_EXCEEDED',
+            path   : ['repository', 'discussions', 'nodes', 29, 'comments'],
+            message: 'Resource limits for this query exceeded'
+        }];
+
+        globalThis.fetch = async () => new Response(JSON.stringify({errors}), {
+            status : 200,
+            headers: {'content-type': 'application/json'}
+        });
+
+        const error = await GraphqlService.query(QUERY).catch(error => error);
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toBe('GitHub API error: Resource limits for this query exceeded');
+        expect(error.graphqlErrors).toEqual(errors);
+    });
+
     test('strict mode throws when GraphQL errors include partial data (#10096)', async () => {
         globalThis.fetch = async () => new Response(JSON.stringify({
             data: {
