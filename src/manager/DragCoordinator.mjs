@@ -181,11 +181,13 @@ class DragCoordinator extends Manager {
 
         await targetSortZone.onRemoteDragMove({
             draggedItem,
+            embodyProxy: true,
             localX,
             localY,
             offsetX,
             offsetY,
-            proxyRect
+            proxyRect,
+            sourceSortZone
         });
 
         // The native-titlebar path answers the same question as the pointer path, so it obeys the same
@@ -562,11 +564,13 @@ class DragCoordinator extends Manager {
 
             targetSortZone.onRemoteDragMove({
                 draggedItem,
+                embodyProxy: transitionOwned,
                 localX,
                 localY,
                 offsetX,
                 offsetY,
-                proxyRect: targetProxyRect
+                proxyRect  : targetProxyRect,
+                sourceSortZone
             });
 
             return
@@ -634,11 +638,16 @@ class DragCoordinator extends Manager {
 
             next.onRemoteDragMove({
                 draggedItem: candidate.draggedItem,
-                localX     : candidate.localX,
-                localY     : candidate.localY,
-                offsetX    : candidate.offsetX,
-                offsetY    : candidate.offsetY,
-                proxyRect  : candidate.proxyRect
+                // Native titlebar geometry does not ride the pointer conversion resolver. Keep
+                // its source popup visible during dwell; only commitNativeWindowDrop may stage
+                // an embodiment, after suspendWindowDrag has strictly settled.
+                embodyProxy   : false,
+                localX        : candidate.localX,
+                localY        : candidate.localY,
+                offsetX       : candidate.offsetX,
+                offsetY       : candidate.offsetY,
+                proxyRect     : candidate.proxyRect,
+                sourceSortZone: candidate.sourceSortZone
             })
         } else {
             me.nativeHoverTargets.delete(windowId)

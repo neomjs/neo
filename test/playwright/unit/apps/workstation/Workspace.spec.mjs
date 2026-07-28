@@ -351,6 +351,103 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('target-proxy staging uses the physical parked popup instead of the source sort-zone window', async () => {
+        const
+            workspace      = Neo.create(Workspace, {}),
+            originalProxy  = workspace.vesselProxyEmbodiment,
+            stagedPayloads = [];
+        let participation;
+
+        try {
+            workspace.tearOutConnects.audit = {windowId: 'parked-audit-popup'};
+            workspace.vesselProxyEmbodiment = {
+                move: data => {
+                    stagedPayloads.push(data);
+                    return true
+                },
+                promote: () => true,
+                restore: () => true
+            };
+
+            participation = await workspace.createCrossWindowParticipation({
+                windowId   : 'proxy-target-window',
+                workspaceId: 'proxy-target-workspace'
+            });
+
+            const payload = {
+                draggedItem   : {dockItemId: 'audit'},
+                proxyRect     : {height: 80, width: 160, x: 20, y: 30},
+                sourceSortZone: {windowId: workspace.windowId}
+            };
+
+            expect(participation.target.stageDragEmbodiment(payload)).toBe(true);
+            expect(stagedPayloads).toEqual([{
+                ...payload,
+                sourceWindowId: 'parked-audit-popup',
+                targetWindowId: 'proxy-target-window'
+            }])
+        } finally {
+            participation?.destroy();
+            workspace.vesselProxyEmbodiment = originalProxy;
+            workspace.destroy()
+        }
+    });
+
+    test('convert-out restores the target proxy before the exact parked popup is re-shown', () => {
+        const workspace = Neo.create(Workspace, {});
+        const
+            chrome        = readTabChrome(workspace),
+            originalPark  = workspace.vesselParkHandlers,
+            originalProxy = workspace.vesselProxyEmbodiment,
+            order         = [];
+
+        try {
+            workspace.vesselProxyEmbodiment = {
+                isStaged: () => true,
+                restore : data => {
+                    order.push(['proxy-restored', data.itemId]);
+                    return true
+                }
+            };
+            workspace.vesselParkHandlers = {
+                onConversionOut: data => {
+                    order.push(['popup-reshown', data.rect]);
+                    return true
+                }
+            };
+
+            const admitted = {
+                itemId     : 'audit',
+                logicalRect: {height: 120, width: 200, x: 40, y: 60}
+            };
+
+            chrome.get('right-top-tabs').tab.fire('dockVesselConversionOut', admitted);
+
+            expect(admitted.admission).toBe(true);
+            expect(order).toEqual([
+                ['proxy-restored', 'audit'],
+                ['popup-reshown', admitted.logicalRect]
+            ]);
+
+            order.length = 0;
+            workspace.vesselProxyEmbodiment.restore = data => {
+                order.push(['proxy-refused', data.itemId]);
+                return false
+            };
+
+            const refused = {itemId: 'audit', logicalRect: admitted.logicalRect};
+
+            chrome.get('right-top-tabs').tab.fire('dockVesselConversionOut', refused);
+
+            expect(refused.admission).toBe(false);
+            expect(order).toEqual([['proxy-refused', 'audit']])
+        } finally {
+            workspace.vesselParkHandlers      = originalPark;
+            workspace.vesselProxyEmbodiment = originalProxy;
+            workspace.destroy()
+        }
+    });
+
     test('a connected vessel stays unregistered until an accepted drop seeds document ownership', async () => {
         const
             workspace   = Neo.create(Workspace, {}),
@@ -927,6 +1024,7 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace       = Neo.create(Workspace, {}),
             originalTearOut = workspace.tearOutHandlers,
             originalPark    = workspace.vesselParkHandlers,
+            originalProxy   = workspace.vesselProxyEmbodiment,
             calls           = [];
 
         try {
@@ -941,11 +1039,18 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace.vesselParkHandlers = {
                 onVesselRetired: data => calls.push(['park', data])
             };
+            workspace.vesselProxyEmbodiment = {
+                restoreByWindow: windowId => {
+                    calls.push(['proxy', windowId]);
+                    return true
+                }
+            };
 
             workspace.onWindowDisconnect({windowId: 'tear-child'});
 
             expect(workspace.tearOutConnects.alerts).toBeUndefined();
             expect(calls).toEqual([
+                ['proxy', 'tear-child'],
                 ['tear-out', {
                     admissionToken: 7,
                     generation    : 3,
@@ -955,8 +1060,9 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 ['park', {itemId: 'alerts', retirement: true}]
             ])
         } finally {
-            workspace.tearOutHandlers  = originalTearOut;
-            workspace.vesselParkHandlers = originalPark;
+            workspace.tearOutHandlers         = originalTearOut;
+            workspace.vesselParkHandlers      = originalPark;
+            workspace.vesselProxyEmbodiment = originalProxy;
             workspace.destroy()
         }
     });

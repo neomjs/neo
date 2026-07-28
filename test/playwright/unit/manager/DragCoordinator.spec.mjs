@@ -289,16 +289,21 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         // `await onRemoteDrop(...)` and retiring the source anyway. Same defect class, different
         // entry point — fixing the instance the ticket named is not fixing the class.
         const
-            draggedItem = {id: 'tab-1'},
-            target      = {
+            draggedItem  = {id: 'tab-1'},
+            movePayloads = [],
+            order        = [],
+            target       = {
                 ...createTargetZone(null),
                 acceptsRemoteDrag: () => true,
-                onRemoteDragMove : async () => {}
+                onRemoteDragMove : async payload => {
+                    order.push('move');
+                    movePayloads.push(payload)
+                }
             },
             source      = {
                 ...createSourceZone(),
                 getNativeWindowDrag: () => ({draggedItem}),
-                suspendWindowDrag  : async () => {}
+                suspendWindowDrag  : async () => order.push('suspend')
             };
 
         // `commitNativeWindowDrop(windowId, candidate)` is POSITIONAL and guards on the candidate being
@@ -315,7 +320,13 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
 
         // The target declined, so the source keeps the item — exactly as on the pointer path.
         expect(calls).toEqual([['onRemoteDrop', 'tab-1']]);
-        expect(calls.some(([name]) => name === 'onRemoteDropOut')).toBe(false)
+        expect(calls.some(([name]) => name === 'onRemoteDropOut')).toBe(false);
+        expect(order).toEqual(['suspend', 'move']);
+        expect(movePayloads[0]).toMatchObject({
+            draggedItem,
+            embodyProxy   : true,
+            sourceSortZone: source
+        })
     });
 
     test('a THROWING commit still clears the engagement — a REJECTED terminal cannot park the target', () => {
@@ -733,6 +744,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
     });
 
     test('NATIVE hover renders CONTINUOUS preview per geometry event — the dwell timer gates only the commit', () => {
+        const nativePayloads = [];
         const
             draggedItem = {id: 'tab-1'},
             source      = {
@@ -746,6 +758,13 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
                 }
             },
             target = createZone('workspace-b', 'win-target');
+
+        const onRemoteDragMove = target.onRemoteDragMove.bind(target);
+
+        target.onRemoteDragMove = payload => {
+            nativePayloads.push(payload);
+            onRemoteDragMove(payload)
+        };
 
         registerWindow('win-source', 2000,   0, 400, 400);
         registerWindow('win-popup',   500, 500, 300, 200);
@@ -761,6 +780,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         // preview rendered per event, BEFORE any dwell elapsed; nothing committed
         expect(calls.filter(([name]) => name === 'move').length).toBe(2);
         expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
+        expect(nativePayloads).toHaveLength(2);
+        expect(nativePayloads.every(payload => payload.embodyProxy === false)).toBe(true);
+        expect(nativePayloads.every(payload => payload.sourceSortZone === source)).toBe(true);
 
         // the popup leaves the target: the hover ends exact-once
         WindowManager.get('win-popup').innerRect = new Rectangle(3000, 3000, 300, 200);
@@ -779,9 +801,18 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
     });
 
     test('conversion resolver receives one live INNER-viewport frame and owns engagement without legacy suspension', () => {
-        const frames = [];
+        const
+            frames       = [],
+            movePayloads = [];
         const source = createSource();
         const target = createZone('workspace-a', 'win-a');
+
+        const onRemoteDragMove = target.onRemoteDragMove.bind(target);
+
+        target.onRemoteDragMove = payload => {
+            movePayloads.push(payload);
+            onRemoteDragMove(payload)
+        };
 
         source.isWindowDragging = true;
         source.resolveRemoteDragTransition = frame => {
@@ -807,6 +838,10 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         });
         expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
         expect(calls.filter(([name]) => name === 'move')).toHaveLength(1);
+        expect(movePayloads[0]).toMatchObject({
+            embodyProxy   : true,
+            sourceSortZone: source
+        });
         expect(DragCoordinator.activeSourceZone).toBe(source);
         expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
         expect(DragCoordinator.activeTransitionOwned).toBe(true);

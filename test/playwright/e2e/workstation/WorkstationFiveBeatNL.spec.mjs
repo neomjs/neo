@@ -457,16 +457,30 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             ]),
             targetPopup        = await targetPopupPromise,
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
-            dockResult         = await app.callMethod(wsId, 'executeCrossWindowDockStep', [
+            dockResultPromise  = app.callMethod(wsId, 'executeCrossWindowDockStep', [
                 {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
                 {
                     attempts  : filmPace.birthAttempts ?? 180,
+                    dwellDelay: filmPace.dwellDelay ?? 600,
                     moveDelay : filmPace.moveDelay ?? 16,
                     moveSteps : filmPace.moveSteps ?? 4,
                     showCursor: filmPace.showCursor ?? false
                 }
             ]),
-            sourcePopup = await sourcePopupPromise;
+            targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
+
+        await expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
+            .toHaveCount(1, {timeout: 9000});
+
+        const computedOpacity = await targetProxy.evaluate(element =>
+            Number.parseFloat(getComputedStyle(element).opacity));
+
+        expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
+
+        const [dockResult, sourcePopup] = await Promise.all([dockResultPromise, sourcePopupPromise]);
+
+        dockResult.proof?.remoteSnapshot?.targetProxy &&
+            (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
 
         await expect.poll(() => sourcePopup.isClosed(), {
             message: 'the converted source vessel must retire after its remote commit',
@@ -1229,10 +1243,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             engaged              : true,
             parkedItemId         : 'commits',
             sourceVesselConnected: true,
-            targetWorkspaceId    : 'workstation-vessel:metrics',
-            winnerStableId       : 'workstation-vessel:metrics'
+            targetProxy          : {
+                cls: expect.arrayContaining([
+                    'neo-dock-dragproxy',
+                    'workstation-vessel-dragproxy',
+                    'neo-theme-neo-dark'
+                ]),
+                computedOpacity: .7,
+                itemId         : 'commits',
+                ownsPane       : true,
+                settled        : true,
+                visible        : true
+            },
+            targetWorkspaceId: 'workstation-vessel:metrics',
+            winnerStableId   : 'workstation-vessel:metrics'
         });
         expect(snapshot.sourceVesselWindowId, 'the parked physical source vessel must still exist pre-mouseup')
+            .toBeTruthy();
+        expect(snapshot.targetProxy.sourceWindowId, 'the proxy must reserve that exact parked source popup')
+            .toBe(snapshot.sourceVesselWindowId);
+        expect(snapshot.targetProxy.targetWindowId, 'the visible proxy must belong to the target popup')
             .toBeTruthy();
         expect(snapshot.preview.previewId, 'the target must publish one semantic preview').toBeTruthy();
         expect(snapshot.rendered.previewId, 'that same preview must paint inside the target popup')
@@ -1472,9 +1502,23 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 engaged              : true,
                 parkedItemId         : 'commits',
                 sourceVesselConnected: true,
-                targetWorkspaceId    : 'workstation-vessel:metrics',
-                winnerStableId       : 'workstation-vessel:metrics'
+                targetProxy          : {
+                    cls: expect.arrayContaining([
+                        'neo-dock-dragproxy',
+                        'workstation-vessel-dragproxy',
+                        'neo-theme-neo-dark'
+                    ]),
+                    computedOpacity: .7,
+                    itemId         : 'commits',
+                    ownsPane       : true,
+                    settled        : true,
+                    visible        : true
+                },
+                targetWorkspaceId: 'workstation-vessel:metrics',
+                winnerStableId   : 'workstation-vessel:metrics'
             });
+            expect(dockResult.proof.remoteSnapshot.targetProxy.sourceWindowId)
+                .toBe(dockResult.proof.remoteSnapshot.sourceVesselWindowId);
             expect(dockResult.proof.remoteSnapshot.rendered.previewId)
                 .toBe(dockResult.proof.remoteSnapshot.preview.previewId);
             expect(dockResult.proof.remoteSnapshot.preview.target.nodeId)

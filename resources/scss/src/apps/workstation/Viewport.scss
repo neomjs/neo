@@ -77,6 +77,12 @@
     }
 }
 
+// Keep target affordances legible beneath the SAME live pane while it is transiently embodied in
+// the target window. The class is Workstation-owned so generic drag proxies keep their own skin.
+.workstation-vessel-dragproxy {
+    opacity: .7;
+}
+
 // Pane SKIN — everything a pane keeps when it is torn out of the workspace.
 //
 // The token bridge above made a vessel-hosted pane resolve the right colours; these rules are

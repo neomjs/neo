@@ -85,6 +85,18 @@ class CrossWindowDragTarget extends Base {
          */
         previewToOperation: null,
         /**
+         * Optional owner seam: promotes a staged target-local drag embodiment after the semantic
+         * commit succeeds. Receives the exact hover payload captured before the commit.
+         * @member {Function|null} promoteDragEmbodiment=null
+         */
+        promoteDragEmbodiment: null,
+        /**
+         * Optional owner seam: restores a staged target-local drag embodiment on leave, refusal,
+         * cancellation, or a throwing commit. Receives the exact hover payload that staged it.
+         * @member {Function|null} restoreDragEmbodiment=null
+         */
+        restoreDragEmbodiment: null,
+        /**
          * §2.3 registry identity: only targets sharing the drag source's `sortGroup` are
          * arbitration candidates. No `sortGroup` → this target never registers.
          * @member {String|null} sortGroup=null
@@ -99,6 +111,13 @@ class CrossWindowDragTarget extends Base {
          */
         stableTargetId: null,
         /**
+         * Optional owner seam: stages/updates the SAME live dragged component in a target-local
+         * proxy. Invoked only when the coordinator explicitly licenses `embodyProxy:true`; strict
+         * `true` is required before this target can publish its semantic preview.
+         * @member {Function|null} stageDragEmbodiment=null
+         */
+        stageDragEmbodiment: null,
+        /**
          * §2.3 registry identity: the window this surface renders in.
          * @member {String|Number|null} windowId=null
          */
@@ -111,6 +130,13 @@ class CrossWindowDragTarget extends Base {
      * @member {Object|null} currentPreview=null
      */
     currentPreview = null
+
+    /**
+     * The exact hover payload paired with {@link #currentPreview}. Retained so every terminal can
+     * restore or promote the correct target-local embodiment even when the owner clears visuals.
+     * @member {Object|null} currentDragPayload=null
+     */
+    currentDragPayload = null
 
     /**
      * Registers with the coordinator once the §2.3 registry identity is complete.
@@ -143,11 +169,40 @@ class CrossWindowDragTarget extends Base {
      * §2.3 mandatory hook: hover feedback for a remote drag over this target. Delegates the
      * compute+render to the owner's preview machinery and keeps the latest payload for the
      * drop path.
-     * @param {Object} payload {draggedItem, localX, localY, offsetX, offsetY, proxyRect}
+     * @param {Object} payload `{draggedItem, localX, localY, offsetX, offsetY, proxyRect,
+     *     embodyProxy, sourceSortZone}`
      * @returns {Object|null} the owner-computed `dockPreview` (null outside affordances)
      */
     onRemoteDragMove(payload) {
-        return this.currentPreview = this.previewFor?.(payload) ?? null
+        let me = this;
+
+        if (payload?.embodyProxy === true) {
+            let staged = false;
+
+            try {
+                staged = me.stageDragEmbodiment?.(payload) === true
+            } catch {/* fail closed below */}
+
+            if (!staged) {
+                me.restoreDragEmbodiment?.(payload);
+                me.currentDragPayload = null;
+                me.currentPreview     = null;
+                me.clearPreview?.();
+                return null
+            }
+        }
+
+        me.currentDragPayload = payload;
+
+        try {
+            return me.currentPreview = me.previewFor?.(payload) ?? null
+        } catch (error) {
+            payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+            me.currentDragPayload = null;
+            me.currentPreview     = null;
+            me.clearPreview?.();
+            throw error
+        }
     }
 
     /**
@@ -155,8 +210,13 @@ class CrossWindowDragTarget extends Base {
      * coordinator switches targets.
      */
     onRemoteDragLeave() {
-        this.currentPreview = null;
-        this.clearPreview?.()
+        let me      = this,
+            payload = me.currentDragPayload;
+
+        payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+        me.currentDragPayload = null;
+        me.currentPreview     = null;
+        me.clearPreview?.()
     }
 
     /**
@@ -169,22 +229,55 @@ class CrossWindowDragTarget extends Base {
      * @returns {*} the owner commit result, or null when nothing committed
      */
     onRemoteDrop(draggedItem) {
-        let me        = this,
-            preview   = me.currentPreview,
-            operation = preview ? me.previewToOperation?.(preview) : null,
-            result    = null;
+        let me      = this,
+            payload = me.currentDragPayload,
+            preview = me.currentPreview,
+            result  = null;
 
         try {
+            const operation = preview ? me.previewToOperation?.(preview) : null;
+
             if (operation) {
                 result = me.commitOperation?.(operation, draggedItem) ?? null
             }
-        } finally {
-            // cleanup is unconditional: a throwing owner commit must not leave hover state
-            // behind — the error stays the owner's to observe, the gesture still ends clean
-            me.onRemoteDragLeave()
+        } catch (error) {
+            payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+            me.clearRemoteState(payload);
+            throw error
         }
 
-        return result
+        const settle = committed => {
+            if (payload?.embodyProxy === true) {
+                me[committed ? 'promoteDragEmbodiment' : 'restoreDragEmbodiment']?.(payload)
+            }
+
+            me.clearRemoteState(payload);
+
+            return committed
+        };
+
+        return typeof result?.then === 'function'
+            ? result.then(settle, error => {
+                payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+                me.clearRemoteState(payload);
+                throw error
+            })
+            : settle(result)
+    }
+
+    /**
+     * @summary Clears one exact hover generation without settling its embodiment a second time.
+     * @param {Object|null} payload
+     * @protected
+     */
+    clearRemoteState(payload) {
+        let me = this;
+
+        if (me.currentDragPayload === payload) {
+            me.currentDragPayload = null;
+            me.currentPreview     = null;
+            me.clearPreview?.()
+        }
     }
 
     /**
@@ -196,6 +289,8 @@ class CrossWindowDragTarget extends Base {
         if (me.sortGroup && me.windowId != null) {
             me.dragCoordinator?.unregister(me)
         }
+
+        (me.currentDragPayload || me.currentPreview) && me.onRemoteDragLeave();
 
         super.destroy()
     }
