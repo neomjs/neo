@@ -6,10 +6,15 @@ import {withTimeout}                                 from './helpers/withTimeout
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {verifyPersistedVector}                       from './helpers/verifyPersistedVector.mjs';
 import {resolveTurnDocumentForRead}                  from './helpers/turnDocumentText.mjs';
-import crypto                                        from 'crypto';
-import GraphService                                  from './GraphService.mjs';
-import {capSessionsForSweep}                         from './capSessionsForSweep.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}   from '../../graph/identityRoots.mjs';
+import {
+    acknowledgeSessionSummaryReceipt,
+    recoverSessionSummaryReceipts,
+    stageSessionSummaryReceipt
+} from './helpers/sessionSummaryReceiptStore.mjs';
+import crypto                                      from 'crypto';
+import GraphService                                from './GraphService.mjs';
+import {capSessionsForSweep}                       from './capSessionsForSweep.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
 import StorageRouter from './managers/StorageRouter.mjs';
 import Json          from '../../../src/util/Json.mjs';
@@ -865,6 +870,16 @@ ${sessionContent}
         // Add a 12-hour buffer window for offline drafting match
         await this.ingestAntigravityArtifacts(sessionId, summaryId, firstActivity - (12 * 3600000), lastActivity + (12 * 3600000));
 
+        // Durable receipt boundary: this is deliberately the final side effect before return.
+        // If SQLite staging fails, summarizeSession throws and the caller cannot count/complete the
+        // result. Once staged, recovery can reconstruct this exact Chroma row without the model.
+        this.stageSessionSummaryReceipt({
+            sessionId,
+            summaryId,
+            document: summary,
+            metadata: summaryMetadata
+        });
+
         return { sessionId, summaryId, title, memoryCount: memories.ids.length };
     }
 
@@ -1300,6 +1315,40 @@ ${sessionContent}
     }
 
     /**
+     * @summary Persists the exact summary result in the durable SQLite coordinator before
+     * `summarizeSession()` may return it to a caller.
+     * @param {Object} receipt
+     * @param {String} receipt.sessionId
+     * @param {String} receipt.summaryId
+     * @param {String} receipt.document
+     * @param {Object} receipt.metadata
+     * @returns {{bytes:Number,encoding:String,stagedAt:Number}}
+     */
+    stageSessionSummaryReceipt(receipt) {
+        return stageSessionSummaryReceipt({
+            db: GraphService.db?.storage?.db,
+            ...receipt
+        });
+    }
+
+    /**
+     * @summary Replays staged/completed exact result envelopes before any drift path may
+     * invoke the summary model. Legacy rows without envelopes remain drift-repair candidates.
+     * @param {Object} [options]
+     * @param {String|null} [options.sessionId=null]
+     * @returns {Promise<Object>} Receipt recovery counters.
+     */
+    async recoverSessionSummaryReceipts({sessionId = null} = {}) {
+        return recoverSessionSummaryReceipts({
+            db               : GraphService.db?.storage?.db,
+            collection       : this.sessionsCollection,
+            sessionId,
+            expectedDimension: aiConfig.vectorDimension,
+            log              : logger
+        });
+    }
+
+    /**
      * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
      * Prevents race conditions across concurrent MCP instances.
      * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
@@ -1340,7 +1389,15 @@ ${sessionContent}
                     if (allowCompletedRepair) {
                         db.prepare(`
                             UPDATE SummarizationJobs
-                            SET status = 'in_progress', lease_token = ?, expires_at = ?, retry_count = retry_count + 1
+                            SET status                  = 'in_progress',
+                                lease_token             = ?,
+                                expires_at              = ?,
+                                retry_count             = retry_count + 1,
+                                result_envelope         = NULL,
+                                result_encoding         = NULL,
+                                result_staged_at        = NULL,
+                                result_acknowledged_at  = NULL,
+                                result_last_replayed_at = NULL
                             WHERE session_id = ?
                         `).run(leaseToken, expiresAt, sessionId);
                         return true;
@@ -1377,22 +1434,17 @@ ${sessionContent}
     }
 
     /**
-     * Marks a summarization job as completed in the coordinator table.
-     * @summary Finalizes the background summarization job state to prevent duplicate processing.
+     * Marks a durability-qualified summarization job as completed in the coordinator table.
+     * @summary Finalizes only when the exact replay envelope already exists; missing durable
+     * state throws so the caller cannot emit a false completed/processed receipt.
      * @param {String} sessionId
+     * @returns {Boolean}
      */
     completeSummarizationJob(sessionId) {
-        const db = GraphService.db?.storage?.db;
-        if (!db) return;
-        try {
-            db.prepare(`
-                UPDATE SummarizationJobs
-                SET status = 'completed', lease_token = NULL
-                WHERE session_id = ?
-            `).run(sessionId);
-        } catch (e) {
-            logger.warn(`[SessionService] Error completing job for ${sessionId}: ${e.message}`);
-        }
+        return acknowledgeSessionSummaryReceipt({
+            db: GraphService.db?.storage?.db,
+            sessionId
+        });
     }
 
     /**
@@ -1425,6 +1477,11 @@ ${sessionContent}
         try {
             let   processed  = [];
             const leaseToken = crypto.randomUUID();
+
+            // Exact durable replay wins over model re-synthesis. For new receipts, this repairs
+            // Chroma before drift detection; legacy completed rows without an envelope still flow
+            // through the existing allowCompletedRepair fallback below.
+            await this.recoverSessionSummaryReceipts({sessionId: sessionId || null});
 
             if (sessionId) {
                 if (this.claimSummarizationJob(sessionId, leaseToken)) {
@@ -1482,12 +1539,13 @@ ${sessionContent}
 
                         try {
                             const result = await this.summarizeSession(id);
-                            // Per-session completion progress so a 15-30 min run emits output, not silence.
-                            // Direct stderr write (the channel ProcessSupervisor captures into orchestrator.log);
-                            // not the Provider-gated logger, which would need a B4-unsafe config mutation to surface.
-                            console.error(`[INFO] [SessionService] session summarization: ${++completed}/${total} done (${id})`);
                             if (result) {
                                 this.completeSummarizationJob(id);
+                                // Per-session completion progress so a 15-30 min run emits output,
+                                // not silence. This occurs AFTER the durable acknowledgement, so
+                                // "done" cannot get ahead of the recoverable result receipt.
+                                // Direct stderr is captured by ProcessSupervisor into orchestrator.log.
+                                console.error(`[INFO] [SessionService] session summarization: ${++completed}/${total} done (${id})`);
                                 return result;
                             } else {
                                 this.failSummarizationJob(id);
