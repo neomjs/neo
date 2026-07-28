@@ -88,8 +88,8 @@ ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}
 #      LABEL can only read a build ARG and Docker cannot populate a later-stage ARG
 #      from a file written in an earlier stage. Empty means "not asserted"; it must
 #      never contain a channel name. To get a spec-correct value, resolve the channel
-#      to a full SHA first and pass NEO_REVISION — which is exactly the resolve-once
-#      contract the rollout-authority design calls for.
+#      to a full SHA first and pass NEO_REVISION — Compose maps that one operator pin
+#      to both internal arguments.
 #   3. /app/.neo-revision — the build-time RESOLVED commit, written by the source stage.
 #      The only surface that is always populated and always true, so it is the primary
 #      provenance fact; the label above is its machine-readable echo when the caller
@@ -105,6 +105,16 @@ ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}
 ARG NEO_REF
 ARG NEO_REPO_URL
 ARG NEO_REVISION=
+
+# The label is an assertion, while /app/.neo-revision is measured artifact truth.
+# Fail the build before stamping a non-empty assertion that disagrees with the source
+# stage. This also rejects a revision claim on `NEO_SOURCE=local` (`local-build`).
+RUN actual_revision="$(cat /app/.neo-revision)" \
+    && if [ -n "${NEO_REVISION}" ] && [ "${NEO_REVISION}" != "${actual_revision}" ]; then \
+        echo "[deploy] FATAL: NEO_REVISION integrity mismatch: asserted '${NEO_REVISION}', packaged '${actual_revision}'." >&2; \
+        exit 1; \
+    fi
+
 LABEL org.neomjs.image.requested-ref="${NEO_REF}"
 LABEL org.opencontainers.image.revision="${NEO_REVISION}"
 LABEL org.opencontainers.image.source="${NEO_REPO_URL}"
