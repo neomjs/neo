@@ -285,10 +285,10 @@ class GraphqlService extends Base {
     async query(query, variables={}, options=false) {
         const enableSubIssues = typeof options === 'boolean' ? options : Boolean(options?.enableSubIssues);
         const strict          = typeof options === 'object' ? options?.strict !== false : true;
-        const token = await this.#getAuthToken();
+        const token           = await this.#getAuthToken();
 
         const headers = {
-            'Content-Type': 'application/json',
+            'Content-Type' : 'application/json',
             'Authorization': `bearer ${token}`
         };
 
@@ -341,7 +341,14 @@ class GraphqlService extends Base {
             }
 
             logger.error('GitHub API returned errors:', json.errors);
-            throw new Error(`GitHub API error: ${json.errors.map(e => e.message).join(', ')}`);
+            const error = new Error(`GitHub API error: ${json.errors.map(e => e.message).join(', ')}`);
+
+            // Preserve GitHub's typed error payload so bounded callers can react to a specific
+            // provider condition without parsing human-readable messages. Strict mode still throws,
+            // so partial response data never crosses this boundary.
+            error.graphqlErrors = json.errors;
+
+            throw error;
         }
 
         return json.data;

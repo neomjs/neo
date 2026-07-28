@@ -125,6 +125,13 @@ class ConfigBase extends ConfigProvider {
                  */
                 discussionsDir: leaf(path.resolve(projectRoot, 'resources/content/discussions')),
                 /**
+                 * Initial number of discussions projected per GraphQL page (1–30). The syncer halves
+                 * this value and retries the same cursor when GitHub reports
+                 * `RESOURCE_LIMITS_EXCEEDED`.
+                 * @type {number}
+                 */
+                discussionOuterPageSize: leaf(30),
+                /**
                  * The path to the directory for pull requests.
                  * @type {string}
                  */
