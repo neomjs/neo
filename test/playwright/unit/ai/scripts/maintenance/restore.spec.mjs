@@ -752,6 +752,58 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         expect(allowed.subsystems.ledgers.healAttempts.copied).toBe(true);
     });
 
+    test('a REFUSED authorization on one ledger leaves its siblings unmutated', async () => {
+        // Atomicity. The three ledgers were restored in `Promise.all`, and each did
+        // guard-check-THEN-mutate — so a guard that refuses SLOWLY on one ledger let a sibling whose
+        // guard resolved quickly finish its overwrite before `runRestore` rejected. The run reported
+        // failure having already destroyed data, which is worse than either outcome on its own: an
+        // operator who sees a refusal reasonably concludes nothing happened.
+        //
+        // Authorization for every ledger must complete before any mutation begins.
+        const bundleRoot = buildSyntheticBundle({bundleName: 'ledger-atomic', shared_topology: true}),
+              dataRoot   = path.join(workRoot, 'ledger-atomic-plane', 'orchestrator-daemon'),
+              targets    = {
+                  healAttemptsFile: path.join(dataRoot, 'heal-attempts.json'),
+                  healEventsDir   : path.join(dataRoot, 'data-heal-events'),
+                  recoveryRunsDir : path.join(dataRoot, 'recovery-runs')
+              };
+
+        fs.mkdirSync(path.join(bundleRoot, 'ledgers', 'recovery-runs'), {recursive: true});
+        fs.writeFileSync(path.join(bundleRoot, 'ledgers', 'heal-attempts.json'), JSON.stringify({fromBundle: true}));
+        fs.writeFileSync(path.join(bundleRoot, 'ledgers', 'heal-events.jsonl'), '{"type":"freeze"}\n');
+        fs.mkdirSync(targets.healEventsDir, {recursive: true});
+        fs.writeFileSync(targets.healAttemptsFile, JSON.stringify({mustSurvive: true}));
+
+        // healAttempts authorizes immediately; healEvents refuses only after a tick. Under the old
+        // concurrent shape that delay is the whole exploit.
+        Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed = async (args) => {
+            calls.guard.push(args);
+
+            if (args.subsystem === 'ledgers.healEvents') {
+                await new Promise(resolve => setTimeout(resolve, 25));
+                throw new Error('refused by policy: ledgers.healEvents');
+            }
+
+            return {allowed: true, classification: 'disposable'}
+        };
+
+        await expect(runRestore({
+            expectedDimension     : 1,
+            bundleRoot,
+            conceptsTargetDir     : path.join(workRoot, 'ledger-atomic-empty', 'concepts'),
+            force                 : true,
+            ledgerTargets         : targets,
+            logger                : silentLogger,
+            mode                  : 'replace',
+            onlySubstrate         : ['ledgers'],
+            sentToCullTargetFile  : path.join(workRoot, 'ledger-atomic-empty', 'sent-to-cull.jsonl'),
+            trajectoriesTargetFile: path.join(workRoot, 'ledger-atomic-empty', 'trajectories.jsonl')
+        })).rejects.toThrow(/refused by policy/);
+
+        // The sibling must be untouched. This is the assertion the concurrent shape failed.
+        expect(JSON.parse(fs.readFileSync(targets.healAttemptsFile, 'utf8')).mustSurvive).toBe(true);
+    });
+
     test('a bundle written under a RELOCATED ledger path still restores', async () => {
         // The member name was coupled to the host path at both ends: backup stored under
         // `path.basename(source)` and restore searched `path.basename(target)`. Because

@@ -762,7 +762,7 @@ export async function verifyLatestBackupRestorable({
     // `ledgers` belongs in the probe's layout because the probe ATTESTS a restore that will write
     // them. Omitting it meant malformed ledger content passed unexamined while the verdict still said
     // `RESTORABLE` — the probe vouching for a member it never looked at.
-    const layout     = {
+    const layout = {
         kb          : path.join(bundleRoot, 'kb'),
         mc          : path.join(bundleRoot, 'mc'),
         graph       : path.join(bundleRoot, 'graph'),
@@ -953,18 +953,25 @@ async function assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFi
  */
 async function restoreIncidentLedgers({sourceDir, targets, mode, force, confirmation, logger}) {
     /**
-     * Copies one named ledger file, honouring the same merge/replace/force contract the flat
-     * helpers use so the ledgers cannot become a hole in the destructive-guard coverage.
+     * Authorizes one named ledger WITHOUT mutating anything, returning the plan its mutation phase
+     * will execute.
+     *
+     * Split from the copy on purpose. The three ledgers previously ran through `Promise.all` while
+     * each did guard-check-THEN-mutate, so a guard that refused SLOWLY on one ledger let a sibling
+     * whose guard resolved quickly complete its overwrite before `runRestore` rejected. The run
+     * reported failure having already destroyed data — worse than either outcome alone, because an
+     * operator seeing a refusal reasonably concludes nothing happened.
+     *
      * @param {String} fileName
      * @param {String} targetFile
      * @param {String} subsystem
      * @returns {Promise<Object>}
      */
-    const copyNamed = async (fileName, targetFile, subsystem) => {
+    const planNamed = async (fileName, targetFile, subsystem) => {
         const source = path.join(sourceDir, fileName);
 
         if (!await fs.pathExists(source)) {
-            return {copied: false, mode, note: `source absent: ${fileName}`}
+            return {outcome: {copied: false, mode, note: `source absent: ${fileName}`}}
         }
 
         if (mode === 'replace') {
@@ -978,36 +985,65 @@ async function restoreIncidentLedgers({sourceDir, targets, mode, force, confirma
             });
         } else if (!force && await fs.pathExists(targetFile)) {
             logger.log?.(`[Restore][${subsystem}] preserved existing ${fileName} (merge mode without --force)`);
-            return {copied: false, skipped: true, mode}
+            return {outcome: {copied: false, skipped: true, mode}}
         }
 
-        await fs.ensureDir(path.dirname(targetFile));
-        await fs.copy(source, targetFile, {overwrite: true});
+        return {apply: async () => {
+            await fs.ensureDir(path.dirname(targetFile));
+            await fs.copy(source, targetFile, {overwrite: true});
 
-        return {copied: true, mode}
+            return {copied: true, mode}
+        }}
     };
 
+    // PHASE 1 — authorize EVERY ledger before ANY of them mutates. Sequential, so the first refusal
+    // returns while the filesystem is still untouched; concurrency here would reintroduce the exact
+    // race this split exists to close.
+    //
     // Looked up by the STABLE bundle member name and written to the RESOLVED host path. Searching by
     // `path.basename(target)` coupled the bundle's contents to the reading host's config: a relocated
     // `healAttemptsPath` made a perfectly good bundle read as `source absent`.
+    const attemptsPlan = await planNamed(
+              INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts, targets.healAttemptsFile, 'ledgers.healAttempts'
+          ),
+          eventsPlan   = await planNamed(
+              HEAL_LEDGER_FILENAME, path.join(targets.healEventsDir, HEAL_LEDGER_FILENAME), 'ledgers.healEvents'
+          ),
+          runsSource   = path.join(sourceDir, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
+
+    // `restoreFlatDir` fires its own guard as step one, so its authorization is hoisted here and the
+    // call below runs pre-authorized rather than re-asking mid-mutation.
+    if (mode === 'replace' && await fs.pathExists(runsSource)) {
+        await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
+            confirmation,
+            mode     : 'replace',
+            operation: 'restore.ledgers.recoveryRuns.replace',
+            source   : {path: runsSource},
+            subsystem: 'ledgers.recoveryRuns',
+            target   : {path: targets.recoveryRunsDir, repoRoot: PROJECT_ROOT}
+        });
+    }
+
+    // PHASE 2 — every authorization has passed; now mutate.
     const [healAttempts, healEvents, recoveryRuns] = await Promise.all([
-        copyNamed(INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts, targets.healAttemptsFile, 'ledgers.healAttempts'),
-        copyNamed(HEAL_LEDGER_FILENAME, path.join(targets.healEventsDir, HEAL_LEDGER_FILENAME), 'ledgers.healEvents'),
+        attemptsPlan.apply ? attemptsPlan.apply() : attemptsPlan.outcome,
+        eventsPlan.apply   ? eventsPlan.apply()   : eventsPlan.outcome,
         restoreFlatDir({
             confirmation,
             force,
             logger,
             mode,
-            sourceDir: path.join(sourceDir, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns),
-            subsystem: 'ledgers.recoveryRuns',
-            targetDir: targets.recoveryRunsDir
+            preAuthorized: true,
+            sourceDir    : runsSource,
+            subsystem    : 'ledgers.recoveryRuns',
+            targetDir    : targets.recoveryRunsDir
         })
     ]);
 
     return {healAttempts, healEvents, mode, recoveryRuns}
 }
 
-async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, subsystem, logger}) {
+async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, subsystem, logger, preAuthorized = false}) {
     if (!await fs.pathExists(sourceDir)) {
         return {copied: 0, skipped: 0, mode, note: `source absent: ${sourceDir}`}
     }
@@ -1015,7 +1051,10 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
     const sourceEntries = await fs.readdir(sourceDir);
     const sourceFiles   = sourceEntries.filter(f => f.endsWith('.jsonl'));
 
-    if (mode === 'replace') {
+    // `preAuthorized` exists for callers that must authorize a GROUP of targets before any member
+    // mutates — asking again here would be redundant, not safer. It never skips the emptyDir below:
+    // the authorization moved earlier, it did not disappear.
+    if (mode === 'replace' && !preAuthorized) {
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
@@ -1024,6 +1063,8 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
             source   : {path: sourceDir},
             confirmation
         });
+        await fs.emptyDir(targetDir);
+    } else if (mode === 'replace') {
         await fs.emptyDir(targetDir);
     } else {
         await fs.ensureDir(targetDir);
