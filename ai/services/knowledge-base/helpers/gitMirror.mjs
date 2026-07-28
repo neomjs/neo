@@ -7,6 +7,7 @@ import path                       from 'path';
 
 import {
     assertCleanCloneUrl,
+    classifyTenantRepoAccessFailure,
     deriveTenantRepoMirrorPath,
     normalizeTenantRepoCredentialRef,
     redactTenantRepoSecrets,
@@ -616,36 +617,6 @@ async function runGit(args, {
     }
 }
 
-/**
- * @summary Classifies a redacted Git probe failure into the public access-readiness vocabulary.
- * @param {Error} error Redacted GitMirror error.
- * @returns {String}
- * @private
- */
-function classifyAccessProbeFailure(error) {
-    if (error.code === 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT') {
-        return TenantRepoAccessCode.TIMEOUT;
-    }
-
-    if (error.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID') {
-        return TenantRepoAccessCode.CREDENTIAL_INVALID;
-    }
-
-    const stderr = String(error.stderr || '');
-
-    if (
-        /could not resolve host|temporary failure in name resolution|network is unreachable|failed to connect|connection (?:timed out|refused|reset)|ssh: connect to host/iu
-            .test(stderr)
-    ) {
-        return TenantRepoAccessCode.TRANSPORT_FAILED;
-    }
-
-    if (Number.isInteger(error.exitCode)) {
-        return TenantRepoAccessCode.DENIED_OR_NOT_FOUND;
-    }
-
-    return TenantRepoAccessCode.PROBE_FAILED;
-}
 
 /**
  * @summary Validates local credential resolution and returns only a process-local cache fingerprint.
@@ -785,7 +756,7 @@ export async function probeRemoteAccess({
     } catch (error) {
         return {
             status          : TenantRepoAccessStatus.DEGRADED,
-            code            : classifyAccessProbeFailure(error),
+            code            : classifyTenantRepoAccessFailure(error),
             checkedAt,
             cacheFingerprint: material.cacheFingerprint
         };

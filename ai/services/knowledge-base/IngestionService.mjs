@@ -28,6 +28,38 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+/**
+ * Scope disclosure carried on EVERY `getIngestionProgress` response state. The progress ledgers are
+ * in-memory instance state, so this surface can only ever answer for the process serving the call.
+ * @type {String}
+ */
+export const INGESTION_PROGRESS_OBSERVED_SCOPE = 'this-process-only';
+
+/**
+ * The companion pointer to where cross-process ingestion state actually lives. Stating the scope
+ * without naming the alternative leaves a caller correctly informed and still stuck.
+ * @type {String}
+ */
+export const INGESTION_PROGRESS_CROSS_PROCESS_HINT = 'Pull-mode tenant-repo ingestion runs in the '
+    + 'orchestrator process and is NOT reflected here; read the deployment-state snapshot for that lane.';
+
+/**
+ * Resolves the top-level idle-path status from the last run's outcome.
+ *
+ * Separated out because the three outcomes are genuinely different operator situations and the
+ * previous single `idle` answered for all of them. `failed` is surfaced at the top level rather than
+ * left nested in `lastRunSummary`, where a caller reading the obvious field never saw it.
+ *
+ * @param {Object|null} lastRunSummary Normalized last-run snapshot, or null when this process has
+ * never ingested.
+ * @returns {String} `never-attempted` | `failed` | `idle`
+ */
+export function resolveIdleProgressStatus(lastRunSummary) {
+    if (!lastRunSummary)                    return 'never-attempted';
+    if (lastRunSummary.status === 'failed') return 'failed';
+    return 'idle';
+}
+
 const LOCAL_EMBEDDING_PROVIDERS           = new Set(['openAiCompatible', 'ollama']);
 const MATERIALIZATION_ATTEMPT_ID_PATTERN  = /^[a-f0-9]{32}$/u;
 const MATERIALIZATION_DIGEST_PATTERN      = /^[a-f0-9]{64}$/u;
@@ -476,12 +508,20 @@ class IngestionService extends Base {
         const now = Date.now();
 
         if (this.activeIngestionProgress) {
-            return this.createIngestionProgressSnapshot({
-                progress: this.activeIngestionProgress,
-                active  : true,
-                now,
-                staleAfterMs
-            });
+            return {
+                ...this.createIngestionProgressSnapshot({
+                    progress: this.activeIngestionProgress,
+                    active  : true,
+                    now,
+                    staleAfterMs
+                }),
+                // Carried on the ACTIVE state too, not only the idle one. Scope is a property of this
+                // surface itself, so disclosing it on one branch would mean a caller that happens to
+                // poll during a run cannot tell what the number covers — and a partial disclosure is
+                // read as a complete one.
+                observedScope   : INGESTION_PROGRESS_OBSERVED_SCOPE,
+                crossProcessHint: INGESTION_PROGRESS_CROSS_PROCESS_HINT
+            };
         }
 
         const lastRunSummary = this.lastIngestionProgress
@@ -494,11 +534,17 @@ class IngestionService extends Base {
             : null;
 
         return {
-            // `idle` conflated two facts an operator must be able to tell apart: a run finished and
-            // nothing is in flight, versus THIS PROCESS has never ingested at all. Observed on a live
-            // deployment where four tenant repos had failed four times each and this surface reported
-            // `status: "idle", errorCount: 0` with every timestamp null — which reads as healthy.
-            status: lastRunSummary ? 'idle' : 'never-attempted',
+            // Three distinct facts an operator must be able to tell apart, previously all reported as
+            // `idle`: nothing in flight after a CLEAN run, nothing in flight after a FAILED run, and
+            // THIS PROCESS has never ingested at all.
+            //
+            // The failed case is the sharp one. A run that dies before `startIngestionProgress()` — a
+            // tenant-context resolution throw, say — still records a synthetic failed ledger, so the
+            // outcome was reachable all along; it just was not reported at this level. The top level
+            // said `status: "idle", errorCount: 0` while the nested `lastRunSummary` said `failed` with
+            // a non-zero count, and a caller reading the top level saw health. Observed on a live
+            // deployment where four tenant repos had failed four times each.
+            status: resolveIdleProgressStatus(lastRunSummary),
             active: false,
             phase : 'idle',
             // The scope disclosure is the load-bearing half, and it is why a better status alone would
@@ -508,9 +554,8 @@ class IngestionService extends Base {
             // `never-attempted` is not evidence that the deployment has never ingested — it cannot see
             // that lane at all. Cross-process ingestion state lives in the deployment-state bridge
             // snapshot (`tenantRepoSync`), which is where a wedged pull lane is actually visible.
-            observedScope   : 'this-process-only',
-            crossProcessHint: 'Pull-mode tenant-repo ingestion runs in the orchestrator process and is '
-                + 'NOT reflected here; read the deployment-state snapshot for that lane.',
+            observedScope   : INGESTION_PROGRESS_OBSERVED_SCOPE,
+            crossProcessHint: INGESTION_PROGRESS_CROSS_PROCESS_HINT,
             startedAt     : null,
             updatedAt     : lastRunSummary?.updatedAt ?? null,
             lastProgressAt: null,
@@ -525,7 +570,9 @@ class IngestionService extends Base {
             skippedChunks : 0,
             remaining     : 0,
             deletedRows   : 0,
-            errorCount    : 0,
+            // Carried from the last run rather than pinned to 0. A zero count beside a failed run is
+            // the same false reassurance as the status was.
+            errorCount    : lastRunSummary?.errorCount ?? 0,
             lastRunSummary
         };
     }

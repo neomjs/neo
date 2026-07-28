@@ -88,6 +88,7 @@ export function normalizeTenantRepoCheckpointState(value) {
             // A bare SHA predates the retained-cause contract, so there is no cause to recover.
             lastErrorCode      : null,
             lastSourceErrorCode: null,
+            lastAccessCode     : null,
             lastErrorAt        : null
         };
     }
@@ -113,8 +114,13 @@ export function normalizeTenantRepoCheckpointState(value) {
         ),
         // The retained failure cause. Absent on records written before it existed, which normalizes to
         // null rather than dropping the record — a missing reason is not a malformed checkpoint.
+        // `lastAccessCode` carries the DISCRIMINATING cause (under-scoped credential vs rejected
+        // credential vs absent-or-denied repository vs unreachable host); the other two name the outer
+        // code and the failed operation. All three pass the same bounded-code gate, so the additional
+        // discrimination costs no widening of what may reach a remote client.
         lastErrorCode      : normalizeBoundedErrorCode(value.lastErrorCode),
         lastSourceErrorCode: normalizeBoundedErrorCode(value.lastSourceErrorCode),
+        lastAccessCode     : normalizeBoundedErrorCode(value.lastAccessCode),
         lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null
     };
 }

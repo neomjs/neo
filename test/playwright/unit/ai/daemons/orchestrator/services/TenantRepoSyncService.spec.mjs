@@ -2281,8 +2281,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             // cause. This mirror is deliberate: the exact-shape assertion is the contract,
             // so a field added to durable state has to be declared here or the addition is unwitnessed.
             // `lastSourceErrorCode` is null because this mirror throws a bare Error with no `KB_*` code.
+            //
+            // `lastAccessCode` is the DISCRIMINATING cause, and here it is the honest fallback: a bare
+            // Error carries no exit status and no stderr, so nothing can be named. That fallback is
+            // `SYNC_FAILED` rather than `PROBE_FAILED` because on the sync path we do know the sync
+            // failed — we only fail to know why. A real Git failure resolves to a named cause instead;
+            // the discrimination fixtures live in the persisted-cause describe below.
             lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
             lastSourceErrorCode: null,
+            lastAccessCode     : 'KB_TENANT_REPO_ACCESS_SYNC_FAILED',
             lastErrorAt        : expect.any(Number)
         });
     });
@@ -3247,8 +3254,110 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             expect(persisted.consecutiveFailures).toBe(0);
             expect(persisted.lastErrorCode).toBeNull();
             expect(persisted.lastSourceErrorCode).toBeNull();
+            expect(persisted.lastAccessCode).toBeNull();
             expect(persisted.lastErrorAt).toBeNull()
         })
+    })
+});
+
+test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {
+    /*
+     * A safe code can still be too coarse to be a cause. The retained-cause work made the reason
+     * durable, but every acquisition failure persisted as `SYNC_FAILED` + `KB_GITMIRROR_FETCH_FAILED`
+     * — an outer code plus the OPERATION that failed. An operator reading that learns acquisition
+     * failed, which they already knew from the failure count, and cannot tell which of four
+     * different fixes to apply. The named cases below are the ones a private-cloud tenant actually
+     * hits, and the reason this matters is that we do not hold their credentials: if our own logs
+     * cannot name "the token lacks the required scope", the diagnosis is on us.
+     */
+    const TOKEN = 'ghp_liveLookingSecretValue1234567890';
+
+    /**
+     * Builds a redacted-shaped Git failure. The token is deliberately present in the object so the
+     * secrecy assertion has something real to catch — a fixture with no secret in it would prove the
+     * boundary holds against nothing.
+     * @param {Object} options
+     * @returns {Error}
+     */
+    function gitFailure({stderr, code = 'KB_GITMIRROR_FETCH_FAILED', exitCode = 128}) {
+        const error = new Error(`GitMirror fetch failed for ${TOKEN}`);
+
+        Object.assign(error, {code, exitCode, stderr});
+        return error
+    }
+
+    test('four different causes classify four different ways', async () => {
+        const {classifyTenantRepoAccessFailure, TenantRepoAccessCode} =
+            await import('../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs');
+
+        const cases = [
+            ['remote: Write access to repository not granted.\nfatal: unable to access', TenantRepoAccessCode.INSUFFICIENT_SCOPE],
+            ['remote: Invalid username or password.\nfatal: Authentication failed',      TenantRepoAccessCode.CREDENTIAL_REJECTED],
+            ['remote: Repository not found.\nfatal: could not read from remote',         TenantRepoAccessCode.DENIED_OR_NOT_FOUND],
+            ['ssh: connect to host git.example.com port 22: Connection refused',         TenantRepoAccessCode.TRANSPORT_FAILED]
+        ];
+
+        const observed = cases.map(([stderr]) => classifyTenantRepoAccessFailure(gitFailure({stderr})));
+
+        cases.forEach(([, expected], index) => expect(observed[index]).toBe(expected));
+
+        // The discrimination is the point, so assert the codes are actually DISTINCT rather than
+        // four assertions that would all pass against a single constant.
+        expect(new Set(observed).size).toBe(4);
+        expect(observed).not.toContain(TenantRepoAccessCode.SYNC_FAILED)
+    });
+
+    test('a probe timeout and an unresolvable credential REF stay separate from a rejected credential', async () => {
+        const {classifyTenantRepoAccessFailure, TenantRepoAccessCode} =
+            await import('../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs');
+
+        expect(classifyTenantRepoAccessFailure(gitFailure({code: 'KB_GITMIRROR_ACCESS_PROBE_TIMEOUT', stderr: ''})))
+            .toBe(TenantRepoAccessCode.TIMEOUT);
+        // A credential reference that cannot be resolved is a CONFIG defect upstream of any network
+        // call — not the same event as a remote rejecting a credential that did resolve.
+        expect(classifyTenantRepoAccessFailure(gitFailure({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID', stderr: ''})))
+            .toBe(TenantRepoAccessCode.CREDENTIAL_INVALID);
+        // No exit status at all is genuinely unclassifiable, and says so rather than guessing.
+        expect(classifyTenantRepoAccessFailure({message: 'boom'})).toBe(TenantRepoAccessCode.PROBE_FAILED)
+    });
+
+    test('every classification is a bounded code the read boundary admits, and carries no secret', async () => {
+        const {classifyTenantRepoAccessFailure, TenantRepoAccessCode} =
+            await import('../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs');
+        const {normalizeTenantRepoCheckpointState} =
+            await import('../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs');
+
+        const stderrs = [
+            'remote: Write access to repository not granted.',
+            `remote: Invalid username or password for ${TOKEN}`,
+            'remote: Repository not found.',
+            'fatal: could not resolve host github.com'
+        ];
+
+        for (const stderr of stderrs) {
+            const code       = classifyTenantRepoAccessFailure(gitFailure({stderr})),
+                  normalized = normalizeTenantRepoCheckpointState({
+                      lastIngestedRev: 'abc123',
+                      lastAccessCode : code,
+                      lastErrorAt    : Date.now()
+                  });
+
+            // Survives the read-side bounded-code gate — a discriminating cause that the projection
+            // strips is not a diagnosable one.
+            expect(normalized.lastAccessCode).toBe(code);
+            expect(code).toMatch(/^KB_[A-Z0-9_]{1,120}$/u);
+            expect(code).not.toContain(TOKEN);
+            expect(code).not.toMatch(/ghp_/)
+        }
+
+        // MUTATION on what the gate guards: a cause that is not a bounded code must be refused, or
+        // the assertions above would hold for any string whatsoever.
+        expect(normalizeTenantRepoCheckpointState({
+            lastIngestedRev: 'abc123',
+            lastAccessCode : `fatal: auth failed for ${TOKEN}`
+        }).lastAccessCode).toBeNull();
+
+        expect(TenantRepoAccessCode.INSUFFICIENT_SCOPE).toMatch(/INSUFFICIENT_SCOPE$/)
     })
 });
 

@@ -9,6 +9,7 @@ import {
     createTenantRepoMaterializationDigest
 } from '../../../services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {
+    classifyTenantRepoAccessFailure,
     isTenantRepoAccessReadinessOutcome,
     normalizeTenantRepoCredentialRef,
     TenantRepoAccessCode,
@@ -107,6 +108,29 @@ function createConcurrencySemaphore({limit, timeoutMs = 0}) {
             handoffSlot();
         }
     };
+}
+
+/**
+ * Classifies a SYNC-path failure into the access vocabulary.
+ *
+ * Delegates to the shared lane classifier so a discriminating cause — under-scoped credential,
+ * rejected credential, absent-or-denied repository, unreachable host — survives into the readiness
+ * cache and the persisted checkpoint instead of being flattened.
+ *
+ * The one remapping: `PROBE_FAILED` means "no exit status, unclassifiable", which is honest on the
+ * probe path but would over-claim here, since it names a probe that did not run. On this path we DO
+ * know the sync failed, so an unclassifiable cause is `SYNC_FAILED` — the fallback stays accurate
+ * while everything the classifier can actually name comes through intact.
+ *
+ * @param {Error} error Redacted failure.
+ * @returns {String} A `TenantRepoAccessCode` value.
+ */
+function classifySyncFailure(error) {
+    const classified = classifyTenantRepoAccessFailure(error);
+
+    return classified === TenantRepoAccessCode.PROBE_FAILED
+        ? TenantRepoAccessCode.SYNC_FAILED
+        : classified;
 }
 
 function getSourceErrorCode(error, outerCode) {
@@ -632,11 +656,14 @@ class TenantRepoSyncService extends Base {
             previous  = this.accessReadinessCache.get(key) || {},
             checkedAt = new Date().toISOString(),
             maxAgeMs  = getAccessReadinessMaxAgeMs(repo, globalCadenceMs),
+            // Classified through the shared lane classifier, NOT flattened to SYNC_FAILED. This
+            // previously recognised one error code and collapsed every other cause, so an
+            // under-scoped credential, an absent repository and an unreachable host all persisted
+            // as "sync failed" — three different operator fixes behind one indistinguishable code,
+            // which is exactly the state that left a wedged deployment undiagnosable from outside.
             code      = ready
                 ? TenantRepoAccessCode.READY
-                : (error?.code === 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'
-                    ? TenantRepoAccessCode.CREDENTIAL_INVALID
-                    : TenantRepoAccessCode.SYNC_FAILED);
+                : classifySyncFailure(error);
 
         this.accessReadinessCache.set(key, {
             ...previous,
@@ -1109,6 +1136,7 @@ class TenantRepoSyncService extends Base {
                         ...(backoffSuppressed ? {
                             lastErrorCode      : priorState?.lastErrorCode ?? null,
                             lastSourceErrorCode: priorState?.lastSourceErrorCode ?? null,
+                            lastAccessCode     : priorState?.lastAccessCode ?? null,
                             lastErrorAt        : priorState?.lastErrorAt
                                 ? new Date(priorState.lastErrorAt).toISOString()
                                 : null
@@ -1251,6 +1279,7 @@ class TenantRepoSyncService extends Base {
                     // as a live fault. Written as nulls so the shape stays uniform across both paths.
                     lastErrorCode      : null,
                     lastSourceErrorCode: null,
+                    lastAccessCode     : null,
                     lastErrorAt        : null
                 };
 
@@ -1333,8 +1362,18 @@ class TenantRepoSyncService extends Base {
                     //
                     // Codes only. `getSourceErrorCode` admits nothing outside `^KB_[A-Z0-9_]+$`, so no
                     // stderr, URL, credential or free-text message can reach durable state through here.
+                    //
+                    // Three fields because they answer three different questions, and collapsing them
+                    // loses the one an operator acts on: `lastErrorCode` is the stable OUTER code a
+                    // caller branches on, `lastSourceErrorCode` names the OPERATION that failed
+                    // (`KB_GITMIRROR_FETCH_FAILED`), and `lastAccessCode` is the CAUSE — under-scoped
+                    // credential vs rejected credential vs absent-or-denied repository vs unreachable
+                    // host. Operation plus counter told an operator that acquisition failed; only the
+                    // cause tells them which fix to apply, and without host access it is the only thing
+                    // that can.
                     lastErrorCode      : code ?? null,
                     lastSourceErrorCode: sourceErrorCode ?? null,
+                    lastAccessCode     : classifySyncFailure(e),
                     lastErrorAt        : Date.now()
                 };
 
