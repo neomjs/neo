@@ -553,12 +553,33 @@ paths:
       operationId: add_memory
       x-neo-tool-tier: write
       x-pass-as-object: true
-      x-neo-tool-summary: Persist one consolidated turn memory for the active agent session.
+      x-neo-tool-summary: Persist one turn memory. Durable on return; recency reads see it now, semantic recall waits for the embed drain.
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
 
         **MANDATORY FINAL STEP:** You MUST call this tool at the end of every turn, *before* generating your final response to the user.
         **CRITICAL:** This is the primary endpoint for making agents stateful. Forgetting to call this results in permanent data loss for the session.
+
+        **ACCEPTANCE AND SEARCHABILITY ARE DIFFERENT — read this before concluding a write was lost.**
+        On return the memory is committed to the write-ahead log, durable to the extent of that log's
+        configured durability contract. Two read families then differ:
+
+        - `query_recent_turns` returns it **immediately** — the WAL overlay serves the row and its
+          content while graph projection catches up.
+        - `query_raw_memories` (semantic/vector recall) returns it **only once the embed drain
+          reconciles it**. Vector search needs the embedding; nothing can stand in for one.
+
+        **A semantic read-back finding nothing is expected and is not data loss.**
+
+        The response's `visibility` envelope states each axis separately: `recencyQueryable` (always
+        true), `semanticQueryable` (derived from this write's embed marker), `state`,
+        `pendingDrainDepth`, and `oldestPendingAgeMs`. There is deliberately no predicted visible-by
+        time — no drain cadence exists to derive one from, and a made-up ETA would be worse than none.
+
+        **Do not retry the write.** A retry stores a second copy and does not make the first
+        searchable any sooner. To confirm semantic visibility, poll `healthcheck` and read
+        `memoryWalDrain`: `allWritesSemanticallyQueryable: true` (equivalently
+        `pendingDrainDepth: 0`) is the only state meaning every accepted write is in the vector store.
 
         **Session Isolation:** If `sessionId` is omitted from the payload, it is automatically resolved from the request-bound `Mcp-Session-Id` header (when present).
       tags: [Memories]
@@ -2749,6 +2770,30 @@ components:
           format: date-time
           description: The ISO 8601 timestamp of when the health check was performed.
           example: "2025-10-24T10:00:00.000Z"
+        memoryWalDrain:
+          type: object
+          description: "Memory WAL EMBED-drain backlog — the instrument `add_memory`'s `visibility` envelope tells callers to poll. Scoped to semantic recall: recency reads (`query_recent_turns`) are served from the WAL overlay and never wait on this backlog, so a non-zero depth does NOT mean recent turns are unreadable. Always present."
+          properties:
+            observable:
+              type: boolean
+              description: "Whether the backlog could be measured. False means the WAL read failed; the sibling fields are then null rather than a reassuring zero."
+              example: true
+            pendingDrainDepth:
+              type: integer
+              nullable: true
+              description: "Records appended but not yet embed-marked. Null when not observable."
+              example: 0
+            oldestPendingAgeMs:
+              type: integer
+              nullable: true
+              description: "Age of the oldest pending record. Null when the backlog is empty or not observable."
+              example: 1200
+            allWritesSemanticallyQueryable:
+              type: boolean
+              nullable: true
+              description: "True only when the backlog is empty. Null when not observable — never inferred from an unreadable WAL."
+              example: true
+          required: [observable, pendingDrainDepth, oldestPendingAgeMs, allWritesSemanticallyQueryable]
         plane:
           type: object
           description: "OBSERVED plane identity — the id/dataRoot THIS process resolved, read from the same per-server config the boot assertion verified (the deployment manifest's observed column). Always present."
@@ -3152,7 +3197,69 @@ components:
           example: "2025-10-08T12:00:00.000Z"
         message:
           type: string
-          example: "Memory successfully added"
+          description: >-
+            States ACCEPTANCE plus which read family already sees the write. Deliberately no longer
+            reads "successfully added" — that wording answered "was it accepted?" while callers read it
+            as "is it retrievable?".
+          example: "Memory accepted and durably logged to the write-ahead log; `query_recent_turns` returns it immediately, semantic recall waits for the embed drain (see `visibility`)."
+        visibility:
+          type: object
+          description: >-
+            Which read families can see this write. Committed to the write-ahead log on return, durable
+            to the extent of that log's configured durability contract. The axes differ and are
+            reported separately on purpose: `query_recent_turns` returns the write IMMEDIATELY via the
+            WAL overlay, while semantic recall (`query_raw_memories`) waits for the embed drain. A
+            SEMANTIC read-back returning nothing is expected and is NOT data loss. An earlier revision
+            collapsed this into one `queryable: false`, which was false for recency and steered callers
+            away from a read that would have worked. Poll `healthcheck` (`memoryWalDrain`) to confirm
+            semantic visibility; do not retry the write, which duplicates it without making the first
+            copy searchable sooner.
+          properties:
+            recencyQueryable:
+              type: boolean
+              description: >-
+                Always true. `query_recent_turns` is served from the WAL overlay, so it returns this
+                write from the moment the append succeeds. Stated positively so a caller never infers
+                unavailability from an absent field.
+              example: true
+            semanticQueryable:
+              type: boolean
+              nullable: true
+              description: >-
+                Whether `query_raw_memories` can return this write. DERIVED from a positive read of
+                this record's embed marker, never from its absence in the pending set — absence is
+                ambiguous (reconciled OR not present) and would fail open. `null` when the marker
+                state could not be read.
+              example: false
+            state:
+              type: string
+              enum: [reconciled, embed-deferred, embed-state-unavailable]
+              description: >-
+                `embed-deferred` is the normal path on a fresh write. `reconciled` occurs when the embed
+                daemon wins the race between the append and this observation — the envelope reports that
+                rather than contradicting its own depth fields. `embed-state-unavailable` means the
+                marker state could not be read; it never reports a reassuring value it did not measure.
+            pendingDrainDepth:
+              type: integer
+              nullable: true
+              description: >-
+                Embed-pending accepted writes across the WAL. A SEPARATE proposition from this write's
+                own state — the backlog can be non-empty while this write has reconciled. `null` when
+                the depth could not be read.
+              example: 3
+            oldestPendingAgeMs:
+              type: integer
+              nullable: true
+              description: Age of the oldest embed-pending write. `null` when nothing is pending or the read failed.
+            thisWritePending:
+              type: boolean
+              nullable: true
+              description: >-
+                Strict inverse of `semanticQueryable`, derived from the same marker observation so the
+                two cannot drift apart. `null` when unmeasurable.
+            hint:
+              type: string
+              description: Which read to use now, and what to do instead of retrying.
         mailbox:
           description: |
             Per-turn A2A mailbox delta signal — unread-inbox awareness piggybacked on every

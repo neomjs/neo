@@ -441,7 +441,17 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
         expect(handbookTool.annotations.readOnlyHint).toBe(true);
         expect(handbookTool.description.length).toBeLessThanOrEqual(120);
-        expect(addMemory.description).toBe('Persist one consolidated turn memory for the active agent session.');
+        // The caller-critical fact has to live in THIS tier. `tools/list` is all an agent sees when it
+        // decides whether to trust an immediate read-back; the caveat in the handbook `description` is
+        // invisible at that moment.
+        //
+        // This guard previously matched /not queryable/i. That pinned the WRONG substance: an
+        // unqualified "not queryable" is false for `query_recent_turns`, which the WAL overlay serves
+        // immediately, so the guard was requiring the presence of an over-broad claim. Both failure
+        // directions now have to fail — a DELETED caveat and a RE-BROADENED one.
+        expect(addMemory.description).toMatch(/semantic|embed/i);            // still discloses the deferral
+        expect(addMemory.description).not.toMatch(/not queryable/i);         // and does not over-claim it
+        expect(addMemory.description.length).toBeLessThanOrEqual(120);
         expect(resumeSession.description).toBe('Validate whether a session id is safe to resume.');
         expect(resumeSession.description).not.toContain('SESSION_BUSY');
         expect(addMemory.inputSchema.properties.prompt.type).toBe('string');

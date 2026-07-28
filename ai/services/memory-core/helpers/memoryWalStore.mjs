@@ -253,6 +253,36 @@ async function listWalSegmentKeys(dir) {
 }
 
 /**
+ * @summary Reads the reconciliation-marked ids for ONE segment — a positive observation.
+ *
+ * Exists because "not in the pending set" is ambiguous: it is true both for a record that
+ * reconciled AND for a record that is not in the WAL at all. Deriving a caller-visible
+ * "your write is queryable" claim from that absence fails OPEN — an unobserved record would be
+ * reported as reconciled. This answers the question positively instead, so the claim rests on a
+ * marker that was actually read.
+ *
+ * Markers are per-segment (`appendWalEmbedMarker` / `appendWalGraphProjectionMarker` both carry the
+ * record's `segmentKey`), so the lookup is segment-scoped by construction.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for WAL segment files.
+ * @param {String} options.segmentKey Segment whose marker stream is read.
+ * @param {String} [options.markerType='embed'] Marker stream: `'embed'` or `'graph'`.
+ * @returns {Promise<Set<String>>} Marked record ids; empty when the segment has no marker file.
+ */
+export async function readWalMarkedIds({dir, segmentKey, markerType = 'embed'} = {}) {
+    if (!dir || !segmentKey) return new Set();
+
+    const markerFileName = markerType === 'graph' ? getWalGraphMarkersFileName : getWalMarkersFileName;
+
+    return new Set(
+        (await readJsonlEntries(path.join(dir, markerFileName(segmentKey))))
+            .map(entry => entry.id)
+            .filter(Boolean)
+    )
+}
+
+/**
  * @summary Reads pending (appended but not yet embed-marked) WAL records, newest segment first.
  *
  * Serves two consumers: the embed drain (Phase 1 deferred embed / Phase 2 daemon) reading the
@@ -274,7 +304,6 @@ export async function readPendingWalRecords({dir, ids, limit, markerType = 'embe
     const idFilter = Array.isArray(ids) ? new Set(ids) : null;
     const bounded  = Number.isFinite(limit) && limit > 0 ? limit : Infinity;
     const pending  = [];
-    const markerFileName = markerType === 'graph' ? getWalGraphMarkersFileName : getWalMarkersFileName;
 
     for (const segmentKey of await listWalSegmentKeys(dir)) {
         if (pending.length >= bounded) break;
@@ -282,9 +311,9 @@ export async function readPendingWalRecords({dir, ids, limit, markerType = 'embe
         const records = await readJsonlEntries(path.join(dir, getWalRecordsFileName(segmentKey)));
         if (records.length === 0) continue;
 
-        const markedIds = new Set(
-            (await readJsonlEntries(path.join(dir, markerFileName(segmentKey)))).map(entry => entry.id)
-        );
+        // Same marker read the per-write disclosure uses, so "pending" here and "reconciled" there
+        // can never disagree about one record.
+        const markedIds = await readWalMarkedIds({dir, segmentKey, markerType});
 
         for (const record of records) {
             if (pending.length >= bounded) break;
