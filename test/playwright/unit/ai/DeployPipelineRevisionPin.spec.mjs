@@ -1,9 +1,9 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}            from '@playwright/test';
 import {execFileSync, spawnSync} from 'node:child_process';
-import fs             from 'node:fs/promises';
-import os             from 'node:os';
-import path           from 'node:path';
-import process        from 'node:process';
+import fs                        from 'node:fs/promises';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import process                   from 'node:process';
 
 /**
  * Guards the revision-pinning contract of `ai/examples/cloud-deployment/deploy-pipeline.sh`.
@@ -228,6 +228,32 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
 
         expect(result.code).not.toBe(0);
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
+    });
+
+    test('every SCRIPT_DIR-relative path in the script actually RESOLVES', async () => {
+        // Both instances of one bug shipped here: `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so
+        // `../..` is ALREADY `ai/`, and two lines re-added `ai/` on top of it. Mine broke CI loudly.
+        // The pre-existing `COMPOSE_FILE` default pointed at `ai/ai/deploy/docker-compose.yml` and broke
+        // NOTHING — because the spec fakes `docker`, and a fake docker ignores `-f`. A path that only a
+        // real deployment would exercise is exactly the path a faked harness cannot witness.
+        //
+        // So this asserts resolution directly rather than trusting the next author to count `../`.
+        const source    = await fs.readFile(scriptPath, 'utf8'),
+              scriptRel = path.dirname(scriptPath),
+              refs      = [...source.matchAll(/\$SCRIPT_DIR\/([A-Za-z0-9/._-]+)/g)].map(match => match[1]),
+              unique    = [...new Set(refs)];
+
+        // Positive control: if the regex stops matching, this test silently asserts nothing.
+        expect(unique.length).toBeGreaterThan(1);
+
+        for (const ref of unique) {
+            const resolved = path.resolve(scriptRel, ref);
+
+            await expect(
+                fs.access(resolved),
+                `deploy-pipeline.sh references $SCRIPT_DIR/${ref}, which resolves to a path that does not exist: ${resolved}`
+            ).resolves.toBeUndefined();
+        }
     });
 
     test('the survivability preflight refuses BEFORE Docker, even with a perfectly resolvable revision', async () => {

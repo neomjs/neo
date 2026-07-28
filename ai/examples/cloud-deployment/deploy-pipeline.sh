@@ -21,7 +21,11 @@ set -euo pipefail
 # tied to the caller's working directory. Deploy from a STABLE host checkout —
 # the backup-bundle bind-mount is a relative path; see PipelineWiring.md.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../ai/deploy/docker-compose.yml}"
+# `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so `../..` is ALREADY `ai/` — re-adding `ai/`
+# here produced `ai/ai/deploy/...`, a path that has never existed. It went unnoticed because the
+# spec fakes `docker`, and a fake docker ignores `-f`, so a wrong compose path could not fail a
+# test. Any operator who did not set NEO_DEPLOY_COMPOSE_FILE was relying on a broken default.
+COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../deploy/docker-compose.yml}"
 
 # A stable project name pins named-volume identity across redeploys. Export the
 # same value consumed by docker-compose.yml for its top-level project name and
@@ -165,7 +169,7 @@ preflight_args=()
 if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ]; then preflight_args+=(--initialize); fi
 
 echo "[deploy] running redeploy survivability preflight..."
-node "$SCRIPT_DIR/../../ai/scripts/maintenance/redeployPreflight.mjs" "${preflight_args[@]}"
+node "$SCRIPT_DIR/../../scripts/maintenance/redeployPreflight.mjs" "${preflight_args[@]}"
 
 # Build + recreate containers, KEEPING named volumes and the backup bind-mount.
 # `--wait` blocks until every service with a healthcheck reports healthy and
