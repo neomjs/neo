@@ -677,6 +677,11 @@ ${padding}
         const targetRelPath = '.agents/skills/example/references/target-workflow.md';
         const sourceRelPath = '.agents/skills/example/SKILL.md';
         const cases         = [{
+            family : 'bare numeric',
+            heading: '### 6. Existing top-level section',
+            valid  : '6',
+            invalid: '7'
+        }, {
             family : 'dotted numeric',
             heading: '### 5.1 Existing numeric section',
             valid  : '5.1',
@@ -717,25 +722,38 @@ ${padding}
         }
     });
 
-    test('checkSkillReferenceIntegrity rejects unsupported target-qualified section ids (#16041)', () => {
+    test('checkSkillReferenceIntegrity distinguishes unsupported syntax from a missing bare-numeric heading (#16041)', () => {
         const targetRelPath = '.agents/skills/example/references/target-workflow.md';
         const sourceRelPath = '.agents/skills/example/SKILL.md';
         const files         = [{
             relPath: targetRelPath,
-            text   : '### 1. Top-level heading remains outside the supported reference grammar'
+            text   : '### 1. Existing top-level heading'
         }, {
             relPath: sourceRelPath,
             text   : [
-                'Unsupported bare target: target-workflow.md §1.',
-                'Unsupported backticked target: `target-workflow.md` §1.'
+                'Unsupported syntax: target-workflow.md §1-invalid.',
+                'Missing heading: `target-workflow.md` §2.'
             ].join('\n')
         }];
 
         const errors = checkSkillReferenceIntegrity([sourceRelPath], files);
 
         expect(errors).toHaveLength(2);
-        expect(errors[0]).toContain('unsupported section ref target-workflow.md §1');
-        expect(errors[1]).toContain('unsupported section ref target-workflow.md §1');
+        expect(errors[0]).toContain('unsupported section-ref syntax target-workflow.md §1-invalid');
+        expect(errors[1]).toContain('dangling section ref target-workflow.md §2');
+    });
+
+    test('checkSkillReferenceIntegrity keeps unqualified bare numeric prose outside the reference grammar (#16041)', () => {
+        const relPath = '.agents/skills/example/references/example-workflow.md';
+        const files   = [{
+            relPath,
+            text: [
+                '### 1. Existing top-level heading',
+                'Descriptive unqualified ref: §2.'
+            ].join('\n')
+        }];
+
+        expect(checkSkillReferenceIntegrity([relPath], files)).toEqual([]);
     });
 
     test('parseUnifiedDiffChangedLines maps base diffs to current-file line numbers (#12557)', () => {

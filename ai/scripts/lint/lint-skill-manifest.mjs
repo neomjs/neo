@@ -297,10 +297,11 @@ function normalizeRelPath(filePath) {
     return path.normalize(filePath).replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-const NAMED_SECTION_REF_SOURCE         = '[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
-const NUMERIC_SECTION_REF_SOURCE       = '\\d+\\.\\d+(?:\\.\\d+)*';
-const DIGIT_LEADING_SECTION_REF_SOURCE = '\\d+(?:\\.\\d+)*[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
-const SECTION_REF_SOURCE               = [
+const NAMED_SECTION_REF_SOURCE          = '[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const DOTTED_NUMERIC_SECTION_REF_SOURCE = '\\d+\\.\\d+(?:\\.\\d+)*';
+const NUMERIC_SECTION_REF_SOURCE        = '\\d+(?:\\.\\d+)*';
+const DIGIT_LEADING_SECTION_REF_SOURCE  = '\\d+(?:\\.\\d+)*[A-Za-z](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?';
+const SECTION_REF_SOURCE                = [
     NUMERIC_SECTION_REF_SOURCE,
     DIGIT_LEADING_SECTION_REF_SOURCE,
     NAMED_SECTION_REF_SOURCE
@@ -313,8 +314,13 @@ const SECTION_REF_TARGET_SOURCE    = [
     '[A-Za-z0-9_.-]+'
 ].join('|');
 
-function isNumericSectionRef(sectionRef) {
-    return new RegExp(`^${NUMERIC_SECTION_REF_SOURCE}$`).test(sectionRef);
+/**
+ * @summary Keeps unqualified section refs dotted-numeric to avoid bare-number prose collisions.
+ * @param {String} sectionRef
+ * @returns {Boolean}
+ */
+function isUnqualifiedNumericSectionRef(sectionRef) {
+    return new RegExp(`^${DOTTED_NUMERIC_SECTION_REF_SOURCE}$`).test(sectionRef);
 }
 
 /**
@@ -679,7 +685,7 @@ function validateSectionRef({sourceRelPath, lineNo, target, sectionRef, index, e
         return;
     }
     if (!isSupportedSectionRef(sectionRef)) {
-        errors.push(`${sourceRelPath}:${lineNo} → unsupported section ref ${target} §${sectionRef}`);
+        errors.push(`${sourceRelPath}:${lineNo} → unsupported section-ref syntax ${target} §${sectionRef}`);
         return;
     }
 
@@ -744,7 +750,7 @@ function checkSkillReferenceIntegrity(changedRelPaths, allMarkdownFiles, {change
             let match;
 
             while ((match = sectionRefPattern.exec(lineWithoutMarkdownLinks))) {
-                if (!match[1] && !isNumericSectionRef(match[2])) continue;
+                if (!match[1] && !isUnqualifiedNumericSectionRef(match[2])) continue;
 
                 validateSectionRef({
                     sourceRelPath,
