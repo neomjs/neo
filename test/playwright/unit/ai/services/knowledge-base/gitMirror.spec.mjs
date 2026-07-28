@@ -486,10 +486,28 @@ exit 1
         expect(isolatedHomes).toHaveLength(2);
     });
 
-    test('classifies denied, transport, and timeout probe failures without returning Git prose', async () => {
+    test('classifies rejected-credential, scope, absent, transport, and timeout probe failures without returning Git prose', async () => {
         const cases = [
             {
+                // Was asserted as DENIED_OR_NOT_FOUND while every non-transport exit collapsed into
+                // that one code. A rejected credential and an absent repository need different fixes,
+                // so the shared classifier now separates them and this fixture pins the sharper answer.
                 script : "printf '%s\\n' 'fatal: Authentication failed for https://example.invalid/private.git' >&2\nexit 128",
+                code   : TenantRepoAccessCode.CREDENTIAL_REJECTED,
+                timeout: 3000
+            },
+            {
+                // The case the operator named: a token that authenticates but lacks the scope. Under
+                // the old collapse this was indistinguishable from a wrong token.
+                script : "printf '%s\\n' 'remote: Write access to repository not granted.' >&2\nexit 128",
+                code   : TenantRepoAccessCode.INSUFFICIENT_SCOPE,
+                timeout: 3000
+            },
+            {
+                // Stays COMBINED on purpose. Providers answer 404 for both "no access" and "does not
+                // exist" so repository existence is not probeable; splitting it would invent a
+                // distinction the provider refuses to make.
+                script : "printf '%s\\n' 'remote: Repository not found.' >&2\nexit 128",
                 code   : TenantRepoAccessCode.DENIED_OR_NOT_FOUND,
                 timeout: 3000
             },
@@ -519,6 +537,11 @@ exit 1
                 expect(JSON.stringify(result)).not.toContain('example.invalid');
             });
         }
+
+        // The discrimination is the deliverable, so assert the fixtures actually resolve to DISTINCT
+        // codes. Five per-case assertions would all pass against a classifier that returned one
+        // value for everything, which is the behaviour being replaced.
+        expect(new Set(cases.map(item => item.code)).size).toBe(cases.length);
     });
 
     test('resolves file credentialRef strings through askpass and redacts the resolved secret', async () => {

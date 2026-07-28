@@ -74,11 +74,23 @@ paths:
       x-neo-tool-tier: extended
       x-annotations:
         readOnlyHint: true
-      x-neo-tool-summary: Inspect active or last ingestion progress.
+      x-neo-tool-summary: Ingestion progress for THIS PROCESS only; pull-mode tenant lanes run elsewhere.
       description: |
         Returns a read-only snapshot for the active ingestion run, or an idle state with the last
         completed run summary. This diagnostics tool stays separate from `healthcheck` so liveness
         payloads remain compact.
+
+        SCOPE — read before trusting a negative answer. The progress ledgers are in-memory instance
+        state, so this answers only for the process serving the call, and every response says so in
+        `observedScope`. `never-attempted` therefore means "no ledger in THIS process", never "this
+        deployment has never ingested". Pull-mode tenant-repo ingestion runs inside the orchestrator
+        and is invisible here; a wedged pull lane is visible in the deployment-state snapshot's
+        `tenantRepoSync` section, which `crossProcessHint` points at.
+
+        `status` distinguishes three idle-path outcomes that were previously all reported as `idle`:
+        `never-attempted` (no ledger), `failed` (the last run failed — including a run that died
+        before progress tracking began), and `idle` (a clean run finished). Top-level `errorCount`
+        carries the last run's count rather than a pinned zero.
       tags: [Health]
       parameters:
         - in: query
@@ -1216,13 +1228,35 @@ components:
 
     IngestionProgressResponse:
       type: object
-      description: Read-only active/idle ingestion progress snapshot.
+      description: >-
+        Read-only ingestion progress snapshot, scoped to THE PROCESS SERVING THE CALL. The progress
+        ledgers are in-memory instance state, so this response can never describe another process:
+        a Knowledge Base server reporting `never-attempted` is not evidence that the deployment has
+        never ingested. Pull-mode tenant-repo ingestion runs in the orchestrator and is invisible
+        here; read the deployment-state snapshot (`tenantRepoSync`) for that lane.
       additionalProperties: true
       properties:
         status:
           type: string
-          enum: [idle, running, completed, completed_with_errors, failed]
-          description: Current progress state.
+          enum: [idle, never-attempted, running, completed, completed_with_errors, failed]
+          description: >-
+            Current progress state. `never-attempted` means THIS PROCESS has no ingestion ledger at
+            all, which is distinct from `idle` (a run finished and nothing is in flight). `failed` at
+            this level reflects the LAST run's outcome while nothing is active — including a run that
+            died before progress tracking started, which previously reported `idle` with
+            `errorCount: 0` while the nested `lastRunSummary` recorded the failure.
+        observedScope:
+          type: string
+          enum: [this-process-only]
+          description: >-
+            The observation boundary of this response. Always `this-process-only` — declared as a
+            field rather than left implicit so a caller cannot mistake a process-local answer for a
+            deployment-wide one. Present on every response state, active and idle alike.
+        crossProcessHint:
+          type: string
+          description: >-
+            Where cross-process ingestion state can actually be read, since this response cannot
+            carry it. Present on every response state.
         active:
           type: boolean
           description: True when an ingestion run is currently executing.
