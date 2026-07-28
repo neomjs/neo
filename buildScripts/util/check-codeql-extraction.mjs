@@ -101,13 +101,26 @@ export function summarizeExtractionAcrossLegs(legs) {
  * @param {String|Number} params.runId `GITHUB_RUN_ID`.
  * @param {String} params.token `GITHUB_TOKEN` with `actions:read`.
  * @param {RegExp} [params.jobNameMatch=/Analyze/] Match for the CodeQL analyze leg names (`Analyze (javascript)`, …).
+ * @param {Function} [params.fetchImpl=globalThis.fetch] Fetch seam for deterministic retry witnesses.
+ * @param {Function} [params.sleep] Backoff seam; defaults to a timer-backed promise.
+ * @param {Number[]} [params.retryDelays=[1000, 2000, 4000]] Delay before each retry, bounding
+ * attempts to `retryDelays.length + 1` and total wait to the delay sum.
  * @returns {Promise<Array<{name: String, log: String}>>} one entry per matching Analyze leg.
  */
-export async function fetchAnalyzeJobLogs({repo, runId, token, jobNameMatch = /Analyze/}) {
-    const base    = 'https://api.github.com',
-          headers = {Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'};
+export async function fetchAnalyzeJobLogs({
+    repo,
+    runId,
+    token,
+    jobNameMatch = /Analyze/,
+    fetchImpl    = globalThis.fetch,
+    sleep        = delay => new Promise(resolve => setTimeout(resolve, delay)),
+    retryDelays  = [1000, 2000, 4000]
+}) {
+    const base        = 'https://api.github.com',
+          headers     = {Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'},
+          isRetryable = status => status === 404 || status >= 500;
 
-    const jobsRes = await fetch(`${base}/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`, {headers});
+    const jobsRes = await fetchImpl(`${base}/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`, {headers});
     if (!jobsRes.ok) throw new Error(`fetch run jobs failed: ${jobsRes.status} ${jobsRes.statusText}`);
 
     const {jobs = []} = await jobsRes.json(),
@@ -115,10 +128,30 @@ export async function fetchAnalyzeJobLogs({repo, runId, token, jobNameMatch = /A
     if (!legs.length) throw new Error(`no job matching ${jobNameMatch} in run ${runId} (jobs: ${jobs.map(j => j.name).join(', ')})`);
 
     return Promise.all(legs.map(async leg => {
-        const logRes = await fetch(`${base}/repos/${repo}/actions/jobs/${leg.id}/logs`, {headers, redirect: 'follow'});
-        if (!logRes.ok) throw new Error(`fetch Analyze leg "${leg.name}" log failed: ${logRes.status} ${logRes.statusText}`);
+        if (leg.status !== 'completed') {
+            throw new Error(`Analyze leg "${leg.name}" is ${leg.status || 'missing status'}, not completed`)
+        }
 
-        return {name: leg.name, log: await logRes.text()}
+        let elapsedMs = 0;
+
+        for (let attempt = 1; ; attempt++) {
+            const logRes = await fetchImpl(`${base}/repos/${repo}/actions/jobs/${leg.id}/logs`, {headers, redirect: 'follow'});
+
+            if (logRes.ok) return {name: leg.name, log: await logRes.text()};
+
+            const retryDelay = retryDelays[attempt - 1];
+
+            if (!isRetryable(logRes.status) || retryDelay == null) {
+                const exhausted = isRetryable(logRes.status)
+                    ? ` after ${attempt} attempts over ${elapsedMs}ms`
+                    : '';
+
+                throw new Error(`fetch Analyze leg "${leg.name}" log failed${exhausted}: ${logRes.status} ${logRes.statusText}`)
+            }
+
+            await sleep(retryDelay);
+            elapsedMs += retryDelay
+        }
     }))
 }
 

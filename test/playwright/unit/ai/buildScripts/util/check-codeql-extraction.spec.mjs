@@ -1,5 +1,10 @@
 import {test, expect}                                                                       from '@playwright/test';
-import {findCodeqlExtractionErrors, summarizeExtractionAcrossLegs, EXTRACTION_GROUP_MARKER} from '../../../../../../buildScripts/util/check-codeql-extraction.mjs';
+import {
+    fetchAnalyzeJobLogs,
+    findCodeqlExtractionErrors,
+    summarizeExtractionAcrossLegs,
+    EXTRACTION_GROUP_MARKER
+} from '../../../../../../buildScripts/util/check-codeql-extraction.mjs';
 
 /**
  * @summary The discriminating heart of the CodeQL extraction gate: given the raw Analyze-job
@@ -8,9 +13,8 @@ import {findCodeqlExtractionErrors, summarizeExtractionAcrossLegs, EXTRACTION_GR
  * must never pass silently), that a per-file line without the header still fails (format drift), and
  * that a benign "parse error" mention does NOT false-positive on a clean tree.
  *
- * The I/O half (fetching the Analyze-job log) is proven by the PR's own red-proof CI run per the
- * ticket's red-proof AC (a deliberately-unparseable file turns the gate red; removing it turns it green); the
- * fetch cannot be meaningfully unit-tested without mocking the whole Actions API.
+ * The I/O half uses injected fetch and sleep seams, so retry classification and fail-closed exhaustion
+ * are proven without mutating globals or reaching the live Actions API.
  */
 test.describe('buildScripts/util/check-codeql-extraction — findCodeqlExtractionErrors (#15370)', () => {
     // Actions prepends an ISO timestamp + a stream tag to every log line; the fixtures carry it so the
@@ -146,5 +150,108 @@ test.describe('buildScripts/util/check-codeql-extraction — findCodeqlExtractio
     test('empty / non-array legs → no errors, total (never throws certifying an unread matrix)', () => {
         expect(summarizeExtractionAcrossLegs([])).toEqual({hasErrors: false, dropped: [], legCount: 0});
         expect(summarizeExtractionAcrossLegs(undefined)).toEqual({hasErrors: false, dropped: [], legCount: 0})
+    })
+});
+
+test.describe('buildScripts/util/check-codeql-extraction — fetchAnalyzeJobLogs (#16075)', () => {
+    const jobsResponse = status => ({
+        ok  : true,
+        json: async () => ({jobs: [{id: 42, name: 'Analyze (javascript)', status}]})
+    });
+    const logResponse = (status, statusText, log = '') => ({
+        ok  : status >= 200 && status < 300,
+        status,
+        statusText,
+        text: async () => log
+    });
+
+    test('a transient 404 is retried once, then the readable log certifies', async () => {
+        const responses = [
+                  jobsResponse('completed'),
+                  logResponse(404, 'Not Found'),
+                  logResponse(200, 'OK', 'clean log')
+              ],
+              delays    = [],
+              result    = await fetchAnalyzeJobLogs({
+                  repo       : 'neomjs/neo',
+                  runId      : 123,
+                  token      : 'test-token',
+                  fetchImpl  : async () => responses.shift(),
+                  sleep      : async delay => delays.push(delay),
+                  retryDelays: [5]
+              });
+
+        expect(result).toEqual([{name: 'Analyze (javascript)', log: 'clean log'}]);
+        expect(delays).toEqual([5]);
+        expect(responses).toEqual([])
+    });
+
+    test('a terminal 403 fails immediately without sleeping', async () => {
+        const responses = [jobsResponse('completed'), logResponse(403, 'Forbidden')],
+              delays    = [];
+
+        await expect(fetchAnalyzeJobLogs({
+            repo       : 'neomjs/neo',
+            runId      : 123,
+            token      : 'test-token',
+            fetchImpl  : async () => responses.shift(),
+            sleep      : async delay => delays.push(delay),
+            retryDelays: [5, 10]
+        })).rejects.toThrow('fetch Analyze leg "Analyze (javascript)" log failed: 403 Forbidden');
+
+        expect(delays).toEqual([]);
+        expect(responses).toEqual([])
+    });
+
+    test('retry exhaustion stays fail-closed and reports attempts plus elapsed window', async () => {
+        const responses = [
+                  jobsResponse('completed'),
+                  logResponse(503, 'Service Unavailable'),
+                  logResponse(503, 'Service Unavailable'),
+                  logResponse(503, 'Service Unavailable')
+              ],
+              delays    = [];
+
+        await expect(fetchAnalyzeJobLogs({
+            repo       : 'neomjs/neo',
+            runId      : 123,
+            token      : 'test-token',
+            fetchImpl  : async () => responses.shift(),
+            sleep      : async delay => delays.push(delay),
+            retryDelays: [5, 10]
+        })).rejects.toThrow('after 3 attempts over 15ms: 503 Service Unavailable');
+
+        expect(delays).toEqual([5, 10]);
+        expect(responses).toEqual([])
+    });
+
+    test('an incomplete Analyze leg is terminal and never fetches its log', async () => {
+        const responses = [jobsResponse('in_progress')];
+
+        await expect(fetchAnalyzeJobLogs({
+            repo     : 'neomjs/neo',
+            runId    : 123,
+            token    : 'test-token',
+            fetchImpl: async () => responses.shift()
+        })).rejects.toThrow('Analyze leg "Analyze (javascript)" is in_progress, not completed');
+
+        expect(responses).toEqual([])
+    })
+
+    test('a malformed jobs payload is terminal and never enters log-fetch retry', async () => {
+        let fetchCount = 0;
+
+        await expect(fetchAnalyzeJobLogs({
+            repo     : 'neomjs/neo',
+            runId    : 123,
+            token    : 'test-token',
+            fetchImpl: async () => {
+                fetchCount++;
+
+                return {ok: true, json: async () => { throw new SyntaxError('invalid JSON') }}
+            }
+        })).rejects.toThrow('invalid JSON');
+
+        expect(fetchCount).toBe(1)
     })
 });
