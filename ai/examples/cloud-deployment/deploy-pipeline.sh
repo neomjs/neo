@@ -48,11 +48,10 @@ compose() { docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "${profile_args
 # there is deliberately no unpinned path, because this is the reference pipeline
 # and its default is what propagates to every downstream deployment.
 #
-# BOTH args are exported, not just NEO_REVISION. NEO_REVISION only feeds the OCI
-# revision LABEL; the source stage fetches ${NEO_REF}. Exporting only NEO_REVISION
-# would stamp a resolved SHA onto an image whose source stage fetched a mutable
-# channel — a label asserting a fact the artifact does not hold, and the cache
-# input would not change, so `--build` might not even re-fetch.
+# NEO_REF is the selector input at this pre-resolution boundary. After resolution,
+# Compose accepts ONE canonical NEO_REVISION pin and maps it to both internal Docker
+# arguments: source acquisition and the OCI revision assertion. Unset the selector
+# before Docker so it cannot survive as a second, potentially conflicting build input.
 NEO_SELECTOR="${NEO_REF:-dev}"
 NEO_REPO_URL="${NEO_REPO_URL:-https://github.com/neomjs/neo.git}"
 
@@ -135,7 +134,7 @@ else
     resolved_revision="$matches"
 fi
 
-export NEO_REF="$resolved_revision"
+unset NEO_REF
 export NEO_REVISION="$resolved_revision"
 
 echo "[deploy] selector:     $NEO_SELECTOR"

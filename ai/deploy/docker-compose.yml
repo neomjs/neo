@@ -52,11 +52,11 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: knowledge-base
-        # Pin the deployed revision declaratively (#15774): export NEO_REF=<full-sha>
-        # for a reproducible rollout. The `:-dev` default is load-bearing — a bare
-        # `${NEO_REF}` passes an EMPTY string when unset, which would override the
-        # Dockerfile's `ARG NEO_REF=dev` and break `git fetch origin ""`.
-        NEO_REF: ${NEO_REF:-dev}
+        # One operator-facing resolved pin (#16087): export NEO_REVISION=<full-sha>.
+        # Compose maps it to both internal Docker arguments so source acquisition and
+        # the OCI revision assertion cannot disagree. The `:-dev` default preserves
+        # the unpinned path without passing an empty ref to `git fetch`.
+        NEO_REF: ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -115,8 +115,8 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: memory-core
-        # Cohort invariant (#15774): every Neo service builds from the SAME ref.
-        NEO_REF: ${NEO_REF:-dev}
+        # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
+        NEO_REF: ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -216,8 +216,8 @@ services:
       dockerfile: Dockerfile
       args:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
-        # Cohort invariant (#15774): every Neo service builds from the SAME ref.
-        NEO_REF: ${NEO_REF:-dev}
+        # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
+        NEO_REF: ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_AI_DEPLOYMENT_MODE=cloud
