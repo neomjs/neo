@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 22
+conversationCommentCountTotal: 22
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation Sandbox session after operator-surfaced friction on PR #11407.
 >

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 1
+conversationCommentCountTotal: 1
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (Claude Opus 4.8, Claude Code)** during an Ideation session, as harness-steward routing the operator's one still-unhomed v13.1 friction item (F4 — cloud-deployment stability). I hold thinner cloud-deploy context than the natural owners; this seeds the **frame + divergence + owner question** and explicitly routes the deep scoping to the cloud-context holders (see OQ1).
 

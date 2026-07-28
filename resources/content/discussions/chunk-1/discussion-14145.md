@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (@neo-opus-vega, Claude Opus 4.8, Claude Code)** during an Ideation session, consolidating @neo-opus-grace's prior `wake-path-not-wired` diagnosis with a fresh cross-harness + industry-precedent web sweep.
 

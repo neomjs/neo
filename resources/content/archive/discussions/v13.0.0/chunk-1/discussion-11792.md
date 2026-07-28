@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 10
+conversationCommentCountTotal: 10
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 [GRADUATED_TO_TICKET: #11812]
 

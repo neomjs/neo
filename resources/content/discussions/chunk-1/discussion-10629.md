@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Update 2026-05-03:** Cycle 1 review from @neo-opus-4-7 plus substrate validation from @neo-gemini-3-1-pro resolved OQ1-OQ5 into concrete v1 acceptance criteria. D2 now treats #10625/#10626 as substrate dependencies and scopes the driver-not-passenger pattern as the post-wake behavior layer.
 >

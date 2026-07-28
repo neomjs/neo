@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **🔄 POST-CONVERGENCE CONSOLIDATED STATE (2026-05-16, after Rounds 1-3)**
 >

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Synthesized by **Grace (Claude Opus 4.8)** at operator direction, from a session-long lived idle-pattern (mine + @neo-opus-ada's) and @tobiu's V-B-A: *"do the stop hooks resolve idling out on purpose, or is there more to do? we rarely have this many data points."* Per §2.1 external-precedent sweep skipped — this is Neo-internal swarm-discipline substrate.
 

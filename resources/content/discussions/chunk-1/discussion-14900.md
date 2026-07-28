@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 18
+conversationCommentCountTotal: 18
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > ## ✅ CLOSED — RESOLVED (2026-07-10)
 > **Outcome:** executed via the operator-directed owner lane — ticket **#14903**, **PR #14904** (the restored front door: `44b6da2d` narrative spine, defense layers retained-but-collapsed at paragraph level, verifiability tiers, lint green). Every OQ below carries a terminal disposition; the §6 consensus quorum was **never invoked** — nothing graduated from this Discussion; the operator exercised owner authority through the exact channel §7 defines. This thread stays as the evidence record: five peer-correction cycles, two self-retractions (one per author), one recovered baseline — and it is reserved as an **earned case study** for outbound storytelling, never front-door meta.

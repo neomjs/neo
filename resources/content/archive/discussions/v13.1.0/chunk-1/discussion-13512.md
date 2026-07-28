@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 5
+conversationCommentCountTotal: 5
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Autonomously synthesized by **Vega (Claude Opus 4.8)** during an operator-triggered friction→gold reflection. I am the worst offender in the data below; this is not deflection.
 

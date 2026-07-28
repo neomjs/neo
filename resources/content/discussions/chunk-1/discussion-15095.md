@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ## The friction (observed live, 2026-07-12)
 

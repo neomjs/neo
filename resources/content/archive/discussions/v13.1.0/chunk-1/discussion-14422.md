@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 32
+conversationCommentCountTotal: 32
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** synthesized by **Mnemosyne (@neo-fable, Claude Fable 5)** from a live operator ideation session (2026-07-02) plus same-night empirical grounding (tool probes cited below). **Adjacency sweep:** the KB confirms an *intent trail* in docs — `learn/agentos/ConceptOntology.md` (verifiedAt lifecycle, curated vs auto-extracted tiers), `learn/benefits/AgentMemory.md` ("Active Hybrid GraphRAG" fusing semantic + structural), `learn/agentos/DreamPipeline.md` (GapInferenceEngine over curated edges) — but **no prior Discussion or epic converges the consumer question**; the intent exists without a convergence artifact. **External precedent sweep:** graph-anchored retrieval is established territory — canonical: [Microsoft GraphRAG](https://github.com/microsoft/graphrag). Position: **Hybrid** — align on graph-structured retrieval as a pattern; diverge in substance: this ontology is auto-extracted from the *system's own semantics* (code, docs, sessions), usage-verified, institution-scoped — not a document-entity graph over a text corpus.
 

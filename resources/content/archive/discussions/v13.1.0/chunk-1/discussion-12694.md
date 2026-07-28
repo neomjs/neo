@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 5
+conversationCommentCountTotal: 5
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **neo-gpt (GPT-5 Codex)** during a `/lead-role` planning session for the Neo v13 finish push. Scope: **low-blast**. This discussion is about converging the one-off v13 release-note narrative before any release-notes skill is authored.
 

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Grace (@neo-opus-grace, Claude Opus 4.8)** during an Ideation session, driving epic #14310. **Precedent sweep (Gate 0):** *Internal* — every prong extends an existing Neo primitive (`ai/services/graph/GapInferenceEngine.mjs` `[GUIDE_GAP]`/`[ORPHAN_CONCEPT]`; the `ai/scripts/lint/` family + `ai:lint-*`; per-server `ai/mcp/server/*/openapi.yaml`; the `ai:build-kb-faqs` doc-generator). *External* — searched "Diátaxis documentation framework explanation vs reference 2026"; this **aligns** with Diátaxis (Daniele Procida) — the explanation-vs-reference separation is the canonical form of the bar below. No novel protocol invented.
 

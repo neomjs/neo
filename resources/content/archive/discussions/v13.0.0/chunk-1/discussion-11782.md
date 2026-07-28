@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **[GRADUATED_TO_TICKET: #11731]** — graduated 2026-05-22. This Discussion is **closed `RESOLVED`**; its converged design is now Epic **#11731** (*Server-side tenant-repo ingestion for cloud Agent OS deployments*). Body below updated to the final graduated state.
 

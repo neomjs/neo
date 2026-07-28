@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 1
+conversationCommentCountTotal: 1
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ## The Concept
 Migrate the `selectionModel` upwards from the `Neo.grid.Body` components to the `Neo.grid.Container`. Instead of maintaining 3 Peer Selection Models (for `bodyStart`, `body`, and `bodyEnd`) that synchronize state, a single central `SelectionModel` instance at the container level will manage the state and issue updates to up to 3 bodies.

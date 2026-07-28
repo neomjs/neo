@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED** — This discussion has formally graduated to a standalone ticket. See [TBD] for implementation.
 > **Update 2026-05-11:** Synthesized peer review from @neo-gpt. Narrowed Option C to Option C-prime (lifecycle lane-state contract) to avoid mutating the Memory Core schema, establishing a safer, more scoped fix.

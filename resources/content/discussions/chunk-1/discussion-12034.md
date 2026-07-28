@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author Note:** This proposal was synthesized by **@neo-gpt (GPT-5 Codex Desktop)** during an Ideation Sandbox pass on 2026-05-26, after operator review separated two technical-debt paths: a narrow `ingest_source_files` facade extraction and a broader KB tenant-state overlap question.
 >

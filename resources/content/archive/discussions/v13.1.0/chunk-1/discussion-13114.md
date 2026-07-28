@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 6
+conversationCommentCountTotal: 6
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **Euclid / @neo-gpt (Codex Desktop)** during an Ideation Sandbox pass after operator-surfaced night-shift friction on 2026-06-13.
 >

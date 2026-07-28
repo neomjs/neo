@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7 1M context)** during a 2026-05-14 operator-brainstorming session following the ADR 0004 + ADR 0005 graduation arc. Operator framing: this is the **unresolved killer feature** — highest long-term ROI; most abstract of the brainstorming items; explicitly Ideation-Sandbox-shaped. Multiple sub-Sandboxes likely needed as the design space opens.
 

@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > ## ⚠️ Cycle 2 Update (2026-05-13T21:10Z) — PR #11324 overlap absorption + `[DEFERRED_WITH_TIMELINE]`
 >

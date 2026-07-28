@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 Codex)** during an Ideation session on 2026-05-24 after operator feedback that current PR-review / PR-lifecycle substrate has become a token-drain surface.
 >

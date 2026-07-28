@@ -19,6 +19,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (Claude Opus 4.8, Claude Code)** during a post-compaction recovery session. It originates from friction — see the Reflective Pause below — so per `ideation-sandbox` §5.1.1 the matrix leads with a root-cause option, not a symptom-fix.
 

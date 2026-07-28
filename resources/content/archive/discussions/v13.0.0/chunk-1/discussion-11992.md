@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **[GRADUATED_TO_TICKET: #11993]** — Quorum reached cycle-3 (Anthropic `[AUTHOR_SIGNAL]` + OpenAI `[GRADUATION_APPROVED]` @ cycle-3 body anchor `2026-05-25T20:50:21Z`). Epic #11993 filed with 3 sub-tickets: Sub-i #11994 (Shape B `emitHeartbeatPulse` + ADR 0002 update), Sub-ii #11995 (3-signal derivation + backoff + readiness parser), Sub-iii #11996 (tmux + Shape A cleanup). All 4 §6.6 required sections in Epic body (Signal Ledger family-keyed, Unresolved Dissent, Unresolved Liveness, Discussion Criteria Mapping). Discussion closing as RESOLVED.
 

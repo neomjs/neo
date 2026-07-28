@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED 2026-04-27 → Epic #10449.** All 6 OQs `[RESOLVED_TO_AC]` per cross-family iteration; implementation work tracked in [Epic #10449 — structural-pre-flight skill: implementation + Phase 1 adoption](https://github.com/neomjs/neo/issues/10449). This Discussion stays open as the archaeological source per `ideation-sandbox §5`.
 

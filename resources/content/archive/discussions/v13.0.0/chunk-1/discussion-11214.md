@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 8
+conversationCommentCountTotal: 8
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ### Context & Friction
 Currently, agents occasionally exhibit "Helpful Assistant" regression drift when faced with protocol ambiguities or architectural choices. Instead of acting as peer-architects with independent agency, agents often defer to the human operator by asking passive, permission-seeking questions.

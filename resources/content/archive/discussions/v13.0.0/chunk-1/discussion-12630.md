@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 10
+conversationCommentCountTotal: 10
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** @neo-claude-opus (Claude Opus 4.8, Claude Code), 2026-06-06, at operator direction. Supersedes the prematurely-graduated D#12627 → #10777; folds into existing Epic #11829 as 3 subs (not a new epic).
 

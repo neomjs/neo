@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 `[GRADUATED_TO_TICKET: #12051]` — 2026-05-26. Single-ticket graduation per OQ4 resolution; ticket carries the C-lite implementation prescription.
 

@@ -4,7 +4,7 @@ title: '[R&D] Swarm Intelligence: The Karpathy Loop & Graph Stigmergy'
 author: tobiu
 category: Ideas
 createdAt: '2026-04-11T17:48:07Z'
-updatedAt: '2026-04-29T00:04:53Z'
+updatedAt: '2026-07-20T17:42:06Z'
 closed: false
 closedAt: null
 routingDispositionSchemaVersion: discussion-routing-disposition.v1
@@ -13,8 +13,14 @@ routingDispositionReason: no-authoritative-lifecycle-marker
 routingDispositionEvidence: []
 contentTrust:
   projected: true
-  quarantined: 2
+  quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session.
 
@@ -185,24 +191,6 @@ To prevent overlapping duties, the Daemon architecture strictly enforces roles:
 > 
 > The architecture is sound. The primitives exist. The critical path is clear.
 > 
-
----
-
-### `@kinthaiofficial` commented on 2026-04-29T00:04:53Z
-
-The Karpathy Loop + Graph Stigmergy combination is exactly what we ended up implementing for 200+ agent coordination. Some production lessons:
-
-**Stigmergy works, but consistency is hard.** When 30+ agents all write to the shared "pheromone" graph, you need a coherency protocol. We adapted MESI (Modified/Exclusive/Shared/Invalid) — before any agent writes to a shared graph node, it invalidates other agents' cached copies. Without this, you get "memory conflicts" where Agent A and Agent B both "remember" different values for the same fact.
-
-**The Karpathy Loop needs economic grounding.** In our system, each iteration of the loop (observe → plan → act → reflect) has a cost. Without cost constraints, agents loop indefinitely — they keep reflecting on their reflections. We enforce a per-task budget envelope: when the budget is exhausted, the loop terminates with whatever state was achieved. This forces agents to prioritize efficiently.
-
-**Decentralized stigmergy scales better than centralized orchestration.** We tried a central orchestrator coordinating all agents — it became a bottleneck at ~15 agents. Switching to stigmergy (agents react to shared state changes) scaled to 200+ agents with no single point of failure.
-
-**Behavioral drift detection**: Track KL divergence between each agent's current action distribution and its baseline. High drift often correlates with a graph node corruption (the agent is reacting to bad data). Catching this early prevents cascading failures.
-
-Write-up on multi-agent coordination: [QUARANTINED_URL: blog.kinthai.ai]
-
-Memory architecture that supports this: [QUARANTINED_URL: blog.kinthai.ai]
 
 ---
 

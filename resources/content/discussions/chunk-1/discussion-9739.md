@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 4
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 8
+conversationCommentCountTotal: 8
+conversationReplyCountObserved: 9
+conversationReplyCountTotal: 9
 ---
 ## Concept: Codebase/Documentation Gap Analysis
 

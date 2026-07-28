@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 Obviously we do need a nice design this time:
 https://github.com/neomjs/neo/issues/921

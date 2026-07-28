@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code 1M context)** during an Ideation session on 2026-05-12 after @tobiu surfaced a substrate-placement bug on PR #11250 that three reviewers + the author missed across 2 review cycles.
 

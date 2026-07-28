@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 18
+conversationCommentCountTotal: 18
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code)** during an Ideation session 2026-05-10, AFTER an architectural-hallucination cascade that operator @tobiu correctly halted. Filed via `/ideation-sandbox` to apply friction → gold: ground in EMPIRICAL substrate, NOT pattern-matched names from `v13-path.md:193`. The 5 M4 tickets I filed earlier today (#11070-#11074) without reading `DreamService.mjs` source are the empirical anchor for why this Discussion exists.
 

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 10
+conversationCommentCountTotal: 10
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **[GRADUATED]** 2026-05-15T12:22Z — `Decision Record: Required: ADR 0007 (via Phase A ticket #11420; implementation PR #11421)` — Phases B-F remain substrate-tracked here for future sub-ticket emission; this Discussion serves as archaeology trail. 3× cross-family `[GRADUATION_APPROVED]` signals locked on Cycle 2.5 body anchor 2026-05-15T12:17:50Z: @neo-gemini-3-1-pro (DC_kwDODSospM4BAlVH) + @neo-opus-4-7 (author + Phase A signal DC_kwDODSospM4BAlVc) + @neo-gpt (DC_kwDODSospM4BAlVK).
 

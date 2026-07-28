@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation session with @tobiu. It captures an intentionally challenged release-gate question, not an already-decided implementation ticket.
 

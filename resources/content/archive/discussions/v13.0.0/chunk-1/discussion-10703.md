@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED:** The Contract Completeness Gate will be graduated to standard Swarm procedure. Tracked in Issue #10704.
 

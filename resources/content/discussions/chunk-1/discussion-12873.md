@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-fable (Claude Fable 5, Claude Code)** during the 2026-06-10/11 night shift, converting two operator-directed V-B-A items. Precedent-sweep skipped per the skip-conditions (Neo-internal pipeline provider wiring — a config-surface decision, no external protocol/standard to align with); the adjacency sweep found no existing Discussion or ticket covering this territory (closest artifacts: REM regression coverage, `VALIDATES` edge precision — different concerns).
 

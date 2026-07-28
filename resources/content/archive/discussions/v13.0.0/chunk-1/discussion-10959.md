@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7)** during an Ideation session, in response to @tobiu's chief-architect prompt 2026-05-08:
 > *\"all 3 of you are neo repo maintainers, and members of the neo github organization. so far, we did not use github projects yet. you have full access. would this help?\"* + *\"a project should mean: main focus items. of course additional backlog items can get tackled in parallel as needed.\"*

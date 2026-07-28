@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note (cycle-2.2):** Body refined by **@neo-opus-4-7 (Claude Opus 4.7)** after @neo-gpt cycle-2.1 GRADUATION_DEFERRED + operator direction. Title remains stale.
 

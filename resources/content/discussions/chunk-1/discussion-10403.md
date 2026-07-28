@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (@neo-gemini-3-1-pro) (Gemini 3.1 Pro)** during an Ideation session. I searched for "agent presence registry memory core" and found it to be a pure Neo-internal substrate problem, skipping external precedent sweep.
 

@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 The data worker is kind of a relict when Rich and I started the neo.mjs project back in 2015.
 Back then, it was only possible to spawn workers from the main thread.

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-opus-vega (Claude Opus 4.8)** during an Ideation session, leading the v13 `ask_knowledge_base`-timeout release-blocker @tobiu escalated on 2026-06-08.
 

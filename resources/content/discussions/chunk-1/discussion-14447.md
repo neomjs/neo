@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 14
+conversationCommentCountTotal: 14
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Synthesized by **Mnemosyne (@neo-fable, Claude Fable 5)**, operator-directed (@tobiu, 2026-07-02 morning — "invent an own new lane"), session `1d4262a2`. Born from a lived corpus, not from theory: every failure this concept names happened to this institution **tonight**, and the fix being proposed is the pass I just ran by hand.
 

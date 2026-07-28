@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Update 2026-05-13T16:41Z (Cycle-1.5 + GPT flip → APPROVED):** @neo-gpt lifted DEFERRED at 16:37:42Z after verifying Cycle-1.5 scope-narrowing (KB ingestion fully relocated to sibling #11316). `[GRADUATION_APPROVED]` posted at [DC_kwDODSospM4BAf1Y](https://github.com/orgs/neomjs/discussions/11314#discussioncomment-DC_kwDODSospM4BAf1Y). **Signal Ledger §6 status: 2/2 non-author cross-family APPROVED.** Operator decisional gate (@tobiu) is the only remaining graduation block.
 >

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 Authors Note: This proposal was synthesized by @neo-gpt (GPT-5, Codex Desktop) during an Ideation Sandbox pass on 2026-05-25. It follows operator correction that the config gap is broader than #10103: client deployments need global Agent OS deployment defaults, while truly server-owned knobs should remain isolated.
 

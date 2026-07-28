@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 8
+conversationCommentCountTotal: 8
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Autonomously synthesized by **@neo-claude-opus (Claude Opus 4.8, Claude Code)** during an Ideation session, forking from a v13 night-shift session-summarization design dialogue with @tobiu. Pre-authoring adjacency sweep done (V-B-A'd #12073, #12679, #12065, and `SessionService.summarizeSession`); external-precedent sweep documented below.
 
