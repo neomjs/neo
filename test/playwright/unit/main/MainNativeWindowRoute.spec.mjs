@@ -1,12 +1,78 @@
 import {test, expect}  from '@playwright/test';
 import {execFile}      from 'child_process';
+import {readFile}      from 'fs/promises';
+import {parse}         from 'parse5';
 import path            from 'path';
 import {promisify}     from 'util';
 import {fileURLToPath} from 'url';
 
-const __dirname     = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT     = path.resolve(__dirname, '../../../..');
-const execFileAsync = promisify(execFile);
+const
+    __dirname             = path.dirname(fileURLToPath(import.meta.url)),
+    REPO_ROOT             = path.resolve(__dirname, '../../../..'),
+    WORKSTATION_HTML_PATH = path.join(REPO_ROOT, 'apps/workstation/index.html'),
+    COLOR_SCHEME_META     = '<meta name="color-scheme" content="dark">',
+    MICRO_LOADER_SCRIPT   = '<script src="../../src/MicroLoader.mjs" type="module"></script>',
+    execFileAsync         = promisify(execFile);
+
+/**
+ * @summary Returns every parsed HTML element in document order.
+ * @param {Object} node
+ * @param {Object[]} [elements=[]]
+ * @returns {Object[]}
+ */
+function collectElements(node, elements=[]) {
+    if (node.tagName) {
+        elements.push(node)
+    }
+
+    node.childNodes?.forEach(child => collectElements(child, elements));
+
+    return elements
+}
+
+/**
+ * @summary Reads one normalized parse5 attribute value.
+ * @param {Object} node
+ * @param {String} name
+ * @returns {String|null}
+ */
+function getAttribute(node, name) {
+    return node.attrs?.find(attribute => attribute.name === name)?.value ?? null
+}
+
+/**
+ * @summary Inspects the Workstation HTML bootstrap ordering without executing application code.
+ * @param {String} source
+ * @returns {Object}
+ */
+function inspectWorkstationBootstrap(source) {
+    const
+        document = parse(source, {sourceCodeLocationInfo: true}),
+        elements = collectElements(document),
+        head     = elements.find(node => node.tagName === 'head'),
+        metas    = elements.filter(node => node.tagName === 'meta'
+            && getAttribute(node, 'name')?.toLowerCase() === 'color-scheme'),
+        loaders  = elements.filter(node => node.tagName === 'script'
+            && getAttribute(node, 'src')?.split(/[?#]/)[0].endsWith('/src/MicroLoader.mjs')),
+        meta     = metas[0],
+        loader   = loaders[0],
+        directHead = metas.length === 1 && meta.parentNode === head,
+        exactDark  = metas.length === 1 && getAttribute(meta, 'content') === 'dark',
+        ordered    = metas.length === 1
+            && loaders.length === 1
+            && meta.sourceCodeLocation.startOffset < loader.sourceCodeLocation.startOffset;
+
+    return {
+        contents    : metas.map(node => getAttribute(node, 'content')),
+        directHead,
+        loaderCount : loaders.length,
+        loaderOffset: loader?.sourceCodeLocation.startOffset ?? null,
+        metaCount   : metas.length,
+        metaOffset  : meta?.sourceCodeLocation.startOffset ?? null,
+        ordered,
+        valid       : directHead && exactDark && loaders.length === 1 && ordered
+    }
+}
 
 /**
  * @summary Runs one native-window authority scenario against the real Main singleton in an isolated process.
@@ -216,6 +282,46 @@ async function runNativeWindowRouteProbe(scenario) {
 
     return JSON.parse(stdout.trim().split('\n').at(-1))
 }
+
+test.describe('Workstation popup canvas bootstrap (#16092)', () => {
+    test('Workstation declares one direct-head dark canvas before MicroLoader bootstrap', async () => {
+        const
+            source   = await readFile(WORKSTATION_HTML_PATH, 'utf8'),
+            contract = inspectWorkstationBootstrap(source);
+
+        expect(contract.metaCount).toBe(1);
+        expect(contract.contents).toEqual(['dark']);
+        expect(contract.directHead).toBe(true);
+        expect(contract.loaderCount).toBe(1);
+        expect(contract.metaOffset).toBeLessThan(contract.loaderOffset);
+        expect(contract.ordered).toBe(true);
+        expect(contract.valid).toBe(true)
+    });
+
+    test('Workstation bootstrap contract rejects removal, duplication, late placement, and a scheme list', async () => {
+        const
+            source    = await readFile(WORKSTATION_HTML_PATH, 'utf8'),
+            metaLine  = `    ${COLOR_SCHEME_META}\n`,
+            mutations = {
+                afterLoader: source
+                    .replace(metaLine, '')
+                    .replace(MICRO_LOADER_SCRIPT, `${MICRO_LOADER_SCRIPT}\n    ${COLOR_SCHEME_META}`),
+                duplicate : source.replace(COLOR_SCHEME_META, `${COLOR_SCHEME_META}\n    ${COLOR_SCHEME_META}`),
+                removal   : source.replace(metaLine, ''),
+                schemeList: source.replace('content="dark"', 'content="dark light"')
+            };
+
+        expect(Object.fromEntries(Object.entries(mutations).map(([name, html]) => [
+            name,
+            inspectWorkstationBootstrap(html).valid
+        ]))).toEqual({
+            afterLoader: false,
+            duplicate  : false,
+            removal    : false,
+            schemeList : false
+        })
+    });
+});
 
 /**
  * @summary Pins exact native-window authority staging and persisted-document cache retirement.
