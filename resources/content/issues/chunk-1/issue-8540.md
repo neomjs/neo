@@ -1,7 +1,7 @@
 ---
 id: 8540
 title: Implement Store-Driven VDOM Ticket Component (V2)
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:30Z'
-updatedAt: '2026-07-12T04:46:29Z'
+updatedAt: '2026-07-26T04:51:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8540'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 8537
 subIssues: []
 subIssuesCompleted: 0
@@ -24,6 +24,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-26T04:51:12Z'
 ---
 # Implement Store-Driven VDOM Ticket Component (V2)
 
@@ -52,4 +53,8 @@ This issue is stale because it has been open for 90 days with no activity.
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-07-12T04:46:29Z @github-actions added the `stale` label
+### @github-actions - 2026-07-26T04:51:11Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
 

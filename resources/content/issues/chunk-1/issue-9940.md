@@ -1,7 +1,7 @@
 ---
 id: 9940
 title: Enforce Explicit SQLite Indexing on Foreign Keys schema validation
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-12T18:58:54Z'
-updatedAt: '2026-07-12T04:46:27Z'
+updatedAt: '2026-07-26T04:51:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9940'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -24,6 +24,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-26T04:51:10Z'
 ---
 # Enforce Explicit SQLite Indexing on Foreign Keys schema validation
 
@@ -49,4 +50,8 @@ Origin Session ID: af26000d-914a-4eb0-8d28-2c09e9cb4cb5
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-07-12T04:46:27Z @github-actions added the `stale` label
+### @github-actions - 2026-07-26T04:51:09Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
 

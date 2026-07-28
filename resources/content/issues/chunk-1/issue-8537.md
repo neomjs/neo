@@ -17,9 +17,9 @@ commentsCount: 2
 parentIssue: null
 subIssues:
   - '[ ] 8538 Configure MCP Server for Multi-Target Ticket Export (JSON/MD)'
-  - '[ ] 8539 Update Ticket Index Scripts for JSON Generation'
-  - '[ ] 8540 Implement Store-Driven VDOM Ticket Component (V2)'
-subIssuesCompleted: 0
+  - '[x] 8539 Update Ticket Index Scripts for JSON Generation'
+  - '[x] 8540 Implement Store-Driven VDOM Ticket Component (V2)'
+subIssuesCompleted: 2
 subIssuesTotal: 3
 contentTrust:
   projected: true
