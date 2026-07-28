@@ -625,4 +625,31 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         expect(ok.bundleRoot).toContain('backup-2026-06-02T00-00-00');
         expect(ok.reason).toBeNull();
     });
+
+    test('the verdict carries a machine-readable code, and an ABSENT root is not the same as an empty one', async () => {
+        // A caller gating a redeploy on this probe must branch on a value, not pattern-match English
+        // out of `reason` — a prose reword would silently stop matching and the gate would pass.
+        const absent = await verifyLatestBackupRestorable({
+            backupRoot: path.join(probeRoot, 'never-existed'),
+            logger    : silent
+        });
+        const emptyRoot = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        // The distinction is the point. The bundle root is bind-mounted from a path RELATIVE to the
+        // compose project directory, so a deployment run from a different host checkout addresses a
+        // directory that never existed while its bundles sit safely in the prior checkout. Answering
+        // "no bundle" there sends an operator to recreate backups they already have.
+        expect(absent.code).toBe('BUNDLE_ROOT_MISSING');
+        expect(emptyRoot.code).toBe('NO_BUNDLES');
+        expect(absent.code).not.toBe(emptyRoot.code);
+        expect(absent.restorable).toBe(false);
+        expect(emptyRoot.restorable).toBe(false);
+
+        writeBundle('backup-2026-06-03T00-00-00', {torn: true});
+        expect((await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent})).code).toBe('BUNDLE_INVALID');
+
+        fsExtra.removeSync(path.join(probeRoot, 'backup-2026-06-03T00-00-00'));
+        writeBundle('backup-2026-06-04T00-00-00');
+        expect((await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent})).code).toBe('RESTORABLE');
+    });
 });

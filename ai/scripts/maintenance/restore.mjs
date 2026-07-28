@@ -635,7 +635,14 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * @param {Object}   [options.logger=console] Log sink.
  * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
  * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
- * @returns {Promise<{restorable: Boolean, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`, or
+ * `BUNDLE_INVALID`. It exists so a caller gating on this probe branches on a value rather than
+ * pattern-matching English out of `reason`, which would silently stop working the moment the prose
+ * is reworded. `BUNDLE_ROOT_MISSING` and `NO_BUNDLES` are deliberately separate: the bundle root is
+ * bind-mounted from a path relative to the compose project directory, so a run from a different host
+ * checkout finds a directory that never existed — reporting "no bundle" for bundles sitting safely
+ * in a prior checkout is the wrong answer to the operator's actual question.
  */
 export async function verifyLatestBackupRestorable({
     backupRoot,
@@ -650,7 +657,11 @@ export async function verifyLatestBackupRestorable({
     const checkedAt = new Date().toISOString();
 
     if (!await fsModule.pathExists(backupRoot)) {
-        return {restorable: false, bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+        // Distinct from NO_BUNDLES on purpose. The cloud profile bind-mounts the bundle root from a
+        // path RELATIVE to the compose project directory, so a deployment run from a different host
+        // checkout addresses a directory that never existed rather than an empty one. Reporting "no
+        // bundle" for bundles sitting safely in a prior checkout would answer about the wrong subject.
+        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
     }
 
     // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
@@ -661,7 +672,7 @@ export async function verifyLatestBackupRestorable({
         .reverse();
 
     if (bundleNames.length === 0) {
-        return {restorable: false, bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
     }
 
     const bundleRoot = path.join(backupRoot, bundleNames[0]);
@@ -676,9 +687,9 @@ export async function verifyLatestBackupRestorable({
 
     try {
         const meta = await validateFn(bundleRoot, layout, logger);
-        return {restorable: true, bundleRoot, reason: null, checkedAt, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
+        return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
     } catch (error) {
-        return {restorable: false, bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
+        return {restorable: false, code: 'BUNDLE_INVALID', bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
     }
 }
 
