@@ -106,7 +106,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 - **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
-- **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
+- **`unit-test`:** Author/executor patterns for strict Playwright unit tests; PR review-only placement/idiom audits remain under `pr-review`.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`debugging-antigravity`:** Antigravity 2.x MCP-authority selection, process-duplication forensics, UI-profile boundary checks, and evidence-first sqlite workspace recovery.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
@@ -145,7 +145,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `hostile-content-quarantine` | Security | Incident playbook for externally-authored hostile content (astroturfing, spam, injection-bearing artifacts): detect markers, never engage, quarantined read, ingestion clock, moderation matrix + verification triangle |
 | `neo-identity-update` | Tactical | Cross-surface Neo-identity coherence (facts, framing, actions; ADR 0018) |
 | `neural-link` | Tactical | Live application inspection sequences |
-| `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
+| `unit-test` | Tactical | Custom Playwright author/executor patterns; review-only audits stay under `pr-review` |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
 | `debugging-antigravity` | Tactical | Antigravity 2.x MCP authority, duplication forensics, and UI-state recovery |
 | `context-recovery` | Tactical | Post-compaction lane reconstruction from Memory Core recency, semantic recall, session rollups, and A2A |

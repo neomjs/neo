@@ -1,37 +1,26 @@
 # Unit Test Specialist Workflow
 
-## 1. Role and Primary Directive
-Your role is that of an **expert Neo.mjs developer and architect** specializing in **Quality Assurance**.
+## 1. Review-Only Boundary
 
-**CRITICAL:** Your training data is outdated regarding Neo.mjs. You **MUST** treat the content within this repository as the single source of truth.
+During a PR review, `pr-review` owns execution-evidence allocation. Merely inspecting a diff that contains, adds, or moves unit tests—or checking their placement/idioms—does **not** activate this author/executor workflow.
 
-## 2. Initialization (Mandatory)
-At the start of the session, you **MUST** perform these steps:
+- Green required CI at the exact head owns routine unit/integration execution; do not rerun it for duplicate evidence.
+- `NEO_TEST_SKIP_CI` coverage is excluded from that claim. The author supplies an exact-head non-CI receipt; the reviewer validates or challenges it and runs locally only for a named falsifier when their environment has the capability.
+- Initialization, grounding, implementation, and execution below apply only when writing, modifying, fixing, or explicitly running unit tests.
 
-### Step 1: Memory Core Check
-1.  Run `neo.mjs-memory-core__healthcheck`.
-2.  If healthy, run `get_all_summaries({ limit: 5 })` to establish project context.
-3.  **Save your initialization turn** using `add_memory` before responding to the user.
+**Review-only fixture:** A PR adds `test/playwright/unit/ai/example.spec.mjs`, exact-head unit CI is green, and no guarded behavior is claimed. Inspect its canonical path and Neo test idioms; do not initialize Memory Core, load authoring examples, or rerun the spec.
 
-### Step 2: Grounding (Read these files)
-1.  **Read `src/Neo.mjs`**. Focus on understanding:
-    - `Neo.setupClass()`: The final processing step for all classes. Pay special attention to its **"first one wins" gatekeeper logic**, which is key to mixed-environment support.
-    - `Neo.create()`: The factory method for creating instances.
-    - The distinction between class namespaces (e.g., `Neo.component.Base`) and `ntype` shortcuts.
-2.  **Read `src/core/Base.mjs`**. Focus on:
-    - **The Static Config System:** Distinguish between **reactive configs** (ending in `_`, generating hooks) and **non-reactive configs** (prototype-based).
-    - **Instance Lifecycle:** `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
-    - **Reactivity Hooks:** `beforeGet*`, `beforeSet*`, `afterSet*`.
-3.  **Read `test/playwright/setup.mjs`**. Focus on:
-    - How it mocks the global environment (App/VDom layers wired directly).
-    - The `unitTestMode` flag.
-4.  **Read `learn/guides/testing/UnitTesting.md`**: Your **Single Source of Truth** for testing patterns.
+## 2. Author/Executor Initialization (Mandatory)
 
-### Step 3: Reference Study
-To understand the "Neo.mjs Way", you **MUST** read these examples:
-- **VDOM/Updates:** `test/playwright/unit/vdom/RealWorldUpdates.spec.mjs`
-- **Data/Collections:** `test/playwright/unit/collection/Base.spec.mjs`
-- **Reactivity:** `test/playwright/unit/core/Effect.spec.mjs`
+After this workflow is activated:
+
+1. Run the Memory Core healthcheck and `get_all_summaries({limit: 5})`; save the initialization turn with `add_memory`.
+2. Read the repository sources of truth:
+   - `src/Neo.mjs`: `setupClass()`, `create()`, namespaces, and `ntype`.
+   - `src/core/Base.mjs`: static/reactive configs, lifecycle, and config hooks.
+   - `test/playwright/setup.mjs`: direct App/VDom wiring and `unitTestMode`.
+   - `learn/guides/testing/UnitTesting.md`: canonical testing patterns.
+3. Read the closest examples: `vdom/RealWorldUpdates.spec.mjs`, `collection/Base.spec.mjs`, and `core/Effect.spec.mjs` under `test/playwright/unit/`.
 
 ## 3. Operational Protocols
 
