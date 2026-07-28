@@ -25,7 +25,7 @@ Use this order:
 
 1. create a fresh immutable attempt and bind its source head, controller/tool hashes, and intended evidence claim;
 2. discover the current platform, browser-application, Spaces, and display topology;
-3. census pre-existing browser windows without reading browser content;
+3. census pre-existing browser applications and windows globally without reading browser content;
 4. write and verify the isolation/state receipt and arm cleanup before changing browser-application or window state;
 5. isolate conflicting pre-existing windows reversibly;
 6. launch the film browser command and wait for the app-owned semantic-ready receipt;
@@ -50,9 +50,9 @@ If the capture does not rely on a Space transition, still prove that the intende
 
 ## 4. Privacy-safe browser-window census
 
-Treat every pre-existing browser window as opaque, including windows associated with different browser profiles or signed-in identities. The census may record only the minimum physical control fields:
+Treat every pre-existing browser application/window as opaque, including different profiles or signed-in identities. Record only the minimum physical control fields:
 
-- current browser application/bundle identity and application-owner PID;
+- browser application/bundle identity and every observed application-owner PID;
 - a stable native/CoreGraphics window ID for the lifetime of each window;
 - bounds, layer, visibility/minimized state, and display intersection;
 - the fresh observation timestamp and receipt hash.
@@ -61,14 +61,14 @@ Do **not** read titles, URLs, documents, tabs, page text, profile/account labels
 
 Map each controllable Accessibility window to its native window ID at runtime. Geometry is evidence about placement, not identity: two windows can have identical bounds. A native ID is short-lived selection authority for this attempt only; never reuse it after the window disappears or the browser restarts.
 
-Require one unambiguous macOS browser-application owner before launch. Multiple opaque windows within that application are allowed. Multiple plausible application owners are not: use a dedicated distinguishable application boundary or fail closed rather than guessing from process order, title, profile, or geometry.
+Take 17 observed one existing and one new launch-bound owner; admission with more existing owners is derived, not tested. Freeze the global owner/window set before launch; continue only when its post-ready difference proves one new launch-bound pair. Never guess from process order, title, profile, or geometry.
 
 ## 5. Receipt-before-mutation isolation
 
 Before mutating the browser application or any of its windows, write an immutable isolation receipt containing:
 
-- the admitted browser application/bundle identity, application-owner PID, and prior visible state;
-- the complete set of pre-existing native window IDs;
+- the intended film browser command/application identity and every observed owner PID with its prior visible state;
+- the complete pre-existing `(application owner, native window ID)` set;
 - each pre-existing window's minimized state, bounds, and display intersections;
 - the exact subset that conflicts with the selected display;
 - the selected display's fresh topology fingerprint;
@@ -80,11 +80,11 @@ Every exit path—success, refusal, error, interruption, or timeout—must:
 
 1. remove all proven non-pre-existing film windows;
 2. restore every recorded pre-existing ID to its prior minimized state and geometry;
-3. restore the application's prior visible/hidden state;
-4. re-census and compare every field by exact native ID;
+3. restore every recorded application's prior visible/hidden state;
+4. re-census and compare every field by exact owner/window pair;
 5. emit a bounded restoration receipt.
 
-Restoration succeeds only when all recorded windows and application state match. If an ID is missing, an unexpected ID remains, or a state cannot be restored, the take is invalid and the receipt says `RESTORATION_FAILED`; never silently downgrade to best effort.
+Restoration succeeds only when all recorded windows and application states match. If an owner/window pair is missing, an unexpected pair remains, or a state cannot be restored, the take is invalid and the receipt says `RESTORATION_FAILED`; never silently downgrade to best effort.
 
 ## 6. Admit displays independently
 
@@ -100,7 +100,7 @@ A second display is not an automatic fallback. It becomes eligible only after pa
 
 ## 7. Keep command and physical identity grains separate
 
-macOS may route a newly launched browser command into an already-running application owner. Keep these evidence grains distinct:
+macOS may route a newly launched browser command into an already-running application owner or create another owner. Keep these evidence grains distinct:
 
 | Grain | What it proves |
 |---|---|
@@ -112,20 +112,20 @@ macOS may route a newly launched browser command into an already-running applica
 
 Never require or assume that the browser command PID equals the application-owner/WindowServer PID. Instead:
 
-1. freeze the complete pre-existing native-ID set;
-2. launch exactly one film browser command under a quiet, bounded window-creation interval;
+1. freeze the global pre-existing owner/window set;
+2. launch exactly one film browser command during a quiet, bounded window-creation interval and retain its process ancestry;
 3. wait for the app-owned semantic-ready receipt;
-4. re-census the same application owner;
-5. require exactly one new native window ID;
-6. bind that new ID to the physical predicates below.
+4. re-census every browser application owner globally;
+5. require one new owner/window pair whose owner is bound to the launch provenance;
+6. bind its native window ID to the physical predicates below.
 
-Zero or multiple new IDs fail closed. So does a changed application owner that was not explicitly admitted. The set difference—not a title, URL, profile, window index, or geometry guess—establishes that the film window is non-pre-existing.
+Refuse zero or multiple new pairs, or one with unresolved owner provenance. A new or changed owner is safe only when launch-bound. The global set difference—not a title, URL, profile, window index, or geometry guess—proves the film window non-pre-existing.
 
 ## 8. Semantic-ready → physical predicates → recorder-go
 
 Semantic readiness is necessary but not physical proof. After semantic ready and before recorder-go, require the exact new native window ID to be:
 
-- owned by the admitted macOS application owner;
+- owned by the launch-provenance-bound macOS application owner;
 - visible, unminimized, and on a recordable layer;
 - fully inside exactly one independently admitted display;
 - at the expected discovered bounds for this attempt;
@@ -143,9 +143,9 @@ The portable [frame-zero and immutable-attempt contract](../native-display-captu
 When the app-owned runner reports completion, do not restore operator windows yet. First:
 
 1. wait for the admitted film native ID to disappear;
-2. census the complete current browser native-ID set;
-3. require it to equal the frozen pre-existing set exactly;
-4. if a non-pre-existing ID remains, target cleanup only by that proven stable ID;
+2. census the complete current browser owner/window set;
+3. require it to equal the frozen global pre-existing set exactly;
+4. if a non-pre-existing pair remains, target cleanup only by that proven owner and stable native ID;
 5. verify the complete set again.
 
 Never close by title, URL, window index, frontmost status, or geometry. Never target an ID that appears in the pre-existing receipt. If any non-pre-existing ID cannot be removed or any pre-existing ID disappeared, stop with a teardown failure receipt. Restore the pre-existing desktop only after the equality predicate passes, then run the verify-all restoration in §5.
