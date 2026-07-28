@@ -4,6 +4,7 @@ import fs                        from 'node:fs/promises';
 import os                        from 'node:os';
 import path                      from 'node:path';
 import process                   from 'node:process';
+import {load as yamlLoad}        from 'js-yaml';
 
 /**
  * Guards the revision-pinning contract of `ai/examples/cloud-deployment/deploy-pipeline.sh`.
@@ -19,16 +20,17 @@ import process                   from 'node:process';
  * than one that fails, because it produces an image whose provenance labels assert a revision nobody
  * chose. `fakeDocker` therefore appends to a log file, and the failure cases assert that log is empty.
  *
- * The positive case guards the other half of the contract: BOTH `NEO_REF` and `NEO_REVISION` must reach
- * Compose as the resolved SHA. Exporting only `NEO_REVISION` would label the image with a resolved
- * revision while the Dockerfile's source stage still fetched `${NEO_REF}` — a label asserting a fact
- * the artifact does not hold, and an unchanged cache input so `--build` might not even re-fetch.
+ * The positive case guards the other half of the contract: one canonical `NEO_REVISION` reaches
+ * Compose after resolution, and Compose maps it to both internal Docker arguments. Letting the
+ * selector survive as `NEO_REF` would recreate the two-input mismatch state this contract removes.
  */
 
 const
-    repoRoot   = path.resolve(process.cwd()),
-    scriptPath = path.join(repoRoot, 'ai/examples/cloud-deployment/deploy-pipeline.sh'),
-    FULL_SHA   = '6be5afc1c30000000000000000000000000000aa';
+    repoRoot       = path.resolve(process.cwd()),
+    composePath    = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
+    dockerfilePath = path.join(repoRoot, 'ai/deploy/Dockerfile'),
+    scriptPath     = path.join(repoRoot, 'ai/examples/cloud-deployment/deploy-pipeline.sh'),
+    FULL_SHA       = '6be5afc1c30000000000000000000000000000aa';
 
 /**
  * Builds a throwaway bin dir whose `git` and `docker` shadow the real ones on `PATH`.
@@ -41,7 +43,7 @@ const
  * slipped through cycle 1: the earlier stub proved the code against input git never produces.
  *
  * `fake-docker` records every invocation plus the environment, so "Docker was never called" and
- * "both variables reached Compose" are assertable facts rather than inferences.
+ * "only the canonical pin reached Compose" are assertable facts rather than inferences.
  *
  * @param {String} peelLine  Peel line to advertise, or '' for none (branch / lightweight tag).
  * @param {String} plainLines Non-peel lines always advertised (tag object, branches, or '').
@@ -81,9 +83,9 @@ async function createFakeBin(plainLines, peelLine = '') {
         'exit 0'
     ].join('\n'), {mode: 0o755});
 
-    // Record the ENVIRONMENT, not only argv. NEO_REF / NEO_REVISION reach Compose as exported
-    // env, never as arguments — so a docker stub logging `$*` alone can never falsify
-    // "both variables reach Compose", which is the claim the pinning contract rests on.
+    // Record the ENVIRONMENT, not only argv. The selector enters as NEO_REF, while the canonical
+    // pin exits as NEO_REVISION. A docker stub logging `$*` alone cannot prove that the selector
+    // was removed before Compose.
     await fs.writeFile(path.join(bin, 'docker'), [
         '#!/usr/bin/env bash',
         `echo "invoked: $* | NEO_REF=${'$'}{NEO_REF-<unset>} NEO_REVISION=${'$'}{NEO_REVISION-<unset>}" >> ${JSON.stringify(dockerLog)}`,
@@ -205,6 +207,86 @@ async function dockerInvocations(dockerLog) {
     return contents.split('\n').filter(Boolean).length
 }
 
+/**
+ * @summary Executes the Dockerfile's actual revision-integrity RUN body against a temporary receipt.
+ * @param {String} assertedRevision Value exposed to the RUN instruction as `NEO_REVISION`.
+ * @param {String} actualRevision Value stored in the stand-in `.neo-revision` receipt.
+ * @returns {Promise<Object>} Spawn result with numeric status and captured streams.
+ */
+async function runRevisionIntegrityGate(assertedRevision, actualRevision) {
+    const
+        dockerfile = await fs.readFile(dockerfilePath, 'utf8'),
+        start      = dockerfile.indexOf('RUN actual_revision='),
+        end        = dockerfile.indexOf('\nLABEL org.neomjs.image.requested-ref', start);
+
+    expect(start, 'Dockerfile revision-integrity RUN instruction is missing').toBeGreaterThan(-1);
+    expect(end, 'Dockerfile revision-integrity RUN instruction has no label boundary').toBeGreaterThan(start);
+
+    const
+        tempDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-revision-integrity-')),
+        revisionFile = path.join(tempDir, '.neo-revision'),
+        command      = dockerfile.slice(start + 4, end)
+            .replace(/\\\n\s*/g, ' ')
+            .replace('/app/.neo-revision', JSON.stringify(revisionFile));
+
+    await fs.writeFile(revisionFile, actualRevision);
+
+    const result = spawnSync('sh', ['-c', command], {
+        encoding: 'utf8',
+        env     : {...process.env, NEO_REVISION: assertedRevision},
+        stdio   : ['ignore', 'pipe', 'pipe']
+    });
+
+    await fs.rm(tempDir, {force: true, recursive: true});
+
+    return result
+}
+
+test.describe('deploy revision boundary (#16087)', () => {
+    test('one operator pin maps to both Docker arguments for the full service cohort', async () => {
+        const
+            compose  = yamlLoad(await fs.readFile(composePath, 'utf8')),
+            services = Object.entries(compose.services || {})
+                .filter(([, service]) => service?.build?.args?.TARGET_SERVER ||
+                    service?.build?.args?.SERVICE_ENTRYPOINT);
+
+        expect(services.map(([name]) => name).sort()).toEqual(['kb-server', 'mc-server', 'orchestrator']);
+
+        for (const [name, service] of services) {
+            expect(
+                service.build.args.NEO_REF,
+                `${name} does not derive source acquisition from the one resolved operator pin`
+            ).toBe('${NEO_REVISION:-dev}');
+            expect(
+                service.build.args.NEO_REVISION,
+                `${name} does not derive the OCI assertion from the same operator pin`
+            ).toBe('${NEO_REVISION:-}')
+        }
+    });
+
+    test('the Docker integrity gate accepts an unset assertion', async () => {
+        const result = await runRevisionIntegrityGate('', FULL_SHA);
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('')
+    });
+
+    test('the Docker integrity gate accepts an assertion matching measured artifact truth', async () => {
+        const result = await runRevisionIntegrityGate(FULL_SHA, FULL_SHA);
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('')
+    });
+
+    test('the Docker integrity gate rejects a mismatched assertion with a clear error', async () => {
+        const result = await runRevisionIntegrityGate('a'.repeat(40), FULL_SHA);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('NEO_REVISION integrity mismatch');
+        expect(result.stderr).toContain(FULL_SHA)
+    })
+});
+
 test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
     test('a selector matching zero refs fails closed without invoking Docker', async () => {
         const fake   = await createFakeBin(''),
@@ -323,7 +405,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         const log = await fs.readFile(fake.dockerLog, 'utf8');
 
         expect(log).toContain(`NEO_REVISION=${PEELED_COMMIT}`);
-        expect(log).toContain(`NEO_REF=${PEELED_COMMIT}`);
+        expect(log).toContain('NEO_REF=<unset>');
         // The tag object must never be attested, and the substitution must be stated out loud.
         expect(log).not.toContain(TAG_OBJECT_ID);
         expect(result.output).toContain('peeled to commit')
@@ -352,20 +434,19 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(await dockerInvocations(fake.dockerLog)).toBeGreaterThan(0)
     });
 
-    test('BOTH NEO_REF and NEO_REVISION reach Compose as the resolved commit', async () => {
+    test('one canonical NEO_REVISION reaches Compose after the selector is removed', async () => {
         const
             fake   = await createFakeBin(`${FULL_SHA}\trefs/heads/dev`),
             result = runPipeline(fake, 'dev');
 
         expect(result.code).toBe(0);
 
-        // The env, not argv: NEO_REVISION alone would label the image while the source stage
-        // still fetched ${NEO_REF} — a label attesting a commit the build never checked out.
+        // Compose maps this one value to both Docker args. Keeping NEO_REF in the outgoing
+        // environment would preserve the conflicting second input at the boundary.
         const log = await fs.readFile(fake.dockerLog, 'utf8');
 
-        expect(log).toContain(`NEO_REF=${FULL_SHA}`);
+        expect(log).toContain('NEO_REF=<unset>');
         expect(log).toContain(`NEO_REVISION=${FULL_SHA}`);
-        expect(log).not.toContain('NEO_REF=dev');
         expect(log).not.toContain('NEO_REVISION=<unset>')
     });
 
@@ -390,7 +471,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         const log = await fs.readFile(fake.dockerLog, 'utf8');
 
         expect(log).toContain(`NEO_REVISION=${PEELED_COMMIT}`);
-        expect(log).toContain(`NEO_REF=${PEELED_COMMIT}`);
+        expect(log).toContain('NEO_REF=<unset>');
         // The tag object must never be attested as the deployed revision.
         expect(log).not.toContain(TAG_OBJECT);
         expect(result.output).not.toContain(TAG_OBJECT)
