@@ -8,6 +8,10 @@ import {
 
 export {buildBackupReceipt, writeBackupReceipt};
 export {readBackupReceipt, OFFHOST_SYNC_SCHEMA_VERSION} from '../../services/memory-core/helpers/offHostSyncStore.mjs';
+// Re-exported, not re-implemented. The config contract lives in the store so the read-only
+// deployment-state bridge can reach it without importing this CLI module, which would pull
+// `node:child_process` into the diagnostic path. Callers of this script are unaffected.
+export {validateOffHostSyncConfig} from '../../services/memory-core/helpers/offHostSyncStore.mjs';
 
 /**
  * @module ai/scripts/maintenance/offHostSync
@@ -27,68 +31,8 @@ export {readBackupReceipt, OFFHOST_SYNC_SCHEMA_VERSION} from '../../services/mem
  * cannot attest remote object state.
  */
 
-const BASE_ENV_NAMES      = ['PATH', 'HOME', 'USER', 'TMPDIR'],
-      ENV_NAME_PATTERN    = /^[A-Z_][A-Z0-9_]*$/,
-      MAX_TAIL_BYTES      = 4 * 1024,
-      PLACEHOLDER_PATTERN = /^\{(bundleDir|bundleName)\}$/,
-      ANY_PLACEHOLDER     = /\{[^}]*\}/,
-      TIMEOUT_MIN_MS      = 1000,
-      TIMEOUT_MAX_MS      = 30 * 60 * 1000,
-      GRACE_MAX_MS        = 60000;
-
-/**
- * Validates the nested offHostSync config keys. This module owns the contract because the keys are
- * plain nested values inside the `maintenance.backup` object leaf (ADR-0019: no leaf() nodes here; ticket-ref-ok: decision-record authority for the config SSOT).
- * @param {Object} [config={}] The `AiConfig.maintenance.backup.offHostSync` subtree (may be undefined).
- * @returns {{enabled: Boolean, error: String|null, value: Object}}
- */
-export function validateOffHostSyncConfig(config = {}) {
-    const {
-        argv          = [],
-        command       = '',
-        envAllowlist  = [],
-        killGraceMs   = 5000,
-        timeoutMs     = 600000
-    } = config ?? {};
-
-    const fail = error => ({enabled: false, error, value: null});
-
-    // Validate EVERY key before the disabled early-return: a disabled hook with malformed keys is a
-    // validation failure, not a silent pass.
-    if (config === null || typeof config !== 'object' || Array.isArray(config)) return fail('config must be an object');
-    if (typeof command !== 'string') return fail('command must be a string');
-    // Array-shape before any traversal: null/object/number argv must return a validation outcome,
-    // never a thrown TypeError.
-    if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail('argv must be an array of strings');
-    if (command.includes('\0') || argv.some(token => token.includes('\0'))) {
-        return fail('command/argv must not contain NUL bytes')
-    }
-
-    for (const token of argv) {
-        if (ANY_PLACEHOLDER.test(token) && !PLACEHOLDER_PATTERN.test(token)) {
-            return fail(`argv token must be a whole-token placeholder {bundleDir} or {bundleName}, got: ${token}`)
-        }
-    }
-
-    if (!Array.isArray(envAllowlist) || envAllowlist.some(name => typeof name !== 'string' || !ENV_NAME_PATTERN.test(name))) {
-        return fail('envAllowlist entries must match /^[A-Z_][A-Z0-9_]*$/')
-    }
-
-    if (!Number.isInteger(timeoutMs) || timeoutMs < TIMEOUT_MIN_MS || timeoutMs > TIMEOUT_MAX_MS) {
-        return fail(`timeoutMs must be an integer between ${TIMEOUT_MIN_MS} and ${TIMEOUT_MAX_MS}`)
-    }
-    if (!Number.isInteger(killGraceMs) || killGraceMs < 0 || killGraceMs > GRACE_MAX_MS) {
-        return fail(`killGraceMs must be an integer between 0 and ${GRACE_MAX_MS}`)
-    }
-
-    if (command.trim() === '') return {enabled: false, error: null, value: null};
-
-    return {
-        enabled: true,
-        error  : null,
-        value  : {argv, command: command.trim(), envAllowlist, killGraceMs, timeoutMs}
-    }
-}
+const BASE_ENV_NAMES = ['PATH', 'HOME', 'USER', 'TMPDIR'],
+      MAX_TAIL_BYTES = 4 * 1024;
 
 /**
  * Builds the sync child's environment: minimal base set + exactly the allowlisted names that are

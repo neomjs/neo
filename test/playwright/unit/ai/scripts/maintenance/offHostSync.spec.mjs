@@ -561,7 +561,7 @@ test.describe('wrapper + projection behavioral witnesses', () => {
         }
     });
 
-    test('projection: missing → null; unreadable → stable shape; valid → the validated envelope; custom root round trip', async () => {
+    test('projection: missing omits lastBackup but KEEPS the durability posture; unreadable → stable shape; valid → the validated envelope; custom root round trip', async () => {
         const root = makeTmp();
         try {
             const bridge  = (await import('../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs')).default;
@@ -569,7 +569,16 @@ test.describe('wrapper + projection behavioral witnesses', () => {
 
             const receiptPath = path.join(root, 'last-backup-receipt.json');
 
-            expect(await collect({receiptPath})).toBe(null);
+            // A missing receipt still omits `lastBackup` — that absent-before-first-run semantic is
+            // unchanged — but the section is no longer dropped wholesale, because the durability
+            // posture is a property of CONFIG and is therefore knowable before any backup has run.
+            // Returning `null` here made "no backup has ever run on this deployment"
+            // indistinguishable from "nothing about maintenance is reportable".
+            const beforeFirstRun = await collect({receiptPath});
+
+            expect(beforeFirstRun).not.toBe(null);
+            expect(beforeFirstRun.lastBackup).toBeUndefined();
+            expect(beforeFirstRun.durability.posture).toBeTruthy();
 
             await writeBackupReceipt({
                 filePath: receiptPath,

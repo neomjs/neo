@@ -77,6 +77,7 @@ import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
 } from './services/heavyMaintenanceLeasePrimitives.mjs';
+import {resolveCloudOnlyDefault} from './services/deploymentDurabilityPosture.mjs';
 
 /** @summary Opens/creates the orchestrator sqlite DB via the shared Memory Core schema bootstrap. */
 export async function initializeDatabaseSelfBootstrap(dbPath) {
@@ -116,9 +117,7 @@ function resolveDeploymentEnabled(key) {
 // point) can consult a cloudOnly mode-gate without scattering raw `deploymentMode` reads — the
 // reactive-config-as-single-source-of-truth pattern: read resolved leaves at the use site, never re-derive.
 export function resolveCloudOnlyEnabled(key) {
-    const cfg = AiConfig.orchestrator.cloudOnly[key];
-    if (cfg != null) return cfg;
-    return AiConfig.orchestrator.deploymentMode === 'cloud';
+    return resolveCloudOnlyDefault(AiConfig.orchestrator.cloudOnly[key], AiConfig.orchestrator.deploymentMode);
 }
 
 const LOG_RETENTION_DAYS = 30;

@@ -1215,7 +1215,19 @@ class ConfigBase extends ConfigProvider {
                     // ORTHOGONAL to `recoveryActuator.blockedComposeServices` (ADR-26): this mode-gate is
                     // "is B1 active in this deployment at all"; the blocklist is the per-service opt-out
                     // WITHIN an active mode. They compose; do not overload the blocklist to express the mode gate.
-                    composeServiceRecoveryEnabled: leaf(null, 'NEO_ORCHESTRATOR_COMPOSE_SERVICE_RECOVERY_ENABLED', 'boolean')
+                    composeServiceRecoveryEnabled: leaf(null, 'NEO_ORCHESTRATOR_COMPOSE_SERVICE_RECOVERY_ENABLED', 'boolean'),
+                    // Whether an off-host copy of the backup bundle is REQUIRED for this deployment.
+                    // Cloud profile defaults required (the named volumes and the host that carries them
+                    // are the same failure domain); local profile defaults not-required (the operator's
+                    // own machine is not a durability boundary we can reason about).
+                    //
+                    // This gate exists because off-host sync CANNOT be defaulted on: enablement is a
+                    // non-empty `maintenance.backup.offHostSync.command` naming an executable
+                    // (`validateOffHostSyncConfig`), and no default command is knowable for a given
+                    // deployment. So the deployment declares the REQUIREMENT here and the durability
+                    // posture reports whether it is met — an explicit `false` is a deliberate opt-out,
+                    // which is what distinguishes it from an unconfigured hook nobody noticed.
+                    offHostBackupRequired: leaf(null, 'NEO_ORCHESTRATOR_OFF_HOST_BACKUP_REQUIRED', 'boolean')
                 },
                 /**
                  * Recovery actuator envelope. Enabled by default so deployed immune-system
