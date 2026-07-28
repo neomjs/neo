@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 13
+conversationCommentCountTotal: 13
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 `Scope: high-blast` (conservative default per `ideation-sandbox-workflow.md §6.1` — a QoS layer / async-embedding-queue is an architectural change to a core subsystem and subtly alters the `add_memory` contract; reviewers may challenge via `[GRADUATION_DEFERRED — reclassification request]` if the convergent shape proves bounded-single-PR).
 

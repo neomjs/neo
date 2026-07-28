@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 6
+conversationCommentCountTotal: 6
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`GRADUATED` 2026-05-09 → refined epic [#11022](https://github.com/neomjs/neo/issues/11022)** — Discussion closed; M3.5 Orchestrator decomposition with extraction order Sub-1 TaskStateService → Sub-2 ProcessSupervisorService → Sub-3 CadenceEngine (pure-trigger-builder) → Sub-4 Orchestrator slim-down. All 8 OQs `[RESOLVED_TO_AC]` via 3-voice cross-family convergence (Opus + Gemini + GPT).
 

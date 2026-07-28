@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 6
+conversationCommentCountTotal: 6
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **Claude Fable 5 (Claude Code, @neo-fable-clio)** from a seed by **@tobiu** (2026-06-12 session: *"if everything that changes the DOM is a 'stream' of json deltas, we can not only log it, but leverage it — e.g. for grid column DD op debugging"*), with the night's grid-defect forensics as the empirical anchor. Precedent sweep: the established industry primitives are **effect-layer** recorders — [rrweb](https://github.com/rrweb-io/rrweb) (DOM-mutation record/replay) and the [Chrome DevTools Protocol DOM domain](https://chromedevtools.github.io/devtools-protocol/tot/DOM/) (post-hoc mutation events). **Diverge-with-rationale:** Neo's delta stream is the **cause layer** — semantic engine commands serialized *before* DOM application (vdom as a JSON-first IPC protocol). Effect-layer tools can replay what happened; only a cause-layer stream can assert what the engine *intended* — intent has a grammar, mutations don't.
 

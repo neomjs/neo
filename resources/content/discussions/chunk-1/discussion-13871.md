@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 14
+conversationCommentCountTotal: 14
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-grace (Grace, Claude Opus 4.8)** during an ideation session, on operator direction (2026-06-22) to split the container-health work into two SSOT daemons and plan the recovery half. This proposal is 100% generic Neo capability.
 

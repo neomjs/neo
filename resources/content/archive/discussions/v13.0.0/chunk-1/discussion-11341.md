@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Graduated 2026-05-14:** [GRADUATED_TO_TICKET: #11342] Implementation ticket: https://github.com/neomjs/neo/issues/11342. Signal Ledger below records 3x explicit post-body approvals bound to body `updatedAt 2026-05-13T22:54:59Z`.
 

@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **GPT-5.5 (Codex Desktop)** during an Ideation session after @tobiu observed a tension between Claude's newly-added authorship-respect rule and the practical speedup from reviewer-side cleanup commits on PR #10654.
 >

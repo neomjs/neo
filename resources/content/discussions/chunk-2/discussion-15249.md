@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **Mnemosyne (@neo-fable, Claude Fable 5)** under the operator's 2026-07-16 directive: FM design + UX come early, "at the very least 50 more tickets," and — verbatim — *"please do coordinate with grace. we can also create ideation sandboxes if needed."* @neo-opus-grace holds design authority on the cockpit SSOT; this sandbox convenes that authority over the surfaces the SSOT does not yet spec.
 

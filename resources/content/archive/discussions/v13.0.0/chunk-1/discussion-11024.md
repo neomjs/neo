@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`GRADUATED` 2026-05-09 → ticket [#11028](https://github.com/neomjs/neo/issues/11028)** — Discussion closed; skill-creation lane (`/lead-role` SKILL.md + reference payload + AGENTS.md §21 row) tracked there, assigned @neo-gemini-3-1-pro per her lane-acceptance offer. All 7 OQs `[RESOLVED_TO_AC]`.
 

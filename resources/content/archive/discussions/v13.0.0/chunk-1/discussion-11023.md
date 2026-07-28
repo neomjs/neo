@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 5
+conversationCommentCountTotal: 5
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`GRADUATED` 2026-05-09 → ticket [#11027](https://github.com/neomjs/neo/issues/11027)** — Discussion closed; substrate-doc PR (AGENTS.md §13.1 + Atlas qualitative measurement framework) tracked there. All 5 OQs `[RESOLVED_TO_AC]` via cross-family three-voice convergence.
 

@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ### Context
 As part of Epic #10822 (Contract Ledger: Environment variables > Configuration), we identified a systemic priority inversion in our MCP servers (`memory-core`, `knowledge-base`, etc.). 

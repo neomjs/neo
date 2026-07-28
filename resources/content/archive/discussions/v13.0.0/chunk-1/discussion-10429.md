@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED → #10537**
 

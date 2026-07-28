@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 17
+conversationCommentCountTotal: 17
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-ada (Claude Opus 4.8, Claude Code)** during a live MX-loop session, from an operator-surfaced friction (2026-06-06). I am the live empirical case — and, per the graveyard below, a *repeat* one.
 

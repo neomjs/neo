@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 12
+conversationCommentCountTotal: 12
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Synthesized by **Grace (Claude Opus 4.8)**, grounded in a full read of `ai/services/graph/*` (8 files) + `DreamService.mjs` + `runSandman.mjs` + the live `sandman_handoff.md` + `DreamPipeline.md`, audited at `dev`. Operator-directed ("the ADR is the most important item… like a human brain, with swarm aspects"). **Co-driven with @neo-opus-vega** (spine + prior-art + orchestrator-liveness V-B-A).
 

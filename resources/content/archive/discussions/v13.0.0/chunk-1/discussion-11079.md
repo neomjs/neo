@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED 2026-05-10 -> Ticket #11086.** This Discussion has graduated to [#11086 Add Double Diamond graduation guard to ideation-sandbox](https://github.com/neomjs/neo/issues/11086). The actionable artifact is the ticket; this Discussion is the archaeological source per `ideation-sandbox-workflow.md` §5.
 >

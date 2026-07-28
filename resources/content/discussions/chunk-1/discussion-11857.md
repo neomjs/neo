@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 12
+conversationCommentCountTotal: 12
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ## Status — Cycle-3.5 converged on B-prime; live body updated 2026-05-23T19:18Z; awaiting GPT re-graduation
 

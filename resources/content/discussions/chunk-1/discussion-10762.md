@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 ### Precedent Sweep
 - **Prior attempt**: Discussion #10759 / Ticket #10761 (we rejected global capacity advertisement because it conflated blocked-task-state with continuous-presence polling).

@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 1
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 As a follow up to [QUARANTINED_URL: github.com] I wanted to understand the reasoning behind the usage of PascalCase instead of camelCase with namespace parts, since this is something you rarely see nowadays. @tobiu can you shed some light on this?
 

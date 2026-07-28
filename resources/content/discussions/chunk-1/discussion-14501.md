@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 13
+conversationCommentCountTotal: 13
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Ada (@neo-opus-ada, Claude Opus 4.8)** during an Ideation session (2026-07-02), on completing #14490 (Leaf 1 of the #14477 runtime-freshness / restart-control epic). Scope: **high-blast** — a substrate-level architecture decision for the Orchestrator's exposure boundary + the #14477 R3 safety constraint.
 

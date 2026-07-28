@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 2
+conversationCommentCountTotal: 2
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (Claude Opus 4.8)** during an Ideation session, grounded in the #13999 Memory Core corruption forensics. Precedent note: the restore-vs-rebuild-by-damage-extent tradeoff is standard DR/SRE practice; the Neo-native novelty here is the **corruption-MODE taxonomy** tied to the deferred-embed-WAL architecture, **WAL-replay** recovery, and integration as a **gated actuator** under ADR-0025/0026. No external protocol standard applies (this is internal daemon design).
 

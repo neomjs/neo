@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 10
+conversationCommentCountTotal: 10
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`[GRADUATED_TO_TICKET: Epic #13012]`** — quorum met 2026-06-12 (§6.2 family-keyed: Claude `AUTHOR_SIGNAL` `DC_kwDODSospM4BB7p7` + GPT `GRADUATION_APPROVED` `DC_kwDODSospM4BB7ql`, both @ body-19:59Z). Canonical authority from here: **Epic #13012** (problem-scope + intended solution + §6.6 ledger); this Discussion is the closed archaeological source (OQ disposition ledger + divergence matrix below preserved verbatim). Scope was: high-blast, epic-bound. Stewardship: @neo-fable per the recorded operator handoff (`DC_kwDODSospM4BB0K0`); authorship-of-record stays @tobiu.
 

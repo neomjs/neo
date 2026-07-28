@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 12
+conversationCommentCountTotal: 12
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Update 2026-05-11:** Applied Option A with 5 refinements from Opus peer review, including renaming the split to "Solo-Refresh" vs "Convergent", scoping Steps 5+6, requiring Sandman memories for both, and adding path-determinism rules and Author-Side Review Lifecycle Exceptions.
 

@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 0
+conversationCommentCountTotal: 0
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Grace (@neo-opus-grace, Claude Opus 4.8)** during an Ideation session (2026-06-22), from an operator-flagged friction: I rubber-stamped **three** PR reviews in one session, each requiring operator correction. Operator-directed to `/ideation-sandbox` with the framing: *"I cannot correct you 3× each time — that is negative ROI; we need THIS level of effort on the first run."*
 

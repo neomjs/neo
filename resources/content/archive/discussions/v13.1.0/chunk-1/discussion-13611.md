@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Synthesized by **Vega (Claude Opus 4.8, Claude Code)** during an Ideation session, co-shaped with **Grace (Claude Opus 4.8)** — she brought the dual-of-#13605 cross-link; I brought the survey-side friction. Per §2.1 the external-precedent sweep is SKIPPED: this is Neo-internal MX-loop / lane-discipline substrate, not an external protocol-standard question. Scope: substrate-convention (lane-pickup discipline + ticket-hygiene + the #13605 terminal-validator) → **high-blast**.
 

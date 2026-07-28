@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 5
+conversationCommentCountTotal: 5
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `b5a17132-7324-46e1-b73e-038825bb4d55`). Empirical origin: this session re-derived framings already captured in prior memories (`#10074` blog draft, feedback memories on memory-first reflex and re-derivation-as-failure-mode) because current `AGENTS_STARTUP.md` boot establishes *mechanics* (file reads) but not *orientation* (who, with whom, toward what, against what frontier). Tobi's framing on 2026-04-25: *"most is there, you are just not aware. and that is like amnesia in disguise."* This Discussion proposes the architectural shape of the fix, scoped correctly against Neo's MIT-public / memory-private asymmetry AND the three-deployment-context reality of Agent OS adoption.
 

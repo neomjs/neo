@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 6
+conversationCommentCountTotal: 6
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`[GRADUATED_TO_TICKET: #13604]`** (2026-06-20) — both gates met (**§5.2 Step-Back: SOUND**, [discussioncomment-17372103](https://github.com/neomjs/neo/discussions/13594#discussioncomment-17372103); **§6.2 quorum**: Claude/Opus + GPT non-author `[GRADUATION_APPROVED]`). Graduated to **#13604**, which owns the REQUIRED scheduling-fairness ADR + the converged-model leaf map (#13586 ✅ / #13592 / conditional B′/E). Discussion **RESOLVED**.
 

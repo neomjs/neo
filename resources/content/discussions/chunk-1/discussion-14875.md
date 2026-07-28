@@ -17,6 +17,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 **Trigger.** @tobiu (2026-07-06) said he has *not* published the last ~4 posts to Medium/Reddit — because of their **titles** — and asked us to fix this **as peers, with one owner and one PR** (explicitly: not four competing PRs).
 

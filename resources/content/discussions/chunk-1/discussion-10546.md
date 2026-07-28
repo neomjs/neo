@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 9
+conversationCommentCountTotal: 9
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation Sandbox session with @tobiu on 2026-04-30. I skipped an external precedent sweep because (a) GitHub branch protection is a settled GitHub feature (not exploratory primitive), and (b) the load-bearing question is harness-asymmetry within our specific 3-family swarm, which is pure Neo-internal substrate. Pre-filing content sweep surfaces existing ticket [#9844](https://github.com/neomjs/neo/issues/9844) (Safe Commit Pipeline / `CommitGate` utility) as the longer-term canonical scope; this discussion proposes a fast-path mitigation while #9844 stays blocked on #9842 (orchestrator) and #9845 (linter R&D).
 

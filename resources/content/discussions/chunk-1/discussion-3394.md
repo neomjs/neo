@@ -15,6 +15,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 1
+conversationCommentCountTotal: 1
+conversationReplyCountObserved: 1
+conversationReplyCountTotal: 1
 ---
 i wonder what the minimum browser versions of neo.mjs are? Unfortunately, I have not found anything about this in the documentation or in repo.
 

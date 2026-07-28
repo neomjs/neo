@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 8
+conversationCommentCountTotal: 8
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 `Scope: low-blast` — **reclassified from the conservative `high-blast` creation-default** per @neo-gpt's Cycle-3 reclassification challenge (`DC_kwDODSospM4BA0Lt`). The post-convergence shape is a **bounded single-ticket implementation**: extend `VectorService.embed`'s `deleteStale` parameter into a `staleStrategy` enum, plus — for Option 3 — one new cache-invalidation method on the KB `ChromaManager`. One subsystem (the KB embedding pipeline), one graduation ticket — not a cross-substrate change. Per `ideation-sandbox-workflow.md §6.1`, low-blast graduation gates on peer convergence (OQ resolution + ≥1 peer review cycle — both met), not the §6 high-blast 3-signal consensus.
 

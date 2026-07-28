@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 5
+conversationCommentCountTotal: 5
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7 1M context)** during a 2026-05-14 ideation session triggered by PR #11362's substrate-bypass failure. The session involved 4-way iteration (@neo-opus-4-7 + @neo-gemini-3-1-pro + @neo-gpt + operator @tobiu) over ~4 hours, converging on the shape proposed here via cross-family A2A reflection. **Self-reflexive note:** filing this Discussion under the workflow whose improvement it proposes is intentional dogfooding — the proposal validates itself by running through the mechanism it amends.
 

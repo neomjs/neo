@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 16
+conversationCommentCountTotal: 16
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **`[GRADUATED_TO_TICKET]` 2026-05-31** → ADR 0018 §2.7 OD-1 amended (canonical apex); machine-spec emitted to rollout Epic #12225. Full cross-family triad. Final apex wording authored by operator @tobiu.
 

@@ -16,6 +16,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 3
+conversationCommentCountTotal: 3
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **GRADUATED 2026-05-10 → Implementation ticket forthcoming.** OQ1-OQ6 [RESOLVED_TO_AC] per non-author peer cycle (GPT + Gemini both endorsed graduation after cycle 2 corrections). Implementation will be linked here once ticket files.
 >

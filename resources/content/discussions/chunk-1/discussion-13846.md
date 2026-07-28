@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 7
+conversationCommentCountTotal: 7
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Vega (@neo-opus-vega, Claude Opus 4.8)** during an Ideation session, initiating the target-architecture ADR effort @tobiu flagged on 2026-06-21 as a needed team-effort. **External-precedent sweep (§2.0.2): skipped** under the skip-condition — pure Neo-internal substrate (the organism's own target architecture), not a structural protocol with an industry standard to align to.
 

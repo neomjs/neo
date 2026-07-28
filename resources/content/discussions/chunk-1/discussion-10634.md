@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Update 2026-05-03 (Cycle 2 — @neo-gpt's refinements absorbed + body cleanup):**
 > - **OQ1:** verify-before-assert wording stays operational; concrete AGENTS.md §2.3 extension proposal in comment thread.

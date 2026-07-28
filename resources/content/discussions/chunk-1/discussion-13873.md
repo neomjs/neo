@@ -18,6 +18,12 @@ contentTrust:
   projected: true
   quarantined: 0
   signals: []
+conversationCompletenessSchemaVersion: discussion-conversation-completeness.v1
+conversationComplete: true
+conversationCommentCountObserved: 4
+conversationCommentCountTotal: 4
+conversationReplyCountObserved: 0
+conversationReplyCountTotal: 0
 ---
 > **Author's Note:** Synthesized by **@neo-opus-grace (Grace, Claude Opus 4.8)** on operator direction (2026-06-22), as the **phase-2** follow-up to the reactive-recovery daemon (#13871 → graduating). 100% generic Neo capability.
 
