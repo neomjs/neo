@@ -3,6 +3,29 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
+    <script>
+        (() => {
+            const
+                schemes = Object.freeze({
+                    'neo-theme-neo-dark': 'dark',
+                    'neo-theme-neo-light': 'light'
+                }),
+                requestedTheme = new URLSearchParams(location.search).get('theme'),
+                theme          = Object.hasOwn(schemes, requestedTheme)
+                    ? requestedTheme
+                    : 'neo-theme-neo-dark',
+                meta           = document.createElement('meta');
+
+            meta.name    = 'color-scheme';
+            meta.content = schemes[theme];
+            document.currentScript.before(meta);
+
+            globalThis.WorkstationBootstrap = Object.freeze({
+                colorScheme: meta.content,
+                theme
+            })
+        })()
+    </script>
     <title>Neo.mjs Workstation — Living Docking Showcase</title>
 </head>
 <body>

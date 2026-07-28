@@ -1067,6 +1067,50 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('tear-out navigation carries the workspace active theme into each admitted child', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            calls              = [];
+
+        Neo.Main.getWindowData = async () => ({
+            innerHeight: 700,
+            outerHeight: 760,
+            screenLeft : 10,
+            screenTop  : 20
+        });
+        Neo.Main.windowOpen = async data => {
+            calls.push(data);
+
+            return true
+        };
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId   : 'alerts',
+                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            workspace.theme = 'neo-theme-neo-dark';
+
+            await workspace.openTearOutVessel({
+                itemId   : 'security',
+                proxyRect: {height: 320, width: 480, x: 80, y: 100}
+            });
+
+            expect(calls).toHaveLength(2);
+            expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('theme')))
+                .toEqual(['neo-theme-neo-light', 'neo-theme-neo-dark']);
+            expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('vesselFlow')))
+                .toEqual(['tear-out', 'tear-out'])
+        } finally {
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen    = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
     test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
         const
             workspace       = Neo.create(Workspace, {}),

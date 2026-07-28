@@ -420,6 +420,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     test.use(filmTake
         ? {viewport: null}
         : {
+            colorScheme   : 'dark',
             contextOptions: {screen: ordinaryScreen},
             viewport      : ordinaryViewport
         });
@@ -1123,6 +1124,16 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     test('scene 2 — the tear-out: a real pointer drag births a vessel MID-GESTURE', async ({page, neuralLink}) => {
         const {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+
+        expect((await app.getComponent(wsId, ['theme'])).theme,
+            'the parent Neo theme, not the host preference, is the popup birth authority')
+            .toBe('neo-theme-neo-light');
+        if (!filmTake) {
+            expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches),
+                'ordinary scene 2 must oppose Neo light with a dark host preference').toBe(true)
+        }
+
         const
             heartbeatBefore = await readHeartbeat(app, wsId),
             paneIdBefore    = (await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])),
@@ -1147,6 +1158,46 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         const popup = await popupPromise;
 
         expect(popup.isClosed(), 'the committed vessel must remain open').toBe(false);
+        await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+        const
+            popupWindowId = await popup.evaluate(() => Neo.worker.Manager.windowId),
+            popupBirth    = await popup.evaluate(() => {
+                const viewport = document.querySelector('.workstation-viewport');
+
+                return {
+                    bootstrap      : globalThis.WorkstationBootstrap,
+                    hostPrefersDark: matchMedia('(prefers-color-scheme: dark)').matches,
+                    metaContents   : [...document.querySelectorAll('meta[name="color-scheme"]')]
+                        .map(meta => meta.content),
+                    themeClasses: [...viewport.classList].filter(name => name.startsWith('neo-theme-'))
+                }
+            });
+
+        await expect.poll(async () => {
+            const found = await app.findInstances(
+                {className: 'Workstation.view.Viewport'},
+                ['id', 'theme', 'windowId']
+            );
+
+            return found.find(item => item.properties?.windowId === popupWindowId)?.properties?.theme
+        }, {
+            message: 'the child viewport must be born with the carried Neo light theme',
+            timeout: 15000
+        }).toBe('neo-theme-neo-light');
+
+        expect(new URL(popup.url()).searchParams.get('theme')).toBe('neo-theme-neo-light');
+        expect(popupBirth.bootstrap).toEqual({
+            colorScheme: 'light',
+            theme      : 'neo-theme-neo-light'
+        });
+        expect(popupBirth.metaContents, 'the final document must own exactly one active-theme scheme')
+            .toEqual(['light']);
+        expect(popupBirth.themeClasses).toEqual(['neo-theme-neo-light']);
+        if (!filmTake) {
+            expect(popupBirth.hostPrefersDark,
+                'the popup must retain the opposing host preference used by this matrix row').toBe(true)
+        }
 
         // Third-party truth: the committed document read fresh from the worker.
         const documentAfter = await readDocument(app, wsId);
@@ -1249,7 +1300,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // assertion above. Flip, then read the same tokens back through the popup.
         const themeBefore = vesselTokens.cellBg;
 
-        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
 
         // Poll the OBSERVABLE transition rather than sleeping a frame count. The flip crosses a
         // worker→two-main-threads boundary and commits through a vdom update the popup does not
@@ -1278,7 +1329,20 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(flipped.cellBg, 'and it must land on the NEW palette, not merely change')
             .toBe(flipped.panel);
 
-        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
+        await expect.poll(async () => {
+            const found = await app.findInstances(
+                {className: 'Workstation.view.Viewport'},
+                ['id', 'theme', 'windowId']
+            );
+
+            return found.find(item => item.properties?.windowId === popupWindowId)?.properties?.theme
+        }, {
+            message: 'the open child viewport must retain live Neo theme authority after birth',
+            timeout: 15000
+        }).toBe('neo-theme-neo-dark');
+        expect(await popup.locator('.workstation-viewport').evaluate(viewport =>
+            [...viewport.classList].filter(name => name.startsWith('neo-theme-'))
+        )).toEqual(['neo-theme-neo-dark']);
 
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
