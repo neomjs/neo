@@ -13,12 +13,12 @@ Before the final `git commit` and `gh pr create`—an irreversible Agent OS hand
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
-Before the first commit or PR-body attempt on an agent-authored PR, run
-`npm run agent-preflight -- [files...]` when you want the repair-capable pass
-that may run `check-block-alignment --fix`. For final validation without file
-mutation, run `npm run agent-preflight -- --no-fix [files...]`; when a local PR
-body draft exists, include `-- --pr-body <draft-body.md>` so local source and
-PR-body gate failures surface before CI.
+Before the first commit, declare §3.1's class (`capability`, `restoration`, or
+`zero-delta`) and run `npm run agent-preflight -- --change-class <class>
+--commit-subject "<subject>" [files...]`. This repair pass may align blocks. For
+final check-only validation, add `--no-fix`, `--pr-title "<title>"`, and, when
+available, `--pr-body <draft-body.md>`. The same class then gates both subjects.
+Calls without semantic inputs stay diagnostic-compatible; partial inputs fail.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
@@ -87,15 +87,19 @@ Your commit messages MUST follow Conventional Commits and MUST append the ticket
 
 ### 3.1 Type Selection
 
-- **`feat`** — the change unlocks a new capability that did not exist before. Harness integrations, new workflows, new tooling surfaces, and any agent- or user-facing feature all fall here.
-- **`fix`** — restores broken behavior. Use when a regression, race condition, or incorrect output is being corrected.
-- **`chore`** — pure maintenance with zero behavioral or capability delta. Dependency bumps, auto-generated syncs, typo fixes, and similar housekeeping only.
+Classify the delivered delta in order; the first match wins:
 
-Decision rule: *"Does this enable a new capability that did not exist before?"* → `feat`. When ambiguous, default to `feat`; `chore` is the narrowest category.
+1. **`capability` → `feat`** — adds reusable, operable, or separately testable
+   behavior/path. This wins even when a bug motivated the work.
+2. **`restoration` → `fix`** — adds no capability; corrects defined behavior.
+3. **`zero-delta` → `chore`** — changes neither behavior nor capability.
+
+Ticket labels, filenames, and diff size do not decide the class. The author
+declares it; `agent-preflight` verifies the supplied subjects without inference.
 
 ### 3.2 Commit Message Hygiene
 
-- **FORBIDDEN:** `Co-Authored-By: <name> <noreply@*>` footers. Some AI harnesses (notably Claude Code) inject these by default — you MUST override that behavior. **Canonical agent emails for required Co-Authored-By trailers (real, project-controlled addresses):** `neo-opus-4-7@neomjs.com`, `neo-gemini-3-1-pro@neomjs.com`, `neo-gpt@neomjs.com`. The machine-account primary email is operator-configured (out of agent scope); squash-merge auto-attribution resolves to `@neomjs.com` once accounts use these as primary. Agent participation is tracked across multiple substrates: ticket body, PR labels (`ai`, `ai-generated`), Memory Core origin-session IDs, and `@neomjs.com` Co-authored-by trailers in git history (the long-term distributed memory + RLAIF flywheel substrate per `README.md` §The Evolution).
+- **FORBIDDEN:** `Co-Authored-By: <name> <noreply@*>` footers. Some AI harnesses (notably Claude Code) inject these by default — you MUST override that behavior. **Canonical agent emails for required Co-Authored-By trailers (real, project-controlled addresses):** `neo-opus-4-7@neomjs.com`, `neo-gemini-3-1-pro@neomjs.com`, `neo-gpt@neomjs.com`. The machine-account primary email is operator-configured (out of agent scope); squash-merge auto-attribution resolves to `@neomjs.com` once accounts use these as primary. Agent participation is tracked across multiple substrates: ticket body, PR labels (`ai`, `ai-generated`), Memory Core origin-session IDs, and `@neomjs.com` Co-authored-by trailers in git history (the long-term distributed memory + RLAIF flywheel substrate per [`The Evolution`](../../../../README.md#the-evolution)).
 - **MANDATORY:** append the ticket ID to the subject line in `(#TICKET_ID)` form — e.g. `feat(claude): wire harness (#10059)`. A trailing paragraph like `Refs #N` is non-compliant. The `Resolves #N` keyword belongs in the PR body, not the commit.
 
 ### 3.3 Steps
