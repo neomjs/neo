@@ -1,22 +1,25 @@
-import Component                                from '../../../src/component/Base.mjs';
-import Container                                from '../../../src/container/Base.mjs';
-import Feed                                     from '../store/Feed.mjs';
-import FeedPane                                 from './FeedPane.mjs';
-import Scale                                    from '../store/Scale.mjs';
-import ScalePane                                from './ScalePane.mjs';
-import DockDragAffordances                      from '../../../src/dashboard/DockDragAffordances.mjs';
-import DockDropIndicators                       from '../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
-import DockPreview                              from '../../../src/dashboard/DockPreview.mjs';
-import DockProjectionReconciler                 from '../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                              from '../../../src/ai/client/DockService.mjs';
-import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
-import InteractionService                       from '../../../src/ai/client/InteractionService.mjs';
-import StateProvider                            from '../../../src/state/Provider.mjs';
-import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
-import {createDockTearOutHandlers}              from '../../../src/dashboard/DockTearOut.mjs';
-import {createDockVesselEmbodiment}             from '../../../src/dashboard/DockVesselEmbodiment.mjs';
+import Component                   from '../../../src/component/Base.mjs';
+import Container                   from '../../../src/container/Base.mjs';
+import Feed                        from '../store/Feed.mjs';
+import FeedPane                    from './FeedPane.mjs';
+import Scale                       from '../store/Scale.mjs';
+import ScalePane                   from './ScalePane.mjs';
+import DockDragAffordances         from '../../../src/dashboard/DockDragAffordances.mjs';
+import DockDropIndicators          from '../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter           from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal            from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockPreview                 from '../../../src/dashboard/DockPreview.mjs';
+import DockProjectionReconciler    from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                 from '../../../src/ai/client/DockService.mjs';
+import DockZoneModel               from '../../../src/dashboard/DockZoneModel.mjs';
+import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
+import StateProvider               from '../../../src/state/Provider.mjs';
+import TourRunner                  from '../../../src/ai/client/TourRunner.mjs';
+import {createDockTearOutHandlers} from '../../../src/dashboard/DockTearOut.mjs';
+import {
+    createDockVesselEmbodiment,
+    createDockVesselProxyEmbodiment
+}                                                from '../../../src/dashboard/DockVesselEmbodiment.mjs';
 import {createDockWorkspaceSet}                 from '../../../src/dashboard/DockWorkspaceSet.mjs';
 import {createVesselParkHandlers}               from '../../../src/dashboard/DockVesselPark.mjs';
 import {previewToOperation}                     from '../../../src/dashboard/dockPreviewContract.mjs';
@@ -187,6 +190,13 @@ class Workspace extends Container {
      * @member {Object|null} tearOutEmbodiment=null
      */
     tearOutEmbodiment = null
+    /**
+     * The nested transient embodiment for an admitted converted vessel: the same cached pane
+     * moves from its parked source popup into exactly one target-local DragProxyContainer while a
+     * second hidden placeholder reserves the popup's live slot.
+     * @member {Object|null} vesselProxyEmbodiment=null
+     */
+    vesselProxyEmbodiment = null
     /**
      * The tear-out gesture choreography (admission chain + commit-at-terminal routing).
      * @member {Object|null} tearOutHandlers=null
@@ -414,6 +424,30 @@ class Workspace extends Container {
             resolvePane: itemId => me.paneCache[itemId]
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveTarget: windowId => Neo.apps[windowId]?.mainView ?? null
+        });
+
+        me.vesselProxyEmbodiment = createDockVesselProxyEmbodiment({
+            resolvePane: itemId => me.paneCache[itemId]
+                ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
+            resolveProxyConfig: ({sourceSortZone, targetWindowId}) => {
+                const
+                    sourceConfig = sourceSortZone?.getDragProxyConfig?.(),
+                    targetApp    = Neo.apps[targetWindowId];
+
+                if (!sourceConfig) return null;
+
+                const cls = [...new Set([
+                    ...(sourceConfig.cls || []),
+                    'neo-dock-dragproxy',
+                    'workstation-vessel-dragproxy'
+                ])];
+
+                return {
+                    ...sourceConfig,
+                    appName: targetApp?.name ?? me.appName,
+                    cls
+                }
+            }
         });
 
         // The gesture tear-out choreography. The composition law (dockdemo sibling): a tear-out
@@ -878,9 +912,21 @@ class Workspace extends Container {
                     windowName: me.resolveTearOutVessel(data.itemId)?.windowName
                 })
             },
-            onDockVesselConversionOut: data => me.vesselParkHandlers.onConversionOut({
-                rect: data.logicalRect ?? data.record?.sourceRect ?? null
-            }),
+            onDockVesselConversionOut: data => {
+                // The live pane is nested source-main → popup → target-proxy. Restore the INNER
+                // target-proxy reservation first; only then may the park owner re-show the exact
+                // popup. Reversing this order produces a visible empty source vessel.
+                if (
+                    me.vesselProxyEmbodiment.isStaged(data.itemId) &&
+                    !me.vesselProxyEmbodiment.restore({itemId: data.itemId})
+                ) {
+                    return false
+                }
+
+                return me.vesselParkHandlers.onConversionOut({
+                    rect: data.logicalRect ?? data.record?.sourceRect ?? null
+                })
+            },
             onDockVesselConversionTerminal: data => me.vesselParkHandlers.onGestureTerminal(data),
             onDockVesselConversionRetired : data => me.vesselParkHandlers.onVesselRetired(data),
             onDockZoneDocumentChange      : me.onDockZoneDocumentChange.bind(me),
@@ -908,15 +954,28 @@ class Workspace extends Container {
         if (me.isDestroyed) return null;
 
         return Neo.create(Participation, {
-            clearPreview      : () => me.clearCrossWindowPreview(workspaceId),
-            commitLocal       : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
-            commitTransfer    : data => me.commitCrossWindowTransfer(data),
-            getDocument       : () => me.getWorkspaceDocument(workspaceId),
-            getForeignDocument: sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
-            hitTest           : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
-            previewFor        : data => me.renderCrossWindowPreview(workspaceId, data),
+            clearPreview         : () => me.clearCrossWindowPreview(workspaceId),
+            commitLocal          : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
+            commitTransfer       : data => me.commitCrossWindowTransfer(data),
+            getDocument          : () => me.getWorkspaceDocument(workspaceId),
+            getForeignDocument   : sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
+            hitTest              : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
+            previewFor           : data => me.renderCrossWindowPreview(workspaceId, data),
             previewToOperation,
-            sortGroup         : Workspace.CROSS_WINDOW_SORT_GROUP,
+            promoteDragEmbodiment: data => me.vesselProxyEmbodiment.promote({
+                itemId        : data.draggedItem?.dockItemId,
+                targetWindowId: windowId
+            }),
+            restoreDragEmbodiment: data => me.vesselProxyEmbodiment.restore({
+                itemId        : data.draggedItem?.dockItemId,
+                targetWindowId: windowId
+            }),
+            sortGroup          : Workspace.CROSS_WINDOW_SORT_GROUP,
+            stageDragEmbodiment: data => me.vesselProxyEmbodiment.move({
+                ...data,
+                sourceWindowId: me.resolveTearOutVessel(data.draggedItem?.dockItemId)?.windowId,
+                targetWindowId: windowId
+            }),
             windowId,
             workspaceId
         })
@@ -2805,6 +2864,10 @@ class Workspace extends Container {
 
         if (me.isDestroyed) return;
 
+        // A disconnect can invalidate either side of the nested popup→target-proxy transaction.
+        // Restore it before the outer main→popup embodiment below decides restore vs promote.
+        me.vesselProxyEmbodiment.restoreByWindow(data.windowId);
+
         // A child can disconnect while its live-pane stage is still awaiting renderer settlement.
         // The connect is not in tearOutConnects yet, so this private generation token is the only
         // exact owner. Retire it now; the stage continuation observes the deleted token and cannot
@@ -3371,6 +3434,7 @@ class Workspace extends Container {
             sensor        = sourceZone?.vesselConversionSensor,
             parkedVessel  = me.vesselParkHandlers?.parkedVessel ?? null,
             sourceVessel  = parkedItemId && me.resolveTearOutVessel(parkedItemId),
+            targetProxy   = parkedItemId && me.vesselProxyEmbodiment.snapshot(parkedItemId),
             snapshot      = {
                 claimCount           : arbiter?.claimCount ?? 0,
                 converted            : sensor?.converted === true && sensor?.transitioning !== true,
@@ -3382,6 +3446,7 @@ class Workspace extends Container {
                     sourceVessel?.windowId && Neo.manager?.Window?.get(sourceVessel.windowId)
                 ),
                 sourceVesselWindowId: sourceVessel?.windowId ?? null,
+                targetProxy,
                 targetWorkspaceId,
                 winnerStableId      : winner?.stableId ?? null
             };
@@ -3393,7 +3458,13 @@ class Workspace extends Container {
             && snapshot.rendered?.previewId === snapshot.preview.previewId
             && (parkedItemId == null || (
                 snapshot.converted && snapshot.parkedItemId === parkedItemId &&
-                snapshot.sourceVesselConnected
+                snapshot.sourceVesselConnected &&
+                targetProxy?.itemId === parkedItemId &&
+                targetProxy.ownsPane &&
+                targetProxy.settled &&
+                targetProxy.sourceWindowId === snapshot.sourceVesselWindowId &&
+                targetProxy.targetWindowId === target?.windowId &&
+                targetProxy.visible
             ));
 
         return snapshot
@@ -3447,13 +3518,17 @@ class Workspace extends Container {
      * @param {String} step.targetItemId Existing detached pane whose vessel becomes the target.
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=240]
+     * @param {Number} [options.dwellDelay=0] Optional headed-witness hold after target readiness.
      * @param {Number} [options.moveDelay=16]
      * @param {Number} [options.moveSteps=4]
      * @param {Boolean} [options.showCursor=false] Film mode: show the synthetic cursor in whichever
      * window currently owns the visible leg of the gesture.
      * @returns {Promise<Object>}
      */
-    async executeCrossWindowDockStep(step, {attempts=240, moveDelay=16, moveSteps=4, showCursor=false}={}) {
+    async executeCrossWindowDockStep(
+        step,
+        {attempts=240, dwellDelay=0, moveDelay=16, moveSteps=4, showCursor=false}={}
+    ) {
         let me                                   = this,
             {itemId, sourceNodeId, targetItemId} = step || {},
             targetWorkspaceId                    = Workspace.vesselWorkspaceId(targetItemId),
@@ -3642,6 +3717,8 @@ class Workspace extends Container {
                     proof  : {cancellation, remoteSnapshot}
                 }
             }
+
+            dwellDelay > 0 && await me.timeout(dwellDelay);
 
             me.lastCrossWindowTransfer = null;
 
@@ -4413,6 +4490,7 @@ class Workspace extends Container {
         me.dockService?.destroy();
         me.dragAffordances?.destroy();
         me.interactionService?.destroy();
+        me.vesselProxyEmbodiment?.destroy();
         me.tearOutEmbodiment?.destroy();
         me.cueSettlements.clear();
 

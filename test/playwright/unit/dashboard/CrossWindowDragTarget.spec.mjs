@@ -81,6 +81,103 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         target.destroy()
     });
 
+    test('an explicitly licensed target proxy stages before preview and restores before leave cleanup', () => {
+        const order  = [];
+        const target = Neo.create(CrossWindowDragTarget, {
+            clearPreview: () => order.push('clear-preview'),
+            previewFor  : () => {
+                order.push('preview');
+                return {feedback: {state: 'accepted'}, itemId: 'pane-a'}
+            },
+            restoreDragEmbodiment: () => {
+                order.push('restore-proxy');
+                return true
+            },
+            sortGroup          : 'dock-main',
+            stageDragEmbodiment: () => {
+                order.push('stage-proxy');
+                return true
+            },
+            windowId: 2
+        });
+
+        target.onRemoteDragMove({
+            draggedItem: {dockItemId: 'pane-a'},
+            embodyProxy: true,
+            localX     : 40,
+            localY     : 8
+        });
+        target.onRemoteDragLeave();
+
+        expect(order).toEqual([
+            'stage-proxy',
+            'preview',
+            'restore-proxy',
+            'clear-preview'
+        ]);
+        expect(target.currentDragPayload).toBeNull();
+        expect(target.currentPreview).toBeNull();
+
+        target.destroy()
+    });
+
+    test('native preview is proxy-free, while a missing licensed stage seam fails closed', () => {
+        const calls  = [];
+        const target = Neo.create(CrossWindowDragTarget, {
+            previewFor: payload => {
+                calls.push(['preview', payload.embodyProxy]);
+                return {feedback: {state: 'accepted'}}
+            },
+            sortGroup: 'dock-main',
+            windowId : 2
+        });
+
+        expect(target.onRemoteDragMove({draggedItem: {}, embodyProxy: false})).toEqual({
+            feedback: {state: 'accepted'}
+        });
+        target.onRemoteDragLeave();
+
+        expect(target.onRemoteDragMove({draggedItem: {}, embodyProxy: true})).toBeNull();
+        expect(calls).toEqual([['preview', false]]);
+        expect(target.currentPreview).toBeNull();
+
+        target.destroy()
+    });
+
+    test('a refused stage and a throwing converter both restore the licensed proxy fail-closed', () => {
+        const
+            restored = [],
+            payload  = {
+                draggedItem: {dockItemId: 'pane-a'},
+                embodyProxy: true,
+                localX     : 4,
+                localY     : 4
+            },
+            target = Neo.create(CrossWindowDragTarget, {
+                previewFor        : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+                previewToOperation: () => {
+                    throw new Error('converter failed')
+                },
+                restoreDragEmbodiment: data => restored.push(data.draggedItem.dockItemId),
+                sortGroup            : 'dock-main',
+                stageDragEmbodiment  : () => false,
+                windowId             : 2
+            });
+
+        expect(target.onRemoteDragMove(payload)).toBeNull();
+        expect(restored).toEqual(['pane-a']);
+
+        target.stageDragEmbodiment = () => true;
+        target.onRemoteDragMove(payload);
+
+        expect(() => target.onRemoteDrop(payload.draggedItem)).toThrow('converter failed');
+        expect(restored).toEqual(['pane-a', 'pane-a']);
+        expect(target.currentDragPayload).toBeNull();
+        expect(target.currentPreview).toBeNull();
+
+        target.destroy()
+    });
+
     test('the drop path converts the final preview through the owner previewToOperation → commitOperation pipeline', () => {
         const commits = [];
         const target  = Neo.create(CrossWindowDragTarget, {
@@ -102,6 +199,41 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         }]);
         // the drop consumed the preview — hover state never leaks past the gesture
         expect(target.currentPreview).toBeNull();
+
+        target.destroy()
+    });
+
+    test('a committed target promotes its exact proxy; a refused target restores it', () => {
+        const
+            promoted = [],
+            restored = [],
+            target   = Neo.create(CrossWindowDragTarget, {
+                commitOperation      : () => ({applied: true}),
+                previewFor           : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+                previewToOperation   : () => ({operation: 'addTab', itemId: 'pane-a', tabsNodeId: 't1'}),
+                promoteDragEmbodiment: payload => promoted.push(payload.draggedItem.dockItemId),
+                restoreDragEmbodiment: payload => restored.push(payload.draggedItem.dockItemId),
+                sortGroup            : 'dock-main',
+                stageDragEmbodiment  : () => true,
+                windowId             : 2
+            }),
+            payload = {
+                draggedItem: {dockItemId: 'pane-a'},
+                embodyProxy: true,
+                localX     : 4,
+                localY     : 4
+            };
+
+        target.onRemoteDragMove(payload);
+        expect(target.onRemoteDrop(payload.draggedItem)).toEqual({applied: true});
+        expect(promoted).toEqual(['pane-a']);
+        expect(restored).toEqual([]);
+
+        target.commitOperation = () => null;
+        target.onRemoteDragMove(payload);
+        expect(target.onRemoteDrop(payload.draggedItem)).toBeNull();
+        expect(promoted).toEqual(['pane-a']);
+        expect(restored).toEqual(['pane-a']);
 
         target.destroy()
     });
