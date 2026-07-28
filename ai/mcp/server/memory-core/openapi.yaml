@@ -302,7 +302,9 @@ paths:
         log tails, current diagnoses, and recent recovery-run ledger entries without exposing
         Docker, shell, exec, restart, or any public daemon/orchestrator route. Fresh snapshots
         missing current-schema sections return a degraded status with stable schemaDiagnostics
-        reason codes.
+        reason codes. An optional mailboxReadState request adds one carrier-aware observation
+        read directly by the Memory Core graph owner before any normal mailbox repair path.
+        The caller may inspect its own recipient state or an inbox covered by CAN_READ_INBOX_OF.
       tags: [Diagnostics]
       requestBody:
         required: false
@@ -314,13 +316,60 @@ paths:
                 staleAfterMs:
                   type: number
                   description: Optional freshness window override in milliseconds.
+                mailboxReadState:
+                  type: object
+                  additionalProperties: false
+                  description: |
+                    Optional message-scoped durable carrier observation. Omitting this property
+                    preserves the deployment-snapshot response shape exactly.
+                  required: [messageId, recipient]
+                  properties:
+                    messageId:
+                      type: string
+                      pattern: '^MESSAGE:[^\s]+$'
+                      description: Exact MESSAGE graph node id to inspect.
+                    recipient:
+                      type: string
+                      minLength: 1
+                      description: Direct recipient identity whose MESSAGE or DELIVERED_TO carrier is inspected.
       responses:
         '200':
-          description: Inspection status and payload when available.
+          description: |
+            Inspection status and payload when available. When mailboxReadState was requested,
+            the response also contains a mailboxReadState observation with ok, state, messageId,
+            recipient, route, and carrier fields; malformed/conflicting observations may add error.
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  mailboxReadState:
+                    type: object
+                    properties:
+                      ok:
+                        type: boolean
+                      state:
+                        type: string
+                        enum:
+                          - message-missing
+                          - recipient-carrier-missing
+                          - unread
+                          - read
+                          - malformed-storage
+                          - conflicting-storage
+                      messageId:
+                        type: string
+                      recipient:
+                        type: string
+                      route:
+                        type: string
+                        nullable: true
+                        enum: [direct, broadcast]
+                      carrier:
+                        type: object
+                        nullable: true
+                      error:
+                        type: string
 
   /handoff/sandman:
     post:
