@@ -36,33 +36,42 @@ Every one of these is a claim about what a *command* returned, not about what ex
 
 Two rules, both cheap:
 
-1. **Carry a positive control.** The same command must also search for something you know is present. If the control does not appear, the instrument is broken and the empty result means nothing. This catches the entire class in one step: a filter eating its own matches, a wrong path scope, a wrong ref, a typo'd pattern.
+1. **Carry a positive control that shares the target's blind spot.** The same command must also find something you know is present — and the control must traverse **every stage capable of excluding the target**: the same matcher, the same ref, the same path scope, the same downstream filters. A control that survives a stage the target dies at proves nothing.
+
+   This is the rule's own Shape-1 trap, and it is easy to write the weak version. "A control exists" is a *declaration*; "a control runs the failing path" is an *execution*. Worked counterexample — names the reviewed SHA, carries a known-present control, and still publishes a false absence:
+
+   ```sh
+   git grep -n -E '<target>|name: pr-review' <sha> -- .agents/skills/pr-review \
+     | grep -v 'reviewer-instrument-audit.md'
+   ```
+
+   The generic control (`name: pr-review`) survives the `grep -v`; the target does not. Both rules as naively written are satisfied — control present, SHA stated — while the finding is false. Where one control cannot cover every stage, place a control **at each** failure-prone stage.
 2. **State the tree.** A review asserting an absence must name the **branch or SHA** it searched. A local checkout is not the PR; `git grep` on `dev` cannot see a branch's code, and it exits 0 with empty output while doing so.
 
-### Worked failures
+### Worked failure
 
-Both of these searched for a real caller that was present the whole time:
+`git grep <name>` run against a **local checkout still on `dev`**, proving an absence against a tree that structurally could not contain the branch's code. `git grep` exits 0 with empty output while doing it, so the result is indistinguishable from a genuine absence.
 
-- `git grep <name> -- <paths> | grep -v "<module>.mjs"` — the filter's own pattern matched the **dynamic-import path**, deleting the one line that proved the caller existed.
-- `git grep <name>` run against a local checkout still on `dev`, proving an absence against a tree that structurally could not contain the branch's code.
+A stage-matched control kills it instantly: the control is missing too, because the wrong tree contains neither.
 
-A positive control kills both instantly: the first shows the control disappearing along with the caller, the second shows the control missing from the wrong tree.
+**A caution the same review earned.** A second reviewer reached the *same* false absence on the same module and published a `grep -v` as the cause. An exact-object probe at the cited head later showed the filter did **not** remove the proving line — so the finding was false but the stated mechanism was never established. Diagnosing your own broken search is itself a claim, and it is subject to this section: an unverified account of *why* a search failed is not evidence, and it propagates faster than the finding because it sounds like a lesson.
 
 ---
 
-## Empirical anchor — five instances, one day, two reviewers
+## Empirical anchor — four events, one day, three PRs, two reviewers
 
-Measured, not imagined. All resolved; cited so a future reader can see the shape recur rather than take it on assertion.
+Each row verified against its exact Git object, not against the review text that reported it. An earlier draft of this table carried five rows and two wrong coordinates, both lifted from peer review prose — which is the failure this file exists to prevent, committed by this file.
 
-| # | instance | shape |
-|---|---|---|
-| 1 | `SEAT_ADAPTER_PRODUCER` gated on `typeof !== 'function'`; a no-op satisfied it (#16037) | 1 |
-| 2 | Cockpit field declared, read and tested with **no writer**; the spec hand-injected it (#16050, Drop+Supersede) | 1 |
-| 3 | Reviewer asserted a gate forgeable while the producer *was* invoked one layer up (#16053) | 1-converse |
-| 4 | `grep -v "<module>.mjs"` deleted the dynamic-import line proving the caller (#16053) | 2 |
-| 5 | `git grep` over a local checkout on `dev`, wrong tree entirely (#16053) | 2 |
+| # | event | verified at | shape |
+|---|---|---|---|
+| 1 | Gate written `typeof PROMOTION_REPLAY_PRODUCER !== 'function'`; a no-op satisfied it (#16037) | `de2b17d614` | 1 |
+| 2 | `daemonState` / `daemonDegradedReason` declared and read in production, **assigned nowhere**; the unit spec injects them (#16050, Drop+Supersede) | `c3d28ca76d` | 1 |
+| 3 | Reviewer asserted a gate forgeable while the producer *was* invoked one layer up (#16053) | `6f8406178c` | 1-converse |
+| 4 | `git grep` over a local checkout still on `dev` — an absence proven against a tree that could not contain the code (#16053) | `6f8406178c` | 2 |
 
-Instances 3–5 are all **reviewer** error, not author error. Two of them were the same false claim reached by two different broken searches, by two different reviewers, on the same module — which is what moved this from a personal lesson into substrate.
+Events 3 and 4 are **reviewer** error rather than author error, and they are the same false conclusion reached independently by two reviewers on one module — which is what moved this from a personal lesson into substrate.
+
+**Why four and not five.** A fifth row claimed a `grep -v` had deleted the proving line. An exact-object probe at the cited head returned that line intact, so the finding was real but its published cause was not. A false finding plus a *claimed* explanation is **one event**, not two; counting the explanation separately would have inflated the ledger with the very kind of unverified account the rest of this file rejects.
 
 ---
 
@@ -78,7 +87,7 @@ Both shapes here sit on the silent side. That is the entire argument for a check
 
 Per `AGENTS.md §self_evolving_systems`, substrate additions state their cost.
 
-- **Always-loaded cost:** one trigger line in `SKILL.md` (~200 bytes). The Map gains a pointer, not a rule.
+- **Always-loaded cost:** `SKILL.md` 1673 → 2068 bytes, **+395**, measured not estimated. The Map gains a pointer, not a rule.
 - **Conditional cost:** this file, loaded only when a review meets the trigger — a gate/flag/field in the diff, or an absence claim in the review.
-- **Justification:** five instances in one day across three PRs and two reviewers, independently flagged `[TOOLING_GAP]` by both with the same wording. The slot is justified by recurrence, not by novelty.
+- **Justification:** four exact-object-verified events in one day across three PRs and two reviewers, independently flagged `[TOOLING_GAP]` by both with the same wording. The slot is justified by recurrence, not by novelty.
 - **Retirement trigger:** if a mechanical check ever lands that fails a review body asserting an absence without a named tree/SHA, the Shape-2 half retires into that check and this file shrinks to Shape 1 alone.
