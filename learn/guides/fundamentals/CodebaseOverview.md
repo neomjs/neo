@@ -477,7 +477,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 **Creative:**
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
-- `video-create`: Evidence-first end-to-end film production — binds claims, app-owned choreography, voice, capture evidence class, immutable media lineage, whole-artifact QA, delivery, and retention while leaving volatile provider/editor mechanics with their owners.
+- `video-create`: Evidence-first end-to-end film production — binds claims, app-owned choreography, voice, capture evidence class, immutable media lineage, whole-artifact QA, delivery, and retention while leaving volatile provider/editor mechanics with their owners. A conditional macOS native-display Atlas adds privacy-safe stable-window admission for browser films without widening the portable workflow.
 
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
