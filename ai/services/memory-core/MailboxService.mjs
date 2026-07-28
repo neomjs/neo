@@ -132,7 +132,12 @@ function normalizeMailboxTarget(to, sentBy) {
 }
 
 /**
- * @summary Compares mailbox identity operands after canonicalizing both direct-id forms.
+ * @summary Compares mailbox identities through the shared authorization-critical normalizer.
+ *
+ * This comparison gates send-policy checks, mailbox visibility, sender-only retraction, and A2A
+ * Task authority. A normalization change therefore changes production authorization semantics,
+ * even though the shared primitive also serves the read-state diagnostic.
+ *
  * @param {*} left First identity-shaped value.
  * @param {*} right Second identity-shaped value.
  * @returns {Boolean}
