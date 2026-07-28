@@ -19,12 +19,7 @@ import {classifyDiscussionRoutingDisposition}                from '../shared/dis
 import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
 import {verifyDiscussionFrontmatter}                         from './verifyFrontmatterIntegrity.mjs';
 
-const
-    // A clean-slate `first: 50` discussion query exceeds GitHub's GraphQL resource budget once
-    // comments and replies are projected. Thirty is the measured safe outer page size. Cursor
-    // pagination remains unchanged, so this bounds per-query cost without truncating the corpus.
-    discussionOuterPageSize = 30,
-    issueSyncConfig         = aiConfig.issueSync;
+const issueSyncConfig = aiConfig.issueSync;
 
 /**
  * @summary Handles the fetching and local synchronization of GitHub Discussions.
@@ -60,6 +55,17 @@ class DiscussionSyncer extends Base {
      */
     #calculateContentHash(content) {
         return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
+     * @summary Detects GitHub's typed GraphQL resource-budget failure.
+     * @param {Error|*} error The strict GraphQL query failure.
+     * @returns {Boolean} Whether GitHub classified the failure as resource-limit exhaustion.
+     * @private
+     */
+    #isResourceLimitError(error) {
+        return Array.isArray(error?.graphqlErrors) &&
+               error.graphqlErrors.some(item => item.type === 'RESOURCE_LIMITS_EXCEEDED');
     }
 
     /**
@@ -405,6 +411,11 @@ class DiscussionSyncer extends Base {
         let allDiscussions = [];
         let hasNextPage    = true;
         let cursor         = null;
+        let pageSize       = issueSyncConfig.discussionOuterPageSize;
+
+        if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 30) {
+            throw new Error('issueSync.discussionOuterPageSize must be an integer between 1 and 30.');
+        }
 
         // Delta cutoff. Mirror the PR/issue delta: the query orders UPDATED_AT DESC and we stop
         // paginating once a batch's oldest discussion predates the cached high-water mark. A
@@ -419,14 +430,33 @@ class DiscussionSyncer extends Base {
         await fs.mkdir(issueSyncConfig.discussionsDir, { recursive: true });
 
         while (hasNextPage) {
-            const data = await GraphqlService.query(FETCH_DISCUSSIONS_FOR_SYNC, {
-                owner      : aiConfig.owner,
-                repo       : aiConfig.repo,
-                limit      : discussionOuterPageSize,
-                cursor,
-                maxComments: 50,
-                maxReplies : 20
-            });
+            let data;
+
+            try {
+                data = await GraphqlService.query(FETCH_DISCUSSIONS_FOR_SYNC, {
+                    owner      : aiConfig.owner,
+                    repo       : aiConfig.repo,
+                    limit      : pageSize,
+                    cursor,
+                    maxComments: 50,
+                    maxReplies : 20
+                });
+            } catch (error) {
+                if (!this.#isResourceLimitError(error) || pageSize === 1) {
+                    throw error;
+                }
+
+                const nextPageSize = Math.max(1, Math.floor(pageSize / 2));
+
+                logger.warn(
+                    `[DiscussionSyncer] GitHub GraphQL resource limit exceeded; retrying the same ` +
+                    `${cursor === null ? 'initial' : 'continuation'} cursor with outer page size ` +
+                    `${nextPageSize} (was ${pageSize}).`
+                );
+
+                pageSize = nextPageSize;
+                continue;
+            }
 
             const discussions = data.repository.discussions;
 

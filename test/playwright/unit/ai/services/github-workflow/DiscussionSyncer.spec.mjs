@@ -36,6 +36,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let originalQuery;
     let originalSortedReleases;
     let originalDiscussionDenylist;
+    let originalDiscussionOuterPageSize;
     let tmpRoot;
 
     test.beforeAll(async () => {
@@ -51,6 +52,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         originalQuery          = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases = ReleaseNotesSyncer.sortedReleases;
         originalDiscussionDenylist = aiConfig.issueSync.discussionDenylist;
+        originalDiscussionOuterPageSize = aiConfig.issueSync.discussionOuterPageSize;
     });
 
     test.beforeEach(async () => {
@@ -73,6 +75,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig.issueSync.issuesDir       = originalIssuesDir;
         aiConfig.issueSync.contentRoot     = originalContentRoot;
         aiConfig.issueSync.discussionDenylist = originalDiscussionDenylist;
+        aiConfig.issueSync.discussionOuterPageSize = originalDiscussionOuterPageSize;
 
         await fs.remove(tmpRoot).catch(() => {});
     });
@@ -661,6 +664,79 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(calls.map(({limit}) => limit)).toEqual([30, 30]);
         expect(calls.map(({cursor}) => cursor)).toEqual([null, 'page-2']);
         expect(stats.synced).toEqual([26001, 26002])
+    });
+
+    test('rejects an outer page size above the production-proven ceiling (#15977)', async () => {
+        aiConfig.issueSync.discussionOuterPageSize = 31;
+
+        await expect(DiscussionSyncer.syncDiscussions({discussions: {}, lastSync: null}))
+            .rejects.toThrow('issueSync.discussionOuterPageSize must be an integer between 1 and 30.');
+    });
+
+    test('resource-limit recovery halves the page size and retries the same cursor (#15977)', async () => {
+        const
+            first  = buildDiscussion(26003),
+            second = buildDiscussion(26004),
+            calls  = [];
+
+        GraphqlService.query = async (query, variables) => {
+            calls.push({...variables});
+
+            if (calls.length === 1) {
+                const error = new Error('GitHub API error: Resource limits for this query exceeded');
+                error.graphqlErrors = [{type: 'RESOURCE_LIMITS_EXCEEDED'}];
+                throw error;
+            }
+
+            return {
+                repository: {
+                    discussions: variables.cursor === null
+                        ? {nodes: [first], pageInfo: {hasNextPage: true, endCursor: 'page-2'}}
+                        : {nodes: [second], pageInfo: {hasNextPage: false, endCursor: null}}
+                }
+            }
+        };
+
+        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}, lastSync: null});
+
+        expect(calls.map(({limit}) => limit)).toEqual([30, 15, 15]);
+        expect(calls.map(({cursor}) => cursor)).toEqual([null, null, 'page-2']);
+        expect(stats.synced).toEqual([26003, 26004]);
+    });
+
+    test('resource-limit recovery fails loud when one discussion still exceeds the budget (#15977)', async () => {
+        const calls = [];
+
+        GraphqlService.query = async (query, variables) => {
+            calls.push({...variables});
+
+            const error = new Error('GitHub API error: Resource limits for this query exceeded');
+            error.graphqlErrors = [{type: 'RESOURCE_LIMITS_EXCEEDED'}];
+            throw error;
+        };
+
+        await expect(DiscussionSyncer.syncDiscussions({discussions: {}, lastSync: null}))
+            .rejects.toThrow('GitHub API error: Resource limits for this query exceeded');
+
+        expect(calls.map(({limit}) => limit)).toEqual([30, 15, 7, 3, 1]);
+        expect(calls.map(({cursor}) => cursor)).toEqual([null, null, null, null, null]);
+    });
+
+    test('non-resource GraphQL failures do not enter the page-size recovery path (#15977)', async () => {
+        const calls = [];
+
+        GraphqlService.query = async (query, variables) => {
+            calls.push({...variables});
+
+            const error = new Error('GitHub API error: Repository access denied');
+            error.graphqlErrors = [{type: 'FORBIDDEN'}];
+            throw error;
+        };
+
+        await expect(DiscussionSyncer.syncDiscussions({discussions: {}, lastSync: null}))
+            .rejects.toThrow('GitHub API error: Repository access denied');
+
+        expect(calls.map(({limit}) => limit)).toEqual([30]);
     });
 
     test('containment: skips and excludes a denylisted discussion (by number)', async () => {

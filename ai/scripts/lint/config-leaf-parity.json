@@ -282,6 +282,7 @@
         "issueSync.contentRoot",
         "issueSync.discussionDenylist",
         "issueSync.discussionFilenamePrefix",
+        "issueSync.discussionOuterPageSize",
         "issueSync.discussionsDir",
         "issueSync.droppedLabels",
         "issueSync.issueFilenamePrefix",
