@@ -61,7 +61,9 @@ const
     filmPace    = filmTake
         ? {birthAttempts: 240, curve: 0.18, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
         : {},
-    filmControl = resolveFilmControl();
+    filmControl      = resolveFilmControl(),
+    ordinaryScreen   = {height: 1080, width: 1920},
+    ordinaryViewport = {height: 800, width: 1280};
 
 /**
  * @summary Resolves the optional film-only ready/go/receipt file contract, rejecting partial,
@@ -208,6 +210,48 @@ async function awaitFilmGo(payload) {
 }
 
 /**
+ * @summary Reads the browser, emulation, and app-root geometry as distinct film-stage surfaces.
+ * @param {Object} page Playwright page.
+ * @returns {Promise<Object>} Fixed-emulation state plus browser inner/outer, DPR, and root geometry.
+ */
+async function readBrowserSurface(page) {
+    const
+        emulatedViewport = page.viewportSize(),
+        browser          = await page.evaluate(() => {
+            const
+                root     = document.querySelector('body > .neo-viewport'),
+                rootRect = root?.getBoundingClientRect(),
+                pickRect = rect => rect && ({
+                    bottom: rect.bottom,
+                    height: rect.height,
+                    left  : rect.left,
+                    right : rect.right,
+                    top   : rect.top,
+                    width : rect.width,
+                    x     : rect.x,
+                    y     : rect.y
+                });
+
+            return {
+                devicePixelRatio: globalThis.devicePixelRatio,
+                inner           : {
+                    height: globalThis.innerHeight,
+                    width : globalThis.innerWidth,
+                    x     : globalThis.screenX,
+                    y     : globalThis.screenY
+                },
+                outer: {
+                    height: globalThis.outerHeight,
+                    width : globalThis.outerWidth
+                },
+                root: pickRect(rootRect)
+            }
+        });
+
+    return {...browser, emulatedViewport}
+}
+
+/**
  * Film mode only: pins the main window to a deterministic stage via CDP `Browser.setWindowBounds` —
  * the instance-addressed placement verb (never AppleScript: two same-bundle Chrome processes make
  * script addressing flip-flop, which is why the boot already fronts via CDP). CDP moves the native
@@ -232,6 +276,7 @@ async function pinToCaptureDisplay(page) {
     const session    = await page.context().newCDPSession(page),
           {windowId} = await session.send('Browser.getWindowForTarget'),
           current    = (await session.send('Browser.getWindowBounds', {windowId})).bounds,
+          before     = await readBrowserSurface(page),
           raw        = process.env.NEO_FILM_DISPLAY_BOUNDS,
           parsed     = raw?.split(',').map(Number),
           valid      = parsed?.length === 4 && parsed.every(Number.isFinite),
@@ -246,22 +291,54 @@ async function pinToCaptureDisplay(page) {
         console.log(`[film-stage] NEO_FILM_DISPLAY_BOUNDS invalid, ignoring: "${raw}"`)
     }
 
-    let observed;
+    expect(before.emulatedViewport,
+        'film mode must disable Playwright viewport emulation before native staging').toBeNull();
+
+    let after;
 
     await expect.poll(async () => {
-        observed = await page.evaluate(() => ({
-            height: globalThis.innerHeight,
-            width : globalThis.innerWidth,
-            x     : globalThis.screenX,
-            y     : globalThis.screenY
-        }));
+        after = await readBrowserSurface(page);
 
-        return Math.max(Math.abs(observed.x - bounds.left), Math.abs(observed.y - bounds.top))
+        return {
+            positioned: Math.max(
+                Math.abs(after.inner.x - bounds.left),
+                Math.abs(after.inner.y - bounds.top)
+            ) <= 80,
+            sized: Math.max(
+                Math.abs(after.outer.width  - bounds.width),
+                Math.abs(after.outer.height - bounds.height)
+            ) <= 2
+        }
     }, {
-        message  : 'the film-stage adapter must observe the requested native-window landing',
+        message  : 'the browser surface must adopt the requested native-window landing',
         timeout  : 5000,
         intervals: [25, 50, 100]
-    }).toBeLessThanOrEqual(80);
+    }).toEqual({positioned: true, sized: true});
+
+    expect(after.emulatedViewport,
+        'film mode must remain outside Playwright viewport emulation after native staging').toBeNull();
+
+    const
+        beforeInsets = {
+            height: before.outer.height - before.inner.height,
+            width : before.outer.width  - before.inner.width
+        },
+        afterInsets = {
+            height: after.outer.height - after.inner.height,
+            width : after.outer.width  - after.inner.width
+        };
+
+    expect(Math.max(
+        Math.abs(afterInsets.width  - beforeInsets.width),
+        Math.abs(afterInsets.height - beforeInsets.height)
+    ), 'browser chrome insets must stay stable across the native resize').toBeLessThanOrEqual(2);
+    expect(after.root, 'the film stage must expose the Workstation viewport root').toBeTruthy();
+    expect(Math.max(Math.abs(after.root.x), Math.abs(after.root.y)),
+        'the Workstation viewport root must begin at the browser content origin').toBeLessThanOrEqual(1);
+    expect(Math.max(
+        Math.abs(after.root.width  - after.inner.width),
+        Math.abs(after.root.height - after.inner.height)
+    ), 'the Workstation viewport root must fill the live browser content area').toBeLessThanOrEqual(1);
 
     await expect.poll(() => page.evaluate(() =>
         Boolean(globalThis.Neo?.main?.addon?.WindowPosition?.publishGeometry)
@@ -278,10 +355,11 @@ async function pinToCaptureDisplay(page) {
     });
 
     console.log(`[film-stage] window pinned via Browser.setWindowBounds: ${JSON.stringify(bounds)}` +
-        `; observed geometry republished: ${JSON.stringify(observed)}` +
+        `; browser surface adopted: ${JSON.stringify(after)}` +
+        `; chrome insets stable: ${JSON.stringify({after: afterInsets, before: beforeInsets})}` +
         (valid ? ' (explicit NEO_FILM_DISPLAY_BOUNDS target)' : ' (natural landing, size pinned)'));
 
-    return {bounds, neoWindowId, observed}
+    return {after, before, bounds, chromeInsets: {after: afterInsets, before: beforeInsets}, neoWindowId}
 }
 
 /**
@@ -299,13 +377,26 @@ async function assertStageGeometryPublished(app, stageReceipt) {
     let receipt;
 
     await expect.poll(async () => {
-        const state    = await app.callMethod(manager.id, 'toJSON'),
-              managed  = state.windows.find(item => item.id === stageReceipt.neoWindowId)?.innerRect,
-              observed = stageReceipt.observed,
-              delta    = managed && ['x', 'y', 'width', 'height']
-                  .map(key => Math.abs(managed[key] - observed[key]));
+        const
+            state         = await app.callMethod(manager.id, 'toJSON'),
+            managedWindow = state.windows.find(item => item.id === stageReceipt.neoWindowId),
+            observed      = stageReceipt.after,
+            delta         = managedWindow?.innerRect && managedWindow?.outerRect
+                ? [
+                    ...['x', 'y', 'width', 'height']
+                        .map(key => Math.abs(managedWindow.innerRect[key] - observed.inner[key])),
+                    Math.abs(managedWindow.outerRect.width  - observed.outer.width),
+                    Math.abs(managedWindow.outerRect.height - observed.outer.height)
+                ]
+                : null;
 
-        receipt = {managed, observed};
+        receipt = {
+            browser: observed,
+            managed: managedWindow && {
+                inner: managedWindow.innerRect,
+                outer: managedWindow.outerRect
+            }
+        };
 
         return delta ? Math.max(...delta) : Infinity
     }, {
@@ -316,7 +407,7 @@ async function assertStageGeometryPublished(app, stageReceipt) {
 
     console.log(`[film-stage] manager.Window parity: ${JSON.stringify(receipt)}`);
 
-    return receipt
+    return {...stageReceipt, managed: receipt.managed}
 }
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
@@ -326,10 +417,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     test.setTimeout(180000);
     // The later beats need real screen estate to the right of the main window for vessels;
     // scene 1 inherits the same stage so the recorded geometry never shifts between beats.
-    test.use({
-        contextOptions: {screen: {height: 1080, width: 1920}},
-        viewport      : {height: 800, width: 1280}
-    });
+    test.use(filmTake
+        ? {viewport: null}
+        : {
+            contextOptions: {screen: ordinaryScreen},
+            viewport      : ordinaryViewport
+        });
 
     /**
      * Boots the workstation, connects the Neural Link bridge, and wires error capture plus the
@@ -379,6 +472,16 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         await page.waitForSelector('.workstation-tour-play',    {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
 
+        const emulatedViewport = page.viewportSize();
+
+        if (filmTake) {
+            expect(emulatedViewport,
+                'film mode must delegate page geometry to the native Chrome window').toBeNull()
+        } else {
+            expect(emulatedViewport,
+                'ordinary E2E mode must retain its deterministic emulated viewport').toEqual(ordinaryViewport)
+        }
+
         // A film take records the physical display: the headed window must be the top of the
         // z-order or the capture shows whatever application happens to cover it. CDP-level and
         // deterministic — never AppleScript (two same-bundle Chrome processes make script
@@ -397,7 +500,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(workspaces, 'the connected page must own exactly one current Workspace').toHaveLength(1);
         expect(wsId, 'the App Worker must own one Workspace').toBeTruthy();
-        stageReceipt && await assertStageGeometryPublished(app, stageReceipt);
+        if (stageReceipt) {
+            stageReceipt = await assertStageGeometryPublished(app, stageReceipt)
+        }
 
         return {
             app,
@@ -492,7 +597,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      */
     async function captureWorkspaceContinuity(page, action) {
         const
-            viewport = page.viewportSize(),
+            viewport = await page.evaluate(() => ({
+                height: globalThis.innerHeight,
+                width : globalThis.innerWidth
+            })),
             box      = await page.locator('.workstation-dock-host').boundingBox(),
             session  = await page.context().newCDPSession(page),
             frames   = [],
@@ -500,7 +608,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         let resolveFirstFrame;
 
         expect(box, 'the dock host must expose a measurable compositor region').toBeTruthy();
-        expect(viewport, 'the page must expose a fixed film viewport').toBeTruthy();
+        expect(Math.min(viewport.height, viewport.width),
+            'the film screencast must expose a positive live browser content area').toBeGreaterThan(0);
 
         const firstFrame = new Promise(resolve => {
             resolveFirstFrame = resolve
