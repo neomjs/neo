@@ -44,6 +44,8 @@ const repoRoot                 = path.resolve(path.dirname(fileURLToPath(import.
  * memory writes. It records an active interval at turn start, refreshes it during long turns, and
  * terminalizes it when a lifecycle terminal proof such as `add_memory` succeeds.
  */
+let MEMORY_ACCEPTED_MESSAGE;
+
 test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
     test.describe.configure({mode: 'serial'});
 
@@ -55,7 +57,8 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
     test.beforeAll(async () => {
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-        MemoryService        = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+        ({default: MemoryService, MEMORY_ACCEPTED_MESSAGE} =
+            await import('../../../../../../ai/services/memory-core/MemoryService.mjs'));
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         TurnPresenceService  = (await import('../../../../../../ai/services/memory-core/TurnPresenceService.mjs')).default;
@@ -207,7 +210,7 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
             response: 'turn-presence response'
         }));
 
-        expect(result.message).toBe('Memory successfully added');
+        expect(result.message).toBe(MEMORY_ACCEPTED_MESSAGE);
 
         const node = getNode('memory-turn');
         expect(node.properties.status).toBe('terminal');

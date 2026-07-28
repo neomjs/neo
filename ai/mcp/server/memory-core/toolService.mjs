@@ -177,9 +177,16 @@ const serviceMapping = {
     // populate an observed column. Read from the SAME per-server config the boot assertion
     // verified (`Server.aiConfig` === this singleton) — never a second Provider, so a custom
     // child overlay can never verify one identity and report another.
+    //
+    // `memoryWalDrain` is folded in here rather than becoming a new tool: "is my write visible yet?"
+    // is a liveness question, and the MCP surface is capped — a dedicated drain tool would spend a
+    // slot on something an existing read already answers. Without it the `add_memory` disclosure
+    // would only relocate the uncertainty: a caller told "queryability is deferred" needs somewhere
+    // to CONFIRM visibility rather than a caveat and no instrument.
     healthcheck                 : async args => ({
         ...await HealthService.healthcheck(args),
-        plane: {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot}
+        memoryWalDrain: await MemoryService.describeDrainState(),
+        plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot}
     }),
     mutate_frontier             : MemoryService          .mutateFrontier          .bind(MemoryService),
     pre_brief_session           : MemoryService          .preBriefSession         .bind(MemoryService),
