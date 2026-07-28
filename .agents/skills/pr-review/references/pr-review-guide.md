@@ -240,13 +240,13 @@ Future-work suggestions, non-blocking observations, and follow-up ideas are revi
 
 10% AC/scope sanity layer unless execution disproves the diff. Verify claims and canonical test placement; green tests cannot override a wrong premise or owner.
 
-Exact-head required CI is routine unit/integration evidence. Do not search for or rerun "related tests" to duplicate green CI. Run and record a targeted falsifier only for a concrete behavior CI does not establish.
+Exact-head required CI is routine unit/integration evidence. Do not search for or rerun "related tests" to duplicate green CI. `NEO_TEST_SKIP_CI` coverage is the mechanical exception: require an exact-head author receipt, validate or challenge it, and run locally only as a named falsifier when your environment has the capability.
 
 **Citation vs inference:** verify the citation; RUN the inference — anything downstream of "therefore / so / which means / hence" in your draft is an inference; grep the connective before submitting (correction-culture).
 
 Deployment proof gates only if it can deploy the exact unmerged head. Consumers limited to merged `dev` / `main` / release artifacts make it Post-Merge Validation; failure becomes a new ticket.
 
-Authors own existing non-CI coverage for touched surfaces. Reviewers validate receipts and challenge obvious omissions, not reconstruct dependency reach. For added/moved tests, verify the canonical directory per `.agents/skills/unit-test/references/unit-test.md`. Docs/template-only changes need no runtime evidence.
+Authors own existing non-CI coverage for touched surfaces. Reviewers validate receipts and challenge obvious omissions, not reconstruct dependency reach. For added/moved tests, inspect only placement and idioms via the unit-test reference's **Review-Only Boundary**; do not enter its author/executor initialization. Docs/template-only changes need no runtime evidence.
 
 ### 7.5.1 Core-Idiom Audit
 
