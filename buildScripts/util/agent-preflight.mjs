@@ -28,7 +28,14 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 const
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
-    FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i;
+    FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
+    CONVENTIONAL_TYPE_PATTERN     = /^([a-z][a-z0-9-]*)(?:\([^()\r\n]+\))?!?:\s+\S/;
+
+export const CHANGE_CLASS_TO_TYPE = Object.freeze({
+    capability  : 'feat',
+    restoration : 'fix',
+    'zero-delta': 'chore'
+});
 
 /**
  * @summary Builds the Commander program for the agent preflight helper.
@@ -39,6 +46,9 @@ export function createProgram() {
         .name('agent-preflight')
         .description('Runs the agent commit/PR preflight gates in one pass; default mode may repair block alignment.')
         .usage('[options] [files...]')
+        .option('--change-class <class>', 'Declare capability, restoration, or zero-delta for subject validation.')
+        .option('--commit-subject <subject>', 'Validate the intended commit subject against --change-class.')
+        .option('--pr-title <title>', 'Validate the intended PR title against --change-class.')
         .option('--pr-body <file>', 'Run local PR-body template lint against the given markdown file.')
         .option('--pr-draft', 'Validate --pr-body as a draft PR: Refs/Related may temporarily stand in for Resolves.')
         .option('--no-fix', 'Check-only mode: skip the check-block-alignment --fix repair pass.')
@@ -60,11 +70,14 @@ export function parseArgs(argv) {
     const options = program.opts();
 
     return {
-        files  : program.args,
-        fix    : options.fix,
-        help   : false,
-        prBody : options.prBody || null,
-        prDraft: options.prDraft || false
+        changeClass  : options.changeClass || null,
+        commitSubject: options.commitSubject || null,
+        files        : program.args,
+        fix          : options.fix,
+        help         : false,
+        prBody       : options.prBody || null,
+        prDraft      : options.prDraft || false,
+        prTitle      : options.prTitle || null
     }
 }
 
@@ -99,6 +112,83 @@ export function filterMjsFiles(files) {
 }
 
 /**
+ * @summary Validates the author's explicit semantic change class against intended Conventional Commit subjects.
+ *
+ * The author owns the semantic classification. This guard deliberately does not inspect issue labels, changed
+ * files, or diff size; it only maps the declared class to its required type and checks the supplied surfaces.
+ *
+ * @param {Object} [options]
+ * @param {String|null} [options.changeClass]
+ * @param {String|null} [options.commitSubject]
+ * @param {String|null} [options.prTitle]
+ * @returns {{errors: String[], expectedType: String|null, skipped: Boolean, valid: Boolean}}
+ */
+export function validateChangeClass({
+    changeClass = null,
+    commitSubject = null,
+    prTitle = null
+} = {}) {
+    const
+        subjects = [
+            {label: 'commit subject', value: commitSubject},
+            {label: 'PR title',       value: prTitle}
+        ].filter(({value}) => Boolean(value)),
+        hasInput = Boolean(changeClass) || subjects.length > 0;
+
+    if (!hasInput) {
+        return {
+            errors      : [],
+            expectedType: null,
+            skipped     : true,
+            valid       : true
+        }
+    }
+
+    const
+        errors       = [],
+        expectedType = Object.hasOwn(CHANGE_CLASS_TO_TYPE, changeClass)
+            ? CHANGE_CLASS_TO_TYPE[changeClass]
+            : null;
+
+    if (!changeClass) {
+        errors.push('`--change-class` is required when `--commit-subject` or `--pr-title` is provided.')
+    } else if (!expectedType) {
+        errors.push(
+            `Unknown change class \`${changeClass}\`; expected capability, restoration, or zero-delta.`
+        )
+    }
+
+    if (subjects.length === 0) {
+        errors.push('`--change-class` requires at least one `--commit-subject` or `--pr-title` to validate.')
+    }
+
+    if (expectedType) {
+        subjects.forEach(({label, value}) => {
+            const match = value.match(CONVENTIONAL_TYPE_PATTERN);
+
+            if (!match) {
+                errors.push(
+                    `${label} is missing a valid Conventional Commit prefix; change class ` +
+                    `\`${changeClass}\` requires \`${expectedType}\`.`
+                )
+            } else if (match[1] !== expectedType) {
+                errors.push(
+                    `${label} declares \`${match[1]}\`, but change class \`${changeClass}\` ` +
+                    `requires \`${expectedType}\`.`
+                )
+            }
+        })
+    }
+
+    return {
+        errors,
+        expectedType,
+        skipped: false,
+        valid  : errors.length === 0
+    }
+}
+
+/**
  * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
  * @param {String} body
  * @param {Object} [options]
@@ -107,10 +197,10 @@ export function filterMjsFiles(files) {
  */
 export function validatePrBody(body, {draft = false} = {}) {
     const
-        missingVisible        = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
-        missingInvisible      = INVISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
-        forbiddenClose        = body.match(FORBIDDEN_CLOSE_PATTERN),
-        hasResolves           = RESOLVES_PATTERN.test(body),
+        missingVisible         = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
+        missingInvisible       = INVISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
+        forbiddenClose         = body.match(FORBIDDEN_CLOSE_PATTERN),
+        hasResolves            = RESOLVES_PATTERN.test(body),
         hasNonClosingReference = NON_CLOSING_REFERENCE_PATTERN.test(body);
 
     if (forbiddenClose) {
@@ -394,6 +484,24 @@ export function runAgentPreflight({
         }
     }
 
+    const changeClassResult = validateChangeClass(options);
+
+    if (changeClassResult.skipped) {
+        writeLine(stdout, 'agent-preflight: no semantic inputs provided; skipped change-class validation.');
+    } else if (changeClassResult.valid) {
+        const surfaceCount = [options.commitSubject, options.prTitle].filter(Boolean).length;
+
+        writeLine(
+            stdout,
+            `agent-preflight: declared ${options.changeClass} maps to ${changeClassResult.expectedType}; ` +
+            `${surfaceCount} intended subject${surfaceCount === 1 ? '' : 's'} matched.`
+        )
+    } else {
+        failures.push('change-class');
+        writeLine(stderr, 'agent-preflight: change-class validation failed.');
+        changeClassResult.errors.forEach(error => writeLine(stderr, `  - ${error}`))
+    }
+
     // Advisory-only local overlay drift check. Gitignored config.mjs overlays can go stale even when the
     // staged source gates are green; surfacing the exact STALE_OVERLAY rows here prevents false-green PR
     // churn without mutating operator-local files or failing unrelated preflight runs.
@@ -415,7 +523,7 @@ export function runAgentPreflight({
         const result = runPrBodyGate({
             cwd,
             existsSyncImpl,
-            prBody: options.prBody,
+            prBody : options.prBody,
             prDraft: options.prDraft,
             readFileSyncImpl
         });
