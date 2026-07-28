@@ -138,8 +138,9 @@ class SyncService extends Base {
      * 1. Loads the persistent metadata via `MetadataManager` — one accumulator every facet mutates.
      * 2. Prerequisite `releases`: fetches release data and caches it (`ReleaseNotesSyncer`). Dependent
      *    facets run only if this advanced or a non-empty cached bucketing reference survived.
-     * 3. Facet `issues`: reconciles closed issue locations, **pushes** local changes, then **pulls**
-     *    remote changes, merging the returned metadata into the accumulator (`IssueSyncer`).
+     * 3. Facet `issues`: reconciles closed issue locations, optionally **pushes** local changes, then
+     *    **pulls** remote changes, merging the returned metadata into the accumulator (`IssueSyncer`).
+     *    Scheduled CI emission disables the push half explicitly; the manual full-sync keeps it.
      * 4. Facet `releaseNotes`: syncs release notes into local Markdown (`ReleaseNotesSyncer`).
      * 5. Facet `discussions`: syncs discussions into local Markdown (`DiscussionSyncer`).
      * 6. Facet `pulls`: reconciles closed pull locations, syncs pulls, repairs duplicates, realigns
@@ -148,9 +149,12 @@ class SyncService extends Base {
      * 7. Rebuilds Portal content indexes and SEO artifacts from whatever advanced.
      * 8. Throws one aggregate verdict naming every facet that did not advance — partial progress must
      *    never report as a clean run.
+     * @param {Object} [options]
+     * @param {Boolean} [options.pushLocalChanges=true] Whether locally-authored issue changes may
+     * be pushed to GitHub before the pull. Scheduled CI emission passes `false` and remains read-only.
      * @returns {Promise<object>} Statistics for the emitted generated content, plus `facetOutcomes`.
      */
-    async emitGeneratedContentAndDerive() {
+    async emitGeneratedContentAndDerive({pushLocalChanges = true} = {}) {
         const
             metadata = await MetadataManager.load(),
             outcomes = [],
@@ -224,7 +228,12 @@ class SyncService extends Base {
 
         await dependentFacet('issues', ['issues', 'pushFailures', 'lastSync'], async () => {
             reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
-            pushStats      = await IssueSyncer.pushToGitHub(metadata);
+            if (pushLocalChanges) {
+                pushStats = await IssueSyncer.pushToGitHub(metadata)
+            } else {
+                pushStats = {skipped: true, reason: 'pull-only generated-content emission'};
+                logger.info('[SyncService] Pull-only emission: skipping local-to-GitHub issue push.')
+            }
 
             const {newMetadata, stats} = await IssueSyncer.pullFromGitHub(metadata);
 

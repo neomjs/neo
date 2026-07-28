@@ -55,6 +55,7 @@ async function createRepositoryFixture() {
     await write(seed, 'apps/portal/resources/data/tickets/index.json', '{"version":1}\n');
     await write(seed, 'apps/portal/sitemap.xml', '<urlset />\n');
     await write(seed, 'apps/portal/llms.txt', 'v1\n');
+    await write(seed, 'resources/content/.sync-metadata.json', '{}\n');
     await write(seed, 'source.txt', 'v1\n');
     runGit(seed, ['add', '.']);
     runGit(seed, ['commit', '-m', 'initial']);
@@ -91,13 +92,16 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
             ':(glob)apps/devindex/resources/data/*.json*',
             'apps/portal/resources/data',
             'apps/portal/sitemap.xml',
-            'apps/portal/llms.txt'
+            'apps/portal/llms.txt',
+            'resources/content'
         ]);
         expect(isGeneratedDataPath('apps/devindex/resources/data/users.jsonl')).toBe(true);
         expect(isGeneratedDataPath('apps/devindex/resources/data/nested/users.jsonl')).toBe(false);
         expect(isGeneratedDataPath('apps/portal/resources/data/tickets/index.json')).toBe(true);
         expect(isGeneratedDataPath('apps/portal/sitemap.xml')).toBe(true);
         expect(isGeneratedDataPath('apps/portal/llms.txt')).toBe(true);
+        expect(isGeneratedDataPath('resources/content/.sync-metadata.json')).toBe(true);
+        expect(isGeneratedDataPath('resources/content/archive/pulls/v13.0.0/chunk-1/pull-1.md')).toBe(true);
         expect(isGeneratedDataPath('src/ManualEdit.mjs')).toBe(false)
     });
 
@@ -120,6 +124,7 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
 
         expect(calls.map(({args, command}) => [command, ...args])).toEqual([
             ['npm', 'ci'],
+            [process.execPath, './ai/scripts/maintenance/syncGithubWorkflow.mjs', '--emit-only'],
             ['npm', 'run', 'devindex:optin'],
             ['npm', 'run', 'devindex:optout'],
             ['npm', 'run', 'devindex:spider', '--', '--strategy', 'random'],
@@ -283,6 +288,8 @@ test.describe('Data Sync pipeline publisher (#15746)', () => {
         // grant is a reachable one that per-stage env scoping cannot revoke. Leaving it at `write`
         // meant three repository-write credentials were alive while this workflow claimed two.
         expect(workflow).toContain('contents: read');
+        expect(workflow).toContain('discussions: read');
+        expect(workflow).toContain('pull-requests: read');
         expect(workflow).not.toMatch(/permissions:\s*\n\s*#[^\n]*\n(\s*#[^\n]*\n)*\s*contents: write/);
 
         // A preflight-only dispatch must not reach the pages push. Without this guard it did —
@@ -379,7 +386,7 @@ test.describe('emission-stage credential scoping', () => {
         expect(values(env)).not.toContain('ambient-default')
     });
 
-    test('every declared emission stage carries an explicit scope, and only intake/none collect data', async () => {
+    test('every declared emission stage carries an explicit scope and none receives the publisher', async () => {
         // Guards the annotation itself: a new stage added without `tokenScope` would inherit
         // `undefined`, land in the `none` branch, and look deliberate. This makes omission visible.
         const calls = [];
@@ -474,6 +481,68 @@ test.describe('tokenScope validation fails closed', () => {
         expect(labelStage, 'the label stage must still be in the shipped table').toBeTruthy();
         expect(labelStage).toContain('credential=reader');
         expect(labelStage).not.toContain('credential=none')
+    });
+
+    test('the corpus stage is pull-only under the reader identity (#15977)', async () => {
+        const
+            calls             = [],
+            originalPublisher = process.env.DATA_SYNC_PUBLISHER_TOKEN,
+            originalReader    = process.env.DATA_SYNC_READER_TOKEN;
+
+        process.env.DATA_SYNC_PUBLISHER_TOKEN = 'PUBLISHER-corpus-stage-test';
+        process.env.DATA_SYNC_READER_TOKEN    = 'READER-corpus-stage-test';
+
+        try {
+            await emitGeneratedData({
+                attempt  : 1,
+                cwd      : '/tmp',
+                execute  : async (command, args, {env}) => calls.push({args, command, token: env.GITHUB_TOKEN}),
+                log      : () => {},
+                preflight: async () => {}
+            });
+
+            const corpus = calls.find(({args}) => args.includes('--emit-only'));
+
+            expect(corpus).toMatchObject({
+                args   : ['./ai/scripts/maintenance/syncGithubWorkflow.mjs', '--emit-only'],
+                command: process.execPath,
+                token  : 'READER-corpus-stage-test'
+            })
+        } finally {
+            if (originalPublisher === undefined) {
+                delete process.env.DATA_SYNC_PUBLISHER_TOKEN
+            } else {
+                process.env.DATA_SYNC_PUBLISHER_TOKEN = originalPublisher
+            }
+
+            if (originalReader === undefined) {
+                delete process.env.DATA_SYNC_READER_TOKEN
+            } else {
+                process.env.DATA_SYNC_READER_TOKEN = originalReader
+            }
+        }
+    });
+
+    test('defers a corpus-stage failure until safe generated progress is published (#15977)', async () => {
+        const fixture = await createRepositoryFixture();
+
+        try {
+            const corpusFailure = new Error('discussion resource limit');
+
+            await expect(runDataSyncPipeline({
+                cwd : fixture.runner,
+                emit: async ({cwd}) => {
+                    await write(cwd, generatedFile, 'generated:partial-progress\n');
+                    return {deferredError: corpusFailure}
+                },
+                log: () => {}
+            })).rejects.toBe(corpusFailure);
+
+            expect(readRemoteFile(fixture, generatedFile)).toBe('generated:partial-progress');
+            expect(remoteSubjects(fixture)[0]).toBe('chore(data): Hourly data sync pipeline update [skip ci]')
+        } finally {
+            await fs.rm(fixture.root, {recursive: true, force: true})
+        }
     });
 
     test('a failing stage names the scope it was granted, not just the child error', async () => {

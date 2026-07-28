@@ -386,7 +386,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled          : null,
             kbSyncEnabled                  : null,
-            githubWorkflowSyncEnabled      : null,
+            githubWorkflowSyncEnabled      : false,
             temporalSummaryEnabled         : null,
             chromaDaemonEnabled            : null,
             bridgeDaemonEnabled            : false,

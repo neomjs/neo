@@ -1150,15 +1150,19 @@ class ConfigBase extends ConfigProvider {
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
                  * `cloud` disables); set `true` only when explicitly opting a lane back in.
-                 * Exception: `bridgeDaemonEnabled` + `swarmHeartbeatEnabled` default `false`
-                 * (wake + heartbeat OFF) — the Stop hook makes them redundant flood; see their
-                 * inline notes. Both remain env-overridable to re-enable.
+                 * Exceptions default `false`: `githubWorkflowSyncEnabled` because the Data Sync
+                 * workflow owns scheduled corpus publication, plus `bridgeDaemonEnabled` and
+                 * `swarmHeartbeatEnabled` because the Stop hook makes wake + heartbeat redundant
+                 * flood. All remain env-overridable to re-enable.
                  * @type {Object}
                  */
                 localOnly: {
-                    primaryDevSyncEnabled    : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    kbSyncEnabled            : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
-                    githubWorkflowSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
+                    primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
+                    kbSyncEnabled        : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    // Scheduled corpus emission belongs to CI's read-only/Publisher split. Local
+                    // checkouts retain the manual CLI but must not regenerate the corpus every two
+                    // hours and accumulate changes they cannot publish through the dev ruleset.
+                    githubWorkflowSyncEnabled: leaf(false, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
                     // Temporal-pyramid aggregation reads checkout-bound sources (resources/content, git log
                     // origin/dev, learn/agentos/decisions) → local-only. Cloud tenants get their corpus via
                     // push-ingest, not this local scan.

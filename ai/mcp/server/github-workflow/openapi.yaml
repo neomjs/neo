@@ -1020,7 +1020,7 @@ paths:
         **When to Use:**
         Use this tool for a fast, offline-capable way to read the content of an issue that is already present on the local disk. This tool reads directly from the file system and does **not** access the GitHub API.
 
-        **Important:** The content returned reflects the last completed scheduled `githubWorkflowSync` run and may lag GitHub. Use the live GitHub tools when freshness matters.
+        **Important:** The content returned reflects the last completed scheduled Data Sync corpus emission and may lag GitHub. Use the live GitHub tools when freshness matters.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -1668,7 +1668,7 @@ paths:
 
         **Important Notes:**
         - Changes are made directly on GitHub via the GraphQL API
-        - The local markdown mirror is refreshed by the scheduled `githubWorkflowSync` lane; use live GitHub reads when freshness matters
+        - The local markdown mirror is refreshed by the scheduled Data Sync pipeline; use live GitHub reads when freshness matters
         - For parent_child: An issue can only have ONE parent at a time
         - For blocked_by: An issue can be blocked by MULTIPLE issues
         - Use `replace_parent=true` to replace an existing parent relationship (parent_child only)
@@ -1677,7 +1677,7 @@ paths:
         **Workflow:**
         1. Identify the issue numbers and relationship type
         2. Call this tool to establish or modify the relationship
-        3. Read the updated relationship from live GitHub; the scheduled `githubWorkflowSync` lane refreshes the local markdown mirror
+        3. Read the updated relationship from live GitHub; the scheduled Data Sync pipeline refreshes the local markdown mirror
       tags: [Issues]
       requestBody:
         required: true

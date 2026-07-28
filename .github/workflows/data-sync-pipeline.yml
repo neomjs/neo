@@ -32,11 +32,13 @@ jobs:
       # reach `github.token` even when the workflow never passes `GITHUB_TOKEN`, so an unused
       # write grant is still a reachable one, and per-stage env scoping cannot revoke it.
       #
-      # `read` rather than `{}` deliberately: nothing in this job demonstrably needs the implicit
-      # token, but "demonstrably" would require a run to establish and the write authority is the
-      # actual defect. Removing write is the verified fix; removing read as well would be an
-      # unverified extra claim, which is the shape of error this PR has already made twice.
+      # `read` rather than `{}` deliberately: corpus emission and content-index derivation use the
+      # implicit token as their scoped reader. Neither needs write authority; the Publisher App
+      # remains the only identity that can publish the generated commit.
       contents: read
+      # Corpus emission reads pull-request and discussion GraphQL surfaces. These remain read-only
+      # on the implicit token; the Publisher App token is still reserved for the final git push.
+      discussions: read
       # The run above asked for has now happened: the `content indexes and SEO` stage pages this
       # repository's labels over GraphQL and had no credential that could, so every scheduled run
       # since the per-stage scoping landed has failed at that stage. NEITHER App can serve it — the
@@ -49,6 +51,7 @@ jobs:
       # exists so the intake identity cannot publish and the publisher cannot mutate the intake
       # repos, which a read-only grant here does not weaken.
       issues: read
+      pull-requests: read
 
     steps:
       # Two identities, because they hold different authority and `create-github-app-token` scopes
