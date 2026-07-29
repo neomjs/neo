@@ -173,6 +173,10 @@ substitute.
 
 A formal `reviewDecision: APPROVED` is necessary but NOT sufficient: a non-empty `reviewRequests`
 blocks merge-handoff until each requested reviewer is disposed. `validateMergeReady` encodes this.
+Canonical `[merge-eligible]` cites a positive B-prime marker; otherwise
+use `[merge-readiness-uncertified][no-positive-observation]`, or
+`[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
+It never grants merge authority.
 
 Exceptions are narrow and must be stated in the PR/review thread:
 - Micro-change: `chore` and `< 20` changed lines, or pure documentation with no runtime impact.

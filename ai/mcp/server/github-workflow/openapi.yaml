@@ -356,13 +356,23 @@ paths:
       summary: Get Conversation (Issue or PR)
       operationId: get_conversation
       x-neo-tool-tier: read
-      x-neo-tool-summary: Fetch a pull request or issue conversation with optional comment-window selectors.
+      x-neo-tool-summary: Fetch PR/issue conversation, or an identity-bound source-owned PR readiness projection.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
         Retrieves the conversation (title, body, comments) for a pull request OR an issue.
-        Supply exactly one of `pr_number` or `issue_number`.
+        Supply exactly one of `pr_number` or `issue_number`. The default
+        `projection: conversation` preserves the existing response shape.
+
+        `projection: merge-readiness` is PR-only and accepts no caller-composed readiness
+        fields. GitHub Workflow binds the current AgentIdentity/GitHub/Memory Core principals,
+        reads the PR twice around two effective branch-rules reads, compares the snapshots,
+        derives required-vs-emitted context states, and feeds them to the existing
+        `validateMergeReady()` predicate. Only a positive coherent observation carries a
+        copyable `[merge-eligible][B-prime:...]` marker. Negative or unreadable observations
+        contain diagnostics and no marker. This resident-local observation reports what was
+        merge-ready at `observedAt`; it never grants merge authority or promises later validity.
 
         **When to Use:**
         Use this tool to get the context of a pull request or issue — the initial proposal/body and the discussion history.
@@ -393,6 +403,11 @@ paths:
                   type: integer
                   description: The issue number. Supply either `pr_number` or `issue_number`, not both.
                   example: 10702
+                projection:
+                  type: string
+                  enum: [conversation, merge-readiness]
+                  default: conversation
+                  description: Response projection. `merge-readiness` requires `pr_number`, is identity-bound, and cannot be combined with comment selectors.
                 comment_id:
                   type: string
                   description: Return only the comment whose GitHub global node ID matches. Elides all other comments; PR title/body are still returned.

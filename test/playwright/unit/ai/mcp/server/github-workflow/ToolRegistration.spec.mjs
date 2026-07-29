@@ -113,4 +113,19 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(paramNames).toContain('cursor');
         expect(operation.parameters.find(parameter => parameter.name === 'cursor').schema.type).toBe('string');
     });
+
+    test('#16029 extends get_conversation without growing the MCP operation catalog', () => {
+        const filePath   = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
+        const doc        = yaml.load(fs.readFileSync(filePath, 'utf8'));
+        const operations = Object.values(doc.paths).flatMap(pathItem =>
+            Object.values(pathItem).filter(value => value?.operationId)
+        );
+        const operation    = operations.find(value => value.operationId === 'get_conversation');
+        const projection   = operation.requestBody.content['application/json'].schema.properties.projection;
+        const operationIds = operations.map(value => value.operationId);
+
+        expect(projection.enum).toEqual(['conversation', 'merge-readiness']);
+        expect(operationIds.filter(id => id === 'get_conversation')).toHaveLength(1);
+        expect(operationIds).not.toContain('certify_merge_readiness');
+    });
 });

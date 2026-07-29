@@ -217,16 +217,28 @@ async function resolveGitHubViewerLogin() {
  * @returns {Promise<Object>}
  */
 async function defaultGitHubIdentityAssertion() {
+    const expectedIdentity = process.env.NEO_AGENT_IDENTITY ||
+        RequestContextService.getAgentIdentityNodeId() ||
+        RequestContextService.getUserId();
     const memoryCoreIdentity = RequestContextService.getAgentIdentityNodeId() ||
         RequestContextService.getUserId();
-
-    return assertExpectedGitHubIdentity({
-        expected: process.env.NEO_AGENT_IDENTITY ||
-            RequestContextService.getAgentIdentityNodeId() ||
-            RequestContextService.getUserId(),
-        actualLogin: await resolveGitHubViewerLogin(),
+    const githubLogin = await resolveGitHubViewerLogin();
+    const assertion   = assertExpectedGitHubIdentity({
+        expected   : expectedIdentity,
+        actualLogin: githubLogin,
         memoryCoreIdentity
     });
+
+    return {
+        ...assertion,
+        principals: {
+            agentIdentity: expectedIdentity
+                ? `@${normalizeGitHubIdentityLogin(expectedIdentity)}`
+                : null,
+            githubLogin,
+            memoryCoreIdentity
+        }
+    };
 }
 
 /**
@@ -236,6 +248,31 @@ async function defaultGitHubIdentityAssertion() {
  */
 function shouldRetryGitHubIdentityAssertion(assertion) {
     return assertion?.code === IdentityAssertionCode.NO_AUTHED_LOGIN;
+}
+
+/**
+ * @summary Resolves one bounded, retry-aware identity assertion for identity-bearing operations.
+ * @param {Object} [options]
+ * @param {Function} [options.assertExpectedIdentity] Shared identity assertion seam.
+ * @param {Number} [options.identityResolutionRetries=1] Empty-login retry count.
+ * @returns {Promise<Object>} Successful assertion including bound principals.
+ * @throws {Error} Structured GitHub identity error when the assertion fails.
+ */
+async function resolveGitHubIdentityAssertion({
+    assertExpectedIdentity    = defaultGitHubIdentityAssertion,
+    identityResolutionRetries = 1
+} = {}) {
+    let assertion = await assertExpectedIdentity();
+
+    for (let retry = 0; !assertion.ok && retry < identityResolutionRetries && shouldRetryGitHubIdentityAssertion(assertion); retry++) {
+        assertion = await assertExpectedIdentity();
+    }
+
+    if (!assertion.ok) {
+        throw createGitHubIdentityError(assertion);
+    }
+
+    return assertion;
 }
 
 /**
@@ -256,15 +293,10 @@ function buildGitHubWriteIdentityGuard(delegate, {
     identityResolutionRetries = 1
 } = {}) {
     return async function githubWriteIdentityGuard(...args) {
-        let assertion = await assertExpectedIdentity();
-
-        for (let retry = 0; !assertion.ok && retry < identityResolutionRetries && shouldRetryGitHubIdentityAssertion(assertion); retry++) {
-            assertion = await assertExpectedIdentity();
-        }
-
-        if (!assertion.ok) {
-            throw createGitHubIdentityError(assertion);
-        }
+        await resolveGitHubIdentityAssertion({
+            assertExpectedIdentity,
+            identityResolutionRetries
+        });
 
         return delegate(...args);
     };
@@ -307,17 +339,18 @@ function guardGitHubWriteTools(mapping, guardOptions) {
  * Exported for unit-test access, mirroring the `buildDevBranchGuard` /
  * `syncAllOnDevOnly` test-surface precedent below.
  *
- * @param {Object|Number} options `pr_number` XOR `issue_number`, plus optional selectors.
+ * @param {Object|Number} options `pr_number` XOR `issue_number`, plus optional selectors/projection.
  *                                A bare number is the backward-compatible positional PR form.
+ * @param {Object} [identityOptions] Injectable identity resolver options for tests.
  * @returns {Promise<Object>} Conversation data or a structured error.
  */
-async function getConversationRouter(options) {
+async function getConversationRouter(options, identityOptions = {}) {
     // Backward-compatible positional number form is always a pull request.
     if (typeof options === 'number') {
         return PullRequestService.getConversation(options);
     }
 
-    const {pr_number, issue_number} = options || {};
+    const {pr_number, issue_number, projection = 'conversation'} = options || {};
 
     if (pr_number && issue_number) {
         return {
@@ -328,10 +361,46 @@ async function getConversationRouter(options) {
     }
 
     if (issue_number) {
+        if (projection === 'merge-readiness') {
+            return {
+                error  : 'Bad Request',
+                message: "The 'merge-readiness' projection requires 'pr_number'.",
+                code   : 'PROJECTION_REQUIRES_PULL_REQUEST'
+            };
+        }
+
         return IssueService.getConversation(options);
     }
 
     if (pr_number) {
+        if (projection === 'merge-readiness') {
+            try {
+                const identityAssertion = await resolveGitHubIdentityAssertion(identityOptions);
+
+                return PullRequestService.getConversation({
+                    ...options,
+                    identityAssertion
+                });
+            } catch (error) {
+                return {
+                    schemaVersion: 'neo.merge-readiness/v1',
+                    projection   : 'merge-readiness',
+                    pr           : pr_number,
+                    observedAt   : new Date().toISOString(),
+                    verdict      : 'unavailable',
+                    blockers     : [{
+                        code   : error.code || 'GITHUB_IDENTITY_ASSERTION_FAILED',
+                        message: error.reason || error.message
+                    }],
+                    audit: [{
+                        source : 'identity-assertion',
+                        outcome: 'failed',
+                        code   : error.code || 'GITHUB_IDENTITY_ASSERTION_FAILED'
+                    }]
+                };
+            }
+        }
+
         return PullRequestService.getConversation(options);
     }
 
@@ -390,7 +459,8 @@ export {
     getConversationRouter,
     guardGitHubWriteTools,
     isPublicGitHubWriteTool,
-    normalizeGitHubIdentityLogin
+    normalizeGitHubIdentityLogin,
+    resolveGitHubIdentityAssertion
 };
 
 const toolService = Neo.create(ToolService, {

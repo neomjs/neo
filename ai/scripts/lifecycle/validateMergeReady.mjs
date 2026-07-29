@@ -26,19 +26,22 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  * @summary Validates whether a PR is STRICT merge-ready against the full review/merge contract.
  *
  * Rules (all must hold for `strictMergeReady`):
- *  1. `reviewDecision === 'APPROVED'`.
- *  2. `checksGreen === true` (all required CI checks pass).
- *  3. `mergeStateStatus` is fetched AND a confirmed-mergeable state (allowlist `CLEAN`/`UNSTABLE`); `UNKNOWN`
+ *  1. The PR source was fetched as `state === 'OPEN'` and `mergedAt === null`.
+ *  2. `reviewDecision === 'APPROVED'`.
+ *  3. `checksGreen === true` (all required CI checks pass).
+ *  4. `mergeStateStatus` is fetched AND a confirmed-mergeable state (allowlist `CLEAN`/`UNSTABLE`); `UNKNOWN`
  *     (mergeability not yet computed) and DIRTY/BEHIND/BLOCKED all fail closed.
- *  4. `reviewRequests` is fetched AND every explicitly-requested reviewer is disposed — i.e. `reviewRequests`
+ *  5. `reviewRequests` is fetched AND every explicitly-requested reviewer is disposed — i.e. `reviewRequests`
  *     minus `disposedReviewers` is empty (the reviewer-contract gate).
  *
- * Fail-CLOSED contract: `checksGreen`, `mergeStateStatus`, and `reviewRequests` that were NOT fetched
- * (`undefined`) each block readiness — an un-queried field cannot certify a green surface, and an
- * omitted `reviewRequests` must never be read as "no outstanding reviewers". Pass `reviewRequests: []`
- * to assert it was fetched-and-empty.
+ * Fail-CLOSED contract: `state`, `mergedAt`, `checksGreen`, `mergeStateStatus`, and `reviewRequests`
+ * that were NOT fetched (`undefined`) each block readiness — an un-queried field cannot certify a
+ * green surface, and an omitted `reviewRequests` must never be read as "no outstanding reviewers".
+ * Pass `mergedAt: null` and `reviewRequests: []` to assert fetched-and-empty values.
  *
  * @param {Object} [pr={}]
+ * @param {String} [pr.state] GitHub PR state; only fetched `OPEN` passes.
+ * @param {String|null} [pr.mergedAt] GitHub merge timestamp; fetched `null` passes.
  * @param {String} [pr.reviewDecision] GitHub flattened review decision (`APPROVED` | `CHANGES_REQUESTED` | `REVIEW_REQUIRED` | null).
  * @param {Boolean} [pr.checksGreen] True when all required CI checks pass; `undefined` (not fetched) fails closed.
  * @param {String} [pr.mergeStateStatus] GitHub mergeStateStatus (`CLEAN` | `UNSTABLE` | `DIRTY` | `BEHIND` | `BLOCKED` | ...); `undefined` (not fetched) fails closed.
@@ -48,6 +51,8 @@ export const MERGEABLE_STATES = ['CLEAN', 'UNSTABLE'];
  */
 export function validateMergeReady(pr = {}) {
     const {
+        state,
+        mergedAt,
         reviewDecision,
         checksGreen,
         mergeStateStatus,
@@ -56,6 +61,18 @@ export function validateMergeReady(pr = {}) {
     } = pr;
 
     const blockers = [];
+
+    if (state === undefined) {
+        blockers.push('state was not fetched — cannot certify the pull request is open; failing closed.');
+    } else if (state !== 'OPEN') {
+        blockers.push(`state is '${state}', not OPEN.`);
+    }
+
+    if (mergedAt === undefined) {
+        blockers.push('mergedAt was not fetched — cannot certify the pull request is unmerged; failing closed.');
+    } else if (mergedAt !== null) {
+        blockers.push(`mergedAt is '${mergedAt}', so the pull request is already merged.`);
+    }
 
     if (reviewDecision !== 'APPROVED') {
         blockers.push(`reviewDecision is '${reviewDecision ?? 'none'}', not APPROVED.`);

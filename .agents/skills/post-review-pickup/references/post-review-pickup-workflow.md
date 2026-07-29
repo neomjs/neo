@@ -73,18 +73,19 @@ Fixup commits alone do NOT discharge it (#14735):
 
 ## 5. PR-state freshness gate
 
-Any report, A2A message, or lane declaration that names a PR's review or merge
-status MUST first read live state:
+Before any report/A2A/lane declaration names PR review or merge status, read
+live GitHub; wakes are hints:
 
 ```bash
 gh pr view <N> --json state,mergedAt,baseRefName,reviewRequests
 ```
 
-Wakes are hints, not cache. A non-empty `reviewRequests` is **not** merge-ready
-even at `reviewDecision=APPROVED` — name the outstanding reviewer(s) as the
-remaining gate. For stacked PRs, name base readiness too; a stale base is
-routable, not a terminal. Relay the review body's verdict, not the flattened
-enum. `ai/scripts/lifecycle/validateMergeReady.mjs` encodes this contract.
+A non-empty `reviewRequests` blocks even at `APPROVED`; name each seat. For
+stacked PRs name base readiness. Relay the review verdict, not the flattened
+enum. `validateMergeReady.mjs` remains the predicate; canonical
+`[merge-eligible]` additionally cites the current positive B-prime observation
+marker. Without one use `[merge-readiness-uncertified][no-positive-observation]`;
+cloud mode uses `[merge-readiness-uncertified][issuer-unavailable:cloud-mode]`.
 
 ## 6. Before claiming a lane
 
