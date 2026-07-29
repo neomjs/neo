@@ -95,6 +95,125 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
     }
 
     /**
+     * @summary Starts an ordinary real-pointer Audit-tab drag and returns its source geometry.
+     * @param {Object} page
+     * @returns {Promise<Object>}
+     */
+    async function startAuditDrag(page) {
+        const header = page.locator('.neo-tab-header-button', {hasText: 'Audit'}).first();
+
+        await expect(header).toBeVisible();
+
+        const box = await header.boundingBox();
+
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2 + 12, box.y + box.height / 2 + 12, {steps: 4});
+        await expect(page.locator('.neo-tab-header-toolbar.neo-is-dragging')).toBeVisible();
+        await expect(page.locator('.neo-dock-dragproxy')).toBeVisible();
+
+        return box
+    }
+
+    /**
+     * @summary Moves the active real-pointer drag to one stable observation position.
+     * @param {Object} page
+     * @param {{x: Number, y: Number}} target
+     */
+    async function parkActivePointer(page, target) {
+        await page.mouse.move(target.x, target.y, {steps: 12});
+
+        for (const dx of [2, -2, 1]) {
+            await page.mouse.move(target.x + dx, target.y, {steps: 1});
+            await page.waitForTimeout(80)
+        }
+
+        await page.waitForTimeout(250)
+    }
+
+    /**
+     * @summary Reads the ordinary dock tab proxy's body-mount, theme identity, geometry, and painted treatment.
+     * @param {Object} page
+     * @returns {Promise<Object|null>}
+     */
+    async function readDockProxyTreatment(page) {
+        return page.evaluate(() => {
+            const
+                proxy = [...document.querySelectorAll('.neo-dock-dragproxy')]
+                    .find(element => element.getClientRects().length > 0),
+                parseColor = value => {
+                    const channels = value?.match(/[\d.]+/g)?.map(Number) || [];
+
+                    return {
+                        alpha: channels.length > 3 ? channels[3] : 1,
+                        rgb  : channels.slice(0, 3)
+                    }
+                },
+                luminance = value => {
+                    const {rgb} = parseColor(value);
+
+                    return rgb.map(channel => {
+                        channel /= 255;
+                        return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4
+                    }).reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0)
+                },
+                contrast = (foreground, background) => {
+                    const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+
+                    return (values[0] + .05) / (values[1] + .05)
+                };
+
+            if (!proxy) return null;
+
+            const
+                content     = proxy.querySelector('.neo-tab-header-button') || proxy,
+                text        = proxy.querySelector('.neo-button-text') || content,
+                icon        = proxy.querySelector('.neo-button-glyph'),
+                proxyRect   = proxy.getBoundingClientRect(),
+                proxyStyle  = getComputedStyle(proxy),
+                contentRect = content.getBoundingClientRect(),
+                textStyle   = getComputedStyle(text),
+                iconStyle   = icon && getComputedStyle(icon);
+
+            return {
+                classes    : [...proxy.classList],
+                contentRect: {
+                    height: contentRect.height,
+                    width : contentRect.width
+                },
+                contrast   : {
+                    glyph: iconStyle ? contrast(iconStyle.color, proxyStyle.backgroundColor) : null,
+                    text : contrast(textStyle.color, proxyStyle.backgroundColor)
+                },
+                parentIsBody: proxy.parentElement === document.body,
+                rect        : {
+                    height: proxyRect.height,
+                    left  : proxyRect.left,
+                    top   : proxyRect.top,
+                    width : proxyRect.width
+                },
+                style       : {
+                    background     : proxyStyle.backgroundColor,
+                    backgroundAlpha: parseColor(proxyStyle.backgroundColor).alpha,
+                    borderColor    : proxyStyle.borderColor,
+                    borderRadius   : proxyStyle.borderRadius,
+                    borderStyle    : proxyStyle.borderStyle,
+                    borderWidth    : proxyStyle.borderWidth,
+                    boxShadow      : proxyStyle.boxShadow,
+                    glyphColor     : iconStyle?.color || null,
+                    textColor      : textStyle.color
+                },
+                tokens      : {
+                    border: proxyStyle.getPropertyValue('--agent-dock-proxy-border').trim(),
+                    ground: proxyStyle.getPropertyValue('--agent-dock-proxy-ground').trim(),
+                    shadow: proxyStyle.getPropertyValue('--agent-dock-proxy-shadow').trim(),
+                    text  : proxyStyle.getPropertyValue('--agent-dock-proxy-text').trim()
+                }
+            }
+        })
+    }
+
+    /**
      * Reads the browser's painted overlay geometry while Neural Link owns interaction truth.
      * @summary Captures the fix-critical containing-block and rect contract without creating a shared helper.
      * @param {Object} page
@@ -190,6 +309,77 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         await page.waitForTimeout(120);
         await page.mouse.up();
         await page.waitForTimeout(300)
+    });
+
+    test('the ordinary body-mounted tab proxy has a theme-owned surface in both modes', async ({page, neuralLink}) => {
+        const
+            {app, scaleBox, wsId} = await bootFlagship(page, neuralLink),
+            positions             = [{
+                x: scaleBox.x + scaleBox.width * .25,
+                y: scaleBox.y + Math.min(70, scaleBox.height * .25)
+            }, {
+                x: scaleBox.x + scaleBox.width * .68,
+                y: scaleBox.y + scaleBox.height * .48
+            }],
+            assertTreatment = (receipt, theme) => {
+                const themeClasses = receipt.classes.filter(cls => cls.startsWith('neo-theme-'));
+
+                expect(receipt.parentIsBody, `${theme} proxy remains a direct-body embodiment`).toBe(true);
+                expect(themeClasses, `${theme} proxy carries exactly its nearest theme`).toEqual([`neo-theme-${theme}`]);
+                expect(receipt.classes).toContain('neo-preview-lang-signal');
+                expect(receipt.tokens.ground, `${theme} proxy resolves its app-projected ground`).toBeTruthy();
+                expect(receipt.tokens.border, `${theme} proxy resolves its app-projected border`).toBeTruthy();
+                expect(receipt.tokens.text, `${theme} proxy resolves its app-projected text`).toBeTruthy();
+                expect(receipt.tokens.shadow, `${theme} proxy resolves its app-projected elevation`).toBeTruthy();
+                expect(receipt.style.backgroundAlpha, `${theme} proxy surface is nontransparent`).toBeGreaterThan(.9);
+                expect(receipt.style.borderStyle).toBe('solid');
+                expect(receipt.style.borderWidth).toBe('1px');
+                expect(receipt.style.borderRadius).not.toBe('0px');
+                expect(receipt.style.boxShadow).not.toBe('none');
+                expect(
+                    receipt.contrast.text,
+                    `${theme} proxy text keeps WCAG AA contrast (${receipt.style.textColor} on ${receipt.style.background})`
+                ).toBeGreaterThanOrEqual(4.5);
+                if (receipt.contrast.glyph !== null) {
+                    expect(
+                        receipt.contrast.glyph,
+                        `${theme} proxy glyph keeps non-text contrast (${receipt.style.glyphColor} on ${receipt.style.background})`
+                    ).toBeGreaterThanOrEqual(3)
+                }
+            },
+            runThemeWitness = async theme => {
+                const sourceRect = await startAuditDrag(page);
+
+                await parkActivePointer(page, positions[0]);
+                const first = await readDockProxyTreatment(page);
+
+                await parkActivePointer(page, positions[1]);
+                const second = await readDockProxyTreatment(page);
+
+                assertTreatment(first, theme);
+                assertTreatment(second, theme);
+                expect(first.rect.width, `${theme} proxy keeps source-strip width`).toBeGreaterThanOrEqual(sourceRect.width);
+                expect(first.rect.height, `${theme} proxy keeps source-strip height`).toBeGreaterThanOrEqual(sourceRect.height);
+                expect(second.rect.width).toBe(first.rect.width);
+                expect(second.rect.height).toBe(first.rect.height);
+                expect(
+                    Math.hypot(second.rect.left - first.rect.left, second.rect.top - first.rect.top),
+                    `${theme} proxy treatment survives movement between two distinct observation positions`
+                ).toBeGreaterThan(20);
+
+                await page.keyboard.press('Escape');
+                await page.waitForTimeout(120);
+                await page.mouse.up();
+                await expect(page.locator('.neo-dock-dragproxy')).toHaveCount(0)
+            };
+
+        await app.callMethod(wsId, 'set', [{previewLanguage: 'signal'}]);
+        await expect(page.locator('.workstation-dock-host')).toHaveClass(/neo-preview-lang-signal/);
+        await runThemeWitness('neo-dark');
+
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+        await expect(page.locator('.workstation-viewport')).toHaveClass(/neo-theme-neo-light/);
+        await runThemeWitness('neo-light')
     });
 
     /**

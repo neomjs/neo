@@ -111,7 +111,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
             expect(lightAnchor).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
         })
 
-        test('the signal language has no literal fallbacks and stays dock-owned across its shared consumers', () => {
+        test('the proxy surface and signal language have no fallbacks and stay dock-owned', () => {
             const
                 containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
                 previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
@@ -129,6 +129,7 @@ test.describe('Neo.dashboard.DockPreview', () => {
             [containerScss.slice(signalStart), previewScss].forEach(source => {
                 expect([...source.matchAll(/var\(--agent-dock-preview-signal[\w-]*\s*,/g)]).toEqual([])
             });
+            expect([...containerScss.matchAll(/var\(--agent-dock-proxy[\w-]*\s*,/g)]).toEqual([]);
 
             // Ownership census: the proxy treatment scopes to the dock-owned embodiment marker
             // (stamped by DockTabSortZone#getDragProxyConfig), NEVER to the generic
@@ -137,18 +138,24 @@ test.describe('Neo.dashboard.DockPreview', () => {
             // list / tree proxies) and the theme subtree (body-level fallback resolution).
             const selectors = uncomment(containerScss);
 
+            expect(selectors).toContain('body > .neo-dock-dragproxy.neo-tab-header-toolbar {');
+            expect(selectors).toContain('--tab-button-glyph-color: var(--agent-dock-proxy-text)');
+            expect(selectors).toContain('--tab-button-text-color : var(--agent-dock-proxy-text)');
             expect(selectors).toContain('.neo-dock-dragproxy.neo-preview-lang-signal');
+            expect(selectors).toContain('background   : var(--agent-dock-proxy-ground)');
+            expect(selectors).toContain('border       : 1px solid var(--agent-dock-proxy-border)');
+            expect(selectors).toContain('color        : var(--agent-dock-proxy-text)');
             expect(selectors).not.toContain(':root:has(');
             expect([...selectors.matchAll(/(?<![\w-])\.neo-dragproxy(?![\w-])/g)]).toEqual([])
         })
 
-        test('the workstation projects every DockPreview domain alias in both modes', () => {
+        test('the workstation projects every dock-affordance domain alias in both modes', () => {
             const
                 dark  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'), 'utf8'),
                 light = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'), 'utf8');
 
             // The flagship consumes the shared preview family (default AND signal), so BOTH mode
-            // files must project the full seven-alias contract. With the no-fallback census above,
+            // files must project the full preview + proxy contract. With the no-fallback census above,
             // a deleted or forgotten projection row now fails HERE instead of silently rendering
             // another app's chroma — the exact miss the cycle-2 review falsified on the proxy.
             [
@@ -158,7 +165,11 @@ test.describe('Neo.dashboard.DockPreview', () => {
                 '--agent-dock-preview-reject-fill',
                 '--agent-dock-preview-signal',
                 '--agent-dock-preview-signal-fill',
-                '--agent-dock-preview-signal-ground'
+                '--agent-dock-preview-signal-ground',
+                '--agent-dock-proxy-border',
+                '--agent-dock-proxy-ground',
+                '--agent-dock-proxy-shadow',
+                '--agent-dock-proxy-text'
             ].forEach(alias => {
                 const declaration = new RegExp(`${alias}\\s*:`);
 

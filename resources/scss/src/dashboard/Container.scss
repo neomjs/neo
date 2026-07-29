@@ -355,9 +355,23 @@
 // never match — dock-owned only. No literal fallback: an unprojected app drops the
 // treatment instead of masking it. The popup-vessel chrome (the multi-window arc)
 // inherits this exact treatment.
+body > .neo-dock-dragproxy.neo-tab-header-toolbar {
+    --tab-button-glyph-color: var(--agent-dock-proxy-text);
+    --tab-button-text-color : var(--agent-dock-proxy-text);
+
+    background   : var(--agent-dock-proxy-ground);
+    border       : 1px solid var(--agent-dock-proxy-border);
+    border-radius: 6px;
+    box-shadow   : 0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
+    box-sizing   : border-box;
+    color        : var(--agent-dock-proxy-text);
+    overflow     : hidden;
+}
+
 .neo-dock-dragproxy.neo-preview-lang-signal {
     box-shadow: 0 0 0 1px var(--agent-dock-preview-signal),
-                0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal) 35%, transparent);
+                0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal) 35%, transparent),
+                0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
 }
 
 @keyframes neo-preview-signal-lock {
