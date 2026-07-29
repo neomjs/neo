@@ -126,6 +126,7 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import {promisify}     from 'util';
 
+import {IDENTITIES}                                                                    from '../../graph/identityRoots.mjs';
 import {initClaudeSettings, listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -236,14 +237,11 @@ export const DEFAULT_CLAUDE_WORKTREES_ROOT = path.join('.claude', 'worktrees');
  * author, the commit succeeds, and the PR renders normally. One agent shift reached 38 such commits
  * across 7 branches before a peer noticed while reading a PR's commit metadata.
  *
- * This CANNOT set the right identity, and deliberately does not try: the bootstrap creates the
- * worktree before any agent occupies it, so it does not know whose it is, and guessing would write a
- * confident wrong attribution in place of an obvious missing one. What it can do is refuse to let the
- * leak stay silent, at the one moment someone is watching the output.
- *
- * The pre-push guard (`check-commit-authorship`) is the mechanical backstop; this is the early
- * warning, and neither replaces the other — the warning is skippable, and the backstop fires only
- * after the work is already committed.
+ * The standard CLI bootstrap first binds the authenticated resident through
+ * `configureAgentGitIdentity()`, then calls this inspector after the build as an independent
+ * effective-config verification. The exported inspector remains side-effect-free so migration
+ * diagnostics and the pre-push backstop can reason about legacy or partially bootstrapped seats
+ * without changing them.
  *
  * @param {Object} options
  * @param {String} options.projectRoot The bootstrapped worktree.
@@ -261,9 +259,10 @@ export async function inspectGitIdentity({projectRoot, readConfig}) {
     });
 
     const
-        globalEmail = (await read(['config', '--global', 'user.email'])).toLowerCase(),
-        localEmail  = (await read(['config', '--local', 'user.email'])).toLowerCase(),
-        effective   = (await read(['config', 'user.email'])).toLowerCase();
+        globalEmail   = (await read(['config', '--global', 'user.email'])).toLowerCase(),
+        worktreeEmail = (await read(['config', '--worktree', 'user.email'])).toLowerCase(),
+        localEmail    = worktreeEmail || (await read(['config', '--local', 'user.email'])).toLowerCase(),
+        effective     = (await read(['config', 'user.email'])).toLowerCase();
 
     return {
         // The leak is precisely "no local identity, so the global one answers". A worktree that set
@@ -271,6 +270,189 @@ export async function inspectGitIdentity({projectRoot, readConfig}) {
         inherited: Boolean(globalEmail) && !localEmail && effective === globalEmail,
         local    : localEmail,
         global   : globalEmail
+    }
+}
+
+/**
+ * @summary Reads the active GitHub CLI account plus its email records without exposing credentials.
+ *
+ * `gh` owns the seat-auth resolution chain (`GH_TOKEN`, `GITHUB_TOKEN`, or its credential store).
+ * Re-implementing that chain here would let bootstrap authenticate differently from every subsequent
+ * GitHub operation in the same seat.
+ *
+ * @returns {Promise<{login: String, emails: Object[]}>} Authenticated account projection.
+ * @private
+ */
+async function getAuthenticatedGitHubAccount() {
+    try {
+        const
+            options              = {maxBuffer: 2 * 1024 * 1024},
+            {stdout: userJson}   = await execFileAsync('gh', ['api', 'user'], options),
+            {stdout: emailsJson} = await execFileAsync('gh', ['api', 'user/emails?per_page=100'], options);
+
+        return {
+            login : JSON.parse(userJson).login,
+            emails: JSON.parse(emailsJson)
+        }
+    } catch (error) {
+        throw new Error(
+            `bootstrapWorktree: failed to resolve the active GitHub account (${error.message}).`,
+            {cause: error}
+        )
+    }
+}
+
+/**
+ * @summary Resolves one canonical Git author identity from roster intent plus authenticated account
+ * truth.
+ *
+ * The roster owns the expected login and display name, but deliberately carries no email. The active
+ * GitHub account owns the actual login plus verified primary email. Both authorities must agree
+ * before Git config is touched; a guessed `<handle>@neomjs.com` address would misattribute residents
+ * whose established commit email differs from their current handle.
+ *
+ * @param {Object}   options
+ * @param {String}   options.agentIdentity          Canonical resident id from `NEO_AGENT_IDENTITY`.
+ * @param {Function} options.getAuthenticatedAccount Async active-account reader.
+ * @returns {Promise<{displayName: String, email: String, login: String}>} Verified author identity.
+ * @private
+ */
+async function resolveAgentGitIdentity({agentIdentity, getAuthenticatedAccount}) {
+    const rawIdentity = typeof agentIdentity === 'string' ? agentIdentity.trim() : '';
+
+    if (!rawIdentity) {
+        throw new Error('bootstrapWorktree: NEO_AGENT_IDENTITY is required outside the main checkout.')
+    }
+
+    const
+        normalizedIdentity = `@${rawIdentity.replace(/^@/, '')}`.toLowerCase(),
+        root               = IDENTITIES.find(candidate => {
+            const
+                id    = typeof candidate.id === 'string' ? candidate.id.toLowerCase() : '',
+                login = typeof candidate.properties?.githubLogin === 'string'
+                    ? candidate.properties.githubLogin.toLowerCase()
+                    : '',
+                isAgent = candidate.type === 'AgentIdentity' &&
+                    candidate.properties?.accountType === 'agent';
+
+            return isAgent && (id === normalizedIdentity || login === normalizedIdentity)
+        });
+
+    if (!root) {
+        throw new Error(`bootstrapWorktree: agent identity '${normalizedIdentity}' is not a mapped agent resident.`)
+    }
+
+    const
+        expectedLogin = typeof root.properties.githubLogin === 'string'
+            ? root.properties.githubLogin.replace(/^@/, '')
+            : '',
+        displayName   = root.properties.displayName?.trim();
+
+    if (!expectedLogin || !displayName) {
+        throw new Error(`bootstrapWorktree: agent identity '${normalizedIdentity}' lacks login/display authority.`)
+    }
+
+    const account     = await getAuthenticatedAccount();
+    const actualLogin = typeof account?.login === 'string' ? account.login.trim() : '';
+
+    if (actualLogin.toLowerCase() !== expectedLogin.toLowerCase()) {
+        throw new Error(
+            `bootstrapWorktree: authenticated GitHub login '${actualLogin || '(missing)'}' does not match ` +
+            `expected agent '${expectedLogin}'.`
+        )
+    }
+
+    const verifiedPrimary = Array.isArray(account.emails)
+        ? account.emails.filter(entry =>
+            entry?.primary === true &&
+            entry?.verified === true &&
+            typeof entry.email === 'string' &&
+            entry.email.trim()
+        )
+        : [];
+
+    if (verifiedPrimary.length !== 1) {
+        throw new Error(
+            `bootstrapWorktree: GitHub account '${expectedLogin}' must expose exactly one verified primary email.`
+        )
+    }
+
+    const email = verifiedPrimary[0].email.trim();
+
+    if (/noreply/iu.test(email)) {
+        throw new Error(`bootstrapWorktree: refusing noreply Git author email for '${expectedLogin}'.`)
+    }
+
+    return {displayName, email, login: expectedLogin}
+}
+
+/**
+ * @summary Binds the authenticated resident's Git author identity at the checkout topology's
+ * narrowest safe scope.
+ *
+ * Main-checkout invocation is a no-op: operator authorship is correct there. Linked worktrees enable
+ * Git's worktree-config extension and write both values with `--worktree`, so sibling agents cannot
+ * overwrite one another through the shared repository config. An explicit independent clone has no
+ * shared worktree config and therefore receives clone-local values.
+ *
+ * All identity validation completes before the first Git call. Missing identity, account mismatch,
+ * missing email scope, or a `noreply` address therefore cannot leave partial config behind.
+ *
+ * @param {Object}   options
+ * @param {String}   options.projectRoot             Checkout being bootstrapped.
+ * @param {String}   options.mainCheckout             Canonical checkout resolved by the CLI.
+ * @param {String}  [options.agentIdentity]           Defaults to `NEO_AGENT_IDENTITY`.
+ * @param {Function}[options.getAuthenticatedAccount] Injectable active-account reader.
+ * @param {Function}[options.execGit]                 Injectable `(args) => {stdout}` Git seam.
+ * @returns {Promise<Object>} Observable action plus configured scope and verified identity fields.
+ */
+export async function configureAgentGitIdentity({
+    projectRoot,
+    mainCheckout,
+    agentIdentity = process.env.NEO_AGENT_IDENTITY,
+    getAuthenticatedAccount: readAccount = getAuthenticatedGitHubAccount,
+    execGit
+} = {}) {
+    if (!projectRoot || !mainCheckout) {
+        throw new Error("bootstrapWorktree: 'projectRoot' and 'mainCheckout' are required for Git identity binding.")
+    }
+
+    if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
+        return {action: 'skipped-main-checkout'}
+    }
+
+    const identity = await resolveAgentGitIdentity({
+        agentIdentity,
+        getAuthenticatedAccount: readAccount
+    });
+    const runGit = execGit || (args => execFileAsync('git', args, {cwd: projectRoot}));
+
+    const
+        {stdout: gitDirOutput}    = await runGit(['rev-parse', '--absolute-git-dir']),
+        {stdout: commonDirOutput} = await runGit(['rev-parse', '--git-common-dir']);
+    const [gitDir, commonDir] = await Promise.all([
+        fs.realpath(path.resolve(projectRoot, gitDirOutput.trim())),
+        fs.realpath(path.resolve(projectRoot, commonDirOutput.trim()))
+    ]);
+    const
+        linkedWorktree = gitDir !== commonDir,
+        scope          = linkedWorktree ? 'worktree' : 'local';
+
+    if (linkedWorktree) {
+        await runGit(['config', 'extensions.worktreeConfig', 'true']);
+    }
+
+    const scopeFlag = linkedWorktree ? '--worktree' : '--local';
+
+    await runGit(['config', scopeFlag, 'user.name', identity.displayName]);
+    await runGit(['config', scopeFlag, 'user.email', identity.email]);
+
+    return {
+        action: 'configured',
+        scope,
+        login : identity.login,
+        name  : identity.displayName,
+        email : identity.email
     }
 }
 
@@ -1330,8 +1512,8 @@ if (isMain) {
     const force      = args.has('--force');
     const pruneStale = args.has('--prune-stale') || argv.includes('--mode=prune-stale') ||
         (argv.includes('--mode') && argv[argv.indexOf('--mode') + 1] === 'prune-stale');
-    const dryRun        = args.has('--dry-run');
-    const jsonOut       = args.has('--json');
+    const dryRun  = args.has('--dry-run');
+    const jsonOut = args.has('--json');
 
     // `--link-data --dry-run` is the spelling an operator reaches for first, so it MUST be the
     // read-only path rather than a flag the link stage quietly ignores while it writes.
@@ -1468,6 +1650,14 @@ if (isMain) {
             }
         }
 
+        // Identity is the first mutating standard-bootstrap stage. Every source-of-authority check
+        // completes before this call writes Git config, and the read-only reconcile/dry-run paths
+        // already exited above.
+        const gitIdentity = await configureAgentGitIdentity({mainCheckout, projectRoot});
+        if (gitIdentity.action === 'configured') {
+            console.log(`✓ Git identity: ${gitIdentity.name} <${gitIdentity.email}> (${gitIdentity.scope})`);
+        }
+
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
         console.log(`\n✓ Bootstrap complete: ${result.copied.length} copied, ${result.skipped.length} skipped, ${result.missing.length} missing (${total} total)`);
@@ -1545,18 +1735,19 @@ if (isMain) {
         const buildResult = await runBuildAll({projectRoot});
         console.log(`✓ Build: ${buildResult}`);
 
-        // Said LAST, deliberately: this is the one line the reader must still have on screen, and a
-        // warning buried above a build log is a warning nobody reads.
-        const identity = await inspectGitIdentity({projectRoot});
+        // Said LAST, deliberately: verify the effective worktree-owned value after every other
+        // bootstrap stage. The main checkout is operator-owned and was intentionally skipped above.
+        if (gitIdentity.action === 'configured') {
+            const identity = await inspectGitIdentity({projectRoot});
 
-        if (identity.inherited) {
-            console.log(`\n\x1b[31m⚠ Git identity: this worktree has none, so commits will be authored as ${identity.global} — the operator.\x1b[0m`);
-            console.log(`  Squash-merge preserves the author, so that credits them on dev for work they did not do.`);
-            console.log(`  Set yours before committing:\n`);
-            console.log(`    git config user.name  "<Your Name>"`);
-            console.log(`    git config user.email "<you>@neomjs.com"\n`);
-        } else if (identity.local) {
-            console.log(`✓ Git identity: ${identity.local}`);
+            if (identity.inherited || identity.local !== gitIdentity.email.toLowerCase()) {
+                throw new Error(
+                    `Git identity verification failed: expected worktree-owned '${gitIdentity.email}', ` +
+                    `observed '${identity.local || '(missing)'}'.`
+                )
+            }
+
+            console.log(`✓ Git identity verified: ${identity.local}`);
         }
     } catch (e) {
         console.error('Bootstrap failed:', e.message);
