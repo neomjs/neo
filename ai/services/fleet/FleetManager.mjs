@@ -203,12 +203,14 @@ class FleetManager extends Base {
      * Delegates to `fleetWakeStateAdapter.readFleetWakeStateSnapshot` with the registry roster (one
      * row per REGISTERED agent, same one-agent-set rule as the sibling views) plus the injected
      * {@link #member-wakeStateOptions}. Observation truth only: subscription intent × daemon PID-file
-     * liveness; the `setWakeEnabled` control verb mutates state this view independently observes.
+     * liveness × the daemon-owned terminal delivery-failure receipts; the `setWakeEnabled` control
+     * verb mutates state this view independently observes.
      * Fail-honest: with no injected options every row reads `unknown` under a `degraded/none`
      * capability — "we cannot see" stays distinguishable from "the fleet is off"; the state is never
      * invented.
      * @returns {Promise<{capability: Object, states: Object[]}>} Adapter snapshot: per-agent
-     * `{agentId, wake, confidence, source}` rows (+ `reason` on `unknown`) and the capability envelope.
+     * `{agentId, wake, confidence, source}` rows (+ a reason/receipt on degraded delivery) and the
+     * capability envelope.
      */
     fleetWakeStatus() {
         return readFleetWakeStateSnapshot({

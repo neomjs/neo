@@ -262,6 +262,16 @@ test.describe('Wake Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
+        const deliveryFailurePath = path.join(DAEMON_DIR, 'wake-delivery-failures.json');
+        fs.writeJsonSync(deliveryFailurePath, {
+            [subId]: {
+                agentIdentity : agentId,
+                subscriptionId: subId,
+                errorClass    : 'connection-refused',
+                failedAt      : '2026-07-29T00:00:00.000Z'
+            }
+        });
+
         // Start the daemon with environment overrides
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
@@ -327,6 +337,7 @@ test.describe('Wake Daemon', () => {
         expect(logContents).toMatch(/\[PID:\d+\]/);                                       // PID prefix
         expect(logContents).toMatch(/\[INFO\]/);                                          // level prefix
         expect(logContents).toContain('[Wake Daemon Test Adapter] Delivered');          // Same delivery line as stdout
+        await expect.poll(() => fs.readJsonSync(deliveryFailurePath)).toEqual({});        // confirmed recovery clears the receipt
     });
 
     test('#14576: priority-filtered subscriptions only deliver high-priority direct and broadcast wakes', async () => {
@@ -794,6 +805,19 @@ test.describe('Wake Daemon', () => {
         expect(failMatches.length).toBeGreaterThanOrEqual(2);   // initial failure + at least one retry
         expect(logContents).toContain('Giving up wake delivery'); // bounded terminal reached
         expect(logContents).toContain('after 2 failed attempts'); // cap respected
+
+        const
+            receiptPath = path.join(DAEMON_DIR, 'wake-delivery-failures.json'),
+            receipts    = fs.readJsonSync(receiptPath);
+
+        expect(receipts[subId]).toMatchObject({
+            agentIdentity : agentId,
+            subscriptionId: subId,
+            errorClass    : 'test-fail-delivery'
+        });
+        expect(Number.isNaN(Date.parse(receipts[subId].failedAt))).toBe(false);
+        expect(fs.statSync(receiptPath).mode & 0o777).toBe(0o600);
+        expect(JSON.stringify(receipts[subId])).not.toContain('simulated delivery failure');
     });
 
     test('#13077: same-subscription consecutive failures COALESCE into one retry digest (no overwrite loss)', async () => {
@@ -2301,6 +2325,8 @@ test.describe('Wake Daemon', () => {
             hostname : '127.0.0.1',
             port     : stubPort,
             sessionId: 'ses_test',
+            projectId: 'project_test',
+            directory: DAEMON_DIR,
             username : 'wake-user',
             password : 'wake-pass'
         });
@@ -2385,6 +2411,194 @@ test.describe('Wake Daemon', () => {
             expect(stdoutLog).toContain('route=opencode-server; adapterSource=metadata');
         } finally {
             stubServer.close();
+        }
+    });
+
+    test('opencode-server rebinds changed coordinates once while preserving the exact owner tuple (#15677)', async () => {
+        const
+            subId   = 'sub_' + crypto.randomUUID(),
+            agentId = '@test-agent-opencode-rebind';
+
+        const deadServer = http.createServer();
+        await new Promise(resolve => deadServer.listen(0, '127.0.0.1', resolve));
+        const deadPort = deadServer.address().port;
+        await new Promise(resolve => deadServer.close(resolve));
+
+        const captured   = [];
+        const liveServer = http.createServer((req, res) => {
+            captured.push({url: req.url, authorization: req.headers.authorization});
+            res.writeHead(204);
+            res.end();
+        });
+        await new Promise(resolve => liveServer.listen(0, '127.0.0.1', resolve));
+        const livePort = liveServer.address().port;
+
+        const
+            envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-rebind.json'),
+            authority    = {
+                sessionId: 'ses_pinned',
+                projectId: 'project_pinned',
+                directory: DAEMON_DIR
+            };
+
+        fs.writeJsonSync(envelopePath, {
+            hostname: '127.0.0.1',
+            port    : deadPort,
+            ...authority,
+            username: 'wake-user-old',
+            password: 'wake-pass-old'
+        });
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+
+        let   output    = '';
+        let   rebound   = false;
+        const delivered = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('OpenCode coordinate rebind did not deliver within timeout')), 15000);
+            const onData  = data => {
+                output += data.toString();
+                if (!rebound && output.includes('re-reading the authoritative envelope once')) {
+                    rebound = true;
+                    fs.writeJsonSync(envelopePath, {
+                        hostname: '127.0.0.1',
+                        port    : livePort,
+                        ...authority,
+                        username: 'wake-user-new',
+                        password: 'wake-pass-new'
+                    });
+                }
+                if (output.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {agentId, subject: 'OpenCode Coordinate Rebind'});
+            await delivered;
+
+            expect(rebound).toBe(true);
+            expect(captured).toHaveLength(1);
+            expect(captured[0].url).toBe('/session/ses_pinned/prompt_async');
+            expect(captured[0].authorization)
+                .toBe('Basic ' + Buffer.from('wake-user-new:wake-pass-new').toString('base64'));
+            expect(output).toContain(`Dispatched ${subId} via opencode-server prompt_async`);
+        } finally {
+            liveServer.closeAllConnections?.();
+            liveServer.close();
+        }
+    });
+
+    test('opencode-server refuses a stale-coordinate rebind that changes session authority (#15677)', async () => {
+        const
+            subId   = 'sub_' + crypto.randomUUID(),
+            agentId = '@test-agent-opencode-retarget-refusal';
+
+        const deadServer = http.createServer();
+        await new Promise(resolve => deadServer.listen(0, '127.0.0.1', resolve));
+        const deadPort = deadServer.address().port;
+        await new Promise(resolve => deadServer.close(resolve));
+
+        const captured   = [];
+        const liveServer = http.createServer((req, res) => {
+            captured.push(req.url);
+            res.writeHead(204);
+            res.end();
+        });
+        await new Promise(resolve => liveServer.listen(0, '127.0.0.1', resolve));
+        const livePort = liveServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-retarget.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : deadPort,
+            sessionId: 'ses_owner',
+            projectId: 'project_owner',
+            directory: DAEMON_DIR,
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+
+        let   output  = '';
+        let   rebound = false;
+        const refused = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('OpenCode authority change was not refused within timeout')), 15000);
+            const onData  = data => {
+                output += data.toString();
+                if (!rebound && output.includes('re-reading the authoritative envelope once')) {
+                    rebound = true;
+                    fs.writeJsonSync(envelopePath, {
+                        hostname : '127.0.0.1',
+                        port     : livePort,
+                        sessionId: 'ses_sibling',
+                        projectId: 'project_owner',
+                        directory: DAEMON_DIR,
+                        username : 'wake-user-new',
+                        password : 'wake-pass-new'
+                    });
+                }
+                if (output.includes('authority tuple changed during coordinate rebind')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            };
+
+            daemonProcess.stdout.on('data', onData);
+            daemonProcess.stderr.on('data', onData);
+            daemonProcess.on('error', reject);
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {agentId, subject: 'OpenCode Retarget Refusal'});
+            await refused;
+
+            expect(rebound).toBe(true);
+            expect(captured).toHaveLength(0);
+            expect(output).toContain('Failed to deliver via opencode-server');
+        } finally {
+            liveServer.closeAllConnections?.();
+            liveServer.close();
         }
     });
 
@@ -2931,6 +3145,8 @@ test.describe('Wake Daemon', () => {
             hostname : '127.0.0.1',
             port     : stubPort,
             sessionId: 'ses_shared_abort',
+            projectId: 'project_shared_abort',
+            directory: DAEMON_DIR,
             username : 'wake-user',
             password : 'wake-pass'
         });
@@ -3070,6 +3286,8 @@ test.describe('Wake Daemon', () => {
             hostname : '127.0.0.1',
             port     : stubPort,
             sessionId: 'ses_hung',
+            projectId: 'project_hung',
+            directory: DAEMON_DIR,
             username : 'wake-user',
             password : 'wake-pass'
         });

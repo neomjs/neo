@@ -34,6 +34,7 @@ class FakeChild extends EventEmitter {
         this.pid     = ++nextPid;
         this.signals = [];
         this.stderr  = new EventEmitter();
+        this.stdout  = new EventEmitter();
     }
 
     kill(signal) {
@@ -103,11 +104,17 @@ function remoteMcpPlan(resources, matrix) {
 /** Reset the singleton + inject fresh test doubles. Returns the spawn stub. */
 function install({agents = {}, creds = {}} = {}) {
     const spawnStub = makeSpawnStub();
+    for (const record of FleetLifecycleService.processes.values()) {
+        clearTimeout(record.openCodeBootstrapTimer);
+    }
     FleetLifecycleService.processes.clear();
     FleetLifecycleService.spawnFn         = spawnStub;
     // Stub the version probe by default so no spec spawns a real auxiliary subprocess; the
     // env-boundary test injects its own recorder.
     FleetLifecycleService.execFileFn      = () => {};
+    FleetLifecycleService.fetchFn         = null;
+    FleetLifecycleService.openCodeHookExecFileFn = null;
+    FleetLifecycleService.openCodeBootstrapTimeoutMs = 10000;
     FleetLifecycleService.registry        = makeRegistry(agents, creds);
     FleetLifecycleService.sigkillTimeoutMs = 50;
     // Reset the configurable env-key fields to their defaults so a collision test cannot bleed into
@@ -371,6 +378,210 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(args).toEqual(['app-server']);                                   // the long-lived mode is template-owned
         expect(opts.env.CODEX_HOME.startsWith('/srv/fleet/instances/')).toBe(true);
         expect(opts.env.CODEX_HOME).toContain('peer2');                         // agent.id keys the home, never githubUsername-only grain
+    });
+
+    test('Fleet-managed OpenCode boot creates one top-level owner session before publishing the generated wake envelope', async () => {
+        const
+            root       = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-opencode-owner-')),
+            cwd        = path.join(root, 'repo'),
+            agent      = curatedAgent('open-owner', 'opencode'),
+            spawn      = install({agents: {'open-owner': agent}, creds: {}}),
+            fetchCalls = [],
+            hookCalls  = [];
+
+        fs.mkdirSync(cwd);
+        FleetLifecycleService.instanceRoot       = path.join(root, 'instances');
+        FleetLifecycleService.harnessBinaryPaths = {opencode: process.execPath};
+
+        const launch       = FleetLifecycleService.resolveLaunch(agent, {cwd});
+        const hookPath     = path.join(launch.instanceHome, 'write-wake-envelope.mjs');
+        const envelopePath = path.join(launch.instanceHome, 'opencode', 'wake-envelope.json');
+
+        fs.mkdirSync(launch.instanceHome, {recursive: true});
+        fs.writeFileSync(hookPath, '// generated test hook\n');
+
+        FleetLifecycleService.fetchFn = async (url, opts) => {
+            fetchCalls.push({url, opts});
+            return {
+                ok    : true,
+                status: 200,
+                json  : async () => ({
+                    id       : 'ses_owner',
+                    projectID: 'project_owner',
+                    directory: fs.realpathSync(cwd)
+                })
+            };
+        };
+        FleetLifecycleService.openCodeHookExecFileFn = (command, args, opts, callback) => {
+            hookCalls.push({command, args, opts});
+            fs.mkdirSync(path.dirname(envelopePath), {recursive: true});
+            fs.writeFileSync(envelopePath, JSON.stringify({
+                hostname : '127.0.0.1',
+                port     : 45678,
+                sessionId: 'ses_owner',
+                projectId: 'project_owner',
+                directory: fs.realpathSync(cwd),
+                username : opts.env.OPENCODE_SERVER_USERNAME,
+                password : opts.env.OPENCODE_SERVER_PASSWORD,
+                updatedAt: new Date().toISOString()
+            }));
+            fs.chmodSync(envelopePath, 0o600);
+            callback(null, '', '');
+        };
+
+        const starting = FleetLifecycleService.start('open-owner', {cwd});
+        const call     = spawn.calls[0];
+        const password = call.opts.env.OPENCODE_SERVER_PASSWORD;
+
+        expect(starting.wakeRoute).toMatchObject({state: 'starting', directory: fs.realpathSync(cwd), envelopePath});
+        expect(call.opts.stdio).toEqual(['pipe', 'pipe', 'pipe']);
+        expect(call.opts.env.OPENCODE_SERVER_USERNAME).toBe('opencode');
+        expect(password).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+        expect(JSON.stringify(starting)).not.toContain(password);
+
+        // Chunk boundary is deliberate: only a complete newline-terminated authoritative banner
+        // may start the bootstrap.
+        call.child.stdout.emit('data', Buffer.from('opencode server listening on http://127.0.0.'));
+        expect(fetchCalls).toHaveLength(0);
+        call.child.stdout.emit('data', Buffer.from('1:45678\n'));
+
+        await expect.poll(() => FleetLifecycleService.status('open-owner').wakeRoute?.state).toBe('ready');
+
+        expect(fetchCalls).toHaveLength(1);
+        const createUrl = new URL(fetchCalls[0].url);
+        expect(createUrl.pathname).toBe('/api/session');
+        expect(createUrl.searchParams.get('directory')).toBe(fs.realpathSync(cwd));
+        expect(fetchCalls[0].opts).toMatchObject({method: 'POST', body: '{}', redirect: 'error'});
+        expect(fetchCalls[0].opts.headers.authorization)
+            .toBe('Basic ' + Buffer.from(`opencode:${password}`).toString('base64'));
+
+        expect(hookCalls).toHaveLength(1);
+        expect(hookCalls[0].command).toBe(process.execPath);
+        expect(hookCalls[0].args).toEqual([
+            hookPath,
+            '--data-home', launch.instanceHome,
+            '--port', '45678',
+            '--session-id', 'ses_owner',
+            '--project-id', 'project_owner',
+            '--directory', fs.realpathSync(cwd)
+        ]);
+        expect(JSON.stringify(hookCalls[0].args)).not.toContain(password);
+        expect(hookCalls[0].opts.env.NEO_FLEET_BRIDGE_TOKEN).toBeUndefined();
+        expect(hookCalls[0].opts.env.NEO_MCP_REMOTE_TOKEN).toBeUndefined();
+        expect(hookCalls[0].opts.env.GH_TOKEN).toBeUndefined();
+
+        const ready = FleetLifecycleService.status('open-owner');
+        expect(ready.wakeRoute).toMatchObject({
+            state: 'ready', port: 45678, sessionId: 'ses_owner', projectId: 'project_owner'
+        });
+        expect(JSON.stringify(ready)).not.toContain(password);
+        expect(fs.statSync(envelopePath).mode & 0o777).toBe(0o600);
+
+        call.child.emit('exit', 0, 'SIGTERM');
+        await expect.poll(() => FleetLifecycleService.status('open-owner').state).toBe('stopped');
+        expect(FleetLifecycleService.status('open-owner').wakeRoute).toMatchObject({
+            state: 'degraded', port: null, sessionId: null, projectId: null
+        });
+        expect(fs.existsSync(envelopePath)).toBe(false);
+
+        FleetLifecycleService.processes.clear();
+        fs.rmSync(root, {recursive: true, force: true});
+    });
+
+    test('Fleet-managed OpenCode rejects sibling-workspace, child, or malformed creation tuples and never invokes the hook', async () => {
+        const cases = [
+            {
+                id            : 'open-sibling',
+                response      : {id: 'ses_sibling', projectID: 'project_sibling'},
+                wrongDirectory: true
+            },
+            {
+                id      : 'open-child',
+                response: {id: 'ses_child', projectID: 'project_child', parentID: 'ses_parent'}
+            },
+            {
+                id      : 'open-missing',
+                response: {id: '', projectID: 'project_missing'}
+            }
+        ];
+
+        for (const entry of cases) {
+            const
+                root  = fs.mkdtempSync(path.join(os.tmpdir(), `fleet-${entry.id}-`)),
+                cwd   = path.join(root, 'repo'),
+                agent = curatedAgent(entry.id, 'opencode'),
+                spawn = install({agents: {[entry.id]: agent}, creds: {}});
+
+            fs.mkdirSync(cwd);
+            FleetLifecycleService.instanceRoot       = path.join(root, 'instances');
+            FleetLifecycleService.harnessBinaryPaths = {opencode: process.execPath};
+
+            const launch       = FleetLifecycleService.resolveLaunch(agent, {cwd});
+            const hookPath     = path.join(launch.instanceHome, 'write-wake-envelope.mjs');
+            const envelopePath = path.join(launch.instanceHome, 'opencode', 'wake-envelope.json');
+            let   hookCalls    = 0;
+
+            fs.mkdirSync(launch.instanceHome, {recursive: true});
+            fs.writeFileSync(hookPath, '// generated test hook\n');
+            FleetLifecycleService.fetchFn = async () => ({
+                ok  : true,
+                json: async () => ({
+                    ...entry.response,
+                    directory: entry.wrongDirectory ? path.join(root, 'sibling-repo') : fs.realpathSync(cwd)
+                })
+            });
+            FleetLifecycleService.openCodeHookExecFileFn = () => { hookCalls++ };
+
+            FleetLifecycleService.start(entry.id, {cwd});
+            spawn.calls[0].child.stdout.emit('data', Buffer.from('opencode server listening on http://127.0.0.1:45679\n'));
+
+            await expect.poll(() => FleetLifecycleService.status(entry.id).wakeRoute?.state).toBe('degraded');
+            expect(hookCalls).toBe(0);
+            expect(fs.existsSync(envelopePath)).toBe(false);
+
+            FleetLifecycleService.processes.clear();
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('Fleet-managed OpenCode removes stale coordinates and degrades fail-closed when owner-session creation fails', async () => {
+        const
+            root  = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-opencode-create-fail-')),
+            cwd   = path.join(root, 'repo'),
+            agent = curatedAgent('open-fail', 'opencode'),
+            spawn = install({agents: {'open-fail': agent}, creds: {}});
+
+        fs.mkdirSync(cwd);
+        FleetLifecycleService.instanceRoot       = path.join(root, 'instances');
+        FleetLifecycleService.harnessBinaryPaths = {opencode: process.execPath};
+
+        const launch       = FleetLifecycleService.resolveLaunch(agent, {cwd});
+        const hookPath     = path.join(launch.instanceHome, 'write-wake-envelope.mjs');
+        const envelopePath = path.join(launch.instanceHome, 'opencode', 'wake-envelope.json');
+        let   hookCalls    = 0;
+
+        fs.mkdirSync(path.dirname(envelopePath), {recursive: true});
+        fs.writeFileSync(hookPath, '// generated test hook\n');
+        fs.writeFileSync(envelopePath, '{"port":1234}\n');
+        FleetLifecycleService.fetchFn = async () => { throw new Error('fetch leaked-secret-value') };
+        FleetLifecycleService.openCodeHookExecFileFn = () => { hookCalls++ };
+
+        FleetLifecycleService.start('open-fail', {cwd});
+        expect(fs.existsSync(envelopePath)).toBe(false);
+
+        spawn.calls[0].child.stdout.emit('data', Buffer.from('opencode server listening on http://127.0.0.1:45680\n'));
+
+        await expect.poll(() => FleetLifecycleService.status('open-fail').wakeRoute?.state).toBe('degraded');
+        const status = FleetLifecycleService.status('open-fail');
+
+        expect(hookCalls).toBe(0);
+        expect(fs.existsSync(envelopePath)).toBe(false);
+        expect(status.running).toBe(true);
+        expect(status.failureReason).toBe('OpenCode wake bootstrap failed during session creation');
+        expect(JSON.stringify(status)).not.toContain('leaked-secret-value');
+
+        FleetLifecycleService.processes.clear();
+        fs.rmSync(root, {recursive: true, force: true});
     });
 
     test('curated codex-desktop derivation composes exact cwd, dual homes, typed auth, and direct packaged-main supervision', () => {

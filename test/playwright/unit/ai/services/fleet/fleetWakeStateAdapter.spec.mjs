@@ -101,6 +101,21 @@ test.describe('fleetWakeStateAdapter — the graduated four-state mapping', () =
     test('active subscription + live daemon is on; + dead daemon is suppressed (the blind-switch incident class)', () => {
         expect(resolveAgentWakeState({subscriptionState: 'active', daemonAlive: true})).toBe('on')
         expect(resolveAgentWakeState({subscriptionState: 'active', daemonAlive: false})).toBe('suppressed')
+        expect(resolveAgentWakeState({
+            subscriptionState   : 'active',
+            daemonAlive         : true,
+            deliveryFailureState: 'failed'
+        })).toBe('suppressed')
+        expect(resolveAgentWakeState({
+            subscriptionState   : 'active',
+            daemonAlive         : 'unknown',
+            deliveryFailureState: 'failed'
+        })).toBe('suppressed')
+        expect(resolveAgentWakeState({
+            subscriptionState   : 'active',
+            daemonAlive         : false,
+            deliveryFailureState: 'unknown'
+        })).toBe('suppressed')
     })
 
     test('any unknown input axis makes the output unknown — no fabricated precision', () => {
@@ -141,6 +156,60 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
         })
 
         expect(states.map(row => row.wake)).toEqual(['suppressed', 'suppressed', 'suppressed'])
+    })
+
+    test('live daemon + terminal receipt is suppressed with an independent safe failure projection (#15677)', async () => {
+        const failedAt             = '2026-07-29T12:34:56.000Z'
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace', githubUsername: 'neo-opus-grace'}],
+            listActiveSubscriptionIdentities: () => ['@neo-opus-grace'],
+            pidFilePath                     : '/x/wake.pid',
+            deliveryFailureFilePath         : '/x/wake-delivery-failures.json',
+            readFile                        : () => '4242',
+            readDeliveryFailureFile         : () => JSON.stringify({
+                'WAKE_SUB:grace': {
+                    agentIdentity : '@neo-opus-grace',
+                    subscriptionId: 'WAKE_SUB:grace',
+                    errorClass    : 'connection-refused',
+                    failedAt
+                }
+            }),
+            probeProcess      : () => {},
+            readProcessCommand: daemonCmd
+        })
+
+        expect(capability).toMatchObject({state: 'wired', confidence: 'observed'})
+        expect(states).toEqual([{
+            agentId            : 'grace',
+            wake               : 'suppressed',
+            confidence         : 'observed',
+            source             : WAKE_SOURCE_LABEL,
+            reason             : 'terminal wake delivery failure: connection-refused',
+            lastDeliveryFailure: {
+                subscriptionId: 'WAKE_SUB:grace',
+                errorClass    : 'connection-refused',
+                failedAt
+            }
+        }])
+    })
+
+    test('malformed terminal-receipt source makes an active route unknown instead of fabricating on', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                  : [{id: 'grace'}],
+            resolveSubscriptionState: () => 'active',
+            pidFilePath             : '/x/wake.pid',
+            readFile                : () => '4242',
+            readDeliveryFailureFile : () => '{broken',
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
+        })
+
+        expect(states[0]).toMatchObject({
+            wake  : 'unknown',
+            reason: 'malformed wake delivery failure receipt file'
+        })
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
+        expect(capability.reason).toContain('malformed wake delivery failure receipt file')
     })
 
     test('unknown-on-unreachable: no subscription reader degrades every row honestly, with reasons', async () => {
