@@ -152,6 +152,85 @@ test.describe.serial('Workstation.view.Workspace', () => {
         expect(initialDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4])
     });
 
+    test('film cursor retirement awaits physical body-node removal before settling', async () => {
+        const
+            realApplyDeltas = Neo.applyDeltas,
+            workspace       = Neo.create(Workspace, {}),
+            calls           = [],
+            cursorDot       = {
+                isDestroyed: false,
+                vdom       : {id: 'film-cursor-1'},
+                windowId   : 'source-window',
+                destroy() {
+                    calls.push({type: 'destroy'});
+                    this.isDestroyed = true
+                }
+            };
+        let resolveRemoval;
+
+        try {
+            const removalReceipt = new Promise(resolve => resolveRemoval = resolve);
+
+            Neo.applyDeltas = (windowId, deltas) => {
+                calls.push({deltas, type: 'remove-dispatched', windowId});
+                return removalReceipt
+            };
+
+            let   settled    = false;
+            const retirement = workspace.retireFilmCursorDot(cursorDot)
+                .then(value => {
+                    settled = true;
+                    return value
+                });
+
+            await Promise.resolve();
+
+            expect(calls).toEqual([{
+                deltas  : {action: 'removeNode', id: 'film-cursor-1'},
+                type    : 'remove-dispatched',
+                windowId: 'source-window'
+            }, {
+                type: 'destroy'
+            }]);
+            expect(settled, 'replacement creation must stay behind the physical removal receipt').toBe(false);
+
+            resolveRemoval();
+
+            await expect(retirement).resolves.toBe(true);
+            await expect(workspace.retireFilmCursorDot(cursorDot)).resolves.toBe(false);
+            expect(calls).toHaveLength(2)
+        } finally {
+            Neo.applyDeltas = realApplyDeltas;
+            workspace.destroy()
+        }
+    });
+
+    test('non-film mode keeps all six cursor retirement boundaries side-effect free', async () => {
+        const
+            realApplyDeltas = Neo.applyDeltas,
+            workspace       = Neo.create(Workspace, {}),
+            deltaCalls      = [];
+
+        try {
+            Neo.applyDeltas = (...args) => {
+                deltaCalls.push(args);
+                return Promise.resolve()
+            };
+
+            const results = [];
+
+            for (let boundary = 0; boundary < 6; boundary++) {
+                results.push(await workspace.retireFilmCursorDot(null))
+            }
+
+            expect(results).toEqual([false, false, false, false, false, false]);
+            expect(deltaCalls, 'showCursor=false must not dispatch a physical mutation').toEqual([])
+        } finally {
+            Neo.applyDeltas = realApplyDeltas;
+            workspace.destroy()
+        }
+    });
+
     test('provider-owned stores and cached data panes survive split + return', async () => {
         const workspace = Neo.create(Workspace, {});
 
