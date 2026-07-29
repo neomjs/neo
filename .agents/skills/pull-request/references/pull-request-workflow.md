@@ -202,36 +202,38 @@ approval.
 
 ### 6.2 The Core Swarm A2A Notification Mandate (Review Routing Protocol)
 
-If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-ada`, `@neo-gemini-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST send a lifecycle A2A notification.
+Core members in canonical `neomjs/neo` send lifecycle A2A after PR open.
+PR-native `reviewRequests` owns the one ordinary full-review seat; A2A only
+points to the PR.
 
 <!-- trigger: author-side review/re-review request -> read ./ci-green-review-routing.md before reviewer assignment -->
 
 Use role-routing, not naked multi-peer pings:
 
-1. **Default handoff:** after current-head CI is green, choose exactly one
-   `primary-reviewer`, request them in GitHub, and send one matching A2A wake.
-   The A2A must include `Review role: primary-reviewer` and
-   `Requested action: use /pr-review on PR #N`. Use round-robin unless a stated
-   subsystem-familiarity override applies.
-2. **SLA / active-window decline:** primary reviewer has 4h max;
-   `reviewRequests` proves routing, not engagement. If clean assigned PRs stack
-   with no review/decline/handoff/blocker while reviewer is active, author sends
-   claim-or-decline A2A before more PRs. If reviewer cannot review,
-   they A2A `Requested action: unassign`; if silent 4h, author reassigns and
-   records timeout.
-3. **Observer:** no-action visibility must say `Review role: observer` and
-   `Requested action: none`.
-4. **Tie-breaker:** after one full author/reviewer disagreement cycle, post
-   `[TIE_BREAKER_REQUEST]` with a one-line position summary and A2A the third
-   peer with the contested `commentId`.
-5. **Architectural-pillar exception:** dual independent review is allowed only
-   when explicitly labeled `Review role: independent-reviewer` for both peers.
-   Persistent divergence after one calibration cycle escalates to @tobiu via
-   `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`; reviewers hold as observers until
-   human resolution.
+1. **Default:** after current-head CI is green, request exactly one
+   `primary-reviewer` in GitHub and send one matching wake:
+   `Review role: primary-reviewer`; `Requested action: use /pr-review on PR #N`.
+   Use round-robin unless subsystem familiarity justifies an override.
+2. **Eligibility / 1h fallback:** at review-start, pass the Review-Seat Gate in
+   `post-review-pickup/references/pre-review-intake-lane-gate.md`: sole request,
+   explicit operator direction, or unengaged empty / ≥1h stale request after
+   self-request / one-for-one replacement. Record and re-read after mutation;
+   engagement or any result except exactly your seat means yield unless the
+   operator explicitly overrides it.
+3. **Reroute / SLA:** re-read before decline, timeout, or reassignment; engagement
+   means yield. Primary max remains 4h. Stacked unengaged requests trigger
+   claim-or-decline; inability answers `Requested action: unassign`, and 4h
+   silence permits recorded author reroute. The 1h peer fallback, §6.1 ~2h
+   invite, and 4h author SLA are distinct.
+4. **Observer:** say `Review role: observer`; `Requested action: none`.
+5. **Tie-breaker:** after one disagreement cycle, post `[TIE_BREAKER_REQUEST]`
+   with the position summary and A2A its `commentId` to one third peer.
+6. **Architectural pillar:** dual review requires both peers explicitly labeled
+   `Review role: independent-reviewer`; persistent divergence after one cycle
+   escalates via `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`, with reviewers
+   observing until human resolution.
 
-This applies to the canonical `neomjs/neo` core team; external contributors,
-forks, and `npx neo-app` workspaces are out of scope.
+External contributors, forks, and `npx neo-app` workspaces are out of scope.
 
 ### 6.2.1 Cross-Family Corrective-Authorship Rotation
 

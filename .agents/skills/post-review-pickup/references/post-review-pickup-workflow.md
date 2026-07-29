@@ -88,9 +88,8 @@ enum. `ai/scripts/lifecycle/validateMergeReady.mjs` encodes this contract.
 
 ## 6. Before claiming a lane
 
-- targeted review requests **where you are the assigned reviewer** — verify with
-  `gh pr view <N> --json reviewRequests`; do not claim a review you were not
-  assigned;
+- targeted reviews where you hold the live requested seat; exceptional 1h
+  unclaimed pickup must pass `pre-review-intake-lane-gate.md` at review-start;
 - assigned issues and your own PR follow-ups;
 - recent `[lane-claim]` / `[lane-override]` A2A for collision state;
 - open unassigned lanes, excluding `-label:not-code-ready -label:epic`;
