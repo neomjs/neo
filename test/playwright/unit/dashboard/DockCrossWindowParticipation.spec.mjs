@@ -98,6 +98,66 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
         expect(participation.target ?? null).toBeNull()
     });
 
+    test('native-titlebar source seams ride the SAME stable participation registration', async () => {
+        const
+            calls           = [],
+            draggedItem     = {id: 'terminal'},
+            awaitEmbodiment = payload => {
+                calls.push(['await-embodiment', payload]);
+                return true
+            },
+            source      = {
+                draggedItem,
+                embodyNativeHover: true,
+                sourceWindowId   : 'window-popup',
+                widgetName       : 'terminal'
+            };
+
+        const participation = Neo.create(DockCrossWindowParticipation, {
+            awaitDragEmbodiment    : awaitEmbodiment,
+            dragCoordinator        : createCoordinatorStub(calls),
+            getDocument            : () => targetDoc(),
+            resolveNativeWindowDrag: windowId => windowId === 'window-popup' ? source : null,
+            resumeNativeWindowDrag : (widgetName, proxyRect) => {
+                calls.push(['resume', widgetName, proxyRect]);
+                return 'resumed'
+            },
+            retireNativeWindowDrag : item => {
+                calls.push(['retire', item]);
+                return 'retired'
+            },
+            sortGroup              : 'dock-demo',
+            suspendNativeWindowDrag: (widgetName, context) => {
+                calls.push(['suspend', widgetName, context]);
+                return true
+            },
+            windowId   : 'window-main',
+            workspaceId: 'main'
+        });
+
+        const target = participation.target;
+
+        expect(calls.filter(([name]) => name === 'register')).toEqual([['register', target]]);
+        expect(target.awaitDragEmbodiment).toBe(awaitEmbodiment);
+        expect(target.getNativeWindowDrag('window-popup')).toBe(source);
+        expect(target.getNativeWindowDrag('window-other')).toBeNull();
+
+        const context = {targetWindowId: 'window-main'};
+
+        expect(target.suspendWindowDrag('terminal', context)).toBe(true);
+        expect(target.resumeWindowDrag('terminal', {x: 10, y: 20})).toBe('resumed');
+        expect(target.onRemoteDropOut(draggedItem)).toBe('retired');
+        expect(calls.slice(1)).toEqual([
+            ['suspend', 'terminal', context],
+            ['resume', 'terminal', {x: 10, y: 20}],
+            ['retire', draggedItem]
+        ]);
+
+        participation.destroy();
+
+        expect(calls.filter(([name]) => name === 'unregister')).toEqual([['unregister', target]])
+    });
+
     test('seam binding: the registered target rides the owner preview pipeline — previewFor on hover, previewToOperation + commit on drop', () => {
         const seen  = {previews: [], conversions: [], commits: []};
         const calls = [];

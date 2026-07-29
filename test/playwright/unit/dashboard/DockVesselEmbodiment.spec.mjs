@@ -117,6 +117,39 @@ test.describe('Neo.dashboard.DockVesselEmbodiment (#15396)', () => {
         expect(target.items).toEqual([]);
         expect(embodiment.isStaged('live')).toBe(false)
     })
+
+    test('a parked source renderer cannot veto the target readability settlement', async () => {
+        source.promiseUpdate = () => {
+            throw new Error('parked source renderer does not acknowledge frames')
+        };
+
+        await expect(embodiment.stage({
+            itemId  : 'live',
+            windowId: 'admitted-window'
+        })).resolves.toBe(true);
+
+        expect(target.items).toEqual([pane]);
+        expect(source.items[1].cls).toContain('neo-dashboard-dock-vessel-placeholder');
+        expect(embodiment.isStaged('live')).toBe(true)
+    })
+
+    test('publication does not wait forever on a parked source transaction', async () => {
+        let sourceStarted = false;
+
+        source.promiseUpdate = () => {
+            sourceStarted = true;
+
+            return new Promise(() => {})
+        };
+
+        await expect(embodiment.stage({
+            itemId  : 'live',
+            windowId: 'admitted-window'
+        })).resolves.toBe(true);
+        expect(sourceStarted).toBe(true);
+        expect(target.items).toEqual([pane]);
+        expect(embodiment.isStaged('live')).toBe(true)
+    })
 });
 
 test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
@@ -261,6 +294,31 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
         expect(proxyEmbodiment.restore({itemId: 'live'})).toBe(false)
     });
 
+    test('retained readability begins only after the exact proxy renderer generation settles', async () => {
+        const fixture = createFixture({deferFirst: true});
+        let observed;
+
+        expect(fixture.move()).toBe(true);
+
+        const settlement = proxyEmbodiment.whenSettled({
+            itemId        : 'live',
+            sourceWindowId: 'source-window',
+            targetWindowId: 'target-window'
+        }).then(value => observed = value);
+
+        await Promise.resolve();
+        expect(observed, 'synchronous staging is not renderer settlement').toBeUndefined();
+
+        fixture.resolveFirst();
+
+        await expect(settlement).resolves.toBe(true);
+        expect(proxyEmbodiment.snapshot('live')).toMatchObject({
+            ownsPane: true,
+            settled : true,
+            visible : true
+        })
+    });
+
     test('the parked popup identity overrides the originating sort-zone window', async () => {
         const fixture = createFixture();
 
@@ -312,6 +370,11 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
         await Promise.resolve();
 
         expect(successor.generation).toBe(2);
+        await expect(proxyEmbodiment.whenSettled({
+            itemId        : 'live',
+            sourceWindowId: 'source-window',
+            targetWindowId: 'target-window'
+        })).resolves.toBe(true);
         expect(proxyEmbodiment.snapshot('live')).toMatchObject({
             generation: 2,
             ownsPane  : true,

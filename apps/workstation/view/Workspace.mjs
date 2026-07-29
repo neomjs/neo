@@ -254,6 +254,13 @@ class Workspace extends Container {
      */
     vesselParkHandlers = null
     /**
+     * Post-terminal native-titlebar park/restore authority. Separate from pointer conversion:
+     * the generic DragDrop addon has no active pointer-follow session after a dropped popup.
+     * @member {Object|null} nativeVesselParkHandlers=null
+     * @protected
+     */
+    nativeVesselParkHandlers = null
+    /**
      * The worker-owned cross-window workspace registry — `{workspaceId → document accessors}`.
      * @member {Object|null} workspaceSet=null
      * @protected
@@ -458,10 +465,8 @@ class Workspace extends Container {
                 ?? (me.dockModel?.items?.[itemId] && me.resolvePane(itemId, me.dockModel.items[itemId])),
             resolveProxyConfig: ({sourceSortZone, targetWindowId}) => {
                 const
-                    sourceConfig = sourceSortZone?.getDragProxyConfig?.(),
+                    sourceConfig = sourceSortZone?.getDragProxyConfig?.() ?? {cls: []},
                     targetApp    = Neo.apps[targetWindowId];
-
-                if (!sourceConfig) return null;
 
                 const cls = [...new Set([
                     ...(sourceConfig.cls || []),
@@ -512,6 +517,11 @@ class Workspace extends Container {
         me.vesselParkHandlers = createVesselParkHandlers({
             disposeVessel: vessel => me.disposeParkedTearOutVessel(vessel),
             parkVessel   : vessel => me.parkTearOutVessel(vessel),
+            reshowVessel : vessel => me.reshowTearOutVessel(vessel)
+        });
+        me.nativeVesselParkHandlers = createVesselParkHandlers({
+            disposeVessel: ({itemId}) => me.retireReturnedVessel(Workspace.vesselWorkspaceId(itemId)),
+            parkVessel   : vessel => me.parkTearOutVessel({...vessel, nativeTitlebar: true}),
             reshowVessel : vessel => me.reshowTearOutVessel(vessel)
         });
 
@@ -977,6 +987,7 @@ class Workspace extends Container {
      */
     async createCrossWindowParticipation({windowId, workspaceId}) {
         let me            = this,
+            isMain        = workspaceId === Workspace.MAIN_WORKSPACE_ID,
             Participation = (await import('../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
 
         if (me.isDestroyed) return null;
@@ -994,19 +1005,108 @@ class Workspace extends Container {
                 itemId        : data.draggedItem?.dockItemId,
                 targetWindowId: windowId
             }),
-            restoreDragEmbodiment: data => me.vesselProxyEmbodiment.restore({
+            resolveNativeWindowDrag: isMain ? movingWindowId => me.resolveNativeTearOutDrag(movingWindowId) : null,
+            restoreDragEmbodiment  : data => me.vesselProxyEmbodiment.restore({
                 itemId        : data.draggedItem?.dockItemId,
                 targetWindowId: windowId
             }),
+            resumeNativeWindowDrag: isMain ? itemId => me.nativeVesselParkHandlers.onGestureTerminal({
+                itemId,
+                outcome: 'rejected'
+            }) : null,
+            retireNativeWindowDrag: isMain ? draggedItem => me.nativeVesselParkHandlers.onGestureTerminal({
+                itemId : draggedItem?.dockItemId,
+                outcome: 'committed'
+            }) : null,
             sortGroup          : Workspace.CROSS_WINDOW_SORT_GROUP,
             stageDragEmbodiment: data => me.vesselProxyEmbodiment.move({
                 ...data,
                 sourceWindowId: me.resolveTearOutVessel(data.draggedItem?.dockItemId)?.windowId,
                 targetWindowId: windowId
             }),
+            awaitDragEmbodiment: async data => {
+                const
+                    itemId   = data.draggedItem?.dockItemId,
+                    renderer = isMain
+                        ? me.dragAffordances?.preview
+                        : me.vesselWorkspaces.get(workspaceId)?.preview;
+
+                if (!renderer?.dockPreview) return false;
+
+                const [embodied] = await Promise.all([
+                    me.vesselProxyEmbodiment.whenSettled({
+                        itemId,
+                        sourceWindowId: me.resolveTearOutVessel(itemId)?.windowId,
+                        targetWindowId: windowId
+                    }),
+                    renderer.promiseUpdate?.()
+                ]);
+
+                return embodied === true && Boolean(renderer.dockPreview)
+            },
+            suspendNativeWindowDrag: isMain ? (itemId, data) => {
+                me.vesselConversionTargetWindowId = data?.targetWindowId ?? null;
+
+                return me.nativeVesselParkHandlers.onConversionIn({
+                    itemId,
+                    sourceRect: me.resolveVesselConversionSourceRect({itemId}),
+                    windowName: me.resolveTearOutVessel(itemId)?.windowName
+                })
+            } : null,
             windowId,
             workspaceId
         })
+    }
+
+    /**
+     * @summary Resolves one dropped bare Workstation popup into its exact live native drag record.
+     *
+     * The root workspace owns both registries, so native source discovery remains independent of
+     * whichever dock tab zone last occupied a window's coordinator slot. Whole-stack vessels,
+     * disconnected topology, and panes no longer catalogued as detached all fail closed.
+     * @param {String|Number} windowId The physical moving popup window.
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveNativeTearOutDrag(windowId) {
+        let me = this;
+
+        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
+            const
+                workspaceId = Workspace.vesselWorkspaceId(itemId),
+                state       = me.vesselWorkspaces.get(workspaceId),
+                pane        = me.paneCache[itemId],
+                vesselItems = Object.keys(state?.document?.items || {});
+
+            if (
+                entry?.windowId !== windowId ||
+                state?.windowId !== windowId ||
+                state.committed ||
+                state.closeRequested ||
+                state.disconnected ||
+                state.app?.mainView?.isDestroyed ||
+                vesselItems.length > 0 ||
+                !pane ||
+                pane.isDestroyed ||
+                !me.dockModel?.items?.[itemId] ||
+                DockZoneModel.findContainingTabsId(me.dockModel, itemId)
+            ) {
+                continue
+            }
+
+            delete pane.dockGroupNodeId;
+            pane.dockItemId            = itemId;
+            pane.dockSourceWorkspaceId = Workspace.MAIN_WORKSPACE_ID;
+
+            return {
+                draggedItem      : pane,
+                embodyNativeHover: true,
+                sourceWindowId   : windowId,
+                widgetName       : itemId
+            }
+        }
+
+        return null
     }
 
     /**
@@ -1330,7 +1430,10 @@ class Workspace extends Container {
             groupNodeId     = draggedItem?.dockGroupNodeId ?? null,
             sourceWorkspace = draggedItem?.dockSourceWorkspaceId,
             sourceState     = me.vesselWorkspaces.get(sourceWorkspace),
-            storedHome      = sourceState && me.tearOutPlacements[sourceState.itemId]?.tabsNodeId,
+            sourceItemId    = sourceWorkspace === Workspace.MAIN_WORKSPACE_ID
+                ? itemId
+                : sourceState?.itemId,
+            storedHome      = sourceItemId && me.tearOutPlacements[sourceItemId]?.tabsNodeId,
             targetNodeId    = isMain
                 ? (me.dockModel.nodes?.[storedHome]?.type === 'tabs'
                     ? storedHome
@@ -2467,6 +2570,8 @@ class Workspace extends Container {
      * @param {Number} [vessel.generation]
      * @param {String} vessel.itemId
      * @param {Object} [vessel.nativeRoute] Exact opener-minted physical route when available.
+     * @param {Boolean} [vessel.nativeTitlebar=false] Use the exact Main native route rather than
+     *     pointer-follow DragDrop state after a terminal popup was dropped.
      * @param {String} vessel.windowName
      * @returns {Promise<Boolean>}
      * @protected
@@ -2660,17 +2765,20 @@ class Workspace extends Container {
      * @returns {Promise<Boolean>}
      * @protected
      */
-    async parkTearOutVessel({itemId, windowName}) {
+    async parkTearOutVessel({itemId, nativeTitlebar=false, windowName}) {
         let me           = this,
             entry        = me.resolveTearOutVessel(itemId),
             route        = entry?.nativeRoute,
             sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
             targetWindow = Neo.manager?.Window?.get(me.vesselConversionTargetWindowId),
             targetRoute  = targetWindow?.nativeRoute,
+            targetIsMain = me.vesselConversionTargetWindowId === me.windowId,
+            // The cover geometry and the authority check both speak published inner-window
+            // geometry; a child omitting outerRect never rejects an authorized live vessel.
             sourceRect   = sourceWindow?.innerRect,
-            sourceOuter  = sourceWindow?.outerRect,
+            sourceOuter  = sourceWindow?.outerRect ?? sourceRect,
             targetRect   = targetWindow?.innerRect,
-            needsResize  = Boolean(sourceOuter && targetRect && (
+            needsResize  = !nativeTitlebar && Boolean(sourceOuter && targetRect && (
                 sourceOuter.width > targetRect.width || sourceOuter.height > targetRect.height
             )),
             parkSize      = needsResize ? {
@@ -2719,36 +2827,55 @@ class Workspace extends Container {
             !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
             (needsResize && route.capabilities?.resize !== true) ||
-            !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.windowId ||
-            targetRoute.targetWindowId !== me.vesselConversionTargetWindowId ||
-            targetRoute.capabilities?.focus !== true ||
-            entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect
+            (!targetIsMain && (
+                !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.windowId ||
+                targetRoute.targetWindowId !== me.vesselConversionTargetWindowId ||
+                targetRoute.capabilities?.focus !== true
+            )) ||
+            entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect ||
+            (nativeTitlebar && (
+                sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
+            ))
         ) {
             me.lastVesselParkReceipt.reason = 'native route or live cover geometry refused';
             return false
         }
 
+        const focusTarget = () => targetIsMain
+            // The root window has no opener-minted nativeRoute. Route the focus verb through the
+            // exact popup Main actor instead: a popup may focus its opener under the user
+            // activation carried by the titlebar gesture.
+            ? Neo.Main.windowFocus({windowId: entry.windowId})
+            : Neo.Main.windowNativeFocus({
+                nativeHandleKey: targetRoute.nativeHandleKey,
+                targetWindowId : targetRoute.targetWindowId,
+                windowId       : me.windowId
+            });
+
         try {
-            let focused = await Neo.Main.windowNativeFocus({
-                    nativeHandleKey: targetRoute.nativeHandleKey,
-                    targetWindowId : targetRoute.targetWindowId,
-                    windowId       : me.windowId
-                }) === true;
+            let focused = await focusTarget() === true;
 
             me.lastVesselParkReceipt.focused = focused;
 
             if (!focused) return false;
 
-            let moved = await Neo.main.addon.DragDrop.parkWindowDrag({
+            const moveData = {
                 nativeHandleKey: route.nativeHandleKey,
-                parkSize,
-                restoreRect,
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
                 x              : targetRect.x,
                 y              : targetRect.y
-            }) === true;
+            };
+
+            if (!nativeTitlebar) {
+                moveData.parkSize    = parkSize;
+                moveData.restoreRect = restoreRect
+            }
+
+            let moved = await (nativeTitlebar
+                ? Neo.Main.windowNativeMoveTo(moveData)
+                : Neo.main.addon.DragDrop.parkWindowDrag(moveData)) === true;
 
             me.lastVesselParkReceipt.moved = moved;
 
@@ -2756,23 +2883,22 @@ class Workspace extends Container {
 
             parkGeometry && (me.tearOutParkGeometries[itemId] = parkGeometry);
 
-            let refocused = await Neo.Main.windowNativeFocus({
-                nativeHandleKey: targetRoute.nativeHandleKey,
-                targetWindowId : targetRoute.targetWindowId,
-                windowId       : me.windowId
-            }) === true;
+            let refocused = await focusTarget() === true;
 
             me.lastVesselParkReceipt.refocused = refocused;
 
             if (!refocused) {
-                let compensated = await Neo.main.addon.DragDrop.resumeWindowDrag({
+                const restoreData = {
                     nativeHandleKey: route.nativeHandleKey,
                     targetWindowId : route.targetWindowId,
                     windowId       : me.windowId,
                     windowName,
                     x              : sourceOuter.x,
                     y              : sourceOuter.y
-                }) === true;
+                };
+                let compensated = await (nativeTitlebar
+                    ? Neo.Main.windowNativeMoveTo(restoreData)
+                    : Neo.main.addon.DragDrop.resumeWindowDrag(restoreData)) === true;
 
                 me.lastVesselParkReceipt.compensated = compensated;
                 me.lastVesselParkReceipt.parked      = !compensated;
@@ -3231,6 +3357,14 @@ class Workspace extends Container {
 
         if (me.isDestroyed) return;
 
+        // Physical source death is the one cancellation that must NOT attempt a restore. Retire
+        // the coordinator's exact candidate/retry generation before the app-owned vessel machines
+        // clear their matching slots below.
+        Neo.manager.DragCoordinator?.clearNativeWindowDropCandidate(data.windowId, {
+            restoreSource: false
+        });
+        Neo.manager.DragCoordinator?.endNativeGesture(data.windowId);
+
         // A disconnect can invalidate either side of the nested popup→target-proxy transaction.
         // Restore it before the outer main→popup embodiment below decides restore vs promote.
         me.vesselProxyEmbodiment.restoreByWindow(data.windowId);
@@ -3260,6 +3394,7 @@ class Workspace extends Container {
                     windowName
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
+                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
                 me.retireVesselWorkspaceTarget(itemId);
                 me.tearOutRetirements.delete(itemId);
@@ -3293,6 +3428,7 @@ class Workspace extends Container {
                     windowName
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
+                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
                 me.revokeVesselOwnerGrant('tear-out', itemId);
                 me.retireVesselWorkspaceTarget(itemId);
                 me.tearOutRetirements.delete(itemId);
@@ -3326,6 +3462,7 @@ class Workspace extends Container {
                     windowName
                 });
                 me.vesselParkHandlers.onVesselRetired({itemId, retirement: true});
+                me.nativeVesselParkHandlers.onVesselRetired({itemId, retirement: true});
 
                 if (workspaceSettled) {
                     if (
