@@ -318,13 +318,16 @@ class DockTabSortZone extends TabHeaderSortZone {
      * reorder un-parks. Two callers, both host-choreographed: a boundary re-entry (the gesture
      * continues in-window) and a FAILED vessel admission (the base arms `isWindowDragging` BEFORE
      * firing the exit event, so a blocked popup must actively restore the in-window gesture or the
-     * zone stays parked with a dead detached state).
+     * zone stays parked with a dead detached state). Worker and main movement ownership must close
+     * together; otherwise the next pointer frame still routes through the retired native vessel.
      */
     endWindowDrag() {
         let me = this;
 
         me.dragProxy && (me.dragProxy.style = {opacity: 1});
-        me.isWindowDragging = false
+        me.isWindowDragging = false;
+
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId: me.windowId})
     }
 
     /**
