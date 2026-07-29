@@ -64,13 +64,20 @@ The following capability dimensions are tracked on each `AgentIdentity` node and
 | `pricingOutput` | `Number` (USD per 1M tokens, optional) | Cost dimension for cloud-hosted models |
 | `license` | `String` (optional) | License identifier for open-weights models (e.g., `'Apache-2.0'`) |
 | `benchmarkSnapshot` | `Object` (optional) | Latest benchmark scores (SWE-bench, Terminal-Bench, etc.) for capability-trend tracking |
-| `sunsetTriggers` | `String[]` | Conditions under which this identity transitions to deprecated state |
+| `sunsetTriggers` | `String[]` | Advisory, human/agent-evaluated conditions that open lifecycle revalidation. They never transition an identity automatically; §2.3 classifies an observed event as rename, split/deprecation, or no change. |
 
 Existing `IdentitySchema.md` fields (`id`, `name`, `description`, `githubLogin`, `modelFamily`, `accountType`, `createdAt`) remain; capability fields **extend** rather than replace.
 
 ### 2.3 Sunset and promotion triggers
 
 A model identity transitions through three lifecycle states: **Active** → **Deprecated** → **Retired**.
+
+`sunsetTriggers` does **not** drive this state machine. A recorded match is editorial input that
+prompts a human or agent to revalidate the embodiment against the cases below. The evaluator records
+the outcome; no watcher detects the condition and no registry field mutates itself. Only a
+split/deprecation outcome enters `ModelStats.md` `§sunset_history`. A rename or no-change outcome
+stays in `§update_history`, preserving the distinction between noticing a trigger and performing a
+lifecycle transition.
 
 **Identity transitions distinguish rename vs split** (operator clarification 2026-05-19):
 
@@ -97,7 +104,10 @@ The boundary between rename and split is judgment-call territory; the substrate-
 - Provider revokes API access entirely
 - 90 days post-deprecation with zero swarm-routing traffic AND no historical-record dependency
 
-The transitions are recorded in `ModelStats.md` per registry-update discipline (§2.5). Historical identity nodes are NOT deleted from the graph — they remain queryable for archaeology (per IdentitySchema.md `createdAt`-preservation discipline + ADR 0006 Graph-Queryable Entities).
+When human/agent revalidation yields a real transition, it is recorded in `ModelStats.md` per
+registry-update discipline (§2.5). Historical identity nodes are NOT deleted from the graph — they
+remain queryable for archaeology (per IdentitySchema.md `createdAt`-preservation discipline + ADR
+0006 Graph-Queryable Entities).
 
 ### 2.4 Swarm-routing implications
 
