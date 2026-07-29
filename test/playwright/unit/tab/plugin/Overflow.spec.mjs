@@ -11,6 +11,53 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
+ * @summary Reactive ancestor fixture for the inherited-theme overflow contract.
+ */
+class ThemeAncestor extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.ThemeAncestor',
+        theme_   : null
+    }
+}
+ThemeAncestor = Neo.setupClass(ThemeAncestor);
+
+/**
+ * @summary Theme-less toolbar fixture whose nearest active theme is owned by its ancestor.
+ */
+class ThemeOwner extends ThemeAncestor {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.ThemeOwner'
+    }
+
+    ancestor = null
+    appName  = 'test-app'
+    mounted  = false
+    windowId = 1
+
+    /**
+     * Mirrors the component parent-chain seam observed by the overflow plugin.
+     * @returns {ThemeAncestor[]}
+     */
+    getParents() {
+        return [this.ancestor]
+    }
+
+    /**
+     * Resolves the fixture's nearest active theme without declaring one on the owner.
+     * @returns {String|null}
+     */
+    getTheme() {
+        return this.theme || this.ancestor.theme
+    }
+
+    /**
+     * Minimal event seam required by plugin.Base while this owner remains unmounted.
+     */
+    on() {}
+}
+ThemeOwner = Neo.setupClass(ThemeOwner);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -37,6 +84,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 theme          : 'neo-theme-neo-dark',
                 windowId       : 1,
                 items          : [{id: 'b1'}, {id: 'b2'}],
+                getTheme       : function () { return this.theme },
                 getDomRect,
                 add            : () => ({}),
                 addDomListeners: () => {},
@@ -176,10 +224,44 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
 
         plugin.control = {theme: 'neo-theme-neo-dark'};
-        plugin.onOwnerThemeChange('neo-theme-neo-light');
+        plugin.owner.theme = 'neo-theme-neo-light';
+        plugin.onOwnerThemeChange();
 
         expect(plugin.control.theme, 'the floating control follows the source toolbar theme')
             .toBe('neo-theme-neo-light')
+    });
+
+    test('a toolbar with no declared theme carries its ancestor theme at creation and follows ancestor switches', async () => {
+        const
+            ancestor   = Neo.create(ThemeAncestor, {theme: 'neo-theme-neo-dark'}),
+            owner      = Neo.create(ThemeOwner, {ancestor}),
+            plugin     = Neo.create(Overflow, {owner}),
+            origCreate = Neo.create;
+        let createdConfig;
+
+        Neo.create = config => {
+            createdConfig = config;
+            return {destroy: () => {}, theme: config.theme}
+        };
+
+        try {
+            plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0});
+
+            expect(owner.theme, 'the toolbar fixture deliberately declares no own theme').toBe(null);
+            expect(createdConfig.theme, 'the floating control resolves the nearest active ancestor theme')
+                .toBe('neo-theme-neo-dark');
+
+            ancestor.theme = 'neo-theme-neo-light';
+            await Promise.resolve();
+
+            expect(plugin.control.theme, 'an ancestor theme switch reaches the out-of-tree control')
+                .toBe('neo-theme-neo-light')
+        } finally {
+            Neo.create = origCreate;
+            plugin.destroy();
+            owner.destroy();
+            ancestor.destroy()
+        }
     });
 
     test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
@@ -370,9 +452,11 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       id             : 'wired-owner',
                       appName        : 'test-app',
                       mounted        : true,
+                      theme          : 'neo-theme-neo-dark',
                       windowId       : 1,
                       items          : [{id: 'b1'}, {id: 'b2'}],
                       parent,
+                      getTheme       : function () { return this.theme },
                       getDomRect     : async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000},
                       add            : () => ({}),
                       addDomListeners: () => {},

@@ -168,10 +168,18 @@ class Overflow extends Plugin {
         me.onResize = me.onResize.bind(me);
 
         // The control is deliberately outside the owner's component collection and DOM subtree, so container
-        // theme propagation cannot reach it. Keep that floating embodiment subscribed to its source toolbar;
-        // button.Base carries the assigned theme through to the generated floating menu.List.
+        // theme propagation cannot reach it. Keep that floating embodiment subscribed to every component in
+        // the source toolbar's theme chain; button.Base carries the resolved nearest-active theme through to
+        // the generated floating menu.List.
+        //
+        // Config subscribers run before the publisher's afterSetTheme() updates its cls carrier. Re-resolve in
+        // the next microtask so getTheme() sees the completed ancestor change rather than the prior theme.
         if (Neo.typeOf(me.owner) === 'NeoInstance') {
-            me.observeConfig(me.owner, 'theme', value => me.onOwnerThemeChange(value))
+            [me.owner, ...me.owner.getParents()].forEach(component => {
+                me.observeConfig(component, 'theme', () => {
+                    queueMicrotask(() => !me.isDestroyed && me.onOwnerThemeChange())
+                })
+            })
         }
     }
 
@@ -250,11 +258,12 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Carries the source toolbar's live theme onto the out-of-tree overflow embodiment.
-     * @param {String|null} value
+     * Re-resolves the source toolbar's nearest active theme onto the out-of-tree overflow embodiment.
      */
-    onOwnerThemeChange(value) {
-        let {control} = this;
+    onOwnerThemeChange() {
+        let me        = this,
+            {control} = me,
+            value     = me.owner.getTheme();
 
         if (control && control.theme !== value) {
             control.theme = value
@@ -469,7 +478,7 @@ class Overflow extends Plugin {
                 iconCls      : 'fa fa-ellipsis',
                 menu         : menuConfig,
                 parentId     : 'document.body',
-                theme        : me.owner.theme,
+                theme        : me.owner.getTheme(),
                 windowId     : me.owner.windowId
             })
         }
