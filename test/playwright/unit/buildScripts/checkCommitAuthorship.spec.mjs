@@ -23,7 +23,21 @@ const
 test.describe('check-commit-authorship — the operator must not author from an agent checkout', () => {
     let tmpRoot;
 
-    const git = (cwd, args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']});
+    const git = (cwd, args, env=process.env) =>
+        execFileSync('git', args, {cwd, encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe']});
+
+    /**
+     * @summary Writes the test-owned global Git identity and returns its HOME.
+     * @param {String} globalEmail
+     * @returns {String}
+     */
+    function writeGlobalIdentity(globalEmail) {
+        const home = path.join(tmpRoot, 'home');
+
+        fs.outputFileSync(path.join(home, '.gitconfig'), `[user]\n\temail = ${globalEmail}\n\tname = Operator\n`);
+
+        return home
+    }
 
     /**
      * @summary Runs the guard in `cwd` with an injected global identity.
@@ -38,10 +52,8 @@ test.describe('check-commit-authorship — the operator must not author from an 
         // HOME is redirected so the guard reads THIS as `git config --global user.email` rather than
         // the real developer's — the global config is an input to the rule, so the test owns it.
         const
-            home = path.join(tmpRoot, 'home'),
+            home = writeGlobalIdentity(globalEmail),
             env  = {...process.env, HOME: home};
-
-        fs.outputFileSync(path.join(home, '.gitconfig'), `[user]\n\temail = ${globalEmail}\n\tname = Operator\n`);
 
         if (agentIdentity) {
             env.NEO_AGENT_IDENTITY = agentIdentity
@@ -107,12 +119,20 @@ test.describe('check-commit-authorship — the operator must not author from an 
     });
 
     test('FIRES in an agent-owned independent clone that still resolves the operator identity', () => {
-        const clone = createMainCheckout();
+        const
+            clone = createMainCheckout(),
+            home  = writeGlobalIdentity('operator@example.com'),
+            env   = {...process.env, HOME: home};
 
         git(clone, ['checkout', '-b', 'agent/lane', '--quiet']);
+        git(clone, ['config', '--unset', 'user.email']);
+        git(clone, ['config', '--unset', 'user.name']);
+
+        expect(git(clone, ['config', '--local', '--list'], env)).not.toContain('user.email');
+
         fs.outputFileSync(path.join(clone, 'work.txt'), 'agent work from a stale clone\n');
         git(clone, ['add', '.']);
-        git(clone, ['commit', '-m', 'feat: stale independent-clone identity', '--quiet', '--no-verify']);
+        git(clone, ['commit', '-m', 'feat: stale independent-clone identity', '--quiet', '--no-verify'], env);
 
         const result = runGuard(clone, 'operator@example.com', '', {agentIdentity: 'neo-gpt-emmy'});
 

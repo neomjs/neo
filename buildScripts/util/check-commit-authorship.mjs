@@ -108,6 +108,11 @@ function isLinkedWorktree() {
  * validation and Git binding remain `bootstrapWorktree`'s job, while this guard only decides whether
  * the operator-global leak is valid authorship or must fail loud.
  *
+ * Deliberate boundary: an independent clone without `NEO_AGENT_IDENTITY` is indistinguishable from
+ * the operator's main checkout and therefore remains uncovered. Refusing it would also refuse the
+ * operator's valid commits. `bootstrapWorktree` fails agent-owned clone provisioning without this
+ * pin, so the guard shares that authority rather than inventing a second ownership resolver.
+ *
  * @returns {Boolean}
  */
 function isAgentCheckout() {
