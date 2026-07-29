@@ -267,6 +267,14 @@ class Workspace extends Container {
      */
     crossWindowParticipationPromise = null
     /**
+     * Transient exact-node measurements for active cross-window preview targets. Each entry is
+     * generation-checked by component identity plus the live manager.Window inner rectangle;
+     * projection, leave, resize, or teardown retires it. Geometry never enters dock documents.
+     * @member {Map<String,Object>} crossWindowPreviewGeometries
+     * @protected
+     */
+    crossWindowPreviewGeometries = new Map()
+    /**
      * Worker-owned vessel workspace records keyed by stable workspace identity. Entries carry
      * document ownership and render-target refs, never cached geometry.
      * @member {Map<String,Object>} vesselWorkspaces
@@ -939,8 +947,9 @@ class Workspace extends Container {
     }
 
     /**
-     * Creates one target-side adapter over a stable workspace identity. Geometry remains entirely
-     * manager.Window-owned; the app stores documents and render refs only.
+     * Creates one target-side adapter over a stable workspace identity. manager.Window remains the
+     * topology/hit-test authority; the app measures exact target-node geometry transiently for the
+     * preview renderer and never persists it.
      * @param {Object} data
      * @param {String|Number} data.windowId
      * @param {String} data.workspaceId
@@ -999,6 +1008,7 @@ class Workspace extends Container {
 
         me.crossWindowParticipations.get(workspaceId)?.destroy();
         me.crossWindowParticipations.delete(workspaceId);
+        me.crossWindowPreviewGeometries.delete(workspaceId);
         state && (state.participation = null);
 
         const participation = await me.createCrossWindowParticipation({windowId, workspaceId});
@@ -1099,6 +1109,7 @@ class Workspace extends Container {
         me.crossWindowParticipations.delete(workspaceId);
         state.committed && me.workspaceSet.unregister(workspaceId);
 
+        me.crossWindowPreviewGeometries.delete(workspaceId);
         me.vesselWorkspaces.delete(workspaceId);
 
         return true
@@ -1145,8 +1156,9 @@ class Workspace extends Container {
     }
 
     /**
-     * D-013 hit-test: accepts only points inside the live manager.Window inner rect. No app-local
-     * window geometry or per-workspace measurement registry exists.
+     * D-013 hit-test: accepts only points inside the live manager.Window inner rect. Exact node
+     * measurement belongs exclusively to the render path below and never participates in target
+     * arbitration.
      * @param {String} workspaceId
      * @param {Number} localX
      * @param {Number} localY
@@ -1171,8 +1183,118 @@ class Workspace extends Container {
     }
 
     /**
-     * Computes and renders one remote preview from live manager.Window dimensions. A vessel uses
-     * its stable lazy landing node; the main workspace returns a stack to its captured semantic home.
+     * Resolves the render host, exact semantic target component, and preview renderer for one
+     * cross-window workspace. A bare vessel has no projected tabs component yet, so its main view
+     * is the exact landing surface; projected main-workspace nodes always resolve by `dockNodeId`.
+     * @summary Keeps semantic node identity paired with its actual rendered component.
+     * @param {String} workspaceId
+     * @param {String} targetNodeId
+     * @returns {{host: Neo.component.Base, renderer: Neo.dashboard.DockPreview,
+     *     target: Neo.component.Base, windowId: (String|Number)}|null}
+     * @protected
+     */
+    resolveCrossWindowPreviewSurface(workspaceId, targetNodeId) {
+        let me       = this,
+            isMain   = workspaceId === Workspace.MAIN_WORKSPACE_ID,
+            state    = isMain ? null : me.vesselWorkspaces.get(workspaceId),
+            windowId = isMain ? me.windowId : state?.windowId,
+            host     = isMain ? me.dragAffordances?.host : state?.host ?? state?.app?.mainView,
+            target   = state && !state.host ? host : host?.down({dockNodeId: targetNodeId}),
+            renderer = isMain ? me.dragAffordances?.preview : state?.preview;
+
+        return windowId != null && host && target && renderer &&
+            typeof host.getDomRect === 'function' && !host.isDestroyed && !target.isDestroyed
+            ? {host, renderer, target, windowId}
+            : null
+    }
+
+    /**
+     * Measures one exact target component and translates it once into its preview overlay host.
+     * The promise itself is memoized so a move stream cannot stack DOM reads; entry identity makes
+     * late results inert after leave, projection, resize, target replacement, or teardown.
+     * @summary Warms a fail-closed, runtime-only exact-node geometry generation.
+     * @param {String} workspaceId
+     * @param {String} targetNodeId
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    ensureCrossWindowPreviewGeometry(workspaceId, targetNodeId) {
+        let me      = this,
+            surface = me.resolveCrossWindowPreviewSurface(workspaceId, targetNodeId),
+            inner   = surface && Neo.manager?.Window?.get(surface.windowId)?.innerRect;
+
+        if (!surface || !inner) {
+            me.crossWindowPreviewGeometries.delete(workspaceId);
+            return Promise.resolve(null)
+        }
+
+        const
+            signature = [inner.x ?? 0, inner.y ?? 0, inner.width, inner.height].join(':'),
+            current   = me.crossWindowPreviewGeometries.get(workspaceId);
+
+        if (
+            current?.host === surface.host &&
+            current?.target === surface.target &&
+            current?.targetNodeId === targetNodeId &&
+            current?.windowSignature === signature
+        ) {
+            return current.promise
+        }
+
+        const entry = {
+            geometry       : null,
+            host           : surface.host,
+            promise        : null,
+            target         : surface.target,
+            targetNodeId,
+            windowSignature: signature
+        };
+
+        entry.promise = surface.host
+            .getDomRect([surface.host.id, surface.target.id], surface.windowId)
+            .then(([hostRect, targetRect]) => {
+                if (
+                    me.isDestroyed ||
+                    me.crossWindowPreviewGeometries.get(workspaceId) !== entry ||
+                    surface.host.isDestroyed ||
+                    surface.target.isDestroyed
+                ) {
+                    return null
+                }
+
+                if (
+                    !hostRect || !targetRect ||
+                    hostRect.width <= 0 || hostRect.height <= 0 ||
+                    targetRect.width <= 0 || targetRect.height <= 0
+                ) {
+                    me.crossWindowPreviewGeometries.delete(workspaceId);
+                    return null
+                }
+
+                return entry.geometry = {
+                    ...surface,
+                    hostRect,
+                    localTargetRect: me.dragAffordances.localRect(targetRect, hostRect),
+                    targetNodeId,
+                    targetRect
+                }
+            })
+            .catch(() => {
+                me.crossWindowPreviewGeometries.get(workspaceId) === entry &&
+                    me.crossWindowPreviewGeometries.delete(workspaceId);
+
+                return null
+            });
+
+        me.crossWindowPreviewGeometries.set(workspaceId, entry);
+
+        return entry.promise
+    }
+
+    /**
+     * Computes and renders one remote preview from an exact live target-node measurement. A vessel
+     * uses its stable lazy landing surface; the main workspace returns a stack to its captured
+     * semantic home. A missing or in-flight measurement hides the preview for that frame.
      * @param {String} workspaceId
      * @param {Object} data
      * @returns {Object|null}
@@ -1182,8 +1304,6 @@ class Workspace extends Container {
         let me              = this,
             isMain          = workspaceId === Workspace.MAIN_WORKSPACE_ID,
             state           = isMain ? null : me.vesselWorkspaces.get(workspaceId),
-            windowId        = isMain ? me.windowId : state?.windowId,
-            inner           = windowId != null ? Neo.manager?.Window?.get(windowId)?.innerRect : null,
             draggedItem     = data?.draggedItem,
             itemId          = draggedItem?.dockItemId,
             groupNodeId     = draggedItem?.dockGroupNodeId ?? null,
@@ -1195,33 +1315,46 @@ class Workspace extends Container {
                     ? storedHome
                     : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0])
                 : Workspace.vesselTabsNodeId(state?.itemId),
-            pointer         = {x: data?.localX, y: data?.localY},
-            rect            = inner && {x: 0, y: 0, width: inner.width, height: inner.height},
-            previewPointer  = isMain || !rect
-                ? pointer
-                : {x: rect.width / 2, y: rect.height / 2},
-            renderer        = isMain ? me.dragAffordances?.preview : state?.preview,
-            preview;
+            pointer         = {x: data?.localX, y: data?.localY};
 
         if (
-            !itemId || !targetNodeId || !rect || state?.committed || state?.closeRequested ||
+            !itemId || !targetNodeId || state?.committed || state?.closeRequested ||
             !me.hitTestCrossWindowTarget(workspaceId, pointer.x, pointer.y)
         ) {
             return null
         }
 
-        preview = me.dragAffordances.producer.produce({
-            containerId : isMain ? me.getReference('dock-host')?.id : state.app?.mainView?.id,
-            groupNodeId,
-            itemId,
-            pointer     : previewPointer,
-            sourceNodeId: data?.sourceNodeId,
-            zones       : [{nodeId: targetNodeId, rect}]
-        });
+        me.ensureCrossWindowPreviewGeometry(workspaceId, targetNodeId);
 
-        if (renderer) {
-            renderer.dockPreview = preview;
-            preview && renderer.applyTargetGeometry(rect)
+        const geometry = me.crossWindowPreviewGeometries.get(workspaceId)?.geometry;
+
+        if (!geometry) {
+            let renderer = me.resolveCrossWindowPreviewSurface(workspaceId, targetNodeId)?.renderer;
+
+            renderer && (renderer.dockPreview = null);
+
+            return null
+        }
+
+        const
+            previewPointer = isMain
+                ? pointer
+                : {
+                    x: geometry.targetRect.x + geometry.targetRect.width / 2,
+                    y: geometry.targetRect.y + geometry.targetRect.height / 2
+                },
+            preview = me.dragAffordances.producer.produce({
+                containerId : geometry.host.id,
+                groupNodeId,
+                itemId,
+                pointer     : previewPointer,
+                sourceNodeId: data?.sourceNodeId,
+                zones       : [{nodeId: targetNodeId, rect: geometry.targetRect}]
+            });
+
+        if (geometry.renderer) {
+            geometry.renderer.dockPreview = preview;
+            preview && geometry.renderer.applyTargetGeometry(geometry.localTargetRect)
         }
 
         return preview
@@ -1233,6 +1366,8 @@ class Workspace extends Container {
      * @protected
      */
     clearCrossWindowPreview(workspaceId) {
+        this.crossWindowPreviewGeometries.delete(workspaceId);
+
         if (workspaceId === Workspace.MAIN_WORKSPACE_ID) {
             this.dragAffordances?.clear()
         } else {
@@ -1715,6 +1850,7 @@ class Workspace extends Container {
 
         // Every re-projection retires the active gesture session — a stale geometry promise
         // must never survive a topology change (the controller's generation guards depend on it).
+        me.crossWindowPreviewGeometries.delete(Workspace.MAIN_WORKSPACE_ID);
         me.dragAffordances?.clear();
 
         try {
@@ -4486,6 +4622,7 @@ class Workspace extends Container {
 
         me.crossWindowParticipations.forEach(participation => participation?.destroy());
         me.crossWindowParticipations.clear();
+        me.crossWindowPreviewGeometries.clear();
         me.vesselWorkspaces.clear();
         me.tourRunner?.destroy();
         me.dockService?.destroy();
