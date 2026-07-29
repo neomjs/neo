@@ -65,12 +65,14 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
                 sourceParent.removeAt(sourceIndex, false, true);
                 sourceParent.insert(sourceIndex, placeholder, true);
                 sourceParent.updateDepth = -1;
-                sourceParent.update();
-                target.add(pane);
+                target.add(pane, true);
+                target.updateDepth = -1;
 
                 // Cross-window insertion is not complete when `add()` returns. The exact vessel
                 // may otherwise be published to gesture logic, parked, and only THEN finish its
                 // pane mount — a late focus/mount side effect that can raise the parked source.
+                // Both structural mutations are silent above so staging owns exactly one
+                // settlement transaction per parent before publishing the embodiment.
                 await Promise.all([
                     sourceParent.promiseUpdate?.(),
                     target.promiseUpdate?.()

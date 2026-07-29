@@ -359,16 +359,17 @@ Neural Link addresses windows by the connected App-Worker `windowId`, while the 
 handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identities are deliberately distinct:
 
 - `manager.Window` remains the runtime topology and geometry observer. Its private entry may carry the reconnect-bounded
-  `{targetWindowId, ownerWindowId, opaqueHandleKey}` route plus generic capability facts (`focus`, `position`, `close`);
+  `{targetWindowId, ownerWindowId, opaqueHandleKey}` route plus generic capability facts
+  (`focus`, `position`, `resize`, `close`);
   no dock document, workspace, vessel, reintegration, or persistence semantics enter the manager.
 - `Main` remains the physical-handle owner. On open, the opener mints a short-lived one-time capability and a separate
   opaque handle key against the exact `WindowProxy`. The target consumes that capability once during the existing
   `getWindowData()` handshake; only then does the opener bind the private key to the target runtime `windowId`. URL,
   `window.name`, semantic name, `appName`, timing, and same-name reuse are never routing authority. Timeout, reload,
   close, reuse, or a mismatched handle invalidates the generation.
-- `get_window_topology` projects generic capability booleans, not the private route. Focus, position, and close resolve
-  the topology entry inside the App Worker, route the opaque key to the exact owning main thread, and revalidate the
-  live generation before touching the native handle.
+- `get_window_topology` projects generic capability booleans, not the private route. Focus, position, resize, and close
+  resolve the topology entry inside the App Worker, route the opaque key to the exact owning main thread, and revalidate
+  the live generation before touching the native handle.
 - Close remains §2.8.3's **post-commit render-target effect** and is separately owner-granted. Generic popups default
   close-unsupported; a product owner may grant physical close only when its semantic return/disposal contract makes
   that effect safe. The Neural Link receipt is terminal only after the connected `windowId` disappears from topology;
@@ -379,7 +380,7 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
-#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396)
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396; amended 2026-07-29, #16117)
 
 Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
 terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict
@@ -387,26 +388,48 @@ terminal state. A source may enter `HOVERING_CLAIM` only after its physical park
 dispatch is provisional authority: conversion and park owners retain their prior state until settlement,
 and a stale generation cannot mutate a successor gesture.
 
-The browser-runtime park mechanic is **target-cover**, behind generic exact-handle capabilities:
+The Workstation browser-runtime park binding is **target-cover**, behind generic exact-handle capabilities. Its
+admission reads the source's live **outer** extent and the target's live **inner** extent; creation-time dimensions
+and equal-size assumptions are not authority:
 
 1. resolve both connected generations from `manager.Window` and require opener-minted routes;
-2. verify that the target can cover the source vessel;
+2. require exact target focus and exact source position authority; require exact source resize authority only when the
+   source outer frame exceeds the target inner frame on either axis;
 3. focus the exact target route first;
-4. only after focus admission, pause pointer-follow and move the exact source route to the target origin.
+4. only after focus admission, pause pointer-follow, drain already-issued physical moves, preserve the source's exact
+   outer extent and origin, and — when needed — request a best-effort target-origin pre-position before resizing the
+   same exact source handle to
+   `{width: min(sourceOuter.width, targetInner.width), height: min(sourceOuter.height, targetInner.height)}`;
+5. verify the target realm's observed `outerWidth` / `outerHeight`, move the exact source route to the target origin,
+   then refocus the exact target route.
 
-The order is load-bearing. A focus refusal leaves the source untouched and moving; a subsequent move
-refusal makes the DragDrop owner re-enable pointer-follow. No effectful half-park needs semantic-name
-recovery. Offscreen coordinates are not the browser-runtime default: the macOS/Chrome headed falsifier
-clamped a requested far-negative position back onto the visible desktop. Other platform mechanics remain
-host seams and require their own #15243 matrix receipts; they never change the pure conversion or park
-machines. Target-cover admission is also deliberately stricter than the size-neutral geometry predicate:
-when the source cannot fit behind the target, the host returns `false` and the sensor stays
-`DETACHED_MOVING`. The §2.8.4 min-axis metric remains reachable for every size pair; physical admission
-does not overclaim a safe park mechanic for a non-coverable pair. A future matrix-backed resize/hide seam
-may admit that case without changing the metric or state owners.
+The order is load-bearing. A focus refusal leaves the source untouched and moving. The full-size pre-position is
+deliberately non-admitting: Chrome may clamp a frame that cannot yet fit at the requested target origin, so only the
+post-resize exact move can admit cover. A resize refusal restores the original extent before pointer-follow resumes. A
+final move refusal restores the original origin and extent. A final-refocus refusal re-shows the same source generation;
+if that compensation is itself refused, the still-parked generation remains the sole retry authority. Browser
+minimum-size clamping therefore fails closed: requested dimensions are never projected into topology truth, and a
+non-matching observed extent cannot admit conversion. No effectful half-park needs semantic-name recovery.
+
+Offscreen coordinates are not the browser-runtime default: the macOS/Chrome headed falsifier clamped a requested
+far-negative position back onto the visible desktop. The #16117 macOS/Chrome probe instead kept one script-opened popup
+alive, shrank its outer `640×546` frame to `360×260`, and restored the exact original frame with zero additional
+`window.open` calls. Other platform mechanics remain host seams and require their own #15243 matrix receipts; the exact
+observation gate lets an admitting platform use the same state machine and makes a refusing or clamping platform remain
+`DETACHED_MOVING`. The §2.8.4 min-axis metric stays size-neutral; target-cover changes only the reversible physical
+embodiment needed after that metric proposes conversion.
+
+This amendment does not silently broaden every popup owner. Resize remains least-authority by default and the
+Workstation vessel opener grants it explicitly. Demo B keeps its existing source-larger-than-target refusal until its
+own owner contract and headed portability matrix deliberately admit a resize binding.
+
+Park and re-show settlement re-enter the dock-blind `DragCoordinator` with the source zone's latest raw pointer and
+geometry frame. This continuation is source-owned and latest-frame-only: one successful platform settlement must be
+enough to materialize or retire the target proxy even when the hand stops moving; a refusal, reset epoch, or stale
+generation emits no replay and never auto-retries an effect.
 
 Convert-out re-shows the **same** connected window through the same opaque handle generation and resumes
-physical pointer-follow at the live logical drag origin while preserving the pre-conversion extent. If no
+physical pointer-follow at the live logical drag origin after restoring the exact pre-conversion outer extent. If no
 live origin is supplied, the park owner falls back to its recorded pre-conversion rect. The slot clears only
 after strict re-show success. Neither conversion direction owns a popup-acquisition seam, so a continuous
 park → re-show journey has zero mid-gesture `windowOpen` attempts by construction.
@@ -421,13 +444,14 @@ Terminal disposition remains §2.8.2-owned:
 - after an admitted convert-out, `TERMINAL_DETACHED` follows the ordinary tear-out terminal and adopts the
   re-shown vessel — no close and no reacquisition.
 
-The current binding witness is macOS/Chrome headed and gesture-level on the committed #15243 matrix runner:
+The baseline binding witness is macOS/Chrome headed and gesture-level on the committed #15243 matrix runner:
 one real pointer journey acquires one externally observed tear-out `Page`, parks under a still-focused real
 target at the requested physical coordinates, leaves the claim, proves the identical `Page`, runtime
 `windowId`, opaque handle, external restore coordinates, and zero additional browser-realm `window.open`
 calls, then releases through `TERMINAL_DETACHED`. Unit witnesses additionally pin refusal, latest-frame
 replay, stale completion, terminal-during-transition, duplicate terminal, and exact-once retirement
-behavior. Windows/Linux cells and non-coverable park mechanics remain honestly owned by #15243.
+behavior. #16117 adds the ordinary actual-pointer popup-over-popup witness and the non-coverable target-cover matrix;
+Windows/Linux headed cells remain honestly owned by #15243.
 
 ## 3. Rejected Options
 

@@ -221,6 +221,13 @@ class Workspace extends Container {
      */
     tearOutPanes = {}
     /**
+     * Exact pre-conversion and target-cover outer geometry for parked tear-out vessels.
+     * Runtime-only physical recovery authority; never persisted workspace state.
+     * @member {Object} tearOutParkGeometries={}
+     * @protected
+     */
+    tearOutParkGeometries = {}
+    /**
      * Exact `{tabsNodeId, index}` placement captured at each detach commit — the return truth.
      * @member {Object} tearOutPlacements={}
      * @protected
@@ -358,6 +365,18 @@ class Workspace extends Container {
      * @member {Object|null} lastTourReceipt=null
      */
     lastTourReceipt = null
+    /**
+     * Most recent exact-handle park admission receipt.
+     * @member {Object|null} lastVesselParkReceipt=null
+     * @protected
+     */
+    lastVesselParkReceipt = null
+    /**
+     * Most recent exact-handle restore admission receipt.
+     * @member {Object|null} lastVesselRestoreReceipt=null
+     * @protected
+     */
+    lastVesselRestoreReceipt = null
     /**
      * Five records every 500ms = an honest 10 records/sec.
      * @member {Number|null} #feedIntervalId=null
@@ -1069,6 +1088,7 @@ class Workspace extends Container {
             disconnected        : false,
             document            : null,
             host                : null,
+            indicators          : null,
             itemId,
             participation       : null,
             participationPromise: null,
@@ -1081,7 +1101,8 @@ class Workspace extends Container {
         me.vesselWorkspaces.set(workspaceId, state);
 
         app.mainView.addCls('workstation-vessel-target');
-        state.preview = app.mainView.add({module: DockPreview});
+        state.preview    = app.mainView.add({module: DockPreview});
+        state.indicators = app.mainView.add({module: DockDropIndicators});
 
         await app.mainView.promiseUpdate();
         state.participationPromise = me.refreshCrossWindowParticipation(workspaceId);
@@ -1315,12 +1336,18 @@ class Workspace extends Container {
                     ? storedHome
                     : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0])
                 : Workspace.vesselTabsNodeId(state?.itemId),
-            pointer         = {x: data?.localX, y: data?.localY};
+            pointer         = {x: data?.localX, y: data?.localY},
+            renderer        = isMain ? me.dragAffordances?.preview : state?.preview,
+            indicators      = isMain ? null : state?.indicators,
+            producer        = me.dragAffordances.producer,
+            preview;
 
         if (
             !itemId || !targetNodeId || state?.committed || state?.closeRequested ||
             !me.hitTestCrossWindowTarget(workspaceId, pointer.x, pointer.y)
         ) {
+            renderer && (renderer.dockPreview = null);
+            indicators?.clear();
             return null
         }
 
@@ -1329,32 +1356,47 @@ class Workspace extends Container {
         const geometry = me.crossWindowPreviewGeometries.get(workspaceId)?.geometry;
 
         if (!geometry) {
-            let renderer = me.resolveCrossWindowPreviewSurface(workspaceId, targetNodeId)?.renderer;
-
             renderer && (renderer.dockPreview = null);
+            indicators?.clear();
 
             return null
         }
 
         const
+            zone           = {nodeId: targetNodeId, rect: geometry.targetRect},
             previewPointer = isMain
                 ? pointer
                 : {
                     x: geometry.targetRect.x + geometry.targetRect.width / 2,
                     y: geometry.targetRect.y + geometry.targetRect.height / 2
-                },
-            preview = me.dragAffordances.producer.produce({
+                };
+
+        if (indicators) {
+            indicators.hostRect = geometry.hostRect;
+            indicators.candidateSet = producer.produceCandidates({
                 containerId : geometry.host.id,
                 groupNodeId,
                 itemId,
-                pointer     : previewPointer,
+                pointer,
+                root        : zone,
                 sourceNodeId: data?.sourceNodeId,
-                zones       : [{nodeId: targetNodeId, rect: geometry.targetRect}]
+                zones       : [zone]
             });
+            preview = indicators.updatePointer(pointer)?.preview ?? null
+        }
 
-        if (geometry.renderer) {
-            geometry.renderer.dockPreview = preview;
-            preview && geometry.renderer.applyTargetGeometry(geometry.localTargetRect)
+        preview ??= producer.produce({
+            containerId : geometry.host.id,
+            groupNodeId,
+            itemId,
+            pointer     : previewPointer,
+            sourceNodeId: data?.sourceNodeId,
+            zones       : [zone]
+        });
+
+        if (renderer) {
+            renderer.dockPreview = preview;
+            preview && renderer.applyTargetGeometry(geometry.localTargetRect)
         }
 
         return preview
@@ -1375,6 +1417,7 @@ class Workspace extends Container {
                 preview = state?.preview;
 
             preview && (preview.dockPreview = null);
+            state?.indicators?.clear();
             state && !state.committed && (state.document = null)
         }
     }
@@ -1559,6 +1602,7 @@ class Workspace extends Container {
             pane?.parent?.remove(pane, false)
         });
         state.preview?.parent?.remove(state.preview, false);
+        state.indicators?.parent?.remove(state.indicators, false);
 
         state.host = mainView.add({
             module: Container,
@@ -1566,11 +1610,13 @@ class Workspace extends Container {
             flex  : 1,
             items : [
                 me.projectVesselDockModel(workspaceId),
-                state.preview || {module: DockPreview}
+                state.preview    || {module: DockPreview},
+                state.indicators || {module: DockDropIndicators}
             ],
             layout: {ntype: 'fit'}
         });
-        state.preview ??= state.host.down({ntype: 'dock-preview'});
+        state.preview    ??= state.host.down({ntype: 'dock-preview'});
+        state.indicators ??= state.host.down({ntype: 'dashboard-dock-drop-indicators'});
 
         await state.host.promiseUpdate();
         state.participation?.destroy();
@@ -1742,6 +1788,7 @@ class Workspace extends Container {
         state.closeRequested = false;
         state.disconnected   = true;
         state.host           = null;
+        state.indicators     = null;
         state.participation  = null;
         state.preview        = null;
         state.reconciling    = false;
@@ -2375,7 +2422,7 @@ class Workspace extends Container {
                 top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
             let opened = await Neo.Main.windowOpen({
-                nativeCapabilities: {close: true, position: true},
+                nativeCapabilities: {close: true, position: true, resize: true},
                 url               : `./index.html?popout=${itemId}&hostId=${me.id}`
                     + `&vesselFlow=tear-out&vesselGrant=${ownerGrant.token}`
                     + `&vesselGeneration=${ownerGrant.generation}`
@@ -2534,6 +2581,7 @@ class Workspace extends Container {
         }
 
         delete me.tearOutConnects[itemId];
+        delete me.tearOutParkGeometries[itemId];
         me.tearOutConnectAdmissions.delete(itemId);
         me.revokeVesselOwnerGrant('tear-out', itemId);
         me.tearOutRetirements.delete(itemId);
@@ -2578,7 +2626,24 @@ class Workspace extends Container {
      * @protected
      */
     async disposeParkedTearOutVessel({itemId, windowName}) {
-        return this.tearOutHandlers.retireActiveVessel({itemId, windowName})
+        let me    = this,
+            entry = me.resolveTearOutVessel(itemId),
+            route = entry?.nativeRoute;
+
+        const disposed = await me.tearOutHandlers.retireActiveVessel({itemId, windowName});
+
+        if (disposed) {
+            delete me.tearOutParkGeometries[itemId];
+
+            route?.nativeHandleKey && await Neo.main.addon.DragDrop.retireWindowDragOrphanRecovery({
+                nativeHandleKey: route.nativeHandleKey,
+                targetWindowId : route.targetWindowId,
+                windowId       : me.windowId,
+                windowName
+            })
+        }
+
+        return disposed
     }
 
     /**
@@ -2586,8 +2651,9 @@ class Workspace extends Container {
      * the REAL OS window alive while the proxy embodies over the target. Close-and-reopen is a
      * one-way door (mid-gesture popup acquisition reads as unsolicited), so conversion parks
      * instead: the same exact generation re-shows on out-conversion or restore. The focus /
-     * move / refocus chain is the platform-law choreography (z-order hides the parked vessel);
-     * a refocus refusal compensates back to the source rect rather than leaving a hidden window.
+     * resize / move / refocus chain is the platform-law choreography (z-order hides the parked
+     * vessel). A source whose outer frame cannot fit behind the target first shrinks through its
+     * exact native route; a refocus refusal compensates to the original extent and source rect.
      * @param {Object} vessel
      * @param {String} vessel.itemId
      * @param {String} vessel.windowName
@@ -2601,20 +2667,64 @@ class Workspace extends Container {
             sourceWindow = Neo.manager?.Window?.get(entry?.windowId),
             targetWindow = Neo.manager?.Window?.get(me.vesselConversionTargetWindowId),
             targetRoute  = targetWindow?.nativeRoute,
-            // The cover geometry and the authority check both speak published inner-window
-            // geometry; a child omitting outerRect never rejects an authorized live vessel.
             sourceRect   = sourceWindow?.innerRect,
-            targetRect   = targetWindow?.innerRect;
+            sourceOuter  = sourceWindow?.outerRect,
+            targetRect   = targetWindow?.innerRect,
+            needsResize  = Boolean(sourceOuter && targetRect && (
+                sourceOuter.width > targetRect.width || sourceOuter.height > targetRect.height
+            )),
+            parkSize      = needsResize ? {
+                height: Math.min(sourceOuter.height, targetRect.height),
+                width : Math.min(sourceOuter.width, targetRect.width)
+            } : null,
+            restoreRect   = sourceOuter ? {
+                height: sourceOuter.height,
+                width : sourceOuter.width,
+                x     : sourceOuter.x,
+                y     : sourceOuter.y
+            } : null,
+            parkGeometry  = needsResize ? {
+                park   : {...parkSize, x: targetRect?.x, y: targetRect?.y},
+                restore: restoreRect
+            } : null;
+
+        me.lastVesselParkReceipt = {
+            authority: {
+                entryNameMatches     : entry?.windowName === windowName,
+                sourceHasHandle      : Boolean(route?.nativeHandleKey),
+                sourceOwnerMatches   : route?.ownerWindowId === me.windowId,
+                sourcePositionCapable: route?.capabilities?.position === true,
+                sourceResizeCapable  : route?.capabilities?.resize === true,
+                sourceTargetMatches  : route?.targetWindowId === entry?.windowId,
+                targetFocusCapable   : targetRoute?.capabilities?.focus === true,
+                targetHasHandle      : Boolean(targetRoute?.nativeHandleKey),
+                targetOwnerMatches   : targetRoute?.ownerWindowId === me.windowId,
+                targetTargetMatches  : targetRoute?.targetWindowId === me.vesselConversionTargetWindowId
+            },
+            needsResize,
+            parkSize,
+            sourceInner: sourceRect && {
+                height: sourceRect.height, width: sourceRect.width, x: sourceRect.x, y: sourceRect.y
+            },
+            sourceOuter: sourceOuter && {
+                height: sourceOuter.height, width: sourceOuter.width, x: sourceOuter.x, y: sourceOuter.y
+            },
+            targetInner: targetRect && {
+                height: targetRect.height, width: targetRect.width, x: targetRect.x, y: targetRect.y
+            }
+        };
+        me.lastVesselRestoreReceipt = null;
 
         if (
             !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
+            (needsResize && route.capabilities?.resize !== true) ||
             !targetRoute?.nativeHandleKey || targetRoute.ownerWindowId !== me.windowId ||
             targetRoute.targetWindowId !== me.vesselConversionTargetWindowId ||
             targetRoute.capabilities?.focus !== true ||
-            entry.windowName !== windowName || !sourceRect || !targetRect ||
-            sourceRect.width > targetRect.width || sourceRect.height > targetRect.height
+            entry.windowName !== windowName || !sourceRect || !sourceOuter || !targetRect
         ) {
+            me.lastVesselParkReceipt.reason = 'native route or live cover geometry refused';
             return false
         }
 
@@ -2625,10 +2735,14 @@ class Workspace extends Container {
                     windowId       : me.windowId
                 }) === true;
 
+            me.lastVesselParkReceipt.focused = focused;
+
             if (!focused) return false;
 
             let moved = await Neo.main.addon.DragDrop.parkWindowDrag({
                 nativeHandleKey: route.nativeHandleKey,
+                parkSize,
+                restoreRect,
                 targetWindowId : route.targetWindowId,
                 windowId       : me.windowId,
                 windowName,
@@ -2636,7 +2750,11 @@ class Workspace extends Container {
                 y              : targetRect.y
             }) === true;
 
+            me.lastVesselParkReceipt.moved = moved;
+
             if (!moved) return false;
+
+            parkGeometry && (me.tearOutParkGeometries[itemId] = parkGeometry);
 
             let refocused = await Neo.Main.windowNativeFocus({
                 nativeHandleKey: targetRoute.nativeHandleKey,
@@ -2644,21 +2762,34 @@ class Workspace extends Container {
                 windowId       : me.windowId
             }) === true;
 
+            me.lastVesselParkReceipt.refocused = refocused;
+
             if (!refocused) {
                 let compensated = await Neo.main.addon.DragDrop.resumeWindowDrag({
                     nativeHandleKey: route.nativeHandleKey,
                     targetWindowId : route.targetWindowId,
                     windowId       : me.windowId,
                     windowName,
-                    x              : sourceRect.x,
-                    y              : sourceRect.y
+                    x              : sourceOuter.x,
+                    y              : sourceOuter.y
                 }) === true;
 
-                return !compensated
+                me.lastVesselParkReceipt.compensated = compensated;
+                me.lastVesselParkReceipt.parked      = !compensated;
+                compensated && delete me.tearOutParkGeometries[itemId];
+
+                // Recovery ownership and visual admission are separate: if target refocus failed,
+                // the real source may still cover the target. Never publish conversion-ready on
+                // that frame, even when exact source restoration also needs a later retry.
+                return false
             }
 
+            me.lastVesselParkReceipt.parked = true;
+
             return true
-        } catch {
+        } catch (error) {
+            me.lastVesselParkReceipt.error  = String(error?.message || error);
+            me.lastVesselParkReceipt.reason = 'platform effect threw';
             return false
         }
     }
@@ -2677,16 +2808,27 @@ class Workspace extends Container {
      * @protected
      */
     async reshowTearOutVessel({itemId, rect, terminal=false, windowName}) {
-        let me    = this,
-            entry = me.resolveTearOutVessel(itemId),
-            route = entry?.nativeRoute;
+        let me       = this,
+            entry    = me.resolveTearOutVessel(itemId),
+            route    = entry?.nativeRoute,
+            geometry = me.tearOutParkGeometries[itemId] ?? null;
+
+        me.lastVesselRestoreReceipt = {
+            geometry,
+            rect: rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y},
+            terminal
+        };
 
         if (
             !route?.nativeHandleKey || route.ownerWindowId !== me.windowId ||
             route.targetWindowId !== entry.windowId || route.capabilities?.position !== true ||
+            (geometry && route.capabilities?.resize !== true) ||
             entry.windowName !== windowName ||
             !Number.isFinite(rect?.x) || !Number.isFinite(rect?.y)
-        ) return false;
+        ) {
+            me.lastVesselRestoreReceipt.reason = 'native route or restore geometry refused';
+            return false
+        }
 
         let data = {
             nativeHandleKey: route.nativeHandleKey,
@@ -2698,10 +2840,98 @@ class Workspace extends Container {
         };
 
         try {
-            return terminal
-                ? await Neo.Main.windowNativeMoveTo(data) === true
-                : await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true
-        } catch {
+            if (!terminal) {
+                const admitted = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
+
+                me.lastVesselRestoreReceipt.admitted = admitted;
+                admitted && delete me.tearOutParkGeometries[itemId];
+
+                return admitted
+            }
+
+            const addonRestored = await Neo.main.addon.DragDrop.resumeWindowDrag(data) === true;
+
+            me.lastVesselRestoreReceipt.addonRestored = addonRestored;
+
+            if (addonRestored) {
+                delete me.tearOutParkGeometries[itemId];
+                me.lastVesselRestoreReceipt.admitted = true;
+
+                return true
+            }
+
+            const recoveryPending = await Neo.main.addon.DragDrop.hasWindowDragOrphanRecovery(data) === true;
+
+            me.lastVesselRestoreReceipt.recoveryPending = recoveryPending;
+
+            // A matching predecessor effect still owns exact recovery. Never race it with a second
+            // direct route mutation or degrade a required extent restore into position-only success.
+            if (recoveryPending) return false;
+
+            if (geometry) {
+                const resized = await Neo.Main.windowNativeResizeTo({
+                    nativeHandleKey: route.nativeHandleKey,
+                    targetWindowId : route.targetWindowId,
+                    windowId       : me.windowId,
+                    ...geometry.restore
+                }) === true;
+
+                me.lastVesselRestoreReceipt.resized = resized;
+
+                if (!resized) {
+                    await Neo.Main.windowNativeResizeTo({
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        windowId       : me.windowId,
+                        ...geometry.park
+                    });
+                    return false
+                }
+            }
+
+            const moved = await Neo.Main.windowNativeMoveTo({
+                nativeHandleKey: route.nativeHandleKey,
+                targetWindowId : route.targetWindowId,
+                windowId       : me.windowId,
+                x              : rect.x,
+                y              : rect.y
+            }) === true;
+
+            me.lastVesselRestoreReceipt.moved = moved;
+
+            if (!moved) {
+                if (geometry) {
+                    const compensationResized = await Neo.Main.windowNativeResizeTo({
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        windowId       : me.windowId,
+                        ...geometry.park
+                    }) === true;
+
+                    me.lastVesselRestoreReceipt.compensationResized = compensationResized;
+
+                    if (compensationResized) {
+                        me.lastVesselRestoreReceipt.compensationMoved =
+                            await Neo.Main.windowNativeMoveTo({
+                                nativeHandleKey: route.nativeHandleKey,
+                                targetWindowId : route.targetWindowId,
+                                windowId       : me.windowId,
+                                x              : geometry.park.x,
+                                y              : geometry.park.y
+                            }) === true
+                    }
+                }
+
+                return false
+            }
+
+            me.lastVesselRestoreReceipt.admitted = true;
+            delete me.tearOutParkGeometries[itemId];
+            await Neo.main.addon.DragDrop.acknowledgeWindowDragOrphanRecovery(data);
+
+            return true
+        } catch (error) {
+            me.lastVesselRestoreReceipt.error = String(error?.message || error);
             return false
         }
     }
@@ -3016,6 +3246,7 @@ class Workspace extends Container {
                     windowName = `tearout-${itemId}`;
 
                 me.tearOutConnectAdmissions.delete(itemId);
+                delete me.tearOutParkGeometries[itemId];
                 me.tearOutRetirements.add(itemId);
 
                 if (me.tearOutEmbodiment.isStaged(itemId)) {
@@ -3054,6 +3285,7 @@ class Workspace extends Container {
                 }
 
                 delete me.tearOutConnects[itemId];
+                delete me.tearOutParkGeometries[itemId];
                 me.tearOutHandlers.onVesselRetired({
                     admissionToken: entry.admissionToken,
                     generation    : entry.generation,
@@ -3085,6 +3317,7 @@ class Workspace extends Container {
 
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects[itemId];
+                delete me.tearOutParkGeometries[itemId];
                 me.tearOutRetirements.delete(itemId);
                 me.tearOutHandlers.onVesselRetired({
                     admissionToken: entry.admissionToken,
@@ -3551,12 +3784,15 @@ class Workspace extends Container {
      * `parkedItemId`, which additionally requires the exact source vessel to be strictly parked.
      * @param {Object} context
      * @param {String|null} [context.parkedItemId=null]
-     * @param {Neo.dashboard.DockTabSortZone} context.sourceZone
+     * @param {Neo.dashboard.DockTabSortZone|null} [context.sourceZone=null]
+     * @param {String|null} [context.sourceZoneId=null] Clone-safe Neural Link alternative.
      * @param {String} context.targetWorkspaceId
      * @returns {Object}
      * @protected
      */
-    readCrossWindowGestureSnapshot({parkedItemId=null, sourceZone, targetWorkspaceId}={}) {
+    readCrossWindowGestureSnapshot({parkedItemId=null, sourceZone=null, sourceZoneId=null, targetWorkspaceId}={}) {
+        sourceZone ??= sourceZoneId ? Neo.get(sourceZoneId) : null;
+
         let me            = this,
             isMain        = targetWorkspaceId === Workspace.MAIN_WORKSPACE_ID,
             state         = isMain ? null : me.vesselWorkspaces.get(targetWorkspaceId),
@@ -3568,21 +3804,35 @@ class Workspace extends Container {
             semantic      = target?.currentPreview ?? null,
             renderer      = isMain ? me.dragAffordances?.preview : state?.preview,
             rendered      = renderer?.dockPreview ?? null,
+            indicatorMenu = isMain ? me.dragAffordances?.indicators : state?.indicators,
+            indicatorSet  = indicatorMenu?.candidateSet ?? null,
             sensor        = sourceZone?.vesselConversionSensor,
             parkedVessel  = me.vesselParkHandlers?.parkedVessel ?? null,
             sourceVessel  = parkedItemId && me.resolveTearOutVessel(parkedItemId),
             targetProxy   = parkedItemId && me.vesselProxyEmbodiment.snapshot(parkedItemId),
             snapshot      = {
-                claimCount           : arbiter?.claimCount ?? 0,
-                converted            : sensor?.converted === true && sensor?.transitioning !== true,
-                engaged              : coordinator?.activeTargetZone === target,
-                parkedItemId         : parkedVessel?.itemId ?? null,
+                claimCount: arbiter?.claimCount ?? 0,
+                converted : sensor?.converted === true && sensor?.transitioning !== true,
+                engaged   : coordinator?.activeTargetZone === target,
+                indicators: indicatorSet ? {
+                    activePreviewId: indicatorMenu.activeCandidate?.preview?.previewId ?? null,
+                    candidateCount : (indicatorSet.cross?.length ?? 0) + (indicatorSet.root?.chips?.length ?? 0),
+                    itemId         : indicatorSet.itemId ?? null,
+                    visible        : !indicatorMenu.cls?.includes?.('neo-dashboard-dock-drop-indicators-hidden')
+                } : null,
+                parkedItemId: parkedVessel?.itemId ?? null,
+                parkReceipt : me.lastVesselParkReceipt
+                    ? DockZoneModel.clone(me.lastVesselParkReceipt)
+                    : null,
                 preview              : semantic ? DockZoneModel.clone(semantic) : null,
                 rendered             : rendered ? DockZoneModel.clone(rendered) : null,
                 sourceVesselConnected: Boolean(
                     sourceVessel?.windowId && Neo.manager?.Window?.get(sourceVessel.windowId)
                 ),
                 sourceVesselWindowId: sourceVessel?.windowId ?? null,
+                restoreReceipt      : me.lastVesselRestoreReceipt
+                    ? DockZoneModel.clone(me.lastVesselRestoreReceipt)
+                    : null,
                 targetProxy,
                 targetWorkspaceId,
                 winnerStableId      : winner?.stableId ?? null
@@ -3593,9 +3843,13 @@ class Workspace extends Container {
             && snapshot.winnerStableId === targetWorkspaceId
             && Boolean(snapshot.preview?.previewId)
             && snapshot.rendered?.previewId === snapshot.preview.previewId
+            && snapshot.indicators?.activePreviewId === snapshot.preview.previewId
             && (parkedItemId == null || (
                 snapshot.converted && snapshot.parkedItemId === parkedItemId &&
                 snapshot.sourceVesselConnected &&
+                snapshot.indicators?.itemId === parkedItemId &&
+                snapshot.indicators.candidateCount >= 5 &&
+                snapshot.indicators.visible &&
                 targetProxy?.itemId === parkedItemId &&
                 targetProxy.ownsPane &&
                 targetProxy.settled &&

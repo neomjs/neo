@@ -205,7 +205,7 @@ async function runWorkstationAppThemeProbe() {
 
 /**
  * @summary Runs one native-window authority scenario against the real Main singleton in an isolated process.
- * @param {'cross-origin'|'navigation-failure'|'persisted-pagehide'|'same-origin'} scenario
+ * @param {'cross-origin'|'native-focus-stale'|'native-move-stale'|'native-resize'|'native-resize-default-denied'|'native-resize-denied'|'navigation-failure'|'persisted-pagehide'|'same-origin'} scenario
  * @returns {Promise<Object>}
  */
 async function runNativeWindowRouteProbe(scenario) {
@@ -297,7 +297,7 @@ async function runNativeWindowRouteProbe(scenario) {
                             consumed.push({targetWindowId, token});
 
                             return {
-                                capabilities  : {close: false, focus: true, position: true},
+                                capabilities  : {close: false, focus: true, position: true, resize: true},
                                 nativeHandleKey: 'handle-' + token,
                                 ownerWindowId  : 'owner-window',
                                 targetWindowId
@@ -329,11 +329,31 @@ async function runNativeWindowRouteProbe(scenario) {
             const
                 events   = [],
                 openArgs = [],
-                state    = {closed: false, token: null};
+                state    = {
+                    closed   : false,
+                    height   : 600,
+                    published: 0,
+                    token    : null,
+                    width    : 900,
+                    x        : 1355,
+                    y        : 215
+                };
 
             const popup = {
                 get closed() {
                     return state.closed
+                },
+                get outerHeight() {
+                    return state.height
+                },
+                get outerWidth() {
+                    return state.width
+                },
+                get screenX() {
+                    return state.x
+                },
+                get screenY() {
+                    return state.y
                 },
                 close() {
                     events.push('close');
@@ -342,9 +362,22 @@ async function runNativeWindowRouteProbe(scenario) {
                 focus() {},
                 moveTo() {},
                 innerHeight: 600,
-                outerWidth : 900,
-                resizeTo() {
-                    events.push('resize')
+                Neo: {
+                    main: {
+                        addon: {
+                            WindowPosition: {
+                                publishGeometry() {
+                                    events.push('publish');
+                                    state.published++
+                                }
+                            }
+                        }
+                    }
+                },
+                resizeTo(width, height) {
+                    events.push('resize');
+                    state.height = height;
+                    state.width  = width
                 },
                 sessionStorage: {
                     setItem(key, value) {
@@ -381,7 +414,9 @@ async function runNativeWindowRouteProbe(scenario) {
                 ? 'https://other.example.test/popup'
                 : './popup.html?mode=tear-out';
             const success = Main.windowOpen({
-                nativeCapabilities: {close: true},
+                nativeCapabilities: scenario === 'native-resize-default-denied'
+                    ? {close: true}
+                    : {close: true, resize: scenario !== 'native-resize-denied'},
                 url,
                 useTotalHeight: false,
                 windowFeatures: 'popup,width=900,height=600',
@@ -390,16 +425,86 @@ async function runNativeWindowRouteProbe(scenario) {
             const route = state.token
                 ? Main.consumeNativeWindowRoute({targetWindowId: 'child-window', token: state.token, win: popup})
                 : null;
+            let
+                exactCompletion = null,
+                geometry = null,
+                resize   = null;
+
+            if (scenario === 'native-focus-stale') {
+                popup.document = {hasFocus: () => true};
+                popup.focus    = () => Main.releaseNativeWindowRoute({
+                    nativeHandleKey: route.nativeHandleKey,
+                    targetWindowId : route.targetWindowId,
+                    win            : popup
+                });
+                globalThis.setTimeout = callback => {
+                    callback();
+                    return 1
+                };
+                exactCompletion = await Main.windowNativeFocus(route)
+            } else if (scenario === 'native-move-stale') {
+                popup.moveTo = (x, y) => {
+                    state.x = x;
+                    state.y = y;
+                    Main.releaseNativeWindowRoute({
+                        nativeHandleKey: route.nativeHandleKey,
+                        targetWindowId : route.targetWindowId,
+                        win            : popup
+                    })
+                };
+                exactCompletion = await Main.windowNativeMoveTo({...route, x: 420, y: 320})
+            } else if (
+                scenario === 'native-resize' ||
+                scenario === 'native-resize-default-denied' ||
+                scenario === 'native-resize-denied'
+            ) {
+                resize = {
+                    admitted: await Main.windowNativeResizeTo({
+                        height         : 320,
+                        nativeHandleKey: route?.nativeHandleKey,
+                        targetWindowId : 'child-window',
+                        width          : 420
+                    }),
+                    forged: await Main.windowNativeResizeTo({
+                        height         : 200,
+                        nativeHandleKey: 'forged-handle',
+                        targetWindowId : 'child-window',
+                        width          : 200
+                    }),
+                    invalid: await Main.windowNativeResizeTo({
+                        height         : 0,
+                        nativeHandleKey: route?.nativeHandleKey,
+                        targetWindowId : 'child-window',
+                        width          : 420
+                    })
+                };
+                geometry = {
+                    admitted: Main.windowNativeGetGeometry({
+                        nativeHandleKey: route?.nativeHandleKey,
+                        targetWindowId : 'child-window'
+                    }),
+                    forged: Main.windowNativeGetGeometry({
+                        nativeHandleKey: 'forged-handle',
+                        targetWindowId : 'child-window'
+                    })
+                }
+            }
 
             console.log(JSON.stringify({
                 closed   : state.closed,
                 events,
+                exactCompletion,
+                geometry,
                 hasEntry : Object.hasOwn(Main.openWindows, 'tear-out'),
+                height   : state.height,
                 openArgs,
+                published: state.published,
                 replacedUrl: state.replacedUrl ?? null,
+                resize,
                 route,
                 success,
-                tokenMinted: Boolean(state.token)
+                tokenMinted: Boolean(state.token),
+                width    : state.width
             }))
         }
     `;
@@ -501,10 +606,54 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.replacedUrl).toBe('https://owner.example.test/apps/demo/popup.html?mode=tear-out');
         expect(result.hasEntry).toBe(true);
         expect(result.route).toMatchObject({
-            capabilities  : {close: true, focus: true, position: true},
+            capabilities  : {close: true, focus: true, position: true, resize: true},
             ownerWindowId : expect.any(String),
             targetWindowId: 'child-window'
         })
+    });
+
+    test('resize authority verifies exact outer dimensions and publishes the observed target geometry', async () => {
+        const result = await runNativeWindowRouteProbe('native-resize');
+
+        expect(result.resize).toEqual({admitted: true, forged: false, invalid: false});
+        expect(result.geometry).toEqual({
+            admitted: {height: 320, width: 420, x: 1355, y: 215},
+            forged  : null
+        });
+        expect(result.route.capabilities.resize).toBe(true);
+        expect({height: result.height, width: result.width}).toEqual({height: 320, width: 420});
+        expect(result.published).toBe(1);
+        expect(result.events).toEqual(['storage', 'replace', 'resize', 'publish'])
+    });
+
+    test('resize remains unavailable when the owner did not grant it', async () => {
+        const result = await runNativeWindowRouteProbe('native-resize-denied');
+
+        expect(result.route.capabilities.resize).toBe(false);
+        expect(result.resize).toEqual({admitted: false, forged: false, invalid: false});
+        expect({height: result.height, width: result.width}).toEqual({height: 600, width: 900});
+        expect(result.published).toBe(0);
+        expect(result.events).toEqual(['storage', 'replace'])
+    });
+
+    test('resize remains least-authority when the owner omits the capability', async () => {
+        const result = await runNativeWindowRouteProbe('native-resize-default-denied');
+
+        expect(result.route.capabilities.resize).toBe(false);
+        expect(result.resize).toEqual({admitted: false, forged: false, invalid: false});
+        expect({height: result.height, width: result.width}).toEqual({height: 600, width: 900});
+        expect(result.published).toBe(0);
+        expect(result.events).toEqual(['storage', 'replace'])
+    });
+
+    test('focus and move reject a predecessor completion after its exact route is invalidated', async () => {
+        const [focus, move] = await Promise.all([
+            runNativeWindowRouteProbe('native-focus-stale'),
+            runNativeWindowRouteProbe('native-move-stale')
+        ]);
+
+        expect(focus.exactCompletion).toBe(false);
+        expect(move.exactCompletion).toBe(false)
     });
 
     test('same-origin navigation failure retires the grant, registry entry, and popup', async () => {

@@ -232,6 +232,15 @@ class DockTabSortZone extends TabHeaderSortZone {
     vesselConversionEpoch = 0
 
     /**
+     * Latest raw pointer frame accepted by the cross-window coordinator. A successful async
+     * park/re-show settlement re-enters that same coordinator boundary so live claim arbitration,
+     * target engagement, and proxy staging settle without requiring another browser event.
+     * @member {Object|null} vesselConversionCoordinatorFrame=null
+     * @protected
+     */
+    vesselConversionCoordinatorFrame = null
+
+    /**
      * Latest gesture frame observed while a strict platform transition is settling. Only the
      * newest frame is replayed after settlement, so a slow park/re-show can never commit stale
      * geometry merely because the pointer stopped before another browser event arrived.
@@ -515,7 +524,7 @@ class DockTabSortZone extends TabHeaderSortZone {
         const epoch      = me.vesselConversionEpoch,
               transition = sensor.transitionPromise;
 
-        me.vesselConversionReplayPromise = Promise.resolve(transition).then(() => {
+        me.vesselConversionReplayPromise = Promise.resolve(transition).then(admitted => {
             if (me.vesselConversionSensor !== sensor || me.vesselConversionEpoch !== epoch) return false;
 
             const latest = me.vesselConversionReplayFrame;
@@ -523,7 +532,24 @@ class DockTabSortZone extends TabHeaderSortZone {
             me.vesselConversionReplayFrame   = null;
             me.vesselConversionReplayPromise = null;
 
-            if (!latest) return true;
+            if (admitted !== true || !latest || !me.isWindowDragging) return admitted === true;
+
+            const coordinatorFrame = me.vesselConversionCoordinatorFrame;
+
+            if (coordinatorFrame && me.dragCoordinator) {
+                me.dragCoordinator.onDragMove({
+                    ...coordinatorFrame,
+                    proxyRect: coordinatorFrame.proxyRect && {
+                        height: coordinatorFrame.proxyRect.height,
+                        width : coordinatorFrame.proxyRect.width,
+                        x     : coordinatorFrame.proxyRect.x,
+                        y     : coordinatorFrame.proxyRect.y
+                    },
+                    replayAfterTransition: true
+                });
+
+                return true
+            }
 
             me.resolveRemoteDragTransition({...latest, replayAfterTransition: true});
 
@@ -593,8 +619,11 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @param {Object} frame.logicalSourceRect
      * @param {String|null} frame.targetId
      * @param {Object|null} frame.targetRect
-     * @returns {{commitEligible: Boolean, engage: Boolean, retain: Boolean}|null} `null` keeps the
-     *     legacy coordinator path when conversion is disabled or the source is not in a window drag.
+     * @returns {{commitEligible: Boolean, engage: Boolean, retain: Boolean,
+     *     sourceRect: (Object|undefined)}|null}
+     *     An engaged record carries the exact live source extent for target-proxy embodiment;
+     *     `null` keeps the legacy coordinator path when conversion is disabled or the source is not
+     *     in a window drag.
      */
     resolveRemoteDragTransition({
         draggedItem,
@@ -712,10 +741,22 @@ class DockTabSortZone extends TabHeaderSortZone {
                 targetRect     : me.vesselConversionTargetRect
             });
 
+            record.transitioning && me.scheduleVesselConversionReplay({
+                draggedItem,
+                logicalSourceRect,
+                now,
+                pointerInTarget,
+                targetId,
+                targetRect
+            });
+
             return {
                 commitEligible: record.converted && !record.transitioning,
                 engage        : record.converted && !record.transitioning,
-                retain        : false
+                retain        : false,
+                sourceRect    : record.converted && !record.transitioning
+                    ? {...me.vesselConversionSourceRect}
+                    : undefined
             }
         }
 
@@ -733,13 +774,27 @@ class DockTabSortZone extends TabHeaderSortZone {
                 targetRect     : me.vesselConversionTargetRect
             });
 
-            return {commitEligible: false, engage: record.converted, retain: record.converted}
+            return {
+                commitEligible: false,
+                engage        : record.converted,
+                retain        : record.converted,
+                sourceRect    : record.converted ? {...me.vesselConversionSourceRect} : undefined
+            }
         }
 
-        sensor.sample({
+        const record = sensor.sample({
             pointerInTarget: false,
             sourceRect     : me.vesselConversionSourceRect,
             targetRect     : me.vesselConversionTargetRect
+        });
+
+        record.transitioning && me.scheduleVesselConversionReplay({
+            draggedItem,
+            logicalSourceRect,
+            now,
+            pointerInTarget,
+            targetId,
+            targetRect
         });
 
         return {commitEligible: false, engage: false, retain: false}
@@ -754,6 +809,7 @@ class DockTabSortZone extends TabHeaderSortZone {
         me.vesselConversionEpoch++;
         me.vesselConversionSensor?.reset();
         me.vesselConversionCancelPromise   = null;
+        me.vesselConversionCoordinatorFrame = null;
         me.vesselConversionItemId          = null;
         me.vesselConversionLogicalRect     = null;
         me.vesselConversionPointerMissedAt = null;
@@ -1245,15 +1301,23 @@ class DockTabSortZone extends TabHeaderSortZone {
         // independent of the base's local sort result. `dragCoordinator` is preloaded at
         // {@link #construct}, so this is a synchronous field read, never a drag-time import.
         if (me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
-            me.dragCoordinator?.onDragMove({
-                draggedItem   : me.dragComponent,
-                offsetX       : data.offsetX,
-                offsetY       : data.offsetY,
-                proxyRect     : data.proxyRect,
+            const coordinatorFrame = {
+                draggedItem: me.dragComponent,
+                offsetX    : data.offsetX,
+                offsetY    : data.offsetY,
+                proxyRect  : {
+                    height: data.proxyRect.height,
+                    width : data.proxyRect.width,
+                    x     : data.proxyRect.x,
+                    y     : data.proxyRect.y
+                },
                 screenX       : data.screenX,
                 screenY       : data.screenY,
                 sourceSortZone: me
-            })
+            };
+
+            me.vesselConversionCoordinatorFrame = coordinatorFrame;
+            me.dragCoordinator?.onDragMove(coordinatorFrame)
         }
 
         if (me.stackDragActive) {

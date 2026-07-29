@@ -54,7 +54,8 @@ test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
             capabilities: {
                 close   : true,
                 focus   : true,
-                position: true
+                position: true,
+                resize  : true
             },
             nativeHandleKey: `handle-${windowId}`,
             ownerWindowId  : 'source-window',
@@ -73,7 +74,7 @@ test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
         const provisional = WindowManager.get(windowId);
 
         expect(provisional.nativeRoute).toBeNull();
-        expect(provisional.capabilities).toEqual({close: false, focus: false, position: false});
+        expect(provisional.capabilities).toEqual({close: false, focus: false, position: false, resize: false});
 
         WindowManager.onWindowConnect({
             appName   : 'DockDemo',
@@ -137,6 +138,6 @@ test.describe.serial('Neo.manager.Window connection ordering (#15396)', () => {
 
         expect(WindowManager.items).toHaveLength(1);
         expect(reconnected.nativeRoute).toBeNull();
-        expect(reconnected.capabilities).toEqual({close: false, focus: false, position: false})
+        expect(reconnected.capabilities).toEqual({close: false, focus: false, position: false, resize: false})
     })
 });
