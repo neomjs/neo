@@ -14,6 +14,265 @@ setup({
     }
 });
 
+test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-readiness projection (#16029)', () => {
+    let PullRequestService;
+
+    const HEAD       = 'a'.repeat(40);
+    const NEXT_HEAD  = 'b'.repeat(40);
+    const PRINCIPALS = {
+        agentIdentity     : '@neo-gpt',
+        githubLogin       : 'neo-gpt',
+        memoryCoreIdentity: '@neo-gpt'
+    };
+    const IDENTITY = {ok: true, code: 'OK', reason: null, principals: PRINCIPALS};
+    const RULES    = [{
+        type      : 'required_status_checks',
+        parameters: {
+            required_status_checks: [{context: 'integration-parity', integration_id: 15368}]
+        }
+    }];
+
+    const checkRun = (state = 'success', {
+        integrationId = 15368,
+        name = 'integration-parity'
+    } = {}) => {
+        const variants = {
+            success         : {status: 'COMPLETED', conclusion: 'SUCCESS'},
+            pending         : {status: 'IN_PROGRESS', conclusion: null},
+            failing         : {status: 'COMPLETED', conclusion: 'FAILURE'},
+            skipped         : {status: 'COMPLETED', conclusion: 'SKIPPED'},
+            'not-applicable': {status: 'COMPLETED', conclusion: 'NEUTRAL'}
+        };
+
+        return {
+            __typename: 'CheckRun',
+            name,
+            ...variants[state],
+            detailsUrl: `https://example.test/checks/${name}`,
+            checkSuite: {
+                app: {
+                    databaseId: integrationId,
+                    slug      : 'github-actions'
+                }
+            }
+        };
+    };
+
+    const pullRequest = ({
+        baseRefName = 'dev',
+        checkCommit = HEAD,
+        checkHasNextPage = false,
+        contexts = [checkRun()],
+        headRefOid = HEAD,
+        mergeStateStatus = 'CLEAN',
+        mergedAt = null,
+        reviewDecision = 'APPROVED',
+        reviewHasNextPage = false,
+        reviewers = [],
+        state = 'OPEN'
+    } = {}) => ({
+        number        : 16029,
+        state,
+        mergedAt,
+        baseRefName,
+        headRefOid,
+        mergeStateStatus,
+        reviewDecision,
+        reviewRequests: {
+            pageInfo: {hasNextPage: reviewHasNextPage, endCursor: null},
+            nodes   : reviewers.map(login => ({
+                requestedReviewer: {__typename: 'User', login}
+            }))
+        },
+        commits: {
+            nodes: [{
+                commit: {
+                    oid              : checkCommit,
+                    statusCheckRollup: {
+                        contexts: {
+                            totalCount: contexts.length,
+                            pageInfo  : {hasNextPage: checkHasNextPage, endCursor: null},
+                            nodes     : contexts
+                        }
+                    }
+                }
+            }]
+        }
+    });
+
+    const dependencies = ({
+        snapshots = [pullRequest(), pullRequest()],
+        rules = [RULES, RULES],
+        restError = null
+    } = {}) => {
+        let queryCall = 0;
+        let restCall  = 0;
+
+        return {
+            now  : () => new Date('2026-07-29T08:00:00.000Z'),
+            query: async () => ({
+                repository: {
+                    pullRequest: snapshots[Math.min(queryCall++, snapshots.length - 1)]
+                }
+            }),
+            rest: async () => {
+                if (restError) {
+                    throw restError;
+                }
+
+                return rules[Math.min(restCall++, rules.length - 1)];
+            },
+            calls: () => ({queryCall, restCall})
+        };
+    };
+
+    const project = (deps, extra = {}) => PullRequestService.getConversation({
+        pr_number : 16029,
+        projection: 'merge-readiness',
+        ...extra,
+        identityAssertion: IDENTITY
+    }, deps);
+
+    test.beforeAll(async () => {
+        PullRequestService = (await import(
+            '../../../../../../ai/services/github-workflow/PullRequestService.mjs'
+        )).default;
+    });
+
+    test('returns one immutable positive exact-head observation and ignores caller readiness fields', async () => {
+        const deps   = dependencies();
+        const result = await project(deps, {
+            checksGreen     : false,
+            mergeStateStatus: 'DIRTY',
+            reviewDecision  : 'CHANGES_REQUESTED'
+        });
+
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.marker).toMatch(/^\[merge-eligible]\[B-prime:sha256:/);
+        expect(result.head).toBe(HEAD);
+        expect(result.mergeStateStatus).toBe('CLEAN');
+        expect(result.reviewDecision).toBe('APPROVED');
+        expect(result.requiredSet.contexts).toEqual([
+            {context: 'integration-parity', integrationId: 15368}
+        ]);
+        expect(result.principals).toEqual(PRINCIPALS);
+        expect(result.predicate.strictMergeReady).toBe(true);
+        expect(Object.isFrozen(result)).toBe(true);
+        expect(Object.isFrozen(result.requiredSet.contexts)).toBe(true);
+        expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+    });
+
+    test('preserves the default conversation projection shape and source count', async () => {
+        let   calls  = 0;
+        const result = await PullRequestService.getConversation({pr_number: 16029}, {
+            query: async () => {
+                calls++;
+                return {
+                    repository: {
+                        pullRequest: {
+                            title   : 'Conversation',
+                            body    : 'Body',
+                            author  : {login: 'neo-gpt'},
+                            comments: {nodes: []}
+                        }
+                    }
+                };
+            }
+        });
+
+        expect(result.title).toBe('Conversation');
+        expect(result.comments.nodes).toEqual([]);
+        expect(result.projection).toBeUndefined();
+        expect(calls).toBe(1);
+    });
+
+    test('distinguishes an unreadable required set from a readable empty set', async () => {
+        const unreadable = await project(dependencies({
+            restError: new Error('403 Forbidden')
+        }));
+        const empty = await project(dependencies({
+            rules: [[], []]
+        }));
+
+        expect(unreadable.verdict).toBe('unavailable');
+        expect(unreadable.blockers[0].code).toBe('REQUIRED_SET_UNREADABLE');
+        expect(unreadable.marker).toBeUndefined();
+        expect(empty.verdict).toBe('merge-ready-observed');
+        expect(empty.requiredSet.contexts).toEqual([]);
+    });
+
+    test('fails closed when the PR source moves during the observation', async () => {
+        const result = await project(dependencies({
+            snapshots: [pullRequest(), pullRequest({headRefOid: NEXT_HEAD, checkCommit: NEXT_HEAD})]
+        }));
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.blockers[0].code).toBe('SOURCE_CHANGED_DURING_READ');
+        expect(result.marker).toBeUndefined();
+        expect(result.source.initial.head).toBe(HEAD);
+        expect(result.source.final.head).toBe(NEXT_HEAD);
+    });
+
+    test('fails closed when identity binding is absent before any source read', async () => {
+        const deps   = dependencies();
+        const result = await PullRequestService.getConversation({
+            pr_number : 16029,
+            projection: 'merge-readiness'
+        }, deps);
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.blockers[0].code).toBe('IDENTITY_BINDING_MISSING');
+        expect(result.marker).toBeUndefined();
+        expect(deps.calls()).toEqual({queryCall: 0, restCall: 0});
+    });
+
+    test('fails closed for a missing or wrong-integration required context', async () => {
+        for (const contexts of [[], [checkRun('success', {integrationId: 999})]]) {
+            const result = await project(dependencies({
+                snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+            }));
+
+            expect(result.verdict).toBe('not-merge-ready');
+            expect(result.contextStates[0].state).toBe('absent-required');
+            expect(result.marker).toBeUndefined();
+        }
+    });
+
+    for (const state of ['pending', 'failing', 'skipped', 'not-applicable']) {
+        test(`preserves required context state '${state}' and withholds the marker`, async () => {
+            const contexts = [checkRun(state)];
+            const result   = await project(dependencies({
+                snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+            }));
+
+            expect(result.verdict).toBe('not-merge-ready');
+            expect(result.contextStates[0].state).toBe(state);
+            expect(result.marker).toBeUndefined();
+            expect(result.checksGreen).toBe(false);
+        });
+    }
+
+    test('fails closed on truncated checks or reviewer requests', async () => {
+        const checks = await project(dependencies({
+            snapshots: [
+                pullRequest({checkHasNextPage: true}),
+                pullRequest({checkHasNextPage: true})
+            ]
+        }));
+        const reviewers = await project(dependencies({
+            snapshots: [
+                pullRequest({reviewHasNextPage: true}),
+                pullRequest({reviewHasNextPage: true})
+            ]
+        }));
+
+        expect(checks.blockers.map(item => item.code)).toContain('EMITTED_CONTEXTS_UNREADABLE');
+        expect(reviewers.blockers.map(item => item.code)).toContain('REVIEW_REQUESTS_UNREADABLE');
+        expect(checks.marker).toBeUndefined();
+        expect(reviewers.marker).toBeUndefined();
+    });
+});
+
 import {test, expect}  from '@playwright/test';
 import {execFileSync}  from 'node:child_process';
 import fs              from 'fs';

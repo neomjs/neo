@@ -1,18 +1,24 @@
-import {exec, execFile} from 'child_process';
-import {readFileSync}   from 'fs';
-import path             from 'path';
-import {promisify}      from 'util';
-import Base             from '../../../src/core/Base.mjs';
-import GraphqlService   from './GraphqlService.mjs';
-import aiConfig         from '../../mcp/server/github-workflow/config.mjs';
-import logger           from '../../mcp/server/github-workflow/logger.mjs';
+import {exec, execFile}     from 'child_process';
+import {createHash}         from 'crypto';
+import {readFileSync}       from 'fs';
+import path                 from 'path';
+import {promisify}          from 'util';
+import Base                 from '../../../src/core/Base.mjs';
+import GraphqlService       from './GraphqlService.mjs';
+import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
+import logger               from '../../mcp/server/github-workflow/logger.mjs';
+import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
     GET_PULL_REQUEST_REVIEW,
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
-import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
+import {
+    FETCH_PULL_REQUESTS,
+    GET_CONVERSATION,
+    GET_MERGE_READINESS
+} from './queries/pullRequestQueries.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
 const execAsync                        = promisify(exec);
@@ -44,6 +50,461 @@ const DROP_SUPERSEDE_CONTRACT_FIELDS = [
     'Successor landing pad',
     'Successor map citation'
 ];
+
+const MERGE_READINESS_PROJECTION     = 'merge-readiness';
+const MERGE_READINESS_SCHEMA_VERSION = 'neo.merge-readiness/v1';
+
+function stableStringify(value) {
+    if (Array.isArray(value)) {
+        return `[${value.map(stableStringify).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key =>
+            `${JSON.stringify(key)}:${stableStringify(value[key])}`
+        ).join(',')}}`;
+    }
+
+    return JSON.stringify(value);
+}
+
+function digestValue(value) {
+    return `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`;
+}
+
+function deepFreeze(value) {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
+        return value;
+    }
+
+    Object.values(value).forEach(deepFreeze);
+
+    return Object.freeze(value);
+}
+
+function createCodedError(code, message) {
+    return Object.assign(new Error(message), {code});
+}
+
+function normalizeRequestedReviewer(node) {
+    const reviewer = node?.requestedReviewer;
+
+    if (reviewer?.__typename === 'User' && reviewer.login) {
+        return {kind: 'user', login: reviewer.login};
+    }
+
+    if (reviewer?.__typename === 'Team' && reviewer.slug && reviewer.organization?.login) {
+        return {kind: 'team', login: `${reviewer.organization.login}/${reviewer.slug}`};
+    }
+
+    return {kind: 'unknown', login: null};
+}
+
+function classifyEmittedContext(node) {
+    if (node?.__typename === 'CheckRun' && node.name) {
+        let state;
+
+        if (node.status !== 'COMPLETED') {
+            state = 'pending';
+        } else if (node.conclusion === 'SUCCESS') {
+            state = 'success';
+        } else if (node.conclusion === 'SKIPPED') {
+            state = 'skipped';
+        } else if (node.conclusion === 'NEUTRAL' || node.conclusion == null) {
+            state = 'not-applicable';
+        } else {
+            state = 'failing';
+        }
+
+        return {
+            kind         : 'check-run',
+            name         : node.name,
+            integrationId: node.checkSuite?.app?.databaseId ?? null,
+            integration  : node.checkSuite?.app?.slug ?? null,
+            status       : node.status,
+            conclusion   : node.conclusion,
+            state,
+            url          : node.detailsUrl ?? null
+        };
+    }
+
+    if (node?.__typename === 'StatusContext' && node.context) {
+        const state = node.state === 'SUCCESS'
+            ? 'success'
+            : ['EXPECTED', 'PENDING'].includes(node.state)
+                ? 'pending'
+                : ['ERROR', 'FAILURE'].includes(node.state)
+                    ? 'failing'
+                    : 'not-applicable';
+
+        return {
+            kind         : 'status-context',
+            name         : node.context,
+            integrationId: null,
+            integration  : null,
+            status       : node.state,
+            conclusion   : null,
+            state,
+            url          : node.targetUrl ?? null
+        };
+    }
+
+    return {
+        kind         : 'unknown',
+        name         : null,
+        integrationId: null,
+        integration  : null,
+        status       : null,
+        conclusion   : null,
+        state        : 'not-applicable',
+        url          : null
+    };
+}
+
+function normalizeMergeReadinessSnapshot(pullRequest) {
+    if (!pullRequest) {
+        throw createCodedError('PR_NOT_FOUND', 'The pull request does not exist or is not visible.');
+    }
+
+    const reviewConnection = pullRequest.reviewRequests;
+    const reviewers        = (reviewConnection?.nodes || []).map(normalizeRequestedReviewer)
+        .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
+    const commit            = pullRequest.commits?.nodes?.[0]?.commit || null;
+    const rollup            = commit?.statusCheckRollup;
+    const contextConnection = rollup?.contexts;
+    const emittedContexts   = (contextConnection?.nodes || []).map(classifyEmittedContext)
+        .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
+
+    return {
+        number          : pullRequest.number,
+        state           : pullRequest.state,
+        mergedAt        : pullRequest.mergedAt,
+        baseRefName     : pullRequest.baseRefName,
+        headRefOid      : pullRequest.headRefOid,
+        mergeStateStatus: pullRequest.mergeStateStatus,
+        reviewDecision  : pullRequest.reviewDecision,
+        reviewRequests  : {
+            available  : Boolean(reviewConnection && Array.isArray(reviewConnection.nodes)),
+            hasNextPage: Boolean(reviewConnection?.pageInfo?.hasNextPage),
+            nodes      : reviewers
+        },
+        checks: {
+            commitAvailable: Boolean(commit),
+            commitOid      : commit?.oid ?? null,
+            rollupAvailable: rollup === null || Boolean(contextConnection && Array.isArray(contextConnection.nodes)),
+            hasNextPage    : Boolean(contextConnection?.pageInfo?.hasNextPage),
+            totalCount     : contextConnection?.totalCount ?? emittedContexts.length,
+            nodes          : emittedContexts
+        }
+    };
+}
+
+function parseRequiredContexts(rules) {
+    if (!Array.isArray(rules)) {
+        throw createCodedError('REQUIRED_SET_UNREADABLE', 'Branch-rules response is not an array.');
+    }
+
+    const contexts = [];
+
+    for (const rule of rules.filter(item => item?.type === 'required_status_checks')) {
+        const required = rule?.parameters?.required_status_checks;
+
+        if (!Array.isArray(required)) {
+            throw createCodedError(
+                'REQUIRED_SET_UNREADABLE',
+                'A required_status_checks rule omitted its required_status_checks array.'
+            );
+        }
+
+        for (const item of required) {
+            const context       = typeof item?.context === 'string' ? item.context.trim() : '';
+            const integrationId = item?.integration_id ?? null;
+
+            if (!context || (integrationId !== null && !Number.isInteger(integrationId))) {
+                throw createCodedError(
+                    'REQUIRED_SET_UNREADABLE',
+                    'A required status-check entry has a malformed context or integration_id.'
+                );
+            }
+
+            contexts.push({context, integrationId});
+        }
+    }
+
+    return [...new Map(contexts.map(item => [
+        `${item.context}\u0000${item.integrationId ?? ''}`,
+        item
+    ])).values()].sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
+}
+
+function compareRequiredAndEmittedContexts(requiredContexts, emittedContexts) {
+    const requiredStates = requiredContexts.map(required => {
+        const matches = emittedContexts.filter(emitted =>
+            emitted.name === required.context &&
+            (required.integrationId === null || emitted.integrationId === required.integrationId)
+        );
+
+        if (!matches.length) {
+            return {...required, state: 'absent-required', emissions: []};
+        }
+
+        const priority = ['failing', 'pending', 'skipped', 'not-applicable', 'success'];
+        const state    = priority.find(candidate => matches.some(item => item.state === candidate));
+
+        return {...required, state, emissions: matches};
+    });
+    const emittedOnly = emittedContexts.filter(emitted =>
+        !requiredContexts.some(required =>
+            emitted.name === required.context &&
+            (required.integrationId === null || emitted.integrationId === required.integrationId)
+        )
+    );
+
+    return {requiredStates, emittedOnly};
+}
+
+function normalizeBoundPrincipals(identityAssertion) {
+    const principals = identityAssertion?.principals || {};
+
+    return {
+        agentIdentity     : principals.agentIdentity || null,
+        githubLogin       : principals.githubLogin || null,
+        memoryCoreIdentity: principals.memoryCoreIdentity || null
+    };
+}
+
+function createMergeReadinessFailure({
+    owner,
+    repo,
+    prNumber,
+    observedAt,
+    principals,
+    code,
+    message,
+    audit = [],
+    source = {}
+}) {
+    return deepFreeze({
+        schemaVersion: MERGE_READINESS_SCHEMA_VERSION,
+        projection   : MERGE_READINESS_PROJECTION,
+        repo         : `${owner}/${repo}`,
+        pr           : prNumber,
+        observedAt,
+        principals,
+        verdict      : 'unavailable',
+        source,
+        blockers     : [{code, message}],
+        audit
+    });
+}
+
+async function buildMergeReadinessProjection({
+    prNumber,
+    identityAssertion,
+    owner = aiConfig.owner,
+    repo = aiConfig.repo,
+    query = GraphqlService.query.bind(GraphqlService),
+    rest = GraphqlService.rest.bind(GraphqlService),
+    now = () => new Date()
+}) {
+    const observedValue = now();
+    const observedAt    = (observedValue instanceof Date ? observedValue : new Date(observedValue)).toISOString();
+    const principals    = normalizeBoundPrincipals(identityAssertion);
+    const audit         = [];
+    const fail          = options => createMergeReadinessFailure({
+        owner,
+        repo,
+        prNumber,
+        observedAt,
+        principals,
+        audit,
+        ...options
+    });
+
+    if (!identityAssertion?.ok || Object.values(principals).some(value => !value)) {
+        return fail({
+            code   : 'IDENTITY_BINDING_MISSING',
+            message: 'The merge-readiness projection requires bound AgentIdentity, GitHub, and Memory Core principals.',
+            audit  : [{source: 'identity-assertion', outcome: 'failed'}]
+        });
+    }
+
+    const variables = {owner, repo, prNumber};
+    let firstSnapshot;
+
+    try {
+        const data = await query(GET_MERGE_READINESS, variables);
+        firstSnapshot = normalizeMergeReadinessSnapshot(data?.repository?.pullRequest);
+        audit.push({source: 'github-graphql:pull-request-readiness', call: 1, outcome: 'read'});
+    } catch (error) {
+        return fail({
+            code   : error.code || 'PR_SOURCE_UNREADABLE',
+            message: error.message,
+            audit  : [...audit, {source: 'github-graphql:pull-request-readiness', call: 1, outcome: 'failed'}]
+        });
+    }
+
+    const rulesPath = `/repos/${owner}/${repo}/rules/branches/${encodeURIComponent(firstSnapshot.baseRefName)}`;
+    let firstRequiredContexts;
+
+    try {
+        firstRequiredContexts = parseRequiredContexts(await rest('GET', rulesPath));
+        audit.push({source: `github-rest:${rulesPath}`, call: 1, outcome: 'read'});
+    } catch (error) {
+        return fail({
+            code   : 'REQUIRED_SET_UNREADABLE',
+            message: error.message,
+            audit  : [...audit, {source: `github-rest:${rulesPath}`, call: 1, outcome: 'failed'}],
+            source : {base: firstSnapshot.baseRefName, head: firstSnapshot.headRefOid}
+        });
+    }
+
+    let finalSnapshot;
+
+    try {
+        const data = await query(GET_MERGE_READINESS, variables);
+        finalSnapshot = normalizeMergeReadinessSnapshot(data?.repository?.pullRequest);
+        audit.push({source: 'github-graphql:pull-request-readiness', call: 2, outcome: 'read'});
+    } catch (error) {
+        return fail({
+            code   : error.code || 'PR_SOURCE_UNREADABLE',
+            message: error.message,
+            audit  : [...audit, {source: 'github-graphql:pull-request-readiness', call: 2, outcome: 'failed'}],
+            source : {base: firstSnapshot.baseRefName, head: firstSnapshot.headRefOid}
+        });
+    }
+
+    let finalRequiredContexts;
+
+    try {
+        finalRequiredContexts = parseRequiredContexts(await rest('GET', rulesPath));
+        audit.push({source: `github-rest:${rulesPath}`, call: 2, outcome: 'read'});
+    } catch (error) {
+        return fail({
+            code   : 'REQUIRED_SET_UNREADABLE',
+            message: error.message,
+            audit  : [...audit, {source: `github-rest:${rulesPath}`, call: 2, outcome: 'failed'}],
+            source : {base: finalSnapshot.baseRefName, head: finalSnapshot.headRefOid}
+        });
+    }
+
+    if (
+        stableStringify(firstSnapshot) !== stableStringify(finalSnapshot) ||
+        stableStringify(firstRequiredContexts) !== stableStringify(finalRequiredContexts)
+    ) {
+        return fail({
+            code   : 'SOURCE_CHANGED_DURING_READ',
+            message: 'Pull-request readiness state or its effective required-context set changed during the observation.',
+            source : {
+                initial: {
+                    base : firstSnapshot.baseRefName,
+                    head : firstSnapshot.headRefOid,
+                    state: firstSnapshot.state
+                },
+                final: {
+                    base : finalSnapshot.baseRefName,
+                    head : finalSnapshot.headRefOid,
+                    state: finalSnapshot.state
+                }
+            }
+        });
+    }
+
+    const snapshot          = finalSnapshot;
+    const requiredContexts  = finalRequiredContexts;
+    const comparison        = compareRequiredAndEmittedContexts(requiredContexts, snapshot.checks.nodes);
+    const reviewSourceReady = snapshot.reviewRequests.available &&
+        !snapshot.reviewRequests.hasNextPage &&
+        snapshot.reviewRequests.nodes.every(item => item.kind !== 'unknown');
+    const checkSourceReady = snapshot.checks.commitAvailable &&
+        snapshot.checks.rollupAvailable &&
+        !snapshot.checks.hasNextPage &&
+        snapshot.checks.nodes.every(item => item.kind !== 'unknown') &&
+        snapshot.checks.commitOid === snapshot.headRefOid;
+    const checksGreen = checkSourceReady &&
+        comparison.requiredStates.every(item => item.state === 'success');
+    const reviewRequests = reviewSourceReady
+        ? snapshot.reviewRequests.nodes.map(item => item.login)
+        : undefined;
+    const sourceBlockers = [];
+
+    if (!reviewSourceReady) {
+        sourceBlockers.push({
+            code   : 'REVIEW_REQUESTS_UNREADABLE',
+            message: 'The requested-reviewer connection is missing, truncated, or contains an unknown reviewer type.'
+        });
+    }
+
+    if (!checkSourceReady) {
+        sourceBlockers.push({
+            code   : 'EMITTED_CONTEXTS_UNREADABLE',
+            message: 'The head check-rollup is missing, truncated, malformed, or bound to a different commit.'
+        });
+    }
+
+    comparison.requiredStates
+        .filter(item => item.state !== 'success')
+        .forEach(item => sourceBlockers.push({
+            code   : item.state.toUpperCase().replaceAll('-', '_'),
+            message: `Required context '${item.context}' is ${item.state}.`
+        }));
+
+    const predicate = validateMergeReady({
+        state           : snapshot.state,
+        mergedAt        : snapshot.mergedAt,
+        reviewDecision  : snapshot.reviewDecision,
+        checksGreen,
+        mergeStateStatus: snapshot.mergeStateStatus,
+        reviewRequests
+    });
+    const strictMergeReady = predicate.strictMergeReady && sourceBlockers.length === 0;
+    const requiredSet      = {
+        source  : `GET ${rulesPath}`,
+        digest  : digestValue(requiredContexts),
+        contexts: requiredContexts
+    };
+    const observationCore = {
+        schemaVersion: MERGE_READINESS_SCHEMA_VERSION,
+        repo         : `${owner}/${repo}`,
+        pr           : prNumber,
+        base         : snapshot.baseRefName,
+        head         : snapshot.headRefOid,
+        state        : snapshot.state,
+        mergedAt     : snapshot.mergedAt,
+        observedAt,
+        principals,
+        requiredSet,
+        contextStates: comparison.requiredStates,
+        predicate
+    };
+    const observationId = digestValue(observationCore);
+    const result        = {
+        ...observationCore,
+        projection      : MERGE_READINESS_PROJECTION,
+        observationId,
+        mergeStateStatus: snapshot.mergeStateStatus,
+        reviewDecision  : snapshot.reviewDecision,
+        reviewRequests  : reviewRequests ?? null,
+        emittedContexts : snapshot.checks.nodes,
+        emittedOnly     : comparison.emittedOnly,
+        checksGreen,
+        verdict         : strictMergeReady ? 'merge-ready-observed' : 'not-merge-ready',
+        statement       : strictMergeReady
+            ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`
+            : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
+        blockers: [
+            ...sourceBlockers,
+            ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
+        ],
+        audit: [
+            ...audit,
+            {source: 'validateMergeReady', call: 1, outcome: strictMergeReady ? 'positive' : 'negative'}
+        ],
+        ...(strictMergeReady ? {marker: `[merge-eligible][B-prime:${observationId}]`} : {})
+    };
+
+    return deepFreeze(result);
+}
 
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
     'PR Review Summary',
@@ -1406,6 +1867,9 @@ class PullRequestService extends Base {
      *   only what's new. Scales linearly with new-comment volume, not cumulative thread size.
      * - `last_n` — fetch the last N comments. Coarse-grained alternative when comment IDs
      *   aren't tracked. Useful for quick catch-up scans.
+     * - `projection: 'merge-readiness'` — returns a source-owned, identity-bound exact-head
+     *   readiness observation instead of conversation content. The MCP router injects the
+     *   identity assertion; callers cannot supply readiness fields.
      *
      * Selectors are applied client-side after a single GraphQL fetch (the fetch itself already
      * caps at `aiConfig.pullRequest.maxCommentsPerPullRequest`). Server-side pagination
@@ -1416,6 +1880,7 @@ class PullRequestService extends Base {
      * @param {Object|number} options Either a number (backward-compatible `prNumber` positional form)
      *                                or an object with the shape below.
      * @param {number}        options.pr_number         The pull request number (required when object form).
+     * @param {string}        [options.projection='conversation'] Response projection.
      * @param {string}        [options.comment_id]      Return only the matching comment's data; other
      *                                                  comments elided. PR title/body still returned.
      * @param {string}        [options.since_comment_id] Return comments strictly after the matching
@@ -1423,14 +1888,25 @@ class PullRequestService extends Base {
      *                                                  returns empty comments (callers can interpret as
      *                                                  "nothing new" or "id invalid").
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
+     * @param {Object}        [dependencies] Internal source seams for deterministic tests.
+     * @param {Function}      [dependencies.query] GitHub GraphQL query function.
+     * @param {Function}      [dependencies.rest] GitHub REST request function.
+     * @param {Function}      [dependencies.now] Observation-clock function.
      * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error. Payloads
      *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
      *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
-    async getConversation(options) {
+    async getConversation(options, dependencies = {}) {
         // Accept positional `prNumber` form for backward compatibility.
         // New callers use the object form for filter support.
-        const {pr_number, comment_id, since_comment_id, last_n} = typeof options === 'number'
+        const {
+            pr_number,
+            comment_id,
+            since_comment_id,
+            last_n,
+            projection = 'conversation',
+            identityAssertion
+        } = typeof options === 'number'
             ? {pr_number: options}
             : (options || {});
 
@@ -1442,6 +1918,30 @@ class PullRequestService extends Base {
             };
         }
 
+        if (!['conversation', MERGE_READINESS_PROJECTION].includes(projection)) {
+            return {
+                error  : 'Bad Request',
+                message: `Unsupported projection '${projection}'.`,
+                code   : 'INVALID_PROJECTION'
+            };
+        }
+
+        if (projection === MERGE_READINESS_PROJECTION) {
+            if (comment_id || since_comment_id || last_n) {
+                return {
+                    error  : 'Bad Request',
+                    message: 'Comment selectors cannot be combined with the merge-readiness projection.',
+                    code   : 'INCOMPATIBLE_SELECTORS'
+                };
+            }
+
+            return buildMergeReadinessProjection({
+                prNumber: pr_number,
+                identityAssertion,
+                ...dependencies
+            });
+        }
+
         const variables = {
             owner      : aiConfig.owner,
             repo       : aiConfig.repo,
@@ -1450,7 +1950,8 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data = await GraphqlService.query(GET_CONVERSATION, variables);
+            const query = dependencies.query || GraphqlService.query.bind(GraphqlService);
+            const data  = await query(GET_CONVERSATION, variables);
             // Trust-project at the read boundary: every authored node gains `authorTrust`,
             // untrusted-author bodies are defanged, the root carries a `contentTrust` summary.
             // Applied before selector filtering so all return paths inherit projected nodes.

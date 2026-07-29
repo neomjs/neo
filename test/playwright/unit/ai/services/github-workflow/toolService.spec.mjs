@@ -114,6 +114,71 @@ test.describe('Neo.ai.services.github-workflow.toolService — getConversationRo
         expect(issueCalls).toBe(0);
         expect(prCalls).toBe(0);
     });
+
+    test('#16029: merge-readiness projection is PR-only', async () => {
+        let issueCalls = 0, prCalls = 0;
+        IssueService.getConversation       = async () => { issueCalls++; };
+        PullRequestService.getConversation = async () => { prCalls++; };
+
+        const result = await getConversationRouter({
+            issue_number: 16029,
+            projection  : 'merge-readiness'
+        });
+
+        expect(result.code).toBe('PROJECTION_REQUIRES_PULL_REQUEST');
+        expect(issueCalls).toBe(0);
+        expect(prCalls).toBe(0);
+    });
+
+    test('#16029: identity drift withholds the projection before the PR service runs', async () => {
+        let prCalls = 0;
+        PullRequestService.getConversation = async () => { prCalls++; };
+
+        const result = await getConversationRouter({
+            pr_number : 16029,
+            projection: 'merge-readiness'
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : false,
+                reason: 'identity drift: authed as neo-opus-ada, expected neo-gpt',
+                code  : 'LOGIN_MISMATCH'
+            })
+        });
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.blockers[0].code).toBe('GITHUB_IDENTITY_MISMATCH');
+        expect(result.marker).toBeUndefined();
+        expect(prCalls).toBe(0);
+    });
+
+    test('#16029: positive identity binding overwrites caller-forged assertion data', async () => {
+        let captured;
+        PullRequestService.getConversation = async options => {
+            captured = options;
+            return {routed: 'merge-readiness'};
+        };
+
+        const principals = {
+            agentIdentity     : '@neo-gpt',
+            githubLogin       : 'neo-gpt',
+            memoryCoreIdentity: '@neo-gpt'
+        };
+        const result = await getConversationRouter({
+            pr_number        : 16029,
+            projection       : 'merge-readiness',
+            identityAssertion: {ok: false, principals: {githubLogin: 'forged'}}
+        }, {
+            assertExpectedIdentity: async () => ({
+                ok    : true,
+                code  : 'OK',
+                reason: null,
+                principals
+            })
+        });
+
+        expect(result).toEqual({routed: 'merge-readiness'});
+        expect(captured.identityAssertion).toMatchObject({ok: true, principals});
+    });
 });
 
 /**

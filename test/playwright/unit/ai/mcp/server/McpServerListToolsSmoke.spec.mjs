@@ -626,7 +626,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(handbookTool.annotations.readOnlyHint).toBe(true);
         expect(relationship.description).toBe('Create, replace, or remove issue parent-child and blocked-by relationships.');
         expect(relationship.description).not.toContain('Run `sync_all`');
-        expect(conversation.description).toBe('Fetch a pull request or issue conversation with optional comment-window selectors.');
+        expect(conversation.description).toBe('Fetch PR/issue conversation, or an identity-bound source-owned PR readiness projection.');
         expect(review.description).toBe('Create or update one formal PR review with body and review state validation.');
         expect(review.inputSchema.properties.reviewBudgetOverrideReason).toMatchObject({type: 'string'});
         expect(reviewHandbook.handbook).toContain('reviewBudgetOverrideReason');

@@ -38,6 +38,90 @@ export const GET_CONVERSATION = `
 `;
 
 /**
+ * @summary Fetches every source-owned PR field needed for a merge-readiness observation.
+ *
+ * The caller executes this query twice around the branch-rules read and compares the normalized
+ * payloads. `pageInfo` is part of the contract: either bounded connection truncating at 100 makes
+ * the observation fail closed instead of silently treating the partial collection as complete.
+ *
+ * Variables required:
+ * - $owner: String! - Repository owner
+ * - $repo: String! - Repository name
+ * - $prNumber: Int! - Pull request number
+ */
+export const GET_MERGE_READINESS = `
+  query GetMergeReadiness($owner: String!, $repo: String!, $prNumber: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        number
+        state
+        mergedAt
+        baseRefName
+        headRefOid
+        mergeStateStatus
+        reviewDecision
+        reviewRequests(first: 100) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            requestedReviewer {
+              __typename
+              ... on User {
+                login
+              }
+              ... on Team {
+                slug
+                organization {
+                  login
+                }
+              }
+            }
+          }
+        }
+        commits(last: 1) {
+          nodes {
+            commit {
+              oid
+              statusCheckRollup {
+                contexts(first: 100) {
+                  totalCount
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                  nodes {
+                    __typename
+                    ... on CheckRun {
+                      name
+                      status
+                      conclusion
+                      detailsUrl
+                      checkSuite {
+                        app {
+                          databaseId
+                          slug
+                        }
+                      }
+                    }
+                    ... on StatusContext {
+                      context
+                      state
+                      targetUrl
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Query to fetch a list of pull requests.
  *
  * Variables required:
