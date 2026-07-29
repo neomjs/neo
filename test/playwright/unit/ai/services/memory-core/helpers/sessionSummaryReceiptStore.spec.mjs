@@ -1,6 +1,7 @@
 import fs   from 'node:fs';
 import os   from 'node:os';
 import path from 'node:path';
+import {gzipSync} from 'node:zlib';
 
 import {knownEmbeddingFunctions, registerEmbeddingFunction, ChromaClient} from 'chromadb';
 import Database                                                           from 'better-sqlite3';
@@ -8,12 +9,16 @@ import {setup}                                                            from '
 import {test, expect}                                                     from '@playwright/test';
 
 import '../../../../../../../src/Neo.mjs';
+import '../../../../../../../src/core/_export.mjs';
 
 import {
     acknowledgeSessionSummaryReceipt,
     decodeSessionSummaryReceipt,
+    encodeSessionSummaryReceipt,
     recoverSessionSummaryReceipts,
+    REQUIRED_RECEIPT_METADATA_KEYS,
     SESSION_SUMMARY_RECEIPT_ENCODING,
+    SESSION_SUMMARY_RECEIPT_METADATA_KEYS,
     stageSessionSummaryReceipt
 } from '../../../../../../../ai/services/memory-core/helpers/sessionSummaryReceiptStore.mjs';
 import {
@@ -73,10 +78,25 @@ function createReceipt(sessionId, overrides = {}) {
         document : `Summary for ${sessionId}`,
         metadata : {
             sessionId,
-            timestamp  : 1_800_000_000_000,
-            memoryCount: 2,
-            title      : 'Durable summary',
-            degraded   : false
+            timestamp            : 1_800_000_000_000,
+            memoryCount          : 2,
+            title                : 'Durable summary',
+            category             : 'implementation',
+            quality              : 80,
+            productivity         : 90,
+            impact               : 70,
+            complexity           : 40,
+            technologies         : 'Neo.mjs',
+            participatingAgents  : 'neo-gpt',
+            models               : 'gpt-5',
+            totalToolCalls       : 12,
+            toolsUsed            : 'run_shell_command',
+            sourceAgentIdentities: '@neo-gpt',
+            sourceTrustTier      : 'trusted',
+            provenancePolicy     : 'most-restrictive-source',
+            sourceTier           : 'raw',
+            degraded             : false,
+            rawCanonical         : true
         },
         ...overrides
     };
@@ -107,10 +127,17 @@ function createFakeCollection() {
         async upsert({ids, documents, metadatas}) {
             this.upsertCalls++;
 
-            ids.forEach((id, index) => rows.set(id, {
-                document: documents[index],
-                metadata: structuredClone(metadatas[index])
-            }));
+            ids.forEach((id, index) => {
+                const current = rows.get(id);
+
+                rows.set(id, {
+                    document: documents[index],
+                    metadata: {
+                        ...(current?.metadata || {}),
+                        ...structuredClone(metadatas[index])
+                    }
+                });
+            });
         }
     };
 }
@@ -160,8 +187,31 @@ function createReceiptEmbeddingFunction() {
     return embeddingFunction;
 }
 
-test.describe('sessionSummaryReceiptStore (#16105)', () => {
+test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
     test.describe.configure({mode: 'serial'});
+
+    test('enforces the declared synthesis-owned metadata key set at issuance', () => {
+        const receipt = createReceipt('owned-key-set');
+
+        expect(Object.keys(receipt.metadata))
+            .toEqual(REQUIRED_RECEIPT_METADATA_KEYS);
+        expect(() => encodeSessionSummaryReceipt({
+            ...receipt,
+            metadata: {
+                ...receipt.metadata,
+                graphDigested: true
+            }
+        })).toThrow(/unowned keys: graphDigested/);
+
+        const missingTitle = {...receipt.metadata};
+
+        delete missingTitle.title;
+
+        expect(() => encodeSessionSummaryReceipt({
+            ...receipt,
+            metadata: missingTitle
+        })).toThrow(/missing owned keys: title/);
+    });
 
     test('stages one compressed exact envelope and completes only through that durable receipt', () => {
         const db      = createReceiptDb();
@@ -323,6 +373,125 @@ test.describe('sessionSummaryReceiptStore (#16105)', () => {
         }
     });
 
+    test('accepts Dream-owned metadata overlays while keeping receipt-owned values strict', async () => {
+        const db         = createReceiptDb();
+        const collection = createFakeCollection();
+        const receipt    = createReceipt('dream-overlay');
+        const dreamState = {
+            digestState  : 'digested',
+            graphDigested: true
+        };
+
+        try {
+            stageSessionSummaryReceipt({db, ...receipt, now: 100});
+            acknowledgeSessionSummaryReceipt({db, sessionId: receipt.sessionId, now: 101});
+
+            collection.rows.set(receipt.summaryId, {
+                document: receipt.document,
+                metadata: {...receipt.metadata, ...dreamState}
+            });
+
+            const present = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 200
+            });
+
+            expect(present).toMatchObject({
+                completed: 1,
+                present  : 1,
+                replayed : 0
+            });
+            expect(collection.upsertCalls).toBe(0);
+            expect(collection.rows.get(receipt.summaryId).metadata)
+                .toEqual({...receipt.metadata, ...dreamState});
+
+            collection.rows.get(receipt.summaryId).metadata.memoryCount = 99;
+
+            const repaired = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 300
+            });
+
+            expect(repaired).toMatchObject({
+                completed: 1,
+                present  : 0,
+                replayed : 1
+            });
+            expect(collection.upsertCalls).toBe(1);
+            expect(collection.rows.get(receipt.summaryId).metadata)
+                .toEqual({...receipt.metadata, ...dreamState});
+
+            delete collection.rows.get(receipt.summaryId).metadata.title;
+
+            const missingOwnedKey = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 400
+            });
+
+            expect(missingOwnedKey.replayed).toBe(1);
+            expect(collection.upsertCalls).toBe(2);
+
+            collection.rows.get(receipt.summaryId).document = 'Unacknowledged summary';
+
+            const changedDocument = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 500
+            });
+
+            expect(changedDocument.replayed).toBe(1);
+            expect(collection.upsertCalls).toBe(3);
+            expect(collection.rows.get(receipt.summaryId)).toEqual({
+                document: receipt.document,
+                metadata: {...receipt.metadata, ...dreamState}
+            });
+        } finally {
+            db.close();
+        }
+    });
+
+    test('attests absence for conditional keys inside the synthesis-owned boundary', async () => {
+        const db         = createReceiptDb();
+        const collection = createFakeCollection();
+        const receipt    = createReceipt('conditional-absence');
+
+        try {
+            stageSessionSummaryReceipt({db, ...receipt, now: 100});
+            acknowledgeSessionSummaryReceipt({db, sessionId: receipt.sessionId, now: 101});
+
+            collection.rows.set(receipt.summaryId, {
+                document: receipt.document,
+                metadata: {
+                    ...receipt.metadata,
+                    digestState  : 'digested',
+                    graphDigested: true,
+                    userId       : 'unauthorized-live-owner'
+                }
+            });
+
+            await expect(recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 200
+            })).rejects.toThrow(
+                `Session-summary receipt replay verification failed for ${receipt.summaryId}.`
+            );
+            expect(collection.upsertCalls).toBe(1);
+            expect(collection.rows.get(receipt.summaryId).metadata.userId)
+                .toBe('unauthorized-live-owner');
+        } finally {
+            db.close();
+        }
+    });
+
     test('finalizes a staged direct result but skips a still-live writer lease', async () => {
         const db         = createReceiptDb();
         const collection = createFakeCollection();
@@ -398,6 +567,53 @@ test.describe('sessionSummaryReceiptStore (#16105)', () => {
             expect(row.status).toBe('completed');
             expect(Buffer.from(row.result_envelope).toString()).toBe('not-gzip');
             expect(collection.upsertCalls).toBe(0);
+        } finally {
+            db.close();
+        }
+    });
+
+    test('recovers a shape-drifted historical envelope without weakening current issuance', async () => {
+        const db         = createReceiptDb();
+        const collection = createFakeCollection();
+        const receipt    = createReceipt('historical-shape');
+
+        delete receipt.metadata.rawCanonical;
+        receipt.metadata.retiredSynthesisField = 'historical-value';
+
+        db.prepare(`
+            INSERT INTO SummarizationJobs (
+                session_id,
+                status,
+                result_envelope,
+                result_encoding,
+                result_staged_at
+            )
+            VALUES (?, 'completed', ?, ?, ?)
+        `).run(
+            receipt.sessionId,
+            gzipSync(Buffer.from(JSON.stringify({version: 1, ...receipt}), 'utf8')),
+            SESSION_SUMMARY_RECEIPT_ENCODING,
+            100
+        );
+
+        try {
+            const result = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                now: 200
+            });
+
+            expect(result).toMatchObject({
+                scanned  : 1,
+                replayed : 1,
+                completed: 1
+            });
+            expect(collection.rows.get(receipt.summaryId)).toEqual({
+                document: receipt.document,
+                metadata: receipt.metadata
+            });
+            expect(() => encodeSessionSummaryReceipt(receipt))
+                .toThrow(/unowned keys: retiredSynthesisField/);
         } finally {
             db.close();
         }
@@ -491,6 +707,56 @@ test.describe('sessionSummaryReceiptStore (#16105)', () => {
                 status                 : 'completed',
                 result_last_replayed_at: 200
             });
+
+            const dreamState = {
+                digestState  : 'digested',
+                graphDigested: true
+            };
+
+            await collection.update({
+                ids      : [receipt.summaryId],
+                metadatas: [{...receipt.metadata, ...dreamState}]
+            });
+
+            const enrichedPresent = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 300
+            });
+
+            expect(enrichedPresent).toMatchObject({
+                completed: 1,
+                present  : 1,
+                replayed : 0
+            });
+
+            await collection.update({
+                ids      : [receipt.summaryId],
+                metadatas: [{...receipt.metadata, ...dreamState, memoryCount: 99}]
+            });
+
+            const enrichedRepaired = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                expectedDimension: 3,
+                now              : 400
+            });
+            const enrichedExact = await collection.get({
+                ids    : [receipt.summaryId],
+                include: ['documents', 'metadatas']
+            });
+
+            expect(enrichedRepaired).toMatchObject({
+                completed: 1,
+                present  : 0,
+                replayed : 1
+            });
+            expect(enrichedExact.documents).toEqual([receipt.document]);
+            expect(enrichedExact.metadatas).toEqual([{
+                ...receipt.metadata,
+                ...dreamState
+            }]);
         } finally {
             if (chromaPid) {
                 await stopDetachedProcess(chromaPid);
