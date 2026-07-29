@@ -434,8 +434,17 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      */
     onDragMove(data) {
-        let me                                                                           = this,
-            {draggedItem, offsetX, offsetY, proxyRect, screenX, screenY, sourceSortZone} = data,
+        let me = this,
+            {
+                draggedItem,
+                offsetX,
+                offsetY,
+                proxyRect,
+                replayAfterTransition=false,
+                screenX,
+                screenY,
+                sourceSortZone
+            } = data,
             {sortGroup}                                                                  = sourceSortZone,
             arbiter                                                                      = me.pointerClaimArbiter ??= createGestureClaimArbiter(),
             claimed                                                                      = me.resolveClaimedTarget({arbiter, screenX, screenY, sortGroup, sourceSortZone}),
@@ -481,7 +490,9 @@ class DragCoordinator extends Manager {
                 y     : screenY - offsetY
             };
 
-        let transitionOwned = false;
+        let
+            transitionOwned      = false,
+            transitionSourceRect = null;
 
         if (resolver) {
             let transition;
@@ -491,6 +502,7 @@ class DragCoordinator extends Manager {
                     draggedItem,
                     now            : Date.now(),
                     pointerInTarget: Boolean(claimed?.zone),
+                    replayAfterTransition,
                     logicalSourceRect,
                     targetId       : claimed?.stableId ?? me.activeTargetZone?.stableTargetId ?? null,
                     targetRect     : transitionRect && {
@@ -527,6 +539,19 @@ class DragCoordinator extends Manager {
             } else {
                 transitionOwned = true;
 
+                if (transition.sourceRect != null) {
+                    if (
+                        !Number.isFinite(transition.sourceRect.width) ||
+                        !Number.isFinite(transition.sourceRect.height) ||
+                        transition.sourceRect.width <= 0 || transition.sourceRect.height <= 0
+                    ) {
+                        targetSortZone = null;
+                        sourceSortZone.cancelVesselConversion?.()
+                    } else {
+                        transitionSourceRect = transition.sourceRect
+                    }
+                }
+
                 if (transition.engage !== true || transition.commitEligible !== true || !claimed?.zone) {
                     targetSortZone = null
                 }
@@ -534,14 +559,20 @@ class DragCoordinator extends Manager {
         }
 
         if (targetSortZone) {
-            let targetWindow    = Window.get(targetSortZone.windowId),
-                localX          = screenX - targetWindow.innerRect.x,
-                localY          = screenY - targetWindow.innerRect.y,
-                targetProxyRect = new Rectangle(
+            let targetWindow     = Window.get(targetSortZone.windowId),
+                localX           = screenX - targetWindow.innerRect.x,
+                localY           = screenY - targetWindow.innerRect.y,
+                targetProxyWidth = transitionOwned && transitionSourceRect
+                    ? transitionSourceRect.width
+                    : proxyRect.width,
+                targetProxyHeight = transitionOwned && transitionSourceRect
+                    ? transitionSourceRect.height
+                    : proxyRect.height,
+                targetProxyRect   = new Rectangle(
                     localX - offsetX,
                     localY - offsetY,
-                    proxyRect.width,
-                    proxyRect.height
+                    targetProxyWidth,
+                    targetProxyHeight
                 );
 
             // Entering a new target zone

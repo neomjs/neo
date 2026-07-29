@@ -147,7 +147,7 @@ class Window extends Manager {
         const
             item = {
             appName,
-            capabilities: nativeRoute?.capabilities || {close: false, focus: false, position: false},
+            capabilities: nativeRoute?.capabilities || {close: false, focus: false, position: false, resize: false},
             chrome,
             id          : windowId,
             innerRect,
@@ -199,7 +199,7 @@ class Window extends Manager {
         } else {
             me.register({
                 chrome,
-                capabilities: {close: false, focus: false, position: false},
+                capabilities: {close: false, focus: false, position: false, resize: false},
                 id          : data.windowId,
                 innerRect,
                 nativeRoute : null,

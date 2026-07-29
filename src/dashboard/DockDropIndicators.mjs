@@ -41,6 +41,13 @@ import {isValidCandidateSet} from './dockPreviewContract.mjs';
 class DockDropIndicators extends Container {
     static config = {
         /**
+         * The overlay positioning, visibility, and complete indicator skin live in the shared
+         * dashboard container sheet. Declaring it here keeps every target window paint-complete,
+         * including bare popup viewports whose app shell does not create a dashboard workspace.
+         * @member {String[]} additionalThemeFiles
+         */
+        additionalThemeFiles: ['Neo.dashboard.Container'],
+        /**
          * @member {String} className='Neo.dashboard.DockDropIndicators'
          * @protected
          */

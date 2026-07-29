@@ -560,8 +560,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
      * @param {Object} source
      * @param {Number} screenX
      * @param {Number} screenY
+     * @param {Object} [overrides={}]
      */
-    function move(source, screenX, screenY) {
+    function move(source, screenX, screenY, overrides={}) {
         DragCoordinator.onDragMove({
             draggedItem   : {id: 'tab-1', reference: 'tab-1'},
             offsetX       : 10,
@@ -569,7 +570,8 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
             proxyRect     : {width: 100, height: 60},
             screenX,
             screenY,
-            sourceSortZone: source
+            sourceSortZone: source,
+            ...overrides
         })
     }
 
@@ -817,7 +819,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         source.isWindowDragging = true;
         source.resolveRemoteDragTransition = frame => {
             frames.push(frame);
-            return {commitEligible: true, engage: true, retain: false}
+            return {
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : {height: 520, width: 740, x: frame.logicalSourceRect.x, y: frame.logicalSourceRect.y}
+            }
         };
 
         registerWindow('win-source', 2000, 0, 400, 400);
@@ -840,6 +847,7 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(calls.filter(([name]) => name === 'move')).toHaveLength(1);
         expect(movePayloads[0]).toMatchObject({
             embodyProxy   : true,
+            proxyRect     : {height: 520, width: 740, x: 90, y: 70},
             sourceSortZone: source
         });
         expect(DragCoordinator.activeSourceZone).toBe(source);
@@ -847,9 +855,12 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.activeTransitionOwned).toBe(true);
 
         WindowManager.get('win-a').innerRect = new Rectangle(110, 130, 360, 260);
-        move(source, 210, 210);
+        move(source, 210, 210, {replayAfterTransition: true});
 
-        expect(frames[1].targetRect).toEqual({x: 110, y: 130, width: 360, height: 260})
+        expect(frames[1]).toMatchObject({
+            replayAfterTransition: true,
+            targetRect           : {x: 110, y: 130, width: 360, height: 260}
+        })
     });
 
     test('async, throwing, and malformed transition decisions fail closed before preview', () => {

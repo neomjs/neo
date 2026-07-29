@@ -631,6 +631,7 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 dockItemIds              : ['graph'],
                 dockSourceNodeId         : 'tabs-main',
                 dragComponent            : {id: 'graph-button', reference: 'graph'},
+                dragCoordinator          : null,
                 enableVesselConversion   : true,
                 getVesselConversionSensor: DockTabSortZone.prototype.getVesselConversionSensor,
                 isWindowDragging         : true,
@@ -655,6 +656,7 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 startIndex                           : 0,
                 vesselConversionConvertThreshold     : 0.55,
                 vesselConversionCancelPromise        : null,
+                vesselConversionCoordinatorFrame     : null,
                 vesselConversionEpoch                : 0,
                 vesselConversionItemId               : null,
                 vesselConversionPointerExitGraceMs   : 0,
@@ -699,7 +701,12 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 const {calls, zone} = createZone();
                 const decision      = resolve(zone, {logicalSourceRect: source, targetRect: target});
 
-                expect(decision).toEqual({commitEligible: true, engage: true, retain: false});
+                expect(decision).toEqual({
+                    commitEligible: true,
+                    engage        : true,
+                    retain        : false,
+                    sourceRect    : source
+                });
                 expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
                 expect(calls[0][1]).toMatchObject({sourceNodeId: 'tabs-main', targetId: 'workspace-a'})
             }
@@ -712,7 +719,12 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(resolve(zone, {
                 logicalSourceRect: {x: 20, y: 20, width: 40, height: 20},
                 targetRect       : {x: 300, y: 200, width: 420, height: 320}
-            })).toEqual({commitEligible: true, engage: true, retain: false});
+            })).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : liveSourceRect
+            });
             expect(zone.vesselConversionSourceRect).toEqual(liveSourceRect);
             expect(zone.vesselConversionLogicalRect).toEqual({x: 20, y: 20, width: 40, height: 20})
         });
@@ -720,8 +732,12 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
         test('the coordinator frame carries actuator identity when no base reorder index exists', () => {
             const {calls, zone} = createZone({dockItemIds: null, startIndex: null});
 
-            expect(resolve(zone, {draggedItem: {dockItemId: 'workbench'}}))
-                .toEqual({commitEligible: true, engage: true, retain: false});
+            expect(resolve(zone, {draggedItem: {dockItemId: 'workbench'}})).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+            });
             expect(calls[0][1].itemId).toBe('workbench')
         });
 
@@ -746,9 +762,127 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             resolvePark(true);
             await zone.vesselConversionSensor.transitionPromise;
 
-            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(resolve(zone)).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect
+            });
             expect(zone.vesselConversionSourceRect).toEqual(sourceRect);
             expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn'])
+        });
+
+        test('settled initial park re-enters the coordinator without a second external pointer frame', async () => {
+            let resolvePark;
+
+            const
+                admission         = new Promise(resolve => resolvePark = resolve),
+                coordinatorFrames = [],
+                proxyRect         = {},
+                {calls, zone}     = createZone({
+                    convertInAdmission: admission,
+                    dragCoordinator   : {
+                        onDragMove(frame) {
+                            coordinatorFrames.push(frame)
+                        }
+                    }
+                });
+
+            Object.defineProperties(proxyRect, {
+                height: {value: 120},
+                width : {value: 200},
+                x     : {value: 20},
+                y     : {value: 20}
+            });
+            zone.vesselConversionCoordinatorFrame = {
+                draggedItem   : {id: 'graph'},
+                offsetX       : 10,
+                offsetY       : 8,
+                proxyRect,
+                screenX       : 180,
+                screenY       : 140,
+                sourceSortZone: zone
+            };
+
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            resolvePark(true);
+            await replay;
+
+            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
+            expect(coordinatorFrames).toHaveLength(1);
+            expect(coordinatorFrames[0]).toMatchObject({
+                draggedItem          : {id: 'graph'},
+                proxyRect            : {height: 120, width: 200, x: 20, y: 20},
+                replayAfterTransition: true,
+                screenX              : 180,
+                screenY              : 140,
+                sourceSortZone       : zone
+            })
+        });
+
+        test('refused initial park emits no coordinator replay or automatic retry', async () => {
+            let resolvePark;
+
+            const
+                admission         = new Promise(resolve => resolvePark = resolve),
+                coordinatorFrames = [],
+                {calls, zone}     = createZone({
+                    convertInAdmission              : admission,
+                    dragCoordinator                 : {onDragMove: frame => coordinatorFrames.push(frame)},
+                    vesselConversionCoordinatorFrame: {
+                        draggedItem   : {id: 'graph'},
+                        proxyRect     : sourceRect,
+                        screenX       : 180,
+                        screenY       : 140,
+                        sourceSortZone: null
+                    }
+                });
+
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            resolvePark(false);
+            await replay;
+
+            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
+            expect(coordinatorFrames).toEqual([]);
+            expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(zone.vesselConversionReplayPromise).toBeNull()
+        });
+
+        test('gesture reset invalidates a successful late park before coordinator replay', async () => {
+            let resolvePark;
+
+            const
+                admission         = new Promise(resolve => resolvePark = resolve),
+                coordinatorFrames = [],
+                {zone}            = createZone({
+                    convertInAdmission              : admission,
+                    dragCoordinator                 : {onDragMove: frame => coordinatorFrames.push(frame)},
+                    vesselConversionCoordinatorFrame: {
+                        draggedItem   : {id: 'graph'},
+                        proxyRect     : sourceRect,
+                        screenX       : 180,
+                        screenY       : 140,
+                        sourceSortZone: null
+                    }
+                });
+
+            resolve(zone);
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            DockTabSortZone.prototype.resetVesselConversion.call(zone);
+            resolvePark(true);
+            await replay;
+
+            expect(coordinatorFrames).toEqual([]);
+            expect(zone.vesselConversionCoordinatorFrame).toBeNull();
+            expect(zone.vesselConversionSensor.converted).toBe(false)
         });
 
         test('the latest low-overlap frame replays after async park so stale admission cannot convert', async () => {
@@ -783,7 +917,12 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             const restoration   = new Promise(resolve => resolveRestore = resolve),
                   {calls, zone} = createZone({convertOutAdmission: restoration});
 
-            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(resolve(zone)).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+            });
             expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
                 .toEqual({commitEligible: false, engage: false, retain: false});
 
@@ -810,7 +949,12 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                       liveSourceRect     : () => physical
                   });
 
-            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(resolve(zone)).toEqual({
+                commitEligible: true,
+                engage        : true,
+                retain        : false,
+                sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+            });
             physical = {x: 0, y: 0, width: 200, height: 120};
 
             expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
@@ -835,9 +979,19 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
 
             expect(resolve(zone)).toMatchObject({commitEligible: true, engage: true});
             expect(resolve(zone, {now: 110, pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: true, retain: true});
+                .toEqual({
+                    commitEligible: false,
+                    engage        : true,
+                    retain        : true,
+                    sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                });
             expect(resolve(zone, {now: 159, pointerInTarget: false, targetId: null, targetRect: null}))
-                .toEqual({commitEligible: false, engage: true, retain: true});
+                .toEqual({
+                    commitEligible: false,
+                    engage        : true,
+                    retain        : true,
+                    sourceRect    : {height: 120, width: 200, x: 20, y: 20}
+                });
 
             expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
 

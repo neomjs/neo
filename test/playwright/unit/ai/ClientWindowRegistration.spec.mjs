@@ -96,7 +96,7 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
             originalConnect = client.isConnected;
 
         Neo.manager.Window.get = () => ({
-            capabilities: {close: true, focus: true, position: true},
+            capabilities: {close: true, focus: true, position: true, resize: true},
             nativeRoute : {
                 nativeHandleKey: 'handle-a',
                 ownerWindowId  : 'owner-a',
@@ -118,7 +118,7 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
             method: 'window_connected',
             params: {
                 appName     : 'PopupApp',
-                capabilities: {close: true, focus: true, position: true},
+                capabilities: {close: true, focus: true, position: true, resize: true},
                 chrome      : undefined,
                 innerRect   : undefined,
                 outerRect   : undefined,
