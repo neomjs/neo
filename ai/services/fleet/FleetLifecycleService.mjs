@@ -1,8 +1,9 @@
-import {execFile, spawn} from 'child_process';
-import fs                from 'fs';
-import path              from 'path';
-import AiConfig          from '../../config.mjs';
-import Base              from '../../../src/core/Base.mjs';
+import {execFile, spawn}          from 'child_process';
+import fs                         from 'fs';
+import path                       from 'path';
+import AiConfig                   from '../../config.mjs';
+import {generateLocalBearerToken} from '../../mcp/server/shared/helpers/localBearer.mjs';
+import Base                       from '../../../src/core/Base.mjs';
 import {
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR
@@ -127,8 +128,9 @@ const HARNESS_AUTH_MARKERS = {
  * families (claude-desktop / antigravity) are stdin-indifferent — the held pipe is harmless there,
  * and pid/SIGTERM is the supervision handle (probed per family: dual-instance coexistence on
  * distinct `--user-data-dir` homes, SIGTERM-clean exit 0). The launch templates pin the
- * per-family long-lived mode args; stdout is discarded until a protocol consumer lands; stderr is
- * drained byte-counted as below.
+ * per-family long-lived mode args. Stdout is discarded except for Fleet-managed OpenCode, whose
+ * exact listening banner is the authoritative bound-port surface for the supervisor-owned wake
+ * bootstrap; stderr is drained byte-counted as below.
  *
  * **Child env (minimal by construction):** the child receives ONLY the `AMBIENT_ENV_ALLOWLIST`
  * process-runtime vars — never a full parent-env copy, so ambient operator secrets cannot leak into
@@ -257,6 +259,29 @@ class FleetLifecycleService extends Base {
     execFileFn = null
 
     /**
+     * Fetch implementation for the Fleet-owned OpenCode session-creation request. Defaults to the
+     * process-global `fetch`; injectable so unit witnesses can prove the exact request without a
+     * live server.
+     * @member {Function|null} fetchFn=null
+     */
+    fetchFn = null
+
+    /**
+     * Auxiliary-subprocess implementation for the generated OpenCode wake-envelope hook. Kept
+     * distinct from {@link #member-execFileFn}: version probes are best-effort, while this hook is
+     * an awaited boot contract whose failure degrades the route.
+     * @member {Function|null} openCodeHookExecFileFn=null
+     */
+    openCodeHookExecFileFn = null
+
+    /**
+     * Bound for observing the OpenCode listening banner before the wake route degrades fail-closed.
+     * Plain-field test seam; the production default is intentionally fixed rather than env-derived.
+     * @member {Number} openCodeBootstrapTimeoutMs=10000
+     */
+    openCodeBootstrapTimeoutMs = 10000
+
+    /**
      * Installed-bundle capability probe for `codex-desktop`. Defaults to the read-only static
      * bundle inspector; injectable so lifecycle specs never depend on an installed GUI app.
      * @member {Function|null} codexDesktopCapabilityProbeFn=null
@@ -319,7 +344,13 @@ class FleetLifecycleService extends Base {
             throw new Error(`FleetLifecycleService.start: agent '${id}' has no valid githubUsername identity.`)
         }
 
-        const launch                          = this.resolveLaunch(agent, opts),
+        const
+            curatedOpenCode = agent.harnessType === 'opencode' && !agent.metadata?.launch,
+            cwd             = curatedOpenCode
+                ? this.resolveOpenCodeOwnerDirectory(opts.cwd, id)
+                : opts.cwd,
+            serverPassword  = curatedOpenCode ? generateLocalBearerToken() : undefined,
+            launch          = this.resolveLaunch(agent, {...opts, cwd, serverPassword}),
               {command, args, env: launchEnv} = launch;
 
         // Env-key contract guard (fail-fast): each reserved class occupies a DISTINCT child-env slot.
@@ -369,7 +400,7 @@ class FleetLifecycleService extends Base {
         // required (existence alone lets a mode-0644 candidate publish a running status, then flip
         // to failed on the child's asynchronous permission error — a transient false-running state
         // no supervisor may emit).
-        const resolvedCommand = this.resolveExecutable(command, env.PATH, opts.cwd);
+        const resolvedCommand = this.resolveExecutable(command, env.PATH, cwd);
         if (!resolvedCommand) {
             throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found or not executable for agent '${id}' (path-shaped commands resolve against the child cwd; bare commands against the child's PATH; executable permission required). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
         }
@@ -385,7 +416,7 @@ class FleetLifecycleService extends Base {
 
             if (!authCommand) {
                 const reason = 'bundled Codex CLI auth command is unavailable';
-                this.publishUnavailable({id, launch, resolvedCommand, cwd: opts.cwd, reason});
+                this.publishUnavailable({id, launch, resolvedCommand, cwd, reason});
                 throw new Error(`FleetLifecycleService.start: codex-desktop is unavailable for agent '${id}' — ${reason}.`);
             }
 
@@ -397,7 +428,7 @@ class FleetLifecycleService extends Base {
 
             if (!codexDesktopCapability?.available || !path.isAbsolute(codexDesktopCapability.crashpadExecutable || '')) {
                 const reason = codexDesktopCapability?.reason || 'exact packaged Crashpad helper proof is missing';
-                this.publishUnavailable({id, launch, resolvedCommand, authCommand, cwd: opts.cwd, reason});
+                this.publishUnavailable({id, launch, resolvedCommand, authCommand, cwd, reason});
                 throw new Error(`FleetLifecycleService.start: codex-desktop is unavailable for agent '${id}' — ${reason}.`);
             }
         }
@@ -445,22 +476,50 @@ class FleetLifecycleService extends Base {
         //
         // stdio topology is the LIVENESS contract: stdin MUST be a held-open pipe — both supported
         // harness CLIs treat ignored/EOF'd stdin as session-end and exit immediately (probed on the
-        // exact binaries; see the class summary). stdout is discarded until a protocol consumer
-        // lands; stderr is drained byte-counted below.
-        const spawnOptions = {stdio: ['pipe', 'ignore', 'pipe'], env};
-        if (opts.cwd != null) spawnOptions.cwd = opts.cwd;
+        // exact binaries; see the class summary). Fleet-managed OpenCode is the one stdout consumer:
+        // its listening banner carries the OS-assigned port needed by the owner-session bootstrap.
+        // Every other family retains stdout=ignore; stderr is drained byte-counted below.
+        const spawnOptions = {stdio: ['pipe', curatedOpenCode ? 'pipe' : 'ignore', 'pipe'], env};
+        if (cwd != null) spawnOptions.cwd = cwd;
+
+        let openCodeWakeRoute = null;
+
+        if (curatedOpenCode) {
+            const
+                hookPath     = path.join(launch.instanceHome, 'write-wake-envelope.mjs'),
+                envelopePath = path.join(launch.instanceHome, 'opencode', 'wake-envelope.json');
+
+            if (!fs.existsSync(hookPath) || !fs.statSync(hookPath).isFile()) {
+                throw new Error(`FleetLifecycleService.start: Fleet-managed OpenCode agent '${id}' is missing its generated wake hook at '${hookPath}'. Prepare the managed workspace before launch.`);
+            }
+
+            // A stopped server can never own a live route. Remove its exact prior envelope BEFORE
+            // spawn so a failed new bootstrap cannot leave the daemon targeting stale coordinates.
+            fs.rmSync(envelopePath, {force: true});
+
+            openCodeWakeRoute = {
+                state    : 'starting',
+                reason   : null,
+                port     : null,
+                sessionId: null,
+                projectId: null,
+                directory: cwd,
+                envelopePath,
+                hookPath
+            };
+        }
 
         let child;
         try {
             child = this.getSpawnFn()(resolvedCommand, args, spawnOptions);
         } catch (error) {
-            this.processes.set(id, {id, cwd: opts.cwd ?? null, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
+            this.processes.set(id, {id, cwd: cwd ?? null, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
             throw error;
         }
 
         const record = {
             id, child,
-            cwd        : opts.cwd ?? null,
+            cwd        : cwd ?? null,
             pid        : child.pid ?? null,
             state      : 'running',
             startedAt  : new Date().toISOString(),
@@ -470,19 +529,26 @@ class FleetLifecycleService extends Base {
             stderrBytes: 0,
             // Curated-launch observability: the family + isolated home let `status` compute the live
             // per-home `authRequired` heuristic; null for raw-launch agents (unknown layout).
-            harnessType       : launch.instanceHome ? agent.harnessType : null,
-            instanceHome      : launch.instanceHome ?? null,
-            authHome          : launch.authHome ?? (HARNESS_AUTH_MARKERS[agent.harnessType] ? launch.instanceHome : null),
+            harnessType             : launch.instanceHome ? agent.harnessType : null,
+            instanceHome            : launch.instanceHome ?? null,
+            authHome                : launch.authHome ?? (HARNESS_AUTH_MARKERS[agent.harnessType] ? launch.instanceHome : null),
             authCommand,
-            electronProfile   : launch.electronProfile ?? null,
-            crashpadExecutable: codexDesktopCapability?.crashpadExecutable ?? null,
-            launchCommand     : launch.instanceHome ? resolvedCommand : null,
-            binaryVersion     : null,
-            failureReason     : null,
-            cleanupUnresolved : false,
-            finalizePromise   : null
+            electronProfile         : launch.electronProfile ?? null,
+            crashpadExecutable      : codexDesktopCapability?.crashpadExecutable ?? null,
+            launchCommand           : launch.instanceHome ? resolvedCommand : null,
+            binaryVersion           : null,
+            failureReason           : null,
+            cleanupUnresolved       : false,
+            finalizePromise         : null,
+            wakeRoute               : openCodeWakeRoute,
+            openCodeBootstrapStarted: false,
+            openCodeBootstrapTimer  : null
         };
         this.processes.set(id, record);
+
+        if (openCodeWakeRoute) {
+            this.observeOpenCodeWakeBootstrap(record, {env});
+        }
 
         // Best-effort version surface (the pin/verify half of the executable preflight): capture
         // the template-owned version-probe argv async onto the record — the status read surfaces
@@ -515,6 +581,16 @@ class FleetLifecycleService extends Base {
 
         child.on?.('exit', (code, signal) => this.finalizeExitedProcess(record, {code, signal}));
         child.on?.('error', error => {
+            if (record.wakeRoute) {
+                clearTimeout(record.openCodeBootstrapTimer);
+                record.openCodeBootstrapTimer = null;
+                try { fs.rmSync(record.wakeRoute.envelopePath, {force: true}); } catch {}
+                record.wakeRoute.state     = 'degraded';
+                record.wakeRoute.reason    = 'OpenCode process failed; wake route unavailable';
+                record.wakeRoute.port      = null;
+                record.wakeRoute.sessionId = null;
+                record.wakeRoute.projectId = null;
+            }
             record.state         = 'failed';
             record.error         = error.message;
             record.failureReason = 'tracked harness process emitted an error';
@@ -626,7 +702,7 @@ class FleetLifecycleService extends Base {
      * @param {String} id
      * @returns {Object} `{id, state, running, pid, startedAt, uptimeMs, exitCode, exitedAt,
      *     stderrBytes, authRequired, instanceHome, authHome, launchCommand, authCommand,
-     *     binaryVersion, failureReason, cleanupUnresolved}` — `authRequired`
+     *     binaryVersion, failureReason, cleanupUnresolved, wakeRoute}` — `authRequired`
      *     is the LIVE per-home
      *     auth-marker heuristic for curated launches (`true` = the operator-owned per-home login has
      *     not happened yet; recomputed each read so a completed login flips it without a restart);
@@ -636,11 +712,13 @@ class FleetLifecycleService extends Base {
      *     safe for the dev-only unauthenticated loopback Fleet bridge: they expose no auth contents.
      *     `binaryVersion` is the best-effort `--version` capture of what actually ran (`null`
      *     until/unless the probe answered); `failureReason` is a bounded lifecycle-owned reason,
-     *     never raw child output.
+     *     never raw child output. Fleet-managed OpenCode additionally carries a non-secret
+     *     `wakeRoute` (`starting | ready | degraded`, owner tuple, envelope path); server
+     *     credentials remain env-only and never enter the record or projection.
      */
     status(id) {
         const record = this.processes.get(id);
-        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, instanceHome: null, authHome: null, launchCommand: null, authCommand: null, binaryVersion: null, failureReason: null, cleanupUnresolved: false};
+        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, instanceHome: null, authHome: null, launchCommand: null, authCommand: null, binaryVersion: null, failureReason: null, cleanupUnresolved: false, wakeRoute: null};
 
         return {
             id,
@@ -659,7 +737,16 @@ class FleetLifecycleService extends Base {
             authCommand      : record.authCommand ?? null,
             binaryVersion    : record.binaryVersion ?? null,
             failureReason    : record.failureReason ?? null,
-            cleanupUnresolved: Boolean(record.cleanupUnresolved)
+            cleanupUnresolved: Boolean(record.cleanupUnresolved),
+            wakeRoute        : record.wakeRoute ? {
+                state       : record.wakeRoute.state,
+                reason      : record.wakeRoute.reason,
+                port        : record.wakeRoute.port,
+                sessionId   : record.wakeRoute.sessionId,
+                projectId   : record.wakeRoute.projectId,
+                directory   : record.wakeRoute.directory,
+                envelopePath: record.wakeRoute.envelopePath
+            } : null
         };
     }
 
@@ -743,6 +830,26 @@ class FleetLifecycleService extends Base {
     finalizeExitedProcess(record, {code, signal}) {
         if (record.finalizePromise) return record.finalizePromise;
 
+        clearTimeout(record.openCodeBootstrapTimer);
+        record.openCodeBootstrapTimer = null;
+        if (record.wakeRoute) {
+            let reason = record.wakeRoute.state === 'starting'
+                ? 'OpenCode server exited before the wake route became ready'
+                : 'OpenCode server exited; wake route unavailable';
+
+            try {
+                fs.rmSync(record.wakeRoute.envelopePath, {force: true});
+            } catch {
+                reason += '; stale envelope cleanup failed';
+            }
+
+            record.wakeRoute.state     = 'degraded';
+            record.wakeRoute.reason    = reason;
+            record.wakeRoute.port      = null;
+            record.wakeRoute.sessionId = null;
+            record.wakeRoute.projectId = null;
+        }
+
         record.exitCode = code;
         record.signal   = signal;
         record.exitedAt = new Date().toISOString();
@@ -818,7 +925,8 @@ class FleetLifecycleService extends Base {
      * and rejects any reserved-key collision fail-fast.
      * @param {Object} agent
      * @param {Object} [opts] Start options; the final provisioned `cwd` is launch input for
-     *                        `codex-desktop` and ignored by other curated families.
+     *                        `codex-desktop` and the owner directory for Fleet-managed OpenCode.
+     * @param {String} [opts.serverPassword] Supervisor-generated OpenCode server credential.
      * @returns {{command: String, args: String[], env: Object}}
      * @private
      */
@@ -843,7 +951,13 @@ class FleetLifecycleService extends Base {
             }
             const instanceHome = deriveAgentInstanceHome({instanceRoot: this.getInstanceRoot(), agentId: agent.id, harnessType: agent.harnessType});
             return {
-                ...deriveHarnessLaunchSpec({harnessType: agent.harnessType, instanceHome, binaryPath, cwd: opts.cwd}),
+                ...deriveHarnessLaunchSpec({
+                    harnessType   : agent.harnessType,
+                    instanceHome,
+                    binaryPath,
+                    cwd           : opts.cwd,
+                    serverPassword: opts.serverPassword
+                }),
                 // carried for observability: `status` computes the live per-home authRequired from it
                 instanceHome
             };
@@ -867,6 +981,242 @@ class FleetLifecycleService extends Base {
         }
 
         return {command: launch.command, args: Array.isArray(launch.args) ? launch.args : [], env, instanceHome: null};
+    }
+
+    /**
+     * @summary Resolve the Fleet-owned OpenCode session directory to one existing canonical
+     * checkout. The supervisor creates the top-level session against this exact directory and
+     * rejects any response that names another one; an inherited or relative cwd would make session
+     * ownership ambiguous.
+     * @param {*} cwd Requested managed checkout.
+     * @param {String} id Agent id for the named error.
+     * @returns {String} Canonical absolute directory.
+     * @private
+     */
+    resolveOpenCodeOwnerDirectory(cwd, id) {
+        if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) {
+            throw new Error(`FleetLifecycleService.start: Fleet-managed OpenCode agent '${id}' requires an absolute provisioned cwd for owner-session binding.`);
+        }
+
+        try {
+            return fs.realpathSync(cwd);
+        } catch {
+            throw new Error(`FleetLifecycleService.start: Fleet-managed OpenCode agent '${id}' requires an existing provisioned cwd for owner-session binding.`);
+        }
+    }
+
+    /**
+     * @summary Drain the supervised OpenCode server stdout and consume exactly its complete
+     * loopback listening-banner line. The first valid port starts the Fleet-owned session bootstrap;
+     * no session-list or child-session discovery exists in this path.
+     * @param {Object} record Tracked OpenCode lifecycle record.
+     * @param {Object} options
+     * @param {Object} options.env Exact child env, including env-only server credentials.
+     * @returns {void}
+     * @private
+     */
+    observeOpenCodeWakeBootstrap(record, {env}) {
+        let buffer = '';
+
+        record.openCodeBootstrapTimer = setTimeout(() => {
+            this.degradeOpenCodeWakeRoute(record, 'OpenCode listening banner was not observed before the bootstrap deadline');
+        }, this.openCodeBootstrapTimeoutMs);
+        record.openCodeBootstrapTimer.unref?.();
+
+        record.child?.stdout?.on?.('data', chunk => {
+            if (record.openCodeBootstrapStarted || record.wakeRoute?.state !== 'starting') return;
+
+            buffer += String(chunk);
+
+            let newlineIndex;
+            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                const line = buffer.slice(0, newlineIndex).replace(/\r$/, '');
+                buffer     = buffer.slice(newlineIndex + 1);
+
+                const match = /^opencode server listening on http:\/\/127\.0\.0\.1:(\d+)$/.exec(line);
+                if (!match) continue;
+
+                const port = Number(match[1]);
+                if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                    this.degradeOpenCodeWakeRoute(record, 'OpenCode listening banner carried an invalid loopback port');
+                    return;
+                }
+
+                record.openCodeBootstrapStarted = true;
+                record.wakeRoute.port            = port;
+                clearTimeout(record.openCodeBootstrapTimer);
+                record.openCodeBootstrapTimer = null;
+                void this.bootstrapOpenCodeWakeRoute(record, {env, port});
+                return;
+            }
+
+            // The banner is short. Retain only the last partial line so untrusted/noisy stdout can
+            // never become an unbounded record; the listener still drains every byte.
+            if (buffer.length > 4096) buffer = buffer.slice(-4096);
+        });
+    }
+
+    /**
+     * @summary Create the Fleet-owned top-level OpenCode session and invoke the already-generated
+     * atomic wake-envelope hook with its exact authority tuple.
+     *
+     * Ordering is strict: listening banner → `POST /api/session?directory=…` with no parent id →
+     * validate `{id,projectID,directory,parentID}` → hook. Any failure removes the exact envelope
+     * and leaves the process running with a degraded route; no session-list fallback exists.
+     * @param {Object} record Tracked OpenCode lifecycle record.
+     * @param {Object} options
+     * @param {Object} options.env Exact child env, including env-only server credentials.
+     * @param {Number} options.port Parsed loopback server port.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async bootstrapOpenCodeWakeRoute(record, {env, port}) {
+        const route = record.wakeRoute;
+        let   stage = 'session creation';
+
+        try {
+            const
+                url           = new URL(`http://127.0.0.1:${port}/api/session`),
+                authorization = 'Basic ' + Buffer.from(
+                    `${env.OPENCODE_SERVER_USERNAME}:${env.OPENCODE_SERVER_PASSWORD}`
+                ).toString('base64');
+
+            url.searchParams.set('directory', route.directory);
+
+            const response = await this.getFetchFn()(url, {
+                method : 'POST',
+                headers: {
+                    'content-type' : 'application/json',
+                    'authorization': authorization
+                },
+                body    : '{}',
+                redirect: 'error',
+                signal  : AbortSignal.timeout(5000)
+            });
+
+            if (!response?.ok) {
+                throw new Error('session creation returned a non-success status');
+            }
+
+            stage = 'session response validation';
+
+            const session = await response.json();
+            if (typeof session?.id !== 'string' || session.id.length === 0 ||
+                typeof session?.projectID !== 'string' || session.projectID.length === 0 ||
+                session.directory !== route.directory ||
+                session.parentID != null
+            ) {
+                throw new Error('session creation returned an invalid owner tuple');
+            }
+
+            // A stopped/replaced record cannot publish a route after its async creation returned.
+            if (this.processes.get(record.id) !== record || record.state !== 'running') return;
+
+            stage = 'wake-envelope hook';
+
+            const args = [
+                route.hookPath,
+                '--data-home', record.instanceHome,
+                '--port', String(port),
+                '--session-id', session.id,
+                '--project-id', session.projectID,
+                '--directory', route.directory
+            ];
+            // The generated hook needs only benign process-runtime vars plus its own server
+            // credential pair. Repository/MCP/Bridge credentials belong to the harness child and
+            // must not fan out into this auxiliary process.
+            const hookEnv = {};
+
+            for (const key of AMBIENT_ENV_ALLOWLIST) {
+                if (env[key] !== undefined) hookEnv[key] = env[key];
+            }
+            hookEnv.OPENCODE_SERVER_USERNAME = env.OPENCODE_SERVER_USERNAME;
+            hookEnv.OPENCODE_SERVER_PASSWORD = env.OPENCODE_SERVER_PASSWORD;
+
+            await new Promise((resolve, reject) => {
+                try {
+                    this.getOpenCodeHookExecFileFn()(
+                        process.execPath,
+                        args,
+                        {cwd: route.directory, env: hookEnv, timeout: 5000},
+                        error => error ? reject(error) : resolve()
+                    );
+                } catch (error) {
+                    reject(error);
+                }
+            });
+
+            stage = 'wake-envelope verification';
+            if (this.processes.get(record.id) !== record || record.state !== 'running') {
+                fs.rmSync(route.envelopePath, {force: true});
+                return;
+            }
+            this.verifyOpenCodeWakeEnvelope(record, {
+                port,
+                sessionId: session.id,
+                projectId: session.projectID,
+                env
+            });
+
+            route.state     = 'ready';
+            route.reason    = null;
+            route.sessionId = session.id;
+            route.projectId = session.projectID;
+            record.failureReason = null;
+        } catch {
+            try {
+                fs.rmSync(route.envelopePath, {force: true});
+            } catch {
+                stage += ' and envelope cleanup';
+            }
+            this.degradeOpenCodeWakeRoute(record, `OpenCode wake bootstrap failed during ${stage}`);
+        }
+    }
+
+    /**
+     * @summary Verify the generated hook actually published the exact owner tuple, credentials, and
+     * 0600 mode before declaring the wake route ready.
+     * @param {Object} record Tracked OpenCode lifecycle record.
+     * @param {Object} expected Expected authority and coordinate fields.
+     * @returns {void}
+     * @throws {Error} On any missing, malformed, mismatched, or over-permissive envelope.
+     * @private
+     */
+    verifyOpenCodeWakeEnvelope(record, {port, sessionId, projectId, env}) {
+        const
+            envelope = JSON.parse(fs.readFileSync(record.wakeRoute.envelopePath, 'utf8')),
+            mode     = fs.statSync(record.wakeRoute.envelopePath).mode & 0o777;
+
+        if (envelope.hostname !== '127.0.0.1' ||
+            envelope.port !== port ||
+            envelope.sessionId !== sessionId ||
+            envelope.projectId !== projectId ||
+            envelope.directory !== record.wakeRoute.directory ||
+            envelope.username !== env.OPENCODE_SERVER_USERNAME ||
+            envelope.password !== env.OPENCODE_SERVER_PASSWORD ||
+            mode !== 0o600
+        ) {
+            throw new Error('generated OpenCode wake envelope did not preserve the owner tuple');
+        }
+    }
+
+    /**
+     * @summary Mark the OpenCode wake route degraded without stopping its supervised server. The
+     * reason is lifecycle-owned and bounded; raw child/fetch/hook output never reaches status.
+     * @param {Object} record Tracked lifecycle record.
+     * @param {String} reason Safe reason.
+     * @returns {void}
+     * @private
+     */
+    degradeOpenCodeWakeRoute(record, reason) {
+        clearTimeout(record.openCodeBootstrapTimer);
+        record.openCodeBootstrapTimer = null;
+
+        if (!record.wakeRoute || record.wakeRoute.state === 'ready') return;
+
+        record.wakeRoute.state  = 'degraded';
+        record.wakeRoute.reason = String(reason).slice(0, 240);
+        record.failureReason    = record.wakeRoute.reason;
     }
 
     /**
@@ -1274,6 +1624,22 @@ class FleetLifecycleService extends Base {
      */
     getExecFileFn() {
         return this.execFileFn || execFile;
+    }
+
+    /**
+     * @returns {Function} the OpenCode session-creation fetch implementation.
+     * @private
+     */
+    getFetchFn() {
+        return this.fetchFn || globalThis.fetch;
+    }
+
+    /**
+     * @returns {Function} the generated OpenCode hook subprocess implementation.
+     * @private
+     */
+    getOpenCodeHookExecFileFn() {
+        return this.openCodeHookExecFileFn || execFile;
     }
 
     /**

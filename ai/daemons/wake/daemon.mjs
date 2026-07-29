@@ -97,17 +97,21 @@ let DAEMON_DATA_DIR;
 let STATE_FILE;
 let LOG_FILE;
 let WOKEN_WATERMARK_FILE;
-const LOG_RETENTION_DAYS                = 30;
-const POLL_INTERVAL_MS                  = 3000;
-const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
-const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
-const KIMI_SERVER_ADAPTER               = 'kimi-server';
-const KIMI_PULL_BRIDGE_ADAPTER          = 'kimi-pull-bridge';
-const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
-const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
-const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
-const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
-const WAKE_PRIORITY_RANKS               = {
+let DELIVERY_FAILURE_STATE_FILE;
+let   terminalDeliveryFailures           = {};
+let   terminalDeliveryFailuresNeedRepair = false;
+const LOG_RETENTION_DAYS                 = 30;
+const POLL_INTERVAL_MS                   = 3000;
+const CODEX_APP_SERVER_ADAPTER           = 'codex-app-server';
+const OPENCODE_SERVER_ADAPTER            = 'opencode-server';
+const OPENCODE_REBIND_SETTLE_MS          = 50;
+const KIMI_SERVER_ADAPTER                = 'kimi-server';
+const KIMI_PULL_BRIDGE_ADAPTER           = 'kimi-pull-bridge';
+const CODEX_TURN_START_PROOF_TIMEOUT_MS  = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
+const CODEX_TURN_START_PROOF_POLL_MS     = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX     = 'NEO_WAKE_SUBMIT_NONCE:';
+const WOKEN_MESSAGE_IDS_STATE_KEY        = '__messageIdsByIdentity';
+const WAKE_PRIORITY_RANKS                = {
     low   : 0,
     normal: 1,
     high  : 2
@@ -308,6 +312,121 @@ function writeLog(level, message) {
     }
 }
 
+/**
+ * @summary Load the daemon-owned terminal delivery-failure receipts. A malformed file is left in
+ * place so the independent Fleet observer can report the source as unreadable; the daemon starts
+ * with an empty in-memory set and repairs it on the next authoritative write.
+ * @returns {Object<String,Object>}
+ * @private
+ */
+function loadTerminalDeliveryFailures() {
+    terminalDeliveryFailuresNeedRepair = false;
+    if (!fs.existsSync(DELIVERY_FAILURE_STATE_FILE)) return {};
+
+    try {
+        const parsed = JSON.parse(fs.readFileSync(DELIVERY_FAILURE_STATE_FILE, 'utf8'));
+
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new TypeError('root must be an object');
+        }
+
+        for (const [subscriptionId, receipt] of Object.entries(parsed)) {
+            if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) ||
+                receipt.subscriptionId !== subscriptionId ||
+                typeof receipt.agentIdentity !== 'string' || receipt.agentIdentity.length === 0 ||
+                typeof receipt.errorClass !== 'string' || !/^[a-z0-9-]{1,80}$/.test(receipt.errorClass) ||
+                typeof receipt.failedAt !== 'string' || Number.isNaN(Date.parse(receipt.failedAt))
+            ) {
+                throw new TypeError(`invalid receipt '${subscriptionId}'`);
+            }
+        }
+
+        return parsed;
+    } catch (error) {
+        terminalDeliveryFailuresNeedRepair = true;
+        writeLog('ERROR', `[Wake Daemon] Terminal delivery-failure receipt file is malformed; preserving it for operator diagnosis (${error.message}).`);
+        return {};
+    }
+}
+
+/**
+ * @summary Persist terminal delivery-failure receipts atomically with owner-only permissions.
+ * Receipt rows contain only seat identity, subscription id, bounded error class, and timestamp —
+ * never adapter errors, coordinates, envelope paths, digests, or credentials.
+ * @returns {void}
+ * @private
+ */
+function persistTerminalDeliveryFailures() {
+    const tmpPath = `${DELIVERY_FAILURE_STATE_FILE}.${process.pid}.tmp`;
+
+    try {
+        fs.writeFileSync(tmpPath, JSON.stringify(terminalDeliveryFailures, null, 2) + '\n', {mode: 0o600});
+        fs.chmodSync(tmpPath, 0o600);
+        fs.renameSync(tmpPath, DELIVERY_FAILURE_STATE_FILE);
+        terminalDeliveryFailuresNeedRepair = false;
+    } catch (error) {
+        try { fs.removeSync(tmpPath); } catch {}
+        writeLog('ERROR', `[Wake Daemon] Could not persist terminal delivery-failure receipts (${error.message}).`);
+    }
+}
+
+/**
+ * @summary Record one retry-cap exhaustion on the independent operator-health surface.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} identity Recipient seat identity.
+ * @param {String} errorClass Bounded non-secret failure classification.
+ * @returns {void}
+ * @private
+ */
+function recordTerminalDeliveryFailure(subscription, identity, errorClass) {
+    const subscriptionId = subscription.id;
+
+    terminalDeliveryFailures[subscriptionId] = {
+        agentIdentity: subscription.properties?.agentIdentity || identity,
+        subscriptionId,
+        errorClass   : String(errorClass || 'delivery-failed').slice(0, 80),
+        failedAt     : new Date().toISOString()
+    };
+    persistTerminalDeliveryFailures();
+}
+
+/**
+ * @summary Clear a terminal receipt after a confirmed delivery on the same subscription.
+ * @param {String} subscriptionId
+ * @returns {void}
+ * @private
+ */
+function clearTerminalDeliveryFailure(subscriptionId) {
+    if (!Object.hasOwn(terminalDeliveryFailures, subscriptionId)) {
+        if (terminalDeliveryFailuresNeedRepair) persistTerminalDeliveryFailures();
+        return;
+    }
+
+    delete terminalDeliveryFailures[subscriptionId];
+    persistTerminalDeliveryFailures();
+}
+
+/**
+ * @summary Remove receipts whose exact subscriptions are no longer active, preventing a retired
+ * route from suppressing a later subscription for the same seat identity.
+ * @param {Object[]} subscriptions Current active WAKE_SUBSCRIPTION rows.
+ * @returns {void}
+ * @private
+ */
+function pruneTerminalDeliveryFailures(subscriptions) {
+    const activeIds = new Set(subscriptions.map(subscription => subscription.id));
+    let   changed   = false;
+
+    for (const subscriptionId of Object.keys(terminalDeliveryFailures)) {
+        if (!activeIds.has(subscriptionId)) {
+            delete terminalDeliveryFailures[subscriptionId];
+            changed = true;
+        }
+    }
+
+    if (changed) persistTerminalDeliveryFailures();
+}
+
 let PID_FILE;  // assigned in initConfigDerivedState() (← DAEMON_DATA_DIR); the one-shot log prune runs there too
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -463,6 +582,7 @@ async function pollLoop() {
             }
 
             const subscriptions = getActiveShapeCSubscriptions(db);
+            pruneTerminalDeliveryFailures(subscriptions);
 
             if (subscriptions.length > 0) {
                 // Fetch the actual node/edge data to evaluate filters
@@ -1026,6 +1146,8 @@ async function flushSubscription(subId) {
         if (deliveryOutcome === 'failed') {
             enqueueDeliveryRetry(subscription, identity, events);
         } else if (deliveryOutcome === 'delivered') {
+            clearTerminalDeliveryFailure(subId);
+            lastDeliveryFailureClassBySub.delete(subId);
             lastFlushAtBySub[subId] = Date.now();
             writeLog('INFO',
                 `[Wake Dispatch] ${identity || subId}: outcome=delivered priority=${getHighestWakePriority(messages)} ` +
@@ -1116,12 +1238,14 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  *
  * **First-boot envelope contract** (what an OpenCode seat's self-registration must provide):
  * the seat side writes a JSON envelope, refreshed per session, carrying
- * `{hostname, port, sessionId, username, password, projectId, updatedAt}` — the embedded
+ * `{hostname, port, sessionId, projectId, directory, username, password, updatedAt}` — the embedded
  * server's coordinates (a random localhost port per boot), the live `sessionId`, and the
  * basic-auth credentials the seat was spawned with (`OPENCODE_SERVER_USERNAME` /
  * `OPENCODE_SERVER_PASSWORD`). Default location `~/.local/share/opencode/wake-envelope.json`
  * (mode 0600), overridable via `harnessTargetMetadata.envelopePath`. The daemon re-reads the
  * envelope on every delivery, so port/session rotation needs no graph write.
+ * A connection refusal authorizes at most one re-read within the same adapter invocation, and only
+ * when `sessionId + projectId + directory` remain byte-identical; changed authority fails closed.
  *
  * **Two producers, one contract** — the envelope shape above is the canonical node:
  * 1. the boot hook emitted by the seat-config generator
@@ -1146,35 +1270,100 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  * @returns {Promise<void>}
  */
 async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = '', abortSignal = null) {
-    const meta         = subscription.properties?.harnessTargetMetadata || {};
-    const envelopePath = meta.envelopePath || path.join(os.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
+    const
+        meta         = subscription.properties?.harnessTargetMetadata || {},
+        envelopePath = meta.envelopePath || path.join(os.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json'),
+        first        = await readOpenCodeWakeEnvelope(envelopePath);
 
-    let envelope;
     try {
-        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
-    } catch (err) {
-        throw new Error(`opencode-server requires a readable seat envelope at '${envelopePath}' (${err.message})`);
+        await postOpenCodeDigest(first, digest, abortSignal);
+    } catch (error) {
+        if (!isConnectionRefused(error) || abortSignal?.aborted) throw error;
+
+        // A refusal proves only that the old coordinates are dead. Give the authoritative atomic
+        // writer one bounded settle beat, then re-read exactly once. Session/project/directory are
+        // immutable authority; only loopback coordinates + credentials may rotate.
+        writeLog('WARN', `[Wake Daemon] OpenCode route for ${subscription.id} refused its stored coordinates; re-reading the authoritative envelope once.`);
+        await wait(OPENCODE_REBIND_SETTLE_MS);
+
+        const rebound = await readOpenCodeWakeEnvelope(envelopePath);
+
+        if (rebound.sessionId !== first.sessionId ||
+            rebound.projectId !== first.projectId ||
+            rebound.directory !== first.directory
+        ) {
+            throw new Error('opencode-server authority tuple changed during coordinate rebind; refusing session retarget');
+        }
+
+        if (rebound.hostname === first.hostname &&
+            rebound.port === first.port &&
+            rebound.username === first.username &&
+            rebound.password === first.password
+        ) {
+            const unchanged = new Error('opencode-server coordinates did not change after connection refusal');
+            unchanged.code  = 'ECONNREFUSED';
+            throw unchanged;
+        }
+
+        await postOpenCodeDigest(rebound, digest, abortSignal);
     }
 
-    const {hostname, port, sessionId, username, password} = envelope;
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via opencode-server prompt_async${evidenceLabel}`);
+}
 
-    // Typed + authority-checked coordinates: a malformed or hostile envelope must never steer the
-    // daemon's HTTP client off the seat's loopback server. Delivery is globally serialized, so the
-    // fetch is also deadline-bounded — one hung endpoint must not wedge every later wake route.
-    for (const [key, value] of Object.entries({hostname, sessionId, username, password})) {
+/**
+ * @summary Read and validate one OpenCode wake envelope. The authority tuple is mandatory even
+ * though only coordinates drive the HTTP request: it is the no-retarget fence for a stale rebind.
+ * @param {String} envelopePath
+ * @returns {Promise<Object>}
+ * @private
+ */
+async function readOpenCodeWakeEnvelope(envelopePath) {
+    let envelope;
+
+    try {
+        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+    } catch (error) {
+        throw new Error(`opencode-server requires a readable seat envelope at '${envelopePath}' (${error.message})`);
+    }
+
+    const {hostname, port, sessionId, projectId, directory, username, password} = envelope;
+
+    for (const [key, value] of Object.entries({
+        hostname,
+        sessionId,
+        projectId,
+        directory,
+        username,
+        password
+    })) {
         if (typeof value !== 'string' || value.length === 0) {
             throw new Error(`opencode-server envelope at '${envelopePath}' requires '${key}' to be a non-empty string`);
         }
     }
 
+    if (!path.isAbsolute(directory)) {
+        throw new Error(`opencode-server envelope at '${envelopePath}' requires 'directory' to be absolute`);
+    }
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
         throw new Error(`opencode-server envelope at '${envelopePath}' requires 'port' to be an integer in 1..65535`);
     }
-
     if (!['127.0.0.1', 'localhost', '::1'].includes(hostname)) {
         throw new Error(`opencode-server envelope at '${envelopePath}' requires a loopback hostname (received '${hostname}')`);
     }
 
+    return {hostname, port, sessionId, projectId, directory, username, password};
+}
+
+/**
+ * @summary Submit one OpenCode digest against already-validated coordinates.
+ * @param {Object} envelope Validated route envelope.
+ * @param {String} digest
+ * @param {AbortSignal|null} abortSignal Shared delivery-owner signal.
+ * @returns {Promise<void>}
+ * @private
+ */
+async function postOpenCodeDigest({hostname, port, sessionId, username, password}, digest, abortSignal) {
     const deliverySignal = abortSignal
         ? AbortSignal.any([abortSignal, AbortSignal.timeout(5000)])
         : AbortSignal.timeout(5000);
@@ -1192,8 +1381,17 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
     if (response.status !== 204) {
         throw new Error(`opencode-server prompt_async expected HTTP 204, received ${response.status}`);
     }
+}
 
-    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via opencode-server prompt_async${evidenceLabel}`);
+/**
+ * @summary True only for a transport-level connection refusal. HTTP failures, aborts, malformed
+ * envelopes, and connection resets do not authorize a coordinate re-read.
+ * @param {*} error
+ * @returns {Boolean}
+ * @private
+ */
+function isConnectionRefused(error) {
+    return error?.code === 'ECONNREFUSED' || error?.cause?.code === 'ECONNREFUSED';
 }
 
 /**
@@ -1917,8 +2115,31 @@ let deliveryPromise = Promise.resolve();
 // rebuilds + re-attempts the digest on later poll cycles, independent of the cursor — coalescing
 // repeated same-subscription failures so no earlier wake is overwritten. After the cap the wake is
 // dropped with a terminal error so a persistently-failing target cannot storm or wedge the loop.
-const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 5;
-const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
+const MAX_DELIVERY_RETRIES          = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 5;
+const pendingDeliveryRetries        = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
+const lastDeliveryFailureClassBySub = new Map();
+
+/**
+ * @summary Collapse an adapter error into a bounded, non-secret operator-health classification.
+ * Raw messages can carry envelope paths, endpoints, or credentials and never enter the receipt.
+ * @param {*} error
+ * @param {String} adapter
+ * @returns {String}
+ * @private
+ */
+function classifyDeliveryFailure(error, adapter) {
+    const
+        code    = error?.code || error?.cause?.code,
+        message = String(error?.message || '');
+
+    if (code === 'ECONNREFUSED') return 'connection-refused';
+    if (error?.name === 'AbortError' || code === 'ABORT_ERR') return 'attempt-aborted';
+    if (message.includes('authority tuple changed')) return 'authority-retarget-refused';
+    if (message.includes('requires a readable seat envelope') || message.includes('envelope at')) return 'invalid-envelope';
+    if (message.includes('HTTP ')) return 'http-status';
+
+    return `${adapter || 'unknown'}-delivery`.slice(0, 80);
+}
 
 /**
  * @summary The adapters whose transport receives — and therefore honours — the attempt-bound
@@ -1996,6 +2217,7 @@ async function deliverDigestBounded(subscription, digest, deliveryEvidence = {})
             // observable co-scheduled (the kimi-pull-bridge outbox-escape spec went red only in a
             // full-suite run, green in isolation).
             if (isTimeoutVerifiable(subscription)) {
+                lastDeliveryFailureClassBySub.set(subscription.id, 'attempt-timeout');
                 writeLog('ERROR',
                     `[Wake Daemon] Delivery attempt for ${subscription.id} exceeded ${timeoutMs}ms — ` +
                     'resolved as failed (retry path); the abort cancelled the in-flight request.'
@@ -2405,6 +2627,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
         }
         return 'delivered';
     } catch (err) {
+        lastDeliveryFailureClassBySub.set(subscription.id, classifyDeliveryFailure(err, adapter));
         writeLog('ERROR', `[Wake Daemon] Failed to deliver via ${adapter}: ${err.message}`);
         return 'failed';
     }
@@ -2587,6 +2810,12 @@ async function attemptDeliveryRetries() {
             entry.attempts += 1;
             if (entry.attempts >= MAX_DELIVERY_RETRIES) {
                 pendingDeliveryRetries.delete(subId);
+                recordTerminalDeliveryFailure(
+                    entry.subscription,
+                    entry.identity,
+                    lastDeliveryFailureClassBySub.get(subId) || 'delivery-failed'
+                );
+                lastDeliveryFailureClassBySub.delete(subId);
                 writeLog('ERROR',
                     `[Wake Daemon] Giving up wake delivery for ${subId} after ${entry.attempts} failed attempts; wake dropped.`
                 );
@@ -2599,6 +2828,8 @@ async function attemptDeliveryRetries() {
             // stay pending as a fresh cycle (new events, new attempt budget); an unchanged entry
             // retires.
             lastFlushAtBySub[subId] = Date.now();
+            clearTerminalDeliveryFailure(subId);
+            lastDeliveryFailureClassBySub.delete(subId);
             writeLog('INFO',
                 `[Wake Dispatch] ${entry.identity || subId}: outcome=delivered priority=${getHighestWakePriority(liveMessages)} ` +
                 `messages=${liveMessages.length} tasks=${snapshot.tasks.length} permissions=${snapshot.permissions.length} ` +
@@ -2732,8 +2963,8 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl, abortSigna
 
 /**
  * @summary Assigns the config-derived module-scope paths (DB_PATH / DAEMON_DATA_DIR / STATE_FILE /
- * LOG_FILE / WOKEN_WATERMARK_FILE / PID_FILE) + runs their one-shot startup side-effects (data-dir
- * ensure, archived-log prune, woken-watermark load). Deferred out of module-load so the
+ * LOG_FILE / WOKEN_WATERMARK_FILE / DELIVERY_FAILURE_STATE_FILE / PID_FILE) + runs their one-shot
+ * startup side-effects (data-dir ensure, archived-log prune, durable-state loads). Deferred out of module-load so the
  * assertConfigFresh guard in main() can fail-fast on a stale memory-core overlay BEFORE any
  * `memoryCoreConfig` deref crashes with a cryptic `undefined` (the stale-overlay fail-fast class).
  * @protected
@@ -2744,6 +2975,7 @@ function initConfigDerivedState() {
     STATE_FILE           = path.join(DAEMON_DATA_DIR, 'lastSyncId');
     LOG_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.log');
     WOKEN_WATERMARK_FILE = path.join(DAEMON_DATA_DIR, 'woken-watermark.json');
+    DELIVERY_FAILURE_STATE_FILE = path.join(DAEMON_DATA_DIR, 'wake-delivery-failures.json');
     PID_FILE             = path.join(DAEMON_DATA_DIR, 'wake-daemon.pid');
 
     fs.ensureDirSync(DAEMON_DATA_DIR);     // data dir must exist before any state-file write
@@ -2751,6 +2983,7 @@ function initConfigDerivedState() {
     const wokenState = loadWokenState();
     wokenWatermark            = wokenState.watermarks;
     wokenMessageIdsByIdentity = wokenState.messageIdsByIdentity;
+    terminalDeliveryFailures  = loadTerminalDeliveryFailures();
 }
 
 // Start loop
@@ -2768,6 +3001,7 @@ async function main() {
     await enforceSingleton();
 
     db = initializeDatabase(DB_PATH);
+    pruneTerminalDeliveryFailures(getActiveShapeCSubscriptions(db));
 
     // Read lastSyncId
     lastSyncId = getLastSyncId(db, STATE_FILE);
