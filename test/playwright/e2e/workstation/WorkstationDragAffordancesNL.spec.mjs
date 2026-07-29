@@ -382,6 +382,104 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         await runThemeWitness('neo-light')
     });
 
+    test('same-gesture tear-out re-entry resumes proxy motion without reacquisition', async ({page, neuralLink}, testInfo) => {
+        const
+            {app, wsId} = await bootFlagship(page, neuralLink),
+            header      = page.locator('.neo-tab-header-button', {hasText: 'Audit'}).first(),
+            headerBox   = await header.boundingBox(),
+            hostBox     = await page.locator('.workstation-dock-host').boundingBox(),
+            viewport    = await page.evaluate(() => ({height: innerHeight, width: innerWidth})),
+            start       = {x: headerBox.x + headerBox.width / 2, y: headerBox.y + headerBox.height / 2},
+            outside     = {x: viewport.width + 180, y: viewport.height + 180},
+            reentry     = {
+                x: hostBox.x + hostBox.width * .35,
+                y: hostBox.y + hostBox.height * .35
+            },
+            documentBefore  = (await app.getComponent(wsId, ['dockModel'])).dockModel,
+            heartbeatBefore = (await app.getComponent(wsId, ['feedSequence'])).feedSequence,
+            paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+            popupPromise    = page.waitForEvent('popup', {timeout: 30000});
+
+        try {
+            await page.mouse.move(start.x, start.y);
+            await page.mouse.down();
+            await page.waitForTimeout(120);
+            await page.mouse.move(start.x + 12, start.y + 4, {steps: 4});
+            await page.mouse.move(start.x + 20, start.y + 28, {steps: 4});
+            await expect(page.locator('.neo-dock-dragproxy')).toBeVisible();
+
+            await page.mouse.move(outside.x, outside.y, {steps: 36});
+
+            const popup = await popupPromise;
+
+            await popup.waitForLoadState('domcontentloaded');
+            await page.mouse.move(outside.x, outside.y + 24, {steps: 3});
+            await page.mouse.move(reentry.x, reentry.y, {steps: 40});
+
+            const proxy = page.locator('.neo-dock-dragproxy');
+
+            await expect(proxy).toBeVisible();
+            await expect.poll(() => popup.isClosed(), {
+                message: 'the real popup retires while the original pointer remains down',
+                timeout: 15000
+            }).toBe(true);
+
+            const
+                positions = [
+                    {x: reentry.x + 70,  y: reentry.y + 35},
+                    {x: reentry.x + 170, y: reentry.y + 95}
+                ],
+                samples = [];
+
+            for (const pointer of positions) {
+                await page.mouse.move(pointer.x, pointer.y, {steps: 10});
+                await page.waitForTimeout(160);
+                samples.push({pointer, proxy: (await readDockProxyTreatment(page)).rect})
+            }
+
+            const
+                [first, second] = samples,
+                firstOffset     = {
+                    x: first.pointer.x - first.proxy.left,
+                    y: first.pointer.y - first.proxy.top
+                },
+                secondOffset    = {
+                    x: second.pointer.x - second.proxy.left,
+                    y: second.pointer.y - second.proxy.top
+                };
+
+            expect(second.proxy.left - first.proxy.left,
+                'the resumed proxy follows the second post-entry pointer delta on x')
+                .toBeCloseTo(second.pointer.x - first.pointer.x, 0);
+            expect(second.proxy.top - first.proxy.top,
+                'the resumed proxy follows the second post-entry pointer delta on y')
+                .toBeCloseTo(second.pointer.y - first.pointer.y, 0);
+            expect(secondOffset.x, 'the source grab offset survives the native-to-local morph')
+                .toBeCloseTo(firstOffset.x, 0);
+            expect(secondOffset.y, 'the source grab offset survives the native-to-local morph')
+                .toBeCloseTo(firstOffset.y, 0);
+
+            const
+                documentAfter  = (await app.getComponent(wsId, ['dockModel'])).dockModel,
+                heartbeatAfter = (await app.getComponent(wsId, ['feedSequence'])).feedSequence;
+
+            expect(documentAfter, 're-entry is a zero-document-mutation transition').toEqual(documentBefore);
+            expect(await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
+                'the live pane is resumed, never cloned or recreated').toBe(paneIdBefore);
+            expect(heartbeatAfter, 'live pane production advances throughout the morph')
+                .toBeGreaterThan(heartbeatBefore);
+
+            await testInfo.attach('post-entry-motion-receipt.json', {
+                body       : Buffer.from(JSON.stringify({firstOffset, secondOffset, samples}, null, 2)),
+                contentType: 'application/json'
+            })
+        } finally {
+            await page.keyboard.press('Escape').catch(() => {});
+            await page.waitForTimeout(120);
+            await page.mouse.up().catch(() => {})
+        }
+    });
+
     /**
      * The systematic rect layer's flagship home — the boot containment chain and the
      * per-child affordance families, read through component ids (restyle-proof), complementing
