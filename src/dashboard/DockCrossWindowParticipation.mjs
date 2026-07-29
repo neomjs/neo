@@ -115,6 +115,22 @@ class DockCrossWindowParticipation extends Base {
          */
         previewToOperation: null,
         /**
+         * Optional product-owned native-popup resolver forwarded through the SAME stable target
+         * registration. It never creates a second coordinator entry.
+         * @member {Function|null} resolveNativeWindowDrag=null
+         */
+        resolveNativeWindowDrag: null,
+        /**
+         * Optional product-owned native-popup restore seam forwarded to the stable participation.
+         * @member {Function|null} resumeNativeWindowDrag=null
+         */
+        resumeNativeWindowDrag: null,
+        /**
+         * Optional product-owned native-popup retirement seam forwarded to the stable participation.
+         * @member {Function|null} retireNativeWindowDrag=null
+         */
+        retireNativeWindowDrag: null,
+        /**
          * Owner seam forwarded to the target: promotes the target-local live drag embodiment
          * after a successful semantic commit.
          * @member {Function|null} promoteDragEmbodiment=null
@@ -138,6 +154,18 @@ class DockCrossWindowParticipation extends Base {
          * @member {Function|null} stageDragEmbodiment=null
          */
         stageDragEmbodiment: null,
+        /**
+         * Owner seam forwarded to the target: settles the exact staged target renderer before a
+         * native-titlebar handoff begins its retained readability interval.
+         * @member {Function|null} awaitDragEmbodiment=null
+         */
+        awaitDragEmbodiment: null,
+        /**
+         * Optional product-owned native-popup park/relegation seam forwarded to the stable
+         * participation.
+         * @member {Function|null} suspendNativeWindowDrag=null
+         */
+        suspendNativeWindowDrag: null,
         /**
          * §2.3 registry identity, forwarded to the target: the window this workspace renders in.
          * @member {String|Number|null} windowId=null
@@ -168,16 +196,21 @@ class DockCrossWindowParticipation extends Base {
         let me = this;
 
         me.target = Neo.create(CrossWindowDragTarget, {
-            clearPreview         : me.clearPreview,
-            commitOperation      : me.commitDrop.bind(me),
-            dragCoordinator      : me.dragCoordinator,
-            hitTest              : me.hitTest,
-            previewFor           : me.previewFor,
-            previewToOperation   : me.previewToOperation,
-            promoteDragEmbodiment: me.promoteDragEmbodiment,
-            restoreDragEmbodiment: me.restoreDragEmbodiment,
-            sortGroup            : me.sortGroup,
-            stageDragEmbodiment  : me.stageDragEmbodiment,
+            clearPreview           : me.clearPreview,
+            commitOperation        : me.commitDrop.bind(me),
+            dragCoordinator        : me.dragCoordinator,
+            hitTest                : me.hitTest,
+            previewFor             : me.previewFor,
+            previewToOperation     : me.previewToOperation,
+            promoteDragEmbodiment  : me.promoteDragEmbodiment,
+            resolveNativeWindowDrag: me.resolveNativeWindowDrag,
+            restoreDragEmbodiment  : me.restoreDragEmbodiment,
+            resumeNativeWindowDrag : me.resumeNativeWindowDrag,
+            retireNativeWindowDrag : me.retireNativeWindowDrag,
+            sortGroup              : me.sortGroup,
+            stageDragEmbodiment    : me.stageDragEmbodiment,
+            awaitDragEmbodiment    : me.awaitDragEmbodiment,
+            suspendNativeWindowDrag: me.suspendNativeWindowDrag,
             // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
             // and never encodes windowId or registration order
             stableTargetId: me.workspaceId,

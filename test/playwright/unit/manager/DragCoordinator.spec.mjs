@@ -802,6 +802,739 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         expect(DragCoordinator.nativeClaimArbiters.size).toBe(0)
     });
 
+    test('a native source may name its physical popup separately so the originating main participation can claim', () => {
+        const
+            draggedItem = {id: 'terminal'},
+            main        = createZone('workspace-main', 'win-main');
+
+        main.getNativeWindowDrag = windowId => windowId === 'win-popup'
+            ? {
+                draggedItem,
+                sourceWindowId: 'win-popup',
+                widgetName    : 'terminal'
+            }
+            : null;
+
+        registerWindow('win-main',  0,   0, 1000, 800);
+        registerWindow('win-popup', 200, 200,  300, 200);
+        DragCoordinator.register(main);
+
+        const source    = DragCoordinator.getNativeWindowDragSource('win-popup'),
+              candidate = DragCoordinator.getNativeWindowDropCandidate({windowId: 'win-popup'}, source);
+
+        expect(source).toMatchObject({
+            draggedItem,
+            sourceSortZone: main,
+            sourceWindowId: 'win-popup'
+        });
+        expect(candidate?.targetSortZone).toBe(main);
+        expect(candidate?.targetWindowId).toBe('win-main');
+
+        main.getNativeWindowDrag = () => ({draggedItem, widgetName: 'terminal'});
+
+        expect(DragCoordinator.getNativeWindowDropCandidate(
+            {windowId: 'win-popup'},
+            DragCoordinator.getNativeWindowDragSource('win-popup')
+        )).toBeNull()
+    });
+
+    test('native embodiment is retained before semantic commit, then target commit precedes source retirement', async () => {
+        let resolveRenderer;
+
+        const
+            draggedItem     = {id: 'terminal'},
+            order           = [],
+            rendererSettled = new Promise(resolve => resolveRenderer = resolve),
+            source          = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDropOut() {
+                    order.push('retire');
+                    return true
+                },
+                resumeWindowDrag() {
+                    order.push('resume');
+                    return true
+                },
+                sortGroup: 'dock',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                },
+                windowId: 'win-main'
+            },
+            target      = {
+                acceptsRemoteDrag: () => true,
+                awaitRemoteDragEmbodiment() {
+                    order.push('await-renderer');
+                    return rendererSettled
+                },
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove(payload) {
+                    order.push(payload.embodyProxy ? 'embody' : 'preview');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                }
+            },
+            candidate   = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 20;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            const committing = DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(order).toEqual(['suspend', 'embody', 'await-renderer']);
+            expect(DragCoordinator.nativeWindowDropCandidates.get('win-popup')).toBe(candidate);
+
+            await new Promise(resolve => setTimeout(resolve, 25));
+            expect(order, 'the handoff timer cannot start before renderer settlement')
+                .toEqual(['suspend', 'embody', 'await-renderer']);
+
+            resolveRenderer(true);
+            await committing;
+
+            expect(order).toEqual(['suspend', 'embody', 'await-renderer', 'commit', 'retire']);
+            expect(order.indexOf('commit')).toBeLessThan(order.indexOf('retire'));
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('native model refusal restores the target before the physical popup and never retires it', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDropOut() {
+                    order.push('retire')
+                },
+                resumeWindowDrag() {
+                    order.push('source-restored');
+                    return true
+                },
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                }
+            },
+            target      = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                onRemoteDragLeave() {},
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('target-restored');
+                    return null
+                }
+            },
+            candidate   = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'target-restored', 'source-restored']);
+            expect(order).not.toContain('retire');
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('candidate cancellation during async native parking compensates the exact source and never embodies', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [];
+        let resolveSuspend;
+
+        const
+            source    = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                resumeWindowDrag() {
+                    order.push('source-restored');
+                    return true
+                },
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return new Promise(resolve => resolveSuspend = resolve)
+                }
+            },
+            target    = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                }
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            };
+
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        const committing = DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+        await Promise.resolve();
+
+        DragCoordinator.clearNativeWindowDropCandidate('win-popup');
+        resolveSuspend(true);
+        await committing;
+
+        expect(order).toEqual(['suspend', 'source-restored']);
+        expect(order).not.toContain('embody');
+        expect(order).not.toContain('commit');
+        expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+    });
+
+    test('a throwing native park releases its candidate instead of freezing future geometry', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            source      = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    throw new Error('native park failed')
+                }
+            },
+            target      = {
+                acceptsRemoteDrag: () => true,
+                onRemoteDragMove() {
+                    order.push('embody')
+                }
+            },
+            candidate   = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            };
+
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        await expect(DragCoordinator.commitNativeWindowDrop('win-popup', candidate))
+            .rejects.toThrow('native park failed');
+
+        expect(order).toEqual(['suspend']);
+        expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+    });
+
+    test('a strict native retirement refusal retries only the physical close, never the target commit', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [];
+        let retireCalls = 0;
+
+        const
+            source    = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDropOut() {
+                    order.push('retire');
+                    return ++retireCalls > 1
+                },
+                resumeWindowDrag() {
+                    order.push('resume');
+                    return true
+                },
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                }
+            },
+            target    = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                onRemoteDragLeave() {},
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                }
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs,
+            oldRetry   = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs      = 0;
+        DragCoordinator.nativeWindowDispositionRetryMs = 20;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'commit', 'retire']);
+            expect(DragCoordinator.nativeWindowDropCandidates.get('win-popup'),
+                'strict false retains the exact popup settlement generation').toBe(candidate);
+
+            await expect.poll(() => retireCalls, {timeout: 1000}).toBe(2);
+
+            expect(order).toEqual(['suspend', 'embody', 'commit', 'retire', 'retire']);
+            expect(order.filter(value => value === 'commit')).toHaveLength(1);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs      = oldHandoff;
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
+    test('a committed close retry survives same-participation unregister and rebinds to its successor', async () => {
+        const
+            draggedItem         = {id: 'terminal'},
+            order               = [],
+            createParticipation = ({successor=false}={}) => ({
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                getNativeWindowDrag      : () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDragLeave() {},
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    return {type: 'addTab'}
+                },
+                onRemoteDropOut() {
+                    order.push(successor ? 'retire-successor' : 'retire-original');
+                    return successor
+                },
+                resumeWindowDrag() {
+                    order.push('resume');
+                    return true
+                },
+                sortGroup     : 'dock-main',
+                stableTargetId: 'workspace-main',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                },
+                windowId: 'win-main'
+            }),
+            original    = createParticipation(),
+            successor   = createParticipation({successor: true}),
+            candidate   = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : original,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : original,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff  = DragCoordinator.nativeWindowDropHandoffMs,
+            oldRetry    = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs      = 0;
+        DragCoordinator.nativeWindowDispositionRetryMs = 10000;
+        DragCoordinator.register(original);
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'commit', 'retire-original']);
+            expect(candidate.phase).toBe('settling-committed');
+
+            DragCoordinator.unregister(original);
+
+            expect(DragCoordinator.nativeWindowDropCandidates.get('win-popup')).toBe(candidate);
+            expect(order).not.toContain('resume');
+
+            DragCoordinator.register(successor);
+
+            expect(candidate.sourceSortZone).toBe(successor);
+            expect(candidate.targetSortZone).toBe(successor);
+            await expect(DragCoordinator.settleNativeWindowDisposition(
+                'win-popup',
+                candidate,
+                true
+            )).resolves.toBe(true);
+
+            expect(order).toEqual([
+                'suspend',
+                'embody',
+                'commit',
+                'retire-original',
+                'retire-successor'
+            ]);
+            expect(order.filter(value => value === 'commit')).toHaveLength(1);
+            expect(order).not.toContain('resume');
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs      = oldHandoff;
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
+    test('same-object registration refresh during commit preserves the committed terminal', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [],
+            zone        = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                getNativeWindowDrag      : () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDragLeave() {
+                    order.push('leave')
+                },
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('commit');
+                    DragCoordinator.unregister(zone);
+                    DragCoordinator.register(zone);
+                    return {type: 'addTab'}
+                },
+                onRemoteDropOut() {
+                    order.push('retire');
+                    return true
+                },
+                resumeWindowDrag() {
+                    order.push('restore');
+                    return true
+                },
+                sortGroup     : 'dock-main',
+                stableTargetId: 'workspace-main',
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                },
+                windowId: 'win-main'
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : zone,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : zone,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+        DragCoordinator.register(zone);
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+        DragCoordinator.nativeHoverTargets.set('win-popup', zone);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'commit', 'retire']);
+            expect(order).not.toContain('restore');
+            expect(order).not.toContain('leave');
+            expect(DragCoordinator.sortZones.get('dock-main')?.get('win-main')).toBe(zone);
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
+    test('a strict native restore refusal retains and retries the exact parked source generation', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [];
+        let restoreCalls = 0;
+
+        const
+            source    = {
+                getNativeWindowDrag: () => ({
+                    draggedItem,
+                    embodyNativeHover: true,
+                    sourceWindowId   : 'win-popup',
+                    widgetName       : 'terminal'
+                }),
+                onRemoteDropOut() {
+                    order.push('retire');
+                    return true
+                },
+                resumeWindowDrag() {
+                    order.push('restore');
+                    return ++restoreCalls > 1
+                },
+                suspendWindowDrag() {
+                    order.push('suspend');
+                    return true
+                }
+            },
+            target    = {
+                acceptsRemoteDrag        : () => true,
+                awaitRemoteDragEmbodiment: () => true,
+                onRemoteDragLeave() {},
+                onRemoteDragMove() {
+                    order.push('embody');
+                    return {itemId: 'terminal'}
+                },
+                onRemoteDrop() {
+                    order.push('target-refused');
+                    return null
+                }
+            },
+            candidate = {
+                draggedItem,
+                embodyNativeHover: true,
+                localX           : 20,
+                localY           : 30,
+                offsetX          : 10,
+                offsetY          : 10,
+                proxyRect        : {},
+                sourceSortZone   : source,
+                sourceWindowId   : 'win-popup',
+                targetSortZone   : target,
+                targetWindowId   : 'win-main',
+                widgetName       : 'terminal'
+            },
+            oldHandoff = DragCoordinator.nativeWindowDropHandoffMs,
+            oldRetry   = DragCoordinator.nativeWindowDispositionRetryMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs      = 0;
+        DragCoordinator.nativeWindowDispositionRetryMs = 20;
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+
+        try {
+            await DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            expect(order).toEqual(['suspend', 'embody', 'target-refused', 'restore']);
+            expect(DragCoordinator.nativeWindowDropCandidates.get('win-popup')).toBe(candidate);
+
+            await expect.poll(() => restoreCalls, {timeout: 1000}).toBe(2);
+
+            expect(order).toEqual(['suspend', 'embody', 'target-refused', 'restore', 'restore']);
+            expect(order).not.toContain('retire');
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs      = oldHandoff;
+            DragCoordinator.nativeWindowDispositionRetryMs = oldRetry
+        }
+    });
+
+    test('same-object target disconnect cancels async settlement exact-once and restores the source generation', async () => {
+        const
+            draggedItem = {id: 'terminal'},
+            order       = [];
+        let resolveDrop, signalDrop;
+
+        const dropStarted = new Promise(resolve => signalDrop = resolve),
+              zone        = {
+                  acceptsRemoteDrag        : () => true,
+                  awaitRemoteDragEmbodiment: () => true,
+                  getNativeWindowDrag      : () => ({
+                      draggedItem,
+                      embodyNativeHover: true,
+                      sourceWindowId   : 'win-popup',
+                      widgetName       : 'terminal'
+                  }),
+                  onRemoteDragLeave() {
+                      order.push('leave')
+                  },
+                  onRemoteDragMove() {
+                      order.push('embody');
+                      return {itemId: 'terminal'}
+                  },
+                  onRemoteDrop() {
+                      order.push('target-settling');
+                      signalDrop();
+                      return new Promise(resolve => resolveDrop = resolve)
+                  },
+                  onRemoteDropOut() {
+                      order.push('retire');
+                      return true
+                  },
+                  resumeWindowDrag() {
+                      order.push('restore');
+                      return true
+                  },
+                  sortGroup: 'dock',
+                  suspendWindowDrag() {
+                      order.push('suspend');
+                      return true
+                  },
+                  windowId: 'win-main'
+              },
+              candidate = {
+                  draggedItem,
+                  embodyNativeHover: true,
+                  localX           : 20,
+                  localY           : 30,
+                  offsetX          : 10,
+                  offsetY          : 10,
+                  proxyRect        : {},
+                  sourceSortZone   : zone,
+                  sourceWindowId   : 'win-popup',
+                  targetSortZone   : zone,
+                  targetWindowId   : 'win-main',
+                  widgetName       : 'terminal'
+              },
+              oldHandoff = DragCoordinator.nativeWindowDropHandoffMs;
+
+        DragCoordinator.nativeWindowDropHandoffMs = 0;
+        DragCoordinator.register(zone);
+        DragCoordinator.nativeWindowDropCandidates.set('win-popup', candidate);
+        DragCoordinator.nativeHoverTargets.set('win-popup', zone);
+        DragCoordinator.nativeClaimArbiters.set('win-popup', {
+            reset() {
+                order.push('reset')
+            }
+        });
+
+        try {
+            const settling = DragCoordinator.commitNativeWindowDrop('win-popup', candidate);
+
+            await dropStarted;
+            DragCoordinator.unregister(zone);
+            resolveDrop({type: 'addTab'});
+            await settling;
+
+            expect(order).toEqual([
+                'suspend',
+                'embody',
+                'target-settling',
+                'leave',
+                'reset',
+                'restore'
+            ]);
+            expect(order.filter(value => value === 'leave')).toHaveLength(1);
+            expect(order).not.toContain('retire');
+            expect(DragCoordinator.nativeWindowDropCandidates.has('win-popup')).toBe(false);
+            expect(DragCoordinator.nativeClaimArbiters.has('win-popup')).toBe(false);
+            expect(DragCoordinator.nativeHoverTargets.has('win-popup')).toBe(false)
+        } finally {
+            DragCoordinator.nativeWindowDropHandoffMs = oldHandoff
+        }
+    });
+
     test('conversion resolver receives one live INNER-viewport frame and owns engagement without legacy suspension', () => {
         const
             frames       = [],

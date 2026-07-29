@@ -81,9 +81,15 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         target.destroy()
     });
 
-    test('an explicitly licensed target proxy stages before preview and restores before leave cleanup', () => {
-        const order  = [];
+    test('an explicitly licensed target proxy stages, settles, then restores before leave cleanup', async () => {
+        const
+            draggedItem = {dockItemId: 'pane-a'},
+            order       = [];
         const target = Neo.create(CrossWindowDragTarget, {
+            awaitDragEmbodiment: payload => {
+                order.push('await-proxy');
+                return Promise.resolve(payload.draggedItem === draggedItem)
+            },
             clearPreview: () => order.push('clear-preview'),
             previewFor  : () => {
                 order.push('preview');
@@ -102,16 +108,20 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         });
 
         target.onRemoteDragMove({
-            draggedItem: {dockItemId: 'pane-a'},
+            draggedItem,
             embodyProxy: true,
             localX     : 40,
             localY     : 8
         });
+        await expect(target.awaitRemoteDragEmbodiment(draggedItem)).resolves.toBe(true);
+        await expect(target.awaitRemoteDragEmbodiment({dockItemId: 'pane-a'}),
+            'equal-looking payloads cannot borrow the active generation').resolves.toBe(false);
         target.onRemoteDragLeave();
 
         expect(order).toEqual([
             'stage-proxy',
             'preview',
+            'await-proxy',
             'restore-proxy',
             'clear-preview'
         ]);
@@ -236,6 +246,84 @@ test.describe('Neo.dashboard.CrossWindowDragTarget (#14670 / ADR 0029 §2.3)', (
         expect(restored).toEqual(['pane-a']);
 
         target.destroy()
+    });
+
+    test('a target destroyed during an async commit never promotes or reports its stale embodiment', async () => {
+        const
+            promoted = [],
+            restored = [];
+        let resolveCommit;
+
+        const
+            target = Neo.create(CrossWindowDragTarget, {
+                commitOperation   : () => new Promise(resolve => resolveCommit = resolve),
+                previewFor        : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+                previewToOperation: () => ({
+                    operation : 'addTab',
+                    itemId    : 'pane-a',
+                    tabsNodeId: 't1'
+                }),
+                promoteDragEmbodiment: payload => promoted.push(payload.draggedItem.dockItemId),
+                restoreDragEmbodiment: payload => restored.push(payload.draggedItem.dockItemId),
+                sortGroup            : 'dock-main',
+                stageDragEmbodiment  : () => true,
+                windowId             : 2
+            }),
+            payload = {
+                draggedItem: {dockItemId: 'pane-a'},
+                embodyProxy: true,
+                localX     : 4,
+                localY     : 4
+            };
+
+        target.onRemoteDragMove(payload);
+
+        const dropping = target.onRemoteDrop(payload.draggedItem);
+
+        target.destroy();
+        resolveCommit({applied: true});
+
+        expect(await dropping,
+            'a completion whose target generation departed must not advertise a source-retiring commit').toBeNull();
+        expect(promoted).toEqual([]);
+        expect(restored, 'destroy restores the staged generation exactly once').toEqual(['pane-a'])
+    });
+
+    test('a target destroyed during an async rejection restores its staged generation exactly once', async () => {
+        const restored = [];
+        let rejectCommit;
+
+        const
+            target = Neo.create(CrossWindowDragTarget, {
+                commitOperation   : () => new Promise((resolve, reject) => rejectCommit = reject),
+                previewFor        : () => ({feedback: {state: 'accepted'}, itemId: 'pane-a'}),
+                previewToOperation: () => ({
+                    operation : 'addTab',
+                    itemId    : 'pane-a',
+                    tabsNodeId: 't1'
+                }),
+                restoreDragEmbodiment: payload => restored.push(payload.draggedItem.dockItemId),
+                sortGroup            : 'dock-main',
+                stageDragEmbodiment  : () => true,
+                windowId             : 2
+            }),
+            payload = {
+                draggedItem: {dockItemId: 'pane-a'},
+                embodyProxy: true,
+                localX     : 4,
+                localY     : 4
+            },
+            error = new Error('commit failed after target departure');
+
+        target.onRemoteDragMove(payload);
+
+        const dropping = target.onRemoteDrop(payload.draggedItem);
+
+        target.destroy();
+        rejectCommit(error);
+
+        await expect(dropping).rejects.toBe(error);
+        expect(restored, 'destroy owns the sole exact-generation restore').toEqual(['pane-a'])
     });
 
     test('a throwing owner commit still ends the gesture clean — cleanup is unconditional', () => {

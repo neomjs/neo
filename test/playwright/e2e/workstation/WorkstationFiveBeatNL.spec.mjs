@@ -1,6 +1,9 @@
+import {execFile}                                       from 'node:child_process';
 import {createHash}                                     from 'node:crypto';
 import path                                             from 'node:path';
+import {promisify}                                      from 'node:util';
 import fs                                               from 'fs-extra';
+import {previewToOperation}                             from '../../../../src/dashboard/dockPreviewContract.mjs';
 import {test, expect}                                   from '../../fixtures.mjs';
 import {assertPreviewZoneAlignment, readComponentRects} from '../utils/dockGeometry.mjs';
 import {isFilmTake}                                     from '../utils/gpuIntent.mjs';
@@ -55,10 +58,11 @@ import {isFilmTake}                                     from '../utils/gpuIntent
 // inside the window; birth is absence-not-slowness when it fails, so a longer gate buys
 // nothing but a worse error.
 const
-    filmTake    = isFilmTake(),
-    journeyRuns = filmTake ? 1 : 2,
-    themeDwell  = filmTake ? 3200 : 0,
-    filmPace    = filmTake
+    execFileAsync = promisify(execFile),
+    filmTake      = isFilmTake(),
+    journeyRuns   = filmTake ? 1 : 2,
+    themeDwell    = filmTake ? 3200 : 0,
+    filmPace      = filmTake
         ? {birthAttempts: 240, curve: 0.18, dwellDelay: 700, moveDelay: 33, moveSteps: 24, showCursor: true}
         : {},
     filmControl      = resolveFilmControl(),
@@ -363,6 +367,175 @@ async function pinToCaptureDisplay(page) {
 }
 
 /**
+ * @summary Places one exact headed Chrome target through CDP, then republishes the browser-observed
+ * landing through Workstation's ordinary WindowPosition authority. CDP is setup only; it never
+ * stands in for the native titlebar gesture proved below.
+ * @param {import('@playwright/test').Page} page Exact main or popup page.
+ * @param {Object} requested Requested outer-window `{left, top, width, height}`.
+ * @returns {Promise<Object>} Browser and CDP observations plus the Neo window id.
+ */
+async function placeNativeWindow(page, requested) {
+    const
+        session    = await page.context().newCDPSession(page),
+        {windowId} = await session.send('Browser.getWindowForTarget');
+
+    try {
+        await session.send('Browser.setWindowBounds', {
+            bounds: {...requested, windowState: 'normal'},
+            windowId
+        });
+
+        const {bounds} = await session.send('Browser.getWindowBounds', {windowId});
+        let browser;
+
+        await expect.poll(async () => {
+            browser = await readBrowserSurface(page);
+
+            return {
+                positioned: Math.max(
+                    Math.abs(browser.inner.x - bounds.left),
+                    Math.abs(browser.inner.y - bounds.top)
+                ) <= 80,
+                sized: Math.max(
+                    Math.abs(browser.outer.width  - bounds.width),
+                    Math.abs(browser.outer.height - bounds.height)
+                ) <= 2
+            }
+        }, {
+            message  : 'the exact headed Chrome target must adopt its native staging bounds',
+            timeout  : 5000,
+            intervals: [25, 50, 100]
+        }).toEqual({positioned: true, sized: true});
+
+        await expect.poll(() => page.evaluate(() =>
+            Boolean(globalThis.Neo?.main?.addon?.WindowPosition?.publishGeometry)
+        ), {
+            message  : 'the staged window must retain the product geometry publisher',
+            timeout  : 5000,
+            intervals: [25, 50, 100]
+        }).toBe(true);
+
+        const neoWindowId = await page.evaluate(() => {
+            globalThis.Neo.main.addon.WindowPosition.publishGeometry();
+
+            return globalThis.Neo.worker.Manager.windowId
+        });
+
+        return {bounds, browser, neoWindowId}
+    } finally {
+        await session.detach()
+    }
+}
+
+/**
+ * @summary Performs one literal macOS HID titlebar drag with CoreGraphics mouse events.
+ *
+ * The path first enters popup content and exits through its titlebar so the product's ordinary
+ * mouseout-owned movement observer is live. It then holds the OS mouse button throughout the
+ * cross-window move and dwell. No CDP or Neo method moves the popup during this gesture.
+ * @param {Object} data
+ * @param {{x:Number,y:Number}} data.end Global release coordinate over the target window.
+ * @param {{x:Number,y:Number}} data.prime Global point inside popup content.
+ * @param {{x:Number,y:Number}} data.start Global popup-titlebar press coordinate.
+ * @returns {Promise<Object>} Accessibility and physical mouse timing receipt.
+ */
+async function dragNativeTitlebar({end, prime, start}) {
+    const points = [end, prime, start];
+
+    if (!points.every(point => Number.isFinite(point?.x) && Number.isFinite(point?.y))) {
+        throw new Error('native titlebar drag requires finite global coordinates')
+    }
+
+    const
+        literal = value => Number(value).toFixed(3),
+        script  = `
+import Cocoa
+import Darwin
+import Foundation
+
+func post(_ type: CGEventType, x: Double, y: Double) {
+    let point = CGPoint(x: x, y: y)
+    let event = CGEvent(
+        mouseEventSource: nil,
+        mouseType: type,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    )!
+    event.post(tap: .cghidEventTap)
+}
+
+let access = CGPreflightPostEventAccess()
+print("access=\\(access)")
+if !access {
+    exit(77)
+}
+
+let primeX = ${literal(prime.x)}
+let primeY = ${literal(prime.y)}
+let startX = ${literal(start.x)}
+let startY = ${literal(start.y)}
+let endX = ${literal(end.x)}
+let endY = ${literal(end.y)}
+
+post(.mouseMoved, x: primeX, y: primeY)
+Thread.sleep(forTimeInterval: 0.18)
+post(.mouseMoved, x: startX, y: startY)
+Thread.sleep(forTimeInterval: 0.18)
+post(.leftMouseDown, x: startX, y: startY)
+print("mouseDownMs=\\(Int(Date().timeIntervalSince1970 * 1000))")
+
+for step in 1...28 {
+    let progress = Double(step) / 28.0
+    let eased = progress * progress * (3.0 - 2.0 * progress)
+    post(
+        .leftMouseDragged,
+        x: startX + (endX - startX) * eased,
+        y: startY + (endY - startY) * eased
+    )
+    Thread.sleep(forTimeInterval: 0.025)
+}
+
+Thread.sleep(forTimeInterval: 0.14)
+print("mouseUpMs=\\(Int(Date().timeIntervalSince1970 * 1000))")
+post(.leftMouseUp, x: endX, y: endY)
+Thread.sleep(forTimeInterval: 0.12)
+`,
+        moduleCache = path.join(process.env.TMPDIR || '/tmp', 'neo-native-titlebar-swift-cache');
+
+    await fs.ensureDir(moduleCache);
+
+    try {
+        const {stderr, stdout} = await execFileAsync('/usr/bin/swift', ['-e', script], {
+            env: {
+                ...process.env,
+                CLANG_MODULE_CACHE_PATH: moduleCache,
+                SWIFT_MODULE_CACHE_PATH: moduleCache
+            },
+            timeout: 60000
+        });
+        const receipt = Object.fromEntries(stdout.trim().split('\n').map(line => {
+            const index = line.indexOf('=');
+
+            return [line.slice(0, index), line.slice(index + 1)]
+        }));
+
+        stderr.trim() && console.log(`[native-titlebar][swift] ${stderr.trim()}`);
+
+        return {
+            access     : receipt.access === 'true',
+            mouseDownMs: Number(receipt.mouseDownMs),
+            mouseUpMs  : Number(receipt.mouseUpMs)
+        }
+    } catch (error) {
+        throw new Error(
+            'physical native-titlebar input failed; grant Accessibility to the active Codex/terminal host'
+            + `\nstdout: ${String(error.stdout || '').trim()}`
+            + `\nstderr: ${String(error.stderr || '').trim()}`
+        )
+    }
+}
+
+/**
  * @summary Proves the CDP adapter's observed geometry reached the ordinary App-Worker window map.
  * @param {Object} app Neural Link app wrapper.
  * @param {Object} stageReceipt Result from {@link pinToCaptureDisplay}.
@@ -408,6 +581,36 @@ async function assertStageGeometryPublished(app, stageReceipt) {
     console.log(`[film-stage] manager.Window parity: ${JSON.stringify(receipt)}`);
 
     return {...stageReceipt, managed: receipt.managed}
+}
+
+/**
+ * @summary Resolves the one surviving semantic tear-out page after transient popup generations.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} itemId
+ * @returns {Promise<import('@playwright/test').Page>}
+ */
+async function waitForTearOutPopup(page, itemId) {
+    let popups;
+
+    await expect.poll(() => {
+        popups = page.context().pages().filter(candidate => {
+            if (candidate === page || candidate.isClosed()) return false;
+
+            try {
+                return new URL(candidate.url()).searchParams.get('popout') === itemId
+            } catch {
+                return false
+            }
+        });
+
+        return popups.length
+    }, {
+        message  : `one live popout=${itemId} page must survive terminal acquisition`,
+        timeout  : 30000,
+        intervals: [25, 50, 100]
+    }).toBe(1);
+
+    return popups[0]
 }
 
 // `video` must live at file level (a describe-scoped use() would force a new worker).
@@ -1346,6 +1549,469 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+        expect(pageErrors).toEqual([])
+    });
+
+    test('scene 2 (native titlebar) — a physical macOS popup drag previews, embodies, and returns home', async ({page, neuralLink}) => {
+        test.skip(process.platform !== 'darwin', 'the physical titlebar witness is macOS-only');
+        test.skip(!filmTake, 'run with NEO_FILM_TAKE=1 and --headed for literal native input');
+
+        const userAgent = await page.evaluate(() => navigator.userAgent);
+
+        expect(userAgent, 'a headless browser cannot witness an OS titlebar gesture')
+            .not.toContain('HeadlessChrome');
+
+        const {default: DockZoneModel} = await import('../../../../src/dashboard/DockZoneModel.mjs');
+
+        const
+            {app, pageErrors, popupProbe, wsId} = await boot({page, neuralLink}),
+            readStoreIds                        = async () => {
+                const listed = await app.listStores(),
+                      stores = Array.isArray(listed?.stores)
+                          ? listed.stores
+                          : Array.isArray(listed) ? listed : [];
+
+                return stores.map(store => store?.id).filter(id =>
+                    id?.endsWith('__feed') || id?.endsWith('__scale')).sort()
+            },
+            heartbeatBefore = await readHeartbeat(app, wsId),
+            paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            storeIdsBefore = await readStoreIds(),
+            tearOut         = await app.callMethod(wsId, 'executeTearOutStep', [
+                {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+                filmPace
+            ]),
+            popup           = await waitForTearOutPopup(page, 'metrics');
+
+        expect(tearOut.errors).toEqual([]);
+        expect(tearOut.applied, 'setup must leave one real terminal metrics popup').toBe(true);
+        expect(paneIdBefore).toBeTruthy();
+        expect(storeIdsBefore).toHaveLength(2);
+        await popup.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+        const documentBeforeReturn = await readDocument(app, wsId);
+
+        expect(Object.values(documentBeforeReturn.nodes)
+            .flatMap(node => node.items ?? [])
+            .filter(itemId => itemId === 'metrics'),
+        'setup must leave metrics detached from the main document tree').toHaveLength(0);
+
+        const screen = await page.evaluate(() => ({
+            availHeight: globalThis.screen.availHeight,
+            availLeft  : globalThis.screen.availLeft,
+            availTop   : globalThis.screen.availTop,
+            availWidth : globalThis.screen.availWidth
+        }));
+
+        expect(screen.availWidth, 'the physical witness needs room for source and target windows')
+            .toBeGreaterThanOrEqual(1200);
+        expect(screen.availHeight).toBeGreaterThanOrEqual(700);
+
+        const
+            gap         = 24,
+            popupWidth  = Math.min(460, Math.floor(screen.availWidth * .32)),
+            mainWidth   = Math.min(1000, screen.availWidth - popupWidth - gap - 60),
+            mainHeight  = Math.min(760, screen.availHeight - 80),
+            popupHeight = Math.min(420, mainHeight - 120),
+            mainBounds  = {
+                height: mainHeight,
+                left  : screen.availLeft + 20,
+                top   : screen.availTop + 40,
+                width : mainWidth
+            },
+            popupBounds = {
+                height: popupHeight,
+                left  : mainBounds.left + mainBounds.width + gap,
+                top   : mainBounds.top + 120,
+                width : popupWidth
+            },
+            mainPlacement = await placeNativeWindow(page, mainBounds);
+
+        // Do not move the now-discoverable source popup until the worker has consumed the target's
+        // smaller landing. Otherwise the popup's setup geometry can intersect the OLD main rect
+        // and falsely become the native gesture this test is meant to prove.
+        await assertStageGeometryPublished(app, {
+            after      : mainPlacement.browser,
+            neoWindowId: mainPlacement.neoWindowId
+        });
+
+        const popupPlacement = await placeNativeWindow(popup, popupBounds);
+
+        await assertStageGeometryPublished(app, {
+            after      : popupPlacement.browser,
+            neoWindowId: popupPlacement.neoWindowId
+        });
+
+        await popup.bringToFront();
+
+        const
+            readId = result =>
+                result?.properties?.id ?? result?.id ?? (Array.isArray(result) ? readId(result[0]) : null),
+            targetMatches = await app.findInstances(
+                {dockNodeId: 'right-top-tabs'},
+                ['id', 'windowId']
+            ),
+            targetRecord = targetMatches.find(item =>
+                (item.properties?.windowId ?? item.windowId) === mainPlacement.neoWindowId),
+            targetId = readId(targetRecord);
+
+        expect(targetId,
+            `the exact main-window return target must remain projected; matches=${JSON.stringify(targetMatches)}`)
+            .toBeTruthy();
+
+        let targetBox;
+
+        await expect.poll(async () => {
+            targetBox = await page.locator(`#${targetId}`).boundingBox();
+
+            return Boolean(
+                targetBox &&
+                targetBox.x >= 0 &&
+                targetBox.y >= 0 &&
+                targetBox.x + targetBox.width <= mainPlacement.browser.inner.width &&
+                targetBox.y + targetBox.height <= mainPlacement.browser.inner.height
+            )
+        }, {
+            message: 'the exact main-window target must settle inside its physical viewport',
+            timeout: 10000
+        }).toBe(true);
+
+        expect(targetBox, 'the physical target must expose live rendered geometry').toBeTruthy();
+
+        const candidateLocalPoint = {
+            x: targetBox.x + targetBox.width / 2,
+            y: targetBox.y + targetBox.height / 2
+        };
+
+        expect(await app.callMethod(wsId, 'hitTestCrossWindowTarget', [
+            'workstation-main',
+            candidateLocalPoint.x,
+            candidateLocalPoint.y
+        ]), 'the exact physical target point must pass the lower-layer workspace hit test').toBe(true);
+
+        const
+            mainChromeHeight  = mainPlacement.browser.outer.height - mainPlacement.browser.inner.height,
+            popupChromeHeight = popupPlacement.browser.outer.height - popupPlacement.browser.inner.height,
+            titlebarOffset    = Math.max(8, Math.min(18, popupChromeHeight / 2)),
+            targetCenter      = {
+                x: mainPlacement.bounds.left
+                    + (mainPlacement.browser.outer.width - mainPlacement.browser.inner.width) / 2
+                    + targetBox.x + targetBox.width / 2,
+                y: mainPlacement.bounds.top + mainChromeHeight + targetBox.y + targetBox.height / 2
+            },
+            start = {
+                x: popupPlacement.bounds.left + popupPlacement.bounds.width / 2,
+                y: popupPlacement.bounds.top + titlebarOffset
+            },
+            prime = {
+                x: start.x,
+                y: popupPlacement.bounds.top + popupChromeHeight
+                    + Math.min(80, popupPlacement.browser.inner.height / 3)
+            },
+            desiredPopupTop = targetCenter.y - popupPlacement.bounds.height / 2,
+            end = {
+                x: targetCenter.x,
+                y: desiredPopupTop + titlebarOffset
+            },
+            popupStart = await popup.evaluate(() => ({
+                x: globalThis.screenX,
+                y: globalThis.screenY
+            }));
+
+        await page.evaluate(() => {
+            const
+                state = globalThis.__nativeTitlebarWitness = {
+                    activeBothSince  : null,
+                    firstBothAt      : null,
+                    firstPreviewAt   : null,
+                    firstProxyAt     : null,
+                    lastVisibility   : null,
+                    maxBothDurationMs: 0,
+                    presence         : [],
+                    samples          : [],
+                    stopped          : false
+                },
+                visible = element => {
+                    if (!element) return false;
+
+                    const
+                        rect  = element.getBoundingClientRect(),
+                        style = getComputedStyle(element);
+
+                    return rect.width > 0 && rect.height > 0
+                        && style.display !== 'none'
+                        && style.visibility !== 'hidden'
+                        && Number.parseFloat(style.opacity || '1') > 0
+                },
+                pickRect = element => {
+                    const {height, left, top, width} = element.getBoundingClientRect();
+
+                    return {height, left, top, width}
+                },
+                sample = () => {
+                    if (state.stopped) return;
+
+                    const
+                        previews       = [...document.querySelectorAll('.neo-dock-preview-affordance')],
+                        proxies        = [...document.querySelectorAll('.workstation-vessel-dragproxy')],
+                        preview        = previews.find(visible) ?? previews[0] ?? null,
+                        proxy          = proxies.find(visible) ?? proxies[0] ?? null,
+                        previewVisible = visible(preview),
+                        proxyVisible   = visible(proxy),
+                        now            = Date.now(),
+                        visibility     = `${previewVisible}:${proxyVisible}`;
+
+                    previewVisible && (state.firstPreviewAt ??= now);
+                    proxyVisible && (state.firstProxyAt ??= now);
+
+                    if (state.lastVisibility !== visibility && state.presence.length < 20) {
+                        state.lastVisibility = visibility;
+                        state.presence.push({
+                            at          : now,
+                            previewClass: preview?.className ?? null,
+                            previewCount: previews.length,
+                            previewVisible,
+                            proxyClass  : proxy?.className ?? null,
+                            proxyCount  : proxies.length,
+                            proxyVisible
+                        })
+                    }
+
+                    if (previewVisible && proxyVisible) {
+                        state.firstBothAt ??= now;
+                        state.activeBothSince ??= now;
+                        state.maxBothDurationMs = Math.max(
+                            state.maxBothDurationMs,
+                            now - state.activeBothSince
+                        );
+
+                        const previous = state.samples.at(-1);
+
+                        (!previous || now - previous.at >= 16) && state.samples.length < 12 &&
+                            state.samples.push({
+                            at     : now,
+                            preview: pickRect(preview),
+                            proxy  : pickRect(proxy)
+                        })
+                    } else if (state.activeBothSince != null) {
+                        state.maxBothDurationMs = Math.max(
+                            state.maxBothDurationMs,
+                            now - state.activeBothSince
+                        );
+                        state.activeBothSince = null
+                    }
+                };
+
+            state.observer = new MutationObserver(sample);
+            state.observer.observe(document.body, {
+                attributes: true,
+                childList : true,
+                subtree   : true
+            });
+            state.sample = sample;
+            sample()
+        });
+
+        let popupClosedAt = null;
+
+        popup.on('close', () => popupClosedAt = Date.now());
+
+        const
+            movedPromise = popup.waitForFunction(({x, y}) => {
+                const moved = Math.max(
+                    Math.abs(globalThis.screenX - x),
+                    Math.abs(globalThis.screenY - y)
+                ) > 40;
+
+                return moved ? {x: globalThis.screenX, y: globalThis.screenY} : false
+            }, popupStart, {polling: 'raf', timeout: 15000}).then(async handle => {
+                const value = await handle.jsonValue();
+
+                await handle.dispose();
+                return value
+            }),
+            retainedPromise = (async () => {
+                const deadline         = Date.now() + 15000;
+                let   semanticSnapshot = null;
+
+                while (Date.now() < deadline) {
+                    const coexistence = await page.evaluate(() => {
+                        const witness = globalThis.__nativeTitlebarWitness;
+
+                        witness.sample();
+                        return {
+                            firstBothAt      : witness.firstBothAt,
+                            maxBothDurationMs: witness.maxBothDurationMs
+                        }
+                    });
+
+                    if (coexistence.firstBothAt && !semanticSnapshot) {
+                        semanticSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
+                            parkedItemId     : 'metrics',
+                            targetWorkspaceId: 'workstation-main'
+                        }])
+                    }
+
+                    if (coexistence.firstBothAt && coexistence.maxBothDurationMs >= 32) {
+                        return {
+                            ...coexistence,
+                            firstBothSeen: true,
+                            semanticSnapshot,
+                            sourceOpen   : !popup.isClosed()
+                        }
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 10))
+                }
+
+                return {
+                    error        : 'no proxy/preview coexistence within 15000ms',
+                    firstBothSeen: false,
+                    semanticSnapshot,
+                    sourceOpen   : !popup.isClosed()
+                }
+            })(),
+            [nativeInput, moved, retainedAtFirst] = await Promise.all([
+                dragNativeTitlebar({end, prime, start}),
+                movedPromise,
+                retainedPromise
+            ]),
+            retained = {
+                ...retainedAtFirst,
+                receipt: await page.evaluate(() => {
+                    const witness = globalThis.__nativeTitlebarWitness;
+
+                    witness.sample();
+
+                    return {
+                        firstBothAt      : witness.firstBothAt,
+                        firstPreviewAt   : witness.firstPreviewAt,
+                        firstProxyAt     : witness.firstProxyAt,
+                        maxBothDurationMs: witness.maxBothDurationMs,
+                        presence         : witness.presence,
+                        samples          : witness.samples
+                    }
+                }),
+                popupClosedAt
+            };
+
+        console.log('[native-titlebar][physical-receipt]', JSON.stringify({
+            end,
+            moved,
+            nativeInput,
+            popupStart,
+            retained: retained.receipt,
+            targetCenter
+        }));
+
+        expect(nativeInput.access, 'the OS accepted literal HID event authority').toBe(true);
+        expect(nativeInput.mouseUpMs).toBeGreaterThan(nativeInput.mouseDownMs);
+        expect(Math.max(
+            Math.abs(moved.x - popupStart.x),
+            Math.abs(moved.y - popupStart.y)
+        ), 'the browser must observe its exact OS window physically moving').toBeGreaterThan(40);
+        expect(retained.sourceOpen,
+            'the source popup must still exist while proxy and preview share retained frames').toBe(true);
+        expect(retained.receipt.firstBothAt,
+            `the settled proxy and preview must coexist; witness=${JSON.stringify(retained)}`).toBeTruthy();
+        expect(retained.receipt.firstPreviewAt,
+            'continuous target preview must paint during the physical move').toBeLessThan(nativeInput.mouseUpMs);
+        expect(retained.receipt.firstProxyAt,
+            'the target-local live proxy must paint before semantic settlement').toBeTruthy();
+        expect(retained.receipt.firstPreviewAt,
+            'continuous preview must precede the inferred terminal embodiment').toBeLessThan(retained.receipt.firstBothAt);
+        expect(retained.receipt.maxBothDurationMs,
+            'proxy and readable preview must coexist across at least two 60 Hz frame intervals')
+            .toBeGreaterThanOrEqual(32);
+
+        const committedPreview = retained.semanticSnapshot?.preview;
+
+        expect(committedPreview,
+            `retained visual frames must carry semantic target truth; snapshot=${JSON.stringify(retained.semanticSnapshot)}`)
+            .toMatchObject({
+                feedback: {state: 'accepted'},
+                itemId  : 'metrics',
+                target  : {nodeId: 'right-top-tabs'}
+            });
+        expect(retained.semanticSnapshot?.rendered?.previewId,
+            'the target renderer must display the exact semantic preview').toBe(committedPreview.previewId);
+
+        const
+            expectedOperation = previewToOperation(committedPreview),
+            expectedReturn    = DockZoneModel.applyOperation(documentBeforeReturn, expectedOperation);
+
+        expect(expectedOperation, 'the retained accepted preview must convert through the production contract')
+            .toBeTruthy();
+        expect(expectedReturn.errors, 'the retained preview operation must be valid against pre-return truth')
+            .toEqual([]);
+
+        let closeReceipt   = null,
+            nativeSnapshot = null;
+
+        await expect.poll(async () => {
+            closeReceipt = (await app.getComponent(wsId, ['lastTearOutClose']))?.lastTearOutClose ?? null;
+            nativeSnapshot = await app.callMethod(wsId, 'readCrossWindowGestureSnapshot', [{
+                parkedItemId     : 'metrics',
+                targetWorkspaceId: 'workstation-main'
+            }]);
+
+            return popup.isClosed()
+        }, {
+            message: 'semantic commit must settle before retiring the exact source popup',
+            timeout: 15000
+        }).toBe(true).catch(error => {
+            error.message += `\ncloseReceipt=${JSON.stringify(closeReceipt)}`
+                + `\nnativeSnapshot=${JSON.stringify(nativeSnapshot)}`;
+            throw error
+        });
+
+        const documentAfter = await readDocument(app, wsId);
+
+        expect(documentAfter,
+            `the exact physical landing must commit its retained ${committedPreview.placement.kind} preview`)
+            .toEqual(expectedReturn.document);
+        expect(Object.values(documentAfter.nodes)
+            .flatMap(node => node.items ?? [])
+            .filter(itemId => itemId === 'metrics')).toHaveLength(1);
+        expect(await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            'the same live pane must cross the native boundary').toBe(paneIdBefore);
+        expect(await readStoreIds(), 'provider store identities must survive the native return')
+            .toEqual(storeIdsBefore);
+        expect(await readHeartbeat(app, wsId), 'the workspace must stay alive across the return')
+            .toBeGreaterThan(heartbeatBefore);
+
+        await page.evaluate(() => {
+            const witness = globalThis.__nativeTitlebarWitness;
+
+            witness.stopped = true;
+            witness.observer.disconnect()
+        });
+        await expect.poll(() => page.evaluate(() => {
+            const visible = element => {
+                if (!element) return false;
+
+                const
+                    rect  = element.getBoundingClientRect(),
+                    style = getComputedStyle(element);
+
+                return rect.width > 0 && rect.height > 0
+                    && style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && Number.parseFloat(style.opacity || '1') > 0
+            };
+
+            return {
+                preview: visible(document.querySelector('.neo-dock-preview-affordance')),
+                proxy  : visible(document.querySelector('.workstation-vessel-dragproxy'))
+            }
+        }), {
+            message  : 'native terminal cleanup must leave no preview or proxy residue',
+            timeout  : 5000,
+            intervals: [25, 50, 100]
+        }).toEqual({preview: false, proxy: false});
+
+        expect(popupProbe).toHaveLength(1);
+        expect(popupProbe[0].closed).toBe(true);
         expect(pageErrors).toEqual([])
     });
 
