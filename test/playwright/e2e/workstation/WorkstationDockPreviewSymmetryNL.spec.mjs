@@ -1,5 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
-import {isFilmTake}   from '../utils/gpuIntent.mjs';
+import {test, expect}    from '../../fixtures.mjs';
+import {isEngineProfile} from '../utils/gpuIntent.mjs';
 
 const
     EDGES  = ['top', 'right', 'bottom', 'left'],
@@ -330,11 +330,10 @@ test.describe('Workstation dock-preview four-axis symmetry (Neural Link)', () =>
      * @param {Object} frame
      */
     async function attachFrame(page, testInfo, frame) {
-        // The standard GPU-intent profile deliberately carries `--disable-frame-rate-limit`,
-        // which can starve headed Retina screenshots while DOM/worker truth keeps advancing.
-        // Pixel retention belongs to the repository's canonical film profile; the standard run
-        // still emits the complete JSON geometry matrix below.
-        if (!isFilmTake()) return;
+        // The explicit engine profile carries `--disable-frame-rate-limit`, which can starve
+        // headed Retina screenshots while DOM/worker truth keeps advancing. The presenting
+        // default retains the pixel artifact; engine runs still emit the JSON geometry matrix.
+        if (isEngineProfile()) return;
 
         const
             viewport = page.viewportSize() ?? await page.evaluate(() => ({

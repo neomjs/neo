@@ -56,7 +56,7 @@ export default defineConfig({
             // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
             // launches with. A second copy here would drift, and drift between two statements of one
             // fact is how a dead GL flag stayed invisible for five months. The mode selection
-            // (film vs benchmark) lives in the same module for the same reason.
+            // (presenting default vs explicit engine profile) lives there for the same reason.
             launchOptions: {args: activeLaunchArgs()}
         }
     }]
