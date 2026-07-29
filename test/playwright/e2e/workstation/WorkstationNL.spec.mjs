@@ -233,6 +233,85 @@ const readDockChrome = page => page.evaluate(() => {
 });
 
 /**
+ * @summary Reads the visible floating overflow menu's theme identity and computed Workstation skin.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object|null>}
+ */
+const readOverflowMenuSkin = page => page.evaluate(() => {
+    const
+        control = document.querySelector('.neo-tab-overflow-control'),
+        menu    = [...document.querySelectorAll('.neo-tab-overflow-menu')]
+            .find(element => element.getClientRects().length > 0),
+        item    = menu?.querySelector('.neo-list-item');
+
+    if (!control || !menu || !item) return null;
+
+    const
+        itemStyle = getComputedStyle(item),
+        icon      = menu.querySelector('.neo-menu-icon'),
+        iconStyle = icon && getComputedStyle(icon),
+        menuStyle = getComputedStyle(menu),
+        themes    = element => [...element.classList].filter(value => value.startsWith('neo-theme-')),
+        luminance = value => {
+            const channels = (value.startsWith('#')
+                ? [value.slice(1, 3), value.slice(3, 5), value.slice(5, 7)].map(channel => parseInt(channel, 16))
+                : value.match(/[\d.]+/g).slice(0, 3).map(Number)
+            ).map(channel => {
+                channel = Number(channel) / 255;
+                return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4
+            });
+
+            return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722
+        },
+        contrast = (foreground, background) => {
+            const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+
+            return (values[0] + .05) / (values[1] + .05)
+        },
+        iconToken = menuStyle.getPropertyValue('--menu-list-item-icon-color').trim();
+
+    return {
+        controlThemeClasses: themes(control),
+        item               : {
+            background  : itemStyle.backgroundColor,
+            color       : itemStyle.color,
+            fontFamily  : itemStyle.fontFamily,
+            fontSize    : itemStyle.fontSize,
+            fontWeight  : itemStyle.fontWeight,
+            height      : itemStyle.height,
+            lineHeight  : itemStyle.lineHeight,
+            outlineColor: itemStyle.outlineColor,
+            outlineStyle: itemStyle.outlineStyle,
+            outlineWidth: itemStyle.outlineWidth,
+            paddingLeft : itemStyle.paddingLeft,
+            paddingRight: itemStyle.paddingRight
+        },
+        iconColor: iconStyle?.color || null,
+        menu     : {
+            background : menuStyle.backgroundColor,
+            borderColor: menuStyle.borderColor,
+            borderStyle: menuStyle.borderStyle,
+            borderWidth: menuStyle.borderWidth,
+            boxShadow  : menuStyle.boxShadow,
+            fontFamily : menuStyle.fontFamily,
+            fontSize   : menuStyle.fontSize
+        },
+        menuThemeClasses: themes(menu),
+        parentIsBody    : menu.parentElement === document.body,
+        contrast        : {
+            icon: contrast(iconStyle?.color || iconToken, menuStyle.backgroundColor),
+            text: contrast(itemStyle.color, menuStyle.backgroundColor)
+        },
+        tokens           : {
+            background: menuStyle.getPropertyValue('--menu-list-background-color').trim(),
+            hover     : menuStyle.getPropertyValue('--menu-list-item-background-color-hover').trim(),
+            icon      : iconToken,
+            ink       : menuStyle.getPropertyValue('--menu-list-item-color').trim()
+        }
+    }
+});
+
+/**
  * @summary Reads the two live child extents around Workstation's horizontal split boundary.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>}
@@ -1772,5 +1851,138 @@ test.describe('Workstation — dense living-data composition', () => {
         expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
         expect(runtimeErrors, 'no global error or unhandled rejection across the journey').toEqual([]);
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
+    });
+
+    test('the body-mounted overflow menu carries live Workstation theme and skin', async ({page, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-workspace', {timeout: 30000});
+        await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
+
+        const
+            app        = await neuralLink.connectToApp('Workstation'),
+            workspaces = asArray(await app.findInstances(
+                {className: 'Workstation.view.Workspace'},
+                ['id']
+            )),
+            workspaceId = workspaces[0]?.id,
+            root        = page.locator('.workstation-workspace'),
+            control     = page.locator('.neo-tab-overflow-control'),
+            heavyToolbar = page.locator('.neo-tab-header-toolbar')
+                .filter({hasText: 'Priority Alert Observatory'});
+
+        expect(workspaces).toHaveLength(1);
+        expect(workspaceId).toBeTruthy();
+        await expect(control).toHaveCount(1);
+        await expect(heavyToolbar).toHaveCount(1);
+        expect(await page.evaluate(() =>
+            document.querySelector('.neo-tab-overflow-control')?.parentElement === document.body
+        ), 'the themed control remains a floating direct-body child').toBe(true);
+
+        await control.click();
+
+        const
+            menu       = page.locator('.neo-tab-overflow-menu:visible'),
+            menuItems  = menu.locator('.neo-list-item').filter({hasText: /\S/}),
+            memoryItem = menuItems.filter({hasText: 'Memory Pressure Telemetry'});
+
+        await expect(menu, 'the menu exposes its app-neutral product-skin identity').toHaveCount(1);
+        await expect(menuItems.first()).toBeVisible({timeout: 10000});
+        expect(await menuItems.count()).toBeGreaterThan(0);
+        await expect(memoryItem).toHaveCount(1);
+
+        const
+            controlId   = await control.getAttribute('id'),
+            darkRuntime = await app.getComponent(controlId, [
+                'menuList.id',
+                'menuList.theme',
+                'parentId',
+                'theme'
+            ]),
+            darkSkin    = await readOverflowMenuSkin(page);
+
+        expect(darkRuntime.parentId).toBe('document.body');
+        expect(darkRuntime.theme).toBe('neo-theme-neo-dark');
+        expect(darkRuntime['menuList.id']).toBeTruthy();
+        expect(darkRuntime['menuList.theme']).toBe('neo-theme-neo-dark');
+        expect(darkSkin.parentIsBody).toBe(true);
+        expect(darkSkin.controlThemeClasses).toEqual(['neo-theme-neo-dark']);
+        expect(darkSkin.menuThemeClasses).toEqual(['neo-theme-neo-dark']);
+        expect(darkSkin.tokens).toEqual({
+            background: '#1a212c',
+            hover     : 'color-mix(in srgb, #5eead4 14%, #1a212c)',
+            icon      : '#8b97a8',
+            ink       : '#d6dce6'
+        });
+        expect(darkSkin.menu.background).not.toBe('rgba(0, 0, 0, 0)');
+        expect(darkSkin.menu.borderStyle).toBe('solid');
+        expect(darkSkin.menu.borderWidth).toBe('1px');
+        expect(darkSkin.menu.boxShadow).not.toBe('none');
+        expect(darkSkin.menu.fontSize).toBe('12px');
+        expect(darkSkin.item.height).toBe('30px');
+        expect(darkSkin.item.paddingLeft).toBe('10px');
+        expect(darkSkin.item.paddingRight).toBe('10px');
+        expect(darkSkin.item.fontFamily).toContain('ui-monospace');
+        expect(darkSkin.contrast.text, 'dark menu text keeps WCAG AA contrast').toBeGreaterThanOrEqual(4.5);
+        expect(darkSkin.contrast.icon, 'dark menu icons keep non-text contrast').toBeGreaterThanOrEqual(3);
+
+        await memoryItem.hover();
+        const hoverBackground = await memoryItem.evaluate(element => getComputedStyle(element).backgroundColor);
+
+        expect(hoverBackground, 'hover visibly strengthens the row').not.toBe(darkSkin.item.background);
+
+        await memoryItem.focus();
+        const focusStyle = await memoryItem.evaluate(element => {
+            const style = getComputedStyle(element);
+
+            return {
+                color: style.outlineColor,
+                style: style.outlineStyle,
+                width: style.outlineWidth
+            }
+        });
+
+        expect(focusStyle.style).toBe('solid');
+        expect(focusStyle.width).toBe('1px');
+        expect(focusStyle.color).not.toBe('rgba(0, 0, 0, 0)');
+
+        await app.callMethod(workspaceId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+        await expect(root).toHaveClass(/neo-theme-neo-light/);
+        await expect(control).toHaveClass(/neo-theme-neo-light/);
+        await expect(control).not.toHaveClass(/neo-theme-neo-dark/);
+        await expect(menu).toHaveClass(/neo-theme-neo-light/);
+        await expect(menu).not.toHaveClass(/neo-theme-neo-dark/);
+
+        const
+            lightRuntime = await app.getComponent(controlId, ['menuList.theme', 'theme']),
+            lightSkin    = await readOverflowMenuSkin(page);
+
+        expect(lightRuntime.theme).toBe('neo-theme-neo-light');
+        expect(lightRuntime['menuList.theme']).toBe('neo-theme-neo-light');
+        expect(lightSkin.controlThemeClasses).toEqual(['neo-theme-neo-light']);
+        expect(lightSkin.menuThemeClasses).toEqual(['neo-theme-neo-light']);
+        expect(lightSkin.tokens).toEqual({
+            background: '#f7f9fc',
+            hover     : 'color-mix(in srgb, #0f766e 14%, #f7f9fc)',
+            icon      : '#5a6b80',
+            ink       : '#1f2733'
+        });
+        expect(lightSkin.menu.background).not.toBe(darkSkin.menu.background);
+        expect(lightSkin.item.color).not.toBe(darkSkin.item.color);
+        expect(lightSkin.menu.fontSize).toBe('12px');
+        expect(lightSkin.item.height).toBe('30px');
+        expect(lightSkin.contrast.text, 'light menu text keeps WCAG AA contrast').toBeGreaterThanOrEqual(4.5);
+        expect(lightSkin.contrast.icon, 'light menu icons keep non-text contrast').toBeGreaterThanOrEqual(3);
+
+        await app.callMethod(workspaceId, 'setWorkspaceTheme', ['neo-theme-neo-dark']);
+        await expect(root).toHaveClass(/neo-theme-neo-dark/);
+        await expect(control).toHaveClass(/neo-theme-neo-dark/);
+        await expect(control).not.toHaveClass(/neo-theme-neo-light/);
+        await expect(menu).toHaveClass(/neo-theme-neo-dark/);
+        await expect(menu).not.toHaveClass(/neo-theme-neo-light/);
+
+        await memoryItem.click();
+        await expect(page.locator('.neo-tab-header-button.pressed:visible')
+            .filter({hasText: 'Memory Pressure Telemetry'}),
+        'ordinary activeIndex still surfaces the selected hidden resident').toHaveCount(1)
     })
 });
