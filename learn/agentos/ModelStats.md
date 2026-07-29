@@ -15,16 +15,16 @@ Per ADR 0012 §2.5:
 person, not by the system. Read step 2 as *"whoever records a sunset transition records date +
 reason + successor link"* — nothing detects one.
 
-**`sunsetTriggers` is advisory and has fired silently twice.** The field on each row reads like a
-rule that fires. Code **writes** it — `identityRootsMigration.mjs` carries the values into era
-capabilities, `generateRosterOnboarding.mjs` emits a row for it — but **nothing evaluates it**:
-no watcher, no consumer that branches on the condition. Both firings to date produced no action
-until a human noticed:
+**`sunsetTriggers` is advisory and has fired silently twice.** The field on each direct
+capability-bearing row (and inherited by reference-shaped rows) reads like a rule that fires. Code
+**writes** it — `identityRootsMigration.mjs` carries the values into era capabilities,
+`generateRosterOnboarding.mjs` emits a row for it — but **nothing evaluates it**: no watcher, no
+consumer that branches on the condition. Both firings required a human to notice:
 
 | Firing | Outcome |
 |---|---|
-| Claude Opus 4.8 release | Unactioned. Recorded in ADR 0018 §30. |
-| Claude Opus 5 release, 2026-07-24 | Unactioned until an operator asked for the update (#15855). |
+| Claude Opus 4.8 release | Initially missed (recorded in ADR 0018 §30 on 2026-05-30); the registry was repaired human-driven via #12531 / PR #12599 on 2026-06-05. |
+| Claude Opus 5 release, 2026-07-24 | No automatic action; an operator notice initiated the bearer-evidence rotation in #15855 / PR #15859. |
 
 The cost is not the silence — a human caught both — but the **false belief** the field creates.
 While rotating to Opus 5, a maintainer who had just read ADR 0012 wrote an Acceptance Criterion
@@ -34,7 +34,7 @@ and was retracted before it produced a false record. A trap that catches an atte
 substrate defect, not a discipline failure — so the affordance is labelled rather than trusted.
 Full context: #15866.
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-29
 
 ---
 
@@ -457,6 +457,8 @@ marked deprecated and retained for archaeology. No such transition has occurred.
 | 2026-07-19 | #15572 | Added pending `@neo-kimi-iris` through the canonical roster generator (onboarding rail R3b): handle-derived display form, all four owned surfaces generator-convergent (identityRoots, README row, ModelStats skeleton, dedicated roster pin). Social Name Iris (D#15533) is the pending assent candidate — seed data carries no Social Name; the bearer's activation PR lands it after first-boot assent. |
 | 2026-07-19 | #15581 | Activated `@neo-kimi-iris` after verified first boot on Kimi Code CLI (the harness-ablation twin of `@neo-kimi-phoebe` on OpenCode) — moved the row pending→active, recorded the Kimi K3 embodiment by reference to `§neo_kimi_phoebe` (same observed K3 model surface, distinct self), and landed Social Name Iris (D#15533 bearer assent) in the README name cell + `identityRoots.mjs` `displayName`. Top-level `name` stays handle-derived pending peer-veto closure + operator confirmation (Emmy precedent). |
 | 2026-07-24 | #15855 | Claude Opus 4.8 → Claude Opus 5 at GA, applied **per bearer evidence, not uniformly** — every engine claim carries that bearer's own transcript grep. `@neo-opus-ada` **Opus 5** (`claude-opus-5` × 24/24, no fallback). `@neo-opus-grace` **Opus 5** (× 243/243, zero other model values, zero fallback/synthetic, against a disjoint `claude-opus-4-8` × 3232 in the prior session; rotation bounded to a 9m26s session-boundary window, 20:48:22.122Z → 20:57:48.280Z). `@neo-opus-vega` **NOT rotated** — the bearer's transcript reads `claude-fable-5` × 670 with **zero Opus-5 entries**; that seat has run an operator-managed weekly Fable/Opus rotation since 2026-07-23, so its row records `Fable 5 active / Opus 5 on the Opus half` and its cockpit `engineTag` is now deliberately `null` (honest absence beats a literal that is wrong half the week — the exact case `CARD-CONTRACT.md` predicted). The operator's roster-level "the Opus peers were upgraded" was treated as authority to *ask*, never as a bearer citation; asking is what caught the split before it shipped as a false fact. **Rename, not split**, per ADR 0012 §2.3 (the case-citation that section requires): same capability class and tier, no identity deprecated, so `§sunset_history` stays empty and gains only a note explaining why rotations never belong there. ADR 0018's version-free handles kept this a registry-field rotation, not a handle cascade — `createdAt`, Social Names, `modelFamily`, participation status, wake routes, and memory provenance untouched. **Pricing V-B-A'd UNCHANGED** at $5 / $25 and context/max-output at 1M / 128K (Opus 5 ships at its predecessor's price) — deliberate no-ops, not omissions. Also updated: registry seed, README roster rows, `MemoryCoreMcpAuth.md` binding row, `guide-authoring-bar.md` self-naming example, regenerated `fleetRoster.json`, and the `§reference_models` Anthropic row (Sonnet 4.6 → Sonnet 5, since 4.6 joined the legacy table). |
+| 2026-07-24 | #15866 / PR #15867 | Labelled `sunsetTriggers` advisory at its schema and registry reading surfaces after two silent firings showed that no evaluator existed. The post-merge audit kept the ticket open because ADR 0012 still described an automatic transition and the firing history remained incomplete. |
+| 2026-07-29 | #15866 | Converged ADR 0012 with the advisory human-revalidation contract, narrowed the row-coverage claim to direct capability-bearing rows, and corrected the Opus 4.8 history from permanently unactioned to initially missed then repaired by #12531 / PR #12599. |
 
 ---
 
