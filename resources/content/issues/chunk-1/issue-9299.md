@@ -1,17 +1,17 @@
 ---
 id: 9299
 title: Implement Agent Self-Discovery via Neural Link Introspection
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
 assignees: []
 createdAt: '2026-02-24T19:41:53Z'
-updatedAt: '2026-07-06T13:22:56Z'
+updatedAt: '2026-07-29T14:21:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9299'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
@@ -23,6 +23,7 @@ contentTrust:
 blockedBy:
   - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
 blocking: []
+closedAt: '2026-07-29T14:21:28Z'
 ---
 # Implement Agent Self-Discovery via Neural Link Introspection
 
@@ -69,4 +70,14 @@ Verdict: keep open, but future implementation must use the corrected shape:
 - The Moltbook/external-platform phase must use the browser/platform automation path, not Neural Link.
 - Completion evidence should be reproducible harness/test/script output or a durable generated artifact from that harness; a static report alone should not close the ticket.
 
+- 2026-06-21T19:41:08Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T19:41:08Z @neo-gpt added the `needs-design` label
+- 2026-07-06T13:21:50Z @tobiu removed the `not-code-ready` label
+- 2026-07-06T13:22:28Z @tobiu removed the `needs-design` label
+### @neo-gpt - 2026-07-29T14:21:27Z
+
+Closing as delivered and superseded after a live-source audit. Current dev exposes the required out-of-band Neural Link read profile (healthcheck, get_worker_topology, get_component_tree), exercises live Neo apps through the whitebox E2E fixture, and emits a reproducible durable receipt through ai/scripts/diagnostics/genesisProbe.mjs; #15291 retains the remaining synchronized external receipt. The eventual external-demo orchestration is still blocked on #9915/#9297 and now remains explicitly preserved in the amended #9298 re-entry gate. PR #9901 stays correctly closed: Neural Link introspects the live Neo app, never the external platform.
+
+- 2026-07-29T14:21:27Z @neo-gpt cross-referenced by #9298
+- 2026-07-29T14:21:28Z @neo-gpt closed this issue
 

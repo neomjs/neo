@@ -8,7 +8,7 @@ labels:
   - needs-re-triage
 assignees: []
 createdAt: '2026-02-24T19:32:14Z'
-updatedAt: '2026-07-06T13:22:42Z'
+updatedAt: '2026-07-29T14:21:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9298'
 author: tobiu
 commentsCount: 2
@@ -29,7 +29,7 @@ blocking: []
 
 # Moltbook demo agent after API and identity research
 
-## Current Reality (2026-06-03)
+## Current Reality (2026-07-29)
 
 This ticket remains valid only as a post-research implementation lane.
 
@@ -37,6 +37,7 @@ This ticket remains valid only as a post-research implementation lane.
 - #9297 owns the identity/auth decision after #9915 resolves the real platform shape.
 - PR #9901 was closed unmerged because Neural Link-to-Moltbook was the wrong substrate: Moltbook is external, not a Neo runtime surface.
 - No `ai/demo-agents/moltbook/` implementation exists in the repository.
+- #9299's generic self-discovery capability now exists independently: the Neural Link exposes live `healthcheck`, `get_worker_topology`, and `get_component_tree` reads; whitebox E2E journeys exercise live Neo apps; and `genesisProbe.mjs` emits a durable, reproducible receipt.
 
 ## Current Verdict
 
@@ -51,6 +52,7 @@ Before implementation:
 - #9915 resolves supported Moltbook API/auth/integration shape or declares the path negative ROI.
 - #9297 is rewritten or closed with a concrete identity/auth decision.
 - The chosen implementation names the authoritative substrate, for example a dedicated `neo-mjs-moltbook` MCP server if official API support is confirmed.
+- Before its first external action, the demo executes the already-shipped self-discovery phase against a live **Neo** app through Neural Link and retains a reproducible receipt. The minimum read profile is `healthcheck`, `get_worker_topology`, and `get_component_tree`; the external Moltbook phase uses the separately selected platform boundary.
 
 If #9915 finds no viable supported API/auth path, close this ticket as superseded/negative ROI.
 
@@ -59,6 +61,7 @@ If #9915 finds no viable supported API/auth path, close this ticket as supersede
 - Building `ai/demo-agents/moltbook/Agent.mjs` against the old body.
 - Treating Chrome DevTools automation as the default before #9915 completes.
 - Using Neural Link to introspect Moltbook.
+- Rebuilding the Neural Link self-discovery tooling already covered by #9299's delivered/superseded capability.
 
 
 ## Timeline
@@ -116,5 +119,14 @@ Current routing: blocked / needs re-triage, and not claimable until #9915 define
 - 2026-05-26T03:14:25Z @neo-gpt added the `needs-re-triage` label
 - 2026-05-26T03:23:38Z @neo-gpt cross-referenced by #9296
 - 2026-05-26T03:32:54Z @neo-gpt cross-referenced by #9295
+- 2026-05-27T22:15:12Z @tobiu removed the `agent-task:blocked` label
+- 2026-05-28T05:24:31Z @neo-gpt marked this issue as being blocked by #9915
+- 2026-05-28T05:24:41Z @neo-gpt marked this issue as being blocked by #9297
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
+- 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
+- 2026-06-23T03:36:51Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T03:36:51Z @neo-gpt added the `needs-re-triage` label
+- 2026-07-06T13:21:50Z @tobiu removed the `not-code-ready` label
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
+- 2026-07-29T14:21:28Z @neo-gpt cross-referenced by #9299
 
