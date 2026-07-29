@@ -16,7 +16,49 @@ import {verifyPersistedVector} from './verifyPersistedVector.mjs';
 
 export const SESSION_SUMMARY_RECEIPT_ENCODING = 'gzip-json-v1';
 
-const DEFAULT_RECOVERY_BATCH_SIZE = 100;
+/**
+ * @summary Declares the complete metadata write-set owned by session-summary synthesis.
+ *
+ * `unclassifiedSourceCount` and `userId` are conditional at issuance; every other key is
+ * required. Keeping the allowed set explicit makes a new or accidentally dropped synthesis
+ * field fail at the receipt boundary instead of silently narrowing replay verification.
+ * Dream-owned overlays such as `graphDigested` and `digestState` deliberately remain outside
+ * this boundary.
+ */
+export const SESSION_SUMMARY_RECEIPT_METADATA_KEYS = Object.freeze([
+    'sessionId',
+    'timestamp',
+    'memoryCount',
+    'title',
+    'category',
+    'quality',
+    'productivity',
+    'impact',
+    'complexity',
+    'technologies',
+    'participatingAgents',
+    'models',
+    'totalToolCalls',
+    'toolsUsed',
+    'sourceAgentIdentities',
+    'sourceTrustTier',
+    'provenancePolicy',
+    'sourceTier',
+    'degraded',
+    'rawCanonical',
+    'unclassifiedSourceCount',
+    'userId'
+]);
+
+const DEFAULT_RECOVERY_BATCH_SIZE    = 100;
+const OPTIONAL_RECEIPT_METADATA_KEYS = new Set([
+    'unclassifiedSourceCount',
+    'userId'
+]);
+const REQUIRED_RECEIPT_METADATA_KEYS = SESSION_SUMMARY_RECEIPT_METADATA_KEYS.filter(
+    key => !OPTIONAL_RECEIPT_METADATA_KEYS.has(key)
+);
+const SESSION_SUMMARY_RECEIPT_METADATA_KEY_SET = new Set(SESSION_SUMMARY_RECEIPT_METADATA_KEYS);
 
 /**
  * @summary Validates the exact deterministic summary row carried by a receipt.
@@ -39,6 +81,18 @@ function validateReceipt(receipt) {
     }
     if (!receipt.metadata || typeof receipt.metadata !== 'object' || Array.isArray(receipt.metadata)) {
         throw new TypeError('Session-summary receipt metadata must be an object.');
+    }
+
+    const unknownMetadataKeys = Object.keys(receipt.metadata)
+        .filter(key => !SESSION_SUMMARY_RECEIPT_METADATA_KEY_SET.has(key));
+    if (unknownMetadataKeys.length > 0) {
+        throw new TypeError(`Session-summary receipt metadata contains unowned keys: ${unknownMetadataKeys.join(', ')}.`);
+    }
+
+    const missingMetadataKeys = REQUIRED_RECEIPT_METADATA_KEYS
+        .filter(key => !Object.hasOwn(receipt.metadata, key));
+    if (missingMetadataKeys.length > 0) {
+        throw new TypeError(`Session-summary receipt metadata is missing owned keys: ${missingMetadataKeys.join(', ')}.`);
     }
 
     return receipt;
@@ -194,14 +248,30 @@ export function acknowledgeSessionSummaryReceipt({db, sessionId, now = Date.now(
 }
 
 /**
- * @summary Compares one Chroma read-back row with its durable exact envelope.
+ * @summary Compares one Chroma row with the synthesis-owned fields in its durable receipt.
+ *
+ * DreamService legitimately adds graph-digestion lifecycle fields to the same metadata
+ * object after synthesis. Those downstream-owned overlays do not make the acknowledged
+ * synthesis result stale. The receipt remains exact for its document and every declared
+ * metadata key present at issuance; a missing or changed receipt-owned value still requires
+ * replay.
+ *
  * @param {Object|undefined} row
  * @param {Object} receipt
  * @returns {Boolean}
  */
-function isExactSummaryRow(row, receipt) {
-    return row?.document === receipt.document &&
-        isDeepStrictEqual(row.metadata, receipt.metadata);
+function matchesSessionSummaryReceipt(row, receipt) {
+    if (row?.document !== receipt.document || !row.metadata) {
+        return false;
+    }
+
+    return SESSION_SUMMARY_RECEIPT_METADATA_KEYS.every(key => {
+        const receiptHasKey = Object.hasOwn(receipt.metadata, key),
+              rowHasKey     = Object.hasOwn(row.metadata, key);
+
+        return receiptHasKey === rowHasKey &&
+            (!receiptHasKey || isDeepStrictEqual(row.metadata[key], receipt.metadata[key]));
+    });
 }
 
 /**
@@ -351,7 +421,7 @@ export async function recoverSessionSummaryReceipts({
             let liveRows = mapSummaryRows(liveResult);
 
             const toReplay = recoverable.filter(item =>
-                !isExactSummaryRow(liveRows.get(item.receipt.summaryId), item.receipt)
+                !matchesSessionSummaryReceipt(liveRows.get(item.receipt.summaryId), item.receipt)
             );
 
             if (toReplay.length > 0) {
@@ -368,7 +438,7 @@ export async function recoverSessionSummaryReceipts({
                 liveRows = mapSummaryRows(readBack);
 
                 for (const item of toReplay) {
-                    if (!isExactSummaryRow(liveRows.get(item.receipt.summaryId), item.receipt)) {
+                    if (!matchesSessionSummaryReceipt(liveRows.get(item.receipt.summaryId), item.receipt)) {
                         throw new Error(`Session-summary receipt replay verification failed for ${item.receipt.summaryId}.`);
                     }
 
