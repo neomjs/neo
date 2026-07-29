@@ -208,8 +208,9 @@ test.describe('bootstrapWorktree — inspectGitIdentity', () => {
 
     /** @param {Object} values `{global, local, effective}` git config answers. */
     const readConfig = values => async args => {
-        if (args.includes('--global')) return values.global ?? '';
-        if (args.includes('--local'))  return values.local  ?? '';
+        if (args.includes('--global'))   return values.global   ?? '';
+        if (args.includes('--worktree')) return values.worktree ?? '';
+        if (args.includes('--local'))    return values.local    ?? '';
         return values.effective ?? '';
     };
 
@@ -233,6 +234,21 @@ test.describe('bootstrapWorktree — inspectGitIdentity', () => {
         expect(result.local).toBe('ada@neomjs.com')
     });
 
+    test('worktree config outranks the shared repository-local identity', async () => {
+        const result = await inspectGitIdentity({
+            projectRoot: '/tmp',
+            readConfig : readConfig({
+                global   : 'operator@example.com',
+                local    : 'operator@example.com',
+                worktree : 'euclid@neomjs.com',
+                effective: 'euclid@neomjs.com'
+            })
+        });
+
+        expect(result.inherited).toBe(false);
+        expect(result.local).toBe('euclid@neomjs.com')
+    });
+
     test('a local identity that EQUALS the global one is a choice, not a leak', async () => {
         // The operator bootstrapping a worktree for himself set it deliberately. The defect is the
         // ABSENCE of a local identity, not the value — flagging this would train people to ignore it.
@@ -252,4 +268,178 @@ test.describe('bootstrapWorktree — inspectGitIdentity', () => {
 
         expect(result.inherited).toBe(false)
     })
+});
+
+/**
+ * @summary The bootstrap-side cure: resolve one authenticated agent identity, then bind it at the
+ * narrowest Git scope the checkout topology supports.
+ *
+ * These tests use real repositories because `extensions.worktreeConfig` plus `--worktree` is the
+ * contract under test. Mocking Git would prove only an argv spelling while missing the original
+ * failure mode: sibling worktrees silently sharing the operator's repository config.
+ */
+test.describe('#15337 bootstrapWorktree — configureAgentGitIdentity', () => {
+    let configureAgentGitIdentity;
+    let tmpRoot;
+
+    const git = (cwd, args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']});
+
+    test.beforeAll(async () => {
+        configureAgentGitIdentity =
+            (await import('../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).configureAgentGitIdentity
+    });
+
+    test.beforeEach(() => {
+        tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-git-identity-'))
+    });
+
+    test.afterEach(() => fs.removeSync(tmpRoot));
+
+    /**
+     * @summary Creates a main checkout with a deliberately operator-owned repository identity.
+     * @returns {String} Absolute main-checkout path.
+     */
+    function createMainCheckout() {
+        const main = path.join(tmpRoot, 'main');
+
+        fs.ensureDirSync(main);
+        git(main, ['init', '-b', 'dev', '--quiet']);
+        git(main, ['config', 'user.email', 'operator@example.com']);
+        git(main, ['config', 'user.name', 'Operator']);
+        git(main, ['commit', '--allow-empty', '-m', 'seed', '--quiet', '--no-verify']);
+
+        return main
+    }
+
+    /**
+     * @summary Returns an injected GitHub-account reader without exposing auth to the test process.
+     * @param {String} login Authenticated GitHub login.
+     * @param {String} email Verified primary email.
+     * @returns {Function} Async account reader.
+     */
+    function account(login, email) {
+        return async () => ({
+            login,
+            emails: [{email, primary: true, verified: true}]
+        })
+    }
+
+    test('keeps main + TWO sibling worktree identities isolated in real Git config files', async () => {
+        const
+            main  = createMainCheckout(),
+            treeA = path.join(tmpRoot, 'seat-a'),
+            treeB = path.join(tmpRoot, 'seat-b');
+
+        git(main, ['worktree', 'add', '-b', 'agent/a', treeA, 'dev', '--quiet']);
+        git(main, ['worktree', 'add', '-b', 'agent/b', treeB, 'dev', '--quiet']);
+
+        await configureAgentGitIdentity({
+            projectRoot            : treeA,
+            mainCheckout           : main,
+            agentIdentity          : '@neo-gpt',
+            getAuthenticatedAccount: account('neo-gpt', 'neo-gpt@neomjs.com')
+        });
+        await configureAgentGitIdentity({
+            projectRoot            : treeB,
+            mainCheckout           : main,
+            agentIdentity          : '@neo-gpt-emmy',
+            getAuthenticatedAccount: account('neo-gpt-emmy', 'neo-gpt-emmy@neomjs.com')
+        });
+
+        expect(git(main,  ['config', 'user.name']).trim()).toBe('Operator');
+        expect(git(main,  ['config', 'user.email']).trim()).toBe('operator@example.com');
+        expect(git(treeA, ['config', 'user.name']).trim()).toBe('Euclid');
+        expect(git(treeA, ['config', 'user.email']).trim()).toBe('neo-gpt@neomjs.com');
+        expect(git(treeB, ['config', 'user.name']).trim()).toBe('Emmy');
+        expect(git(treeB, ['config', 'user.email']).trim()).toBe('neo-gpt-emmy@neomjs.com');
+
+        expect(git(treeA, ['config', '--show-origin', 'user.email'])).toContain('/config.worktree');
+        expect(git(treeB, ['config', '--show-origin', 'user.email'])).toContain('/config.worktree')
+    });
+
+    test('skips the main checkout without consulting agent or GitHub identity', async () => {
+        const main = createMainCheckout();
+
+        const result = await configureAgentGitIdentity({
+            projectRoot            : main,
+            mainCheckout           : main,
+            agentIdentity          : '',
+            getAuthenticatedAccount: async () => { throw new Error('must not be called') }
+        });
+
+        expect(result).toEqual({action: 'skipped-main-checkout'});
+        expect(git(main, ['config', 'user.name']).trim()).toBe('Operator');
+        expect(git(main, ['config', 'user.email']).trim()).toBe('operator@example.com')
+    });
+
+    test('uses clone-local config for an explicit independent clone', async () => {
+        const
+            independent = path.join(tmpRoot, 'independent'),
+            canonical   = path.join(tmpRoot, 'different-canonical');
+
+        fs.ensureDirSync(independent);
+        git(independent, ['init', '-b', 'dev', '--quiet']);
+        git(independent, ['config', 'user.email', 'operator@example.com']);
+        git(independent, ['config', 'user.name', 'Operator']);
+        git(independent, ['commit', '--allow-empty', '-m', 'seed', '--quiet', '--no-verify']);
+
+        const result = await configureAgentGitIdentity({
+            projectRoot            : independent,
+            mainCheckout           : canonical,
+            agentIdentity          : '@neo-gpt',
+            getAuthenticatedAccount: account('neo-gpt', 'neo-gpt@neomjs.com')
+        });
+
+        expect(result.scope).toBe('local');
+        expect(git(independent, ['config', 'user.name']).trim()).toBe('Euclid');
+        expect(git(independent, ['config', 'user.email']).trim()).toBe('neo-gpt@neomjs.com');
+        expect(git(independent, ['config', '--show-origin', 'user.email'])).toContain('.git/config')
+    });
+
+    for (const scenario of [
+        {
+            name         : 'missing agent identity',
+            agentIdentity: '',
+            account      : account('neo-gpt', 'neo-gpt@neomjs.com'),
+            error        : /NEO_AGENT_IDENTITY/
+        },
+        {
+            name         : 'unmapped agent identity',
+            agentIdentity: '@not-a-resident',
+            account      : account('not-a-resident', 'unknown@example.com'),
+            error        : /not-a-resident/
+        },
+        {
+            name         : 'authenticated-login mismatch',
+            agentIdentity: '@neo-gpt',
+            account      : account('neo-opus-vega', 'neo-opus-vega@neomjs.com'),
+            error        : /does not match/
+        },
+        {
+            name         : 'no verified primary email',
+            agentIdentity: '@neo-gpt',
+            account      : async () => ({login: 'neo-gpt', emails: [{email: 'other@example.com', primary: false, verified: true}]}),
+            error        : /verified primary/
+        },
+        {
+            name         : 'noreply primary email',
+            agentIdentity: '@neo-gpt',
+            account      : account('neo-gpt', 'neo-gpt@users.noreply.github.com'),
+            error        : /noreply/
+        }
+    ]) {
+        test(`${scenario.name} fails before any git call`, async () => {
+            const gitCalls = [];
+
+            await expect(configureAgentGitIdentity({
+                projectRoot            : '/tmp/agent-seat',
+                mainCheckout           : '/tmp/main-checkout',
+                agentIdentity          : scenario.agentIdentity,
+                getAuthenticatedAccount: scenario.account,
+                execGit                : async args => { gitCalls.push(args); return {stdout: ''} }
+            })).rejects.toThrow(scenario.error);
+
+            expect(gitCalls).toEqual([])
+        })
+    }
 });
