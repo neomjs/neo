@@ -1394,9 +1394,9 @@ class Workspace extends Container {
             zones       : [zone]
         });
 
-        if (renderer) {
-            renderer.dockPreview = preview;
-            preview && renderer.applyTargetGeometry(geometry.localTargetRect)
+        if (geometry.renderer) {
+            geometry.renderer.dockPreview = preview;
+            preview && geometry.renderer.applyTargetGeometry(geometry.localTargetRect)
         }
 
         return preview

@@ -581,12 +581,14 @@ async function positionTargetForPartialOverlap({
  * pointer-follow move. Each cell then converts out, restoring the identical popup and exact outer
  * extent before Escape cancels it.
  *
- * This proof intentionally stays on the ordinary E2E profile, which retains
- * `--disable-frame-rate-limit` for engine / OffscreenCanvas coverage. One matrix cell runs per
- * fresh browser process because Chromium's separate native-window churn can terminate the next
- * reused worker browser. `large-over-small` is the representative default; set
- * `NEO_POPUP_CELL` to execute any other named cell. `NEO_POPUP_PROOF_HOLD_MS` optionally holds the
- * proven coexistence frame for native visual capture without changing the gesture.
+ * The ordinary E2E profile retains `--disable-frame-rate-limit` for engine / OffscreenCanvas
+ * coverage. `NEO_FILM_TAKE=1` replays the identical assertions with on-glass compositing; the
+ * always-on Playwright trace records the proven target-popup frame without injecting a screenshot
+ * action into the held gesture. One matrix cell runs per fresh browser process because Chromium's
+ * separate native-window churn can terminate the next reused worker browser. `large-over-small`
+ * is the representative default; set `NEO_POPUP_CELL` to execute any other named cell.
+ * `NEO_POPUP_PROOF_HOLD_MS` optionally holds the proven coexistence frame for native observation
+ * without changing the gesture.
  */
 test.describe('Workstation — human popup-over-popup conversion (#16117)', () => {
     test.setTimeout(240000);
@@ -1181,8 +1183,18 @@ test.describe('Workstation — human popup-over-popup conversion (#16117)', () =
                     }
 
                     const
-                        sourceAfter = await readBrowserGeometry(sourcePage),
-                        followDelta = {x: 24, y: 17};
+                        sourceAfter  = await readBrowserGeometry(sourcePage),
+                        sourceScreen = await readScreenEnvelope(sourcePage),
+                        followDelta  = {
+                            x: sourceAfter.inner.x + sourceAfter.outer.width + 24 <=
+                                sourceScreen.left + sourceScreen.width
+                                ? 24
+                                : -24,
+                            y: sourceAfter.inner.y + sourceAfter.outer.height + 17 <=
+                                sourceScreen.top + sourceScreen.height
+                                ? 17
+                                : -17
+                        };
 
                     expect(sourceAfter.outer, `${cell.name}: exact outer extent returns on the identical Page`)
                         .toEqual(sourceBefore.browser.outer);

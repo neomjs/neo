@@ -545,6 +545,49 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
         expect(addon.windowDragParkedGeometry).toBeNull()
     });
 
+    test('a display-edge clamp rebases the held pointer before physical follow resumes', async () => {
+        const
+            geometry = {
+                park   : {height: 260, width: 360, x: 1040, y: 215},
+                resize : true,
+                restore: {height: 560, width: 760, x: 1155, y: 223}
+            },
+            addon    = {
+                isWindowDragging        : true,
+                offsetX                 : 36,
+                offsetY                 : 24,
+                popupName               : 'tearout-audit',
+                windowDragGeneration    : 131,
+                windowDragParked        : true,
+                windowDragParkedGeometry: geometry
+            },
+            route = {
+                nativeHandleKey: 'native-131',
+                targetWindowId : 'popup-131'
+            };
+
+        Neo.Main.windowNativeGetGeometry = async () => ({
+            height: 560,
+            width : 760,
+            x     : 968,
+            y     : 316
+        });
+        Neo.Main.windowNativeMoveTo   = async () => false;
+        Neo.Main.windowNativeResizeTo = async () => true;
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            ...route,
+            windowName: 'tearout-audit',
+            x         : 1195,
+            y         : 316
+        })).resolves.toBe(true);
+
+        expect(addon.offsetX).toBe(263);
+        expect(addon.offsetY).toBe(24);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull()
+    });
+
     test('re-show move refusal shrinks and returns to cover geometry without resuming follow', async () => {
         let moveCall = 0;
 

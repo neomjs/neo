@@ -1161,7 +1161,14 @@ class DragDrop extends Base {
                     return false
                 }
             },
-            resizeTo   = async size => {
+            readGeometry = async() => {
+                try {
+                    return await Neo.Main.windowNativeGetGeometry(route)
+                } catch {
+                    return null
+                }
+            },
+            resizeTo     = async size => {
                 try {
                     return await Neo.Main.windowNativeResizeTo({
                         ...route,
@@ -1251,7 +1258,7 @@ class DragDrop extends Base {
                 return false
             }
 
-            const admitted = await runResumeEffect(() => moveTo({x, y}));
+            let admitted = await runResumeEffect(() => moveTo({x, y}));
 
             if (!routeCurrent()) {
                 geometry && await DragDrop.prototype.recoverInvalidatedWindowDragPark.call(me, {
@@ -1266,6 +1273,35 @@ class DragDrop extends Base {
                     windowName
                 });
                 return false
+            }
+
+            if (!admitted) {
+                const
+                    actual     = await readGeometry(),
+                    oldOffsetX = me.offsetX || 0,
+                    oldOffsetY = me.offsetY || 0,
+                    pointerX   = x + oldOffsetX,
+                    pointerY   = y + oldOffsetY,
+                    measurable = ['height', 'width', 'x', 'y']
+                        .every(key => Number.isFinite(actual?.[key]))
+                        && actual.height > 0 && actual.width > 0,
+                    extentRestored = Boolean(geometry) && measurable && (
+                        Math.abs(actual.height - geometry.restore.height) <= 1 &&
+                        Math.abs(actual.width  - geometry.restore.width)  <= 1
+                    ),
+                    pointerInside = extentRestored &&
+                        pointerX >= actual.x && pointerX <= actual.x + actual.width &&
+                        pointerY >= actual.y && pointerY <= actual.y + actual.height;
+
+                // Chrome clamps a restored popup at display edges and truthfully refuses the exact
+                // requested origin. The exact native route, restored outer extent, and held pointer
+                // still inside that observed frame are sufficient physical admission. Rebase the
+                // grab offset to the platform-authored origin so the very next move follows 1:1.
+                if (routeCurrent() && pointerInside) {
+                    me.offsetX = pointerX - actual.x;
+                    me.offsetY = pointerY - actual.y;
+                    admitted   = true
+                }
             }
 
             if (!admitted) {
