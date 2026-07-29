@@ -403,6 +403,8 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             paneIdBefore    = await app.callMethod(wsId, 'getPaneIdentity', ['audit']),
             popupPromise    = page.waitForEvent('popup', {timeout: 30000});
 
+        let reexitPopup = null;
+
         try {
             await page.mouse.move(start.x, start.y);
             await page.mouse.down();
@@ -416,6 +418,8 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             const popup = await popupPromise;
 
             await popup.waitForLoadState('domcontentloaded');
+            const firstVesselGeneration = new URL(popup.url()).searchParams.get('vesselGeneration');
+
             await page.mouse.move(outside.x, outside.y + 24, {steps: 3});
             await page.mouse.move(reentry.x, reentry.y, {steps: 40});
 
@@ -474,6 +478,54 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                 .toBeCloseTo(firstOffset.y, 0);
 
             const
+                reexitStart        = {x: outside.x + 40, y: outside.y + 40},
+                reexitDrive        = {x: outside.x + 160, y: outside.y + 110},
+                reexitPopupPromise = page.waitForEvent('popup', {timeout: 30000});
+
+            await page.mouse.move(reexitStart.x, reexitStart.y, {steps: 40});
+            reexitPopup = await reexitPopupPromise;
+            await reexitPopup.waitForLoadState('domcontentloaded');
+
+            const
+                secondVesselGeneration = new URL(reexitPopup.url()).searchParams.get('vesselGeneration'),
+                firstWindowPosition    = await reexitPopup.evaluate(() => ({x: screenX, y: screenY})),
+                pointerDelta           = {
+                    x: reexitDrive.x - reexitStart.x,
+                    y: reexitDrive.y - reexitStart.y
+                };
+
+            await page.mouse.move(reexitDrive.x, reexitDrive.y, {steps: 12});
+            await expect.poll(async () => {
+                const current = await reexitPopup.evaluate(() => ({x: screenX, y: screenY}));
+
+                return {
+                    x: current.x - firstWindowPosition.x,
+                    y: current.y - firstWindowPosition.y
+                }
+            }, {
+                message: 'the fresh vessel follows the continuing pointer',
+                timeout: 15000
+            }).toEqual(pointerDelta);
+
+            const
+                secondWindowPosition = await reexitPopup.evaluate(() => ({x: screenX, y: screenY})),
+                reexitReceipt        = {
+                    firstVesselGeneration,
+                    firstWindowPosition,
+                    pointerDelta,
+                    secondVesselGeneration,
+                    secondWindowPosition,
+                    windowDelta: {
+                        x: secondWindowPosition.x - firstWindowPosition.x,
+                        y: secondWindowPosition.y - firstWindowPosition.y
+                    }
+                };
+
+            expect(secondVesselGeneration, 're-exit mints a fresh vessel generation')
+                .not.toBe(firstVesselGeneration);
+            expect(reexitReceipt.windowDelta).toEqual(reexitReceipt.pointerDelta);
+
+            const
                 documentAfter  = (await app.getComponent(wsId, ['dockModel'])).dockModel,
                 heartbeatAfter = (await app.getComponent(wsId, ['feedSequence'])).feedSequence;
 
@@ -484,13 +536,16 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
                 .toBeGreaterThan(heartbeatBefore);
 
             await testInfo.attach('post-entry-motion-receipt.json', {
-                body       : Buffer.from(JSON.stringify({firstOffset, secondOffset, samples}, null, 2)),
+                body       : Buffer.from(JSON.stringify({firstOffset, reexitReceipt, secondOffset, samples}, null, 2)),
                 contentType: 'application/json'
             })
         } finally {
             await page.keyboard.press('Escape').catch(() => {});
             await page.waitForTimeout(120);
-            await page.mouse.up().catch(() => {})
+            await page.mouse.up().catch(() => {});
+            if (reexitPopup && !reexitPopup.isClosed()) {
+                await reexitPopup.close().catch(() => {})
+            }
         }
     });
 
