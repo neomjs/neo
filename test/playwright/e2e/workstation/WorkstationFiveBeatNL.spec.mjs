@@ -1391,8 +1391,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(new URL(popup.url()).searchParams.get('theme')).toBe('neo-theme-neo-light');
         expect(popupBirth.bootstrap).toEqual({
-            colorScheme: 'light',
-            theme      : 'neo-theme-neo-light'
+            colorScheme : 'light',
+            defaultTheme: 'neo-theme-neo-dark',
+            schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+            theme       : 'neo-theme-neo-light'
         });
         expect(popupBirth.metaContents, 'the final document must own exactly one active-theme scheme')
             .toEqual(['light']);

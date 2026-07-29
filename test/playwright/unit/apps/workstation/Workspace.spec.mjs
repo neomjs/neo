@@ -1784,8 +1784,10 @@ test.describe.serial('Workstation.view.Workspace', () => {
     test('tear-out navigation carries the workspace active theme into each admitted child', async () => {
         const
             workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            originalGetByPath  = Neo.Main.getByPath,
             originalWindowData = Neo.Main.getWindowData,
             originalWindowOpen = Neo.Main.windowOpen,
+            bootstrapCalls     = [],
             calls              = [];
 
         Neo.Main.getWindowData = async () => ({
@@ -1794,6 +1796,17 @@ test.describe.serial('Workstation.view.Workspace', () => {
             screenLeft : 10,
             screenTop  : 20
         });
+        Neo.Main.getByPath = async data => {
+            bootstrapCalls.push(data);
+
+            return {
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {
+                    'neo-theme-neo-dark' : 'dark',
+                    'neo-theme-neo-light': 'light'
+                }
+            }
+        };
         Neo.Main.windowOpen = async data => {
             calls.push(data);
 
@@ -1813,14 +1826,73 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 proxyRect: {height: 320, width: 480, x: 80, y: 100}
             });
 
-            expect(calls).toHaveLength(2);
+            workspace.theme = 'neo-theme-candidate';
+
+            await workspace.openTearOutVessel({
+                itemId   : 'memory',
+                proxyRect: {height: 320, width: 480, x: 120, y: 140}
+            });
+
+            expect(calls).toHaveLength(3);
             expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('theme')))
-                .toEqual(['neo-theme-neo-light', 'neo-theme-neo-dark']);
+                .toEqual(['neo-theme-neo-light', 'neo-theme-neo-dark', 'neo-theme-neo-dark']);
             expect(calls.map(call => new URL(call.url, 'https://example.test').searchParams.get('vesselFlow')))
-                .toEqual(['tear-out', 'tear-out'])
+                .toEqual(['tear-out', 'tear-out', 'tear-out']);
+            expect(calls.map(call => call.stagedColorScheme))
+                .toEqual(['light', 'dark', 'dark']);
+            expect(bootstrapCalls).toEqual([
+                {path: 'WorkstationBootstrap', windowId: workspace.windowId},
+                {path: 'WorkstationBootstrap', windowId: workspace.windowId},
+                {path: 'WorkstationBootstrap', windowId: workspace.windowId}
+            ])
         } finally {
+            Neo.Main.getByPath   = originalGetByPath;
             Neo.Main.getWindowData = originalWindowData;
             Neo.Main.windowOpen    = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
+    test('a missing theme bootstrap fails loud before an unthemed tear-out can open', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            windowOpenCalls    = [];
+
+        Neo.Main.getWindowData = async () => ({
+            innerHeight: 700,
+            outerHeight: 760,
+            screenLeft : 10,
+            screenTop  : 20
+        });
+        Neo.Main.getByPath = async () => {
+            throw new Error('WorkstationBootstrap unavailable')
+        };
+        Neo.Main.windowOpen = async data => {
+            windowOpenCalls.push(data);
+            return true
+        };
+
+        try {
+            const result = await workspace.openTearOutVessel({
+                itemId   : 'alerts',
+                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            expect(result).toBeNull();
+            expect(windowOpenCalls).toEqual([]);
+            expect(workspace.lastVesselOpen).toEqual({
+                error : 'WorkstationBootstrap unavailable',
+                itemId: 'alerts',
+                stage : 'threw'
+            });
+            expect(workspace.vesselOwnerGrants.has('tear-out:alerts')).toBe(false)
+        } finally {
+            Neo.Main.getByPath    = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen     = originalWindowOpen;
             workspace.destroy()
         }
     });
