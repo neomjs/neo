@@ -456,10 +456,14 @@ test.describe.serial('Workstation.view.Workspace', () => {
             destroyed   = [],
             preview     = {dockPreview: null, applyTargetGeometry() {}},
             mainView    = {
-                id           : 'workstation-vessel-view',
-                isDestroyed  : false,
-                add          : () => preview,
-                addCls       : cls => classes.push(cls),
+                id         : 'workstation-vessel-view',
+                isDestroyed: false,
+                add        : () => preview,
+                addCls     : cls => classes.push(cls),
+                getDomRect : async () => [
+                    {x: 0, y: 0, width: 480, height: 320},
+                    {x: 0, y: 0, width: 480, height: 320}
+                ],
                 promiseUpdate: async () => {}
             };
 
@@ -509,6 +513,11 @@ test.describe.serial('Workstation.view.Workspace', () => {
             try {
                 WindowManager.get = () => ({innerRect: {width: 480, height: 320}});
 
+                await workspace.ensureCrossWindowPreviewGeometry(
+                    workspaceId,
+                    Workspace.vesselTabsNodeId('alerts')
+                );
+
                 const edgePreview = workspace.renderCrossWindowPreview(workspaceId, {
                     draggedItem: {
                         dockItemId           : 'security',
@@ -534,6 +543,106 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(state.document).toBeNull();
             expect(preview.dockPreview).toBeNull();
             expect(destroyed).toEqual([])
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('remote main previews render all four edges against the exact semantic target geometry', async () => {
+        const
+            workspace         = Neo.create(Workspace, {}),
+            sourceWorkspaceId = Workspace.vesselWorkspaceId('queues'),
+            hostRect          = {x: 100, y: 80, width: 900, height: 600},
+            targetRect        = {x: 120, y: 120, width: 260, height: 260},
+            paintedRects      = [],
+            measuredIds       = [];
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+
+            const
+                host                    = workspace.getReference('dock-host'),
+                target                  = host.down({dockNodeId: 'left-tabs'}),
+                renderer                = workspace.dragAffordances.preview,
+                WindowManager           = Neo.manager.Window,
+                originalGet             = WindowManager.get,
+                originalGetDomRect      = host.getDomRect,
+                originalApplyTargetRect = renderer.applyTargetGeometry,
+                originalWindowId        = workspace.windowId;
+
+            workspace.windowId = 'window-main';
+            workspace.vesselWorkspaces.set(sourceWorkspaceId, {itemId: 'queues'});
+            workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
+
+            try {
+                WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
+                host.getDomRect = async ids => {
+                    measuredIds.push(ids);
+                    return [hostRect, targetRect]
+                };
+                renderer.applyTargetGeometry = rect => paintedRects.push(rect);
+
+                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs');
+
+                expect(measuredIds).toEqual([[host.id, target.id]]);
+
+                const
+                    baseData = {
+                        draggedItem: {
+                            dockItemId           : 'queues',
+                            dockSourceWorkspaceId: sourceWorkspaceId
+                        },
+                        sourceNodeId: Workspace.vesselTabsNodeId('queues')
+                    },
+                    points = {
+                        top   : {localX: 250, localY: 160},
+                        right : {localX: 379, localY: 250},
+                        bottom: {localX: 250, localY: 379},
+                        left  : {localX: 121, localY: 250}
+                    };
+
+                Object.entries(points).forEach(([edge, point]) => {
+                    const preview = workspace.renderCrossWindowPreview(
+                        Workspace.MAIN_WORKSPACE_ID,
+                        {...baseData, ...point}
+                    );
+
+                    expect(preview.target.nodeId).toBe('left-tabs');
+                    expect(preview.placement.kind).toBe(`edge-${edge}`)
+                });
+
+                expect(paintedRects).toEqual(Array(4).fill({
+                    x     : targetRect.x - hostRect.x,
+                    y     : targetRect.y - hostRect.y,
+                    width : targetRect.width,
+                    height: targetRect.height
+                }));
+
+                let settleReplacement;
+
+                WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1279, height: 720}});
+                host.getDomRect = async ids => {
+                    measuredIds.push(ids);
+
+                    return new Promise(resolve => settleReplacement = resolve)
+                };
+
+                expect(workspace.renderCrossWindowPreview(
+                    Workspace.MAIN_WORKSPACE_ID,
+                    {...baseData, ...points.top}
+                )).toBeNull();
+                expect(renderer.dockPreview, 'an in-flight replacement must hide stale pixels').toBeNull();
+
+                settleReplacement([hostRect, targetRect]);
+                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs')
+            } finally {
+                WindowManager.get           = originalGet;
+                host.getDomRect             = originalGetDomRect;
+                renderer.applyTargetGeometry = originalApplyTargetRect;
+                workspace.windowId           = originalWindowId;
+                workspace.vesselWorkspaces.delete(sourceWorkspaceId);
+                delete workspace.tearOutPlacements.queues
+            }
         } finally {
             workspace.destroy()
         }
