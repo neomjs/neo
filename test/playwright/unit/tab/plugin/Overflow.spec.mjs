@@ -11,6 +11,53 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
+ * @summary Reactive ancestor fixture for the inherited-theme overflow contract.
+ */
+class ThemeAncestor extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.ThemeAncestor',
+        theme_   : null
+    }
+}
+ThemeAncestor = Neo.setupClass(ThemeAncestor);
+
+/**
+ * @summary Theme-less toolbar fixture whose nearest active theme is owned by its ancestor.
+ */
+class ThemeOwner extends ThemeAncestor {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.ThemeOwner'
+    }
+
+    ancestor = null
+    appName  = 'test-app'
+    mounted  = false
+    windowId = 1
+
+    /**
+     * Mirrors the component parent-chain seam observed by the overflow plugin.
+     * @returns {ThemeAncestor[]}
+     */
+    getParents() {
+        return [this.ancestor]
+    }
+
+    /**
+     * Resolves the fixture's nearest active theme without declaring one on the owner.
+     * @returns {String|null}
+     */
+    getTheme() {
+        return this.theme || this.ancestor.theme
+    }
+
+    /**
+     * Minimal event seam required by plugin.Base while this owner remains unmounted.
+     */
+    on() {}
+}
+ThemeOwner = Neo.setupClass(ThemeOwner);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -34,8 +81,10 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 id             : 'tab-overflow-test-owner',
                 appName        : 'test-app',
                 mounted        : true,
+                theme          : 'neo-theme-neo-dark',
                 windowId       : 1,
                 items          : [{id: 'b1'}, {id: 'b2'}],
+                getTheme       : function () { return this.theme },
                 getDomRect,
                 add            : () => ({}),
                 addDomListeners: () => {},
@@ -170,6 +219,51 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
     });
 
+    test('an owner theme change is carried onto the live out-of-tree control', async () => {
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.control = {theme: 'neo-theme-neo-dark'};
+        plugin.owner.theme = 'neo-theme-neo-light';
+        plugin.onOwnerThemeChange();
+
+        expect(plugin.control.theme, 'the floating control follows the source toolbar theme')
+            .toBe('neo-theme-neo-light')
+    });
+
+    test('a toolbar with no declared theme carries its ancestor theme at creation and follows ancestor switches', async () => {
+        const
+            ancestor   = Neo.create(ThemeAncestor, {theme: 'neo-theme-neo-dark'}),
+            owner      = Neo.create(ThemeOwner, {ancestor}),
+            plugin     = Neo.create(Overflow, {owner}),
+            origCreate = Neo.create;
+        let createdConfig;
+
+        Neo.create = config => {
+            createdConfig = config;
+            return {destroy: () => {}, theme: config.theme}
+        };
+
+        try {
+            plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0});
+
+            expect(owner.theme, 'the toolbar fixture deliberately declares no own theme').toBe(null);
+            expect(createdConfig.theme, 'the floating control resolves the nearest active ancestor theme')
+                .toBe('neo-theme-neo-dark');
+
+            ancestor.theme = 'neo-theme-neo-light';
+            await Promise.resolve();
+
+            expect(plugin.control.theme, 'an ancestor theme switch reaches the out-of-tree control')
+                .toBe('neo-theme-neo-light')
+        } finally {
+            Neo.create = origCreate;
+            plugin.destroy();
+            owner.destroy();
+            ancestor.destroy()
+        }
+    });
+
     test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
         // A `shouldThrow` latch controls WHICH pass fails, so the create-time auto-project (onOwnerMounted)
         // settles cleanly first and only the pass we choose throws.
@@ -209,15 +303,24 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // unit mode the real button.Base + menu.List construction needs `Neo.get` (unavailable here), so spy
         // `Neo.create` to assert the create is invoked + assigned rather than exercise full construction.
         const origCreate = Neo.create;
-        let   created    = false;
-        Neo.create = () => { created = true; return {ntype: 'button', destroy: () => {}} };
+        let   createdConfig;
+        Neo.create = config => {
+            createdConfig = config;
+            return {ntype: 'button', destroy: () => {}}
+        };
         try {
             plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0})
         } finally {
             Neo.create = origCreate
         }
 
-        expect(created, 'a subsequent overflow builds a fresh control via Neo.create').toBe(true);
+        expect(createdConfig, 'a subsequent overflow builds a fresh control via Neo.create').toBeTruthy();
+        expect(createdConfig.theme, 'the body-mounted control owns the source toolbar theme')
+            .toBe('neo-theme-neo-dark');
+        expect(createdConfig.menu.cls, 'the generated menu exposes one app-neutral skin hook')
+            .toEqual(['neo-tab-overflow-menu']);
+        expect(createdConfig.menu.items, 'the menu config retains the exact hidden-tab projection')
+            .toHaveLength(1);
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
     })
 });
@@ -349,9 +452,11 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       id             : 'wired-owner',
                       appName        : 'test-app',
                       mounted        : true,
+                      theme          : 'neo-theme-neo-dark',
                       windowId       : 1,
                       items          : [{id: 'b1'}, {id: 'b2'}],
                       parent,
+                      getTheme       : function () { return this.theme },
                       getDomRect     : async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000},
                       add            : () => ({}),
                       addDomListeners: () => {},

@@ -261,6 +261,38 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
     border-radius: 6px;
 }
 
+// The generic menu is a second floating direct-body embodiment. Its own live `neo-theme-*` class
+// carries the active palette; this Workstation-only bridge projects that palette into menu-domain
+// tokens without coupling the shared tab plugin or shared menu component to product colours.
+body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
+    --menu-list-background-color              : var(--workstation-panel-2);
+    --menu-list-border-color                  : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --menu-list-item-background-color         : transparent;
+    --menu-list-item-background-color-disabled: transparent;
+    --menu-list-item-background-color-hover   : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --menu-list-item-background-color-selected: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --menu-list-item-color                    : var(--workstation-ink);
+    --menu-list-item-font-family              : var(--workstation-font-mono);
+    --menu-list-item-font-weight              : 500;
+    --menu-list-item-height                   : 30px;
+    --menu-list-item-icon-color               : var(--workstation-ink-dim);
+    --menu-list-item-icon-color-disabled      : var(--workstation-ink-faint);
+    --menu-list-item-icon-color-selected      : var(--workstation-signal);
+    --menu-list-item-line-height              : 1.2;
+    --menu-list-item-opacity-disabled         : .45;
+    --menu-list-item-outline-focus            : 1px solid var(--workstation-signal);
+    --menu-list-item-padding                  : 4px 10px;
+    --menu-list-item-text-transform           : none;
+
+    border-radius: 6px;
+    box-shadow   : 0 12px 28px color-mix(in srgb, var(--workstation-ground) 58%, transparent);
+    font-size    : 12px;
+
+    .neo-list-item:focus {
+        outline-offset: -2px;
+    }
+}
+
 // Pane skin — `.workstation-placeholder`, `.workstation-resident-*`, `.workstation-data-pane` and
 // `.workstation-heat-*` — moved to `Viewport.scss`. They are what the reported `?popout=` vessel
 // actually hosts, and this file's generated sheet never loads there.
