@@ -132,11 +132,14 @@ function runWorkstationBootstrap(source, search) {
 
     return {
         bootstrap: {
-            colorScheme: context.WorkstationBootstrap?.colorScheme,
-            theme      : context.WorkstationBootstrap?.theme
+            colorScheme : context.WorkstationBootstrap?.colorScheme,
+            defaultTheme: context.WorkstationBootstrap?.defaultTheme,
+            schemes     : {...context.WorkstationBootstrap?.schemes},
+            theme       : context.WorkstationBootstrap?.theme
         },
-        frozen: Object.isFrozen(context.WorkstationBootstrap),
-        metas : inserted.map(({content, name, tagName}) => ({content, name, tagName}))
+        frozen       : Object.isFrozen(context.WorkstationBootstrap),
+        metas        : inserted.map(({content, name, tagName}) => ({content, name, tagName})),
+        schemesFrozen: Object.isFrozen(context.WorkstationBootstrap?.schemes)
     }
 }
 
@@ -156,13 +159,25 @@ function validatesWorkstationBootstrap(source) {
             light = runWorkstationBootstrap(source, '?theme=neo-theme-neo-light');
 
         return JSON.stringify(dark) === JSON.stringify({
-            bootstrap: {colorScheme: 'dark', theme: 'neo-theme-neo-dark'},
-            frozen   : true,
-            metas    : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}]
+            bootstrap: {
+                colorScheme : 'dark',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-dark'
+            },
+            frozen       : true,
+            metas        : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}],
+            schemesFrozen: true
         }) && JSON.stringify(light) === JSON.stringify({
-            bootstrap: {colorScheme: 'light', theme: 'neo-theme-neo-light'},
-            frozen   : true,
-            metas    : [{content: 'light', name: 'color-scheme', tagName: 'meta'}]
+            bootstrap: {
+                colorScheme : 'light',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-light'
+            },
+            frozen       : true,
+            metas        : [{content: 'light', name: 'color-scheme', tagName: 'meta'}],
+            schemesFrozen: true
         })
     } catch {
         return false
@@ -205,7 +220,7 @@ async function runWorkstationAppThemeProbe() {
 
 /**
  * @summary Runs one native-window authority scenario against the real Main singleton in an isolated process.
- * @param {'cross-origin'|'native-focus-stale'|'native-move-stale'|'native-resize'|'native-resize-default-denied'|'native-resize-denied'|'navigation-failure'|'persisted-pagehide'|'same-origin'} scenario
+ * @param {'cross-origin'|'invalid-scheme'|'native-focus-stale'|'native-move-stale'|'native-resize'|'native-resize-default-denied'|'native-resize-denied'|'navigation-failure'|'persisted-pagehide'|'same-origin'} scenario
  * @returns {Promise<Object>}
  */
 async function runNativeWindowRouteProbe(scenario) {
@@ -374,6 +389,21 @@ async function runNativeWindowRouteProbe(scenario) {
                         }
                     }
                 },
+                document: {
+                    createElement(tagName) {
+                        return {tagName}
+                    },
+                    head: {
+                        append(node) {
+                            events.push('scheme');
+                            state.stagedMeta = {
+                                content: node.content,
+                                name   : node.name,
+                                tagName: node.tagName
+                            }
+                        }
+                    }
+                },
                 resizeTo(width, height) {
                     events.push('resize');
                     state.height = height;
@@ -417,6 +447,9 @@ async function runNativeWindowRouteProbe(scenario) {
                 nativeCapabilities: scenario === 'native-resize-default-denied'
                     ? {close: true}
                     : {close: true, resize: scenario !== 'native-resize-denied'},
+                stagedColorScheme: scenario === 'invalid-scheme'
+                    ? 'dark light'
+                    : ['navigation-failure', 'same-origin'].includes(scenario) ? 'dark' : null,
                 url,
                 useTotalHeight: false,
                 windowFeatures: 'popup,width=900,height=600',
@@ -502,6 +535,7 @@ async function runNativeWindowRouteProbe(scenario) {
                 replacedUrl: state.replacedUrl ?? null,
                 resize,
                 route,
+                stagedMeta: state.stagedMeta ?? null,
                 success,
                 tokenMinted: Boolean(state.token),
                 width    : state.width
@@ -517,7 +551,7 @@ async function runNativeWindowRouteProbe(scenario) {
     return JSON.parse(stdout.trim().split('\n').at(-1))
 }
 
-test.describe('Workstation popup canvas bootstrap (#16092)', () => {
+test.describe('Workstation popup canvas bootstrap (#16092, #16113)', () => {
     test('Workstation resolves one parser-blocking active-theme canvas before MicroLoader', async () => {
         const
             [source, configSource] = await Promise.all([
@@ -530,6 +564,8 @@ test.describe('Workstation popup canvas bootstrap (#16092)', () => {
             light    = runWorkstationBootstrap(source, '?theme=neo-theme-neo-light');
 
         expect(config.themes).toEqual(['neo-theme-neo-dark', 'neo-theme-neo-light']);
+        expect(Object.keys(dark.bootstrap.schemes)).toEqual(config.themes);
+        expect(dark.bootstrap.defaultTheme).toBe(config.themes[0]);
         expect(contract.metaCount, 'the runtime script owns the only color-scheme meta').toBe(0);
         expect(contract.bootstrapCount).toBe(1);
         expect(contract.directHead).toBe(true);
@@ -539,14 +575,26 @@ test.describe('Workstation popup canvas bootstrap (#16092)', () => {
         expect(contract.ordered).toBe(true);
         expect(contract.valid).toBe(true);
         expect(dark).toEqual({
-            bootstrap: {colorScheme: 'dark', theme: 'neo-theme-neo-dark'},
-            frozen   : true,
-            metas    : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}]
+            bootstrap: {
+                colorScheme : 'dark',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-dark'
+            },
+            frozen       : true,
+            metas        : [{content: 'dark', name: 'color-scheme', tagName: 'meta'}],
+            schemesFrozen: true
         });
         expect(light).toEqual({
-            bootstrap: {colorScheme: 'light', theme: 'neo-theme-neo-light'},
-            frozen   : true,
-            metas    : [{content: 'light', name: 'color-scheme', tagName: 'meta'}]
+            bootstrap: {
+                colorScheme : 'light',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-light'
+            },
+            frozen       : true,
+            metas        : [{content: 'light', name: 'color-scheme', tagName: 'meta'}],
+            schemesFrozen: true
         })
     });
 
@@ -574,11 +622,26 @@ test.describe('Workstation popup canvas bootstrap (#16092)', () => {
             schemeList : false
         });
         expect(runWorkstationBootstrap(source, '').bootstrap)
-            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'});
+            .toEqual({
+                colorScheme : 'dark',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-dark'
+            });
         expect(runWorkstationBootstrap(source, '?theme=neo-theme-candidate').bootstrap)
-            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'});
+            .toEqual({
+                colorScheme : 'dark',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-dark'
+            });
         expect(runWorkstationBootstrap(source, '?theme=dark%20light').bootstrap)
-            .toEqual({colorScheme: 'dark', theme: 'neo-theme-neo-dark'})
+            .toEqual({
+                colorScheme : 'dark',
+                defaultTheme: 'neo-theme-neo-dark',
+                schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+                theme       : 'neo-theme-neo-dark'
+            })
     });
 
     test('the App Worker resolves the same carried theme before creating its viewport', async () => {
@@ -602,7 +665,8 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.success).toBe(true);
         expect(result.openArgs).toHaveLength(1);
         expect(result.openArgs[0].url).toBe('about:blank');
-        expect(result.events).toEqual(['storage', 'replace']);
+        expect(result.events).toEqual(['scheme', 'storage', 'replace']);
+        expect(result.stagedMeta).toEqual({content: 'dark', name: 'color-scheme', tagName: 'meta'});
         expect(result.replacedUrl).toBe('https://owner.example.test/apps/demo/popup.html?mode=tear-out');
         expect(result.hasEntry).toBe(true);
         expect(result.route).toMatchObject({
@@ -661,7 +725,8 @@ test.describe('Neo.Main native window routes (#15396)', () => {
 
         expect(result.success).toBe(false);
         expect(result.openArgs[0].url).toBe('about:blank');
-        expect(result.events).toEqual(['storage', 'replace', 'close']);
+        expect(result.events).toEqual(['scheme', 'storage', 'replace', 'close']);
+        expect(result.stagedMeta).toEqual({content: 'dark', name: 'color-scheme', tagName: 'meta'});
         expect(result.closed).toBe(true);
         expect(result.hasEntry).toBe(false);
         expect(result.route).toBeNull()
@@ -673,11 +738,21 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.success).toBe(true);
         expect(result.openArgs[0].url).toBe('https://other.example.test/popup');
         expect(result.events).toEqual(['storage']);
+        expect(result.stagedMeta).toBeNull();
         expect(result.closed).toBe(false);
         expect(result.replacedUrl).toBeNull();
         expect(result.tokenMinted).toBe(false);
         expect(result.route).toBeNull();
         expect(result.hasEntry).toBe(true)
+    });
+
+    test('#16113 invalid staged schemes preserve route navigation without touching the blank document', async () => {
+        const result = await runNativeWindowRouteProbe('invalid-scheme');
+
+        expect(result.success).toBe(true);
+        expect(result.events).toEqual(['storage', 'replace']);
+        expect(result.stagedMeta).toBeNull();
+        expect(result.route).toMatchObject({targetWindowId: 'child-window'})
     });
 
     test('persisted pagehide permanently retires the preserved realm instead of consuming a fresh grant', async () => {

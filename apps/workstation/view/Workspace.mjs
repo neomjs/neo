@@ -2381,7 +2381,8 @@ class Workspace extends Container {
     }
 
     /**
-     * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit.
+     * @summary Opens one theme-correct vessel window for a mid-gesture boundary exit.
+     *
      * Reuses the workstation viewport's `?popout=` pure-pane-host mode. The granted child
      * immediately carries the same live pane through {@link Neo.dashboard.DockVesselEmbodiment};
      * it owns no workspace document. Fail-closed per the admission contract: `windowOpen` returns
@@ -2415,19 +2416,27 @@ class Workspace extends Container {
         }
 
         try {
-            let winData = await Neo.Main.getWindowData({windowId}),
-                width   = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                height  = Math.max(Math.round(proxyRect?.height || 360), 240),
-                left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-                top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+            let [winData, bootstrap] = await Promise.all([
+                    Neo.Main.getWindowData({windowId}),
+                    Neo.Main.getByPath({path: 'WorkstationBootstrap', windowId}).catch(() => null)
+                ]),
+                schemes       = bootstrap?.schemes || {},
+                selectedTheme = Object.hasOwn(schemes, me.theme)
+                    ? me.theme
+                    : bootstrap?.defaultTheme || me.theme,
+                width  = Math.max(Math.round(proxyRect?.width  || 480), 320),
+                height = Math.max(Math.round(proxyRect?.height || 360), 240),
+                left   = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+                top    = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
             let opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
+                stagedColorScheme : schemes[selectedTheme],
                 url               : `./index.html?popout=${itemId}&hostId=${me.id}`
                     + `&vesselFlow=tear-out&vesselGrant=${ownerGrant.token}`
                     + `&vesselGeneration=${ownerGrant.generation}`
                     + `&vesselAdmission=${admissionToken}`
-                    + `&theme=${encodeURIComponent(me.theme)}`,
+                    + `&theme=${encodeURIComponent(selectedTheme)}`,
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
                 windowName
