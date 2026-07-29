@@ -51,13 +51,34 @@ const {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs
  */
 test.describe('Neo.main.addon.DragDrop — generation-scoped physical window drag', () => {
     let originalMoveTo,
+        originalNativeGetGeometry,
         originalNativeMoveTo,
+        originalNativeResizeTo,
         originalSend;
 
     test.beforeEach(() => {
-        originalMoveTo       = Neo.Main.windowMoveTo;
-        originalNativeMoveTo = Neo.Main.windowNativeMoveTo;
-        originalSend         = DomEvents.sendMessageToApp
+        originalMoveTo            = Neo.Main.windowMoveTo;
+        originalNativeGetGeometry = Neo.Main.windowNativeGetGeometry;
+        originalNativeMoveTo      = Neo.Main.windowNativeMoveTo;
+        originalNativeResizeTo    = Neo.Main.windowNativeResizeTo;
+        originalSend              = DomEvents.sendMessageToApp;
+
+        Neo.Main.windowNativeGetGeometry = async ({nativeHandleKey}) => {
+            if (nativeHandleKey === 'native-11') {
+                return {height: 560, width: 760, x: 1155, y: 215}
+            }
+
+            if (nativeHandleKey === 'native-25-b') {
+                return {height: 300, width: 400, x: 80, y: 100}
+            }
+
+            if (['native-12', 'native-15', 'native-23', 'native-121', 'native-122']
+                .includes(nativeHandleKey)) {
+                return {height: 546, width: 640, x: 40, y: 60}
+            }
+
+            return {height: 300, width: 400, x: 40, y: 60}
+        }
     });
 
     test.afterAll(() => {
@@ -68,9 +89,11 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
     });
 
     test.afterEach(() => {
-        Neo.Main.windowMoveTo       = originalMoveTo;
-        Neo.Main.windowNativeMoveTo = originalNativeMoveTo;
-        DomEvents.sendMessageToApp  = originalSend
+        Neo.Main.windowMoveTo            = originalMoveTo;
+        Neo.Main.windowNativeGetGeometry = originalNativeGetGeometry;
+        Neo.Main.windowNativeMoveTo      = originalNativeMoveTo;
+        Neo.Main.windowNativeResizeTo    = originalNativeResizeTo;
+        DomEvents.sendMessageToApp       = originalSend
     });
 
     test('a parked physical vessel emits logical drag frames but performs zero pointer-follow moves', () => {
@@ -196,6 +219,463 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
         ])
     });
 
+    test('a clamped best-effort pre-position anchors resize before the final exact cover move', async () => {
+        let
+            physicalWidth = 760,
+            physicalX     = 1155;
+
+        const
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 11,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            route = {
+                nativeHandleKey: 'native-11',
+                targetWindowId : 'popup-11'
+            };
+
+        Neo.Main.windowNativeResizeTo = async data => {
+            calls.push(['resize', data]);
+
+            // A resize-first implementation can re-home this boundary-straddling frame. The
+            // best-effort pre-position must have established Chrome's same-display safe anchor.
+            physicalX === 1155 && (physicalX = 1728);
+            physicalWidth = data.width;
+
+            return true
+        };
+        Neo.Main.windowNativeMoveTo = async data => {
+            calls.push(['move', data]);
+
+            // Chrome cannot place the still-wide frame at x=1040 on a 1728px display. It clamps
+            // to x=968 and returns false; once resized, that same exact target becomes reachable.
+            if (physicalWidth === 760 && data.x === 1040) {
+                physicalX = 968;
+                return false
+            }
+
+            if (physicalX === 1728 && data.x === 1040) return false;
+
+            physicalX = data.x;
+
+            return true
+        };
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, {
+            ...route,
+            parkSize   : {height: 300, width: 360},
+            restoreRect: {height: 560, width: 760, x: 1155, y: 215},
+            windowName : 'tearout-graph',
+            x          : 1040,
+            y          : 215
+        })).resolves.toBe(true);
+
+        expect(calls).toEqual([
+            ['move',   {...route, x: 1040, y: 215}],
+            ['resize', {...route, height: 300, width: 360}],
+            ['move',   {...route, x: 1040, y: 215}]
+        ]);
+        expect(physicalX).toBe(1040);
+        expect(addon.windowDragParked).toBe(true);
+        expect(addon.windowDragParkedGeometry).toEqual({
+            park   : {height: 300, width: 360, x: 1040, y: 215},
+            resize : true,
+            restore: {height: 560, width: 760, x: 1155, y: 215}
+        })
+    });
+
+    test('park samples the exact route origin after draining pointer-follow', async () => {
+        let releasePrior;
+
+        const
+            prior = new Promise(resolve => releasePrior = resolve),
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 111,
+                windowDragMovePromises  : new Set([prior]),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            route = {
+                nativeHandleKey: 'native-111',
+                targetWindowId : 'popup-111'
+            };
+
+        Neo.Main.windowNativeGetGeometry = async data => {
+            calls.push(['geometry', data]);
+            return {height: 560, width: 760, x: 1728, y: 215}
+        };
+        Neo.Main.windowNativeResizeTo = async data => {
+            calls.push(['resize', data]);
+            return true
+        };
+        Neo.Main.windowNativeMoveTo = async data => {
+            calls.push(['move', data]);
+            return data.x === 1728
+        };
+
+        const parked = DragDrop.prototype.parkWindowDrag.call(addon, {
+            ...route,
+            parkSize   : {height: 300, width: 360},
+            // This Worker snapshot predates the pending physical move and must never win recovery.
+            restoreRect: {height: 560, width: 760, x: 1355, y: 215},
+            windowName : 'tearout-graph',
+            x          : 1240,
+            y          : 215
+        });
+
+        expect(calls).toEqual([]);
+
+        releasePrior(true);
+
+        await expect(parked).resolves.toBe(false);
+        expect(calls).toEqual([
+            ['geometry', route],
+            ['move',   {...route, x: 1240, y: 215}],
+            ['resize', {...route, height: 300, width: 360}],
+            ['move',   {...route, x: 1240, y: 215}],
+            ['resize', {...route, height: 560, width: 760}],
+            ['move',   {...route, x: 1728, y: 215}]
+        ]);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull();
+        expect(addon.windowDragParkRecovery).toBeNull()
+    });
+
+    test('park resize refusal restores the original full rect before releasing physical follow', async () => {
+        let resizeCall = 0;
+
+        const
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 12,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            route = {
+                nativeHandleKey: 'native-12',
+                targetWindowId : 'popup-12'
+            };
+
+        Neo.Main.windowNativeResizeTo = async data => {
+            calls.push(['resize', data]);
+            return ++resizeCall > 1
+        };
+        Neo.Main.windowNativeMoveTo = async data => {
+            calls.push(['move', data]);
+            return true
+        };
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, {
+            ...route,
+            parkSize   : {height: 260, width: 360},
+            restoreRect: {height: 546, width: 640, x: 40, y: 60},
+            windowName : 'tearout-graph',
+            x          : 800,
+            y          : 120
+        })).resolves.toBe(false);
+
+        expect(calls).toEqual([
+            ['move',   {...route, x: 800, y: 120}],
+            ['resize', {...route, height: 260, width: 360}],
+            ['resize', {...route, height: 546, width: 640}],
+            ['move',   {...route, x: 40, y: 60}]
+        ]);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull();
+        expect(addon.windowDragParkRecovery).toBeNull()
+    });
+
+    test('double resize-compensation refusal retains a same-generation recovery path', async () => {
+        let resizeCall = 0;
+
+        const
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 121,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null,
+                windowDragParkRecovery  : null
+            },
+            data = {
+                nativeHandleKey: 'native-121',
+                parkSize       : {height: 260, width: 360},
+                restoreRect    : {height: 546, width: 640, x: 40, y: 60},
+                targetWindowId : 'popup-121',
+                windowName     : 'tearout-graph',
+                x              : 800,
+                y              : 120
+            };
+
+        Neo.Main.windowNativeResizeTo = async request => {
+            calls.push(['resize', request]);
+            return ++resizeCall > 2
+        };
+        Neo.Main.windowNativeMoveTo = async request => {
+            calls.push(['move', request]);
+            return true
+        };
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, data)).resolves.toBe(false);
+        expect(addon.windowDragParked).toBe(true);
+        expect(addon.windowDragParkRecovery).toMatchObject({
+            generation: 121,
+            restore   : {height: 546, width: 640, x: 40, y: 60}
+        });
+
+        // The next proposal first completes exact recovery and intentionally does not combine
+        // that restoration with a fresh park in the same platform-effect turn.
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, data)).resolves.toBe(false);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkRecovery).toBeNull();
+        expect(calls).toEqual([
+            ['move', {
+                nativeHandleKey: 'native-121', targetWindowId: 'popup-121', x: 800, y: 120
+            }],
+            ['resize', {
+                nativeHandleKey: 'native-121', targetWindowId: 'popup-121', height: 260, width: 360
+            }],
+            ['resize', {
+                nativeHandleKey: 'native-121', targetWindowId: 'popup-121', height: 546, width: 640
+            }],
+            ['resize', {
+                nativeHandleKey: 'native-121', targetWindowId: 'popup-121', height: 546, width: 640
+            }],
+            ['move', {
+                nativeHandleKey: 'native-121', targetWindowId: 'popup-121', x: 40, y: 60
+            }]
+        ])
+    });
+
+    test('failed park move and double compensation stay retryable instead of wedging parked state', async () => {
+        let
+            moveCall   = 0,
+            resizeCall = 0;
+
+        const
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 122,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null,
+                windowDragParkRecovery  : null
+            },
+            data = {
+                nativeHandleKey: 'native-122',
+                parkSize       : {height: 260, width: 360},
+                restoreRect    : {height: 546, width: 640, x: 40, y: 60},
+                targetWindowId : 'popup-122',
+                windowName     : 'tearout-graph',
+                x              : 800,
+                y              : 120
+            };
+
+        Neo.Main.windowNativeResizeTo = async () => ++resizeCall !== 2;
+        Neo.Main.windowNativeMoveTo   = async () => ++moveCall !== 2;
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, data)).resolves.toBe(false);
+        expect(addon.windowDragParked).toBe(true);
+        expect(addon.windowDragParkRecovery).toMatchObject({
+            generation: 122,
+            restore   : {height: 546, width: 640, x: 40, y: 60}
+        });
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, data)).resolves.toBe(false);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull();
+        expect(addon.windowDragParkRecovery).toBeNull()
+    });
+
+    test('re-show restores exact extent before pointer position and clears park only after both succeed', async () => {
+        const
+            calls    = [],
+            geometry = {
+                park   : {height: 260, width: 360, x: 800, y: 120},
+                resize : true,
+                restore: {height: 546, width: 640, x: 40, y: 60}
+            },
+            addon    = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 13,
+                windowDragParked        : true,
+                windowDragParkedGeometry: geometry
+            },
+            route = {
+                nativeHandleKey: 'native-13',
+                targetWindowId : 'popup-13'
+            };
+
+        Neo.Main.windowNativeResizeTo = async data => {
+            calls.push(['resize', data]);
+            return true
+        };
+        Neo.Main.windowNativeMoveTo = async data => {
+            calls.push(['move', data]);
+            return true
+        };
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            ...route,
+            windowName: 'tearout-graph',
+            x         : 420,
+            y         : 240
+        })).resolves.toBe(true);
+
+        expect(calls).toEqual([
+            ['resize', {...route, height: 546, width: 640}],
+            ['move',   {...route, x: 420, y: 240}]
+        ]);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull()
+    });
+
+    test('a display-edge clamp rebases the held pointer before physical follow resumes', async () => {
+        const
+            geometry = {
+                park   : {height: 260, width: 360, x: 1040, y: 215},
+                resize : true,
+                restore: {height: 560, width: 760, x: 1155, y: 223}
+            },
+            addon    = {
+                isWindowDragging        : true,
+                offsetX                 : 36,
+                offsetY                 : 24,
+                popupName               : 'tearout-audit',
+                windowDragGeneration    : 131,
+                windowDragParked        : true,
+                windowDragParkedGeometry: geometry
+            },
+            route = {
+                nativeHandleKey: 'native-131',
+                targetWindowId : 'popup-131'
+            };
+
+        Neo.Main.windowNativeGetGeometry = async () => ({
+            height: 560,
+            width : 760,
+            x     : 968,
+            y     : 316
+        });
+        Neo.Main.windowNativeMoveTo   = async () => false;
+        Neo.Main.windowNativeResizeTo = async () => true;
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            ...route,
+            windowName: 'tearout-audit',
+            x         : 1195,
+            y         : 316
+        })).resolves.toBe(true);
+
+        expect(addon.offsetX).toBe(263);
+        expect(addon.offsetY).toBe(24);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull()
+    });
+
+    test('re-show move refusal shrinks and returns to cover geometry without resuming follow', async () => {
+        let moveCall = 0;
+
+        const
+            calls    = [],
+            geometry = {
+                park   : {height: 260, width: 360, x: 800, y: 120},
+                resize : true,
+                restore: {height: 546, width: 640, x: 40, y: 60}
+            },
+            addon    = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 14,
+                windowDragParked        : true,
+                windowDragParkedGeometry: geometry
+            },
+            route = {
+                nativeHandleKey: 'native-14',
+                targetWindowId : 'popup-14'
+            };
+
+        Neo.Main.windowNativeResizeTo = async data => {
+            calls.push(['resize', data]);
+            return true
+        };
+        Neo.Main.windowNativeMoveTo = async data => {
+            calls.push(['move', data]);
+            return ++moveCall > 1
+        };
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            ...route,
+            windowName: 'tearout-graph',
+            x         : 420,
+            y         : 240
+        })).resolves.toBe(false);
+
+        expect(calls).toEqual([
+            ['resize', {...route, height: 546, width: 640}],
+            ['move',   {...route, x: 420, y: 240}],
+            ['resize', {...route, height: 260, width: 360}],
+            ['move',   {...route, x: 800, y: 120}]
+        ]);
+        expect(addon.windowDragParked).toBe(true);
+        expect(addon.windowDragParkedGeometry).toBe(geometry)
+    });
+
+    test('a reset during the initial drain invalidates park before any native effect', async () => {
+        let resolveResize;
+
+        const
+            resize = new Promise(resolve => resolveResize = resolve),
+            moves  = [],
+            addon  = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 15,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            };
+
+        Neo.Main.windowNativeResizeTo = () => resize;
+        Neo.Main.windowNativeMoveTo   = data => {
+            moves.push(data);
+            return true
+        };
+
+        const parked = DragDrop.prototype.parkWindowDrag.call(addon, {
+            nativeHandleKey: 'native-15',
+            parkSize       : {height: 260, width: 360},
+            restoreRect    : {height: 546, width: 640, x: 40, y: 60},
+            targetWindowId : 'popup-15',
+            windowName     : 'tearout-graph',
+            x              : 800,
+            y              : 120
+        });
+
+        DragDrop.prototype.resetDragState.call(addon);
+        resolveResize(true);
+
+        await expect(parked).resolves.toBe(false);
+        expect(moves).toEqual([]);
+        expect(addon.windowDragParked).toBe(false);
+        expect(addon.windowDragParkedGeometry).toBeNull()
+    });
+
     test('a reset makes the older native completion inert', async () => {
         let resolveMove;
 
@@ -224,5 +704,579 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
         await expect(parked).resolves.toBe(false);
         expect(addon.isWindowDragging).toBe(false);
         expect(addon.windowDragParked).toBe(false)
+    })
+
+    test('reset and successor start both promote a position-only in-flight route before clearing it', async () => {
+        for (const invalidation of ['reset', 'start']) {
+            let resolveMove;
+
+            const
+                move  = new Promise(resolve => resolveMove = resolve),
+                calls = [],
+                addon = {
+                    isWindowDragging        : true,
+                    popupName               : 'tearout-graph',
+                    windowDragGeneration    : 20,
+                    windowDragMovePromises  : new Set(),
+                    windowDragParked        : false,
+                    windowDragParkedGeometry: null
+                },
+                data  = {
+                    nativeHandleKey: `native-20-${invalidation}`,
+                    restoreRect    : {height: 300, width: 400, x: 40, y: 60},
+                    targetWindowId : `popup-20-${invalidation}`,
+                    windowName     : 'tearout-graph',
+                    x              : 800,
+                    y              : 120
+                };
+
+            Neo.Main.windowNativeResizeTo = async () => {
+                throw new Error('position-only recovery must not resize')
+            };
+            Neo.Main.windowNativeMoveTo = request => {
+                calls.push(request);
+                return calls.length === 1 ? move : Promise.resolve(true)
+            };
+
+            const parked = DragDrop.prototype.parkWindowDrag.call(addon, data);
+
+            await expect.poll(() => calls.length).toBe(1);
+
+            if (invalidation === 'reset') {
+                DragDrop.prototype.resetDragState.call(addon)
+            } else {
+                DragDrop.prototype.startWindowDrag.call(addon, {
+                    popupHeight: 240,
+                    popupName  : 'successor',
+                    popupWidth : 320
+                })
+            }
+
+            resolveMove(true);
+
+            await expect(parked).resolves.toBe(false);
+            expect(calls).toEqual([
+                {
+                    nativeHandleKey: data.nativeHandleKey,
+                    targetWindowId : data.targetWindowId,
+                    x              : 800,
+                    y              : 120
+                },
+                {
+                    nativeHandleKey: data.nativeHandleKey,
+                    targetWindowId : data.targetWindowId,
+                    x              : 40,
+                    y              : 60
+                }
+            ]);
+            expect(addon.windowDragOrphanRecoveries).toBeNull()
+        }
+    });
+
+    test('terminal restore joins a stale position move and advances the one serialized destination', async () => {
+        let resolveMove;
+
+        const
+            move  = new Promise(resolve => resolveMove = resolve),
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 21,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            data  = {
+                nativeHandleKey: 'native-21',
+                restoreRect    : {height: 300, width: 400, x: 40, y: 60},
+                targetWindowId : 'popup-21',
+                windowName     : 'tearout-graph',
+                x              : 800,
+                y              : 120
+            };
+
+        Neo.Main.windowNativeResizeTo = async () => {
+            throw new Error('position-only recovery must not resize')
+        };
+        Neo.Main.windowNativeMoveTo = request => {
+            calls.push(request);
+            return calls.length === 1 ? move : Promise.resolve(true)
+        };
+
+        const parked = DragDrop.prototype.parkWindowDrag.call(addon, data);
+
+        await expect.poll(() => calls.length).toBe(1);
+        DragDrop.prototype.resetDragState.call(addon);
+
+        const terminal = DragDrop.prototype.resumeWindowDrag.call(addon, {
+            nativeHandleKey: data.nativeHandleKey,
+            targetWindowId : data.targetWindowId,
+            windowName     : data.windowName,
+            x              : 420,
+            y              : 240
+        });
+
+        resolveMove(true);
+
+        await expect(parked).resolves.toBe(false);
+        await expect(terminal).resolves.toBe(true);
+        expect(calls).toEqual([
+            {
+                nativeHandleKey: 'native-21',
+                targetWindowId : 'popup-21',
+                x              : 800,
+                y              : 120
+            },
+            {
+                nativeHandleKey: 'native-21',
+                targetWindowId : 'popup-21',
+                x              : 420,
+                y              : 240
+            }
+        ]);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('a newer terminal revision arriving during resize suppresses the stale position effect', async () => {
+        let resolveResize;
+
+        const
+            resize       = new Promise(resolve => resolveResize = resolve),
+            resizeCalls  = [],
+            moveCalls    = [],
+            addon        = {},
+            recoveryData = {
+                nativeHandleKey: 'native-22',
+                park           : {height: 260, width: 360, x: 800, y: 120},
+                resize         : true,
+                restore        : {height: 546, width: 640, x: 100, y: 150},
+                targetWindowId : 'popup-22',
+                windowName     : 'tearout-graph'
+            };
+
+        Neo.Main.windowNativeResizeTo = request => {
+            resizeCalls.push(request);
+            return resizeCalls.length === 1 ? resize : Promise.resolve(true)
+        };
+        Neo.Main.windowNativeMoveTo = async request => {
+            moveCalls.push(request);
+            return true
+        };
+
+        DragDrop.prototype.retainWindowDragOrphanRecovery.call(addon, recoveryData);
+
+        const first = DragDrop.prototype.retryWindowDragOrphanRecovery.call(addon, recoveryData);
+
+        await expect.poll(() => resizeCalls.length).toBe(1);
+
+        const latest = DragDrop.prototype.resumeWindowDrag.call(addon, {
+            nativeHandleKey: 'native-22',
+            targetWindowId : 'popup-22',
+            windowName     : 'tearout-graph',
+            x              : 200,
+            y              : 250
+        });
+
+        resolveResize(true);
+
+        await expect(first).resolves.toBe(true);
+        await expect(latest).resolves.toBe(true);
+        expect(resizeCalls).toHaveLength(2);
+        expect(moveCalls).toEqual([{
+            nativeHandleKey: 'native-22',
+            targetWindowId : 'popup-22',
+            x              : 200,
+            y              : 250
+        }]);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('reset during park resize retains a refused compensation for terminal retry', async () => {
+        let resolveResize;
+
+        const
+            resize      = new Promise(resolve => resolveResize = resolve),
+            resizeCalls = [],
+            moveCalls   = [],
+            addon       = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 23,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            data        = {
+                nativeHandleKey: 'native-23',
+                parkSize       : {height: 260, width: 360},
+                restoreRect    : {height: 546, width: 640, x: 40, y: 60},
+                targetWindowId : 'popup-23',
+                windowName     : 'tearout-graph',
+                x              : 800,
+                y              : 120
+            };
+
+        Neo.Main.windowNativeResizeTo = request => {
+            resizeCalls.push(request);
+
+            if (resizeCalls.length === 1) return resize;
+
+            return Promise.resolve(resizeCalls.length > 2)
+        };
+        Neo.Main.windowNativeMoveTo = async request => {
+            moveCalls.push(request);
+            return true
+        };
+
+        const parked = DragDrop.prototype.parkWindowDrag.call(addon, data);
+
+        await expect.poll(() => resizeCalls.length).toBe(1);
+        DragDrop.prototype.resetDragState.call(addon);
+        resolveResize(true);
+
+        await expect(parked).resolves.toBe(false);
+        expect(resizeCalls).toHaveLength(2);
+        expect(moveCalls).toEqual([{
+            nativeHandleKey: 'native-23',
+            targetWindowId : 'popup-23',
+            x              : 800,
+            y              : 120
+        }]);
+        expect(DragDrop.prototype.hasWindowDragOrphanRecovery.call(addon, data)).toBe(true);
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            nativeHandleKey: 'native-23',
+            targetWindowId : 'popup-23',
+            windowName     : 'tearout-graph',
+            x              : 420,
+            y              : 240
+        })).resolves.toBe(true);
+
+        expect(resizeCalls).toHaveLength(3);
+        expect(moveCalls).toEqual([
+            {
+                nativeHandleKey: 'native-23',
+                targetWindowId : 'popup-23',
+                x              : 800,
+                y              : 120
+            },
+            {
+                nativeHandleKey: 'native-23',
+                targetWindowId : 'popup-23',
+                x              : 420,
+                y              : 240
+            }
+        ]);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('orphan restore returns to exact cover after its full-size move is refused', async () => {
+        let moveCall = 0;
+
+        const
+            calls        = [],
+            addon        = {},
+            recoveryData = {
+                nativeHandleKey: 'native-241',
+                park           : {height: 260, width: 360, x: 800, y: 120},
+                resize         : true,
+                restore        : {height: 546, width: 640, x: 420, y: 240},
+                targetWindowId : 'popup-241',
+                windowName     : 'tearout-graph'
+            };
+
+        Neo.Main.windowNativeResizeTo = async request => {
+            calls.push(['resize', request]);
+            return true
+        };
+        Neo.Main.windowNativeMoveTo = async request => {
+            calls.push(['move', request]);
+            return ++moveCall > 1
+        };
+
+        DragDrop.prototype.retainWindowDragOrphanRecovery.call(addon, recoveryData);
+
+        await expect(DragDrop.prototype.retryWindowDragOrphanRecovery.call(addon, recoveryData))
+            .resolves.toBe(false);
+        expect(calls).toEqual([
+            ['resize', {
+                height         : 546,
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                width          : 640
+            }],
+            ['move', {
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                x              : 420,
+                y              : 240
+            }],
+            ['resize', {
+                height         : 260,
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                width          : 360
+            }],
+            ['move', {
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                x              : 800,
+                y              : 120
+            }]
+        ]);
+        expect(DragDrop.prototype.hasWindowDragOrphanRecovery.call(addon, recoveryData)).toBe(true);
+
+        await expect(DragDrop.prototype.retryWindowDragOrphanRecovery.call(addon, recoveryData))
+            .resolves.toBe(true);
+        expect(calls.slice(-2)).toEqual([
+            ['resize', {
+                height         : 546,
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                width          : 640
+            }],
+            ['move', {
+                nativeHandleKey: 'native-241',
+                targetWindowId : 'popup-241',
+                x              : 420,
+                y              : 240
+            }]
+        ]);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('orphan acknowledgement waits for pending effects and source-route operations', () => {
+        const
+            addon        = {},
+            sourceRoute  = {operationCount: 1},
+            recoveryData = {
+                nativeHandleKey: 'native-242',
+                pendingEffect  : Promise.resolve(true),
+                resize         : false,
+                restore        : {x: 420, y: 240},
+                sourceRoute,
+                targetWindowId : 'popup-242',
+                windowName     : 'tearout-graph'
+            },
+            recovery = DragDrop.prototype.retainWindowDragOrphanRecovery.call(addon, recoveryData);
+
+        expect(DragDrop.prototype.acknowledgeWindowDragOrphanRecovery.call(addon, recoveryData)).toBe(false);
+
+        recovery.pendingEffect = null;
+        expect(DragDrop.prototype.acknowledgeWindowDragOrphanRecovery.call(addon, recoveryData)).toBe(false);
+
+        sourceRoute.operationCount = 0;
+        expect(DragDrop.prototype.acknowledgeWindowDragOrphanRecovery.call(addon, recoveryData)).toBe(true);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('reset during cover compensation prevents its stale move from racing exact recovery', async () => {
+        let resolveCoverResize;
+
+        const
+            coverResize = new Promise(resolve => resolveCoverResize = resolve),
+            calls       = [],
+            geometry    = {
+                park   : {height: 260, width: 360, x: 800, y: 120},
+                resize : true,
+                restore: {height: 546, width: 640, x: 40, y: 60}
+            },
+            route       = {
+                generation     : 24,
+                key            : JSON.stringify(['native-24', 'popup-24', 'tearout-graph']),
+                nativeHandleKey: 'native-24',
+                operationCount : 0,
+                pendingEffect  : null,
+                resize         : true,
+                restore        : {...geometry.restore},
+                retired        : false,
+                revision       : 1,
+                targetWindowId : 'popup-24',
+                windowName     : 'tearout-graph'
+            },
+            addon       = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 24,
+                windowDragParked        : true,
+                windowDragParkedGeometry: geometry,
+                windowDragParkRoute     : route,
+                windowDragParkRecovery  : null
+            };
+
+        let resizeCall = 0,
+            moveCall   = 0;
+
+        Neo.Main.windowNativeResizeTo = request => {
+            calls.push(['resize', request]);
+            return ++resizeCall === 2 ? coverResize : Promise.resolve(true)
+        };
+        Neo.Main.windowNativeMoveTo = async request => {
+            calls.push(['move', request]);
+            return ++moveCall > 1
+        };
+
+        const resumed = DragDrop.prototype.resumeWindowDrag.call(addon, {
+            nativeHandleKey: 'native-24',
+            targetWindowId : 'popup-24',
+            windowName     : 'tearout-graph',
+            x              : 420,
+            y              : 240
+        });
+
+        await expect.poll(() => resizeCall).toBe(2);
+        DragDrop.prototype.resetDragState.call(addon);
+        resolveCoverResize(true);
+
+        await expect(resumed).resolves.toBe(false);
+        expect(calls.filter(([type, request]) => (
+            type === 'move' && request.x === 800 && request.y === 120
+        ))).toEqual([]);
+        expect(calls.at(-1)).toEqual(['move', {
+            nativeHandleKey: 'native-24',
+            targetWindowId : 'popup-24',
+            x              : 420,
+            y              : 240
+        }]);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
+    });
+
+    test('an orphan on route A never blocks a same-name park through opaque route B', async () => {
+        const
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 25,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            };
+
+        DragDrop.prototype.retainWindowDragOrphanRecovery.call(addon, {
+            nativeHandleKey: 'native-25-a',
+            resize         : false,
+            restore        : {x: 40, y: 60},
+            targetWindowId : 'popup-25-a',
+            windowName     : 'tearout-graph'
+        });
+
+        Neo.Main.windowNativeMoveTo = async request => {
+            calls.push(request);
+            return true
+        };
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, {
+            nativeHandleKey: 'native-25-b',
+            restoreRect    : {height: 300, width: 400, x: 80, y: 100},
+            targetWindowId : 'popup-25-b',
+            windowName     : 'tearout-graph',
+            x              : 900,
+            y              : 160
+        })).resolves.toBe(true);
+
+        expect(calls).toEqual([{
+            nativeHandleKey: 'native-25-b',
+            targetWindowId : 'popup-25-b',
+            x              : 900,
+            y              : 160
+        }]);
+        expect(DragDrop.prototype.hasWindowDragOrphanRecovery.call(addon, {
+            nativeHandleKey: 'native-25-a',
+            targetWindowId : 'popup-25-a',
+            windowName     : 'tearout-graph'
+        })).toBe(true)
+    });
+
+    test('active resume refuses a same-name request for a different opaque native route', async () => {
+        const
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 251,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            };
+
+        Neo.Main.windowNativeMoveTo = async request => {
+            calls.push(request);
+            return true
+        };
+
+        await expect(DragDrop.prototype.parkWindowDrag.call(addon, {
+            nativeHandleKey: 'native-251-a',
+            restoreRect    : {height: 300, width: 400, x: 40, y: 60},
+            targetWindowId : 'popup-251-a',
+            windowName     : 'tearout-graph',
+            x              : 800,
+            y              : 120
+        })).resolves.toBe(true);
+
+        await expect(DragDrop.prototype.resumeWindowDrag.call(addon, {
+            nativeHandleKey: 'native-251-b',
+            targetWindowId : 'popup-251-b',
+            windowName     : 'tearout-graph',
+            x              : 420,
+            y              : 240
+        })).resolves.toBe(false);
+
+        expect(calls).toEqual([{
+            nativeHandleKey: 'native-251-a',
+            targetWindowId : 'popup-251-a',
+            x              : 800,
+            y              : 120
+        }]);
+        expect(addon.windowDragParked).toBe(true);
+        expect(addon.windowDragParkRoute).toMatchObject({
+            nativeHandleKey: 'native-251-a',
+            targetWindowId : 'popup-251-a'
+        })
+    });
+
+    test('strict close tombstones an in-flight route until its stale continuation drains', async () => {
+        let resolveMove;
+
+        const
+            move  = new Promise(resolve => resolveMove = resolve),
+            calls = [],
+            addon = {
+                isWindowDragging        : true,
+                popupName               : 'tearout-graph',
+                windowDragGeneration    : 26,
+                windowDragMovePromises  : new Set(),
+                windowDragParked        : false,
+                windowDragParkedGeometry: null
+            },
+            data  = {
+                nativeHandleKey: 'native-26',
+                restoreRect    : {height: 300, width: 400, x: 40, y: 60},
+                targetWindowId : 'popup-26',
+                windowName     : 'tearout-graph',
+                x              : 800,
+                y              : 120
+            };
+
+        Neo.Main.windowNativeMoveTo = request => {
+            calls.push(request);
+            return calls.length === 1 ? move : Promise.resolve(true)
+        };
+
+        const parked = DragDrop.prototype.parkWindowDrag.call(addon, data);
+
+        await expect.poll(() => calls.length).toBe(1);
+        DragDrop.prototype.resetDragState.call(addon);
+
+        expect(DragDrop.prototype.retireWindowDragOrphanRecovery.call(addon, data)).toBe(true);
+        expect(DragDrop.prototype.hasWindowDragOrphanRecovery.call(addon, data)).toBe(true);
+
+        resolveMove(true);
+
+        await expect(parked).resolves.toBe(false);
+        expect(calls).toHaveLength(1);
+        expect(DragDrop.prototype.hasWindowDragOrphanRecovery.call(addon, data)).toBe(false);
+        expect(addon.windowDragOrphanRecoveries).toBeNull()
     })
 });

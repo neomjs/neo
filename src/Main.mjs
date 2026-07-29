@@ -17,7 +17,7 @@ let nativeWindowRoute;
  * creates a new realm and loses the cache; URL/name inference and same-name reuse still cannot reconstruct it.
  * Cross-origin or independently opened windows deliberately remain unaddressable.
  * @param {Window} win
- * @returns {{capabilities: {close: Boolean, focus: Boolean, position: Boolean}, nativeHandleKey: String, ownerWindowId: String, targetWindowId: String}|null}
+ * @returns {{capabilities: {close: Boolean, focus: Boolean, position: Boolean, resize: Boolean}, nativeHandleKey: String, ownerWindowId: String, targetWindowId: String}|null}
  */
 const resolveNativeWindowRoute = win => {
     if (nativeWindowRoute !== undefined) {
@@ -109,7 +109,8 @@ class Main extends core.Base {
         nativeWindowCapabilities: {
             close   : false,
             focus   : true,
-            position: true
+            position: true,
+            resize  : false
         },
         /**
          * @member {Object} openWindows={}
@@ -145,7 +146,9 @@ class Main extends core.Base {
                 'windowMoveTo',
                 'windowNativeClose',
                 'windowNativeFocus',
+                'windowNativeGetGeometry',
                 'windowNativeMoveTo',
+                'windowNativeResizeTo',
                 'windowOpen',
                 'windowResizeTo'
             ]
@@ -641,7 +644,8 @@ class Main extends core.Base {
             capabilities = {
                 close   : entry.nativeCapabilities.close    && typeof win.close  === 'function',
                 focus   : entry.nativeCapabilities.focus    && typeof win.focus  === 'function',
-                position: entry.nativeCapabilities.position && typeof win.moveTo === 'function'
+                position: entry.nativeCapabilities.position && typeof win.moveTo === 'function',
+                resize  : entry.nativeCapabilities.resize   && typeof win.resizeTo === 'function'
             },
             route = {
                 capabilities,
@@ -699,7 +703,7 @@ class Main extends core.Base {
      * @param {Object} data
      * @param {String} data.nativeHandleKey
      * @param {String} data.targetWindowId
-     * @param {'close'|'focus'|'position'} capability
+     * @param {'close'|'focus'|'position'|'resize'} capability
      * @returns {Object|null}
      * @private
      */
@@ -707,7 +711,7 @@ class Main extends core.Base {
         const
             route   = this.#nativeWindowRoutes.get(nativeHandleKey),
             entry   = route?.entry,
-            methods = {close: 'close', focus: 'focus', position: 'moveTo'};
+            methods = {close: 'close', focus: 'focus', position: 'moveTo', resize: 'resizeTo'};
 
         if (
             !route || route.targetWindowId !== targetWindowId ||
@@ -764,18 +768,24 @@ class Main extends core.Base {
     }
 
     /**
-     * @summary Lets the moved render target publish its observed geometry after a programmatic move.
-     * @description Browser window movement has no guaranteed resize or pointer-boundary event. The
-     * target realm's existing change detector therefore closes the mutation-to-observation edge
-     * without ever projecting requested coordinates into manager truth. Cross-origin or not-yet-
+     * @summary Lets a mutated render target publish its complete observed geometry.
+     * @description Browser window movement and resize have no guaranteed matching event. Publishing
+     * the target realm's complete snapshot closes the mutation-to-observation edge without ever
+     * projecting requested coordinates or extents into manager truth. Cross-origin or not-yet-
      * initialized targets remain valid physical handles; geometry publication is best-effort and
-     * cannot change the strict movement verdict.
+     * cannot change the strict platform verdict.
      * @param {Window} win
      * @private
      */
     #publishWindowGeometry(win) {
         try {
-            win.Neo?.main?.addon?.WindowPosition?.checkMovement?.()
+            const observer = win.Neo?.main?.addon?.WindowPosition;
+
+            if (typeof observer?.publishGeometry === 'function') {
+                observer.publishGeometry()
+            } else {
+                observer?.checkMovement?.()
+            }
         } catch {
             // Cross-origin target realms are intentionally opaque.
         }
@@ -809,6 +819,51 @@ class Main extends core.Base {
 
         for (let attempt = 0; attempt < this.windowMovePollAttempts; attempt++) {
             if (Math.abs(win.screenX - x) <= 1 && Math.abs(win.screenY - y) <= 1) {
+                admitted = true;
+                break
+            }
+
+            await new Promise(resolve => setTimeout(resolve, this.windowMovePollDelay))
+        }
+
+        this.#publishWindowGeometry(win);
+
+        return admitted
+    }
+
+    /**
+     * Resizes one exact native handle and verifies the target reached the requested outer extent.
+     * `Window#resizeTo()` speaks outer dimensions, so callers must translate from any inner-layout
+     * geometry before crossing this physical-capability boundary.
+     * @param {Window} win
+     * @param {Number|String} requestedWidth
+     * @param {Number|String} requestedHeight
+     * @returns {Promise<Boolean>}
+     * @private
+     */
+    async #resizeWindow(win, requestedWidth, requestedHeight) {
+        const
+            height = Number(requestedHeight),
+            width  = Number(requestedWidth);
+
+        let admitted = false;
+
+        if (
+            !win || win.closed || typeof win.resizeTo !== 'function' ||
+            !Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0
+        ) {
+            return false
+        }
+
+        try {
+            win.resizeTo(width, height)
+        } catch {
+            this.#publishWindowGeometry(win);
+            return false
+        }
+
+        for (let attempt = 0; attempt < this.windowMovePollAttempts; attempt++) {
+            if (Math.abs(win.outerWidth - width) <= 1 && Math.abs(win.outerHeight - height) <= 1) {
                 admitted = true;
                 break
             }
@@ -928,7 +983,36 @@ class Main extends core.Base {
     async windowNativeFocus(data) {
         const route = this.#getNativeWindowRoute(data, 'focus');
 
-        return route ? this.#focusWindow(route.entry.win) : false
+        if (!route || !await this.#focusWindow(route.entry.win)) {
+            return false
+        }
+
+        return this.#getNativeWindowRoute(data, 'focus') === route
+    }
+
+    /**
+     * Reads the exact owner-granted native handle generation's current outer extent and viewport
+     * origin. The caller uses this only as volatile recovery authority immediately before a
+     * physical effect; manager topology remains the shared observation surface.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @returns {{height:Number,width:Number,x:Number,y:Number}|null}
+     */
+    windowNativeGetGeometry(data) {
+        const
+            route = this.#getNativeWindowRoute(data, 'position'),
+            win   = route?.entry?.win,
+            value = win && {
+                height: Number(win.outerHeight),
+                width : Number(win.outerWidth),
+                x     : Number(win.screenX),
+                y     : Number(win.screenY)
+            };
+
+        return value && Object.values(value).every(Number.isFinite) && value.height > 0 && value.width > 0
+            ? value
+            : null
     }
 
     /**
@@ -943,7 +1027,32 @@ class Main extends core.Base {
     async windowNativeMoveTo(data) {
         const route = this.#getNativeWindowRoute(data, 'position');
 
-        return route ? this.#moveWindow(route.entry.win, data.x, data.y) : false
+        if (!route || !await this.#moveWindow(route.entry.win, data.x, data.y)) {
+            return false
+        }
+
+        return this.#getNativeWindowRoute(data, 'position') === route
+    }
+
+    /**
+     * Resizes an exact owner-granted native handle generation to verified outer dimensions.
+     * The route is revalidated after the asynchronous platform observation so same-name successor
+     * windows can never inherit a predecessor completion.
+     * @param {Object} data
+     * @param {Number|String} data.height
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {Number|String} data.width
+     * @returns {Promise<Boolean>}
+     */
+    async windowNativeResizeTo(data) {
+        const route = this.#getNativeWindowRoute(data, 'resize');
+
+        if (!route || !await this.#resizeWindow(route.entry.win, data.width, data.height)) {
+            return false
+        }
+
+        return this.#getNativeWindowRoute(data, 'resize') === route
     }
 
     /**

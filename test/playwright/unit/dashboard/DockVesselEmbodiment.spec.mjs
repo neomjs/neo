@@ -154,7 +154,17 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                 }),
                 windowId: 'source-window'
             };
-        let resolveFirst;
+        let resolveFirst,
+            sourceUpdateCount = 0,
+            targetUpdateCount = 0;
+
+        const sourcePromiseUpdate = source.promiseUpdate.bind(source);
+
+        source.promiseUpdate = (...args) => {
+            sourceUpdateCount++;
+
+            return sourcePromiseUpdate(...args)
+        };
 
         proxyEmbodiment = createDockVesselProxyEmbodiment({
             createProxy: config => {
@@ -168,9 +178,15 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                 proxy.width    = config.width;
                 proxy.windowId = config.windowId;
 
-                if (deferFirst && proxies.length === 0) {
-                    proxy.promiseUpdate = () => new Promise(resolve => resolveFirst = resolve)
-                }
+                const proxyPromiseUpdate = proxy.promiseUpdate.bind(proxy);
+
+                proxy.promiseUpdate = (...args) => {
+                    targetUpdateCount++;
+
+                    return deferFirst && proxies.length === 0
+                        ? new Promise(resolve => resolveFirst = resolve)
+                        : proxyPromiseUpdate(...args)
+                };
 
                 const destroy = proxy.destroy.bind(proxy);
 
@@ -201,7 +217,8 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
                 })
             },
             proxies,
-            resolveFirst: () => resolveFirst?.()
+            resolveFirst: () => resolveFirst?.(),
+            updateCounts: () => ({source: sourceUpdateCount, target: targetUpdateCount})
         }
     }
 
@@ -214,6 +231,7 @@ test.describe('Neo.dashboard.DockVesselProxyEmbodiment (#16090)', () => {
 
         await expect.poll(() => proxyEmbodiment.snapshot('live')?.settled).toBe(true);
 
+        expect(fixture.updateCounts()).toEqual({source: 1, target: 1});
         expect(proxyEmbodiment.snapshot('live')).toMatchObject({
             cls           : expect.arrayContaining([
                 'neo-tab-header-toolbar',
