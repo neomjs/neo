@@ -1,5 +1,8 @@
 import {test, expect}                                                                       from '../../fixtures.mjs';
 import {assertAffordanceContainment, assertBootContainmentChain, assertChipHeaderExclusion} from '../utils/dockGeometry.mjs';
+import {isFilmTake}                                                                         from '../utils/gpuIntent.mjs';
+
+const filmTake = isFilmTake();
 
 /**
  * Whitebox-e2e: the FLAGSHIP's drag-affordance journey — the durable real-pointer proof
@@ -434,7 +437,18 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
             for (const pointer of positions) {
                 await page.mouse.move(pointer.x, pointer.y, {steps: 10});
                 await page.waitForTimeout(160);
-                samples.push({pointer, proxy: (await readDockProxyTreatment(page)).rect})
+                samples.push({pointer, proxy: (await readDockProxyTreatment(page)).rect});
+
+                if (filmTake) {
+                    const frame = await page.screenshot();
+
+                    expect(frame.length, 'the film profile retains a non-empty post-conversion frame')
+                        .toBeGreaterThan(10000);
+                    await testInfo.attach(`post-entry-motion-frame-${samples.length}.png`, {
+                        body       : frame,
+                        contentType: 'image/png'
+                    })
+                }
             }
 
             const
