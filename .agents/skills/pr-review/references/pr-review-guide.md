@@ -356,7 +356,13 @@ For multi-cycle reviews, after posting a review comment **capture its `commentId
 
 ### 10.1 PR-State Freshness Gate
 
-Before `manage_pr_review`/relaying any review outcome, merge-eligibility claim, or lane-state naming a PR: the A2A/wake echo is not a cache. If minutes elapsed or the lifecycle action changed, re-run BOTH a PR-scoped `list_messages` and `gh pr view <N> --json state,mergedAt,reviewRequests` — acceptance/handoff can be A2A-only. Authority moved → stand down/hand off. Relay the §9 verdict, not the flattened `reviewDecision`. A non-empty `reviewRequests` isn't strict-merge-ready even at APPROVED — dispose each (formal review / step-out / unrequest; an A2A approval doesn't clear a slot). `validateMergeReady` encodes it.
+Before `manage_pr_review`, review relay, merge claim, or PR lane-state, re-run
+PR-scoped mailbox + live `state,mergedAt,reviewRequests`; wakes are not cache and
+acceptance can be A2A-only. Authority moved → hand off. Relay §9, not flattened
+`reviewDecision`; every requested seat must be disposed. Canonical
+`[merge-eligible]` requires the current positive B-prime observation marker;
+otherwise use `[merge-readiness-uncertified][no-positive-observation]`, or
+`[merge-readiness-uncertified][issuer-unavailable:cloud-mode]` in cloud.
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 
