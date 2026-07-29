@@ -1306,6 +1306,9 @@ function receiptWithDurability(receipt, durable, operation) {
  * remains the loud failure mode. Empty arrays are accepted because the native array contract
  * already defines them as a clean no-op.
  *
+ * Retire this compatibility normalizer once every registered MCP seat preserves a one-element
+ * native array at the tool boundary.
+ *
  * @param {String|String[]} messageId Canonical scalar/array input or a compatibility representation.
  * @returns {String|String[]} Native input shape consumed by `markRead`.
  * @private
@@ -2648,8 +2651,10 @@ class MailboxService extends Base {
      * Selection happens in one SQLite statement before the first mutation. Messages committed
      * after that statement's read snapshot are therefore not part of this operation and remain
      * unread. The three UNION branches mirror the established mailbox taxonomy: direct DMs carry
-     * read/archive state on the MESSAGE node, receipt-backed broadcasts carry it on the caller's
-     * DELIVERED_TO edge, and legacy broadcasts without delivery edges retain shared MESSAGE state.
+     * read/archive state on the MESSAGE node and receipt-backed broadcasts carry it on the caller's
+     * DELIVERED_TO edge. Legacy broadcasts without delivery edges remain on the deliberate per-id
+     * path because their shared MESSAGE read state cannot satisfy this operation's per-recipient
+     * isolation contract.
      *
      * Every selected id delegates through `markRead`, preserving its authorization, graph repair,
      * direct/broadcast carrier ownership, and durable-write receipts. The public response is
@@ -2685,6 +2690,7 @@ class MailboxService extends Base {
 
         const
             placeholders = targetStorageVariants.map(() => '?').join(', '),
+            snapshotAt   = new Date().toISOString(),
             rows         = sqlite.prepare(`
                 WITH unread_messages AS (
                     SELECT n.id AS messageId
@@ -2706,27 +2712,11 @@ class MailboxService extends Base {
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       AND json_extract(e.data, '$.properties.readAt') IS NULL
                       AND json_extract(e.data, '$.properties.archivedAt') IS NULL
-
-                    UNION
-
-                    SELECT n.id AS messageId
-                    FROM Edges e
-                    JOIN Nodes n ON n.id = e.source
-                    WHERE e.type = 'SENT_TO'
-                      AND e.target = 'AGENT:*'
-                      AND json_extract(n.data, '$.label') = 'MESSAGE'
-                      AND json_extract(n.data, '$.properties.readAt') IS NULL
-                      AND json_extract(n.data, '$.properties.archivedAt') IS NULL
-                      AND NOT EXISTS (
-                          SELECT 1 FROM Edges de
-                          WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
-                      )
                 )
                 SELECT DISTINCT messageId
                 FROM unread_messages
                 ORDER BY messageId
             `).all(...targetStorageVariants, ...targetStorageVariants),
-            snapshotAt = new Date().toISOString(),
             messageIds = rows.map(row => row.messageId);
 
         const {results = []} = await this.markRead({messageId: messageIds});

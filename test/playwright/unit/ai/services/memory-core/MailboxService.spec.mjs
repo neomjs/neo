@@ -1197,6 +1197,29 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(charlieUnread.messages.map(message => message.messageId)).toContain(broadcastId);
     });
 
+    test('#15913 markRead all mode excludes legacy broadcasts with shared MESSAGE read state', async () => {
+        const legacyBroadcastId = 'MESSAGE:read-all-legacy-shared-carrier';
+        seedReadStateCarrier({messageId: legacyBroadcastId, recipient: 'AGENT:*'});
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true})
+        );
+
+        expect(receipt).toMatchObject({
+            status      : 'noop',
+            matchedCount: 0,
+            readCount   : 0
+        });
+        expect(GraphService.db.nodes.get(legacyBroadcastId).properties.readAt).toBeNull();
+
+        for (const identity of ['@bob', '@alice']) {
+            const unread = await RequestContextService.run({agentIdentityNodeId: identity}, () =>
+                MailboxService.listMessages({box: 'inbox', status: 'unread'})
+            );
+            expect(unread.messages.map(message => message.messageId)).toContain(legacyBroadcastId);
+        }
+    });
+
     test('#15913 markRead all mode drains beyond the list_messages 100-row page size', async () => {
         for (let index = 0; index < 125; index++) {
             seedReadStateCarrier({messageId: `MESSAGE:read-all-depth-${index}`});
