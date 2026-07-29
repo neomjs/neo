@@ -152,6 +152,29 @@ test.describe.serial('Workstation.view.Workspace', () => {
         expect(initialDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4])
     });
 
+    test('film cursor retirement requests physical body-node removal exactly once', () => {
+        const
+            workspace = Neo.create(Workspace, {}),
+            calls     = [],
+            cursorDot = {
+                isDestroyed: false,
+                destroy(updateParentVdom) {
+                    calls.push(updateParentVdom);
+                    this.isDestroyed = true
+                }
+            };
+
+        try {
+            workspace.retireFilmCursorDot(cursorDot);
+            workspace.retireFilmCursorDot(cursorDot);
+            workspace.retireFilmCursorDot(null);
+
+            expect(calls).toEqual([true])
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('provider-owned stores and cached data panes survive split + return', async () => {
         const workspace = Neo.create(Workspace, {});
 

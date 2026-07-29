@@ -1175,6 +1175,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(cancelled.proof.popupConfig.after).toBe(cancelled.proof.popupConfig.before);
             expect(await readDocument(app, wsId), 'fresh worker truth remains byte-identical after cancel')
                 .toEqual(documentBefore);
+            await expect(page.locator('.film-cursor'),
+                'cancel must retire the film cursor from physical DOM, not only component truth').toHaveCount(0);
 
             const committed = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
                 ...gesture,
@@ -1189,6 +1191,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             expect(committed.proof.popupConfig.restored,
                 'commit restores the exact popup-conversion setting before resolving').toBe(true);
             expect(committed.proof.popupConfig.after).toBe(committed.proof.popupConfig.before);
+            await expect(page.locator('.film-cursor'),
+                'a second film gesture in the same app session must not accumulate cursor residue').toHaveCount(0);
             expect(committed.proof.descriptor).toEqual({
                 operation : 'addTab',
                 itemId    : 'audit',

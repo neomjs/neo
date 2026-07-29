@@ -3543,6 +3543,17 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Retires one film cursor from component, VDOM, and physical body-node truth.
+     * @param {Neo.component.Base|null} cursorDot
+     * @protected
+     */
+    retireFilmCursorDot(cursorDot) {
+        if (!cursorDot?.isDestroyed) {
+            cursorDot?.destroy(true)
+        }
+    }
+
+    /**
      * @summary Drives the in-window showcase beat through real simulated pointer input.
      *
      * One live tab crosses at least two foreign zones and two placement kinds. Each dwell first
@@ -3918,7 +3929,7 @@ class Workspace extends Container {
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
             restoreProxyPopupConfig();
-            cursorDot?.destroy()
+            me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4210,7 +4221,7 @@ class Workspace extends Container {
             let remoteSnapshot;
 
             if (showCursor) {
-                cursorDot?.destroy();
+                me.retireFilmCursorDot(cursorDot);
                 cursorDot = null
             }
 
@@ -4297,7 +4308,7 @@ class Workspace extends Container {
 
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
-            cursorDot?.destroy()
+            me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4428,7 +4439,7 @@ class Workspace extends Container {
             let remoteSnapshot;
 
             if (showCursor) {
-                cursorDot?.destroy();
+                me.retireFilmCursorDot(cursorDot);
                 cursorDot = null
             }
 
@@ -4537,7 +4548,7 @@ class Workspace extends Container {
 
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
-            cursorDot?.destroy()
+            me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4851,7 +4862,7 @@ class Workspace extends Container {
         } finally {
             // The synthetic cursor is per-gesture presentation: it never outlives the take's
             // gesture, and it never enters worker truth (pointer-events:none, no dock document).
-            cursorDot?.destroy()
+            me.retireFilmCursorDot(cursorDot)
         }
     }
 
