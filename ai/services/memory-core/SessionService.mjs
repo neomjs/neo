@@ -5,7 +5,11 @@ import {invokeWithGuardrail}                         from './helpers/consumerFri
 import {withTimeout}                                 from './helpers/withTimeout.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from './helpers/memoryWalStore.mjs';
 import {verifyPersistedVector}                       from './helpers/verifyPersistedVector.mjs';
-import {resolveTurnDocumentForRead}                  from './helpers/turnDocumentText.mjs';
+import {
+    canonicalizeSessionTurnInput,
+    computeSessionTurnInputRevision,
+    resolveTurnDocumentForRead
+} from './helpers/turnDocumentText.mjs';
 import {
     acknowledgeSessionSummaryReceipt,
     recoverSessionSummaryReceipts,
@@ -569,11 +573,18 @@ class SessionService extends Base {
 
         if (memories.ids.length === 0) return null;
 
+        const canonicalMemories = canonicalizeSessionTurnInput(memories);
+
+        memories.ids       = canonicalMemories.ids;
+        memories.documents = canonicalMemories.documents;
+        memories.metadatas = canonicalMemories.metadatas;
+
         // Natively bypass arbitrary Context Windows or chunking loops.
         // We enforce strict Lossless extraction for local performance consistency.
         // NOTE: Large sessions natively require the backing daemon (MLX/OpenAiCompatible) to have
         // sufficient `n_ctx` capabilities (128k+).
-        const aggregatedContent = memories.documents.join('\n\n---\n\n');
+        const aggregatedContent  = memories.documents.join('\n\n---\n\n');
+        const dreamInputRevision = computeSessionTurnInputRevision(memories);
 
         let   lastActivity    = Date.now();
         let   firstActivity   = lastActivity;
@@ -785,7 +796,7 @@ ${sessionContent}
         const sourceProvenance = this.constructor.resolveSummarySourceProvenance(memories.metadatas);
 
         const summaryMetadata = {
-            sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
+            sessionId, timestamp: lastActivity, memoryCount: memories.ids.length, dreamInputRevision,
             title, category, quality, productivity, impact, complexity,
             technologies         : (technologies || []).join(','),
             participatingAgents  : participatingAgents.join(','),

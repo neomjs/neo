@@ -13,11 +13,12 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../../../../src/Neo.mjs';
-import * as core          from '../../../../../../../src/core/_export.mjs';
-import fs                 from 'fs';
-import {snapshotAiConfig} from '../../../services/memory-core/util.mjs';
+import {test, expect}                    from '@playwright/test';
+import Neo                               from '../../../../../../../src/Neo.mjs';
+import * as core                         from '../../../../../../../src/core/_export.mjs';
+import fs                                from 'fs';
+import {snapshotAiConfig}                from '../../../services/memory-core/util.mjs';
+import {computeSessionTurnInputRevision} from '../../../../../../../ai/services/memory-core/helpers/turnDocumentText.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let aiConfig;
@@ -1202,22 +1203,44 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('processUndigestedSessions threads complete raw memory turns into topology inference (#12073)', async () => {
+    test('processUndigestedSessions threads and attests one exact raw-turn snapshot (#12073, #16115)', async () => {
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
-        const rawTurns    = ['prompt turn body', 'response turn body'];
+        const rawTurns     = ['prompt turn body', 'response turn body'];
+        const rawIds       = ['raw-turn-1', 'raw-turn-2'];
+        const rawMetadatas = rawIds.map((id, index) => ({
+            agentIdentity: '@neo-gpt',
+            sessionId    : 'agent-session-raw-turns',
+            timestamp    : index + 1,
+            type         : 'agent-interaction'
+        }));
+        const inputRevision = computeSessionTurnInputRevision({
+            ids      : rawIds,
+            documents: rawTurns,
+            metadatas: rawMetadatas
+        });
         const mockSession = {
             id      : 'chroma-summary-raw-turns',
             document: 'summary fallback should not reach topology',
-            meta    : {sessionId: 'agent-session-raw-turns', title: 'Raw turn session'}
+            meta    : {
+                sessionId             : 'agent-session-raw-turns',
+                title                 : 'Raw turn session',
+                dreamInputRevision    : inputRevision,
+                dreamCompletedRevision: `sha256:${'0'.repeat(64)}`,
+                dreamStateRevision    : `sha256:${'0'.repeat(64)}`,
+                graphDigested         : true,
+                digestState           : 'digested'
+            }
         };
 
         let triVectorDocument;
         let topologyArgs;
+        let ingestedSnapshot;
+        let sessionUpdate;
 
         const orig = {
             provider          : aiConfig.modelProvider,
@@ -1244,16 +1267,23 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
-            DreamService.sessionsCollection     = {update: async () => {}};
+            DreamService.sessionsCollection     = {
+                update: async payload => { sessionUpdate = payload; }
+            };
             StorageRouter.getMemoryCollection   = async () => ({
-                get: async () => ({documents: rawTurns})
+                get: async ({offset = 0}) => offset === 0
+                    ? {ids: rawIds, documents: rawTurns, metadatas: rawMetadatas}
+                    : {ids: [], documents: [], metadatas: []}
             });
             DreamService.inferTestGapsFromSession = async () => {};
             DreamService.executeNLActionDigest    = async () => ({status: 'completed'});
             DreamService.inferConceptGraphGaps    = async () => {};
             DreamService.runGarbageCollection     = async () => {};
             DreamService.synthesizeGoldenPath     = async () => {};
-            MemorySessionIngestor.syncSessionToGraph = async () => ({errors: [], memoriesSkipped: 0, memoriesUpserted: rawTurns.length});
+            MemorySessionIngestor.syncSessionToGraph = async (session, {rawMemories}) => {
+                ingestedSnapshot = rawMemories;
+                return {errors: [], memoriesSkipped: 0, memoriesUpserted: rawTurns.length}
+            };
             AdrIngestor.syncAdrsToGraph              = async () => ({});
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
@@ -1275,6 +1305,37 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 sessionId  : 'agent-session-raw-turns',
                 options    : {turnDocuments: rawTurns}
             });
+            expect(ingestedSnapshot).toEqual({
+                ids      : rawIds,
+                documents: rawTurns,
+                metadatas: rawMetadatas
+            });
+            expect(sessionUpdate).toEqual({
+                ids      : ['chroma-summary-raw-turns'],
+                metadatas: [{
+                    graphDigested         : true,
+                    digestState           : 'digested',
+                    dreamCompletedRevision: inputRevision,
+                    dreamStateRevision    : inputRevision
+                }]
+            });
+
+            // A selected summary revision that no longer matches the hydrated raw snapshot must
+            // stop before ingestion/extraction and cannot emit any completion metadata.
+            mockSession.meta.dreamInputRevision = `sha256:${'f'.repeat(64)}`;
+            sessionUpdate      = null;
+            ingestedSnapshot   = null;
+            triVectorDocument  = null;
+
+            const mismatch      = await DreamService.processUndigestedSessions();
+            const mismatchState = mismatch.perSessionStates.find(item =>
+                item.sessionId === 'agent-session-raw-turns'
+            );
+
+            expect(mismatchState.failureReasons[0]).toContain('Dream input revision moved before processing');
+            expect(ingestedSnapshot).toBeNull();
+            expect(triVectorDocument).toBeNull();
+            expect(sessionUpdate).toBeNull()
         } finally {
             aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
@@ -1544,7 +1605,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
-    test('findUndigestedSessions excludes bounded-out sessions and re-serves back-compat undigested rows (#13835)', async () => {
+    test('findUndigestedSessions fences legacy and revision-aware cadence state (#13835, #16115)', async () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const original = {
             summarizationBatchLimit: aiConfig.summarizationBatchLimit,
@@ -1555,7 +1616,15 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Mix: a fresh undigested row, a legacy `deferred` row, a terminal `undigestible` row,
         // a digested row, and a back-compat row that predates digestState (no flag at all — must still
         // be served). The bounded-out states are excluded from the steady cadence.
+        const revisionA = `sha256:${'a'.repeat(64)}`,
+              revisionB = `sha256:${'b'.repeat(64)}`;
         const rows = [
+            // Interleaving witness: Dream selected/completed A after synthesis published B.
+            // Preserved legacy `digested` state cannot hide the B/A mismatch.
+            {id: 'revision-mismatch', document: 'm', meta: {sessionId: 'revision-mismatch', timestamp: 7000, dreamInputRevision: revisionB, dreamCompletedRevision: revisionA, dreamStateRevision: revisionA, graphDigested: true, digestState: 'digested'}},
+            {id: 'revision-current', document: 'n', meta: {sessionId: 'revision-current', timestamp: 6500, dreamInputRevision: revisionB, dreamCompletedRevision: revisionB, dreamStateRevision: revisionB, graphDigested: true, digestState: 'digested'}},
+            {id: 'revision-stale-terminal', document: 'o', meta: {sessionId: 'revision-stale-terminal', timestamp: 6000, dreamInputRevision: revisionB, dreamStateRevision: revisionA, digestState: 'undigestible'}},
+            {id: 'revision-current-terminal', document: 'p', meta: {sessionId: 'revision-current-terminal', timestamp: 5500, dreamInputRevision: revisionB, dreamStateRevision: revisionB, digestState: 'undigestible'}},
             {id: 'undigested-new', document: 'a', meta: {sessionId: 'undigested-new', timestamp: 5000}},
             {id: 'deferred-x',     document: 'b', meta: {sessionId: 'deferred-x', timestamp: 4000, digestState: 'deferred', deferReason: 'skip-over-band', digestAttempts: 3}},
             {id: 'undigestible-x', document: 'c', meta: {sessionId: 'undigestible-x', timestamp: 3000, digestState: 'undigestible', deferReason: 'under-band-choke', digestAttempts: 3}},
@@ -1584,6 +1653,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(ids).not.toContain('undigestible-x');
             // Digested stays excluded; back-compat undigested rows (no digestState) are still served.
             expect(ids).not.toContain('digested-x');
+            expect(ids).not.toContain('revision-current');
+            expect(ids).not.toContain('revision-current-terminal');
+            expect(ids).toContain('revision-mismatch');
+            expect(ids).toContain('revision-stale-terminal');
             expect(ids).toContain('undigested-new');
             expect(ids).toContain('undigested-old');
         } finally {
@@ -1949,9 +2022,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(goodState.graphDigestedFlag).toBe(true);
 
             expect(sessionUpdatePayloads).toHaveLength(1);
-            expect(sessionUpdatePayloads[0]).toMatchObject({
+            expect(sessionUpdatePayloads[0]).toEqual({
                 ids      : ['chroma-summary-good'],
-                metadatas: [{sessionId: 'agent-session-good', graphDigested: true, digestState: 'digested'}]
+                metadatas: [{graphDigested: true, digestState: 'digested'}]
             });
             expect(nlActionDigestCalls).toBe(1);
             expect(conceptGapCalls).toBe(1);

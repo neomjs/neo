@@ -14,6 +14,12 @@ import {verifyPersistedVector} from './verifyPersistedVector.mjs';
  * deliberately not an append-only journal.
  */
 
+/**
+ * @summary Stable gzip/JSON transport framing for receipt envelopes.
+ *
+ * The encoding label remains backward-compatible for persisted rows; the decoded envelope's
+ * numeric `version` owns schema evolution inside that framing.
+ */
 export const SESSION_SUMMARY_RECEIPT_ENCODING = 'gzip-json-v1';
 
 /**
@@ -29,6 +35,7 @@ export const SESSION_SUMMARY_RECEIPT_METADATA_KEYS = Object.freeze([
     'sessionId',
     'timestamp',
     'memoryCount',
+    'dreamInputRevision',
     'title',
     'category',
     'quality',
@@ -122,7 +129,7 @@ export function encodeSessionSummaryReceipt(receipt) {
     const validated = validateReceiptIssuance(receipt);
 
     return gzipSync(Buffer.from(JSON.stringify({
-        version  : 1,
+        version  : 2,
         sessionId: validated.sessionId,
         summaryId: validated.summaryId,
         document : validated.document,
@@ -152,7 +159,7 @@ export function decodeSessionSummaryReceipt(envelope, encoding) {
         throw new Error(`Session-summary receipt envelope is corrupt: ${error.message}`, {cause: error});
     }
 
-    if (receipt?.version !== 1) {
+    if (![1, 2].includes(receipt?.version)) {
         throw new Error(`Unsupported session-summary receipt version: ${String(receipt?.version)}.`);
     }
 
@@ -267,9 +274,10 @@ export function acknowledgeSessionSummaryReceipt({db, sessionId, now = Date.now(
  *
  * DreamService legitimately adds graph-digestion lifecycle fields to the same metadata
  * object after synthesis. Those downstream-owned overlays do not make the acknowledged
- * synthesis result stale. The receipt remains exact for its document and every declared
- * metadata key present at issuance; a missing or changed receipt-owned value still requires
- * replay.
+ * synthesis result stale. The receipt remains exact for its document and the metadata key set
+ * owned by its envelope version: version 1 uses its frozen issuance-era keys, while current
+ * envelopes enforce the full declared synthesis-owned key set. A missing or changed
+ * receipt-owned value still requires replay.
  *
  * @param {Object|undefined} row
  * @param {Object} receipt
@@ -280,7 +288,15 @@ function matchesSessionSummaryReceipt(row, receipt) {
         return false;
     }
 
-    return SESSION_SUMMARY_RECEIPT_METADATA_KEYS.every(key => {
+    // Version 1 is a closed issuance schema, so its own frozen metadata keys are authoritative.
+    // Applying the current declared set would require dreamInputRevision, which v1 cannot carry:
+    // recovery would replay, Chroma would preserve that newer overlay, and the next sweep would
+    // mismatch again — #16110's retained-v1 non-convergent loop (ticket-ref-ok: exact failure anchor).
+    const ownedKeys = receipt.version === 1
+        ? Object.keys(receipt.metadata)
+        : SESSION_SUMMARY_RECEIPT_METADATA_KEYS;
+
+    return ownedKeys.every(key => {
         const receiptHasKey = Object.hasOwn(receipt.metadata, key),
               rowHasKey     = Object.hasOwn(row.metadata, key);
 

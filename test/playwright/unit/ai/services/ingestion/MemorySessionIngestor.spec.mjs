@@ -167,6 +167,46 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(Array.isArray(stats.errors)).toBe(true);
     });
 
+    test('#16115 consumes a verified raw-memory snapshot without re-reading mutable Chroma state', async () => {
+        const session = {
+            id  : 'chroma-summary-snapshot',
+            meta: {
+                sessionId: 'agent-session-snapshot',
+                title    : 'Snapshot session',
+                createdAt: '2026-07-29T09:00:00Z',
+                userId   : 'neo-gpt'
+            }
+        };
+        const rawMemories = {
+            ids      : ['snapshot-memory'],
+            documents: ['exact processed turn'],
+            metadatas: [{
+                createdAt: '2026-07-29T09:01:00Z',
+                sessionId: 'agent-session-snapshot',
+                userId   : 'neo-gpt'
+            }]
+        };
+        const memoryCollection = {
+            get: async () => {
+                throw new Error('mutable collection must not be re-read')
+            }
+        };
+
+        const stats = await MemorySessionIngestor.syncSessionToGraph(session, {
+            memoryCollection,
+            rawMemories
+        });
+
+        expect(stats).toMatchObject({
+            errors           : [],
+            memoriesProcessed: 1,
+            memoriesUpserted : 1,
+            sessionUpserted  : true
+        });
+        expect(GraphService.db.nodes.get('memory:snapshot-memory')?.properties)
+            .toMatchObject({chromaId: 'snapshot-memory', sessionId: 'agent-session-snapshot'})
+    });
+
     test('should upsert one SESSION node plus N MEMORY nodes plus N ORIGINATES_IN edges', async () => {
         const session = {
             id  : 'chroma-summary-2',
