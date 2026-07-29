@@ -80,6 +80,7 @@ async function boot() {
     // (`ai/daemons/wake/daemon.mjs`) is the one to mirror here.
     FleetManager.wakeStateOptions = {
         pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
+        deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
         listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
     };
 

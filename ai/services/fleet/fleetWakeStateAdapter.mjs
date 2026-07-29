@@ -1,6 +1,7 @@
 import {spawnSync}         from 'node:child_process'
 import {redactCredentials} from './redactCredentials.mjs'
 import fs                  from 'node:fs'
+import path                from 'node:path'
 
 /**
  * @module ai/services/fleet/fleetWakeStateAdapter
@@ -10,7 +11,9 @@ import fs                  from 'node:fs'
  * The adapter reads OBSERVATION truth only, never control intent: subscription state comes through
  * an injected read path (the caller owns identity binding, mirroring `fleetA2AActivityAdapter`),
  * and daemon liveness comes from the wake daemon's exclusive-create PID file plus a
- * `process.kill(pid, 0)` existence probe. Watermark/state-file mtime is deliberately NOT a
+ * `process.kill(pid, 0)` existence probe. Terminal delivery failures come from the daemon-owned
+ * atomic receipt file, independently readable even when the affected seat cannot receive A2A.
+ * Watermark/state-file mtime is deliberately NOT a
  * liveness signal: the watermark advances only on delivery activity, so a quiet fleet would be
  * indistinguishable from a dead daemon. The `setWakeEnabled` control verb mutates state that this
  * producer independently observes — the two never share a source.
@@ -114,6 +117,77 @@ export function resolveDaemonLiveness({
 }
 
 /**
+ * @summary Read the daemon-owned terminal delivery-failure receipts once per Fleet snapshot.
+ * Missing means no terminal failure has ever been recorded; malformed/unreadable means unknown,
+ * never healthy-by-default.
+ * @param {Object} options={}
+ * @param {String|null} [options.deliveryFailureFilePath]
+ * @param {Function} [options.readDeliveryFailureFile]
+ * @returns {{state: 'observed'|'unknown', reason: String|null, byIdentity: Map<String,Object[]>}}
+ * @private
+ */
+function readTerminalDeliveryFailures({
+    deliveryFailureFilePath = null,
+    readDeliveryFailureFile = filePath => fs.readFileSync(filePath, 'utf8')
+} = {}) {
+    const byIdentity = new Map()
+
+    if (!deliveryFailureFilePath) {
+        return {
+            state : 'unknown',
+            reason: 'wake delivery failure file path not configured',
+            byIdentity
+        }
+    }
+
+    let parsed
+
+    try {
+        parsed = JSON.parse(readDeliveryFailureFile(deliveryFailureFilePath))
+    } catch (error) {
+        if (error?.code === 'ENOENT') {
+            return {state: 'observed', reason: null, byIdentity}
+        }
+        return {
+            state : 'unknown',
+            reason: error instanceof SyntaxError
+                ? 'malformed wake delivery failure receipt file'
+                : redactReason(error),
+            byIdentity
+        }
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return {state: 'unknown', reason: 'malformed wake delivery failure receipt file', byIdentity}
+    }
+
+    for (const [subscriptionId, receipt] of Object.entries(parsed)) {
+        if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) ||
+            receipt.subscriptionId !== subscriptionId ||
+            typeof receipt.agentIdentity !== 'string' || receipt.agentIdentity.length === 0 ||
+            typeof receipt.errorClass !== 'string' || !/^[a-z0-9-]{1,80}$/.test(receipt.errorClass) ||
+            typeof receipt.failedAt !== 'string' || Number.isNaN(Date.parse(receipt.failedAt))
+        ) {
+            return {state: 'unknown', reason: 'malformed wake delivery failure receipt file', byIdentity: new Map()}
+        }
+
+        const rows = byIdentity.get(receipt.agentIdentity) || []
+        rows.push({
+            subscriptionId,
+            errorClass: receipt.errorClass,
+            failedAt  : new Date(receipt.failedAt).toISOString()
+        })
+        byIdentity.set(receipt.agentIdentity, rows)
+    }
+
+    for (const rows of byIdentity.values()) {
+        rows.sort((left, right) => right.failedAt.localeCompare(left.failedAt))
+    }
+
+    return {state: 'observed', reason: null, byIdentity}
+}
+
+/**
  * @summary Default process-identity reader: the probed pid's command line via `ps` (portable across
  * macOS/Linux). Returns `null` when `ps` yields nothing (the identity stays unknown, never guessed).
  * @param {Number} pid
@@ -130,27 +204,33 @@ function readProcessCommandViaPs(pid) {
 }
 
 /**
- * @summary Maps one agent's subscription state × daemon liveness onto the graduated wake taxonomy.
+ * @summary Maps one agent's subscription state × daemon liveness × terminal delivery state onto
+ * the graduated wake taxonomy.
  *
  * The truth table is the S2 registry contract verbatim: no subscription is OBSERVED `off`; an
- * active subscription with a live daemon is `on`; an active subscription with a dead daemon is
- * `suppressed` (intent on, delivery off — the blind-switch incident class); and any unknown input
- * axis makes the output `unknown`, because claiming `on` or `suppressed` without both facts would
- * fabricate precision.
+ * active subscription with a live daemon and no terminal failure is `on`; an active subscription
+ * with a dead daemon OR a terminal failure is `suppressed` (intent on, delivery off — the
+ * blind-switch incident class); and any unknown input axis makes the output `unknown`, because
+ * claiming `on` or `suppressed` without all facts would fabricate precision.
  * @param {Object} options={}
  * @param {'active'|'none'|'unknown'} options.subscriptionState One agent's wake-subscription intent.
  * @param {Boolean|'unknown'} options.daemonAlive Daemon liveness from {@link resolveDaemonLiveness}.
+ * @param {'none'|'failed'|'unknown'} [options.deliveryFailureState='none'] Terminal receipt axis.
  * @returns {'on'|'off'|'suppressed'|'unknown'}
  */
-export function resolveAgentWakeState({subscriptionState, daemonAlive}) {
+export function resolveAgentWakeState({subscriptionState, daemonAlive, deliveryFailureState = 'none'}) {
     if (subscriptionState === 'none') {
         return 'off'
     }
-    if (subscriptionState !== 'active' || daemonAlive === 'unknown') {
+    if (subscriptionState !== 'active') {
         return 'unknown'
     }
+    // Either observed failure axis is independently sufficient to prove suppression. An unreadable
+    // sibling axis cannot erase that stronger fact.
+    if (daemonAlive === false || deliveryFailureState === 'failed') return 'suppressed'
+    if (daemonAlive === 'unknown' || deliveryFailureState !== 'none') return 'unknown'
 
-    return daemonAlive ? 'on' : 'suppressed'
+    return daemonAlive ? 'on' : 'unknown'
 }
 
 /**
@@ -175,7 +255,11 @@ export function resolveAgentWakeState({subscriptionState, daemonAlive}) {
  *     its wake identity. Default: `'@' + (githubUsername ?? id)` — the swarm's mailbox-identity
  *     convention; override at the entrypoint if the deployment maps identities differently.
  * @param {String|null} [options.pidFilePath] Wake daemon PID file path (entrypoint-resolved).
+ * @param {String|null} [options.deliveryFailureFilePath] Daemon-owned terminal receipt path. When
+ *     omitted beside a configured PID path, defaults to `wake-delivery-failures.json` in that same
+ *     injected directory; no config or env is resolved here.
  * @param {Function} [options.readFile] Test seam for {@link resolveDaemonLiveness}.
+ * @param {Function} [options.readDeliveryFailureFile] Test seam for terminal receipt reads.
  * @param {Function} [options.probeProcess] Test seam for {@link resolveDaemonLiveness}.
  * @param {Function} [options.readProcessCommand] Test seam for {@link resolveDaemonLiveness}.
  * @param {Date|String} [options.capturedAt] Capture timestamp.
@@ -188,7 +272,9 @@ export async function readFleetWakeStateSnapshot({
     listActiveSubscriptionIdentities = null,
     wakeIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
     pidFilePath = null,
+    deliveryFailureFilePath = null,
     readFile,
+    readDeliveryFailureFile,
     probeProcess,
     readProcessCommand,
     capturedAt = new Date()
@@ -217,6 +303,11 @@ export async function readFleetWakeStateSnapshot({
         ...(readFile           && {readFile}),
         ...(probeProcess       && {probeProcess}),
         ...(readProcessCommand && {readProcessCommand})
+    })
+    const failures = readTerminalDeliveryFailures({
+        deliveryFailureFilePath: deliveryFailureFilePath ||
+            (pidFilePath ? path.join(path.dirname(pidFilePath), 'wake-delivery-failures.json') : null),
+        ...(readDeliveryFailureFile && {readDeliveryFailureFile})
     })
 
     const hasReader = Boolean(resolveSubscriptionState),
@@ -256,7 +347,19 @@ export async function readFleetWakeStateSnapshot({
             }
         }
 
-        const wake = resolveAgentWakeState({subscriptionState, daemonAlive: liveness.alive})
+        const
+            wakeIdentity        = wakeIdentityFor(agent),
+            lastDeliveryFailure = failures.state === 'observed'
+                ? failures.byIdentity.get(wakeIdentity)?.[0] || null
+                : null,
+            deliveryFailureState = failures.state === 'unknown'
+                ? 'unknown'
+                : (lastDeliveryFailure ? 'failed' : 'none'),
+            wake = resolveAgentWakeState({
+                subscriptionState,
+                daemonAlive: liveness.alive,
+                deliveryFailureState
+            })
 
         const row = {
             agentId,
@@ -268,7 +371,12 @@ export async function readFleetWakeStateSnapshot({
         if (wake === 'unknown') {
             row.reason = subscriptionState === 'unknown'
                 ? (rowReason || 'subscription state unreadable')
-                : (redactReason(liveness.reason) || 'wake daemon liveness unknown')
+                : liveness.alive === 'unknown'
+                    ? (redactReason(liveness.reason) || 'wake daemon liveness unknown')
+                    : (redactReason(failures.reason) || 'terminal delivery state unreadable')
+        } else if (wake === 'suppressed' && lastDeliveryFailure) {
+            row.reason              = `terminal wake delivery failure: ${lastDeliveryFailure.errorClass}`
+            row.lastDeliveryFailure = lastDeliveryFailure
         }
 
         states.push(row)
@@ -278,10 +386,11 @@ export async function readFleetWakeStateSnapshot({
     // counts as truth — otherwise a throwing scan plus an unreadable daemon reports `partial`
     // visibility while observing exactly nothing.
     const livenessSourceOk = liveness.alive !== 'unknown',
+          failureSourceOk  = failures.state === 'observed',
           readerUsable     = hasReader && !bulkScanFailed,
           readerClean      = readerUsable && failedRows === 0 && invalidRows === 0,
-          fullyOk          = livenessSourceOk && readerClean,
-          anyTruth         = livenessSourceOk || readerUsable
+          fullyOk          = livenessSourceOk && failureSourceOk && readerClean,
+          anyTruth         = livenessSourceOk || failureSourceOk || readerUsable
 
     return {
         capability: {
@@ -291,6 +400,7 @@ export async function readFleetWakeStateSnapshot({
             capturedAt: toIsoString(capturedAt),
             reason    : fullyOk ? null : [
                 livenessSourceOk ? null : (redactReason(liveness.reason) || 'daemon liveness unknown'),
+                failureSourceOk ? null : (redactReason(failures.reason) || 'terminal delivery state unreadable'),
                 hasReader ? null : 'subscription read path unavailable',
                 failedRows > 0 ? `subscription reader failed for ${failedRows} agent(s)` : null,
                 invalidRows > 0 ? `subscription reader returned out-of-contract values for ${invalidRows} agent(s)` : null
