@@ -40,6 +40,7 @@ Per §9 Strategic-Fit Step-Back:
 ### 🕸️ Context & Graph Linking
 *   **Target Epic / Issue ID:** Resolves #[Issue Number]
 *   **Related Graph Nodes:** [Any other related node IDs or conceptual tags]
+*   **Origin Session ID:** [Neo Memory Core UUID, not harness/task/transcript]
 
 ---
 

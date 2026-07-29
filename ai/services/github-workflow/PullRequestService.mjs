@@ -715,6 +715,8 @@ const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
     {label: 'Premise Coherence',         token: '**Premise Coherence:**'}
 ];
 
+const PR_REVIEW_ORIGIN_SESSION_PATTERN = /^\s*[*-]\s+\*\*Origin Session ID:\*\*\s+[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\s*$/im;
+
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
     '# PR Review Follow-Up Summary',
     '**Cycle:**',
@@ -757,6 +759,7 @@ const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '> **Context:**',
     '### State Vector',
     '- **Target SHA:**',
+    '- **Origin Session ID:**',
     '- **Current reviewDecision:**',
     '- **Semantic Status:**',
     '- **CI Status:**',
@@ -799,6 +802,15 @@ const MICRO_REVIEW_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
 ];
 
 const MICRO_REVIEW_CLASS_PATTERN = /(?:^|[^\w-])(micro|contained|mechanical)(?:$|[^\w-])/i;
+
+/**
+ * @summary Returns whether a review body carries a concrete Neo Memory Core origin-session UUID.
+ * @param {String} body The candidate PR review body.
+ * @returns {Boolean} Whether the origin-session field is present and UUID-shaped.
+ */
+function hasValidPrReviewOriginSession(body) {
+    return PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body);
+}
 
 /**
  * @summary Returns missing cycle-template skeleton anchors for review-body validation.
@@ -851,6 +863,10 @@ function isMicroDeltaPrReview(body) {
 function getMicroDeltaPrReviewTemplateMisses(body) {
     const misses = MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
         .filter(anchor => !body.includes(anchor));
+
+    if (!hasValidPrReviewOriginSession(body)) {
+        misses.push('Origin Session ID: Neo Memory Core UUID');
+    }
 
     const remainingBlockerLine = body
         .split('\n')
@@ -905,6 +921,9 @@ function getMicroDeltaPrReviewTemplateValidationFailure(body) {
         `mechanical-hygiene or metadata-drift remaining. If a semantic or contract delta exists, use the`,
         `full follow-up review template instead.`,
         ``,
+        missingMicroDelta.includes('Origin Session ID: Neo Memory Core UUID')
+            ? `Origin-session note: provide the reviewer's Neo Memory Core session UUID, not a harness, task, or transcript identifier.\n`
+            : ``,
         `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor from \`${microDeltaPath}\` is missing or invalid.`
     ].join('\n');
 
@@ -934,12 +953,16 @@ function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDia
     const missingPremiseSnapshot  = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
         .filter(anchor => !body.includes(anchor.token))
         .map(anchor => anchor.label);
+    const missingOriginSession = hasValidPrReviewOriginSession(body)
+        ? []
+        : ['Origin Session ID: Neo Memory Core UUID'];
 
     if (
         missingVisible.length === 0          &&
         missingInvisible.length === 0        &&
         missingTemplateSkeleton.length === 0 &&
-        missingPremiseSnapshot.length === 0
+        missingPremiseSnapshot.length === 0  &&
+        missingOriginSession.length === 0
     ) {
         return null;
     }
@@ -947,7 +970,7 @@ function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDia
     // Compose a message that guides toward the skill without enumerating invisible anchors.
     // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
     // full list — to reduce the "stuff just these tags" attack surface further.
-    const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? null;
+    const diagnosticAnchor = missingVisible[0] ?? missingPremiseSnapshot[0] ?? missingOriginSession[0] ?? null;
 
     const skillPath    = '.agents/skills/pr-review/SKILL.md';
     const templatePath = PR_REVIEW_TEMPLATE_PATH;
@@ -966,6 +989,9 @@ function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDia
         missingPremiseSnapshot.length > 0
             ? `\nPremise snapshot note: all four premise fields (incl. **Premise Coherence:**) are REQUIRED. The value-coherence field takes a specific verdict ("coheres: ..." / "conflicts: ...") OR a scoped "N/A — no value-surface (scope: ...)" for a trivial PR.`
             : ``,
+        missingOriginSession.length > 0
+            ? `\nOrigin-session note: provide the reviewer's Neo Memory Core session UUID, not a harness, task, or transcript identifier.`
+            : ``,
         diagnosticAnchor
             ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
             : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
@@ -979,6 +1005,7 @@ function getCanonicalPrReviewTemplateValidationFailure(body, {includeTemplateDia
         // are intentionally NOT enumerated in the response body — even programmatic
         // callers should be nudged toward the skill rather than the anchor list.
         missing_visible         : missingVisible,
+        missing_origin_session  : missingOriginSession,
         missing_premise_snapshot: missingPremiseSnapshot,
         skill                   : skillPath,
         template                : templatePath

@@ -230,6 +230,8 @@ jobs:
               {label: "Premise Coherence",        token: "**Premise Coherence:**"}
             ];
 
+            const PR_REVIEW_ORIGIN_SESSION_PATTERN = /^\s*[*-]\s+\*\*Origin Session ID:\*\*\s+[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\s*$/im;
+
             const MICRO_DELTA_PR_REVIEW_SHAPE_HINTS = [
               "# Pull Request Micro-Delta Review",
               "### State Vector",
@@ -242,6 +244,7 @@ jobs:
               "> **Context:**",
               "### State Vector",
               "- **Target SHA:**",
+              "- **Origin Session ID:**",
               "- **Current reviewDecision:**",
               "- **Semantic Status:**",
               "- **CI Status:**",
@@ -294,6 +297,10 @@ jobs:
               const microDeltaMisses = MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS
                 .filter(a => !body.includes(a));
               const remainingBlockerLine = body.split("\n").find(l => l.includes("- **Remaining Blocker Class:**")) || "";
+
+              if (!PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)) {
+                microDeltaMisses.push("Origin Session ID: Neo Memory Core UUID");
+              }
 
               if (!MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN.test(remainingBlockerLine)) {
                 microDeltaMisses.push("Remaining Blocker Class: mechanical-hygiene | metadata-drift");
@@ -360,8 +367,11 @@ jobs:
             const missingPremiseSnapshot = REQUIRED_PR_REVIEW_PREMISE_ANCHORS
               .filter(a => !body.includes(a.token))
               .map(a => a.label);
+            const missingOriginSession = PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)
+              ? []
+              : ["Origin Session ID: Neo Memory Core UUID"];
 
-            if (missingVisible.length === 0 && missingInvisible.length === 0 && missingPremiseSnapshot.length === 0) {
+            if (missingVisible.length === 0 && missingInvisible.length === 0 && missingPremiseSnapshot.length === 0 && missingOriginSession.length === 0) {
               console.log("✅ Review body contains all required anchors.");
               return;
             }
@@ -370,7 +380,7 @@ jobs:
             // anchors. Even visible-list naming is bounded — at most ONE diagnostic
             // anchor in the prose (the full visible-miss list goes in the collapsed
             // details block for programmatic access; invisible misses are NEVER named).
-            const diagnosticAnchor = missingVisible[0] || missingPremiseSnapshot[0] || null;
+            const diagnosticAnchor = missingVisible[0] || missingPremiseSnapshot[0] || missingOriginSession[0] || null;
 
             const skillPath    = '.agents/skills/pr-review/SKILL.md';
             const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
@@ -396,6 +406,10 @@ jobs:
               ``,
               missingPremiseSnapshot.length > 0
                 ? `**Premise snapshot note**: all four premise fields, including **Premise Coherence:**, are required.`
+                : ``,
+              ``,
+              missingOriginSession.length > 0
+                ? `**Origin-session note**: provide the reviewer's Neo Memory Core session UUID, not a harness, task, or transcript identifier.`
                 : ``,
               ``,
               diagnosticAnchor
