@@ -628,6 +628,20 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114, #16115)', () => {
                     dreamInputRevision: newerDreamInputRevision
                 }
             });
+
+            const settled = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                now: 300
+            });
+
+            expect(settled).toMatchObject({
+                scanned  : 1,
+                present  : 1,
+                replayed : 0,
+                completed: 1
+            });
+            expect(collection.upsertCalls).toBe(1);
             expect(() => encodeSessionSummaryReceipt(receipt))
                 .toThrow(/unowned keys: retiredSynthesisField/);
         } finally {

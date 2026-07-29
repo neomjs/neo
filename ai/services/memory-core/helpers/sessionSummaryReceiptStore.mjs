@@ -274,9 +274,10 @@ export function acknowledgeSessionSummaryReceipt({db, sessionId, now = Date.now(
  *
  * DreamService legitimately adds graph-digestion lifecycle fields to the same metadata
  * object after synthesis. Those downstream-owned overlays do not make the acknowledged
- * synthesis result stale. The receipt remains exact for its document and every declared
- * metadata key present at issuance; a missing or changed receipt-owned value still requires
- * replay.
+ * synthesis result stale. The receipt remains exact for its document and the metadata key set
+ * owned by its envelope version: version 1 uses its frozen issuance-era keys, while current
+ * envelopes enforce the full declared synthesis-owned key set. A missing or changed
+ * receipt-owned value still requires replay.
  *
  * @param {Object|undefined} row
  * @param {Object} receipt
@@ -287,6 +288,10 @@ function matchesSessionSummaryReceipt(row, receipt) {
         return false;
     }
 
+    // Version 1 is a closed issuance schema, so its own frozen metadata keys are authoritative.
+    // Applying the current declared set would require dreamInputRevision, which v1 cannot carry:
+    // recovery would replay, Chroma would preserve that newer overlay, and the next sweep would
+    // mismatch again — #16110's retained-v1 non-convergent loop (ticket-ref-ok: exact failure anchor).
     const ownedKeys = receipt.version === 1
         ? Object.keys(receipt.metadata)
         : SESSION_SUMMARY_RECEIPT_METADATA_KEYS;
