@@ -353,20 +353,33 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
     test('target-proxy staging uses the physical parked popup instead of the source sort-zone window', async () => {
         const
-            workspace      = Neo.create(Workspace, {}),
-            originalProxy  = workspace.vesselProxyEmbodiment,
-            stagedPayloads = [];
+            workspace       = Neo.create(Workspace, {}),
+            originalProxy   = workspace.vesselProxyEmbodiment,
+            settledPayloads = [],
+            stagedPayloads  = [];
         let participation;
 
         try {
             workspace.tearOutConnects.audit = {windowId: 'parked-audit-popup'};
+            workspace.vesselWorkspaces.set('proxy-target-workspace', {
+                preview: {
+                    dockPreview: {itemId: 'audit'},
+                    promiseUpdate() {
+                        settledPayloads.push('preview-rendered')
+                    }
+                }
+            });
             workspace.vesselProxyEmbodiment = {
                 move: data => {
                     stagedPayloads.push(data);
                     return true
                 },
                 promote: () => true,
-                restore: () => true
+                restore: () => true,
+                whenSettled(data) {
+                    settledPayloads.push(data);
+                    return true
+                }
             };
 
             participation = await workspace.createCrossWindowParticipation({
@@ -385,7 +398,13 @@ test.describe.serial('Workstation.view.Workspace', () => {
                 ...payload,
                 sourceWindowId: 'parked-audit-popup',
                 targetWindowId: 'proxy-target-window'
-            }])
+            }]);
+            await expect(participation.target.awaitDragEmbodiment(payload)).resolves.toBe(true);
+            expect(settledPayloads).toEqual([{
+                itemId        : 'audit',
+                sourceWindowId: 'parked-audit-popup',
+                targetWindowId: 'proxy-target-window'
+            }, 'preview-rendered'])
         } finally {
             participation?.destroy();
             workspace.vesselProxyEmbodiment = originalProxy;
@@ -988,6 +1007,39 @@ test.describe.serial('Workstation.view.Workspace', () => {
                     height: targetRect.height
                 }));
 
+                const
+                    nativeHomeId = 'right-top-tabs',
+                    nativeTarget = host.down({dockNodeId: nativeHomeId});
+
+                workspace.tearOutPlacements.queues = {index: 1, tabsNodeId: nativeHomeId};
+                workspace.crossWindowPreviewGeometries.delete(Workspace.MAIN_WORKSPACE_ID);
+
+                await workspace.ensureCrossWindowPreviewGeometry(
+                    Workspace.MAIN_WORKSPACE_ID,
+                    nativeHomeId
+                );
+
+                expect(measuredIds.at(-1)).toEqual([host.id, nativeTarget.id]);
+
+                const nativeReturnPreview = workspace.renderCrossWindowPreview(
+                    Workspace.MAIN_WORKSPACE_ID,
+                    {
+                        draggedItem: {
+                            dockItemId           : 'queues',
+                            dockSourceWorkspaceId: Workspace.MAIN_WORKSPACE_ID
+                        },
+                        localX      : 250,
+                        localY      : 160,
+                        sourceNodeId: Workspace.vesselTabsNodeId('queues')
+                    }
+                );
+
+                expect(nativeReturnPreview?.target.nodeId,
+                    'a main-origin native popup must recover its own saved semantic home')
+                    .toBe(nativeHomeId);
+
+                workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
+
                 let settleReplacement;
 
                 WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1279, height: 720}});
@@ -1033,6 +1085,181 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(workspace.getPaneIdentity('alerts')).toBe(alertsIdentity);
             expect(workspace.getPaneIdentity('security')).toBe(securityIdentity)
         } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('native-titlebar source discovery resolves the exact live bare-vessel pane and rejects stale topology', () => {
+        const
+            workspace   = Neo.create(Workspace, {}),
+            itemId      = 'alerts',
+            pane        = workspace.paneCache[itemId],
+            workspaceId = Workspace.vesselWorkspaceId(itemId),
+            detached    = DockZoneModel.applyOperation(workspace.dockModel, {
+                operation: 'detachItem',
+                itemId
+            }),
+            state       = {
+                app           : {mainView: {isDestroyed: false}},
+                closeRequested: false,
+                committed     : false,
+                disconnected  : false,
+                document      : null,
+                itemId,
+                windowId      : 'window-alerts',
+                workspaceId
+            };
+
+        try {
+            expect(detached.errors).toEqual([]);
+            workspace.dockModel = detached.document;
+            workspace.tearOutPanes[itemId] = {
+                windowId  : 'window-alerts',
+                windowName: 'tearout-alerts'
+            };
+            workspace.vesselWorkspaces.set(workspaceId, state);
+
+            const source = workspace.resolveNativeTearOutDrag('window-alerts');
+
+            expect(source).toMatchObject({
+                draggedItem      : pane,
+                embodyNativeHover: true,
+                sourceWindowId   : 'window-alerts',
+                widgetName       : itemId
+            });
+            expect(source.draggedItem).toBe(pane);
+            expect(pane.dockItemId).toBe(itemId);
+            expect(pane.dockSourceWorkspaceId).toBe(Workspace.MAIN_WORKSPACE_ID);
+            expect(pane.dockGroupNodeId).toBeUndefined();
+            expect(workspace.resolveNativeTearOutDrag('window-other')).toBeNull();
+
+            state.disconnected = true;
+            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull();
+
+            state.disconnected = false;
+            state.committed    = true;
+            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull();
+
+            state.committed = false;
+            state.windowId  = 'window-mismatch';
+            expect(workspace.resolveNativeTearOutDrag('window-alerts')).toBeNull()
+        } finally {
+            workspace.destroy()
+        }
+    });
+
+    test('native-titlebar parking uses the exact native route and compensates without pointer drag state', async () => {
+        const
+            workspace           = Neo.create(Workspace, {}),
+            originalDragDrop    = Neo.main.addon.DragDrop,
+            originalManagerGet  = Neo.manager.Window.get,
+            originalNativeFocus = Neo.Main.windowNativeFocus,
+            originalNativeMove  = Neo.Main.windowNativeMoveTo,
+            originalWindowFocus = Neo.Main.windowFocus,
+            focusResults        = [true, true, true, false],
+            focusCalls          = [],
+            nativeFocusCalls    = [],
+            nativeMoveCalls     = [],
+            pointerCalls        = [],
+            ownerWindowId       = workspace.windowId,
+            sourceWindowId      = 'window-alerts',
+            targetWindowId      = ownerWindowId,
+            sourceRect          = {height: 320, width: 480, x: 420, y: 240},
+            targetRect          = {height: 700, width: 1000, x: 30, y: 50},
+            routeFor            = (targetWindowId, capabilities) => ({
+                capabilities,
+                nativeHandleKey: `handle-${targetWindowId}`,
+                ownerWindowId,
+                targetWindowId
+            });
+
+        try {
+            workspace.tearOutPanes.alerts = {
+                windowId  : sourceWindowId,
+                windowName: 'tearout-alerts'
+            };
+            workspace.vesselConversionTargetWindowId = targetWindowId;
+
+            Neo.manager.Window.get = windowId => ({
+                [sourceWindowId]: {
+                    innerRect  : sourceRect,
+                    nativeRoute: routeFor(sourceWindowId, {position: true})
+                },
+                [targetWindowId]: {
+                    innerRect  : targetRect,
+                    nativeRoute: null
+                }
+            })[windowId] ?? null;
+            Neo.Main.windowFocus = async data => {
+                focusCalls.push(data);
+                return focusResults.shift()
+            };
+            Neo.Main.windowNativeFocus = async data => {
+                nativeFocusCalls.push(data);
+                return true
+            };
+            Neo.Main.windowNativeMoveTo = async data => {
+                nativeMoveCalls.push(data);
+                return true
+            };
+            Neo.main.addon.DragDrop = {
+                parkWindowDrag: async data => {
+                    pointerCalls.push(['park', data]);
+                    return true
+                },
+                resumeWindowDrag: async data => {
+                    pointerCalls.push(['resume', data]);
+                    return true
+                }
+            };
+
+            await expect(workspace.parkTearOutVessel({
+                itemId        : 'alerts',
+                nativeTitlebar: true,
+                windowName    : 'tearout-alerts'
+            })).resolves.toBe(true);
+
+            expect(nativeMoveCalls).toEqual([{
+                nativeHandleKey: `handle-${sourceWindowId}`,
+                targetWindowId : sourceWindowId,
+                windowId       : ownerWindowId,
+                windowName     : 'tearout-alerts',
+                x              : targetRect.x,
+                y              : targetRect.y
+            }]);
+            expect(pointerCalls, 'a terminal titlebar drag has no live pointer DragDrop session').toEqual([]);
+            expect(focusCalls).toEqual([
+                {windowId: sourceWindowId},
+                {windowId: sourceWindowId}
+            ]);
+            expect(nativeFocusCalls,
+                'the root target has no opener-minted native route; the popup focuses its opener').toEqual([]);
+
+            nativeMoveCalls.length = 0;
+
+            await expect(workspace.parkTearOutVessel({
+                itemId        : 'alerts',
+                nativeTitlebar: true,
+                windowName    : 'tearout-alerts'
+            })).resolves.toBe(false);
+
+            expect(nativeMoveCalls.map(({x, y}) => ({x, y}))).toEqual([
+                {x: targetRect.x, y: targetRect.y},
+                {x: sourceRect.x, y: sourceRect.y}
+            ]);
+            expect(focusCalls).toEqual([
+                {windowId: sourceWindowId},
+                {windowId: sourceWindowId},
+                {windowId: sourceWindowId},
+                {windowId: sourceWindowId}
+            ]);
+            expect(pointerCalls).toEqual([])
+        } finally {
+            Neo.main.addon.DragDrop     = originalDragDrop;
+            Neo.manager.Window.get      = originalManagerGet;
+            Neo.Main.windowNativeFocus  = originalNativeFocus;
+            Neo.Main.windowNativeMoveTo = originalNativeMove;
+            Neo.Main.windowFocus        = originalWindowFocus;
             workspace.destroy()
         }
     });

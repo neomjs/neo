@@ -13,7 +13,9 @@ import DragCoordinator from '../manager/DragCoordinator.mjs';
  * in a sibling window on the same App-Worker heap; this class is what a dock workspace registers
  * to participate. It fulfils the §2.3 target-side contract — registry identity (`sortGroup`,
  * `windowId`) plus the four mandatory hooks (`acceptsRemoteDrag`, `onRemoteDragMove`,
- * `onRemoteDragLeave`, `onRemoteDrop`) — and deliberately owns NOTHING else:
+ * `onRemoteDragLeave`, `onRemoteDrop`). A product owner may additionally bind the optional native
+ * popup source seams, letting the SAME stable registration describe a physical popup gesture
+ * without competing for the coordinator's one target slot:
  *
  * - **No parallel drag system** (the inherited §2.3 guardrail): the hover path produces
  *   `dockPreview` payloads through the owner's landed preview machinery, and the drop path
@@ -70,6 +72,23 @@ class CrossWindowDragTarget extends Base {
          */
         hitTest: null,
         /**
+         * Optional owner seam: resolves a physical native popup window into its exact live drag
+         * record. The returned record remains product-owned; this carrier adds no dock semantics.
+         * @member {Function|null} resolveNativeWindowDrag=null
+         */
+        resolveNativeWindowDrag: null,
+        /**
+         * Optional owner seam: resumes the exact source popup after a native target handoff is
+         * refused or cancelled.
+         * @member {Function|null} resumeNativeWindowDrag=null
+         */
+        resumeNativeWindowDrag: null,
+        /**
+         * Optional owner seam: retires the exact source popup after the target semantic commit.
+         * @member {Function|null} retireNativeWindowDrag=null
+         */
+        retireNativeWindowDrag: null,
+        /**
          * Owner seam: maps a remote-drag hover payload
          * (`{draggedItem, localX, localY, offsetX, offsetY, proxyRect}`) to a runtime-only
          * `dockPreview` payload (or null outside affordances) AND renders the owner's hover
@@ -117,6 +136,19 @@ class CrossWindowDragTarget extends Base {
          * @member {Function|null} stageDragEmbodiment=null
          */
         stageDragEmbodiment: null,
+        /**
+         * Optional owner seam: resolves only after the exact staged proxy generation has settled
+         * in its target renderer. Native-titlebar commitment requires strict `true` before its
+         * retained readability interval can begin.
+         * @member {Function|null} awaitDragEmbodiment=null
+         */
+        awaitDragEmbodiment: null,
+        /**
+         * Optional owner seam: parks/relegates the physical source popup before target-local
+         * embodiment. Strict `true` admits the native handoff.
+         * @member {Function|null} suspendNativeWindowDrag=null
+         */
+        suspendNativeWindowDrag: null,
         /**
          * §2.3 registry identity: the window this surface renders in.
          * @member {String|Number|null} windowId=null
@@ -166,6 +198,25 @@ class CrossWindowDragTarget extends Base {
     }
 
     /**
+     * @summary Resolves an optional native-popup source through the registered participation.
+     * @param {String|Number} windowId The physical moving popup.
+     * @returns {Object|null}
+     */
+    getNativeWindowDrag(windowId) {
+        return this.resolveNativeWindowDrag?.(windowId) ?? null
+    }
+
+    /**
+     * @summary Retires a native popup only after the target reports a semantic commit.
+     * @param {Object} draggedItem
+     * @param {Object} [context]
+     * @returns {*}
+     */
+    onRemoteDropOut(draggedItem, context) {
+        return this.retireNativeWindowDrag?.(draggedItem, context)
+    }
+
+    /**
      * §2.3 mandatory hook: hover feedback for a remote drag over this target. Delegates the
      * compute+render to the owner's preview machinery and keeps the latest payload for the
      * drop path.
@@ -206,6 +257,28 @@ class CrossWindowDragTarget extends Base {
     }
 
     /**
+     * @summary Awaits renderer settlement for the exact active target-local embodiment.
+     *
+     * The dragged item must still own this target's current licensed payload. This generation
+     * fence keeps a late renderer acknowledgement from authorizing a restored successor.
+     * @param {Object} draggedItem The coordinator's exact dragged component.
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    async awaitRemoteDragEmbodiment(draggedItem) {
+        const
+            payload = this.currentDragPayload,
+            current = payload?.embodyProxy === true && payload.draggedItem === draggedItem;
+
+        if (!current) return false;
+
+        const settled = await (this.awaitDragEmbodiment?.(payload) ?? false);
+
+        return settled === true &&
+            !this.isDestroyed &&
+            this.currentDragPayload === payload
+    }
+
+    /**
      * §2.3 mandatory hook: clear hover feedback when the drag exits this target or the
      * coordinator switches targets.
      */
@@ -217,6 +290,27 @@ class CrossWindowDragTarget extends Base {
         me.currentDragPayload = null;
         me.currentPreview     = null;
         me.clearPreview?.()
+    }
+
+    /**
+     * @summary Restores the physical native source after target-local state has been released.
+     * @param {String} widgetName
+     * @param {Object} proxyRect
+     * @param {Object} [context]
+     * @returns {*}
+     */
+    resumeWindowDrag(widgetName, proxyRect, context) {
+        return this.resumeNativeWindowDrag?.(widgetName, proxyRect, context)
+    }
+
+    /**
+     * @summary Parks/relegates the physical native source before a target-local embodiment.
+     * @param {String} widgetName
+     * @param {Object} [context]
+     * @returns {*}
+     */
+    suspendWindowDrag(widgetName, context) {
+        return this.suspendNativeWindowDrag?.(widgetName, context)
     }
 
     /**
@@ -241,24 +335,35 @@ class CrossWindowDragTarget extends Base {
                 result = me.commitOperation?.(operation, draggedItem) ?? null
             }
         } catch (error) {
-            payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+            me.currentDragPayload === payload &&
+                !me.isDestroyed &&
+                payload?.embodyProxy === true &&
+                me.restoreDragEmbodiment?.(payload);
             me.clearRemoteState(payload);
             throw error
         }
 
         const settle = committed => {
-            if (payload?.embodyProxy === true) {
+            const current = me.currentDragPayload === payload && !me.isDestroyed;
+
+            // A target can unregister while an async owner commit is pending. Its leave path has
+            // already restored this exact embodiment; a late completion must neither promote that
+            // stale generation nor advertise a commit to the coordinator/source disposer.
+            if (current && payload?.embodyProxy === true) {
                 me[committed ? 'promoteDragEmbodiment' : 'restoreDragEmbodiment']?.(payload)
             }
 
             me.clearRemoteState(payload);
 
-            return committed
+            return current ? committed : null
         };
 
         return typeof result?.then === 'function'
             ? result.then(settle, error => {
-                payload?.embodyProxy === true && me.restoreDragEmbodiment?.(payload);
+                me.currentDragPayload === payload &&
+                    !me.isDestroyed &&
+                    payload?.embodyProxy === true &&
+                    me.restoreDragEmbodiment?.(payload);
                 me.clearRemoteState(payload);
                 throw error
             })

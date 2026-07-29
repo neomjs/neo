@@ -70,13 +70,16 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
 
                 // Cross-window insertion is not complete when `add()` returns. The exact vessel
                 // may otherwise be published to gesture logic, parked, and only THEN finish its
-                // pane mount — a late focus/mount side effect that can raise the parked source.
+                // pane mount — a late focus/mount side effect could raise the parked source.
                 // Both structural mutations are silent above so staging owns exactly one
-                // settlement transaction per parent before publishing the embodiment.
-                await Promise.all([
-                    sourceParent.promiseUpdate?.(),
-                    target.promiseUpdate?.()
-                ]);
+                // settlement transaction per parent before publishing the embodiment. A parked
+                // source renderer may reject OR never acknowledge another frame after physical
+                // parking. Start that source-slot transaction, but do not let it veto or deadlock
+                // the target renderer's independently provable readability.
+                Promise.resolve()
+                    .then(() => sourceParent.promiseUpdate?.())
+                    .catch(() => {});
+                await Promise.resolve().then(() => target.promiseUpdate?.());
 
                 return records.get(itemId) === record
             } catch {
@@ -367,6 +370,7 @@ export function createDockVesselProxyEmbodiment({
                     itemId,
                     promoted  : false,
                     proxy     : null,
+                    settlement: null,
                     settled   : false,
                     sourceWindowId,
                     targetWindowId
@@ -409,7 +413,7 @@ export function createDockVesselProxyEmbodiment({
                     return false
                 }
 
-                Promise.resolve(settlement).then(admitted => {
+                record.settlement = Promise.resolve(settlement).then(admitted => {
                     if (active !== record) return false;
 
                     record.settled = admitted === true;
@@ -499,6 +503,32 @@ export function createDockVesselProxyEmbodiment({
             )
                 ? this.restore({itemId: record.itemId})
                 : false
+        },
+
+        /**
+         * @summary Waits for the exact active proxy generation to finish cross-window rendering.
+         *
+         * Synchronous staging reserves source ownership, but target `promiseUpdate()` settlement is
+         * the first point at which a retained handoff interval may honestly begin. A restored,
+         * promoted, or superseded generation resolves false.
+         * @param {Object} identity
+         * @param {String} identity.itemId
+         * @param {String|Number} [identity.sourceWindowId]
+         * @param {String|Number} [identity.targetWindowId]
+         * @returns {Promise<Boolean>}
+         */
+        async whenSettled(identity = {}) {
+            const record = resolveRecord(identity);
+
+            if (!record?.settlement) return false;
+
+            const admitted = await record.settlement;
+
+            return admitted === true &&
+                active === record &&
+                resolveRecord(identity) === record &&
+                embodiment.isStaged(record.itemId) &&
+                resolvePane(record.itemId)?.parent === record.proxy
         },
 
         /**

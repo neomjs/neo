@@ -27,6 +27,18 @@ class DragCoordinator extends Manager {
          */
         nativeWindowDropDwellMs: 450,
         /**
+         * Retained target-local embodiment interval after native settle and before semantic commit.
+         * This guarantees at least one painted handoff frame without inventing a browser mouseup.
+         * @member {Number} nativeWindowDropHandoffMs=180
+         */
+        nativeWindowDropHandoffMs: 180,
+        /**
+         * Base delay for retrying a strict physical source restore/retirement refusal. The target
+         * semantic terminal runs once; only the retained native disposition is retried.
+         * @member {Number} nativeWindowDispositionRetryMs=250
+         */
+        nativeWindowDispositionRetryMs: 250,
+        /**
          * Quiescence delay after the last native window-position update before committing
          * a geometry-only drop. The browser has no mouseup during OS-titlebar drags.
          * @member {Number} nativeWindowDropSettleMs=250
@@ -104,13 +116,41 @@ class DragCoordinator extends Manager {
      *
      * Clears a pending geometry-only native window-drop candidate.
      * @param {String} windowId
+     * @param {Object} [options]
+     * @param {Boolean} [options.restoreSource=true] False only when the physical source already
+     *     disconnected and therefore cannot be restored.
      */
-    clearNativeWindowDropCandidate(windowId) {
-        let candidate = this.nativeWindowDropCandidates.get(windowId);
+    clearNativeWindowDropCandidate(windowId, {restoreSource=true}={}) {
+        let me        = this,
+            candidate = me.nativeWindowDropCandidates.get(windowId);
 
         if (candidate) {
+            candidate.cancelled = true;
+            candidate.registrationRefreshes?.clear();
+            candidate.registrationRefreshes = null;
             clearTimeout(candidate.timeoutId);
-            this.nativeWindowDropCandidates.delete(windowId)
+            candidate.resolveHandoff?.();
+
+            if (candidate.embodied) {
+                candidate.embodied = false;
+
+                if (me.nativeHoverTargets.get(windowId) === candidate.targetSortZone) {
+                    candidate.targetSortZone?.onRemoteDragLeave?.();
+                    me.nativeHoverTargets.delete(windowId)
+                }
+            }
+
+            if (candidate.sourceSuspended && restoreSource) {
+                candidate.phase = 'settling-rejected';
+                me.endNativeGesture(windowId);
+                me.settleNativeWindowDisposition(windowId, candidate, false).catch(error => {
+                    (Neo.logError || console.error)('Native window restore failed', error)
+                });
+                return
+            }
+
+            candidate.sourceSuspended = false;
+            me.nativeWindowDropCandidates.delete(windowId)
         }
     }
 
@@ -139,6 +179,79 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary Settles only the physical source half of an already-decided native terminal.
+     *
+     * Workstation's embodied titlebar route is strict: `true` alone admits close or restore.
+     * A refusal retains this candidate as exact retry authority and backs off without replaying
+     * the target model operation. Legacy sources keep their historical fire-and-forget contract.
+     * @param {String} windowId Moving popup identity.
+     * @param {Object} candidate Retained native candidate.
+     * @param {Boolean} committed Whether the target semantic operation committed.
+     * @returns {Promise<Boolean>} Strict physical-settlement outcome.
+     */
+    async settleNativeWindowDisposition(windowId, candidate, committed) {
+        let me = this;
+
+        if (me.nativeWindowDropCandidates.get(windowId) !== candidate) {
+            return false
+        }
+
+        clearTimeout(candidate.timeoutId);
+        candidate.dispositionAttempts = (candidate.dispositionAttempts || 0) + 1;
+        candidate.phase = committed ? 'settling-committed' : 'settling-rejected';
+
+        let result,
+            threw = false;
+
+        try {
+            result = await (committed
+                ? candidate.sourceSortZone?.onRemoteDropOut?.(candidate.draggedItem, candidate)
+                : candidate.sourceSortZone?.resumeWindowDrag?.(
+                    candidate.widgetName,
+                    candidate.proxyRect,
+                    candidate
+                ))
+        } catch (error) {
+            threw = true;
+            (Neo.logError || console.error)(
+                committed ? 'Native window retirement failed' : 'Native window restore failed',
+                error
+            )
+        }
+
+        // A successful physical close can synchronously trigger source disconnect cleanup while
+        // the effect Promise is settling. That cleanup already consumed this generation.
+        if (me.nativeWindowDropCandidates.get(windowId) !== candidate) {
+            return result === true
+        }
+
+        const admitted = !threw && (candidate.embodyNativeHover === true
+            ? result === true
+            : true);
+
+        if (admitted) {
+            candidate.sourceSuspended = false;
+            me.nativeWindowDropCandidates.delete(windowId);
+            me.endNativeGesture(windowId);
+            return true
+        }
+
+        const delay = Math.min(
+            5000,
+            Math.max(1, me.nativeWindowDispositionRetryMs) *
+                2 ** Math.min(candidate.dispositionAttempts - 1, 4)
+        );
+
+        candidate.timeoutId = setTimeout(() => {
+            me.settleNativeWindowDisposition(windowId, candidate, committed).catch(error => {
+                (Neo.logError || console.error)('Native window disposition retry failed', error)
+            })
+        }, delay);
+
+        return false
+    }
+
+    /**
      * @summary Commits an inferred native-titlebar popup drop into the remote dashboard path.
      *
      * Commits a conservative geometry-only native titlebar drop into the existing remote
@@ -155,10 +268,9 @@ class DragCoordinator extends Manager {
             return
         }
 
-        me.nativeWindowDropCandidates.delete(windowId);
-
         let {
             draggedItem,
+            embodyNativeHover,
             localX,
             localY,
             offsetX,
@@ -170,42 +282,159 @@ class DragCoordinator extends Manager {
         } = candidate;
 
         if (sourceSortZone.getNativeWindowDrag?.(windowId)?.draggedItem !== draggedItem) {
+            me.clearNativeWindowDropCandidate(windowId);
+            me.endNativeGesture(windowId);
             return
         }
 
         if (!targetSortZone.acceptsRemoteDrag(localX, localY)) {
+            me.clearNativeWindowDropCandidate(windowId);
+            me.endNativeGesture(windowId);
             return
         }
 
-        await sourceSortZone.suspendWindowDrag(widgetName);
+        candidate.phase = 'parking';
 
-        await targetSortZone.onRemoteDragMove({
-            draggedItem,
-            embodyProxy: true,
-            localX,
-            localY,
-            offsetX,
-            offsetY,
-            proxyRect,
-            sourceSortZone
-        });
+        let suspended;
 
-        // The native-titlebar path answers the same question as the pointer path, so it obeys the same
-        // rule: the target's return IS the commit decision, and a null means it declined. Retiring the
-        // source anyway arms `remoteDropCommitted` and suppresses the source's own restore, leaving the
-        // item with no owner — identical to the pointer defect, reached through a different door.
-        const operation = await targetSortZone.onRemoteDrop(draggedItem);
+        try {
+            suspended = await sourceSortZone.suspendWindowDrag(widgetName, candidate);
 
-        if (operation) {
-            sourceSortZone.onRemoteDropOut(draggedItem)
-        }
+            if (me.nativeWindowDropCandidates.get(windowId) !== candidate || candidate.cancelled) {
+                if (suspended !== false) {
+                    candidate.sourceSuspended = true;
 
-        // The commit is a gesture terminal: the popup's token and hover bookkeeping die here.
-        // Ordered AFTER the drop — the preview is the drop's input and must outlive it.
-        me.endNativeGesture(windowId);
+                    if (!me.nativeWindowDropCandidates.has(windowId)) {
+                        me.nativeWindowDropCandidates.set(windowId, candidate)
+                    }
+                    if (me.nativeWindowDropCandidates.get(windowId) === candidate) {
+                        await me.settleNativeWindowDisposition(windowId, candidate, false)
+                    }
+                }
+                return
+            }
 
-        if (me.activeTargetZone === targetSortZone) {
-            me.activeTargetZone = null
+            if (embodyNativeHover === true && suspended !== true) {
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId);
+                return
+            }
+
+            candidate.sourceSuspended = suspended !== false;
+
+            const preview = await targetSortZone.onRemoteDragMove({
+                draggedItem,
+                embodyProxy   : true,
+                localX,
+                localY,
+                offsetX,
+                offsetY,
+                proxyRect,
+                sourceSortZone,
+                sourceWindowId: candidate.sourceWindowId
+            });
+
+            if (embodyNativeHover === true && !preview) {
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId);
+                return
+            }
+
+            candidate.embodied = embodyNativeHover === true;
+
+            if (embodyNativeHover === true) {
+                const settled = await targetSortZone.awaitRemoteDragEmbodiment?.(draggedItem);
+
+                if (
+                    me.nativeWindowDropCandidates.get(windowId) !== candidate ||
+                    candidate.cancelled
+                ) {
+                    return
+                }
+
+                if (settled !== true) {
+                    me.clearNativeWindowDropCandidate(windowId);
+                    me.endNativeGesture(windowId);
+                    return
+                }
+
+                candidate.phase = 'embodied';
+
+                await new Promise(resolve => {
+                    candidate.resolveHandoff = resolve;
+                    candidate.timeoutId       = setTimeout(resolve, me.nativeWindowDropHandoffMs)
+                });
+
+                candidate.resolveHandoff = null;
+
+                if (me.nativeWindowDropCandidates.get(windowId) !== candidate || candidate.cancelled) {
+                    return
+                }
+            }
+
+            if (
+                sourceSortZone.getNativeWindowDrag?.(windowId)?.draggedItem !== draggedItem ||
+                !targetSortZone.acceptsRemoteDrag(localX, localY)
+            ) {
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId);
+                return
+            }
+
+            clearTimeout(candidate.timeoutId);
+            candidate.phase = 'settling-target';
+
+            // The native-titlebar path answers the same question as the pointer path, so the
+            // target's return IS the commit decision. Target settlement (promote or restore)
+            // precedes the matching physical source disposition on both branches.
+            const operation = await targetSortZone.onRemoteDrop(draggedItem);
+
+            if (
+                me.nativeWindowDropCandidates.get(windowId) !== candidate ||
+                candidate.cancelled
+            ) {
+                return
+            }
+
+            candidate.embodied = false;
+
+            if (me.nativeHoverTargets.get(windowId) === targetSortZone) {
+                me.nativeHoverTargets.delete(windowId)
+            }
+
+            // Target semantic settlement is exact-once. The claim/hover generation dies now;
+            // strict physical close/restore may remain as separately retained retry authority.
+            me.endNativeGesture(windowId);
+
+            if (me.activeTargetZone === targetSortZone) {
+                me.activeTargetZone = null
+            }
+
+            await me.settleNativeWindowDisposition(windowId, candidate, Boolean(operation))
+        } catch (error) {
+            if (me.nativeWindowDropCandidates.get(windowId) === candidate) {
+                candidate.cancelled = true;
+
+                if (
+                    candidate.embodied &&
+                    me.nativeHoverTargets.get(windowId) === targetSortZone
+                ) {
+                    targetSortZone.onRemoteDragLeave?.();
+                    me.nativeHoverTargets.delete(windowId)
+                }
+
+                candidate.embodied = false;
+                me.endNativeGesture(windowId);
+
+                if (candidate.sourceSuspended) {
+                    await me.settleNativeWindowDisposition(windowId, candidate, false)
+                } else {
+                    me.nativeWindowDropCandidates.delete(windowId)
+                }
+            }
+
+            me.endNativeGesture(windowId);
+            throw error
         }
     }
 
@@ -267,6 +496,7 @@ class DragCoordinator extends Manager {
             popupWindow      = Window.get(data.windowId),
             popupRect        = popupWindow?.innerRect,
             {sortGroup}      = sourceSortZone,
+            sourceWindowId   = sourceDrag.sourceWindowId ?? sourceSortZone.windowId,
             targetWindowId, targetSortZone, targetWindow, localX, localY, width, height, arbiter, claimed, excludedWindowIds;
 
         if (!popupRect || !sortGroup) {
@@ -276,7 +506,7 @@ class DragCoordinator extends Manager {
         localX = popupRect.x + popupRect.width  / 2;
         localY = popupRect.y + popupRect.height / 2;
 
-        excludedWindowIds = new Set([data.windowId, sourceSortZone.windowId]);
+        excludedWindowIds = new Set([data.windowId, sourceWindowId]);
         arbiter           = me.nativeClaimArbiters.get(data.windowId);
 
         if (!arbiter) {
@@ -290,7 +520,8 @@ class DragCoordinator extends Manager {
             screenX: localX,
             screenY: localY,
             sortGroup,
-            sourceSortZone
+            sourceSortZone,
+            sourceWindowId
         });
 
         if (claimed) {
@@ -386,7 +617,15 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      * @returns {Object|null} `{stableId, zone}` of the winning claim, or null (fail closed)
      */
-    resolveClaimedTarget({arbiter, excludedWindowIds = null, screenX, screenY, sortGroup, sourceSortZone}) {
+    resolveClaimedTarget({
+        arbiter,
+        excludedWindowIds = null,
+        screenX,
+        screenY,
+        sortGroup,
+        sourceSortZone,
+        sourceWindowId=sourceSortZone.windowId
+    }) {
         let group = this.sortZones.get(sortGroup);
 
         if (!group) {
@@ -395,10 +634,10 @@ class DragCoordinator extends Manager {
 
         for (const [windowId, zone] of group) {
             if (
-                zone === sourceSortZone              ||
-                windowId === sourceSortZone.windowId ||
+                windowId === sourceWindowId ||
                 excludedWindowIds?.has(windowId)
             ) {
+                zone.stableTargetId != null && arbiter.release(zone.stableTargetId);
                 continue
             }
 
@@ -699,8 +938,21 @@ class DragCoordinator extends Manager {
     onWindowPositionChange(data) {
         let me         = this,
             {windowId} = data,
-            sourceDrag = me.getNativeWindowDragSource(windowId),
-            candidate, current, dwellRemaining, firstSeenAt, delay, now;
+            current    = me.nativeWindowDropCandidates.get(windowId),
+            sourceDrag, candidate, dwellRemaining, firstSeenAt, delay, now;
+
+        // Parking, embodiment, target settlement, and strict source retry can all publish geometry
+        // of their own. Their retained generation owns the terminal; never reinterpret those
+        // effects as a fresh titlebar gesture.
+        if (
+            current?.phase === 'parking' ||
+            current?.phase === 'embodied' ||
+            current?.phase?.startsWith('settling-')
+        ) {
+            return
+        }
+
+        sourceDrag = me.getNativeWindowDragSource(windowId);
 
         if (!sourceDrag) {
             me.clearNativeWindowDropCandidate(windowId);
@@ -825,6 +1077,38 @@ class DragCoordinator extends Manager {
 
             me.sortZones.get(sortGroup).set(windowId, sortZone)
         }
+
+        // A committed semantic terminal can outlive one projection generation while strict
+        // physical popup retirement retries. Rebind that disposition-only authority to the
+        // successor carrying the same stable registration identity; never replay the target drop.
+        if (sortZone.stableTargetId != null) {
+            const replaces = current =>
+                current !== sortZone &&
+                current?.stableTargetId === sortZone.stableTargetId &&
+                current?.sortGroup === sortGroup &&
+                current?.windowId === windowId;
+
+            for (const candidate of me.nativeWindowDropCandidates.values()) {
+                const refreshes = candidate.registrationRefreshes;
+
+                if (refreshes) {
+                    for (const departedZone of refreshes.keys()) {
+                        if (departedZone === sortZone || replaces(departedZone)) {
+                            refreshes.delete(departedZone);
+                            candidate.sourceSortZone === departedZone && (candidate.sourceSortZone = sortZone);
+                            candidate.targetSortZone === departedZone && (candidate.targetSortZone = sortZone)
+                        }
+                    }
+
+                    refreshes.size === 0 && (candidate.registrationRefreshes = null)
+                }
+
+                if (candidate.phase === 'settling-committed') {
+                    replaces(candidate.sourceSortZone) && (candidate.sourceSortZone = sortZone);
+                    replaces(candidate.targetSortZone) && (candidate.targetSortZone = sortZone)
+                }
+            }
+        }
     }
 
     /**
@@ -868,6 +1152,42 @@ class DragCoordinator extends Manager {
             me.activeTransitionOwned      = false
         }
 
+        // Workstation projection refresh destroys and recreates one stable participation in the
+        // same turn. During `onRemoteDrop()` that unregister can land after model mutation but
+        // before the coordinator receives the synchronous commit receipt. Give the matching
+        // identity one microtask to re-register; a genuine disconnect consumes the pending
+        // departure and restores the suspended source before any async target can resolve.
+        if (sortZone.stableTargetId != null) {
+            for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
+                if (
+                    candidate.phase === 'settling-target' &&
+                    (candidate.sourceSortZone === sortZone || candidate.targetSortZone === sortZone)
+                ) {
+                    const
+                        refreshes = candidate.registrationRefreshes ??= new Map(),
+                        refresh   = {};
+
+                    refreshes.set(sortZone, refresh);
+
+                    queueMicrotask(() => {
+                        if (candidate.registrationRefreshes?.get(sortZone) !== refresh) return;
+
+                        candidate.registrationRefreshes.delete(sortZone);
+                        candidate.registrationRefreshes.size === 0 &&
+                            (candidate.registrationRefreshes = null);
+
+                        if (
+                            me.nativeWindowDropCandidates.get(windowId) === candidate &&
+                            candidate.phase === 'settling-target'
+                        ) {
+                            me.clearNativeWindowDropCandidate(windowId);
+                            me.endNativeGesture(windowId)
+                        }
+                    })
+                }
+            }
+        }
+
         // Claim hygiene mirrors the activeTargetZone rule above: a departed zone must not stay
         // reachable as a WINNING CLAIM either — a later resolve would hand the gesture a commit
         // destination whose vessel is gone. Release is identity-scoped across every live arbiter.
@@ -883,6 +1203,10 @@ class DragCoordinator extends Manager {
         // while the reference can still reach it (same reasoning as the activeTargetZone leave).
         for (const [windowId, hover] of me.nativeHoverTargets.entries()) {
             if (hover === sortZone) {
+                const candidate = me.nativeWindowDropCandidates.get(windowId);
+
+                if (candidate?.registrationRefreshes?.has(sortZone)) continue;
+
                 hover.onRemoteDragLeave?.();
                 me.nativeHoverTargets.delete(windowId)
             }
@@ -890,7 +1214,19 @@ class DragCoordinator extends Manager {
 
         for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
             if (candidate.sourceSortZone === sortZone || candidate.targetSortZone === sortZone) {
-                me.clearNativeWindowDropCandidate(windowId)
+                if (candidate.registrationRefreshes?.has(sortZone)) {
+                    continue
+                }
+
+                // The model has already committed and target hover is gone. A registration refresh
+                // must not reinterpret the retained close-only retry as rejection and resume the
+                // popup over committed truth; register() rebinds this authority to the successor.
+                if (candidate.phase === 'settling-committed') {
+                    continue
+                }
+
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId)
             }
         }
     }
