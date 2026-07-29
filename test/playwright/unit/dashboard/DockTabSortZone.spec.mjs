@@ -558,20 +558,37 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(addonCalls).toEqual([{popupHeight: 480, popupName: 'graph', popupWidth: 640, windowId: 7}])
         });
 
-        test('endWindowDrag is the symmetric close: proxy visible, base reorder un-parked — the failed-admission degrade path', () => {
+        test('endWindowDrag closes worker + main movement ownership before the next pointer frame', () => {
+            const addonCalls  = [];
             const proxyStyles = [];
             const zone        = {
                 dragProxy       : {set style(value) { proxyStyles.push(value) }},
-                isWindowDragging: true
+                isWindowDragging: true,
+                windowId        : 7
             };
 
-            DockTabSortZone.prototype.endWindowDrag.call(zone);
+            const hadDragDrop = Object.hasOwn(Neo.main.addon, 'DragDrop'),
+                  original    = Neo.main.addon.DragDrop;
+
+            Neo.main.addon.DragDrop = {setConfigs: data => addonCalls.push(data)};
+
+            try {
+                DockTabSortZone.prototype.endWindowDrag.call(zone);
+
+                // Proxy-less close (torn down mid-gesture) still reconciles both owners.
+                DockTabSortZone.prototype.endWindowDrag.call({
+                    dragProxy: null, isWindowDragging: true, windowId: 8
+                })
+            } finally {
+                if (hadDragDrop) { Neo.main.addon.DragDrop = original } else { delete Neo.main.addon.DragDrop }
+            }
 
             expect(proxyStyles).toEqual([{opacity: 1}]);
             expect(zone.isWindowDragging).toBe(false);
-
-            // proxy-less call (torn down mid-gesture) stays safe — the flag still resets
-            DockTabSortZone.prototype.endWindowDrag.call({dragProxy: null, isWindowDragging: true})
+            expect(addonCalls).toEqual([
+                {isWindowDragging: false, windowId: 7},
+                {isWindowDragging: false, windowId: 8}
+            ])
         })
 
         test('a winning remote pointer claim outranks popup-scale source-boundary overlap for that frame', () => {
