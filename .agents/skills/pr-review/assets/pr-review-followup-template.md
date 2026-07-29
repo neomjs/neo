@@ -42,6 +42,7 @@ Per §9 Strategic-Fit Step-Back:
 *   **Prior Review Comment ID:** [commentId / URL / N/A]
 *   **Author Response Comment ID:** [commentId / URL / N/A]
 *   **Latest Head SHA:** [short SHA]
+*   **Origin Session ID:** [Neo Memory Core UUID, not harness/task/transcript]
 
 ---
 
