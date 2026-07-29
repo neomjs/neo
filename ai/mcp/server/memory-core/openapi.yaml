@@ -2231,24 +2231,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /mailbox/messages/{messageId}/read:
+  /mailbox/messages/read:
     post:
       summary: Mark Message Read
       operationId: mark_read
       x-neo-tool-tier: write
       x-pass-as-object: true
+      x-neo-tool-summary: Mark selected or all current unread A2A messages read.
       description: |
-        Marks one or more messages as read. Accepts a single messageId or an array of ids; the array form returns per-id results and an individual failure (ghost id, unauthorized id) never fails the batch.
+        Marks selected messages or the caller's entire current unread inbox snapshot as read. Pass exactly one of `messageId` (a string or array) and `all: true`. Array mode returns per-id results and one stale or unauthorized id never fails the batch. All mode snapshots every currently unread, unarchived message before mutation; messages arriving after snapshot capture remain unread.
       tags: [Mailbox]
-      parameters:
-        - name: messageId
-          in: path
-          required: true
-          schema:
-            oneOf:
-              - type: string
-              - type: array
-                items: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messageId:
+                  description: One message id or an array of ids to mark independently.
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items: {type: string}
+                all:
+                  type: boolean
+                  description: Set true instead of messageId to mark the current unread, unarchived snapshot.
       responses:
         '200':
           description: OK

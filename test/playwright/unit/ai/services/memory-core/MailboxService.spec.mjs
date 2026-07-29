@@ -132,6 +132,20 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     }
 
     /**
+     * @summary Resolves one broadcast delivery receipt from the live graph fixture.
+     * @param {String} messageId Message node id.
+     * @param {String} recipient Recipient AgentIdentity id.
+     * @returns {Object|undefined}
+     */
+    function getBroadcastDeliveryEdgeForTest(messageId, recipient) {
+        return GraphService.db.edges.items.find(edge =>
+            edge.source === messageId &&
+            edge.target === recipient &&
+            edge.type === 'DELIVERED_TO'
+        );
+    }
+
+    /**
      * @summary Seeds one MESSAGE and its bounded carrier topology through the live graph owner.
      * @param {Object} options
      * @param {String} options.messageId
@@ -1078,6 +1092,250 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(denied.results).toHaveLength(1);
         expect(denied.results[0].status).toBe('error');
         expect(denied.results[0].error).toMatch(/Unauthorized/);
+    });
+
+    test('#15913 markRead recovers only the exact JSON-stringified MESSAGE-id array compatibility shape', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const ids = [];
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            for (const subject of ['serialized-1', 'serialized-2']) {
+                const {messageId} = await MailboxService.addMessage({to: '@bob', subject, body: 'compat'});
+                ids.push(messageId);
+            }
+        });
+
+        const result = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId: JSON.stringify(ids)})
+        );
+
+        expect(result.results).toHaveLength(2);
+        expect(result.results.map(row => row.messageId)).toEqual(ids);
+        expect(result.results.every(row => row.status === 'read')).toBe(true);
+
+        const empty = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId: '[]'})
+        );
+        expect(empty.results).toEqual([]);
+
+        for (const invalid of [
+            'not-json[',
+            '{"messageId":["MESSAGE:ghost"]}',
+            '["not-a-message-id"]',
+            '["MESSAGE:ghost", 7]'
+        ]) {
+            await expect(RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({messageId: invalid})
+            )).rejects.toThrow(`Message not found: ${invalid}`);
+        }
+    });
+
+    test('#15913 markRead all mode drains one unpaginated direct+broadcast snapshot and preserves carrier ownership', async () => {
+        GraphService.upsertNode({
+            id        : '@charlie',
+            type      : 'AgentIdentity',
+            name      : 'Charlie',
+            properties: {accountType: 'agent'}
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        let directId, broadcastId, archivedId;
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            ({messageId: directId} = await MailboxService.addMessage({
+                to: '@bob', subject: 'read-all direct', body: 'direct'
+            }));
+            ({messageId: broadcastId} = await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'read-all broadcast', body: 'broadcast'
+            }));
+            ({messageId: archivedId} = await MailboxService.addMessage({
+                to: '@bob', subject: 'read-all archived', body: 'archived'
+            }));
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.archiveMessage({messageId: archivedId})
+        );
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true})
+        );
+
+        expect(receipt).toMatchObject({
+            status         : 'read',
+            matchedCount   : 2,
+            readCount      : 2,
+            durableCount   : 2,
+            failureCount   : 0,
+            nonDurableCount: 0,
+            failures       : [],
+            nonDurable     : []
+        });
+        expect(receipt.snapshotAt).toBeTruthy();
+        expect(GraphService.db.nodes.get(directId).properties.readAt).toBeTruthy();
+        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@bob').properties.readAt).toBeTruthy();
+        expect(getBroadcastDeliveryEdgeForTest(broadcastId, '@charlie').properties.readAt).toBeNull();
+        expect(GraphService.db.nodes.get(archivedId).properties.readAt).toBeNull();
+
+        const bobUnread = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread'})
+        );
+        expect(bobUnread.messages).toEqual([]);
+
+        const archivedUnread = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread', includeArchived: true})
+        );
+        expect(archivedUnread.messages.map(message => message.messageId)).toEqual([archivedId]);
+
+        const charlieUnread = await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread'})
+        );
+        expect(charlieUnread.messages.map(message => message.messageId)).toContain(broadcastId);
+    });
+
+    test('#15913 markRead all mode excludes legacy broadcasts with shared MESSAGE read state', async () => {
+        const legacyBroadcastId = 'MESSAGE:read-all-legacy-shared-carrier';
+        seedReadStateCarrier({messageId: legacyBroadcastId, recipient: 'AGENT:*'});
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true})
+        );
+
+        expect(receipt).toMatchObject({
+            status      : 'noop',
+            matchedCount: 0,
+            readCount   : 0
+        });
+        expect(GraphService.db.nodes.get(legacyBroadcastId).properties.readAt).toBeNull();
+
+        for (const identity of ['@bob', '@alice']) {
+            const unread = await RequestContextService.run({agentIdentityNodeId: identity}, () =>
+                MailboxService.listMessages({box: 'inbox', status: 'unread'})
+            );
+            expect(unread.messages.map(message => message.messageId)).toContain(legacyBroadcastId);
+        }
+    });
+
+    test('#15913 markRead all mode drains beyond the list_messages 100-row page size', async () => {
+        for (let index = 0; index < 125; index++) {
+            seedReadStateCarrier({messageId: `MESSAGE:read-all-depth-${index}`});
+        }
+
+        const receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({all: true})
+        );
+
+        expect(receipt).toMatchObject({
+            status      : 'read',
+            matchedCount: 125,
+            readCount   : 125,
+            durableCount: 125,
+            failureCount: 0
+        });
+
+        const remaining = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.countMessages({box: 'inbox', status: 'unread'})
+        );
+        expect(remaining.count).toBe(0);
+    });
+
+    test('#15913 markRead all mode excludes post-snapshot arrivals and reports only exceptional rows', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const ids = [];
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            for (const subject of ['snapshot-ok', 'snapshot-failure', 'snapshot-non-durable']) {
+                const {messageId} = await MailboxService.addMessage({to: '@bob', subject, body: 'snapshot'});
+                ids.push(messageId);
+            }
+        });
+
+        const originalMarkRead = MailboxService.markRead;
+        let lateMessageId;
+
+        MailboxService.markRead = async function(args) {
+            if (Array.isArray(args.messageId)) {
+                ({messageId: lateMessageId} = await RequestContextService.run(
+                    {agentIdentityNodeId: '@alice'},
+                    () => MailboxService.addMessage({to: '@bob', subject: 'post-snapshot', body: 'late'})
+                ));
+                return originalMarkRead.call(this, args);
+            }
+
+            if (args.messageId === ids[1]) {
+                throw new Error('simulated per-id failure');
+            }
+
+            if (args.messageId === ids[2]) {
+                return {
+                    messageId: args.messageId,
+                    readAt   : new Date().toISOString(),
+                    status   : 'read',
+                    durable  : false,
+                    warning  : 'simulated non-durable write'
+                };
+            }
+
+            return originalMarkRead.call(this, args);
+        };
+
+        let receipt;
+        try {
+            receipt = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+                MailboxService.markRead({all: true})
+            );
+        } finally {
+            MailboxService.markRead = originalMarkRead;
+        }
+
+        expect(receipt).toMatchObject({
+            status         : 'partial',
+            matchedCount   : 3,
+            readCount      : 2,
+            durableCount   : 1,
+            failureCount   : 1,
+            nonDurableCount: 1,
+            failures       : [{messageId: ids[1], error: 'simulated per-id failure'}],
+            nonDurable     : [{messageId: ids[2], warning: 'simulated non-durable write'}]
+        });
+        expect(receipt).not.toHaveProperty('results');
+
+        const unread = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({box: 'inbox', status: 'unread'})
+        );
+        expect(unread.messages.map(message => message.messageId)).toEqual(
+            expect.arrayContaining([ids[1], ids[2], lateMessageId])
+        );
+    });
+
+    test('#15913 markRead all mode returns an explicit compact no-op and rejects ambiguous input', async () => {
+        const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
+        const receipt    = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            callTool('mark_read', {all: true})
+        );
+
+        expect(receipt).toMatchObject({
+            status         : 'noop',
+            matchedCount   : 0,
+            readCount      : 0,
+            durableCount   : 0,
+            failureCount   : 0,
+            nonDurableCount: 0,
+            failures       : [],
+            nonDurable     : []
+        });
+
+        await expect(MailboxService.markRead({
+            all      : true,
+            messageId: 'MESSAGE:ambiguous'
+        })).rejects.toThrow(/either messageId or all: true/);
+        await expect(MailboxService.markRead({})).rejects.toThrow(/requires messageId or all: true/);
     });
 
     test('#15253 a mark resolves through the same repair the read path uses — a cold cache is not a missing message', async () => {
