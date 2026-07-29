@@ -214,17 +214,17 @@ Use role-routing, not naked multi-peer pings:
    `primary-reviewer` in GitHub and send one matching wake:
    `Review role: primary-reviewer`; `Requested action: use /pr-review on PR #N`.
    Use round-robin unless subsystem familiarity justifies an override.
-2. **Eligibility / 1h fallback:** ordinary review requires your login in the
-   current request. At review-start, re-read `reviewRequests`, reviews, and
-   comments. You may take a request whose latest request event is ≥1h old only
-   when no review, PR comment, or acceptance shows engagement; reroute the one
-   native seat to yourself, record timeout, and verify the old request is gone.
-   Engagement or an in-flight/landed full review means yield.
-3. **Reroute / SLA:** before decline, timeout, or reassignment, repeat that live
-   read; engagement means yield, not replace. Primary max remains 4h. For stacked
-   active requests without engagement, author sends claim-or-decline; inability
-   answers `Requested action: unassign`, and 4h silence permits recorded author
-   reroute. The 1h peer fallback, §6.1 ~2h invite, and 4h author SLA are distinct.
+2. **Eligibility / 1h fallback:** at review-start, pass the Review-Seat Gate in
+   `post-review-pickup/references/pre-review-intake-lane-gate.md`: sole request,
+   explicit operator direction, or unengaged empty / ≥1h stale request after
+   self-request / one-for-one replacement. Record and re-read after mutation;
+   engagement or any result except exactly your seat means yield unless the
+   operator explicitly overrides it.
+3. **Reroute / SLA:** re-read before decline, timeout, or reassignment; engagement
+   means yield. Primary max remains 4h. Stacked unengaged requests trigger
+   claim-or-decline; inability answers `Requested action: unassign`, and 4h
+   silence permits recorded author reroute. The 1h peer fallback, §6.1 ~2h
+   invite, and 4h author SLA are distinct.
 4. **Observer:** say `Review role: observer`; `Requested action: none`.
 5. **Tie-breaker:** after one disagreement cycle, post `[TIE_BREAKER_REQUEST]`
    with the position summary and A2A its `commentId` to one third peer.

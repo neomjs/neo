@@ -28,13 +28,14 @@ If the agent already has an open PR waiting on CI, use
 
 ## Review-Seat Gate
 
-At review-start—not lane discovery—read live `reviewRequests`, reviews, and PR
-comments. The native field owns the ordinary seat; A2A only points to it. You
-are eligible when requested, or when the latest request is ≥1h old with no
-review/comment/acceptance and you reroute its one native seat to yourself,
-record timeout, and verify the old request is gone. Engagement, a landed review,
-or a non-1:1 reroute means yield. Explicit exceptions remain in
-`pull-request-workflow.md §6.2`.
+At review-start—not discovery—read live requests, reviews, and comments; the
+native request is truth, A2A a pointer. Eligible: sole request; explicit operator
+direction; or an unengaged PR with no request (self-request) / a ≥1h stale
+request (replace one-for-one, record timeout). After mutation, record and
+re-read; proceed only if exactly your seat remains. Review, comment, acceptance,
+or another active seat means yield unless the operator explicitly overrides it.
+This gate settles eligibility; the rationale below only orders lanes. Author
+symmetry: `pull-request-workflow.md §6.2`.
 
 ## Legitimate Review-First Rationale
 
