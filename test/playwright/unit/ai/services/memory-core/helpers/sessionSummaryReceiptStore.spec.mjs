@@ -80,6 +80,7 @@ function createReceipt(sessionId, overrides = {}) {
             sessionId,
             timestamp            : 1_800_000_000_000,
             memoryCount          : 2,
+            dreamInputRevision   : `sha256:${'a'.repeat(64)}`,
             title                : 'Durable summary',
             category             : 'implementation',
             quality              : 80,
@@ -187,7 +188,7 @@ function createReceiptEmbeddingFunction() {
     return embeddingFunction;
 }
 
-test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
+test.describe('sessionSummaryReceiptStore (#16105, #16114, #16115)', () => {
     test.describe.configure({mode: 'serial'});
 
     test('enforces the declared synthesis-owned metadata key set at issuance', () => {
@@ -240,7 +241,7 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
             expect(decodeSessionSummaryReceipt(
                 stagedRow.result_envelope,
                 stagedRow.result_encoding
-            )).toEqual({version: 1, ...receipt});
+            )).toEqual({version: 2, ...receipt});
 
             expect(acknowledgeSessionSummaryReceipt({
                 db,
@@ -283,7 +284,7 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
             expect(row.result_acknowledged_at).toBeNull();
             expect(row.result_staged_at).toBe(200);
             expect(decodeSessionSummaryReceipt(row.result_envelope, row.result_encoding))
-                .toEqual({version: 1, ...updated});
+                .toEqual({version: 2, ...updated});
             expect(db.prepare('SELECT COUNT(*) AS count FROM SummarizationJobs').get().count).toBe(1);
         } finally {
             db.close();
@@ -378,8 +379,10 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
         const collection = createFakeCollection();
         const receipt    = createReceipt('dream-overlay');
         const dreamState = {
-            digestState  : 'digested',
-            graphDigested: true
+            digestState           : 'digested',
+            dreamCompletedRevision: receipt.metadata.dreamInputRevision,
+            dreamStateRevision    : receipt.metadata.dreamInputRevision,
+            graphDigested         : true
         };
 
         try {
@@ -576,8 +579,10 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
         const db         = createReceiptDb();
         const collection = createFakeCollection();
         const receipt    = createReceipt('historical-shape');
+        const newerDreamInputRevision = `sha256:${'b'.repeat(64)}`;
 
         delete receipt.metadata.rawCanonical;
+        delete receipt.metadata.dreamInputRevision;
         receipt.metadata.retiredSynthesisField = 'historical-value';
 
         db.prepare(`
@@ -597,6 +602,14 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
         );
 
         try {
+            collection.rows.set(receipt.summaryId, {
+                document: 'Newer unacknowledged summary',
+                metadata: {
+                    ...receipt.metadata,
+                    dreamInputRevision: newerDreamInputRevision
+                }
+            });
+
             const result = await recoverSessionSummaryReceipts({
                 db,
                 collection,
@@ -610,8 +623,25 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
             });
             expect(collection.rows.get(receipt.summaryId)).toEqual({
                 document: receipt.document,
-                metadata: receipt.metadata
+                metadata: {
+                    ...receipt.metadata,
+                    dreamInputRevision: newerDreamInputRevision
+                }
             });
+
+            const settled = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                now: 300
+            });
+
+            expect(settled).toMatchObject({
+                scanned  : 1,
+                present  : 1,
+                replayed : 0,
+                completed: 1
+            });
+            expect(collection.upsertCalls).toBe(1);
             expect(() => encodeSessionSummaryReceipt(receipt))
                 .toThrow(/unowned keys: retiredSynthesisField/);
         } finally {
@@ -709,13 +739,15 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
             });
 
             const dreamState = {
-                digestState  : 'digested',
-                graphDigested: true
+                digestState           : 'digested',
+                dreamCompletedRevision: receipt.metadata.dreamInputRevision,
+                dreamStateRevision    : receipt.metadata.dreamInputRevision,
+                graphDigested         : true
             };
 
             await collection.update({
                 ids      : [receipt.summaryId],
-                metadatas: [{...receipt.metadata, ...dreamState}]
+                metadatas: [dreamState]
             });
 
             const enrichedPresent = await recoverSessionSummaryReceipts({
@@ -733,7 +765,7 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
 
             await collection.update({
                 ids      : [receipt.summaryId],
-                metadatas: [{...receipt.metadata, ...dreamState, memoryCount: 99}]
+                metadatas: [{memoryCount: 99}]
             });
 
             const enrichedRepaired = await recoverSessionSummaryReceipts({

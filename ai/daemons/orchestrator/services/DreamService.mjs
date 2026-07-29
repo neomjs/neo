@@ -37,8 +37,12 @@ import {
     createRemPhaseState,
     createRemRunStateEntry
 } from '../../../services/memory-core/helpers/remRunStateStore.mjs';
-import {bytesToTokens}              from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
-import {resolveTurnDocumentForRead} from '../../../services/memory-core/helpers/turnDocumentText.mjs';
+import {bytesToTokens} from '../../../services/memory-core/helpers/consumerFrictionHelper.mjs';
+import {
+    canonicalizeSessionTurnInput,
+    computeSessionTurnInputRevision,
+    resolveTurnDocumentForRead
+} from '../../../services/memory-core/helpers/turnDocumentText.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -88,6 +92,103 @@ function isImmediateCadenceTerminalFailure(failure) {
  */
 function isSteadyCadenceExcludedDigestState(state) {
     return state === 'deferred' || state === 'undigestible';
+}
+
+/**
+ * @summary Decides whether a summary row still has Dream work for its current raw-input revision.
+ *
+ * Revision-aware rows ignore preserved legacy booleans: completion is current only when
+ * `dreamCompletedRevision` equals the synthesis-owned `dreamInputRevision`. Terminal cadence
+ * states are likewise scoped by `dreamStateRevision`, so an old `undigestible` result cannot hide
+ * a newly synthesized input frontier. Rows predating the revision contract retain the bounded
+ * legacy boolean/state behavior.
+ *
+ * Retire the legacy branch after a migration audit reports zero retained summary rows without
+ * `dreamInputRevision` for one complete summary-retention window.
+ *
+ * @param {Object} meta Session-summary metadata.
+ * @returns {Boolean}
+ */
+function isDreamDigestPending(meta) {
+    const currentRevision = typeof meta?.dreamInputRevision === 'string' && meta.dreamInputRevision
+        ? meta.dreamInputRevision
+        : null;
+
+    if (currentRevision) {
+        if (meta.dreamCompletedRevision === currentRevision) {
+            return false;
+        }
+
+        return !(
+            meta.dreamStateRevision === currentRevision &&
+            isSteadyCadenceExcludedDigestState(meta.digestState)
+        );
+    }
+
+    return meta?.graphDigested !== true &&
+        meta?.graphDigested !== 'true' &&
+        !isSteadyCadenceExcludedDigestState(meta?.digestState);
+}
+
+/**
+ * @summary Reads one complete, de-duplicated raw-turn snapshot for Dream processing.
+ *
+ * The paging contract mirrors SessionService synthesis so both sides observe the same unbounded
+ * input frontier instead of independently accepting Chroma's default result cap. Returned
+ * documents are canonicalized before revision verification and are passed unchanged through the
+ * remaining Dream phases.
+ *
+ * @param {Object} collection Memory Chroma collection.
+ * @param {String} sessionId Session id to fetch.
+ * @returns {Promise<{ids:String[],documents:String[],metadatas:Object[]}>}
+ */
+async function readSessionTurnInputSnapshot(collection, sessionId) {
+    const configuredLimit = aiConfig.summarizationBatchLimit;
+    if (!Number.isFinite(configuredLimit)) {
+        throw new Error('[DreamService] Required AiConfig leaf "summarizationBatchLimit" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
+    }
+
+    const
+        limit    = Math.max(1, Math.floor(configuredLimit)),
+        snapshot = {ids: [], documents: [], metadatas: []},
+        seenIds  = new Set();
+    let offset = 0;
+
+    while (true) {
+        const page = await collection.get({
+            where  : {sessionId},
+            include: ['documents', 'metadatas'],
+            limit,
+            offset
+        });
+        const pageCount = page.ids?.length || 0;
+
+        if (pageCount === 0) break;
+
+        let addedThisPage = 0;
+
+        for (let index = 0; index < pageCount; index++) {
+            const id = page.ids[index];
+            if (seenIds.has(id)) continue;
+
+            const metadata = page.metadatas?.[index] || {};
+
+            seenIds.add(id);
+            snapshot.ids.push(id);
+            snapshot.documents.push(resolveTurnDocumentForRead({
+                documents: [page.documents?.[index]],
+                metadata
+            }));
+            snapshot.metadatas.push(metadata);
+            addedThisPage++;
+        }
+
+        if (addedThisPage === 0) break;
+
+        offset += pageCount;
+    }
+
+    return canonicalizeSessionTurnInput(snapshot);
 }
 
 function toErrorMessage(error) {
@@ -153,9 +254,9 @@ function addUndigestedRowsFromBatch(batch, byId) {
     for (let i = 0; i < batch.ids.length; i++) {
         const meta = batch.metadatas?.[i];
 
-        // Exclude digested sessions plus terminal/legacy states that were already bounded out.
-        // `deferred` is kept as a back-compat alias for rows written by the first stop-re-serve kernel.
-        if (meta && meta.graphDigested !== true && meta.graphDigested !== 'true' && !isSteadyCadenceExcludedDigestState(meta.digestState)) {
+        // Revision-aware rows are eligible on current/completed mismatch even when a preserved
+        // legacy `graphDigested:true` or terminal state belongs to an older input frontier.
+        if (meta && isDreamDigestPending(meta)) {
             byId.set(batch.ids[i], {
                 id      : batch.ids[i],
                 document: batch.documents?.[i],
@@ -242,7 +343,9 @@ class DreamService extends Base {
     }
 
     /**
-     * Identifies session summaries that do not have the 'graphDigested' metadata flag set to true.
+     * Identifies session summaries whose current raw-input revision lacks a matching Dream
+     * completion. Revision-aware rows use `dreamInputRevision === dreamCompletedRevision`; the
+     * legacy `graphDigested`/terminal-state gate remains only for rows predating that contract.
      *
      * The scan samples both the fresh head and aged tail of the Chroma summary collection, then splits
      * the returned REM batch across newest and oldest undigested summaries. This mirrors the
@@ -312,10 +415,13 @@ class DreamService extends Base {
      *
      * The DreamService REM pipeline hydrates raw episodic memories, syncs deterministic
      * MEMORY/SESSION graph nodes via `MemorySessionIngestor`, then runs Tri-Vector semantic
-     * extraction and ambient graph ingestion. The `graphDigested` marker is only safe after
-     * both the deterministic memory/session ingestion and the semantic extractor complete
-     * without reported errors; otherwise the next REM cycle must retry the partial graph work
-     * instead of hiding missing nodes behind a completed digest flag.
+     * extraction and ambient graph ingestion. Revision-aware rows first verify that the complete
+     * raw-turn snapshot still matches the synthesis-published `dreamInputRevision`, then pass that
+     * same immutable snapshot to deterministic ingestion. Completion records the exact processed
+     * revision through a Dream-owned partial metadata update, so a late completion for A cannot
+     * overwrite or hide a concurrently published B. The legacy `graphDigested` marker remains a
+     * compatibility overlay and is only written after every required phase completes without
+     * reported errors.
      */
     async processUndigestedSessions() {
         if (this.isProcessing) {
@@ -408,26 +514,48 @@ class DreamService extends Base {
                 for (const session of sessions) {
                     logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
 
-                    let rawEpisodicMemory = session.document,
-                        turnDocuments     = [session.document];
+                    const selectedDreamInputRevision = typeof session.meta.dreamInputRevision === 'string'
+                        ? session.meta.dreamInputRevision
+                        : null;
+                    const inputRevisionStartedAt = Date.now();
+                    let   rawEpisodicMemory      = session.document,
+                        turnDocuments            = [session.document],
+                        rawMemories              = null,
+                        processedInputRevision   = null,
+                        inputRevisionError       = null;
                     try {
                         const memoryCollection = await StorageRouter.getMemoryCollection();
                         if (memoryCollection) {
-                            const rawMemories = await memoryCollection.get({
-                                where  : { sessionId: session.meta.sessionId },
-                                include: ['documents', 'metadatas']
-                            });
+                            rawMemories = await readSessionTurnInputSnapshot(
+                                memoryCollection,
+                                session.meta.sessionId
+                            );
                             if (rawMemories?.documents?.length > 0) {
                                 // Send the full raw memory to the LLM. Lossless context tracking is required.
                                 // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
-                                // Field↔document de-dup: reconstruct a dropped turn-document from its split metadata
-                                // (resolveTurnDocumentForRead no-ops on summaries via the type discriminator).
-                                turnDocuments     = rawMemories.documents.map((doc, i) => resolveTurnDocumentForRead({documents: [doc], metadata: rawMemories.metadatas?.[i]}));
+                                turnDocuments     = rawMemories.documents;
                                 rawEpisodicMemory = turnDocuments.join('\n\n---\n\n');
+                            }
+                        }
+
+                        if (selectedDreamInputRevision) {
+                            if (!rawMemories?.ids?.length) {
+                                throw new Error('published Dream input revision has no raw-turn snapshot');
+                            }
+
+                            processedInputRevision = computeSessionTurnInputRevision(rawMemories);
+                            if (processedInputRevision !== selectedDreamInputRevision) {
+                                throw new Error(
+                                    `Dream input revision moved before processing ` +
+                                    `(${selectedDreamInputRevision} -> ${processedInputRevision})`
+                                );
                             }
                         }
                     } catch (e) {
                         logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
+                        if (selectedDreamInputRevision) {
+                            inputRevisionError = e;
+                        }
                     }
 
                     session.document      = rawEpisodicMemory;
@@ -442,9 +570,23 @@ class DreamService extends Base {
                         topology           : {status: 'skipped', conflictCount: 0},
                         gapSession         : {status: 'skipped'},
                         graphDigestedFlag  : false,
+                        dreamInputRevision : selectedDreamInputRevision,
+                        processedInputRevision,
                         failureReasons     : []
                     };
                     perSessionStates.push(sessionState);
+
+                    if (inputRevisionError) {
+                        const error = toErrorMessage(inputRevisionError);
+
+                        sessionState.failureReasons.push(error);
+                        perPhaseStates.push(finishPhase('inputRevision', inputRevisionStartedAt, 'failed', {
+                            sessionId: session.meta.sessionId,
+                            error
+                        }));
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} input revision is stale or unavailable; leaving it pending.`, inputRevisionError);
+                        continue;
+                    }
 
                     // Phase 2a: Memory/Session graph ingestion — runs BEFORE SemanticGraphExtractor
                     // so future provenance edges from extracted entities attach to real
@@ -453,7 +595,10 @@ class DreamService extends Base {
                     const ingestStart = Date.now();
                     let ingestStats;
                     try {
-                        ingestStats = await MemorySessionIngestor.syncSessionToGraph(session);
+                        ingestStats = await MemorySessionIngestor.syncSessionToGraph(
+                            session,
+                            rawMemories?.ids?.length ? {rawMemories} : undefined
+                        );
                     } catch (e) {
                         sessionState.memorySessionIngest = {
                             status      : 'failed',
@@ -599,18 +744,33 @@ class DreamService extends Base {
                     logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 
                     if (success && ingestErrors === 0) {
+                        const revisionMetadata = processedInputRevision
+                            ? {
+                                dreamCompletedRevision: processedInputRevision,
+                                dreamStateRevision    : processedInputRevision
+                            }
+                            : {};
+
                         await this.sessionsCollection.update({
                             ids      : [session.id],
-                            metadatas: [{ ...session.meta, graphDigested: true, digestState: 'digested' }]
+                            metadatas: [{
+                                graphDigested: true,
+                                digestState  : 'digested',
+                                ...revisionMetadata
+                            }]
                         });
                         sessionState.graphDigestedFlag = true;
-                        logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
+                        logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core${processedInputRevision ? ` at ${processedInputRevision}` : ''}.`);
                     } else {
                         // Digest failed (typed extractor failure OR memory-ingestion errors). Bound the
                         // re-serve immediately for provider-size failures; ingestion errors and legacy
                         // bare-null returns stay retryable so a storage/transient failure never removes
                         // a digestible session from the steady cadence.
-                        const digestAttempts    = (Number(session.meta.digestAttempts) || 0) + 1;
+                        const priorDigestAttempts = selectedDreamInputRevision &&
+                            session.meta.dreamStateRevision !== selectedDreamInputRevision
+                            ? 0
+                            : Number(session.meta.digestAttempts) || 0;
+                        const digestAttempts    = priorDigestAttempts + 1;
                         const maxDigestAttempts = aiConfig.maxDigestAttempts;
                         if (!Number.isFinite(maxDigestAttempts)) {
                             throw new Error('[DreamService] Required AiConfig leaf "maxDigestAttempts" is missing or invalid. Update ai/mcp/server/memory-core/config.mjs from config.template.mjs.');
@@ -626,7 +786,14 @@ class DreamService extends Base {
 
                         await this.sessionsCollection.update({
                             ids      : [session.id],
-                            metadatas: [{ ...session.meta, digestState, digestAttempts, deferReason }]
+                            metadatas: [{
+                                digestState,
+                                digestAttempts,
+                                deferReason,
+                                ...(processedInputRevision
+                                    ? {dreamStateRevision: processedInputRevision}
+                                    : {})
+                            }]
                         });
                         sessionState.digestState        = digestState;
                         sessionState.deferReason        = deferReason;

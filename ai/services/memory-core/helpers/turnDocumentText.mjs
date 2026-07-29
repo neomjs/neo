@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+
 /**
  * @module ai/services/memory-core/helpers/turnDocumentText
  * @summary Single source of the canonical turn-document text — the `User Prompt: … / Agent Thought: … /
@@ -59,4 +61,94 @@ export function resolveTurnDocumentForRead({documents, metadata} = {}) {
     }
 
     return null;
+}
+
+/**
+ * @summary Canonicalizes one raw-turn frontier into stable chronological order.
+ *
+ * Chroma result order is not an input-authority contract. Sorting by the stored turn timestamp
+ * with id as the deterministic tie-breaker makes equivalent frontiers byte-stable across
+ * retrieval permutations while retaining chronological model context.
+ *
+ * @param {Object} input
+ * @param {String[]} input.ids Chroma turn ids.
+ * @param {Array.<String|null>} input.documents Stored turn documents.
+ * @param {Object[]} input.metadatas Turn metadata.
+ * @returns {{ids:String[],documents:String[],metadatas:Object[]}}
+ */
+export function canonicalizeSessionTurnInput({ids, documents, metadatas} = {}) {
+    if (!Array.isArray(ids) || !Array.isArray(documents) || !Array.isArray(metadatas)) {
+        throw new TypeError('Session turn input requires ids, documents, and metadatas arrays.');
+    }
+    if (ids.length !== documents.length || ids.length !== metadatas.length) {
+        throw new TypeError('Session turn input arrays must have equal lengths.');
+    }
+
+    const resolveTimestamp = metadata => {
+        const value   = metadata?.timestamp ?? metadata?.createdAt;
+        const numeric = Number(value);
+
+        if (Number.isFinite(numeric)) return numeric;
+
+        const parsed = Date.parse(value);
+
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const turns = ids.map((id, index) => {
+        const metadata = metadatas[index] || {};
+        const document = resolveTurnDocumentForRead({
+            documents: [documents[index]],
+            metadata
+        });
+
+        if (typeof id !== 'string' || !id) {
+            throw new TypeError(`Session turn input requires a non-empty id at index ${index}.`);
+        }
+        if (typeof document !== 'string') {
+            throw new TypeError(`Session turn input requires canonical document text at index ${index}.`);
+        }
+
+        return {id, document, metadata, timestamp: resolveTimestamp(metadata)};
+    }).sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
+
+    return {
+        ids      : turns.map(turn => turn.id),
+        documents: turns.map(turn => turn.document),
+        metadatas: turns.map(turn => turn.metadata)
+    };
+}
+
+/**
+ * @summary Computes the deterministic revision of one ordered raw-turn input frontier.
+ *
+ * The revision binds every turn's stable Chroma id, canonical document text, and identity
+ * boundary. A count-only marker would collide when one turn is replaced by another; hashing the
+ * exact ordered envelope lets SessionService publish the input it observed and DreamService
+ * independently attest the raw snapshot it actually processed. Stored and reconstructed forms of
+ * the same canonical turn document intentionally produce the same revision.
+ *
+ * @param {Object} input
+ * @param {String[]} input.ids Ordered Chroma turn ids.
+ * @param {Array.<String|null>} input.documents Ordered stored turn documents.
+ * @param {Object[]} input.metadatas Ordered turn metadata.
+ * @returns {String} Versioned SHA-256 revision.
+ */
+export function computeSessionTurnInputRevision({ids, documents, metadatas} = {}) {
+    const canonical = canonicalizeSessionTurnInput({ids, documents, metadatas});
+    const turns     = canonical.ids.map((id, index) => {
+        const metadata = canonical.metadatas[index];
+        return {
+            id,
+            document     : canonical.documents[index],
+            agentIdentity: metadata.agentIdentity ?? null,
+            sessionId    : metadata.sessionId ?? null,
+            userId       : metadata.userId ?? null
+        };
+    });
+
+    const digest = createHash('sha256')
+        .update(JSON.stringify({version: 1, turns}), 'utf8')
+        .digest('hex');
+
+    return `sha256:${digest}`;
 }

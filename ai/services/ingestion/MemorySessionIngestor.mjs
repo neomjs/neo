@@ -137,10 +137,15 @@ class MemorySessionIngestor extends Base {
      * @param {Object}   [options.memoryCollection=null] Optional explicit memory collection for
      *     testability — tests inject a stub with seeded data. Production callers pass nothing;
      *     falls back to `StorageRouter.getMemoryCollection()`.
+     * @param {Object}   [options.rawMemories=null] Exact raw-memory snapshot already verified by
+     *     DreamService. When present, ingestion consumes it without a second mutable Chroma read.
      * @returns {Promise<Object>} Ingestion statistics:
      *     `{memoriesProcessed, memoriesUpserted, memoriesSkipped, sessionUpserted, errors}`
      */
-    async syncSessionToGraph(session, {memoryCollection = null} = {}) {
+    async syncSessionToGraph(session, {
+        memoryCollection             = null,
+        rawMemories: suppliedMemories = null
+    } = {}) {
         const stats = {
             memoriesProcessed: 0,
             memoriesUpserted : 0,
@@ -182,10 +187,10 @@ class MemorySessionIngestor extends Base {
             }
 
             const
-                collection  = memoryCollection || await StorageRouter.getMemoryCollection(),
-                rawMemories = collection
+                collection  = memoryCollection || (suppliedMemories ? null : await StorageRouter.getMemoryCollection()),
+                rawMemories = suppliedMemories || (collection
                     ? await collection.get({where: {sessionId: agentSessionId}, include: ['metadatas']})
-                    : null;
+                    : null);
 
             if (!rawMemories?.ids?.length) {
                 logger.info(`[MemorySessionIngestor] Session ${agentSessionId} has no raw memories.`);
