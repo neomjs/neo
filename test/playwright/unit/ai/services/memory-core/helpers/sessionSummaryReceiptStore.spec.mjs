@@ -1,6 +1,7 @@
 import fs   from 'node:fs';
 import os   from 'node:os';
 import path from 'node:path';
+import {gzipSync} from 'node:zlib';
 
 import {knownEmbeddingFunctions, registerEmbeddingFunction, ChromaClient} from 'chromadb';
 import Database                                                           from 'better-sqlite3';
@@ -15,6 +16,7 @@ import {
     decodeSessionSummaryReceipt,
     encodeSessionSummaryReceipt,
     recoverSessionSummaryReceipts,
+    REQUIRED_RECEIPT_METADATA_KEYS,
     SESSION_SUMMARY_RECEIPT_ENCODING,
     SESSION_SUMMARY_RECEIPT_METADATA_KEYS,
     stageSessionSummaryReceipt
@@ -192,7 +194,7 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
         const receipt = createReceipt('owned-key-set');
 
         expect(Object.keys(receipt.metadata))
-            .toEqual(SESSION_SUMMARY_RECEIPT_METADATA_KEYS.slice(0, -2));
+            .toEqual(REQUIRED_RECEIPT_METADATA_KEYS);
         expect(() => encodeSessionSummaryReceipt({
             ...receipt,
             metadata: {
@@ -565,6 +567,53 @@ test.describe('sessionSummaryReceiptStore (#16105, #16114)', () => {
             expect(row.status).toBe('completed');
             expect(Buffer.from(row.result_envelope).toString()).toBe('not-gzip');
             expect(collection.upsertCalls).toBe(0);
+        } finally {
+            db.close();
+        }
+    });
+
+    test('recovers a shape-drifted historical envelope without weakening current issuance', async () => {
+        const db         = createReceiptDb();
+        const collection = createFakeCollection();
+        const receipt    = createReceipt('historical-shape');
+
+        delete receipt.metadata.rawCanonical;
+        receipt.metadata.retiredSynthesisField = 'historical-value';
+
+        db.prepare(`
+            INSERT INTO SummarizationJobs (
+                session_id,
+                status,
+                result_envelope,
+                result_encoding,
+                result_staged_at
+            )
+            VALUES (?, 'completed', ?, ?, ?)
+        `).run(
+            receipt.sessionId,
+            gzipSync(Buffer.from(JSON.stringify({version: 1, ...receipt}), 'utf8')),
+            SESSION_SUMMARY_RECEIPT_ENCODING,
+            100
+        );
+
+        try {
+            const result = await recoverSessionSummaryReceipts({
+                db,
+                collection,
+                now: 200
+            });
+
+            expect(result).toMatchObject({
+                scanned  : 1,
+                replayed : 1,
+                completed: 1
+            });
+            expect(collection.rows.get(receipt.summaryId)).toEqual({
+                document: receipt.document,
+                metadata: receipt.metadata
+            });
+            expect(() => encodeSessionSummaryReceipt(receipt))
+                .toThrow(/unowned keys: retiredSynthesisField/);
         } finally {
             db.close();
         }

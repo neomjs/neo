@@ -55,13 +55,13 @@ const OPTIONAL_RECEIPT_METADATA_KEYS = new Set([
     'unclassifiedSourceCount',
     'userId'
 ]);
-const REQUIRED_RECEIPT_METADATA_KEYS = SESSION_SUMMARY_RECEIPT_METADATA_KEYS.filter(
+export const REQUIRED_RECEIPT_METADATA_KEYS = Object.freeze(SESSION_SUMMARY_RECEIPT_METADATA_KEYS.filter(
     key => !OPTIONAL_RECEIPT_METADATA_KEYS.has(key)
-);
+));
 const SESSION_SUMMARY_RECEIPT_METADATA_KEY_SET = new Set(SESSION_SUMMARY_RECEIPT_METADATA_KEYS);
 
 /**
- * @summary Validates the exact deterministic summary row carried by a receipt.
+ * @summary Validates the stable outer structure shared by current and historical receipts.
  * @param {Object} receipt
  * @param {String} receipt.sessionId
  * @param {String} receipt.summaryId
@@ -69,7 +69,7 @@ const SESSION_SUMMARY_RECEIPT_METADATA_KEY_SET = new Set(SESSION_SUMMARY_RECEIPT
  * @param {Object} receipt.metadata
  * @returns {Object} The validated receipt.
  */
-function validateReceipt(receipt) {
+function validateReceiptStructure(receipt) {
     if (typeof receipt?.sessionId !== 'string' || !receipt.sessionId) {
         throw new TypeError('Session-summary receipt requires a non-empty sessionId.');
     }
@@ -83,6 +83,21 @@ function validateReceipt(receipt) {
         throw new TypeError('Session-summary receipt metadata must be an object.');
     }
 
+    return receipt;
+}
+
+/**
+ * @summary Enforces the current synthesis-owned metadata contract when issuing a receipt.
+ *
+ * Decode intentionally uses only structural validation because persisted version-1 envelopes
+ * predate the metadata key-set contract. This strict issuance boundary prevents new drift
+ * without making historical durable recovery dependent on today's metadata schema.
+ *
+ * @param {Object} receipt
+ * @returns {Object} The validated current receipt.
+ */
+function validateReceiptIssuance(receipt) {
+    const validated           = validateReceiptStructure(receipt);
     const unknownMetadataKeys = Object.keys(receipt.metadata)
         .filter(key => !SESSION_SUMMARY_RECEIPT_METADATA_KEY_SET.has(key));
     if (unknownMetadataKeys.length > 0) {
@@ -95,7 +110,7 @@ function validateReceipt(receipt) {
         throw new TypeError(`Session-summary receipt metadata is missing owned keys: ${missingMetadataKeys.join(', ')}.`);
     }
 
-    return receipt;
+    return validated;
 }
 
 /**
@@ -104,7 +119,7 @@ function validateReceipt(receipt) {
  * @returns {Buffer}
  */
 export function encodeSessionSummaryReceipt(receipt) {
-    const validated = validateReceipt(receipt);
+    const validated = validateReceiptIssuance(receipt);
 
     return gzipSync(Buffer.from(JSON.stringify({
         version  : 1,
@@ -141,7 +156,7 @@ export function decodeSessionSummaryReceipt(envelope, encoding) {
         throw new Error(`Unsupported session-summary receipt version: ${String(receipt?.version)}.`);
     }
 
-    return validateReceipt(receipt);
+    return validateReceiptStructure(receipt);
 }
 
 /**
