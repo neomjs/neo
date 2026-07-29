@@ -4,9 +4,9 @@ import path           from 'node:path';
 import process        from 'node:process';
 
 /**
- * Pre-push authorship check. ticket-ref-ok: implementing ticket #15337
+ * Pre-push authorship check. ticket-ref-ok: implementing tickets #15337 and #16143
  *
- * Refuses to push commits authored with the OPERATOR's identity from an agent worktree.
+ * Refuses to push commits authored with the OPERATOR's identity from an agent checkout.
  *
  * **The empirical anchor.** A full agent shift produced 38 commits across 7 branches, every one
  * authored as the human operator, because the worktree's git config silently resolved to his global
@@ -14,16 +14,19 @@ import process        from 'node:process';
  * the commits succeeded; the PRs rendered normally. It took a peer reading the PR's commit metadata
  * to notice, hours in.
  *
- * **Why it must be mechanical rather than remembered.** Squash-merge PRESERVES the author, so those
- * PRs would have landed on `dev` permanently crediting the operator for code he did not write — a
- * provenance error in the one record that cannot be corrected without rewriting shared history. The
- * repo already gates the adjacent case (`<noreply@*>` co-author footers) mechanically for exactly
- * this reason: an attribution rule that relies on noticing has already failed once.
+ * **Why it must be mechanical rather than remembered.** GitHub's current squash flow rewrites the
+ * `dev` commit author to the PR author, but the pushed branch and PR commit metadata remain false
+ * until then. That corrupts provenance while review is happening, including the family-per-author
+ * accounting that decides whether a cross-family approval is independent. Downstream repair is not
+ * prevention. The repo already gates the adjacent case (`<noreply@*>` co-author footers)
+ * mechanically for the same reason: an attribution rule that relies on noticing has already failed.
  *
- * **The rule.** In a LINKED worktree (`git-dir` !== `git-common-dir` — i.e. `.git/worktrees/<name>`,
- * which is how every agent worktree is created), no pushed commit may carry the identity from the
- * operator's GLOBAL git config. The operator's own checkout is the main working tree, where his
- * identity is correct and this check stays silent.
+ * **The rule.** In an agent-owned checkout, no pushed commit may carry the identity from the
+ * operator's GLOBAL git config. Linked worktrees are agent-owned by topology (`git-dir` !==
+ * `git-common-dir`). Independent clones have no distinct Git topology, so they use the same
+ * `NEO_AGENT_IDENTITY` boot pin that `bootstrapWorktree` requires before binding clone-local Git
+ * identity. The operator's own checkout has neither signal, where his identity is correct and this
+ * check stays silent.
  *
  * Comparing against the global config rather than a hard-coded roster is deliberate: the leak IS the
  * global identity resolving through an unset local one, so that value is exactly the thing to detect.
@@ -97,6 +100,21 @@ function isLinkedWorktree() {
 }
 
 /**
+ * @summary Whether the current checkout is owned by an agent rather than the operator.
+ *
+ * Linked worktrees retain the original topology-owned behavior. An independent clone reports
+ * `git-dir === git-common-dir`, so the bootstrap's existing `NEO_AGENT_IDENTITY` pin is the only
+ * shared ownership authority available before a push. Presence is sufficient here: identity
+ * validation and Git binding remain `bootstrapWorktree`'s job, while this guard only decides whether
+ * the operator-global leak is valid authorship or must fail loud.
+ *
+ * @returns {Boolean}
+ */
+function isAgentCheckout() {
+    return isLinkedWorktree() || Boolean(process.env.NEO_AGENT_IDENTITY?.trim())
+}
+
+/**
  * @summary The operator's global identity — the value that leaks when a worktree sets none.
  * @returns {String} Lower-cased email, or '' when no global identity is configured.
  */
@@ -134,7 +152,7 @@ function commitsAuthoredBy(email, ranges) {
 const operator = operatorEmail();
 
 // No global identity, or the operator's own checkout: nothing this check can or should say.
-if (!operator || !isLinkedWorktree()) {
+if (!operator || !isAgentCheckout()) {
     process.exit(0)
 }
 
@@ -156,17 +174,17 @@ if (offenders.length === 0) {
 
 const local = tryExec('git config user.email') || '(unset — resolving to the global identity)';
 
-console.error(`\x1b[31mcheck-commit-authorship: ${offenders.length} commit(s) authored as the operator from an agent worktree:\x1b[0m`);
+console.error(`\x1b[31mcheck-commit-authorship: ${offenders.length} commit(s) authored as the operator from an agent checkout:\x1b[0m`);
 console.error(offenders.join('\n'));
 console.error(`
-This worktree's user.email is: ${local}
+This checkout's user.email is: ${local}
 The operator's global identity is: ${operator}
 
-Squash-merge preserves the author, so pushing these would credit the operator on \`dev\` for code
-they did not write — in the one record that cannot be corrected afterwards without rewriting shared
-history.
+Pushing these would publish false branch and PR commit provenance, including the author-family
+record used to decide whether review is cross-family. GitHub's current squash flow can repair the
+\`dev\` author from the PR author, but downstream repair does not make the review-time record true.
 
-Set this worktree's identity to your own, then repair the existing commits:
+Set this checkout's identity to your own, then repair the existing commits:
 
   git config user.name  "<Your Name>"
   git config user.email "<you>@neomjs.com"
@@ -178,7 +196,7 @@ equality is the WRONG check:
   git diff --name-only origin/dev...HEAD    # the same file set as before, and only your files
   git log origin/dev..HEAD --format=%an     # every commit is yours
 
-Bypass (an operator genuinely committing from a worktree): git push --no-verify
+Bypass (an operator genuinely committing from an agent checkout): git push --no-verify
 `);
 
 process.exit(1);

@@ -17,9 +17,10 @@ const
  * test invented, and the defect it exists to catch (a real worktree silently resolving a real global
  * identity) lives precisely in the part a stub replaces.
  *
- * So these build throwaway repos on disk: a main checkout, and a linked worktree of it.
+ * So these build throwaway repos on disk: a main checkout, linked worktrees, and an agent-owned
+ * independent clone distinguished by the same `NEO_AGENT_IDENTITY` pin the bootstrap consumes.
  */
-test.describe('check-commit-authorship — the operator must not author from an agent worktree', () => {
+test.describe('check-commit-authorship — the operator must not author from an agent checkout', () => {
     let tmpRoot;
 
     const git = (cwd, args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']});
@@ -28,16 +29,28 @@ test.describe('check-commit-authorship — the operator must not author from an 
      * @summary Runs the guard in `cwd` with an injected global identity.
      * @param {String} cwd
      * @param {String} globalEmail The operator identity the guard should treat as the leak source.
+     * @param {String} stdin The pre-push hook payload.
+     * @param {Object} [options]
+     * @param {String} [options.agentIdentity] The agent-ownership pin; absent means operator checkout.
      * @returns {{status: Number, stderr: String}}
      */
-    function runGuard(cwd, globalEmail, stdin = '') {
+    function runGuard(cwd, globalEmail, stdin = '', {agentIdentity} = {}) {
         // HOME is redirected so the guard reads THIS as `git config --global user.email` rather than
         // the real developer's — the global config is an input to the rule, so the test owns it.
-        const home = path.join(tmpRoot, 'home');
+        const
+            home = path.join(tmpRoot, 'home'),
+            env  = {...process.env, HOME: home};
+
         fs.outputFileSync(path.join(home, '.gitconfig'), `[user]\n\temail = ${globalEmail}\n\tname = Operator\n`);
 
+        if (agentIdentity) {
+            env.NEO_AGENT_IDENTITY = agentIdentity
+        } else {
+            delete env.NEO_AGENT_IDENTITY
+        }
+
         try {
-            execFileSync('node', [guardPath], {cwd, encoding: 'utf8', env: {...process.env, HOME: home}, input: stdin, stdio: ['pipe', 'pipe', 'pipe']});
+            execFileSync('node', [guardPath], {cwd, encoding: 'utf8', env, input: stdin, stdio: ['pipe', 'pipe', 'pipe']});
             return {status: 0, stderr: ''}
         } catch (error) {
             return {status: error.status, stderr: `${error.stderr || ''}`}
@@ -91,6 +104,20 @@ test.describe('check-commit-authorship — the operator must not author from an 
         expect(result.stderr).toContain('authored as the operator');
         // naming the commit matters: a count tells nobody which commit to repair
         expect(result.stderr).toContain('feat: work the agent actually did')
+    });
+
+    test('FIRES in an agent-owned independent clone that still resolves the operator identity', () => {
+        const clone = createMainCheckout();
+
+        git(clone, ['checkout', '-b', 'agent/lane', '--quiet']);
+        fs.outputFileSync(path.join(clone, 'work.txt'), 'agent work from a stale clone\n');
+        git(clone, ['add', '.']);
+        git(clone, ['commit', '-m', 'feat: stale independent-clone identity', '--quiet', '--no-verify']);
+
+        const result = runGuard(clone, 'operator@example.com', '', {agentIdentity: 'neo-gpt-emmy'});
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feat: stale independent-clone identity')
     });
 
     test('SILENT in the operator\'s OWN checkout — his commits there are correct', () => {
