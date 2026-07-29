@@ -4,6 +4,7 @@
 
 ### State Vector
 - **Target SHA:** `[Insert precise SHA being reviewed]`
+- **Origin Session ID:** `[Neo Memory Core UUID, not harness/task/transcript]`
 - **Current reviewDecision:** `[Current GitHub reviewDecision]`
 - **Semantic Status:** `[e.g., APPROVED / ALIGNED]`
 - **CI Status:** `[e.g., GREEN / PENDING]`

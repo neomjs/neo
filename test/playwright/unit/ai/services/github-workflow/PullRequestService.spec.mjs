@@ -893,6 +893,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     // Substantive review content (prose, depth-floor, audit findings) is the peer-reviewer's responsibility;
     // this constant only satisfies the mechanical depth-floor gate so the downstream behavior under test
     // (action dispatch, GraphQL error handling, PR_NOT_FOUND) can be exercised.
+    const REVIEW_ORIGIN_SESSION_ID = '8c622ae9-0ef1-4bf1-9a27-5dfe228b4fac';
+
     const VALID_REVIEW_BODY = [
         '# PR Review Summary',
         '',
@@ -910,6 +912,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '### 🕸️ Context & Graph Linking',
         '* **Target Epic / Issue ID:** Resolves #11273',
         '* **Related Graph Nodes:** #11491',
+        `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
         '',
         '### 🔬 Depth Floor',
         '- Documented search: scanned all relevant surfaces.',
@@ -957,6 +960,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '* **Prior Review Comment ID:** PRR_123',
         '* **Author Response Comment ID:** IC_456',
         '* **Latest Head SHA:** abc1234',
+        `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
         '',
         '### 🔁 Delta Scope',
         '* **Files changed:** PR body only',
@@ -990,6 +994,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '',
         '### State Vector',
         '- **Target SHA:** abc1234',
+        `- **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
         '- **Current reviewDecision:** CHANGES_REQUESTED',
         '- **Semantic Status:** APPROVED',
         '- **CI Status:** GREEN',
@@ -2154,6 +2159,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             '* **Expected Solution Shape:** preserve the selected review template skeleton.',
             '* **Patch Verdict:** matches the expected shape.',
             '* **Premise Coherence:** coheres: a stuffing-regression fixture; no value-surface.',
+            `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
             '[ARCH_ALIGNMENT]: 100',
             '[CONTENT_COMPLETENESS]: 100',
             '[EXECUTION_QUALITY]: 100',
@@ -2292,6 +2298,65 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(graphqlCallCount).toBe(2);
     });
 
+    test('#16148: rejects missing, placeholder, or malformed origin sessions in every documented review format', async () => {
+        const formats = [{
+            body         : VALID_REVIEW_BODY,
+            field        : `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            missingBucket: 'missing_origin_session',
+            name         : 'full',
+            state        : 'APPROVED'
+        }, {
+            body         : VALID_FOLLOWUP_REVIEW_BODY,
+            field        : `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            missingBucket: 'missing_origin_session',
+            name         : 'follow-up',
+            state        : 'APPROVED'
+        }, {
+            body         : VALID_MICRO_DELTA_REVIEW_BODY,
+            field        : `- **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            missingBucket: 'missing_micro_delta',
+            name         : 'micro-delta',
+            state        : 'COMMENT'
+        }];
+        const invalidValues = [{
+            name : 'missing',
+            value: null
+        }, {
+            name : 'placeholder',
+            value: '[Neo Memory Core session UUID]'
+        }, {
+            name : 'malformed',
+            value: 'codex-task-019fac51'
+        }];
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return pullRequestLookup();
+        };
+
+        for (const format of formats) {
+            for (const invalid of invalidValues) {
+                const body = invalid.value === null
+                    ? format.body.replace(`${format.field}\n`, '')
+                    : format.body.replace(REVIEW_ORIGIN_SESSION_ID, invalid.value);
+                const result = await PullRequestService.managePrReview({
+                    action   : 'create',
+                    body,
+                    pr_number: 16148,
+                    state    : format.state
+                });
+
+                expect(result.code, `${format.name} ${invalid.name}`).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+                expect(result[format.missingBucket], `${format.name} ${invalid.name}`)
+                    .toContain('Origin Session ID: Neo Memory Core UUID');
+                expect(result.message, `${format.name} ${invalid.name}`).toContain('Neo Memory Core session UUID');
+            }
+        }
+
+        expect(graphqlCallCount).toBe(0);
+    });
+
     test('#13910: rejects incomplete Micro-Delta review before GraphQL dispatch', async () => {
         const incompleteBody = VALID_MICRO_DELTA_REVIEW_BODY
             .replace('- **Measured Discussion Cost:** > 24KB\n', '');
@@ -2349,6 +2414,71 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.failures).toEqual([]);
         expect(result.comments).toEqual([]);
         expect(result.logs).toContain('✅ Micro-Delta body matches the documented circuit-breaker shape.');
+    });
+
+    test('#16148: workflow lint accepts concrete origin sessions in every documented review format', async () => {
+        const formats = [{
+            body : VALID_REVIEW_BODY,
+            state: 'approved'
+        }, {
+            body : VALID_FOLLOWUP_REVIEW_BODY,
+            state: 'approved'
+        }, {
+            body : VALID_MICRO_DELTA_REVIEW_BODY,
+            state: 'commented'
+        }];
+
+        for (const format of formats) {
+            const result = await runAgentPrReviewBodyLintWorkflow(format);
+
+            expect(result.failures).toEqual([]);
+            expect(result.comments).toEqual([]);
+        }
+    });
+
+    test('#16148: workflow lint rejects missing, placeholder, or malformed origin sessions in every documented review format', async () => {
+        const formats = [{
+            body : VALID_REVIEW_BODY,
+            field: `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            name : 'full',
+            state: 'approved'
+        }, {
+            body : VALID_FOLLOWUP_REVIEW_BODY,
+            field: `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            name : 'follow-up',
+            state: 'approved'
+        }, {
+            body : VALID_MICRO_DELTA_REVIEW_BODY,
+            field: `- **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`,
+            name : 'micro-delta',
+            state: 'commented'
+        }];
+        const invalidValues = [{
+            name : 'missing',
+            value: null
+        }, {
+            name : 'placeholder',
+            value: '[Neo Memory Core session UUID]'
+        }, {
+            name : 'malformed',
+            value: 'codex-task-019fac51'
+        }];
+
+        for (const format of formats) {
+            for (const invalid of invalidValues) {
+                const body = invalid.value === null
+                    ? format.body.replace(`${format.field}\n`, '')
+                    : format.body.replace(REVIEW_ORIGIN_SESSION_ID, invalid.value);
+                const result = await runAgentPrReviewBodyLintWorkflow({
+                    body,
+                    state: format.state
+                });
+
+                expect(result.failures, `${format.name} ${invalid.name}`).toHaveLength(1);
+                expect(result.comments, `${format.name} ${invalid.name}`).toHaveLength(1);
+                expect(result.comments[0].body, `${format.name} ${invalid.name}`).toContain('Origin Session');
+            }
+        }
     });
 
     test('#13910: workflow lint rejects incomplete Micro-Delta bodies before canonical fallback', async () => {
