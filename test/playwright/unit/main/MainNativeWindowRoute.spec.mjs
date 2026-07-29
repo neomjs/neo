@@ -449,6 +449,8 @@ async function runNativeWindowRouteProbe(scenario) {
                     : {close: true, resize: scenario !== 'native-resize-denied'},
                 stagedColorScheme: scenario === 'invalid-scheme'
                     ? 'dark light'
+                    : scenario === 'missing-scheme'
+                        ? undefined
                     : ['navigation-failure', 'same-origin'].includes(scenario) ? 'dark' : null,
                 url,
                 useTotalHeight: false,
@@ -753,6 +755,16 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         expect(result.events).toEqual(['storage', 'replace']);
         expect(result.stagedMeta).toBeNull();
         expect(result.route).toMatchObject({targetWindowId: 'child-window'})
+    });
+
+    test('#16113 removing the staged scheme exposes an unstyled blank interval before final navigation', async () => {
+        const result = await runNativeWindowRouteProbe('missing-scheme');
+
+        expect(result.success).toBe(true);
+        expect(result.openArgs[0].url).toBe('about:blank');
+        expect(result.events).toEqual(['storage', 'replace']);
+        expect(result.stagedMeta).toBeNull();
+        expect(result.replacedUrl).toBe('https://owner.example.test/apps/demo/popup.html?mode=tear-out')
     });
 
     test('persisted pagehide permanently retires the preserved realm instead of consuming a fresh grant', async () => {

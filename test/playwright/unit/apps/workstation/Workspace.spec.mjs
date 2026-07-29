@@ -1626,6 +1626,50 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('a missing theme bootstrap fails loud before an unthemed tear-out can open', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-light'}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            windowOpenCalls    = [];
+
+        Neo.Main.getWindowData = async () => ({
+            innerHeight: 700,
+            outerHeight: 760,
+            screenLeft : 10,
+            screenTop  : 20
+        });
+        Neo.Main.getByPath = async () => {
+            throw new Error('WorkstationBootstrap unavailable')
+        };
+        Neo.Main.windowOpen = async data => {
+            windowOpenCalls.push(data);
+            return true
+        };
+
+        try {
+            const result = await workspace.openTearOutVessel({
+                itemId   : 'alerts',
+                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            expect(result).toBeNull();
+            expect(windowOpenCalls).toEqual([]);
+            expect(workspace.lastVesselOpen).toEqual({
+                error : 'WorkstationBootstrap unavailable',
+                itemId: 'alerts',
+                stage : 'threw'
+            });
+            expect(workspace.vesselOwnerGrants.has('tear-out:alerts')).toBe(false)
+        } finally {
+            Neo.Main.getByPath    = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen     = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
     test('a successor tear-out retries retained retirement before opening a fresh vessel', async () => {
         const
             workspace       = Neo.create(Workspace, {}),

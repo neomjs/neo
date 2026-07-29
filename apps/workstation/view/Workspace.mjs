@@ -2387,7 +2387,9 @@ class Workspace extends Container {
      * immediately carries the same live pane through {@link Neo.dashboard.DockVesselEmbodiment};
      * it owns no workspace document. Fail-closed per the admission contract: `windowOpen` returns
      * a BOOLEAN (a blocked popup never throws), and any falsy/throwing acquisition returns `null`
-     * so the gesture degrades to its in-window fallback.
+     * so the gesture degrades to its in-window fallback. The theme bootstrap is part of that
+     * acquisition rather than optional presentation: an unavailable authority reaches the outer
+     * diagnostic boundary, revokes the owner grant, and prevents an unthemed child from opening.
      * @param {Object} request
      * @param {Number} request.admissionToken
      * @param {String} request.itemId
@@ -2418,7 +2420,7 @@ class Workspace extends Container {
         try {
             let [winData, bootstrap] = await Promise.all([
                     Neo.Main.getWindowData({windowId}),
-                    Neo.Main.getByPath({path: 'WorkstationBootstrap', windowId}).catch(() => null)
+                    Neo.Main.getByPath({path: 'WorkstationBootstrap', windowId})
                 ]),
                 schemes       = bootstrap?.schemes || {},
                 selectedTheme = Object.hasOwn(schemes, me.theme)
