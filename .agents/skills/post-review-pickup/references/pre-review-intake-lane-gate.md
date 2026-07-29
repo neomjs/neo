@@ -1,25 +1,16 @@
 # Pre-Review Intake Lane Gate
 
-This payload governs the moment before an agent accepts its first PR review /
-re-review request after fresh boot, session recovery, or watchdog wake while no
-author or implementation lane is active.
-
-The goal is lane-order correctness: pick a positive-ROI author lane first when
-that is the right move, then review peer PRs after the PR is opened or while CI
-is pending. This is not a quota, blame, or forced-assignment mechanism.
+This gate governs first review/re-review intake after boot, recovery, or wake
+when no author/implementation lane is active. It preserves lane order—positive-
+ROI authorship first when claimable—without quotas or forced assignment.
 
 ## Trigger
 
-Use this gate when all are true:
-
-1. A PR review or re-review request is available.
-2. The current session has no active author lane, implementation branch, or
-   self-assigned ticket in progress.
-3. No human-directed urgent review instruction overrides lane discovery.
+Use when a review/re-review is available, no author lane/branch/self-assigned
+ticket is active, and no human-directed urgent review overrides discovery.
 
 If the agent already has an open PR waiting on CI, use
-`pull-request/references/ci-green-review-routing.md` instead: peer review during
-CI wait is healthy as long as the author re-checks the current PR head after.
+`pull-request/references/ci-green-review-routing.md`; re-check its head after.
 
 ## Protocol
 
@@ -35,17 +26,24 @@ CI wait is healthy as long as the author re-checks the current PR head after.
    `ticket-intake`, or record a review-first rationale before loading
    `/pr-review`.
 
+## Review-Seat Gate
+
+At review-start—not lane discovery—read live `reviewRequests`, reviews, and PR
+comments. The native field owns the ordinary seat; A2A only points to it. You
+are eligible when requested, or when the latest request is ≥1h old with no
+review/comment/acceptance and you reroute its one native seat to yourself,
+record timeout, and verify the old request is gone. Engagement, a landed review,
+or a non-1:1 reroute means yield. Explicit exceptions remain in
+`pull-request-workflow.md §6.2`.
+
 ## Legitimate Review-First Rationale
 
 Review-first is allowed when one of these is true:
 
-- The operator explicitly asked for the review now.
-- The review is urgent, security-sensitive, or blocks a peer's already-active
-  author lane.
-- Lane discovery found no positive-ROI author lane claimable in the current
-  turn, and the survey is named in the handoff.
-- The agent's own PR is already open and CI is pending; review work is being
-  done as CI-wait utilization.
+- Operator explicitly asked now.
+- Urgent/security review blocks a peer's active author lane.
+- The named survey found no claimable positive-ROI author lane this turn.
+- Your own PR is open with CI pending; review uses that wait.
 
 Use explicit wording:
 
