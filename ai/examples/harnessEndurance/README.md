@@ -35,10 +35,12 @@ What remains true, and is the honest claim: Neo's value at scale is **correct-by
 ## Reproduce
 
 ```
-npm run test-e2e -- test/playwright/e2e/benchmarks/HarnessEnduranceBenchmark.spec.mjs
+NEO_E2E_ENGINE_PROFILE=1 npm run test-e2e -- test/playwright/e2e/benchmarks/HarnessEnduranceBenchmark.spec.mjs
 ```
 
 The `worker-topology at marathon scale` test logs `[endurance:marathon]` with the numbers above; the small-scale tests log `[endurance:neo|comparator|delta]`.
+The explicit engine profile preserves the uncapped scheduling used for the published benchmark;
+ordinary headed UI runs deliberately default to the presenting profile instead.
 
 ## Public-surface guardrail
 

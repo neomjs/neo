@@ -1,6 +1,6 @@
 import {test, expect}          from '../../fixtures.mjs';
 import {workstationTourScript} from '../../../../apps/workstation/tour/denseWorkstation.mjs';
-import {isFilmTake}            from '../utils/gpuIntent.mjs';
+import {isEngineProfile}       from '../utils/gpuIntent.mjs';
 
 /**
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
@@ -9,7 +9,7 @@ import {isFilmTake}            from '../utils/gpuIntent.mjs';
  * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
- * Canvas-worker value change (plus pixel change under the film profile), DevIndex-sized chart
+ * Canvas-worker value change (plus pixel change under the presenting profile), DevIndex-sized chart
  * geometry, honest progress paints, both themes, host-relative edge bands, visible real splitters,
  * user-driven semantic resize, pane-owned chrome, replacement-chrome motion containment,
  * sequential clip-safe fixed staging, and identity preservation.
@@ -37,11 +37,11 @@ const initialTabNodeIds = [
     'right-top-tabs', 'right-bottom-tabs', 'bottom-tabs'
 ];
 
-const asArray  = value => Array.isArray(value) ? value : value ? [value] : [],
-      filmTake = isFilmTake();
+const asArray           = value => Array.isArray(value) ? value : value ? [value] : [],
+      presentingBrowser = !isEngineProfile();
 
 /**
- * @summary Captures the exact Canvas pixels when the film profile presents frames on glass.
+ * @summary Captures the exact Canvas pixels when the browser profile presents frames on glass.
  *
  * @param {import('@playwright/test').Locator} canvas
  * @returns {Promise<String>} Base64-encoded PNG for the current Canvas pixels.
@@ -1237,18 +1237,18 @@ test.describe('Workstation — dense living-data composition', () => {
 
         await page.waitForTimeout(150);
 
-        // The benchmark profile deliberately includes --disable-frame-rate-limit: its worker truth
-        // stays live, but the capture-profile contract exposes no presented frame to screenshots.
-        // Film mode drops that flag and therefore adds the independent on-glass pixel receipt.
+        // The explicit engine profile retains --disable-frame-rate-limit: its worker truth stays
+        // live, but it exposes no presented frame to screenshots on affected headed Retina hosts.
+        // The default presenting profile therefore owns the independent on-glass pixel receipt.
         const targetCanvas = page.locator(`[id="${pulseTarget.id}"]`),
-              beforePixels = filmTake ? await readCanvasPixels(targetCanvas) : null,
+              beforePixels = presentingBrowser ? await readCanvasPixels(targetCanvas) : null,
               beforeValues = pulseTarget.properties.values,
               pulseReceipt = await app.callMethod(workspaceId, 'pulseScaleSparkline', [pulseTarget.id]);
 
         expect(pulseReceipt.componentId).toBe(pulseTarget.id);
         expect(pulseReceipt.recordId).toBeTruthy();
 
-        if (filmTake) {
+        if (presentingBrowser) {
             await expect.poll(() => readCanvasPixels(targetCanvas), {
                 message  : 'the exact scale Canvas changes after its worker receives new data',
                 timeout  : 10000,
