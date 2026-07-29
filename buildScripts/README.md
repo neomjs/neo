@@ -331,6 +331,12 @@ Runs the automated test suite using Playwright.
 **Script:** `buildScripts/helpers/watchThemes.mjs`
 
 Watches the `resources/scss` directory and incrementally recompiles themes when files change.
+
+- Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher. It refuses to watch an incomplete or stale development theme tree.
+- Content changes to existing entry files keep the single-file fast path.
+- Add, rename, and delete events reconcile missing/stale outputs, remove retired CSS and source maps, and replace the generated development theme map.
+- Partial changes rebuild their owning theme root; shared-mixin changes rebuild every root and surface compiler failures.
+
 *Note: This script has no CLI options.*
 
 ---

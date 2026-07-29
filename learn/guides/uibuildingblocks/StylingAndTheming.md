@@ -378,9 +378,11 @@ The `theme-map.json` file creates a mapping between every class name and the the
 
 ### `watch-themes`
 
-For development, you can use `npm run watch-themes`. This script will watch the `resources/scss` directory for any changes and recompile only the file that was changed. This provides a much faster feedback loop when you are developing themes.
+For development, you can use `npm run watch-themes`. Existing non-partial files stay on the fast path: the watcher recompiles only the file whose content changed.
 
-**Important Note:** The current version of `watch-themes` only handles changes to *existing* files. It does **not** detect new files, renamed files, or deleted files. As a result, if you add, move, or delete SCSS files while the watcher is running, the `theme-map.json` will not be updated, which can lead to inconsistencies. To apply these kinds of changes, you can run a full `npm run build-themes` command in a separate terminal. Enhancing the watch script to handle these cases is a planned improvement.
+Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher. The watcher refuses to start when the development CSS or generated map is missing, stale, incomplete, or borrowed through a symbolic link.
+
+Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective framework-plus-workspace SCSS tree. A partial change rebuilds its owning `src` or theme root (shared mixins rebuild all roots), so a broken importer produces a visible error instead of silently retaining stale CSS.
 
 ## 9. Lazy Loading in Action
 
