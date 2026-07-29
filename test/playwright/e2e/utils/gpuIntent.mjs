@@ -43,9 +43,10 @@ export const GPU_INTENT_ARGS = [
 ];
 
 /**
- * @summary Everything else the E2E browser launches with — isolation, memory, throttling, sandbox.
- * (The poison-flag prohibition is module-wide — see the file header — because it is not specific to
- * this list.)
+ * @summary Shared browser isolation, memory, throttling, and sandbox arguments.
+ *
+ * The explicit engine profile uses this list unchanged. The presenting profile removes the
+ * frame-rate override which suppresses compositor frames on headed Retina hosts.
  * @type {String[]}
  */
 export const BASE_LAUNCH_ARGS = [
@@ -63,26 +64,30 @@ export const BASE_LAUNCH_ARGS = [
 ];
 
 /**
- * @summary The full argument list handed to Chrome.
+ * @summary The explicit engine/benchmark launch profile.
+ *
+ * This profile retains the GPU-intent flags and uncapped frame scheduling used by engine and
+ * benchmark investigations. It is deliberately not the default for headed UI work because
+ * `--disable-frame-rate-limit` can leave the application semantically live behind empty windows.
  * @type {String[]}
  */
-export const E2E_LAUNCH_ARGS = [...GPU_INTENT_ARGS, ...BASE_LAUNCH_ARGS];
+export const ENGINE_LAUNCH_ARGS = [...GPU_INTENT_ARGS, ...BASE_LAUNCH_ARGS];
 
 /**
- * @summary The film-take launch profile: capture needs frames ON GLASS.
+ * @summary The default presenting launch profile: headed work needs frames on glass.
  *
  * `--disable-frame-rate-limit` suppresses headed compositing entirely on retina hosts —
  * `page.screenshot` starves for the full test timeout and every screen-capture grain records
- * black while worker-truth stays green — so a filmable run must drop it. The GPU-intent flags
- * are benchmark claims a film take does not make. The backgrounding-disable trio STAYS: a
- * newborn tear-out vessel is an occluded window whose renderer must keep running long enough
- * to join the shared heap, or vessels are never born.
+ * black while worker-truth stays green — so the ordinary headed profile drops it. GPU-intent
+ * flags are benchmark claims a presenting run does not make. The backgrounding-disable trio
+ * STAYS: a newborn tear-out vessel is an occluded window whose renderer must keep running long
+ * enough to join the shared heap, or vessels are never born.
  * @type {String[]}
  */
-export const FILM_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
+export const PRESENTING_LAUNCH_ARGS = BASE_LAUNCH_ARGS.filter(arg => arg !== '--disable-frame-rate-limit');
 
 /**
- * @summary Whether the exact public sentinel selects the native film-take profile.
+ * @summary Whether the exact public sentinel selects film pacing and recording behavior.
  * @returns {Boolean}
  */
 export function isFilmTake() {
@@ -90,22 +95,42 @@ export function isFilmTake() {
 }
 
 /**
- * @summary The launch list the CURRENT run mode actually uses.
+ * @summary Whether the exact public sentinel selects the non-presenting engine profile.
+ * @returns {Boolean}
+ */
+export function isEngineProfile() {
+    return process.env.NEO_E2E_ENGINE_PROFILE === '1'
+}
+
+/**
+ * @summary The launch list the current run mode actually uses.
  *
  * Single selection point for config projects AND the boot probe: the probe must demand GL
  * proportional to the args the suite really launches with — reading intent from one list while
- * launching another is the drift class this module exists to prevent.
+ * launching another is the drift class this module exists to prevent. Film capture remains a
+ * spec-level pacing/recording mode; it no longer selects whether headed windows present pixels.
+ *
+ * Film capture and the engine profile are mutually exclusive. Allowing both would start video
+ * capture under the one profile already known not to present compositor frames, turning a clear
+ * configuration error into a late screenshot timeout or black recording.
  * @returns {String[]}
  */
 export function activeLaunchArgs() {
-    return isFilmTake() ? FILM_LAUNCH_ARGS : E2E_LAUNCH_ARGS
+    if (isFilmTake() && isEngineProfile()) {
+        throw new Error(
+            'NEO_FILM_TAKE=1 cannot be combined with NEO_E2E_ENGINE_PROFILE=1: ' +
+            'film capture requires the presenting browser profile.'
+        )
+    }
+
+    return isEngineProfile() ? ENGINE_LAUNCH_ARGS : PRESENTING_LAUNCH_ARGS
 }
 
 /**
  * @summary Whether a given argument list claims hardware acceleration.
- * @param {String[]} [args=E2E_LAUNCH_ARGS]
+ * @param {String[]} [args=PRESENTING_LAUNCH_ARGS]
  * @returns {Boolean}
  */
-export function claimsGpuAcceleration(args = E2E_LAUNCH_ARGS) {
+export function claimsGpuAcceleration(args = PRESENTING_LAUNCH_ARGS) {
     return args.some(arg => GPU_INTENT_ARGS.includes(arg))
 }

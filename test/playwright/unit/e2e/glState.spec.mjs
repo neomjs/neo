@@ -2,10 +2,11 @@ import {expect, test}                           from '@playwright/test';
 import {
     activeLaunchArgs,
     claimsGpuAcceleration,
-    E2E_LAUNCH_ARGS,
-    FILM_LAUNCH_ARGS,
+    ENGINE_LAUNCH_ARGS,
     GPU_INTENT_ARGS,
-    isFilmTake
+    isEngineProfile,
+    isFilmTake,
+    PRESENTING_LAUNCH_ARGS
 }                                                from '../../e2e/utils/gpuIntent.mjs';
 import {readGlState, SOFTWARE_RENDERER_MARKERS}   from '../../e2e/utils/glState.mjs';
 
@@ -112,32 +113,61 @@ test.describe('e2e/utils/glState', () => {
 
         // Tuning flags do not by themselves claim acceleration and must not arm the demand.
         expect(claimsGpuAcceleration(['--disable-frame-rate-limit', '--force-gpu-mem-available-mb=4096'])).toBe(false);
+        expect(claimsGpuAcceleration()).toBe(false)
     });
 
-    test('#16046 only the exact film sentinel selects the capture launch profile', () => {
-        const previous = process.env.NEO_FILM_TAKE;
+    test('#16128 presenting is default; only the exact engine sentinel selects the engine profile', () => {
+        const
+            previousEngine = process.env.NEO_E2E_ENGINE_PROFILE,
+            previousFilm   = process.env.NEO_FILM_TAKE;
 
         try {
+            delete process.env.NEO_E2E_ENGINE_PROFILE;
             delete process.env.NEO_FILM_TAKE;
-            expect(isFilmTake()).toBe(false);
-            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
 
-            process.env.NEO_FILM_TAKE = '0';
+            expect(isEngineProfile()).toBe(false);
             expect(isFilmTake()).toBe(false);
-            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
+            expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
 
-            process.env.NEO_FILM_TAKE = 'true';
-            expect(isFilmTake()).toBe(false);
-            expect(activeLaunchArgs()).toBe(E2E_LAUNCH_ARGS);
+            process.env.NEO_E2E_ENGINE_PROFILE = '0';
+            expect(isEngineProfile()).toBe(false);
+            expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
 
+            process.env.NEO_E2E_ENGINE_PROFILE = 'false';
+            expect(isEngineProfile()).toBe(false);
+            expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+
+            process.env.NEO_E2E_ENGINE_PROFILE = 'engine';
+            expect(isEngineProfile()).toBe(false);
+            expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+
+            delete process.env.NEO_E2E_ENGINE_PROFILE;
             process.env.NEO_FILM_TAKE = '1';
             expect(isFilmTake()).toBe(true);
-            expect(activeLaunchArgs()).toBe(FILM_LAUNCH_ARGS)
+            expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+
+            delete process.env.NEO_FILM_TAKE;
+            process.env.NEO_E2E_ENGINE_PROFILE = '1';
+            expect(isEngineProfile()).toBe(true);
+            expect(activeLaunchArgs()).toBe(ENGINE_LAUNCH_ARGS);
+            expect(ENGINE_LAUNCH_ARGS).toContain('--disable-frame-rate-limit');
+            expect(PRESENTING_LAUNCH_ARGS).not.toContain('--disable-frame-rate-limit');
+
+            process.env.NEO_FILM_TAKE = '1';
+            expect(() => activeLaunchArgs()).toThrow(
+                'NEO_FILM_TAKE=1 cannot be combined with NEO_E2E_ENGINE_PROFILE=1'
+            )
         } finally {
-            if (previous === undefined) {
+            if (previousEngine === undefined) {
+                delete process.env.NEO_E2E_ENGINE_PROFILE
+            } else {
+                process.env.NEO_E2E_ENGINE_PROFILE = previousEngine
+            }
+
+            if (previousFilm === undefined) {
                 delete process.env.NEO_FILM_TAKE
             } else {
-                process.env.NEO_FILM_TAKE = previous
+                process.env.NEO_FILM_TAKE = previousFilm
             }
         }
     });
