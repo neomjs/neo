@@ -10,10 +10,11 @@
                     'neo-theme-neo-dark': 'dark',
                     'neo-theme-neo-light': 'light'
                 }),
+                defaultTheme   = 'neo-theme-neo-dark',
                 requestedTheme = new URLSearchParams(location.search).get('theme'),
                 theme          = Object.hasOwn(schemes, requestedTheme)
                     ? requestedTheme
-                    : 'neo-theme-neo-dark',
+                    : defaultTheme,
                 meta           = document.createElement('meta');
 
             meta.name    = 'color-scheme';
@@ -22,6 +23,8 @@
 
             globalThis.WorkstationBootstrap = Object.freeze({
                 colorScheme: meta.content,
+                defaultTheme,
+                schemes,
                 theme
             })
         })()

@@ -1056,16 +1056,17 @@ class Main extends core.Base {
     }
 
     /**
-     * Open a new popup window and return true if successful
+     * @summary Opens a popup and stages any same-origin canvas before its route-bearing navigation.
      * @param {Object}  data
      * @param {Object}  [data.nativeCapabilities] Owner-granted generic physical capabilities.
+     * @param {'dark'|'light'} [data.stagedColorScheme] Admitted scheme for the temporary same-origin document.
      * @param {String}  data.url
      * @param {Boolean} [data.useTotalHeight=true] Using this flag will set outerHeight to innerHeight, ignoring header tools
      * @param {String}  data.windowFeatures
      * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen({nativeCapabilities, url, useTotalHeight=true, windowFeatures, windowName}) {
+    windowOpen({nativeCapabilities, stagedColorScheme, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
             stagedUrl   = null,
             targetName;
@@ -1095,6 +1096,16 @@ class Main extends core.Base {
 
         if (success) {
             this.#invalidateNativeWindowEntry(existingWin);
+
+            if (stagedUrl && (stagedColorScheme === 'dark' || stagedColorScheme === 'light')) {
+                try {
+                    const meta = openedWindow.document.createElement('meta');
+
+                    meta.name    = 'color-scheme';
+                    meta.content = stagedColorScheme;
+                    openedWindow.document.head.append(meta)
+                } catch {/* Presentation must not revoke an otherwise valid physical handle. */}
+            }
 
             const
                 entry = {
