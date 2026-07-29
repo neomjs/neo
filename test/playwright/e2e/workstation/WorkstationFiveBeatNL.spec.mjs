@@ -744,6 +744,124 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     }
 
     /**
+     * @summary Samples every live page while one gesture runs so cursor migration is proven across
+     * physical documents, rather than inferred from one terminal page after the gesture settles.
+     * @param {Object} data
+     * @param {Function} data.action Awaited gesture action.
+     * @param {Boolean} [data.observeContinuously=true] Sample between action start and settlement.
+     * @param {Object} data.page Playwright main page.
+     * @param {Object} data.sourcePage Physical document that initially owns the cursor.
+     * @param {Object|null} [data.targetPage=null] Physical replacement document, when migrating.
+     * @returns {Promise<Object>} Gesture result plus aggregate cursor lifecycle evidence.
+     */
+    async function captureFilmCursorLifecycle({
+        action,
+        observeContinuously=true,
+        page,
+        sourcePage,
+        targetPage=null
+    }) {
+        const evidence = {
+            finalTotal           : null,
+            initialTotal         : null,
+            maxParticipatingPages: 0,
+            maxTotal             : 0,
+            overlapSamples       : 0,
+            sampleCount          : 0,
+            sourceSeen           : false,
+            targetSeen           : false,
+            targetSeenWithSource : 0
+        };
+        let running = true;
+
+        const sample = async () => {
+            const pages  = page.context().pages().filter(candidate => !candidate.isClosed());
+            const counts = await Promise.all(pages.map(async candidate => {
+                let count = 0;
+
+                try {
+                    count = await candidate.locator('.film-cursor').count()
+                } catch {
+                    // A popup may close between the page census and its DOM query.
+                }
+
+                return {count, page: candidate}
+            }));
+            const
+                sourceCount = counts.find(entry => entry.page === sourcePage)?.count ?? 0,
+                targetCount = counts.find(entry => entry.page === targetPage)?.count ?? 0,
+                total       = counts.reduce((sum, entry) => sum + entry.count, 0);
+
+            evidence.sampleCount++;
+            evidence.finalTotal            = total;
+            evidence.maxParticipatingPages  = Math.max(evidence.maxParticipatingPages, pages.length);
+            evidence.maxTotal              = Math.max(evidence.maxTotal, total);
+            evidence.overlapSamples       += Number(total > 1);
+            evidence.sourceSeen           ||= sourceCount > 0;
+            evidence.targetSeen           ||= targetCount > 0;
+            evidence.targetSeenWithSource += Number(sourceCount > 0 && targetCount > 0)
+        };
+
+        await sample();
+        evidence.initialTotal = evidence.finalTotal;
+
+        const observer = observeContinuously
+            ? (async () => {
+                while (running) {
+                    await new Promise(resolve => setTimeout(resolve, 16));
+                    running && await sample()
+                }
+            })()
+            : Promise.resolve();
+
+        let result;
+
+        try {
+            result = await action()
+        } finally {
+            running = false;
+            await observer;
+            await sample()
+        }
+
+        return {evidence, result}
+    }
+
+    /**
+     * @summary Applies the shared cursor lifecycle assertions for film migrations and ordinary
+     * cursor-free paths.
+     * @param {Object} evidence Output from captureFilmCursorLifecycle().
+     * @param {Object} options
+     * @param {Boolean} [options.expectMigration=false]
+     * @param {Boolean} options.showCursor
+     */
+    function assertFilmCursorLifecycle(evidence, {expectMigration=false, showCursor}) {
+        expect(evidence.initialTotal, 'each gesture must start without prior cursor residue').toBe(0);
+        expect(evidence.maxTotal, 'aggregate cursors across all participating documents never exceed one')
+            .toBeLessThanOrEqual(1);
+        expect(evidence.overlapSamples, 'no sampled frame may contain source and replacement cursors').toBe(0);
+        expect(evidence.finalTotal, 'the terminal receipt must leave every document cursor-free').toBe(0);
+
+        if (showCursor) {
+            console.log('[film-cursor-lifecycle]', JSON.stringify(evidence));
+            expect(evidence.sourceSeen, 'film mode must expose the source cursor during the gesture').toBe(true);
+
+            if (expectMigration) {
+                expect(evidence.maxParticipatingPages,
+                    'migration evidence must cover at least two physical documents').toBeGreaterThanOrEqual(2);
+                expect(evidence.targetSeen, 'film mode must expose the replacement cursor in its target document')
+                    .toBe(true);
+                expect(evidence.targetSeenWithSource,
+                    'the source document must be physically empty when the replacement is observable').toBe(0)
+            }
+        } else {
+            expect(evidence.maxTotal, 'ordinary mode must never create a film cursor').toBe(0);
+            expect(evidence.sourceSeen).toBe(false);
+            expect(evidence.targetSeen).toBe(false)
+        }
+    }
+
+    /**
      * @summary Creates scene 3's committed A+B vessel through two real pointer gestures.
      *
      * The first gesture tears `metrics` out into the target vessel. The second tears `commits` out
@@ -766,16 +884,23 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             ]),
             targetPopup        = await targetPopupPromise,
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
-            dockResultPromise  = app.callMethod(wsId, 'executeCrossWindowDockStep', [
-                {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
-                {
-                    attempts  : filmPace.birthAttempts ?? 180,
-                    dwellDelay: filmPace.dwellDelay ?? 600,
-                    moveDelay : filmPace.moveDelay ?? 16,
-                    moveSteps : filmPace.moveSteps ?? 4,
-                    showCursor: filmPace.showCursor ?? false
-                }
-            ]),
+            showCursor          = filmPace.showCursor ?? false,
+            cursorProofPromise  = captureFilmCursorLifecycle({
+                action: () => app.callMethod(wsId, 'executeCrossWindowDockStep', [
+                    {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
+                    {
+                        attempts  : filmPace.birthAttempts ?? 180,
+                        dwellDelay: filmPace.dwellDelay ?? 600,
+                        moveDelay : filmPace.moveDelay ?? 16,
+                        moveSteps : filmPace.moveSteps ?? 4,
+                        showCursor
+                    }
+                ]),
+                observeContinuously: showCursor,
+                page,
+                sourcePage         : page,
+                targetPage         : targetPopup
+            }),
             targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
 
         await expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
@@ -786,7 +911,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
 
-        const [dockResult, sourcePopup] = await Promise.all([dockResultPromise, sourcePopupPromise]);
+        const [{evidence: cursorEvidence, result: dockResult}, sourcePopup] =
+            await Promise.all([cursorProofPromise, sourcePopupPromise]);
 
         dockResult.proof?.remoteSnapshot?.targetProxy &&
             (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
@@ -796,7 +922,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             timeout: 15000
         }).toBe(true);
 
-        return {dockResult, ownerResult, sourcePopup, targetPopup}
+        return {cursorEvidence, dockResult, ownerResult, showCursor, sourcePopup, targetPopup}
     }
 
     /**
@@ -1177,6 +1303,33 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 .toEqual(documentBefore);
             await expect(page.locator('.film-cursor'),
                 'cancel must retire the film cursor from physical DOM, not only component truth').toHaveCount(0);
+
+            const {evidence: errorCursorEvidence, result: failed} =
+                await captureFilmCursorLifecycle({
+                    action: () => app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
+                        ...gesture,
+                        dwells: [{
+                            targetNodeId : 'missing-film-target-a',
+                            placementKind: 'edge-bottom'
+                        }, {
+                            targetNodeId : 'missing-film-target-b',
+                            placementKind: 'tab-into'
+                        }]
+                    }, {
+                        ...filmPace,
+                        showCursor: true
+                    }]),
+                    page,
+                    sourcePage: page
+                });
+
+            expect(failed.applied).toBe(false);
+            expect(failed.errors).toEqual([
+                "cross-zone target 'missing-film-target-a' is not measurable"
+            ]);
+            assertFilmCursorLifecycle(errorCursorEvidence, {showCursor: true});
+            expect(await readDocument(app, wsId),
+                'the thrown film path must cancel cleanly without mutating document truth').toEqual(documentBefore);
 
             const committed = await app.callMethod(wsId, 'executeCrossZoneShowcaseStep', [{
                 ...gesture,
@@ -2067,10 +2220,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     test('scene 3 — the second window learns to dock: convert-while-dragging + exactly one preview', async ({page, neuralLink}) => {
         const {app, pageErrors, wsId} = await boot({page, neuralLink});
         const
-            heartbeatBefore                        = await readHeartbeat(app, wsId),
-            metricsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
-            commitsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
-            {dockResult, ownerResult, targetPopup} = await stageMergedVessel({app, page, wsId});
+            heartbeatBefore = await readHeartbeat(app, wsId),
+            metricsBefore   = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            commitsBefore   = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+            {cursorEvidence, dockResult, ownerResult, showCursor, targetPopup} =
+                await stageMergedVessel({app, page, wsId});
 
         expect(ownerResult.errors).toEqual([]);
         expect(ownerResult.applied, 'pane A must commit into the first real vessel').toBe(true);
@@ -2079,6 +2233,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             `cross-window dock receipt: ${JSON.stringify(dockResult.proof ?? null)}`
         ).toEqual([]);
         expect(dockResult.applied, 'pane B must commit into A through the remote target').toBe(true);
+        assertFilmCursorLifecycle(cursorEvidence, {expectMigration: true, showCursor});
 
         const snapshot = dockResult.proof.remoteSnapshot;
 
@@ -2136,22 +2291,30 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     test('scene 4 — reintegration: whole stack home, commit precedes the vessel self-close', async ({page, neuralLink}) => {
         const {app, pageErrors, wsId} = await boot({page, neuralLink});
         const
-            heartbeatBefore                        = await readHeartbeat(app, wsId),
-            metricsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
-            commitsBefore                          = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
-            {dockResult, ownerResult, targetPopup} = await stageMergedVessel({app, page, wsId});
+            heartbeatBefore = await readHeartbeat(app, wsId),
+            metricsBefore   = await app.callMethod(wsId, 'getPaneIdentity', ['metrics']),
+            commitsBefore   = await app.callMethod(wsId, 'getPaneIdentity', ['commits']),
+            {cursorEvidence, dockResult, ownerResult, showCursor, targetPopup} =
+                await stageMergedVessel({app, page, wsId});
 
         expect(ownerResult.applied).toBe(true);
         expect(dockResult.applied).toBe(true);
+        assertFilmCursorLifecycle(cursorEvidence, {expectMigration: true, showCursor});
 
-        const result = await app.callMethod(wsId, 'executeStackReturnStep', [
-            {ownerItemId: 'metrics'},
-            {
-                attempts  : filmPace.birthAttempts ?? 180,
-                moveDelay : filmPace.moveDelay ?? 16,
-                showCursor: filmPace.showCursor ?? false
-            }
-        ]);
+        const {evidence: returnCursorEvidence, result} = await captureFilmCursorLifecycle({
+            action: () => app.callMethod(wsId, 'executeStackReturnStep', [
+                {ownerItemId: 'metrics'},
+                {
+                    attempts : filmPace.birthAttempts ?? 180,
+                    moveDelay: filmPace.moveDelay ?? 16,
+                    showCursor
+                }
+            ]),
+            observeContinuously: showCursor,
+            page,
+            sourcePage         : targetPopup,
+            targetPage         : page
+        });
 
         expect(result.errors, JSON.stringify({
             closeReceipt    : result.proof?.closeReceipt,
@@ -2162,6 +2325,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             transfer        : result.proof?.transfer
         })).toEqual([]);
         expect(result.applied, 'the grouped pointer gesture must settle through physical topology exit').toBe(true);
+        assertFilmCursorLifecycle(returnCursorEvidence, {expectMigration: true, showCursor});
         expect(result.proof.remoteSnapshot).toMatchObject({
             claimCount       : 1,
             engaged          : true,
