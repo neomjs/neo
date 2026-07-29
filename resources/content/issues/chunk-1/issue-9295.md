@@ -17,8 +17,8 @@ subIssues:
   - '[ ] 9296 [Blocked] Autonomous agent action sandbox after cloud and Moltbook shape'
   - '[ ] 9297 External-agent identity/auth boundary after Moltbook API decision'
   - '[ ] 9298 [Blocked] Moltbook demo agent after API and identity research'
-  - '[ ] 9299 Implement Agent Self-Discovery via Neural Link Introspection'
-subIssuesCompleted: 0
+  - '[x] 9299 Implement Agent Self-Discovery via Neural Link Introspection'
+subIssuesCompleted: 1
 subIssuesTotal: 4
 contentTrust:
   projected: true
