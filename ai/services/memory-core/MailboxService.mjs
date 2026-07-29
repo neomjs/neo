@@ -1297,6 +1297,44 @@ function receiptWithDurability(receipt, durable, operation) {
 }
 
 /**
+ * @summary Recovers the exact JSON-stringified `string[]` compatibility artifact emitted by
+ * known failing MCP seats without widening the canonical `mark_read` contract.
+ *
+ * A real mailbox id always uses the `MESSAGE:` namespace. That makes a JSON array containing only
+ * canonical message ids unambiguous with an ordinary scalar id. Invalid JSON, objects, primitive
+ * arrays, and string arrays outside that namespace stay scalar so the existing not-found behavior
+ * remains the loud failure mode. Empty arrays are accepted because the native array contract
+ * already defines them as a clean no-op.
+ *
+ * Retire this compatibility normalizer once every registered MCP seat preserves a one-element
+ * native array at the tool boundary.
+ *
+ * @param {String|String[]} messageId Canonical scalar/array input or a compatibility representation.
+ * @returns {String|String[]} Native input shape consumed by `markRead`.
+ * @private
+ */
+function normalizeMarkReadMessageIdInput(messageId) {
+    if (typeof messageId !== 'string' || !messageId.trimStart().startsWith('[')) {
+        return messageId;
+    }
+
+    try {
+        const parsed = JSON.parse(messageId);
+
+        if (
+            Array.isArray(parsed) &&
+            parsed.every(id => typeof id === 'string' && id.startsWith('MESSAGE:'))
+        ) {
+            return parsed;
+        }
+    } catch {
+        // Preserve the scalar path and its existing error when this is not valid JSON.
+    }
+
+    return messageId;
+}
+
+/**
  * Sets the read timestamp on a per-recipient `DELIVERED_TO` edge for broadcast messages and
  * reports whether that mutation reached durable storage.
  *
@@ -2464,16 +2502,36 @@ class MailboxService extends Base {
     }
 
     /**
-     * Marks a message as read. Accepts a single id or an array of ids: the array form marks
-     * each id independently through the same single-id path and returns per-id results — an
-     * individual failure (a ghost id, an unauthorized id) is captured in its own result and
-     * never fails the batch, so a bulk drain cannot abort on one stale entry.
+     * Marks selected messages or the caller's current unread inbox snapshot as read. Pass exactly
+     * one of `messageId` and `all: true`. A messageId array delegates each id independently through
+     * the single-id path, so one stale or unauthorized id never fails the batch. The exact
+     * JSON-stringified array artifact emitted by known failing MCP seats is normalized back into
+     * that canonical array path; it is accepted for compatibility but remains absent from the
+     * advertised input schema.
      * @param {Object} args
-     * @param {String|String[]} args.messageId The ID of the message to mark read, or an array of IDs
+     * @param {String|String[]} [args.messageId] The ID of the message to mark read, or an array of IDs
+     * @param {Boolean} [args.all=false] Mark the current unread, unarchived snapshot.
      * @returns {Promise<Object>} Single form: `{messageId, readAt, status}` (plus
-     *   `{durable: false, warning}` when storage is absent); array form: `{results: [...]}`.
+     *   `{durable: false, warning}` when storage is absent); array form: `{results: [...]}`;
+     *   all form: compact aggregate counts plus exceptional rows.
      */
-    async markRead({ messageId }) {
+    async markRead({messageId, all = false} = {}) {
+        if (all === true) {
+            if (messageId !== undefined) {
+                throw new TypeError('mark_read accepts either messageId or all: true, not both.');
+            }
+
+            return this._markUnreadSnapshotRead();
+        }
+        if (all !== false) {
+            throw new TypeError('mark_read all must be a boolean.');
+        }
+        if (messageId === undefined) {
+            throw new TypeError('mark_read requires messageId or all: true.');
+        }
+
+        messageId = normalizeMarkReadMessageIdInput(messageId);
+
         if (Array.isArray(messageId)) {
             const results = [];
 
@@ -2585,6 +2643,109 @@ class MailboxService extends Base {
         const durable = await setMessageNodeReadAt(messageNode, readAt);
 
         return receiptWithDurability({ messageId, readAt, status: 'read' }, durable, 'mark_read');
+    }
+
+    /**
+     * @summary Marks the caller's current unread, unarchived inbox snapshot as read.
+     *
+     * Selection happens in one SQLite statement before the first mutation. Messages committed
+     * after that statement's read snapshot are therefore not part of this operation and remain
+     * unread. The three UNION branches mirror the established mailbox taxonomy: direct DMs carry
+     * read/archive state on the MESSAGE node and receipt-backed broadcasts carry it on the caller's
+     * DELIVERED_TO edge. Legacy broadcasts without delivery edges remain on the deliberate per-id
+     * path because their shared MESSAGE read state cannot satisfy this operation's per-recipient
+     * isolation contract.
+     *
+     * Every selected id delegates through `markRead`, preserving its authorization, graph repair,
+     * direct/broadcast carrier ownership, and durable-write receipts. The public response is
+     * intentionally compact: successful rows become counts; only failures and non-durable receipts
+     * retain per-message detail.
+     *
+     * @returns {Promise<Object>} Aggregate snapshot receipt with matched/read/durable/failure counts.
+     * @private
+     */
+    async _markUnreadSnapshotRead() {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
+            throw RequestContextService.unboundIdentityError('mark all messages read');
+        }
+
+        const
+            me                    = normalizeMailboxIdentityForComparison(boundIdentity),
+            db                    = GraphService.requireDb('MailboxService.markRead(all)'),
+            sqlite                = db.storage?.db,
+            targetStorageVariants = getMailboxIdentityStorageVariants(me);
+
+        if (!sqlite) {
+            throw new Error('Cannot mark all messages read: durable graph storage is unavailable.');
+        }
+
+        // A full drain cannot inherit the ordinary 250-record repair cap: if a projection gap exists,
+        // every accepted message in this mailbox must be reconciled before the snapshot is selected.
+        await this.repairMessageGraphIntegrity({
+            target: me,
+            box   : 'inbox',
+            limit : Number.MAX_SAFE_INTEGER
+        });
+
+        const
+            placeholders = targetStorageVariants.map(() => '?').join(', '),
+            snapshotAt   = new Date().toISOString(),
+            rows         = sqlite.prepare(`
+                WITH unread_messages AS (
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_TO'
+                      AND e.target IN (${placeholders})
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(n.data, '$.properties.readAt') IS NULL
+                      AND json_extract(n.data, '$.properties.archivedAt') IS NULL
+
+                    UNION
+
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'DELIVERED_TO'
+                      AND e.target IN (${placeholders})
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(e.data, '$.properties.readAt') IS NULL
+                      AND json_extract(e.data, '$.properties.archivedAt') IS NULL
+                )
+                SELECT DISTINCT messageId
+                FROM unread_messages
+                ORDER BY messageId
+            `).all(...targetStorageVariants, ...targetStorageVariants),
+            messageIds = rows.map(row => row.messageId);
+
+        const {results = []} = await this.markRead({messageId: messageIds});
+        const
+            failures   = results
+                .filter(result => result.status === 'error')
+                .map(({messageId, error}) => ({messageId, error})),
+            nonDurable = results
+                .filter(result => result.status === 'read' && result.durable === false)
+                .map(({messageId, warning}) => ({messageId, warning})),
+            readCount    = results.filter(result => result.status === 'read').length,
+            durableCount = readCount - nonDurable.length,
+            status       = messageIds.length === 0
+                ? 'noop'
+                : failures.length === 0 && nonDurable.length === 0
+                    ? 'read'
+                    : 'partial';
+
+        return {
+            status,
+            snapshotAt,
+            matchedCount   : messageIds.length,
+            readCount,
+            durableCount,
+            failureCount   : failures.length,
+            nonDurableCount: nonDurable.length,
+            failures,
+            nonDurable
+        };
     }
 
     /**

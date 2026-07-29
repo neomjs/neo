@@ -147,6 +147,18 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.inputSchema.properties.includeSqliteHolders).toBeUndefined();
     });
 
+    test('#15913 mark_read exposes selected-id and all-snapshot modes without adding a tool', async () => {
+        const {tools} = await toolService.listTools();
+        const
+            markRead  = tools.find(item => item.name === 'mark_read'),
+            messageId = markRead.inputSchema.properties.messageId;
+
+        expect(messageId.anyOf.map(option => option.type)).toEqual(['string', 'array']);
+        expect(messageId.anyOf[1].items.type).toBe('string');
+        expect(markRead.inputSchema.properties.all.type).toBe('boolean');
+        expect(tools.some(item => item.name === 'mark_all_read')).toBe(false);
+    });
+
     test('get_sqlite_holder_diagnostics exposes read-only grouped holder contract (#13475)', async () => {
         const { tools } = await toolService.listTools();
         const tool      = tools.find(item => item.name === 'get_sqlite_holder_diagnostics');
