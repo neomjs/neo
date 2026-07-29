@@ -119,6 +119,7 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
             //    violated (it wrote 2, so the drift never reconciled).
             expect(summaryStore).toHaveLength(1);
             expect(summaryStore[0].memoryCount).toBe(5);
+            expect(summaryStore[0].dreamInputRevision).toMatch(/^sha256:[a-f0-9]{64}$/);
             expect(result?.memoryCount).toBe(5);
 
             // 3. Closed loop: with memoryCount=5 written, the drift selector (count === summaryCount) no

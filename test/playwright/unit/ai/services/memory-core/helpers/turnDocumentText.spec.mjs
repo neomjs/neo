@@ -1,7 +1,12 @@
 import {test, expect}                                        from '@playwright/test';
 import Neo                                                   from '../../../../../../../src/Neo.mjs';
 import * as core                                             from '../../../../../../../src/core/_export.mjs';
-import {composeTurnDocumentText, resolveTurnDocumentForRead} from '../../../../../../../ai/services/memory-core/helpers/turnDocumentText.mjs';
+import {
+    canonicalizeSessionTurnInput,
+    composeTurnDocumentText,
+    computeSessionTurnInputRevision,
+    resolveTurnDocumentForRead
+} from '../../../../../../../ai/services/memory-core/helpers/turnDocumentText.mjs';
 
 // Pure derivation (no I/O). Composes the canonical turn-document text from a turn's split fields — the
 // single source of the `User Prompt: … / Agent Thought: … / Agent Response: …` representation that the
@@ -77,5 +82,77 @@ test.describe('resolveTurnDocumentForRead — read-side stored-or-reconstruct (#
         expect(resolveTurnDocumentForRead({documents: [null], metadata: null})).toBe(null);
         expect(resolveTurnDocumentForRead({})).toBe(null);
         expect(resolveTurnDocumentForRead()).toBe(null)
+    })
+});
+
+test.describe('computeSessionTurnInputRevision — Dream raw-input frontier (#16115)', () => {
+    const metadata = {
+        type         : 'agent-interaction',
+        prompt       : 'p',
+        thought      : 't',
+        response     : 'r',
+        agentIdentity: '@neo-gpt',
+        sessionId    : 'session-1',
+        userId       : 'neo-gpt'
+    };
+
+    test('is stable across stored and reconstructed forms of equivalent canonical input', () => {
+        const document = composeTurnDocumentText(metadata);
+        const stored   = computeSessionTurnInputRevision({
+            ids      : ['memory-1'],
+            documents: [document],
+            metadatas: [metadata]
+        });
+        const reconstructed = computeSessionTurnInputRevision({
+            ids      : ['memory-1'],
+            documents: [null],
+            metadatas: [metadata]
+        });
+
+        expect(stored).toBe(reconstructed);
+        expect(stored).toMatch(/^sha256:[a-f0-9]{64}$/)
+    });
+
+    test('changes for same-count content, row-identity, or agent-identity replacements', () => {
+        const base = {
+            ids      : ['memory-1'],
+            documents: ['turn body'],
+            metadatas: [metadata]
+        };
+        const revision = computeSessionTurnInputRevision(base);
+
+        expect(computeSessionTurnInputRevision({...base, documents: ['changed body']})).not.toBe(revision);
+        expect(computeSessionTurnInputRevision({...base, ids: ['memory-2']})).not.toBe(revision);
+        expect(computeSessionTurnInputRevision({
+            ...base,
+            metadatas: [{...metadata, agentIdentity: '@neo-opus-grace'}]
+        })).not.toBe(revision)
+    });
+
+    test('is stable across Chroma retrieval permutations while preserving chronological order', () => {
+        const firstMetadata  = {...metadata, timestamp: 1},
+              secondMetadata = {...metadata, timestamp: 2};
+        const forward = {
+            ids      : ['memory-1', 'memory-2'],
+            documents: ['first', 'second'],
+            metadatas: [firstMetadata, secondMetadata]
+        };
+        const reverse = {
+            ids      : [...forward.ids].reverse(),
+            documents: [...forward.documents].reverse(),
+            metadatas: [...forward.metadatas].reverse()
+        };
+
+        expect(computeSessionTurnInputRevision(reverse))
+            .toBe(computeSessionTurnInputRevision(forward));
+        expect(canonicalizeSessionTurnInput(reverse)).toEqual(forward)
+    });
+
+    test('fails loud instead of minting an ambiguous revision from incomplete parallel arrays', () => {
+        expect(() => computeSessionTurnInputRevision({
+            ids      : ['memory-1'],
+            documents: [],
+            metadatas: [metadata]
+        })).toThrow(/equal lengths/)
     })
 });

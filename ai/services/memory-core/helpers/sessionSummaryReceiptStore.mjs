@@ -14,6 +14,12 @@ import {verifyPersistedVector} from './verifyPersistedVector.mjs';
  * deliberately not an append-only journal.
  */
 
+/**
+ * @summary Stable gzip/JSON transport framing for receipt envelopes.
+ *
+ * The encoding label remains backward-compatible for persisted rows; the decoded envelope's
+ * numeric `version` owns schema evolution inside that framing.
+ */
 export const SESSION_SUMMARY_RECEIPT_ENCODING = 'gzip-json-v1';
 
 /**
@@ -29,6 +35,7 @@ export const SESSION_SUMMARY_RECEIPT_METADATA_KEYS = Object.freeze([
     'sessionId',
     'timestamp',
     'memoryCount',
+    'dreamInputRevision',
     'title',
     'category',
     'quality',
@@ -122,7 +129,7 @@ export function encodeSessionSummaryReceipt(receipt) {
     const validated = validateReceiptIssuance(receipt);
 
     return gzipSync(Buffer.from(JSON.stringify({
-        version  : 1,
+        version  : 2,
         sessionId: validated.sessionId,
         summaryId: validated.summaryId,
         document : validated.document,
@@ -152,7 +159,7 @@ export function decodeSessionSummaryReceipt(envelope, encoding) {
         throw new Error(`Session-summary receipt envelope is corrupt: ${error.message}`, {cause: error});
     }
 
-    if (receipt?.version !== 1) {
+    if (![1, 2].includes(receipt?.version)) {
         throw new Error(`Unsupported session-summary receipt version: ${String(receipt?.version)}.`);
     }
 
@@ -280,7 +287,11 @@ function matchesSessionSummaryReceipt(row, receipt) {
         return false;
     }
 
-    return SESSION_SUMMARY_RECEIPT_METADATA_KEYS.every(key => {
+    const ownedKeys = receipt.version === 1
+        ? Object.keys(receipt.metadata)
+        : SESSION_SUMMARY_RECEIPT_METADATA_KEYS;
+
+    return ownedKeys.every(key => {
         const receiptHasKey = Object.hasOwn(receipt.metadata, key),
               rowHasKey     = Object.hasOwn(row.metadata, key);
 
