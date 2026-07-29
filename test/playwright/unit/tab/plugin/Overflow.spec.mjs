@@ -34,6 +34,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 id             : 'tab-overflow-test-owner',
                 appName        : 'test-app',
                 mounted        : true,
+                theme          : 'neo-theme-neo-dark',
                 windowId       : 1,
                 items          : [{id: 'b1'}, {id: 'b2'}],
                 getDomRect,
@@ -170,6 +171,17 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
     });
 
+    test('an owner theme change is carried onto the live out-of-tree control', async () => {
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.control = {theme: 'neo-theme-neo-dark'};
+        plugin.onOwnerThemeChange('neo-theme-neo-light');
+
+        expect(plugin.control.theme, 'the floating control follows the source toolbar theme')
+            .toBe('neo-theme-neo-light')
+    });
+
     test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
         // A `shouldThrow` latch controls WHICH pass fails, so the create-time auto-project (onOwnerMounted)
         // settles cleanly first and only the pass we choose throws.
@@ -209,15 +221,24 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // unit mode the real button.Base + menu.List construction needs `Neo.get` (unavailable here), so spy
         // `Neo.create` to assert the create is invoked + assigned rather than exercise full construction.
         const origCreate = Neo.create;
-        let   created    = false;
-        Neo.create = () => { created = true; return {ntype: 'button', destroy: () => {}} };
+        let   createdConfig;
+        Neo.create = config => {
+            createdConfig = config;
+            return {ntype: 'button', destroy: () => {}}
+        };
         try {
             plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0})
         } finally {
             Neo.create = origCreate
         }
 
-        expect(created, 'a subsequent overflow builds a fresh control via Neo.create').toBe(true);
+        expect(createdConfig, 'a subsequent overflow builds a fresh control via Neo.create').toBeTruthy();
+        expect(createdConfig.theme, 'the body-mounted control owns the source toolbar theme')
+            .toBe('neo-theme-neo-dark');
+        expect(createdConfig.menu.cls, 'the generated menu exposes one app-neutral skin hook')
+            .toEqual(['neo-tab-overflow-menu']);
+        expect(createdConfig.menu.items, 'the menu config retains the exact hidden-tab projection')
+            .toHaveLength(1);
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
     })
 });

@@ -162,7 +162,17 @@ class Overflow extends Plugin {
      */
     construct(config) {
         super.construct(config);
-        this.onResize = this.onResize.bind(this)
+
+        let me = this;
+
+        me.onResize = me.onResize.bind(me);
+
+        // The control is deliberately outside the owner's component collection and DOM subtree, so container
+        // theme propagation cannot reach it. Keep that floating embodiment subscribed to its source toolbar;
+        // button.Base carries the assigned theme through to the generated floating menu.List.
+        if (Neo.typeOf(me.owner) === 'NeoInstance') {
+            me.observeConfig(me.owner, 'theme', value => me.onOwnerThemeChange(value))
+        }
     }
 
     /**
@@ -237,6 +247,18 @@ class Overflow extends Plugin {
      */
     onTabSetChange() {
         this.project(true)
+    }
+
+    /**
+     * Carries the source toolbar's live theme onto the out-of-tree overflow embodiment.
+     * @param {String|null} value
+     */
+    onOwnerThemeChange(value) {
+        let {control} = this;
+
+        if (control && control.theme !== value) {
+            control.theme = value
+        }
     }
 
     /**
@@ -402,13 +424,23 @@ class Overflow extends Plugin {
         }
 
         let menuItems = hiddenMeta.map(meta => ({
-            handler: () => {tabContainer.activeIndex = meta.index},
-            iconCls: meta.iconCls,
-            text   : meta.text
-        }));
+                handler: () => {tabContainer.activeIndex = meta.index},
+                iconCls: meta.iconCls,
+                text   : meta.text
+            })),
+            menuConfig = {
+                // App-neutral identity for product skins. Theme ownership remains the control's live contract;
+                // consumers can project their own token family without hand-building or subclassing this menu.
+                cls  : ['neo-tab-overflow-menu'],
+                items: menuItems
+            };
 
         if (me.control) {
-            me.control.menu = menuItems
+            if (me.control.menuList) {
+                me.control.menuList.items = menuItems
+            } else {
+                me.control.menu = menuConfig
+            }
         } else {
             // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
             // toolbar item. The dock sets `dragResortable: true` (DockLayoutAdapter), so the header toolbar
@@ -435,8 +467,9 @@ class Overflow extends Plugin {
                 cls          : ['neo-tab-overflow-control'],
                 floating     : true,
                 iconCls      : 'fa fa-ellipsis',
-                menu         : menuItems,
+                menu         : menuConfig,
                 parentId     : 'document.body',
+                theme        : me.owner.theme,
                 windowId     : me.owner.windowId
             })
         }
