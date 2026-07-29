@@ -3543,6 +3543,30 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Retires one film cursor from component, VDOM, and physical body-node truth.
+     * @param {Neo.component.Base|null} cursorDot
+     * @returns {Promise<Boolean>} True after a live cursor's physical removal is acknowledged.
+     * @protected
+     */
+    async retireFilmCursorDot(cursorDot) {
+        if (!cursorDot || cursorDot.isDestroyed) {
+            return false
+        }
+
+        const removalReceipt = Neo.applyDeltas(cursorDot.windowId, {
+            action: 'removeNode',
+            id    : cursorDot.vdom.id
+        });
+
+        // Retire component truth without dispatching a second physical delta. Awaiting the
+        // explicit receipt keeps cross-window replacement creation behind source-node removal.
+        cursorDot.destroy();
+        await removalReceipt;
+
+        return true
+    }
+
+    /**
      * @summary Drives the in-window showcase beat through real simulated pointer input.
      *
      * One live tab crosses at least two foreign zones and two placement kinds. Each dwell first
@@ -3918,7 +3942,7 @@ class Workspace extends Container {
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
             restoreProxyPopupConfig();
-            cursorDot?.destroy()
+            await me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4210,7 +4234,7 @@ class Workspace extends Container {
             let remoteSnapshot;
 
             if (showCursor) {
-                cursorDot?.destroy();
+                await me.retireFilmCursorDot(cursorDot);
                 cursorDot = null
             }
 
@@ -4297,7 +4321,7 @@ class Workspace extends Container {
 
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
-            cursorDot?.destroy()
+            await me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4428,7 +4452,7 @@ class Workspace extends Container {
             let remoteSnapshot;
 
             if (showCursor) {
-                cursorDot?.destroy();
+                await me.retireFilmCursorDot(cursorDot);
                 cursorDot = null
             }
 
@@ -4537,7 +4561,7 @@ class Workspace extends Container {
 
             return {applied: false, errors: [error?.message || String(error)]}
         } finally {
-            cursorDot?.destroy()
+            await me.retireFilmCursorDot(cursorDot)
         }
     }
 
@@ -4851,7 +4875,7 @@ class Workspace extends Container {
         } finally {
             // The synthetic cursor is per-gesture presentation: it never outlives the take's
             // gesture, and it never enters worker truth (pointer-events:none, no dock document).
-            cursorDot?.destroy()
+            await me.retireFilmCursorDot(cursorDot)
         }
     }
 
