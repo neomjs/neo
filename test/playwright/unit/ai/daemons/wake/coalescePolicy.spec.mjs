@@ -7,7 +7,7 @@ import {
     MESSAGE_WAKE_MAX_AGE_MS,
     POST_FLUSH_REFRACTORY_MS,
     resolveCoalesceWindowMs
-} from '../../../../../../ai/daemons/wake/coalescePolicy.mjs';
+} from '../../../../../../ai/services/memory-core/wakeCoalescePolicy.mjs';
 
 /**
  * @summary The wake-coalescing policy, pinned at the pure seam.
@@ -18,7 +18,7 @@ import {
  * just-outside-window spacing, cap-beats-refractory (worst-case latency is a guarantee, the
  * refractory only a floor), and the explicit-immediate exemption (`windowMs === 0` bypasses both).
  */
-test.describe('ai/daemons/wake/coalescePolicy', () => {
+test.describe('ai/services/memory-core/wakeCoalescePolicy', () => {
     const T0 = 1_000_000;
 
     test.describe('resolveCoalesceWindowMs — override-else-default with the landed clamp', () => {

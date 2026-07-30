@@ -7,7 +7,7 @@ import crypto                                                                   
 import http                                                                                    from 'http';
 import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
-import { MESSAGE_WAKE_MAX_AGE_MS }                                                             from '../../../../../../ai/daemons/wake/coalescePolicy.mjs';
+import { MESSAGE_WAKE_MAX_AGE_MS }                                                             from '../../../../../../ai/services/memory-core/wakeCoalescePolicy.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
 import { withOutboxLock }                                                                      from '../../../../../../ai/daemons/wake/outboxLock.mjs';
 

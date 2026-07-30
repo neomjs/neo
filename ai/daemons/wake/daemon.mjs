@@ -75,7 +75,7 @@ import {
     computeFlushHoldMs,
     isMessageWakeFresh,
     resolveCoalesceWindowMs
-} from './coalescePolicy.mjs';
+} from '../../services/memory-core/wakeCoalescePolicy.mjs';
 import {
     HEAVY_DELTA_SETTLE_MS,
     isHeavyDeltaPoll,
@@ -534,7 +534,7 @@ let lastSyncId;
 const coalesceState = {};
 
 // Epoch ms of the last CONFIRMED delivery per subscription — the post-flush refractory anchor
-// (see ./coalescePolicy.mjs). Armed exclusively on a 'delivered' adapter outcome (direct or
+// (see ../../services/memory-core/wakeCoalescePolicy.mjs). Armed exclusively on a 'delivered' adapter outcome (direct or
 // retry) — a skip or failure never holds the next digest at distance. Runtime-only by design:
 // the refractory is an anti-chatter guard, so a daemon restart resetting it is harmless.
 const lastFlushAtBySub = {};
@@ -819,7 +819,7 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
     // wake-per-message cadence at inter-turn message spacing was the dominant token waste.
     // The hard cap measured from firstQueuedAt bounds total latency, and a recent
     // delivered flush raises the delay to the post-flush refractory boundary (anti-chatter).
-    // All three decisions are pure policy in ./coalescePolicy.mjs; the window default is the
+    // All three decisions are pure policy in ../../services/memory-core/wakeCoalescePolicy.mjs; the window default is the
     // AiConfig leaf (per-subscription override unchanged; 0 = explicit immediate dispatch,
     // exempt from refractory and cap by contract).
     const windowMs = resolveCoalesceWindowMs({

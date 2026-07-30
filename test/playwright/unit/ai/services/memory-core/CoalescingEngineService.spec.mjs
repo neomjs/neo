@@ -57,7 +57,13 @@ test.describe('CoalescingEngineService', () => {
         deliverCalls = [];
         WebhookDeliveryService.deliver = async (subscription, eventData) => {
             deliverCalls.push({subscription, eventData});
+            return 'delivered';
         };
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        });
         CoalescingEngineService.clearAll();
     });
 
@@ -155,6 +161,90 @@ test.describe('CoalescingEngineService', () => {
         await new Promise(resolve => setTimeout(resolve, 100));
 
         expect(deliverCalls[0].eventData.logId).toBe(105);
+    });
+
+    test('digest identity is stable for the same subscription and canonical source events', () => {
+        const sub    = buildSubscription();
+        const events = [
+            buildEnvelope('wake/sent_to_me', {messageId: 'M1'}, 100),
+            buildEnvelope('wake/heartbeat_pulse', {pulseId: 'P1'}, 101)
+        ];
+        const first  = CoalescingEngineService._buildDigestEnvelope(sub, events, Date.now());
+        const second = CoalescingEngineService._buildDigestEnvelope(sub, events, Date.now());
+
+        expect(first.eventId).toBe(second.eventId);
+        expect(first.payload.sourceEventIds).toEqual(['M1', 'P1']);
+        expect(first.payload.breakdown.heartbeat_pulse.count).toBe(1);
+    });
+
+    test('digest preserves the strongest coalesced message priority when the latest is weaker', () => {
+        const sub    = buildSubscription();
+        const digest = CoalescingEngineService._buildDigestEnvelope(sub, [
+            buildEnvelope('wake/sent_to_me', {messageId: 'M1', priority: 'high'}, 100),
+            buildEnvelope('wake/sent_to_me', {messageId: 'M2', priority: 'normal'}, 101)
+        ], Date.now());
+
+        expect(digest.payload.breakdown.sent_to_me).toMatchObject({
+            count          : 2,
+            highestPriority: 'high',
+            latest         : {messageId: 'M2', priority: 'normal'}
+        });
+    });
+
+    test('a failed delivery does not arm the post-flush refractory', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 0,
+            flushRefractorySeconds: 60,
+            flushHardCapSeconds   : 300
+        });
+        WebhookDeliveryService.deliver = async (subscription, eventData) => {
+            deliverCalls.push({subscription, eventData});
+            return 'failed';
+        };
+
+        const sub = buildSubscription({harnessTargetMetadata: {coalesceWindow: 0}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}));
+        await new Promise(resolve => setTimeout(resolve, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M2'}));
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        expect(deliverCalls).toHaveLength(2);
+        expect(CoalescingEngineService.lastFlushAtBySub.has(sub.id)).toBe(false);
+    });
+
+    test('an event queued during delivery waits for the confirmed-delivery refractory', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 0,
+            flushRefractorySeconds: 0.05,
+            flushHardCapSeconds   : 1
+        });
+
+        let releaseFirst, markFirstStarted;
+        const firstStarted = new Promise(resolve => { markFirstStarted = resolve; });
+        const firstRelease = new Promise(resolve => { releaseFirst = resolve; });
+
+        WebhookDeliveryService.deliver = async (subscription, eventData) => {
+            deliverCalls.push({subscription, eventData, startedAt: Date.now()});
+            if (deliverCalls.length === 1) {
+                markFirstStarted();
+                await firstRelease;
+            }
+            return 'delivered';
+        };
+
+        const sub = buildSubscription({harnessTargetMetadata: {coalesceWindow: 0.001}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}));
+        await firstStarted;
+
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M2'}));
+        releaseFirst();
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(deliverCalls).toHaveLength(1);
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+        expect(deliverCalls).toHaveLength(2);
+        expect(deliverCalls[1].startedAt - deliverCalls[0].startedAt).toBeGreaterThanOrEqual(45);
     });
 
     // -----------------------------------------------------------------------------
