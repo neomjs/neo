@@ -177,7 +177,8 @@ paths:
 
         **Best Practices:**
         - After calling this tool, summarize the list of PRs for the user.
-        - Highlight key details such as the PR number, title, author, and state.
+        - Use the current head, review, reviewer-request, and merge-state fields before making a PR-state claim.
+        - `reviewRequests: null` means the reviewer source was unavailable or incomplete; `[]` means fetched and empty.
         - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
 
         **Future Enhancements:**
@@ -1967,6 +1968,37 @@ components:
           type: string
           format: date-time
           example: "2025-10-08T12:00:00.000Z"
+        mergedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Merge timestamp, or null when the pull request is not merged.
+        reviewDecision:
+          type: string
+          nullable: true
+          description: GitHub's current aggregate review decision, or null when absent.
+        reviewRequests:
+          type: array
+          nullable: true
+          description: Complete current reviewer requests; null means unavailable, truncated, or structurally unknown.
+          items:
+            type: object
+            required: [kind, login]
+            properties:
+              kind:
+                type: string
+                enum: [user, team]
+              login:
+                type: string
+                description: User login or organization/team slug.
+        headRefOid:
+          type: string
+          nullable: true
+          description: Current head commit object ID, or null when unavailable.
+        mergeStateStatus:
+          type: string
+          nullable: true
+          description: GitHub's current merge-state status, or null when unavailable.
 
     PullRequestListResponse:
       type: object
