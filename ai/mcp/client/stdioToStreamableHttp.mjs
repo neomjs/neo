@@ -5,7 +5,24 @@ import {StdioServerTransport}          from '@modelcontextprotocol/sdk/server/st
 import {Command}                       from 'commander';
 import {pathToFileURL}                 from 'node:url';
 
-const RUNTIME_FAILURE_MESSAGE = 'Neo MCP bridge transport failed.';
+const
+    RUNTIME_FAILURE_MESSAGE = 'Neo MCP bridge transport failed.',
+    STARTUP_FAILURE_MESSAGE = 'Neo MCP bridge failed to start.';
+
+/**
+ * @summary Mark one fixed, locally-authored bridge configuration diagnostic as safe for stderr.
+ */
+class BridgeConfigurationError extends Error {
+    /**
+     * @summary Create a trusted configuration failure before transport startup.
+     * @param {String} message Fixed local diagnostic without raw endpoint or bearer material.
+     */
+    constructor(message) {
+        super(message);
+
+        this.name = 'BridgeConfigurationError'
+    }
+}
 
 /**
  * @summary Build the fail-loud CLI grammar for Neo's deliberately narrow local bridge.
@@ -26,22 +43,43 @@ export function createProgram() {
  * @returns {{endpoint: URL, tokenEnv: String}}
  */
 export function parseArgs(argv) {
-    const program = createProgram().exitOverride();
+    const program = createProgram()
+        .configureOutput({writeErr: () => {}})
+        .exitOverride();
 
     program.parse(argv, {from: 'user'});
 
     const
-        {url, tokenEnv} = program.opts(),
-        endpoint        = new URL(url);
+        {url, tokenEnv} = program.opts();
+    let endpoint;
+
+    try {
+        endpoint = new URL(url)
+    } catch {
+        throw new BridgeConfigurationError('Bridge endpoint must be a valid URL.')
+    }
 
     if (!['http:', 'https:'].includes(endpoint.protocol)) {
-        throw new TypeError("Bridge endpoint protocol must be 'http:' or 'https:'.")
+        throw new BridgeConfigurationError("Bridge endpoint protocol must be 'http:' or 'https:'.")
     }
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tokenEnv)) {
-        throw new TypeError('Bridge token environment slot must be a valid environment variable name.')
+        throw new BridgeConfigurationError(
+            'Bridge token environment slot must be a valid environment variable name.'
+        )
     }
 
     return {endpoint, tokenEnv}
+}
+
+/**
+ * @summary Select the only startup detail permitted to cross the executable stderr boundary.
+ * @param {*} error Startup rejection.
+ * @returns {String}
+ */
+export function getStartupFailureMessage(error) {
+    return error instanceof BridgeConfigurationError
+        ? error.message
+        : STARTUP_FAILURE_MESSAGE
 }
 
 /**
@@ -161,7 +199,7 @@ export async function startBridge({
     onError
 }) {
     if (typeof token !== 'string' || token.length === 0) {
-        throw new Error('Bridge bearer environment slot is missing or empty.')
+        throw new BridgeConfigurationError('Bridge bearer environment slot is missing or empty.')
     }
 
     remoteTransport ||= new StreamableHTTPClientTransport(endpoint, {
@@ -182,9 +220,16 @@ export async function startBridge({
 export async function main(argv=process.argv.slice(2), env=process.env) {
     const
         {endpoint, tokenEnv} = parseArgs(argv),
+        token                = env[tokenEnv];
+
+    if (typeof token !== 'string' || token.length === 0) {
+        throw new BridgeConfigurationError('Bridge bearer environment slot is missing or empty.')
+    }
+
+    const
         bridge               = await startBridge({
             endpoint,
-            token  : env[tokenEnv],
+            token,
             onError: () => {
                 process.exitCode = 1;
                 process.stderr.write(`${RUNTIME_FAILURE_MESSAGE}\n`)
@@ -203,7 +248,7 @@ export async function main(argv=process.argv.slice(2), env=process.env) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch(error => {
         if (error?.code !== 'commander.helpDisplayed') {
-            process.stderr.write('Neo MCP bridge failed to start.\n')
+            process.stderr.write(`${getStartupFailureMessage(error)}\n`)
         }
         process.exitCode = error?.code === 'commander.helpDisplayed' ? 0 : 1
     })
