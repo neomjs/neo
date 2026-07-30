@@ -1,15 +1,16 @@
-import {test, expect}                       from '@playwright/test';
-import {TRUST_TIERS}                        from '../../../../../../../ai/graph/identityRoots.mjs';
+import {test, expect}                                                       from '@playwright/test';
+import {TRUST_TIERS}                                                        from '../../../../../../../ai/graph/identityRoots.mjs';
 import {classifyAuthorTrust, isExternalTier, isTrustedTier, normalizeLogin} from '../../../../../../../ai/services/shared/contentTrust/authorTrustClassifier.mjs';
-import {sanitizeContent}                    from '../../../../../../../ai/services/shared/contentTrust/astroturfSanitizer.mjs';
+import {sanitizeContent}                                                    from '../../../../../../../ai/services/shared/contentTrust/astroturfSanitizer.mjs';
 
 /**
  * @summary Fixtures for the pure content-trust helpers — author-tier classifier + astroturf sanitizer.
  *
  * Covers the branch-ready first slice: a pure author-tier classifier plus a pure sanitizer/defanger
  * with fixtures for both documented attack variants (link-bearing marketing URL, link-free
- * product-name seeding) and the engagement-bait / external-endpoint variant — plus the load-bearing
- * negatives (trusted authors untouched, clean content not over-redacted).
+ * product-name seeding), the engagement-bait / external-endpoint variant, and the self-promotional
+ * licensing-pitch variant — plus the load-bearing negatives (trusted authors untouched, clean
+ * content not over-redacted).
  */
 test.describe('Neo.ai.services.shared.contentTrust.authorTrustClassifier', () => {
     test('normalizeLogin strips @, trims, lowercases; non-strings → empty', () => {
@@ -111,6 +112,42 @@ test.describe('Neo.ai.services.shared.contentTrust.astroturfSanitizer', () => {
         const signalIds = result.signals.map(s => s.id);
         expect(signalIds).toContain('engagement-bait-reward-conditional');
         expect(signalIds).toContain('external-endpoint-offer')
+    });
+
+    test('licensing-pitch variant: self-promotional maintenance + commercial terms are FLAGGED, not redacted', () => {
+        const positives = [
+            'I maintain ExampleGraph, which is source-available and free for non-commercial use, while commercial use requires separate permission.',
+            'We also maintain ExampleTool — free for non commercial use; commercial use requires a separate license.'
+        ];
+
+        positives.forEach(content => {
+            const result = sanitizeContent(content, {tier: TRUST_TIERS.EXTERNAL});
+
+            expect(result.sanitized).toBe(content);
+            expect(result.wasModified).toBe(false);
+            expect(result.redactions).toEqual([]);
+            expect(result.signals).toEqual([{
+                id  : 'self-promotional-licensing-pitch',
+                note: 'self-promotional product maintenance paired with non-commercial and commercial-use terms'
+            }])
+        })
+    });
+
+    test('licensing-pitch signal requires self-promotion and both licensing legs in one bounded sentence', () => {
+        const negatives = [
+            'I maintain ExampleGraph and use it at work.',
+            'This dependency is source-available; check whether commercial use requires separate permission.',
+            'We use ExampleGraph at work, where I maintain our internal adapter.',
+            'I maintain a source-available compatibility fork used by our integration tests.',
+            'I maintain ExampleTool; commercial use requires separate permission.',
+            'We maintain the integration guide. It is free for non-commercial use and commercial use requires permission.',
+            'We maintain the integration guide.\nIt is free for non-commercial use and commercial use requires permission.',
+            `I maintain ${'x'.repeat(121)} free for non-commercial use; commercial use requires permission.`
+        ];
+
+        negatives.forEach(content => {
+            expect(sanitizeContent(content, {tier: TRUST_TIERS.EXTERNAL}).signals).toEqual([])
+        })
     });
 
     test('TRUST GATE: identical hostile content from a TRUSTED author passes through untouched', () => {
