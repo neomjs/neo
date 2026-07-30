@@ -9,6 +9,7 @@ import '../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../ai/ConfigProvider.mjs';
 import {
     CANONICAL_PLANE_ID,
+    UNKNOWN_PLANE_ID,
     assertPlaneCoherence,
     assertPlaneMemberCoherence,
     collectPlaneMembers,
@@ -46,7 +47,7 @@ test.describe('ai/planeConfig — the config layer\'s plane helpers', () => {
                                             line < source.split('\n').findIndex(l => l.includes('export function resolvePlaneDataRoot')))).toBe(true)
     });
 
-    test('CANONICAL_PLANE_ID is the single exported literal, and it is opaque', () => {
+    test('CANONICAL_PLANE_ID is the single configured identity literal, and it is opaque', () => {
         expect(CANONICAL_PLANE_ID).toBe('neo-local-canonical');
         expect(CANONICAL_PLANE_ID).not.toContain('/');
         expect(CANONICAL_PLANE_ID).not.toContain(path.sep);
@@ -98,13 +99,19 @@ test.describe('resolved-value opacity — the invariant on the values that vary'
         for (const bad of pathShapedRows) {
             expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: bad}}), bad).toThrow('opaque')
         }
+
+        expect(() => parsePlaneIdEnv('NEO_PLANE_ID', {env: {NEO_PLANE_ID: UNKNOWN_PLANE_ID}}))
+            .toThrow('opaque')
     });
 
     test('isOpaquePlaneId: one predicate behind the load guard and the leaf env layer', () => {
         expect(isOpaquePlaneId(CANONICAL_PLANE_ID)).toBe(true);
         expect(isOpaquePlaneId('cloud-tenant-plane')).toBe(true);
         expect(isOpaquePlaneId('')).toBe(false);
+        expect(isOpaquePlaneId('   ')).toBe(false);
+        expect(isOpaquePlaneId(' padded-plane ')).toBe(false);
         expect(isOpaquePlaneId(null)).toBe(false);
+        expect(isOpaquePlaneId(UNKNOWN_PLANE_ID)).toBe(false);
 
         for (const bad of pathShapedRows) {
             expect(isOpaquePlaneId(bad), bad).toBe(false)

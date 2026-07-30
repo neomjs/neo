@@ -471,7 +471,7 @@ class MemoryService extends Base {
                         memoryProperties
                     }
                 },
-                {dir: walDir}
+                {dir: walDir, planeId: aiConfig.plane.id}
             );
 
             this._scheduleMemoryGraphProjection({

@@ -57,7 +57,7 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
     });
 
     const seed = async (id, timestampMs = Date.now()) =>
-        (await appendWalMemory(record(id, timestampMs), {dir: tmpDir})).segmentKey;
+        (await appendWalMemory(record(id, timestampMs), {dir: tmpDir, planeId: 'test-memory-plane'})).segmentKey;
 
     // The post-add atomic-write verify reads vectors back and classifies them at this dimension.
     const VECTOR_DIMENSION = 4;

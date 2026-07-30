@@ -36,16 +36,14 @@ reading of it.
 | Terminal | Meaning | Eligibility effect | Reachable today |
 |---|---|---|---|
 | `committed` | Replay onto the durable plane verified monotonic by a receipt — no loss, no double-apply | `opened` | ❌ no branch reaches it; needs an invoked replay adapter |
-| `demoted-clean` | No overlay-tagged segment reached the durable corpus, no committed history lost | `unchanged` | ❌ gated on `OVERLAY_TAGGING_PRODUCER` |
-| `failed-contained` | The claim could not be proven, whatever the cause | `denied` | ✅ the only terminal any run reaches |
+| `demoted-clean` | No overlay-stamped or provenance-unknown cutover-window write reached the durable corpus; no committed history lost | `unchanged` | ✅ through the invoked dual-WAL provenance producer |
+| `failed-contained` | The claim could not be proven, whatever the cause | `denied` | ✅ |
 
-**Both certifying terminals are closed**, and neither by a validation rule. In both cases the missing thing is
-a **producer of fact**, and no amount of argument validation substitutes for one. They are closed
-*differently* — demotion by a capability gate, promotion by having no branch at all — and the section below
-explains why that asymmetry is the right shape rather than an inconsistency. So today *every* pilot settles
-`failed-contained` — eligibility denied, overlay quarantined. That is not the tooling failing to do its job;
-it is the honest statement about pilot-plane transitions at this head, and each section below names the
-adapter that would open its path.
+Demotion now has a **producer of fact**: both accepted-write services pass resolved `AiConfig.plane.id`,
+both WAL appenders stamp it after caller fields, and `evaluateDemotion` invokes strict readers owned by
+the memory and message stores. Promotion remains closed because a complete ordered mutation-source actor
+still does not exist. The distinction is source authority, not stronger validation: a caller cannot submit
+an `overlayScan`, and no receipt-shaped argument can open `committed`.
 
 Eligibility is **three-valued on purpose.** Only a strict `committed` *opens* data-consuming eligibility.
 A clean demotion does not open it — it never closed it, because the pilot never mutated the durable plane.
@@ -65,14 +63,14 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 > 1. **No consumed source-read boundary.** No production caller exists for `evaluatePromotion`,
 >    `planWalReplay`, `verifyReplayContinuity` or `parseJsonl` — nothing in the running system reads the
 >    corpus and could issue a receipt for having read all of it.
-> 2. **The owning store readers cannot become that authority.** Their operational reads deliberately *skip*
->    malformed and torn rows. Correct for serving; fatal for a completeness proof, which must refuse on a row
->    it cannot parse — that row is potentially the one that was lost.
-> 3. **The plane has two WAL families.** `messageWal.dir` derives to `path.join(memoryWal.dir, 'messages')`,
->    so a corpus scan returns memory and message segments in one undifferentiated list. Replay assumes
->    `embedded + graph`; the message family is graph-only. A receipt over memory records alone certifies an
->    **incomplete** plane — and because that family's `dirProd` is a nullable override, a deployment can move
->    it out of the scanned root, so the denominator moves with configuration.
+> 2. **Strict store readers now exist, but no actor consumes them as a complete source.** Operational reads
+>    still correctly skip malformed/torn rows; each store now also owns a strict provenance reader for
+>    demotion. Promotion still lacks the actor that resolves both configured roots, fences writers, consumes
+>    every strict row, and binds content digests.
+> 3. **The plane has two WAL families.** `messageWal.dir` derives to `path.join(memoryWal.dir, 'messages')`
+>    by default but may be explicitly relocated. `deriveDualCorpusReplayReceipt` now keeps memory
+>    (`embedded + graph`) and message (`graph`) records distinct and binds exact ids plus source/target plane
+>    identities; no invoked executor yet proves that those arrays were the complete configured plane.
 > 4. **Naïve message replay emits stale wakes.** `MailboxService._projectMessageWalRecord` defaults
 >    `pumpWake = true`; its own recovery path passes `pumpWake: false` explicitly. A replay reaching the
 >    default re-fires historical wakes as if they were new.
@@ -95,9 +93,8 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
 > whatever the thing's type.** Where a capability must *act* rather than merely *exist*, a conditional is a
 > dormant success path pretending to be a guard, so the branch is gone entirely.
 >
-> This is why the two closures differ, and the asymmetry is deliberate rather than untidy. Demotion keeps a
-> gate because its logic is complete and only its *input* is missing. Promotion has no branch because what is
-> missing is an *actor*.
+> Demotion demonstrates the required shape: it invokes the producer and owns the scan. Promotion has no
+> branch because its complete source-and-replay actor is still missing.
 >
 > **Why a gate and not a stricter check.** The previous shape settled `committed` on a one-entry corpus with an
 > unchanged before/after — a truthful, self-consistent, entirely zero-effect certification. Refusing that
@@ -137,58 +134,45 @@ reach for instead: deleting the overlay ("it's over anyway") or asserting succes
    bound to this pre-state — without it there is no baseline and nothing can be proven.
 4. **Apply** the planned entries to the durable plane.
 5. **Record the applied-stage sets again**, after.
-6. **Settle.** `evaluatePromotion({payloadEntries, appliedStagesBefore, appliedStagesAfter})` → the terminal
-   and the receipt. Record both. (Today this returns `failed-contained` from the capability gate above,
-   whatever you pass.)
+6. **Bind the component receipt.** `deriveDualCorpusReplayReceipt(...)` verifies separate memory/message
+   continuity, exact record sets, and source/target plane identities. It deliberately emits no terminal.
+7. **Settle only through the future invoked actor.** `evaluatePromotion()` still returns
+   `failed-contained`; it accepts no observations until that actor owns the complete source and target reads.
 
-> **There is no separate "plan" or "verify" step, deliberately.** `evaluatePromotion` takes the **source
-> corpus** and derives the plan itself, then runs the continuity verification — rather than accepting either.
-> Both were once arguments, and both were forgeable. A structurally complete continuity verdict is a thing a
-> caller can simply type; and a self-consistent *plan* proved only that its own projection matched its own
-> receipt, never that it was derived from the corpus it claimed to describe — a forged empty plan with a
-> `targetStateDigest` computed from the real pre-state reconciled cleanly, landed nothing, and settled
-> `committed`. Validating a claim's shape checks the shape, never the provenance.
+> **There is no caller-supplied plan or verification verdict, deliberately.** The component helpers derive
+> the plan from each source corpus and run continuity verification internally. Both intermediates were once
+> arguments, and both were forgeable. A structurally complete continuity verdict is a thing a caller can
+> simply type; and a self-consistent *plan* proved only that its own projection matched its own receipt, never
+> that it was derived from the corpus it claimed to describe.
 >
-> Deriving from the corpus removes both forgeable intermediates: a `committed` now needs a corpus whose every
-> planned id appears in the after-state, which is *doing* the replay rather than claiming it. What it does
-> **not** remove is the unknown denominator — hence the gate above.
+> Deriving from the corpus removes both forgeable intermediates. What it does **not** remove is the unknown
+> denominator — hence `evaluatePromotion()` remains unconditionally contained.
 >
 > Concurrent gains from other seats are permitted and reported separately, not treated as corruption.
 
 ## Demotion
 
-> ### ⚠️ `demoted-clean` is MECHANICALLY UNREACHABLE today, and that is the honest state
->
-> The leak scan needs each durable segment's **plane id**. No producer for it exists: the WAL appender writes
-> `{...record, segmentKey}` and carries no plane id, so nothing can distinguish an overlay-written segment
-> from a natively-written one.
->
-> `evaluateDemotion` therefore consults `OVERLAY_TAGGING_PRODUCER` **before it reads a single argument**, and
-> while that constant is `null` **every demotion settles `failed-contained` regardless of what you pass.**
-> This is a gate, not a validation: there is no input that unlocks a clean terminal.
->
-> **That is deliberate, and it replaced two weaker attempts** — each of which asked the *caller* to assert
-> the fact rather than establishing it. First a bare `[]` was accepted as "no leak". Then a named
-> `planeIdSource` was required — but only checked for being a non-empty string, so an invented name unlocked
-> `demoted-clean`. **Requiring a field is not proving a fact**, and a fabricable field is worse than none,
-> because it makes an impossibility look satisfied.
->
-> Do not try to satisfy the gate. A green terminal here would be false and its receipt would attest to
-> nothing. When a producer lands, set the constant to name it: the validation and set-inclusion logic behind
-> the gate is already written and directly tested, so opening the path is a one-line change with coverage in
-> place.
+Newly accepted memory and message WAL records carry immutable `planeId` provenance:
 
-The procedure below is what runs **once a producer exists**:
+- `MemoryService` / `MailboxService` supply resolved `AiConfig.plane.id`;
+- the store validates it and serializes `{...record, segmentKey, planeId}`, so a caller field loses;
+- missing/invalid identities reject before append;
+- operational readers surface an absent historical field as `unknown` without rewriting the file.
 
-1. **Scan the durable corpus for overlay-tagged segments.** The evaluator requires a *structure*, not a
-   list: `{planeIdSource, scannedSegmentCount, taggedSegments}`, and `planeIdSource` must **be** the
-   substrate's producer rather than merely a non-empty string. A bare array is refused, because `[]` is
-   indistinguishable from "nobody looked". **Unscanned is unproven, not clean.**
-2. **Record durable segment IDs** at clone time and now — *ids*, not counts. Cardinality is not identity:
-   `3 → 3` looks stable while a delete-and-add has destroyed committed history, so the check is set
-   inclusion over every pre-clone id.
-3. **Settle.** `evaluateDemotion({overlayScan, preCloneSegmentIds, postPilotSegmentIds})`.
-4. **Retire the overlay** — only on `demoted-clean`.
+The demotion procedure is now:
+
+1. **Invoke the producer.** `evaluateDemotion` takes the two configured WAL roots, overlay plane id,
+   cutover start, and clone-time segment ids. It does **not** accept `overlayScan` or post-pilot ids.
+2. **Strictly scan both WAL families.** Store-owned readers refuse malformed/torn rows. The producer retains
+   exact memory/message record sets and obtains post-pilot segment ids from the scan itself.
+3. **Bound legacy ignorance.** An unstamped record proven older than `cutoverStartedAt` is reported as legacy
+   context. An unknown identity inside the window—or an unknown timestamp that cannot prove it predates the
+   window—forces `failed-contained`.
+4. **Reject overlay writes.** Any in-window record stamped with the overlay plane id names its containing
+   segment and forces `failed-contained`. Concurrent canonical-plane writes are allowed and counted.
+5. **Prove no segment loss.** Clone-time ids must remain a subset of the producer-observed post-pilot ids.
+   Cardinality is not identity: `3 → 3` can hide delete-and-add.
+6. **Retire the overlay** only on `demoted-clean`.
 
 > ### Why demotion does NOT compare durable-plane fingerprints
 >

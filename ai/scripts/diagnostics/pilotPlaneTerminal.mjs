@@ -38,25 +38,21 @@
  * it never closed it, because the pilot never mutated the durable plane. Modelling that as `unchanged`
  * keeps the strictness intact instead of quietly widening it.
  *
- * ## Both certifying terminals are currently unreachable, and that is the finding
+ * ## Demotion now has an invoked producer; promotion remains closed
  *
- * `demoted-clean` and `committed` are each unreachable, and neither is held closed by a validation rule. In both
- * cases the missing thing is a **producer of fact**, and no amount of argument validation substitutes for one:
- * clean demotion needs a plane id the WAL appender never writes; promotion needs a complete ordered mutation
- * source that nothing in the running system reads.
+ * Memory and message accepted-write boundaries now stamp the resolved plane identity after caller fields,
+ * and their owning stores expose strict evidence readers. {@link evaluateDemotion} invokes both readers and
+ * derives the scan itself, so `demoted-clean` is reachable only from durable provenance — never from a
+ * caller-authored receipt.
  *
- * They are closed **differently**, and the difference is a lesson rather than an inconsistency. Demotion
- * consults {@link OVERLAY_TAGGING_PRODUCER} as a gate, because the logic behind it is complete and only its
- * input is missing. Promotion has **no gate and no branch at all** — {@link evaluatePromotion} settles contained
- * unconditionally and takes no argument. A gate was tried there first and was wrong: type-checking a capability
- * proves it exists, never that it ran, so a no-op stub satisfied the check and handed caller observations to the
- * derivation behind it. Where a capability must *do* something rather than merely *be* something, a conditional
- * is a dormant success path pretending to be a guard.
+ * Promotion still has **no gate and no branch at all** — {@link evaluatePromotion} settles contained
+ * unconditionally and takes no argument. A gate was tried there first and was wrong: type-checking a
+ * capability proves it exists, never that it ran, so a no-op stub satisfied the check and handed caller
+ * observations to the derivation behind it. Where a capability must *do* something rather than merely *be*
+ * something, a conditional is a dormant success path pretending to be a guard.
  *
- * So today every pilot settles `failed-contained` — eligibility denied, overlay quarantined. That is not this
- * module failing to do its job; it *is* the job. The honest statement about pilot-plane promotion at this head
- * is "cannot be certified", and a module that returned anything else would be manufacturing the certification
- * the acceptance criterion asks it to earn. Each closure names the adapter that would open it.
+ * So clean demotion is now evidence-reachable while promotion remains honestly `failed-contained` until a
+ * complete dual-corpus replay adapter owns the source denominator and target observations.
  *
  * ## Where the authority is recorded
  *
@@ -65,27 +61,21 @@
  * reader gets one citation that is maintained, instead of decaying references scattered through code.
  */
 
+import {UNKNOWN_PLANE_ID, isOpaquePlaneId}     from '../../planeConfig.mjs';
+import {readMemoryWalProvenanceSegments}       from '../../services/memory-core/helpers/memoryWalStore.mjs';
+import {readMessageWalProvenanceSegments}      from '../../services/memory-core/helpers/messageWalStore.mjs';
 import {planWalReplay, verifyReplayContinuity} from './walReplayPlan.mjs';
 
 /**
- * Whether the substrate can attribute a durable WAL segment to the plane that wrote it.
+ * @summary Names the server-stamped durable source used by the demotion evidence producer.
  *
- * **`null` because no such producer exists.** The WAL appender writes `{...record, segmentKey}` and carries
- * no plane id, and nothing downstream supplies one — so no scan can distinguish an overlay-written segment
- * from a natively-written one.
- *
- * This is a **constant, not a parameter**, and that is the point. An earlier shape asked the caller to name
- * a `planeIdSource`, which only checked that a *string was present* — so an invented one unlocked
- * `demoted-clean`. Requiring a field is not proving a fact, and the fabricable field was worse than no
- * check because it made the impossibility look satisfied. Holding the capability here makes clean demotion
- * **mechanically unreachable** until a real producer lands, whatever a caller passes.
- *
- * When a producer exists, set this to a string naming it. The validation and set-inclusion logic behind the
- * gate is already written and directly tested, so opening the path is a one-line change with coverage
- * already in place.
- * @type {String|null}
+ * This is no longer a caller assertion. {@link produceOverlayScan} invokes the strict readers owned by the
+ * memory and message WAL stores, and those readers surface the `planeId` written after caller fields at the
+ * accepted-write boundary. `evaluateDemotion` invokes that producer itself; callers supply roots and the
+ * cutover boundary, never a receipt-shaped scan.
+ * @type {String}
  */
-export const OVERLAY_TAGGING_PRODUCER = null;
+export const OVERLAY_TAGGING_PRODUCER = 'wal-record.planeId';
 
 /**
  * Whether an executable producer exists that can replay the plane's complete mutation source.
@@ -381,13 +371,269 @@ export function deriveReplayCompletion(spec) {
 }
 
 /**
+ * @summary Verifies one WAL family's replay math for a composite receipt, including an honestly empty family.
+ *
+ * `deriveReplayCompletion` correctly refuses an empty corpus as a standalone promotion. In a complete
+ * two-family plane, however, either the memory or message family may genuinely be empty while the other
+ * carries work. The composite proof therefore permits a zero-row family only inside a non-empty dual-corpus
+ * receipt and still binds its stage pre/post state.
+ * @param {Object} spec Family replay evidence.
+ * @param {String[]} requiredStages Stages this WAL family requires.
+ * @returns {Object} `{ok, reason, receipt?}`.
+ * @private
+ */
+function deriveFamilyReplayForComposite(spec, requiredStages) {
+    const {payloadEntries, appliedStagesBefore, appliedStagesAfter} = spec ?? {};
+
+    if (!Array.isArray(payloadEntries)) {
+        return {ok: false, reason: 'payloadEntries must be an array'}
+    }
+
+    const plan = planWalReplay({payloadEntries, appliedStages: appliedStagesBefore, requiredStages});
+
+    if (!plan.ok) return {ok: false, reason: plan.reason};
+
+    const continuity = verifyReplayContinuity({appliedStagesBefore, appliedStagesAfter, plan});
+
+    if (!continuity.ok) return {ok: false, reason: continuity.reason};
+    if (continuity.monotonic !== true) {
+        return {ok: false, reason: 'continuity verification did not establish monotonic replay'}
+    }
+
+    const receiptFault = validateContinuityReceipt(continuity);
+
+    return receiptFault
+        ? {ok: false, reason: receiptFault}
+        : {ok: true, receipt: continuity.receipt}
+}
+
+/**
+ * @summary Derives a source/target-bound fork-then-replay receipt across memory and message WAL families.
+ *
+ * This remains a component proof, never a promotion terminal: the complete-corpus producer is still absent.
+ * It closes the provenance seam the later producer will consume by requiring every source row to carry the
+ * source plane, every selected target row to carry the target plane, and by retaining the exact family-typed
+ * record sets beside the existing stage-continuity receipts. Replayed source provenance is therefore never
+ * mistaken for the identity of the plane that accepted the target write.
+ * @param {Object} spec
+ * @param {String} spec.sourcePlaneId Overlay/source plane identity.
+ * @param {String} spec.targetPlaneId Durable target plane identity.
+ * @param {Object} spec.memory Memory family `{payloadEntries,targetEntriesAfter,appliedStagesBefore,appliedStagesAfter}`.
+ * @param {Object} spec.messages Message family with the same fields (graph stage only).
+ * @returns {Object} `{ok, reason, receipt?}` without terminal or eligibility authority.
+ */
+export function deriveDualCorpusReplayReceipt({sourcePlaneId, targetPlaneId, memory, messages} = {}) {
+    const refuse = reason => ({ok: false, reason});
+
+    if (!isOpaquePlaneId(sourcePlaneId) || !isOpaquePlaneId(targetPlaneId)) {
+        return refuse('sourcePlaneId and targetPlaneId must be valid opaque plane identities');
+    }
+    if (sourcePlaneId === targetPlaneId) {
+        return refuse('sourcePlaneId and targetPlaneId must be distinct for a fork-then-replay receipt');
+    }
+
+    const families = [
+        ['memory', memory, ['embedded', 'graph']],
+        ['messages', messages, ['graph']]
+    ];
+
+    if (families.every(([, family]) => Array.isArray(family?.payloadEntries) && family.payloadEntries.length === 0)) {
+        return refuse('the dual-corpus source is empty, so a zero-effect replay receipt would certify nothing');
+    }
+
+    const familyReceipts = {};
+
+    for (const [familyName, family, requiredStages] of families) {
+        const {payloadEntries, targetEntriesAfter} = family ?? {};
+
+        if (!Array.isArray(payloadEntries) || !Array.isArray(targetEntriesAfter)) {
+            return refuse(`${familyName} payloadEntries and targetEntriesAfter must be arrays`);
+        }
+
+        const badSourcePlane = payloadEntries.findIndex(entry => entry?.planeId !== sourcePlaneId);
+
+        if (badSourcePlane !== -1) {
+            return refuse(
+                `${familyName} source row at index ${badSourcePlane} is not stamped by source plane ` +
+                `"${sourcePlaneId}" — unknown or mixed source provenance cannot be replay-certified`
+            );
+        }
+
+        const targetById = new Map();
+
+        for (let index = 0; index < targetEntriesAfter.length; index++) {
+            const targetEntry = targetEntriesAfter[index],
+                  id          = targetEntry?.id;
+
+            if (typeof id !== 'string' || id === '') {
+                return refuse(`${familyName} target row at index ${index} has no usable id`);
+            }
+            if (targetById.has(id)) {
+                return refuse(`${familyName} target corpus repeats id "${id}", so double-apply cannot be excluded`);
+            }
+            targetById.set(id, targetEntry);
+        }
+
+        for (const sourceEntry of payloadEntries) {
+            const targetEntry = targetById.get(sourceEntry.id);
+
+            if (!targetEntry) {
+                return refuse(`${familyName} source id "${sourceEntry.id}" is absent from the target WAL`);
+            }
+            if (targetEntry.planeId !== targetPlaneId) {
+                return refuse(
+                    `${familyName} target id "${sourceEntry.id}" carries planeId ` +
+                    `${JSON.stringify(targetEntry.planeId)} instead of accepting plane "${targetPlaneId}" — ` +
+                    'replayed origin identity must not masquerade as target write identity'
+                );
+            }
+        }
+
+        const continuity = deriveFamilyReplayForComposite(family, requiredStages);
+
+        if (!continuity.ok) {
+            return refuse(`${familyName} continuity refused: ${continuity.reason}`)
+        }
+
+        const sourceRecordIds = payloadEntries.map(entry => entry.id).sort(),
+              selectedSet     = new Set(sourceRecordIds);
+
+        familyReceipts[familyName] = {
+            sourceRecordIds,
+            targetRecordIds         : [...selectedSet].sort(),
+            unrelatedTargetRecordIds: [...targetById.keys()].filter(id => !selectedSet.has(id)).sort(),
+            continuity              : continuity.receipt
+        };
+    }
+
+    return {
+        ok     : true,
+        reason : 'memory and message replay continuity is bound to exact source/target plane record sets',
+        receipt: {
+            sourcePlaneId,
+            targetPlaneId,
+            families: familyReceipts
+        }
+    }
+}
+
+/**
+ * @summary Reads both durable WAL families and produces the cutover-bounded plane-provenance scan.
+ *
+ * The strict readers are owned by their respective stores, so this function never guesses file grammars or
+ * plane identity from paths. Records before `cutoverStartedAt` may honestly remain legacy `unknown`; an
+ * unknown/invalid timestamp cannot prove that exemption and therefore joins the blocking unknown set.
+ * @param {Object} spec
+ * @param {String} spec.memoryWalDir Durable memory WAL directory.
+ * @param {String} spec.messageWalDir Durable message WAL directory.
+ * @param {String} spec.overlayPlaneId Plane identity whose durable writes would be a pilot leak.
+ * @param {Number} spec.cutoverStartedAt Inclusive epoch-ms start of the pilot cutover evidence window.
+ * @returns {Promise<Object>} `{ok, ...overlayScan}` or `{ok:false, reason}`.
+ */
+export async function produceOverlayScan({
+    memoryWalDir,
+    messageWalDir,
+    overlayPlaneId,
+    cutoverStartedAt
+} = {}) {
+    const refuse = reason => ({ok: false, reason});
+
+    if (!memoryWalDir || !messageWalDir) {
+        return refuse('memoryWalDir and messageWalDir are required for a dual-WAL provenance scan');
+    }
+    if (!isOpaquePlaneId(overlayPlaneId)) {
+        return refuse('overlayPlaneId must be a valid opaque plane identity');
+    }
+    if (!Number.isFinite(cutoverStartedAt)) {
+        return refuse('cutoverStartedAt must be a finite epoch-ms boundary');
+    }
+
+    let memory, messages;
+
+    try {
+        [memory, messages] = await Promise.all([
+            readMemoryWalProvenanceSegments({dir: memoryWalDir}),
+            readMessageWalProvenanceSegments({dir: messageWalDir})
+        ]);
+    } catch (e) {
+        return refuse(`dual-WAL provenance scan failed: ${e?.message || String(e)}`)
+    }
+
+    if (!memory.ok) return refuse(`memory WAL provenance scan failed: ${memory.reason}`);
+    if (!messages.ok) return refuse(`message WAL provenance scan failed: ${messages.reason}`);
+
+    const taggedSegments   = new Set(),
+          unknownRecords   = [],
+          legacyUnknown    = [],
+          recordIds        = {memory: [], messages: []},
+          knownPlaneCounts = new Map(),
+          segments         = [
+              ...memory.segments.map(segment => ({...segment, family: 'memory'})),
+              ...messages.segments.map(segment => ({
+                  ...segment,
+                  family   : 'messages',
+                  segmentId: `messages/${segment.segmentId}`
+              }))
+          ];
+
+    let scannedRecordCount = 0;
+
+    for (const segment of segments) {
+        for (let index = 0; index < segment.records.length; index++) {
+            const record    = segment.records[index],
+                  hasId     = typeof record?.id === 'string' && record.id !== '',
+                  recordId  = hasId ? record.id : `${segment.segmentId}#row-${index + 1}`,
+                  recordKey = `${segment.family}:${recordId}`,
+                  timestamp = record?.timestamp,
+                  knownTime = Number.isFinite(timestamp),
+                  inWindow  = knownTime && timestamp >= cutoverStartedAt;
+
+            scannedRecordCount++;
+
+            if (!knownTime || !hasId || record.planeId === UNKNOWN_PLANE_ID) {
+                if (knownTime && timestamp < cutoverStartedAt) {
+                    legacyUnknown.push(recordKey);
+                } else {
+                    unknownRecords.push(recordKey);
+                }
+                continue;
+            }
+
+            if (!inWindow) continue;
+
+            recordIds[segment.family].push(recordId);
+            knownPlaneCounts.set(record.planeId, (knownPlaneCounts.get(record.planeId) ?? 0) + 1);
+
+            if (record.planeId === overlayPlaneId) {
+                taggedSegments.add(segment.segmentId);
+            }
+        }
+    }
+
+    return {
+        ok                  : true,
+        planeIdSource       : OVERLAY_TAGGING_PRODUCER,
+        scannedSegmentCount : segments.length,
+        scannedRecordCount,
+        segmentIds          : segments.map(segment => segment.segmentId).sort(),
+        taggedSegments      : [...taggedSegments].sort(),
+        unknownRecords      : unknownRecords.sort(),
+        legacyUnknownRecords: legacyUnknown.sort(),
+        knownPlaneCounts    : Object.fromEntries([...knownPlaneCounts].sort(([a], [b]) => a.localeCompare(b))),
+        recordIds           : {
+            memory  : recordIds.memory.sort(),
+            messages: recordIds.messages.sort()
+        }
+    }
+}
+
+/**
  * @summary Validates the overlay-leak scan and returns a refusal reason, or `null`.
  *
- * Exported so the logic behind the capability gate stays directly testable with positive controls. It is
- * deliberately **not** the thing that decides a terminal: while {@link OVERLAY_TAGGING_PRODUCER} is `null`
- * no caller can reach this at all, because a well-formed scan structure is still only a *claim* that a scan
- * happened. Shape is checkable; provenance is not.
- * @param {Object} overlayScan `{planeIdSource, scannedSegmentCount, taggedSegments}`
+ * Exported so the pure derivation remains directly testable, but validation does not mint provenance:
+ * {@link evaluateDemotion} invokes {@link produceOverlayScan} and never accepts this structure from a caller.
+ * Shape is checkable; source authority comes only from that call graph.
+ * @param {Object} overlayScan Producer-owned scan returned by {@link produceOverlayScan}.
  * @returns {String|null}
  */
 export function validateOverlayScan(overlayScan) {
@@ -402,7 +648,16 @@ export function validateOverlayScan(overlayScan) {
                'this argument exists to force.';
     }
 
-    const {planeIdSource, scannedSegmentCount, taggedSegments} = overlayScan;
+    const {
+        planeIdSource,
+        scannedSegmentCount,
+        scannedRecordCount,
+        segmentIds,
+        taggedSegments,
+        unknownRecords,
+        legacyUnknownRecords,
+        recordIds
+    } = overlayScan;
 
     if (typeof planeIdSource !== 'string' || planeIdSource.trim() === '') {
         return 'overlayScan.planeIdSource must name where each durable segment\'s plane id was read from';
@@ -426,6 +681,18 @@ export function validateOverlayScan(overlayScan) {
     if (!Array.isArray(taggedSegments)) {
         return 'overlayScan.taggedSegments must be an array (empty when the scan found no overlay-tagged segment)';
     }
+    if (!Number.isInteger(scannedRecordCount) || scannedRecordCount < 0) {
+        return 'overlayScan.scannedRecordCount must be a non-negative integer';
+    }
+    if (!Array.isArray(segmentIds) || segmentIds.length !== scannedSegmentCount) {
+        return 'overlayScan.segmentIds must name exactly every scanned payload segment';
+    }
+    if (!Array.isArray(unknownRecords) || !Array.isArray(legacyUnknownRecords)) {
+        return 'overlayScan must distinguish blocking unknownRecords from pre-cutover legacyUnknownRecords';
+    }
+    if (!recordIds || !Array.isArray(recordIds.memory) || !Array.isArray(recordIds.messages)) {
+        return 'overlayScan.recordIds must retain exact memory and message record sets';
+    }
 
     return null;
 }
@@ -433,7 +700,7 @@ export function validateOverlayScan(overlayScan) {
 /**
  * @summary Compares pre-clone and post-pilot segment id sets, returning `{lost, gained}` or a refusal reason.
  *
- * Exported for direct testing behind the capability gate. **Identity, not cardinality:** `3 → 3` looks stable
+ * Exported for direct testing behind the invoked producer. **Identity, not cardinality:** `3 → 3` looks stable
  * while a delete-old-and-add-new has destroyed committed history, so the claim "no committed history was
  * lost" is set inclusion over every pre-clone id and nothing weaker.
  * @param {String[]} preCloneSegmentIds
@@ -476,42 +743,22 @@ export function diffSegmentIdentity(preCloneSegmentIds, postPilotSegmentIds) {
  * delete-old-and-add-new has silently destroyed committed history. So the check is **set inclusion** — every
  * pre-clone segment must still be present by id — which is what "no committed history was lost" actually
  * asserts. Growth beyond that is other seats' work and is reported, not judged.
- * ## `demoted-clean` is currently unreachable, by construction
- *
- * The **capability gate fires first**, before any caller input is consulted. While
- * {@link OVERLAY_TAGGING_PRODUCER} is `null` there is no honest scan, so no argument combination can produce
- * a clean terminal. An earlier shape asked the caller to *name* a `planeIdSource` and only checked that a
- * string was present — so an invented name unlocked `demoted-clean`. **Requiring a field is not proving a
- * fact**, and a fabricable field is worse than no field, because it makes an impossibility look satisfied.
+ * This pure derivation accepts only the producer's complete scan shape and carries no source authority by
+ * itself. The authoritative entry point is {@link evaluateDemotion}, which invokes
+ * {@link produceOverlayScan} rather than accepting a caller-authored scan.
  * @param {Object} spec
- * @param {Object} spec.overlayScan           `{planeIdSource, scannedSegmentCount, taggedSegments}`.
+ * @param {Object} spec.overlayScan           Producer-owned dual-WAL provenance scan.
  * @param {String[]} spec.preCloneSegmentIds  Durable segment ids recorded at clone time.
  * @param {String[]} spec.postPilotSegmentIds Durable segment ids at demotion.
  * @returns {Object} `{terminal, reason, eligibility, receipt}`
  */
-export function evaluateDemotion(spec) {
-    // THE CAPABILITY GATE, FIRST AND UNCONDITIONALLY. Placed ahead of every other check so that no
-    // caller-supplied value is even read while the producer is absent: a gate that ran after input validation
-    // would still let the shape of the input decide which refusal a reader sees, and the honest message here
-    // is about the substrate, not about the caller.
-    if (typeof OVERLAY_TAGGING_PRODUCER !== 'string' || OVERLAY_TAGGING_PRODUCER === '') {
-        return settle(
-            'failed-contained',
-            'the substrate cannot attribute a durable WAL segment to the plane that wrote it: the WAL appender ' +
-            'writes {...record, segmentKey} with no plane id, so no scan can distinguish an overlay-written ' +
-            'segment from a natively-written one. A clean demotion is therefore UNPROVABLE, not merely ' +
-            'unproven, and no argument can change that — the blocker is the missing producer. Quarantine the ' +
-            'overlay and leave eligibility closed until one exists.'
-        );
-    }
-
-    // See `evaluatePromotion`: nullish-coalesced so a null argument settles contained instead of throwing.
+export function deriveDemotionTerminal(spec) {
     const {overlayScan, preCloneSegmentIds, postPilotSegmentIds} = spec ?? {},
           scanFault                                              = validateOverlayScan(overlayScan);
 
     if (scanFault) return settle('failed-contained', scanFault);
 
-    const {taggedSegments} = overlayScan;
+    const {taggedSegments, unknownRecords} = overlayScan;
 
     if (taggedSegments.length > 0) {
         return settle(
@@ -520,6 +767,20 @@ export function evaluateDemotion(spec) {
             `write reached the durable plane: ${taggedSegments.slice(0, 5).join(', ')}. Quarantine the ` +
             'overlay rather than deleting it — it is the only remaining evidence of what leaked.',
             {overlayTaggedTotal: taggedSegments.length, planeIdSource: overlayScan.planeIdSource}
+        );
+    }
+
+    if (unknownRecords.length > 0) {
+        return settle(
+            'failed-contained',
+            `${unknownRecords.length} durable record(s) inside the cutover window have unknown plane ` +
+            `provenance (e.g. ${unknownRecords[0]}). Legacy ignorance may be context before cutover, but ` +
+            'inside the proof window it cannot be turned into a clean claim.',
+            {
+                planeIdSource     : overlayScan.planeIdSource,
+                unknownRecordTotal: unknownRecords.length,
+                unknownSample     : unknownRecords.slice(0, 5)
+            }
         );
     }
 
@@ -549,8 +810,57 @@ export function evaluateDemotion(spec) {
             // reader can sanity-check that a pilot-length window of institutional writing shows up at all.
             concurrentGainTotal: identity.gained.length,
             overlayTaggedTotal : 0,
+            unknownRecordTotal : 0,
+            legacyUnknownTotal : overlayScan.legacyUnknownRecords.length,
             planeIdSource      : overlayScan.planeIdSource,
-            scannedSegmentCount: overlayScan.scannedSegmentCount
+            scannedSegmentCount: overlayScan.scannedSegmentCount,
+            scannedRecordCount : overlayScan.scannedRecordCount,
+            knownPlaneCounts   : overlayScan.knownPlaneCounts,
+            recordIds          : overlayScan.recordIds
         }
     );
+}
+
+/**
+ * @summary Settles demotion from a scan this module obtains from both WAL stores itself.
+ *
+ * Callers provide configured roots, the overlay identity, the cutover boundary, and the clone-time segment
+ * ids. They cannot provide `overlayScan` or the post-pilot segment set: both are observed by the invoked
+ * producer, closing the earlier receipt-shaped-input loophole.
+ * @param {Object} spec
+ * @param {String} spec.memoryWalDir Durable memory WAL directory.
+ * @param {String} spec.messageWalDir Durable message WAL directory.
+ * @param {String} spec.overlayPlaneId Overlay identity under test.
+ * @param {Number} spec.cutoverStartedAt Inclusive epoch-ms evidence boundary.
+ * @param {String[]} spec.preCloneSegmentIds Clone-time durable payload segment identities.
+ * @returns {Promise<Object>} `{terminal, reason, eligibility, receipt}`.
+ */
+export async function evaluateDemotion(spec) {
+    const {
+        memoryWalDir,
+        messageWalDir,
+        overlayPlaneId,
+        cutoverStartedAt,
+        preCloneSegmentIds
+    } = spec ?? {};
+    const overlayScan = await produceOverlayScan({
+        memoryWalDir,
+        messageWalDir,
+        overlayPlaneId,
+        cutoverStartedAt
+    });
+
+    if (!overlayScan.ok) {
+        return settle(
+            'failed-contained',
+            `${overlayScan.reason}. The overlay remains quarantined because an unproduced scan is unproven, ` +
+            'not clean.'
+        );
+    }
+
+    return deriveDemotionTerminal({
+        overlayScan,
+        preCloneSegmentIds,
+        postPilotSegmentIds: overlayScan.segmentIds
+    })
 }

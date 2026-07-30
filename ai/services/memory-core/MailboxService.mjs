@@ -1740,7 +1740,10 @@ class MailboxService extends Base {
             to
         });
 
-        await appendWalMessage(walRecord, {dir: aiConfig.messageWal.dir});
+        await appendWalMessage(walRecord, {
+            dir    : aiConfig.messageWal.dir,
+            planeId: aiConfig.plane.id
+        });
 
         let projectionStatus = 'projected';
 
