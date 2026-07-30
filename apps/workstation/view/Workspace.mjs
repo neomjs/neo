@@ -2027,6 +2027,7 @@ class Workspace extends Container {
             nextConfig,
             placeholders,
             preserveItemIds,
+            retainTopology: operation === 'detachItem',
             resolveItem: itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
             onProjectionStaged({plans}) {
                 const retainedTabBars = [...plans.values()]
@@ -3134,6 +3135,7 @@ class Workspace extends Container {
         }
 
         me.onDockZoneDocumentChange(document, {
+            operation      : operation.operation,
             preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
         });
         me.adoptTearOutPane(itemId, vessel?.generation, vessel?.admissionToken)
