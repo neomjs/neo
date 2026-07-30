@@ -16,6 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import {parse}        from 'acorn';
 import fs             from 'fs';
+import os             from 'os';
 import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
@@ -508,15 +509,16 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             ]
         });
 
+        const snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
+
         const
-            snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-            testStorageRoot    = process.env.NEO_TEST_STORAGE_ROOT;
-
-        expect(testStorageRoot).toBeTruthy();
-
-        const snapshotRelativePath = path.relative(testStorageRoot, snapshotPathConfig);
+            snapshotRelativePath = path.relative(os.tmpdir(), snapshotPathConfig),
+            snapshotPathParts    = snapshotRelativePath.split(path.sep);
 
         expect(snapshotRelativePath.startsWith('..') || path.isAbsolute(snapshotRelativePath)).toBe(false);
+        expect(snapshotPathParts.some(part => /^neo-playwright-.+/.test(part))).toBe(true);
+        expect(snapshotPathParts.at(-3)).toMatch(/^worker-\d+$/);
+        expect(snapshotPathParts.slice(-2)).toEqual(['deployment-state', 'snapshot.json']);
 
         try {
             await writeDeploymentStateSnapshot({filePath: snapshotPathConfig, snapshot});
