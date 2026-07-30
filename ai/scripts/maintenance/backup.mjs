@@ -27,6 +27,7 @@ import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
 import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
@@ -120,6 +121,45 @@ const DEFAULT_CONCEPTS_DIR      = path.join(PROJECT_ROOT, '.neo-ai-data', 'conce
 const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datasets', 'rlaif', 'trajectories.jsonl');
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
 export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
+
+/**
+ * Stable terminal classification when a completed local bundle did not satisfy the deployment's
+ * required off-host durability gate.
+ * @type {String}
+ */
+export const REQUIRED_OFFHOST_BACKUP_ERROR_CODE = 'BACKUP_REQUIRED_OFFHOST_SYNC_UNMET';
+
+/**
+ * @summary Builds the status-only terminal error for a required off-host durability failure.
+ * Receipt diagnostics retain the detailed/redacted child outcome; the thrown boundary exposes
+ * neither config values, argv, stderr, paths, nor credentials.
+ * @param {String} offHostSyncStatus
+ * @returns {Error}
+ */
+function createRequiredOffHostBackupError(offHostSyncStatus) {
+    const error = new Error(`Required off-host backup was not satisfied (status=${offHostSyncStatus}).`);
+
+    error.code              = REQUIRED_OFFHOST_BACKUP_ERROR_CODE;
+    error.offHostSyncStatus = offHostSyncStatus;
+
+    return error
+}
+
+/**
+ * @summary Writes the CLI terminal for a backup failure.
+ * Required off-host refusals expose only their stable code/status; unrelated backup failures keep
+ * the existing full Error diagnostic.
+ * @param {Error} error
+ * @param {Object} [logger=console]
+ * @returns {void}
+ */
+export function reportBackupTerminalFailure(error, logger=console) {
+    if (error?.code === REQUIRED_OFFHOST_BACKUP_ERROR_CODE) {
+        logger.error(`❌ Backup failed: ${error.code} (status=${error.offHostSyncStatus}).`)
+    } else {
+        logger.error('❌ Backup failed:', error)
+    }
+}
 
 /**
  * Loads the gitignored Tier-1 AI config for operator-run scripts when present.
@@ -684,15 +724,27 @@ async function copyJsonlSource(source, destDir, logger=console, destFileName=nul
  *
  * Lease semantics: the sync lifetime extends the exclusive-heavy backup lease; the lease remains
  * held through the bounded-size receipt fsync/rename and releases afterward (no exact wall-clock
- * bound — local filesystem completion is not a hard real-time guarantee).
+ * bound — local filesystem completion is not a hard real-time guarantee). When the deployment
+ * requires off-host durability, a non-success sync rejects only AFTER that truthful receipt attempt;
+ * the completed local bundle remains `backup.status: 'success'`.
  *
+ * @param {Object} [options]
+ * @param {Function} [options.runBackupImpl=runBackup] Local bundle primitive.
+ * @param {Function|null} [options.withLeaseImpl=null] Heavy-maintenance lease seam.
+ * @param {String|null} [options.backupRoot=null] Receipt-root override.
+ * @param {Object} [options.syncConfig] Off-host config override.
+ * @param {Function} [options.runOffHostSyncImpl=runOffHostSync] Sync runner seam.
+ * @param {Boolean} [options.offHostBackupRequired] Resolved requirement override; omitted reads
+ * AiConfig through the canonical cloud-only resolver.
  * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
  */
 export async function runBackupWithOffHostSync({
-    runBackupImpl  = runBackup,
-    withLeaseImpl  = null,
-    backupRoot     = null,
-    syncConfig     = undefined
+    runBackupImpl          = runBackup,
+    withLeaseImpl          = null,
+    backupRoot             = null,
+    syncConfig             = undefined,
+    runOffHostSyncImpl     = runOffHostSync,
+    offHostBackupRequired  = undefined
 } = {}) {
     // The sync + BOTH receipts live INSIDE the self-acquired lease: success receipts and the
     // truthful not-run failure receipt are persisted before the lease releases.
@@ -705,7 +757,13 @@ export async function runBackupWithOffHostSync({
         const
             validation  = validateOffHostSyncConfig(syncConfig === undefined ? AiConfig.maintenance.backup.offHostSync : syncConfig),
             allowlist   = validation.value?.envAllowlist ?? [],
-            receiptPath = path.join(backupRoot ?? AiConfig.backupPath, 'last-backup-receipt.json');
+            receiptPath = path.join(backupRoot ?? AiConfig.backupPath, 'last-backup-receipt.json'),
+            required    = offHostBackupRequired === undefined
+                ? resolveCloudOnlyDefault(
+                    AiConfig.orchestrator.cloudOnly.offHostBackupRequired,
+                    AiConfig.orchestrator.deploymentMode
+                )
+                : offHostBackupRequired;
 
         let result, backupError = null;
 
@@ -747,10 +805,12 @@ export async function runBackupWithOffHostSync({
 
         if (validation.error) {
             syncStatus = 'validation-failed';
-            console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
+            console.warn(required
+                ? `[Backup] required offHostSync validation failed (${validation.errorCode}).`
+                : `[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
         } else if (validation.enabled) {
             try {
-                syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value})
+                syncOutcome = await runOffHostSyncImpl({bundleDir: bundleRoot, bundleName, config: validation.value})
             } catch (syncError) {
                 // An unexpected spawn/config error is a SYNC outcome — the completed local bundle
                 // never becomes backup.status: 'failed' because the hook broke.
@@ -767,7 +827,9 @@ export async function runBackupWithOffHostSync({
             }
 
             if (syncOutcome.status !== 'success') {
-                console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
+                console.warn(required
+                    ? `[Backup] required offHostSync ${syncOutcome.status}.`
+                    : `[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
             }
         }
 
@@ -789,6 +851,12 @@ export async function runBackupWithOffHostSync({
         } catch (receiptError) {
             // A receipt write failure degrades observability, never the successful backup's truth.
             console.warn(`[Backup] failed to write the receipt after a successful backup: ${receiptError.message}`)
+        }
+
+        const observedSyncStatus = syncOutcome?.status ?? syncStatus;
+
+        if (required && observedSyncStatus !== 'success') {
+            throw createRequiredOffHostBackupError(observedSyncStatus)
         }
 
         return result
@@ -822,7 +890,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
             process.exit(0);
         })
         .catch(error => {
-            console.error('❌ Backup failed:', error);
+            reportBackupTerminalFailure(error);
             process.exit(1);
         });
 }
