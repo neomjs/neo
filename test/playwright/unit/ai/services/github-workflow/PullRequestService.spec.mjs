@@ -14,12 +14,15 @@ setup({
     }
 });
 
-test.describe('Neo.ai.services.github-workflow.PullRequestService — list freshness fields (#16165)', () => {
+test.describe('Neo.ai.services.github-workflow.PullRequestService — list freshness and belief fields (#16165, #16191)', () => {
     let GraphqlService;
     let PullRequestService;
+    let fetchPullRequestsQuery;
     let originalQuery;
     let capturedQuery;
     let capturedVariables;
+    let capturedOptions;
+    let queryCalls;
 
     const row = (overrides = {}) => ({
         number          : 16165,
@@ -55,6 +58,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         PullRequestService = (await import(
             '../../../../../../ai/services/github-workflow/PullRequestService.mjs'
         )).default;
+        fetchPullRequestsQuery = (await import(
+            '../../../../../../ai/services/github-workflow/queries/pullRequestQueries.mjs'
+        )).FETCH_PULL_REQUESTS;
         originalQuery      = GraphqlService.query.bind(GraphqlService)
     });
 
@@ -65,10 +71,14 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
     test.beforeEach(() => {
         capturedQuery     = null;
         capturedVariables = null;
+        capturedOptions   = null;
+        queryCalls        = 0;
 
-        GraphqlService.query = async (query, variables) => {
+        GraphqlService.query = async (query, variables, options) => {
+            queryCalls++;
             capturedQuery     = query;
             capturedVariables = variables;
+            capturedOptions   = options;
 
             return {repository: {pullRequests: {nodes: [row()]}}}
         }
@@ -89,12 +99,15 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         }
 
         expect(capturedQuery).toContain('reviewRequests(first: 100)');
+        expect(capturedQuery).toBe(fetchPullRequestsQuery);
         expect(capturedVariables).toEqual({
             owner : 'neomjs',
             repo  : 'neo',
             limit : 7,
             states: 'OPEN'
         });
+        expect(capturedOptions).toBeUndefined();
+        expect(queryCalls).toBe(1);
         expect(result).toEqual({
             count       : 1,
             pullRequests: [{
@@ -115,6 +128,105 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
                 mergeStateStatus: 'CLEAN'
             }]
         })
+    });
+
+    test('classifies exact believed-open numbers in the same read independently of board filters', async () => {
+        GraphqlService.query = async (query, variables, options) => {
+            queryCalls++;
+            capturedQuery     = query;
+            capturedVariables = variables;
+            capturedOptions   = options;
+
+            return {
+                data: {
+                    repository: {
+                        pullRequests : {nodes: [row({number: 700})]},
+                        believedOpen0: {number: 11, state: 'OPEN', mergedAt: null},
+                        believedOpen1: {number: 12, state: 'MERGED', mergedAt: '2026-07-30T12:00:00Z'},
+                        believedOpen2: {number: 13, state: 'CLOSED', mergedAt: null},
+                        believedOpen3: null
+                    }
+                },
+                errors: [{path: ['repository', 'believedOpen3']}]
+            }
+        };
+
+        const result = await PullRequestService.listPullRequests({
+            believedOpen: [11, 12, 13, 999999],
+            limit       : 1,
+            state       : 'closed'
+        });
+
+        expect(queryCalls).toBe(1);
+        expect(capturedOptions).toEqual({strict: false});
+        expect(capturedVariables).toEqual({
+            owner : 'neomjs',
+            repo  : 'neo',
+            limit : 1,
+            states: 'CLOSED'
+        });
+        expect(capturedQuery).toContain('pullRequests(first: $limit');
+        expect(capturedQuery).toContain('believedOpen0: pullRequest(number: 11)');
+        expect(capturedQuery).toContain('believedOpen1: pullRequest(number: 12)');
+        expect(capturedQuery).toContain('believedOpen2: pullRequest(number: 13)');
+        expect(capturedQuery).toContain('believedOpen3: pullRequest(number: 999999)');
+        expect(new Date(result.checkedAt).toISOString()).toBe(result.checkedAt);
+        expect(result.count).toBe(1);
+        expect(result.pullRequests[0].number).toBe(700);
+        expect(result.belief).toEqual({
+            stillOpen: [11],
+            falsified: [{
+                number  : 12,
+                state   : 'MERGED',
+                mergedAt: '2026-07-30T12:00:00Z'
+            }, {
+                number  : 13,
+                state   : 'CLOSED',
+                mergedAt: null
+            }],
+            unverifiable: [{
+                number: 999999,
+                reason: 'not-found-or-inaccessible'
+            }]
+        })
+    });
+
+    test('accepts an explicit empty belief without changing the board query', async () => {
+        const result = await PullRequestService.listPullRequests({believedOpen: []});
+
+        expect(queryCalls).toBe(1);
+        expect(capturedQuery).toBe(fetchPullRequestsQuery);
+        expect(capturedOptions).toEqual({strict: false});
+        expect(result.belief).toEqual({
+            stillOpen   : [],
+            falsified   : [],
+            unverifiable: []
+        });
+        expect(new Date(result.checkedAt).toISOString()).toBe(result.checkedAt)
+    });
+
+    test('rejects invalid believed-open coordinates before GitHub I/O', async () => {
+        const invalidCoordinates = [
+            null,
+            '1',
+            [0],
+            [-1],
+            [1.5],
+            ['1'],
+            [1, 1],
+            Array.from({length: 101}, (_, index) => index + 1)
+        ];
+
+        for (const believedOpen of invalidCoordinates) {
+            const result = await PullRequestService.listPullRequests({believedOpen});
+
+            expect(result).toMatchObject({
+                error: 'Invalid believedOpen input',
+                code : 'INVALID_BELIEVED_OPEN'
+            });
+        }
+
+        expect(queryCalls).toBe(0)
     });
 
     test('distinguishes complete-empty reviewer requests from unavailable or incomplete sources', async () => {
