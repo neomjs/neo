@@ -29,6 +29,8 @@ const
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
+    DECLARED_TICKET_PATTERN       = /\b(?:Resolves|Refs|Related):?\s+#(\d+)/gi,
+    COMMIT_TICKET_PATTERN         = /\(#(\d+)\)\s*$/,
     CONVENTIONAL_TYPE_PATTERN     = /^([a-z][a-z0-9-]*)(?:\([^()\r\n]+\))?!?:\s+\S/;
 
 export const CHANGE_CLASS_TO_TYPE = Object.freeze({
@@ -50,6 +52,7 @@ export function createProgram() {
         .option('--commit-subject <subject>', 'Validate the intended commit subject against --change-class.')
         .option('--pr-title <title>', 'Validate the intended PR title against --change-class.')
         .option('--pr-body <file>', 'Run local PR-body template lint against the given markdown file.')
+        .option('--pr-base <ref>', 'Compare stacked PR commit tickets against this intended base.', 'origin/dev')
         .option('--pr-draft', 'Validate --pr-body as a draft PR: Refs/Related may temporarily stand in for Resolves.')
         .option('--no-fix', 'Check-only mode: skip the check-block-alignment --fix repair pass.')
         .argument('[files...]', 'Optional file paths. When omitted, staged ACMR files are read from git.')
@@ -75,6 +78,7 @@ export function parseArgs(argv) {
         files        : program.args,
         fix          : options.fix,
         help         : false,
+        prBase       : options.prBase,
         prBody       : options.prBody || null,
         prDraft      : options.prDraft || false,
         prTitle      : options.prTitle || null
@@ -217,6 +221,85 @@ export function validatePrBody(body, {draft = false} = {}) {
         missingInvisible,
         missingVisible,
         valid: missingVisible.length === 0 && missingInvisible.length === 0
+    }
+}
+
+/**
+ * @summary Parses NUL-delimited `git log` output into PR commit receipts.
+ * @param {String} output
+ * @returns {Array<{sha: String, subject: String}>}
+ */
+export function parsePrCommitLog(output = '') {
+    const
+        tokens  = String(output).split('\0'),
+        commits = [];
+
+    for (let index = 0; index + 1 < tokens.length; index += 2) {
+        const sha = tokens[index];
+
+        if (sha) {
+            commits.push({sha, subject: tokens[index + 1] || ''})
+        }
+    }
+
+    return commits
+}
+
+/**
+ * @summary Reads the commits one PR branch carries relative to its intended base.
+ * @param {Object} options
+ * @param {String} options.base
+ * @param {String} options.cwd
+ * @param {Function} [options.execFileSyncImpl]
+ * @returns {Array<{sha: String, subject: String}>}
+ */
+export function getPrBranchCommits({base, cwd, execFileSyncImpl = execFileSync}) {
+    const output = execFileSyncImpl('git', [
+        'log',
+        '-z',
+        '--format=%H%x00%s',
+        '--reverse',
+        `${base}..HEAD`
+    ], {
+        cwd,
+        encoding: 'utf8',
+        stdio   : 'pipe'
+    });
+
+    return parsePrCommitLog(output)
+}
+
+/**
+ * @summary Mirrors hosted stacked-PR ticket declarations against local branch commits.
+ * @param {String} body
+ * @param {Array<{sha: String, subject: String}>} commits
+ * @returns {{declaredTickets: String[], foreignCommits: Object[], valid: Boolean}}
+ */
+export function validateStackedPrTickets(body, commits = []) {
+    const
+        declaredTickets = new Set(
+            [...body.matchAll(DECLARED_TICKET_PATTERN)].map(match => match[1])
+        ),
+        foreignCommits = [];
+
+    if (declaredTickets.size > 0) {
+        commits.forEach(({sha, subject}) => {
+            const ticket = subject.match(COMMIT_TICKET_PATTERN);
+
+            if (ticket && !declaredTickets.has(ticket[1])) {
+                foreignCommits.push({
+                    sha    : sha.slice(0, 10),
+                    subject: subject.slice(0, 72),
+                    ticket : ticket[1]
+                })
+            }
+        })
+    }
+
+    return {
+        declaredTickets: [...declaredTickets],
+        foreignCommits,
+        valid          : foreignCommits.length === 0
     }
 }
 
@@ -530,6 +613,41 @@ export function runAgentPreflight({
 
         if (result.valid) {
             writeLine(stdout, 'agent-preflight: PR body contains the required template anchors.');
+
+            try {
+                const
+                    body    = readFileSyncImpl(path.resolve(cwd, options.prBody), 'utf8'),
+                    commits = getPrBranchCommits({
+                        base: options.prBase,
+                        cwd,
+                        execFileSyncImpl
+                    }),
+                    stackResult = validateStackedPrTickets(body, commits);
+
+                if (stackResult.valid) {
+                    writeLine(
+                        stdout,
+                        `agent-preflight: stacked PR tickets match ${stackResult.declaredTickets.length} ` +
+                        `declared ticket(s) across ${commits.length} commit(s).`
+                    )
+                } else {
+                    failures.push('pr-body-stack');
+                    writeLine(
+                        stderr,
+                        `agent-preflight: stacked PR ticket declaration lint failed against ${options.prBase}.`
+                    );
+                    stackResult.foreignCommits.forEach(commit => writeLine(
+                        stderr,
+                        `  - \`${commit.sha}\` claims #${commit.ticket} — \`${commit.subject}\``
+                    ))
+                }
+            } catch (error) {
+                failures.push('pr-body-stack');
+                writeLine(
+                    stderr,
+                    `agent-preflight: could not inspect PR commits relative to ${options.prBase}: ${error.message}`
+                )
+            }
         } else {
             failures.push('pr-body');
             writeLine(stderr, 'agent-preflight: PR body template lint failed.');
