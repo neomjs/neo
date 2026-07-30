@@ -1,7 +1,9 @@
 import {setup} from '../../../../setup.mjs';
+import {createHash} from 'node:crypto';
 
 const appName          = 'PullRequestServiceTest';
 const skipCiGitHubAuth = !!process.env.NEO_TEST_SKIP_CI;
+const predecessorListQuerySha256 = '68b60ee57194252d68f3b50f2e174f25ff3859d3ba89bd2a66d7e2d873e1914f';
 
 setup({
     neoConfig: {
@@ -17,7 +19,6 @@ setup({
 test.describe('Neo.ai.services.github-workflow.PullRequestService — list freshness and belief fields (#16165, #16191)', () => {
     let GraphqlService;
     let PullRequestService;
-    let fetchPullRequestsQuery;
     let originalQuery;
     let capturedQuery;
     let capturedVariables;
@@ -58,9 +59,6 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         PullRequestService = (await import(
             '../../../../../../ai/services/github-workflow/PullRequestService.mjs'
         )).default;
-        fetchPullRequestsQuery = (await import(
-            '../../../../../../ai/services/github-workflow/queries/pullRequestQueries.mjs'
-        )).FETCH_PULL_REQUESTS;
         originalQuery      = GraphqlService.query.bind(GraphqlService)
     });
 
@@ -99,7 +97,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         }
 
         expect(capturedQuery).toContain('reviewRequests(first: 100)');
-        expect(capturedQuery).toBe(fetchPullRequestsQuery);
+        expect(capturedQuery).toHaveLength(987);
+        expect(createHash('sha256').update(capturedQuery).digest('hex')).toBe(predecessorListQuerySha256);
         expect(capturedVariables).toEqual({
             owner : 'neomjs',
             repo  : 'neo',
@@ -195,7 +194,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         const result = await PullRequestService.listPullRequests({believedOpen: []});
 
         expect(queryCalls).toBe(1);
-        expect(capturedQuery).toBe(fetchPullRequestsQuery);
+        expect(createHash('sha256').update(capturedQuery).digest('hex')).toBe(predecessorListQuerySha256);
         expect(capturedOptions).toEqual({strict: false});
         expect(result.belief).toEqual({
             stillOpen   : [],

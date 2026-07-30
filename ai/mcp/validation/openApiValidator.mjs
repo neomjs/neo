@@ -198,6 +198,22 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
             // {"type":"array","items":{}}, which strict MCP clients accept.
             zodSchema = z.array(z.unknown());
         }
+
+        if (typeof schema.minItems === 'number') {
+            zodSchema = zodSchema.min(schema.minItems)
+        }
+
+        if (typeof schema.maxItems === 'number') {
+            zodSchema = zodSchema.max(schema.maxItems)
+        }
+
+        if (schema.uniqueItems === true) {
+            zodSchema = zodSchema
+                .refine(items => new Set(items).size === items.length, {
+                    message: 'Array items must be unique.'
+                })
+                .meta({uniqueItems: true})
+        }
     } else if (schema.type === 'string') {
         if (Array.isArray(schema.enum) && schema.enum.length > 0) {
             zodSchema = z.enum(schema.enum);

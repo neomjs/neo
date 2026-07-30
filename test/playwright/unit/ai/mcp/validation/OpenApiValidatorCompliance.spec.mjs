@@ -454,6 +454,44 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(schema.properties.action.enum).toEqual(['start', 'stop']);
     });
 
+    test('buildZodSchema preserves array bounds and uniqueness in validation and tools/list output (#16194)', () => {
+        const doc = {
+            paths: {
+                '/test': {
+                    get: {
+                        operationId: 'test_array_constraints',
+                        parameters : [{
+                            in      : 'query',
+                            name    : 'ids',
+                            required: true,
+                            schema  : {
+                                type       : 'array',
+                                minItems   : 1,
+                                maxItems   : 3,
+                                uniqueItems: true,
+                                items      : {type: 'integer'}
+                            }
+                        }]
+                    }
+                }
+            }
+        };
+        const zodSchema  = buildZodSchema(doc, doc.paths['/test'].get);
+        const jsonSchema = toOpenApiJsonSchema(zodSchema);
+
+        expect(jsonSchema.properties.ids).toMatchObject({
+            type       : 'array',
+            minItems   : 1,
+            maxItems   : 3,
+            uniqueItems: true,
+            items      : {type: 'integer'}
+        });
+        expect(zodSchema.safeParse({ids: [1, 2, 3]}).success).toBe(true);
+        expect(zodSchema.safeParse({ids: []}).success).toBe(false);
+        expect(zodSchema.safeParse({ids: [1, 2, 3, 4]}).success).toBe(false);
+        expect(zodSchema.safeParse({ids: [1, 1]}).success).toBe(false)
+    });
+
     /**
      * Direct regression for https://github.com/neomjs/neo/issues/10531.
      * The MCP tool-shape compiler must preserve OpenAPI defaults, numeric bounds,
