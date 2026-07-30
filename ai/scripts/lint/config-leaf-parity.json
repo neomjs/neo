@@ -367,6 +367,7 @@
         "defaultRepoSlug",
         "defaultTenantId",
         "defaultVisibility",
+        "embeddingResumeStateDir",
         "hierarchyPath",
         "host",
         "kbFaqConceptLimit",

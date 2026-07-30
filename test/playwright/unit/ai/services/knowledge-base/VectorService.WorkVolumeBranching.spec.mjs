@@ -176,6 +176,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     let originalThreshold;
     let originalEmbeddingLimits;
     let originalEmbeddingProvider;
+    let originalResumeStateDir;
     let tmpDir, fixturePath;
 
     let TextEmbeddingService;
@@ -204,6 +205,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
             safeProcessingLimitTokens: Number(KB_Config.data.localModels.embedding.safeProcessingLimitTokens)
         };
         originalEmbeddingProvider = Memory_Config.data.embeddingProvider;
+        originalResumeStateDir     = KB_VectorService.resumeStateDir;
 
         tmpDir      = path.resolve(os.tmpdir(), `kb-work-volume-test-${process.pid}-${Date.now()}`);
         fs.mkdirSync(tmpDir, {recursive: true});
@@ -217,6 +219,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         KB_Config.data.localModels.embedding.contextLimitTokens        = originalEmbeddingLimits.contextLimitTokens;
         KB_Config.data.localModels.embedding.safeProcessingLimitTokens = originalEmbeddingLimits.safeProcessingLimitTokens;
         Memory_Config.data.embeddingProvider        = originalEmbeddingProvider;
+        KB_VectorService.resumeStateDir              = originalResumeStateDir;
         TextEmbeddingService.embedTexts             = TextEmbeddingService_orig;
         if (tmpDir && fs.existsSync(tmpDir)) {
             fs.rmSync(tmpDir, {recursive: true, force: true});
@@ -236,6 +239,17 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         // Isolate the shadow-swap resume-state marker per test (never touch the real .neo-ai-data tree).
         KB_VectorService.resumeStateDir = path.join(tmpDir, 'kb-resume-state');
         fs.rmSync(KB_VectorService.resumeStateDir, {recursive: true, force: true});
+    });
+
+    test('resume-state storage uses the explicit seam or the resolved KB config leaf', () => {
+        expect(KB_VectorService.getResumeStateDir()).toBe(path.join(tmpDir, 'kb-resume-state'));
+
+        KB_VectorService.resumeStateDir = null;
+        expect(KB_VectorService.getResumeStateDir()).toBe(KB_Config.embeddingResumeStateDir);
+
+        KB_VectorService.resumeStateDir = '';
+        expect(() => KB_VectorService.getResumeStateDir())
+            .toThrow(/aiConfig\.embeddingResumeStateDir is required/)
     });
 
     test('zero-changes fast-path is unchanged (existing chunks dedup to empty queue)', async () => {

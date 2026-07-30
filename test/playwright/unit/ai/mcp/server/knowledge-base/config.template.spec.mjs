@@ -131,6 +131,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         process.env.NEO_CHROMA_PORT = '8010';
         process.env.NEO_AUTH_REALM  = 'tenant-realm';
         process.env.NEO_BACKUP_PATH = '/tmp/neo-kb-backups';
+        process.env.NEO_KB_EMBEDDING_RESUME_STATE_DIR = '/tmp/neo-kb-resume';
 
         // KB-LOCAL leaves (Chroma host/port) — env applies at the CHILD instance directly.
         // Fresh isolated instance (not the module-cached singleton, whose reactive state is
@@ -151,6 +152,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             expect(freshKB.debug).toBe(true);                       // KB-local, env at child
             expect(freshKB.host).toBe('chroma');                    // KB-local, env at child
             expect(freshKB.port).toBe(8010);                        // KB-local, env at child
+            expect(freshKB.embeddingResumeStateDir).toBe('/tmp/neo-kb-resume');
             expect(freshKB.auth.realm).toBe('tenant-realm');        // Tier-1-owned, env at owner → inherited
             expect(freshKB.backupPath).toBe('/tmp/neo-kb-backups'); // Tier-1-owned → inherited
         } finally {

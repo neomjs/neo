@@ -80,6 +80,7 @@ x-plane-env: &plane-env
   NEO_MEMORY_LOG_PATH: /app/.neo-ai-data-parity/logs
   NEO_LAZY_EDGES_QUEUE_PATH: /app/.neo-ai-data-parity/memory-core/lazy-edges.jsonl
   # Knowledge-base member (ai/mcp/server/knowledge-base/configBase.mjs PLANE_MEMBER_PATHS)
+  NEO_KB_EMBEDDING_RESUME_STATE_DIR: /app/.neo-ai-data-parity/kb-sync
   NEO_KB_LOG_PATH: /app/.neo-ai-data-parity/logs
   # Neural-link member (ai/mcp/server/neural-link/configBase.mjs PLANE_MEMBER_PATHS)
   NEO_NL_LOG_PATH: /app/.neo-ai-data-parity/logs

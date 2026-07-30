@@ -171,7 +171,7 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
         expect(data.lazyEdgesQueuePath.default).toBe(path.resolve(anchor, 'memory-core/lazy-edges.jsonl'))
     });
 
-    test('knowledge-base + neural-link log members derive from the same anchor', async () => {
+    test('knowledge-base + neural-link members derive from the same anchor', async () => {
         // The KB config base re-wraps the registered Tier-1 singleton at module scope, so the
         // template must be fully evaluated FIRST — awaited dynamic imports serialize that order
         // (static import order races under worker sharding and fails file-load with "Cannot
@@ -187,6 +187,7 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
         }
         const KbConfigBase = (await import('../../../../ai/mcp/server/knowledge-base/configBase.mjs')).default;
 
+        expect(KbConfigBase.config.data.embeddingResumeStateDir.default).toBe(path.resolve(anchor, 'kb-sync'));
         expect(KbConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'));
         expect(NlConfigBase.config.data.logPath.default).toBe(path.resolve(anchor, 'logs'))
     });

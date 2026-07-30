@@ -80,6 +80,7 @@ test.describe('test/playwright/configTemplateResolver (#11976)', () => {
         expect(path.relative(os.tmpdir(), storageRoot).startsWith('..')).toBe(false);
         expect(process.env.NEO_MEMORY_LOG_PATH.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_KB_LOG_PATH.startsWith(storageRoot)).toBe(true);
+        expect(process.env.NEO_KB_EMBEDDING_RESUME_STATE_DIR).toBe(path.join(storageRoot, 'kb-sync'));
         expect(process.env.NEO_NL_LOG_PATH.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_TELEMETRY_DB_PATH_TEST.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH).toBe(
@@ -89,14 +90,17 @@ test.describe('test/playwright/configTemplateResolver (#11976)', () => {
         expect(process.env.NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR.startsWith(storageRoot)).toBe(true);
     });
 
-    test('routes deployment snapshots to distinct worker-local paths (#16171)', () => {
+    test('routes writable plane members to distinct worker-local paths', () => {
         const
             boundaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-worker-snapshot-paths-')),
-            probe        = `console.log(process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH)`;
+            probe        = `console.log(JSON.stringify({
+                kbResume: process.env.NEO_KB_EMBEDDING_RESUME_STATE_DIR,
+                snapshot: process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH
+            }))`;
 
         storageRoots.push(boundaryRoot);
 
-        const snapshotPaths = [0, 1].map(workerIndex => {
+        const workerPaths = [0, 1].map(workerIndex => {
             const env = {
                 ...process.env,
                 NEO_TEST_CONFIG_TEMPLATES: 'true',
@@ -116,12 +120,18 @@ test.describe('test/playwright/configTemplateResolver (#11976)', () => {
 
             expect(result.status, result.stderr).toBe(0);
 
-            return result.stdout.trim()
+            return JSON.parse(result.stdout.trim())
         });
 
-        expect(snapshotPaths).toEqual([
-            path.join(boundaryRoot, 'worker-0', 'deployment-state', 'snapshot.json'),
-            path.join(boundaryRoot, 'worker-1', 'deployment-state', 'snapshot.json')
+        expect(workerPaths).toEqual([
+            {
+                kbResume: path.join(boundaryRoot, 'worker-0', 'kb-sync'),
+                snapshot: path.join(boundaryRoot, 'worker-0', 'deployment-state', 'snapshot.json')
+            },
+            {
+                kbResume: path.join(boundaryRoot, 'worker-1', 'kb-sync'),
+                snapshot: path.join(boundaryRoot, 'worker-1', 'deployment-state', 'snapshot.json')
+            }
         ])
     });
 

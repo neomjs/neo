@@ -265,6 +265,20 @@ class ConfigBase extends ConfigProvider {
              */
             hierarchyPath: leaf(path.resolve(neoRootDir, 'docs/output/class-hierarchy.json')),
             /**
+             * @summary Durable resume-state directory for Knowledge Base shadow-swap embeddings.
+             *
+             * This is a declared plane member: production defaults derive from the single KB plane
+             * anchor, while relocated profiles place it explicitly through the env binding.
+             * `VectorService.resumeStateDir` remains an explicit test seam, never a second default.
+             * @type {string}
+             */
+            embeddingResumeStateDir: leaf(
+                path.resolve(planeDataRoot, 'kb-sync'),
+                'NEO_KB_EMBEDDING_RESUME_STATE_DIR',
+                'string',
+                {planeMember: true}
+            ),
+            /**
              * Directory for the always-on KB server diagnostic log files. The KB server's
              * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-running
              * operations (sync, embedding loops, ChromaDB lifecycle) leave a tail-able diagnostic
@@ -552,6 +566,7 @@ class ConfigBase extends ConfigProvider {
  * and asserted by the Tier-1 member list, not re-claimed here.
  */
 export const PLANE_MEMBER_PATHS = Object.freeze([
+    'embeddingResumeStateDir',
     'logPath'
 ]);
 
