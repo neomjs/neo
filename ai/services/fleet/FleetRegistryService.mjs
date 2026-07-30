@@ -159,58 +159,6 @@ function normalizeStoredMcpTarget(target) {
     }
 }
 
-// Legacy MCP target migration begin — deletion boundary after the live registry rewrite is proven.
-/**
- * @summary Translate the single retired `mcpTransport` registry shape into target intent. This
- * helper is read-path migration substrate only: it accepts no URLs, headers, credentials, commands,
- * or unknown keys, and every malformed legacy row fails closed to the resident target.
- * @param {*} transport
- * @returns {Object|null}
- */
-function migrateLegacyMcpTransport(transport) {
-    if (transport === null || transport?.mode === 'stdio') {
-        return null
-    }
-
-    if (!transport ||
-        typeof transport !== 'object' ||
-        Array.isArray(transport) ||
-        Object.keys(transport).some(key => !['mode', 'tenantId'].includes(key)) ||
-        transport.mode !== 'remote-http' ||
-        typeof transport.tenantId !== 'string' ||
-        !transport.tenantId.trim()) {
-        return null
-    }
-
-    return {kind: 'tenant', tenantId: transport.tenantId.trim()}
-}
-
-/**
- * @summary Remove the retired registry key and return one canonical target-bearing definition.
- * A row carrying both shapes keeps only its canonical `mcpTarget`; the legacy key can never
- * override a value already written under the new contract.
- * @param {*} definition
- * @returns {{definition: *, migrated: Boolean}}
- */
-function migrateStoredAgentDefinition(definition) {
-    if (!definition || typeof definition !== 'object' || Array.isArray(definition) ||
-        !Object.hasOwn(definition, 'mcpTransport')) {
-        return {definition, migrated: false}
-    }
-
-    const
-        {mcpTransport, ...rest} = definition,
-        target                  = Object.hasOwn(definition, 'mcpTarget')
-            ? normalizeStoredMcpTarget(definition.mcpTarget)
-            : migrateLegacyMcpTransport(mcpTransport);
-
-    return {
-        definition: {...rest, mcpTarget: target},
-        migrated  : true
-    }
-}
-// Legacy MCP target migration end.
-
 /**
  * @class Neo.ai.services.fleet.FleetRegistryService
  * @extends Neo.core.Base
@@ -787,19 +735,7 @@ class FleetRegistryService extends Base {
             return new Map();
         }
 
-        let migrated = false;
-
-        const agents = new Map(Object.entries(data.agents || {}).map(([id, definition]) => {
-            const result = migrateStoredAgentDefinition(definition);
-            migrated ||= result.migrated;
-            return [id, result.definition]
-        }));
-
-        if (migrated) {
-            this.writeRegistry(agents)
-        }
-
-        return agents
+        return new Map(Object.entries(data.agents || {}))
     }
 
     /**
