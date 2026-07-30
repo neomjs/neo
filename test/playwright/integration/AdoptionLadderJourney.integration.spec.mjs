@@ -283,14 +283,10 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)',
     test('Milestone 7a — orchestrator continuity state survives a fresh container on its named volume', () => {
         const compose      = yaml.load(fs.readFileSync(PRODUCTION_COMPOSE_PATH, 'utf8'));
         const orchestrator = compose.services.orchestrator;
-        const dataDirEntry = orchestrator.environment.find(entry =>
-            entry.startsWith('NEO_AI_ORCHESTRATOR_DIR=')
+        const stateMount   = orchestrator.volumes.find(entry =>
+            typeof entry === 'string' && entry.startsWith('orchestrator-state:')
         );
-        const dataDir    = dataDirEntry?.slice(dataDirEntry.indexOf('=') + 1);
-        const stateMount = orchestrator.volumes.find(entry =>
-            typeof entry === 'string' && entry.endsWith(`:${dataDir}`)
-        );
-        const composeVolumeName  = stateMount?.slice(0, stateMount.indexOf(':'));
+        const [composeVolumeName, dataDir] = stateMount?.split(':') || [];
         const witnessVolumeName  = `neo-15759-orchestrator-state-${randomUUID()}`;
         const mount              = `${witnessVolumeName}:${dataDir}`;
         const representativeData = {

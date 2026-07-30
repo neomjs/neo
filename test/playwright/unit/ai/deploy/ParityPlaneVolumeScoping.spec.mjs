@@ -36,19 +36,22 @@ import {load as yamlLoad} from 'js-yaml';
  */
 
 const
-    repoRoot          = path.resolve(process.cwd()),
-    baseComposePath   = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
-    composePath       = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
-    parityOverlayPath = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
-    testComposePath   = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml'),
-    parityConfigPath  = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
-    paritySpecPath    = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
-    parityServerPath  = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
-    parityProbePath   = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
-    baseCompose       = yamlLoad(fs.readFileSync(baseComposePath, 'utf8')),
-    compose           = yamlLoad(fs.readFileSync(composePath, 'utf8')),
-    parityOverlay     = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8')),
-    testCompose       = yamlLoad(fs.readFileSync(testComposePath, 'utf8'));
+    repoRoot           = path.resolve(process.cwd()),
+    baseComposePath    = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
+    localOverlayPath   = path.join(repoRoot, 'ai/deploy/docker-compose.local-agent-os.yml'),
+    localWakePlistPath = path.join(repoRoot, 'ai/deploy/com.neomjs.agent-os-wake.plist'),
+    localRunbookPath   = path.join(repoRoot, 'ai/scripts/lifecycle/local-agent-os/README.md'),
+    composePath        = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
+    parityOverlayPath  = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
+    testComposePath    = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml'),
+    parityConfigPath   = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
+    paritySpecPath     = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
+    parityServerPath   = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
+    parityProbePath    = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
+    baseCompose        = yamlLoad(fs.readFileSync(baseComposePath, 'utf8')),
+    compose            = yamlLoad(fs.readFileSync(composePath, 'utf8')),
+    parityOverlay      = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8')),
+    testCompose        = yamlLoad(fs.readFileSync(testComposePath, 'utf8'));
 
 /*
  * The service sets below are DERIVED from the compose file, never listed. A hardcoded roster
@@ -137,12 +140,10 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             source       = fs.readFileSync(composePath, 'utf8');
 
         expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — auth assertions would be vacuous').toBeGreaterThan(0);
-        expect(providerAuth).toMatchObject({
-            NEO_AUTH_MODE                           : 'github-pat',
-            NEO_AUTH_TRUST_PROXY_IDENTITY           : 'false',
-            NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT     : 'true',
-            NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: 'github-pat'
-        });
+        expect(providerAuth).toMatchObject({NEO_AUTH_MODE: 'github-pat'});
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_TRUST_PROXY_IDENTITY');
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT');
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
         expect(providerAuth).not.toHaveProperty('NEO_AUTH_ALLOWED_USERS');
         expect(providerAuth).not.toHaveProperty('NEO_MCP_LISTEN_HOST');
 
@@ -347,15 +348,18 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             .toBe(compose['x-plane-env'].NEO_PLANE_ID);
     });
 
-    test('the relocated dev profile explicitly places its profile-pinned tenant mirrors', () => {
+    test('the relocated dev profile places tenant mirrors and inherits container authority', () => {
         const
             planeEnvironment = compose['x-plane-env'],
             planeRoot        = planeEnvironment.NEO_PLANE_DATA_ROOT,
-            orchestrator     = compose.services?.orchestrator;
+            orchestrator     = compose.services?.orchestrator,
+            configSource     = fs.readFileSync(path.join(repoRoot, 'ai/configBase.mjs'), 'utf8');
 
         expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
         expect(orchestrator.environment['<<']).toBe(planeEnvironment);
-        expect(orchestrator.environment.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
+        expect(orchestrator.environment).not.toHaveProperty('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+        expect(configSource)
+            .toContain("authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
     });
 
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
@@ -376,9 +380,83 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 });
 
 test.describe('data-plane profile election — base and integration-fixture dispositions', () => {
-    test('base/cloud keeps the canonical tenant-mirror root', () => {
+    test('canonical local hard cut is durable, multi-resident, and wake-only on the host', () => {
+        const
+            overlaySource = fs.readFileSync(localOverlayPath, 'utf8'),
+            plistSource   = fs.readFileSync(localWakePlistPath, 'utf8');
+
+        expect(overlaySource).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
+        expect(overlaySource).toContain('source: ../../.neo-ai-data');
+        expect(overlaySource).toContain('source: ../../.neo-ai-data/chroma/unified');
+        expect(overlaySource).toContain('NEO_AUTH_MODE: github-pat');
+        expect(overlaySource).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
+        expect(overlaySource).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
+        expect(overlaySource).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
+        expect(overlaySource).toContain('NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token');
+        expect(overlaySource).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        expect(overlaySource).not.toContain('environment: GH_TOKEN');
+        expect(overlaySource).toContain(
+            'NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:11434}'
+        );
+        expect(overlaySource.match(/restart: unless-stopped/g)).toHaveLength(5);
+        expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
+
+        expect(plistSource).toContain('<string>ai/daemons/wake/receiver.mjs</string>');
+        expect(plistSource).toContain('<string>--manifest</string>');
+        expect(plistSource).toContain('<string>--state-dir</string>');
+        expect(plistSource).toContain('<string>--host</string>');
+        expect(plistSource).toContain('<string>--port</string>');
+        expect(plistSource).not.toContain('ai/daemons/wake/daemon.mjs');
+        expect(plistSource).not.toContain('ai/daemons/orchestrator/daemon.mjs');
+        expect(plistSource).toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
+        expect(plistSource).toMatch(/<key>KeepAlive<\/key>\s*<true\/>/);
+    });
+
+    test('one-shot runbook has one owner-stop and one forward-only boundary', () => {
+        const source = fs.readFileSync(localRunbookPath, 'utf8');
+
+        expect(source.indexOf('## 2. Quiesce')).toBeLessThan(source.indexOf('npm run ai:backup'));
+        expect(source).toContain('verdict.code!=="RESTORABLE"');
+        expect(source.indexOf('npm run ai:backup')).toBeLessThan(source.lastIndexOf('[c]hroma run'));
+        expect(source).toContain('NEO_EXPECTED_CUTOVER_REVISION');
+        expect(source).toContain('git status --porcelain');
+        expect(source).toContain('NEO_CUTOVER_BACKUP_STARTED_MS');
+        expect(source).toContain('path.basename(verdict.bundleRoot||"")===receipt.bundleName');
+        expect(source).toContain('scripts/(lifecycle|maintenance)/.+');
+        expect(source).toContain("scripts/(lifecycle|maintenance)/.+)\\.mjs|[c]hroma run");
+        expect(source).toContain('lsof -nP -iTCP:8000 -sTCP:LISTEN');
+        expect(source).toContain('/Users/Shared/neo-agent-os-cutover-16167');
+        expect(source.match(/cutover-state\.json/g).length).toBeGreaterThanOrEqual(2);
+        expect(source.match(/bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/g)).toHaveLength(2);
+        expect(source).toContain('/Users/Shared/codex/neomjs/neo/.codex/config.toml');
+        expect(source).toContain('/Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.codex/config.toml');
+        expect(source).toContain('neo-gpt.codex-config.pre-cutover.toml');
+        expect(source).toContain('neo-gpt-emmy.codex-config.pre-cutover.toml');
+        expect(source).toContain('`klarso-mc`, `klarso-kb`, `neo-mjs-github-workflow`, and');
+        expect(source.match(/export NEO_MCP_REMOTE_TOKEN="\$\(node/g)).toHaveLength(2);
+        expect(source).toContain('--user-data-dir="${HOME}/.codex-app-instances/neo-gpt-emmy"');
+        expect(source).toContain('The repo `.env` files are token sources, not Codex application environments.');
+        expect(source).toContain('http://host.docker.internal:3199/wake');
+        expect(source).toContain('wake/receiver\\.mjs');
+        expect(source).not.toContain('The only persistent host edge is the standalone wake daemon');
+        expect(source).toContain('The first restarted resident is the irreversible release.');
+        expect(source.indexOf('launchctl bootout')).toBeLessThan(
+            source.indexOf('mv .neo-ai-data "${NEO_CUTOVER_STAGE}/failed-container-root"')
+        );
+        expect(source.indexOf('failed-wake-launchagent.plist')).toBeLessThan(
+            source.indexOf('mv .neo-ai-data "${NEO_CUTOVER_STAGE}/failed-container-root"')
+        );
+        expect(source).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
+        expect(source).not.toContain('NEO_DEPLOY_PROJECT_NAME');
+    });
+
+    test('base/cloud inherits the canonical tenant-mirror root from AiConfig', () => {
+        const configSource = fs.readFileSync(path.join(repoRoot, 'ai/configBase.mjs'), 'utf8');
+
         expect(baseCompose.services?.orchestrator?.environment)
-            .toContain('NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data')
+            .not.toContain('NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data');
+        expect(configSource)
+            .toContain("tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT'")
     });
 
     test('base Compose aliases only the repeated graph and handoff entries', () => {

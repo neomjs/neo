@@ -232,6 +232,23 @@ The shared Chroma row remains a capability taxonomy statement: in the target top
 owner is the container plane while the Compose service, not the orchestrator child supervisor,
 executes that lifecycle.
 
+### 2026-07-30 — one-machine hard cut elects a graphless host receiver (#16167, #16180)
+
+The authority matrix above remains the fail-closed classification for Orchestrator lanes, but it
+does not require every deployment to run both Orchestrator roles. On the sole known local Agent OS
+machine, #16167 elects the final topology as a `container-plane` Compose Orchestrator plus the
+signed `ai/daemons/wake/receiver.mjs` from #16180, supervised by a per-user LaunchAgent. The
+receiver has no graph, SQLite, or Memory Core config dependency; it accepts only a signed Shape-B
+envelope and executes the addressed local adapter. No `host-edge` Orchestrator runs after the cut.
+
+This is a deployment election, not a fourth authority class. The standalone receiver owns only
+durable webhook acceptance plus host-local delivery state; matching, coalescing, and retry remain
+inside container Memory Core. It cannot dispatch the other host-edge scheduler lanes. Local
+dev-server, Neural Link, model-provider, and checkout-sync capabilities therefore need an explicit
+surviving consumer or are retired in #16167's immediate cleanup series. The
+`{host-edge, container-plane}` audit remains valid while both Orchestrator profiles exist, and its
+`legacy-mixed` compatibility row plus the Shape-C graph worker sunset after the accepted receipt.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

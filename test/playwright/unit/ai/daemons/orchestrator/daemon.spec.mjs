@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import {spawnSync}    from 'node:child_process';
 import fs             from 'fs';
 import os             from 'os';
 import path           from 'path';
@@ -197,16 +198,15 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.lms).toBeUndefined();
     });
 
-    test('AiConfig.orchestrator.lms ships default-enabled LM Studio launch defaults', () => {
+    test('AiConfig.orchestrator.lms keeps LM Studio opt-in with launch defaults', () => {
         // Tier-1 root base is the stable source of truth; read as text (see the MLX test
         // for why importing it collides with daemon.mjs's config.mjs singleton).
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
-        // `lms.enabled` defaults to `true`: local Agent OS needs both chat and embedding
-        // roles resident by default; the model id (`qwen3-embedding-8b`) and port (`1234`)
-        // are the rest of the launch shape.
+        // Provider processes are deployment choices, so the launcher defaults off while
+        // retaining the model id and port used by an explicit host-edge opt-in.
         expect(templateSource).toMatch(
-            /lms:\s*\{[\s\S]*?leaf\(true[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
+            /lms:\s*\{[\s\S]*?leaf\(false[\s\S]*?'qwen3-embedding-8b'[\s\S]*?'1234'/
         );
     });
 
@@ -277,11 +277,11 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         }
     });
 
-    test('AiConfig.orchestrator.ollama ships default-enabled local-dev launch gate', () => {
+    test('AiConfig.orchestrator.ollama keeps native launch opt-in', () => {
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
-            /ollama:\s*\{[\s\S]*?leaf\(true,\s*'NEO_ORCHESTRATOR_OLLAMA_ENABLED'/
+            /ollama:\s*\{[\s\S]*?leaf\(false,\s*'NEO_ORCHESTRATOR_OLLAMA_ENABLED'/
         );
     });
 
@@ -337,12 +337,45 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const expectedMount  = `${volumeName}:${dataDir}`;
         const orchestrator   = compose.services.orchestrator;
         const healthcheckCmd = orchestrator.healthcheck.test.join(' ');
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(compose.volumes).toHaveProperty(volumeName);
-        expect(orchestrator.environment).toContain(`NEO_AI_ORCHESTRATOR_DIR=${dataDir}`);
+        expect(orchestrator.environment).not.toContain(`NEO_AI_ORCHESTRATOR_DIR=${dataDir}`);
+        expect(templateSource).toContain(
+            "dataDir: leaf(path.resolve(planeDataRootDefault, 'orchestrator-daemon'), 'NEO_AI_ORCHESTRATOR_DIR'"
+        );
         expect(orchestrator.volumes).toContain(expectedMount);
-        expect(healthcheckCmd).toContain('process.env.NEO_AI_ORCHESTRATOR_DIR');
-        expect(healthcheckCmd).not.toContain(`||'${dataDir}'`);
+        expect(orchestrator.healthcheck.test.slice(0, 4)).toEqual(['CMD', 'node', '--input-type=module', '-e']);
+        expect(healthcheckCmd).toContain("await import('./ai/config.mjs')");
+        expect(healthcheckCmd).toContain('AiConfig.orchestrator.dataDir');
+        expect(healthcheckCmd).not.toContain('process.env.NEO_AI_ORCHESTRATOR_DIR');
+
+        const probeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-orchestrator-health-'));
+        const stateFile    = path.join(probeDataDir, 'orchestrator-state.json');
+        const probeEnv     = {...process.env, NEO_AI_ORCHESTRATOR_DIR: probeDataDir};
+        const probeArgs    = orchestrator.healthcheck.test.slice(2);
+
+        try {
+            fs.writeFileSync(stateFile, '{}');
+
+            expect(spawnSync('node', probeArgs, {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : probeEnv
+            }).status).toBe(0);
+
+            const staleAt = new Date(Date.now() - 11 * 60 * 1000);
+
+            fs.utimesSync(stateFile, staleAt, staleAt);
+
+            expect(spawnSync('node', probeArgs, {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : probeEnv
+            }).status).toBe(1);
+        } finally {
+            fs.rmSync(probeDataDir, {force: true, recursive: true});
+        }
 
         for (const [serviceName, service] of Object.entries(compose.services)) {
             if (serviceName === 'orchestrator') continue;

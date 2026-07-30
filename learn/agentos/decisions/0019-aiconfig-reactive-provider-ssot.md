@@ -189,11 +189,12 @@ The election is **per profile**, not one bind-versus-volume rule imposed on unli
 | Profile | Plane placement | Profile-pinned members | Wake-delivery disposition | Host publication |
 |---|---|---|---|---|
 | Base/cloud (`ai/deploy/docker-compose.yml`) | Canonical `/app/.neo-ai-data`; named volumes persist the service-owned subtrees. | `orchestrator.tenantRepoMirrorRoot` keeps its canonical `/app/.neo-ai-data` default. Repeated graph and handoff env entries use scalar YAML anchors so their rendered values cannot drift by service. | ADR 0014 disables local-only wake delivery in the cloud scheduler profile; no cloud wake-file freshness contract exists. | MCP services are internal and reached through ingress; the profile does not publish the local parity band. |
+| Canonical local hard cut (`docker-compose.yml` + `docker-compose.local-agent-os.yml`) | The existing canonical host plane is materialized once, then bind-mounted as one physical `/app/.neo-ai-data` root; Chroma binds its `chroma/unified` member. | Canonical member defaults need no profile map. Only the container Orchestrator state directory is separated from the retired mixed-host scheduler directory. | The container uses `container-plane`; a launchd-supervised signed Shape-B receiver retains the unavoidable local delivery edge without starting a host Orchestrator or opening the graph. `legacy-mixed` and Shape C are absent after the receipt. | IPv4 loopback `3102` path-routes authenticated `/kb/mcp` + `/mc/mcp`; Chroma publishes `8000` for host-local diagnostics. |
 | Dev parity (`ai/deploy/docker-compose.dev.yml`) | Relocated hybrid: source stays a repo bind at `/app`; the declared plane root `/app/.neo-ai-data-parity` rides a Compose-managed named volume, as does Chroma. Project name and `plane.id` share one YAML scalar. | The shared `x-plane-env` places every declared member and explicitly binds `NEO_TENANT_REPO_MIRROR_ROOT` to the relocated root. This explicit binding is mandatory because the leaf is `planeMember:false` and therefore outside the boot member walk. | Its container orchestrator uses the cloud-safe lane profile, so wake delivery remains with the separate host-local Agent OS edge on the canonical local plane; the parity containers neither read nor deliver those wake files. | The default plane uses IPv4 loopback `3100` (KB), `3101` (MC), and `8100` (Chroma): 31xx for MCP, 81xx for engine primitives. Additional concurrent planes declare distinct publications; ports are never hash-derived from opaque identity. `probePortClaims` observes host claims, while MCP healthchecks prove served `{plane.id, plane.dataRoot}`. |
 | Parity CI overlay (`ai/deploy/docker-compose.parity-ci.yml`) | Inherits the dev placement and project scoping, but replaces provider auth and removes host publication behind an internal network. | Inherits `x-plane-env`; no second placement map. | No host wake-delivery lane. | No host ports; topology probes run inside the Compose network. |
 | Integration fixture (`ai/deploy/docker-compose.test.yml`) | Explicit ephemeral test topology: service-specific tmpfs paths under `/tmp/neo-integration`; it is not a durable Agent OS parity profile. | No durable profile-pinned plane contract is claimed. | No wake-delivery lane. | Fixed 13xxx/18080 fixture ports belong to the isolated integration harness, not the local parity band. |
 
-**Wake-envelope reading:** the local delivery fabric owns two independently overridable plane members, not one implied root. Wake-daemon cursors, watermarks, logs, PID, and delivery state derive from the resolved `memoryCoreConfig.wakeDaemon.dataDir` (`NEO_AI_DAEMON_DIR`); the swarm-heartbeat liveness sentinel resolves separately through Tier-1 `wakeDaemonHeartbeatAlivePath` (`NEO_HEARTBEAT_ALIVE_PATH`). A relocated process that owns either lane must explicitly place the corresponding member and passes the §10.4/§10.5 boot checks. The current cloud/dev-container/test profiles own neither local-only lane, so there is no cross-profile file-freshness dependency to preserve.
+**Legacy Shape-C wake-envelope reading:** until #16167 deletes it, the local graph worker owns two independently overridable plane members, not one implied root. Wake-daemon cursors, watermarks, logs, PID, and delivery state derive from the resolved `memoryCoreConfig.wakeDaemon.dataDir` (`NEO_AI_DAEMON_DIR`); the swarm-heartbeat liveness sentinel resolves separately through Tier-1 `wakeDaemonHeartbeatAlivePath` (`NEO_HEARTBEAT_ALIVE_PATH`). A relocated process that owns either lane must explicitly place the corresponding member and passes the §10.4/§10.5 boot checks. The canonical hard cut does not relocate those members: container Memory Core owns heartbeat/coalescing, while the graphless host receiver takes explicit manifest/state paths outside AiConfig. The current cloud/dev-container/test profiles own neither local-only Shape-C lane, so there is no cross-profile file-freshness dependency to preserve.
 
 **Revalidation trigger:** adding a durable profile, moving a profile-pinned leaf, changing the local 31xx/81xx publication, or enabling a local-only wake lane inside a container profile reopens this election. The change must update this matrix and re-run plane-config coherence, static Compose placement coverage, served-identity checks, and the integration-parity topology suite.
 
@@ -209,6 +210,41 @@ local-only/cloud-only defaults; it cannot express two supervisors on one machine
 | `host-edge` | host-edge | Owns local session/desktop/worktree/process effects. It cannot reclaim plane work through a per-lane boolean. |
 | `container-plane` | container-plane + shared-primitive | Owns cloud-capable Agent OS maintenance. Compose declares this role for both production and dev-parity orchestrators. |
 
+The canonical leaf defaults are `deploymentMode=cloud` and
+`authorityProfile=container-plane`. Production Compose therefore does not restate
+those values or the matching disabled local/model lanes. A host Orchestrator, where
+one is elected, opts into both `deploymentMode=local` and
+`authorityProfile=host-edge`; this keeps deployment defaults and task ownership
+orthogonal while making the container reality the zero-override path. Secrets,
+provider/tenant choices, network placement, and privileged runtime capabilities
+remain deployment inputs rather than config policy.
+
+The #16039 rerun makes that boundary mechanical. Canonical Compose carried 45
+unique `NEO_*`/`MCP_*` keys before the cut: 10 were already-retired MCP startup
+controls and seven more restated static or derived defaults. The guarded surface
+now contains 28 unique keys:
+
+| Deployment category | Keys | Meaning |
+|---|---:|---|
+| Required choices / placement / capabilities | 11 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist |
+| Optional overrides | 15 | Provider/model/ask selections and non-default WAL cadences |
+| Secrets | 2 | OpenAI-compatible and KB ask credentials; secret values never become config policy |
+
+`ai/scripts/lint/config-leaf-parity.json` owns the exact classified key lists,
+service-to-config-template map, and retired/derived denylist. The existing
+AiConfig lint fails when canonical base/dev Compose reintroduces a denied env,
+sets a literal equal to the owning leaf default, or drifts the 28-key census.
+Interpolated provider choices remain deployment inputs and are not mistaken for
+literal default restatements.
+
+Authentication is the worked derivation example. `auth.mode=github-pat` derives
+`autoProvisionIdentitySources=['github-pat']` and a safe single-provider-subject
+pin; GitLab derives its own provenance, while non-PAT modes derive no provider
+source. A plural-resident GitHub plane explicitly opts the pin out. The
+bootstrap/healthcheck PAT is provisioned once as a file-backed Compose secret;
+repository workflow PATs, signed-wake HMACs, and resident remote-MCP bearers are
+distinct credentials.
+
 The leaf is the only environment binding (`NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE`). The daemon
 entrypoint reads it once at `start()`; leaf consumers do not re-read env, infer a role from
 `deploymentMode`, pass the role down a call chain, or mutate runtime config. The pure
@@ -221,9 +257,10 @@ gaps, and duplicate owners fail boot. A secret-free `orchestrator-authority.json
 `role`, `task`, `authorityClass`, and `effectiveOwner`; per-lane enable flags remain enablement only
 and cannot transfer authority.
 
-**Sunset trigger:** once #16167 proves the maintainer-machine Docker cutover, remove
-`legacy-mixed` only after every supported non-container checkout has an explicit disposition.
-Until then it preserves backwards compatibility without weakening the target two-role audit.
+**Sunset trigger:** once #16167's maintainer-machine receipt is accepted, the immediate cleanup
+series removes `legacy-mixed`. Before resident release, rollback restores the pre-cut root under
+the tracked preparation revision. The first resident release is forward-only. Receipt acceptance
+triggers immediate cleanup; the post-cleanup tree does not retain a second runtime product.
 
 ---
 

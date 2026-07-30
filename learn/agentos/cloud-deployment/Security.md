@@ -75,20 +75,24 @@ The shipped Streamable HTTP deployment has four identity shapes:
   contract as GitLab bearer mode; `NEO_AUTH_GITHUB_API_BASE_URL` points the
   verifier at a GitHub Enterprise Server host when needed. **Posture note:**
   github.com is a *public* identity surface — anyone can mint a valid PAT, so
-  with the default empty allowlist ANY GitHub user authenticates (read-tier MCP
-  access plus identity-less writes; graph-gated tools stay fail-closed while
-  `github-pat` is excluded from `autoProvisionIdentitySources`). A deployment
-  that is not deliberately public SHOULD set `NEO_AUTH_ALLOWED_USERS` (or scope
-  the surface equivalently — GHES boundary, private network).
+  the mode default pins the process to the provider subject resolved from its
+  bootstrap PAT before listen. Identity provisioning derives from the selected
+  PAT mode rather than a second repeated source list. A plural-resident
+  deployment may explicitly disable the single-subject pin, but then it MUST
+  constrain the surface equivalently (literal loopback publication, an
+  allowlist, a GHES boundary, or a private network); every admitted provider
+  identity can otherwise provision its graph identity.
 - **Trusted proxy identity** (`NEO_AUTH_TRUST_PROXY_IDENTITY=true`) lets an
   authenticated reverse proxy inject `X-Preferred-Username` /
   `X-Auth-Request-Preferred-Username`. The reference Caddy ingress strips any
   client-supplied copies before an optional auth layer injects trusted values.
 
-In `gitlab-pat` mode, the container healthchecks hit the same authenticated
-`/mcp` route as external callers. Set `NEO_MCP_HEALTHCHECK_TOKEN` to a bearer
-that validates under the selected mode, or the MCP server can be healthy but
-Compose will still mark the service unhealthy.
+In PAT modes, the container healthchecks hit the same authenticated `/mcp`
+route as external callers. Mount one bootstrap/healthcheck credential file and
+point both resolved file leaves at it. Do not source a Compose secret directly
+from an invoking-shell environment variable: that makes the credential a
+precondition of every `compose up`, including services and auth modes that do
+not consume it.
 
 Endpoint-exact auth wiring depends on the deployment's chosen mode; see
 [Client Authentication](./ClientAuthentication.md),
