@@ -30,6 +30,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         state           : 'OPEN',
         mergedAt        : null,
         reviewDecision  : 'REVIEW_REQUIRED',
+        baseRefName     : 'dev',
         headRefOid      : 'a'.repeat(40),
         mergeStateStatus: 'CLEAN',
         reviewRequests  : {
@@ -80,6 +81,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
             'mergedAt',
             'reviewDecision',
             'reviewRequests',
+            'baseRefName',
             'headRefOid',
             'mergeStateStatus'
         ]) {
@@ -108,6 +110,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
                     {kind: 'team', login: 'neomjs/maintainers'},
                     {kind: 'user', login: 'neo-opus-vega'}
                 ],
+                baseRefName     : 'dev',
                 headRefOid      : 'a'.repeat(40),
                 mergeStateStatus: 'CLEAN'
             }]
@@ -151,6 +154,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
                     nodes: [row({
                         mergedAt        : undefined,
                         reviewDecision  : undefined,
+                        baseRefName     : undefined,
                         headRefOid      : undefined,
                         mergeStateStatus: undefined
                     })]
@@ -163,6 +167,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
         expect(result.pullRequests[0]).toMatchObject({
             mergedAt        : null,
             reviewDecision  : null,
+            baseRefName     : null,
             headRefOid      : null,
             mergeStateStatus: null
         })

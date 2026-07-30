@@ -127,6 +127,7 @@ function normalizePullRequestListItem(pullRequest) {
         mergedAt        : pullRequest.mergedAt ?? null,
         reviewDecision  : pullRequest.reviewDecision ?? null,
         reviewRequests  : reviewSourceReady ? reviewers : null,
+        baseRefName     : pullRequest.baseRefName ?? null,
         headRefOid      : pullRequest.headRefOid ?? null,
         mergeStateStatus: pullRequest.mergeStateStatus ?? null
     }

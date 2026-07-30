@@ -140,6 +140,7 @@ export const FETCH_PULL_REQUESTS = `
           url
           createdAt
           mergedAt
+          baseRefName
           headRefOid
           mergeStateStatus
           reviewDecision

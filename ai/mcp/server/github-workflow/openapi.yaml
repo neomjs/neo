@@ -180,9 +180,6 @@ paths:
         - Use the current head, review, reviewer-request, and merge-state fields before making a PR-state claim.
         - `reviewRequests: null` means the reviewer source was unavailable or incomplete; `[]` means fetched and empty.
         - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
-
-        **Future Enhancements:**
-        Note that a future feature will sync PR conversations to local markdown files, providing a more detailed way to review historical PRs. For now, this tool is the primary way to browse PR history.
       tags: [Pull Requests]
       parameters:
         - name: limit
@@ -1943,6 +1940,7 @@ components:
 
     PullRequest:
       type: object
+      required: [mergedAt, reviewDecision, reviewRequests, baseRefName, headRefOid, mergeStateStatus]
       properties:
         number:
           type: integer
@@ -1991,6 +1989,10 @@ components:
               login:
                 type: string
                 description: User login or organization/team slug.
+        baseRefName:
+          type: string
+          nullable: true
+          description: Current base branch name, or null when unavailable.
         headRefOid:
           type: string
           nullable: true
