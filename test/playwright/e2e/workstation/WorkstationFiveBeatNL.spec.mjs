@@ -871,12 +871,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * real window set.
      * @param {Object} data
      * @param {Object} data.app Neural Link app wrapper.
-     * @param {Boolean} [data.captureContinuity=false] Capture only the second cross-window dock leg.
      * @param {Object} data.page Playwright page.
      * @param {String} data.wsId Workspace component id.
      * @returns {Promise<Object>}
      */
-    async function stageMergedVessel({app, captureContinuity=false, page, wsId}) {
+    async function stageMergedVessel({app, page, wsId}) {
         const
             targetPopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             ownerResult        = await app.callMethod(wsId, 'executeTearOutStep', [
@@ -886,7 +885,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             targetPopup        = await targetPopupPromise,
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             showCursor          = filmPace.showCursor ?? false,
-            dockAction          = () => captureFilmCursorLifecycle({
+            cursorProofPromise  = captureFilmCursorLifecycle({
                 action: () => app.callMethod(wsId, 'executeCrossWindowDockStep', [
                     {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
                     {
@@ -902,9 +901,6 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 sourcePage         : page,
                 targetPage         : targetPopup
             }),
-            cursorProofPromise  = captureContinuity
-                ? captureWorkspaceContinuity(page, dockAction)
-                : dockAction(),
             targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
 
         await expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
@@ -915,11 +911,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
 
-        const [dockCapture, sourcePopup] =
+        const [{evidence: cursorEvidence, result: dockResult}, sourcePopup] =
             await Promise.all([cursorProofPromise, sourcePopupPromise]);
-        const
-            cursorProof                                    = captureContinuity ? dockCapture.result : dockCapture,
-            {evidence: cursorEvidence, result: dockResult} = cursorProof;
 
         dockResult.proof?.remoteSnapshot?.targetProxy &&
             (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
@@ -929,15 +922,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             timeout: 15000
         }).toBe(true);
 
-        return {
-            continuity: captureContinuity ? dockCapture : null,
-            cursorEvidence,
-            dockResult,
-            ownerResult,
-            showCursor,
-            sourcePopup,
-            targetPopup
-        }
+        return {cursorEvidence, dockResult, ownerResult, showCursor, sourcePopup, targetPopup}
     }
 
     /**
@@ -961,9 +946,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 width : globalThis.innerWidth
             })),
             box      = await page.locator('.workstation-dock-host').boundingBox(),
-            session  = await page.context().newCDPSession(page),
-            frames   = [],
-            acks     = [];
+            session = await page.context().newCDPSession(page),
+            frames  = [],
+            acks    = [];
         let resolveFirstFrame;
 
         expect(box, 'the dock host must expose a measurable compositor region').toBeTruthy();
@@ -1758,22 +1743,36 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
     });
 
     // Flip this red-control direction when the compositor-visible handoff is repaired.
-    test('candidate 2 red control — cross-window dock presents a cleared body',
+    test('first tear-out red control — source projection presents a cleared body',
         async ({page, neuralLink}, testInfo) => {
+            const userAgent = await page.evaluate(() => navigator.userAgent);
+
+            test.skip(
+                userAgent.includes('HeadlessChrome'),
+                'run with --headed because CDP screencast compositor frames are required'
+            );
+
             const {app, pageErrors, wsId} = await boot({page, neuralLink});
             const
-                {continuity, dockResult, ownerResult} =
-                    await stageMergedVessel({app, captureContinuity: true, page, wsId});
+                popupPromise = page.waitForEvent('popup', {timeout: 90000}),
+                continuity   = await captureWorkspaceContinuity(page, () =>
+                    app.callMethod(wsId, 'executeTearOutStep', [
+                        {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+                        filmPace
+                    ])
+                ),
+                ownerResult = continuity.result;
+
+            await popupPromise;
 
             await assertWorkspaceContinuity({
                 continuity,
                 expectedCleared: true,
-                label          : 'candidate-2-cross-window-dock',
+                label          : 'first-tear-out-source-projection',
                 testInfo
             });
-            expect(ownerResult.applied, 'the setup tear-out must commit before the measured leg').toBe(true);
-            expect(dockResult.errors).toEqual([]);
-            expect(dockResult.applied, 'the red control must still complete its remote dock commit').toBe(true);
+            expect(ownerResult.errors).toEqual([]);
+            expect(ownerResult.applied, 'the red control must still complete its first tear-out commit').toBe(true);
             expect(pageErrors).toEqual([])
         }
     );
