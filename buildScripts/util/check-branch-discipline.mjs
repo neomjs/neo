@@ -1,8 +1,8 @@
-import { execSync }          from 'node:child_process';
-import process               from 'node:process';
-import path                  from 'node:path';
-import { fileURLToPath }     from 'node:url';
-import { detectStaleBranch } from './branchFreshness.mjs';
+import { execFileSync, execSync }                       from 'node:child_process';
+import process                                          from 'node:process';
+import path                                             from 'node:path';
+import { fileURLToPath }                                from 'node:url';
+import {assessDevReferenceAuthority, detectStaleBranch} from './branchFreshness.mjs';
 
 /**
  * Pre-push branch-discipline check (#11133). ticket-ref-ok: implementing ticket
@@ -84,12 +84,80 @@ if (branch === 'main' || branch === 'dev') {
     process.exit(0);
 }
 
-// Ensure we have a fresh view of origin/dev for the diff range.
+// Ensure we have an authoritative view of origin/dev for every range below. A failed fetch may
+// leave the remote-tracking ref stale even while the push remote remains reachable. In that case,
+// ls-remote is the non-mutating authority check: equality proves the local object is current;
+// anything else must block before this hook makes ancestry or diff claims. The explicit destination
+// also makes a successful fetch update origin/dev even when remote.origin.fetch is nonstandard.
+let fetchSucceeded = true;
+
 try {
-    execSync('git fetch origin dev --quiet', { cwd: gitRoot, encoding: 'utf-8' });
+    execFileSync('git', [
+        'fetch',
+        '--quiet',
+        'origin',
+        '+refs/heads/dev:refs/remotes/origin/dev'
+    ], {
+        cwd     : gitRoot,
+        encoding: 'utf-8',
+        stdio   : 'pipe'
+    })
 } catch (e) {
-    // Network failure is non-fatal — fall back to local origin/dev tip.
-    console.warn('\x1b[33mWarning: git fetch origin dev failed; using last-known local tip.\x1b[0m');
+    fetchSucceeded = false
+}
+
+let localDevSha  = null;
+let remoteDevSha = null;
+
+if (!fetchSucceeded) {
+    const readGit = (args) => {
+        try {
+            return execFileSync('git', args, {
+                cwd     : gitRoot,
+                encoding: 'utf-8',
+                stdio   : 'pipe'
+            }).trim()
+        } catch (e) {
+            return null
+        }
+    };
+
+    const remoteOutput = readGit(['ls-remote', '--exit-code', 'origin', 'refs/heads/dev']);
+
+    localDevSha  = readGit(['rev-parse', '--verify', 'refs/remotes/origin/dev^{commit}']);
+    remoteDevSha = remoteOutput?.split(/\s+/)[0] || null
+}
+
+const authority = assessDevReferenceAuthority({
+    fetchSucceeded,
+    localSha : localDevSha,
+    remoteSha: remoteDevSha
+});
+
+if (!authority.usable) {
+    console.error('\x1b[31mError: Could not establish an authoritative origin/dev for the pre-push checks.\x1b[0m');
+
+    if (authority.status === 'stale-local') {
+        console.error(`Local origin/dev:  ${localDevSha}`);
+        console.error(`Remote dev:        ${remoteDevSha}`);
+        console.error('The local ref is stale, so ancestry and branch-freshness results would be invalid.')
+    } else if (authority.status === 'local-unavailable') {
+        console.error('No full local refs/remotes/origin/dev commit ID is available.')
+    } else if (authority.status === 'remote-malformed') {
+        console.error(`Remote dev returned a malformed object ID: ${remoteDevSha}`)
+    } else {
+        console.error('The remote refs/heads/dev coordinate is unavailable.')
+    }
+
+    console.error('Run `git fetch origin dev` in a Git-authorized shell, rebase if needed, then retry the push.');
+    process.exit(1)
+}
+
+if (authority.status === 'verified-local') {
+    console.warn(
+        `\x1b[33mWarning: git fetch origin dev could not update local metadata; ` +
+        `verified local origin/dev matches remote dev at ${localDevSha}. Continuing.\x1b[0m`
+    )
 }
 
 // Collect commits between origin/dev and HEAD.
@@ -101,8 +169,8 @@ try {
         commitLines = output.split('\n');
     }
 } catch (e) {
-    // If origin/dev doesn't exist locally, skip the check entirely.
-    process.exit(0);
+    console.error('\x1b[31mError: Could not inspect the authoritative origin/dev range.\x1b[0m');
+    process.exit(1);
 }
 
 if (commitLines.length === 0) {
@@ -116,7 +184,7 @@ const CHORE_SYNC_RE = /^chore\(data\):.*(sync|pipeline)/i;
 const choreSyncCommits = [];
 for (const line of commitLines) {
     const [sha, _author, ...subjectParts] = line.split('\t');
-    const subject = subjectParts.join('\t');
+    const subject                         = subjectParts.join('\t');
     if (CHORE_SYNC_RE.test(subject)) {
         choreSyncCommits.push({ sha: sha.slice(0, 9), subject });
     }

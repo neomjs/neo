@@ -1,30 +1,31 @@
-import { test, expect }           from '@playwright/test';
-import { execSync, execFileSync } from 'node:child_process';
-import path                       from 'node:path';
-import fs                         from 'node:fs';
-import os                         from 'node:os';
-import { fileURLToPath }          from 'node:url';
+import { test, expect }                    from '@playwright/test';
+import {execFileSync, execSync, spawnSync} from 'node:child_process';
+import path                                from 'node:path';
+import fs                                  from 'node:fs';
+import os                                  from 'node:os';
+import { fileURLToPath }                   from 'node:url';
 
-const __filename  = fileURLToPath(import.meta.url);
-const __dirname   = path.dirname(__filename);
-const scriptPath  = path.resolve(__dirname, '../../../../../../buildScripts/util/check-branch-discipline.mjs');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const scriptPath = path.resolve(__dirname, '../../../../../../buildScripts/util/check-branch-discipline.mjs');
 
 test.describe('check-branch-discipline.mjs (#11133)', () => {
     let tempDir;
+    let remoteDir;
     let testScriptPath;
 
     test.beforeEach(() => {
-        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-branch-discipline-test-'));
+        tempDir   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-branch-discipline-test-'));
+        remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-branch-discipline-remote-'));
+
+        execFileSync('git', ['init', '--bare', remoteDir], {stdio: 'ignore'});
         execSync('git init', { cwd: tempDir, stdio: 'ignore' });
         execSync('git config user.email "test@example.com"', { cwd: tempDir, stdio: 'ignore' });
         execSync('git config user.name "Test User"', { cwd: tempDir, stdio: 'ignore' });
         execSync('git checkout -b dev', { cwd: tempDir, stdio: 'ignore' });
         execSync('git commit --allow-empty -m "Init"', { cwd: tempDir, stdio: 'ignore' });
-
-        // Fake `origin/dev` via local ref (no actual remote needed; script's `git fetch`
-        // catch handles fetch failure non-fatally + uses `git log origin/dev..HEAD`).
-        const devSha = execSync('git rev-parse HEAD', { cwd: tempDir, encoding: 'utf-8' }).trim();
-        execSync(`git update-ref refs/remotes/origin/dev ${devSha}`, { cwd: tempDir, stdio: 'ignore' });
+        execFileSync('git', ['remote', 'add', 'origin', remoteDir], {cwd: tempDir, stdio: 'ignore'});
+        execFileSync('git', ['push', '-u', 'origin', 'dev'], {cwd: tempDir, stdio: 'ignore'});
 
         // Mirror the script into the tempDir so the path-root-equality check (`scriptRoot
         // === gitRoot`) passes inside the temp repo.
@@ -40,19 +41,27 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
 
     test.afterEach(() => {
         fs.rmSync(tempDir, { recursive: true, force: true });
+        fs.rmSync(remoteDir, { recursive: true, force: true });
     });
 
     const runScript = (cwd = tempDir) => {
-        try {
-            const output = execSync(`node ${testScriptPath}`, {
-                cwd,
-                encoding: 'utf-8',
-                stdio   : 'pipe'
-            });
-            return { status: 0, output };
-        } catch (error) {
-            return { status: error.status, output: error.stderr || error.stdout || '' };
+        const result = spawnSync(process.execPath, [testScriptPath], {
+            cwd,
+            encoding: 'utf-8',
+            stdio   : 'pipe'
+        });
+
+        return {
+            status: result.status,
+            output: `${result.stdout || ''}${result.stderr || ''}`
         }
+    };
+
+    const blockFetchHeadWrites = () => {
+        const fetchHead = path.join(tempDir, '.git', 'FETCH_HEAD');
+
+        fs.rmSync(fetchHead, {recursive: true, force: true});
+        fs.mkdirSync(fetchHead)
     };
 
     // Use execFileSync (no shell) — bypasses string-interpolation escape hazards
@@ -128,4 +137,124 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
         expect(result.status).toBe(1);
         expect(result.output).toContain('chore-sync commit');
     });
+
+    test('fetch failure continues only when local origin/dev equals the remote coordinate (#16163)', () => {
+        execSync('git checkout -b agent/0000-equal-fallback', {cwd: tempDir, stdio: 'ignore'});
+        featureCommit();
+        blockFetchHeadWrites();
+
+        const
+            localDevSha = execFileSync(
+                'git',
+                ['rev-parse', '--verify', 'refs/remotes/origin/dev'],
+                {cwd: tempDir, encoding: 'utf-8'}
+            ).trim(),
+            result      = runScript();
+
+        expect(result.status).toBe(0);
+        expect(result.output).toContain(`matches remote dev at ${localDevSha}`)
+    });
+
+    test('fetch failure blocks when local origin/dev is behind the remote coordinate (#16163)', () => {
+        const localDevSha = execFileSync(
+            'git',
+            ['rev-parse', '--verify', 'refs/remotes/origin/dev'],
+            {cwd: tempDir, encoding: 'utf-8'}
+        ).trim();
+
+        featureCommit('feat(test): advance remote dev');
+
+        const remoteDevSha = execFileSync(
+            'git',
+            ['rev-parse', 'HEAD'],
+            {cwd: tempDir, encoding: 'utf-8'}
+        ).trim();
+
+        execFileSync('git', ['push', 'origin', 'dev'], {cwd: tempDir, stdio: 'ignore'});
+        execFileSync('git', ['update-ref', 'refs/remotes/origin/dev', localDevSha], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        execFileSync('git', ['checkout', '-b', 'agent/0000-stale-fallback', localDevSha], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        featureCommit();
+        blockFetchHeadWrites();
+
+        const result = runScript();
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('local ref is stale');
+        expect(result.output).toContain(localDevSha);
+        expect(result.output).toContain(remoteDevSha)
+    });
+
+    test('successful fetch updates origin/dev despite a nonstandard configured refspec (#16163)', () => {
+        const localDevSha = execFileSync(
+            'git',
+            ['rev-parse', '--verify', 'refs/remotes/origin/dev'],
+            {cwd: tempDir, encoding: 'utf-8'}
+        ).trim();
+
+        featureCommit('feat(test): advance remote dev outside the feature branch');
+
+        const remoteDevSha = execFileSync(
+            'git',
+            ['rev-parse', 'HEAD'],
+            {cwd: tempDir, encoding: 'utf-8'}
+        ).trim();
+
+        execFileSync('git', ['push', 'origin', 'dev'], {cwd: tempDir, stdio: 'ignore'});
+        execFileSync('git', ['update-ref', 'refs/remotes/origin/dev', localDevSha], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        execFileSync('git', ['config', '--unset-all', 'remote.origin.fetch'], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        execFileSync('git', [
+            'config',
+            '--add',
+            'remote.origin.fetch',
+            '+refs/heads/main:refs/remotes/origin/main'
+        ], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        execFileSync('git', ['checkout', '-b', 'agent/0000-explicit-refspec', localDevSha], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        featureCommit();
+
+        const result          = runScript();
+        const refreshedDevSha = execFileSync(
+            'git',
+            ['rev-parse', '--verify', 'refs/remotes/origin/dev'],
+            {cwd: tempDir, encoding: 'utf-8'}
+        ).trim();
+
+        expect(result.status).toBe(0);
+        expect(refreshedDevSha).toBe(remoteDevSha)
+    });
+
+    test('fetch failure blocks when the remote dev coordinate is unavailable (#16163)', () => {
+        execFileSync('git', ['checkout', '-b', 'agent/0000-unavailable-remote'], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+        featureCommit();
+        execFileSync('git', ['remote', 'set-url', 'origin', path.join(remoteDir, 'missing')], {
+            cwd  : tempDir,
+            stdio: 'ignore'
+        });
+
+        const result = runScript();
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('remote refs/heads/dev coordinate is unavailable');
+        expect(result.output).not.toContain('local ref is stale')
+    })
 });
