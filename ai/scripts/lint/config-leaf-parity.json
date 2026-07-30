@@ -114,6 +114,7 @@
         "openAiCompatible.unloadRetryCount",
         "openAiCompatible.unloadRetryDelayMs",
         "orchestrator",
+        "orchestrator.authorityProfile",
         "orchestrator.chroma",
         "orchestrator.chroma.maxRuntimeMs",
         "orchestrator.cloudOnly",

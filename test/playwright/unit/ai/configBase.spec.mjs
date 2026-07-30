@@ -47,6 +47,7 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
             expect(proxy.transport).toBe(process.env.NEO_TRANSPORT || 'stdio');
             expect(proxy.mcpHttpPort).toBe(Number(process.env.MCP_HTTP_PORT) || 3000);
             expect(proxy.orchestrator.deploymentMode).toBe('local');
+            expect(proxy.orchestrator.authorityProfile).toBe('legacy-mixed');
         } finally {
             instance.destroy();
         }
