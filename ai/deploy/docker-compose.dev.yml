@@ -101,9 +101,6 @@ x-plane-env: &plane-env
 # renders the credential.
 x-provider-auth-env: &provider-auth-env
   NEO_AUTH_MODE: github-pat
-  NEO_AUTH_TRUST_PROXY_IDENTITY: "false"
-  NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "true"
-  NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat
   NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE: &provider-bootstrap-pat-file /run/secrets/mcp-auth-token
   NEO_MCP_HEALTHCHECK_TOKEN_FILE: *provider-bootstrap-pat-file
 
@@ -167,11 +164,7 @@ services:
     environment:
       <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
-      NEO_AUTO_SYNC: "false"
-      NEO_KB_AUTO_START_DATABASE: "false"
       NEO_CHROMA_HOST: chroma
-      NEO_CHROMA_PORT: "8000"
-      MCP_HTTP_PORT: "3000"
       # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
       # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
       # GEMINI_API_KEY). Empty default -> the config-template default applies; with no key the
@@ -236,17 +229,7 @@ services:
     environment:
       <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
-      NEO_MC_PRIMARY: "false"
-      NEO_AUTO_SUMMARIZE: "false"
-      NEO_MEM_AUTO_START_DATABASE: "false"
-      NEO_MEM_AUTO_START_INFERENCE: "false"
-      NEO_AUTO_DREAM: "false"
-      NEO_AUTO_GOLDEN_PATH: "false"
-      NEO_REAL_TIME_MEMORY_PARSING: "false"
-      NEO_AUTO_INGEST_FS: "false"
       NEO_CHROMA_HOST: chroma
-      NEO_CHROMA_PORT: "8000"
-      MCP_HTTP_PORT: "3001"
       # Single-process container hosts the WAL drain loop itself: without it the decoupled
       # add_memory writes the WAL but nothing embeds it, so semantic recall reads empty.
       # Sole-drainer invariant: exactly one loop per WAL dir; never enable alongside the embed
@@ -313,30 +296,15 @@ services:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
     environment:
       <<: *plane-env
-      # Cloud-safe lane profile: only the deployable lanes run. Local-only lanes and local
-      # inference launchers stay off — the parity stack proves plane topology, not model hosting.
-      NEO_AI_DEPLOYMENT_MODE: cloud
-      NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: container-plane
-      NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: "false"
-      NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED: "false"
-      NEO_ORCHESTRATOR_KB_SYNC_ENABLED: "false"
-      NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED: "false"
-      NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: "false"
-      NEO_ORCHESTRATOR_MLX_ENABLED: "false"
-      NEO_ORCHESTRATOR_LMS_ENABLED: "false"
-      NEO_ORCHESTRATOR_OLLAMA_ENABLED: "false"
+      # AiConfig owns the cloud/container-plane posture and disabled local/model lanes.
+      # This profile declares only its relocated Chroma placement and Docker capability.
       NEO_CHROMA_HOST: chroma
-      NEO_CHROMA_PORT: "8000"
       # Runtime access is scoped to THIS plane's compose project — the same scalar the project
       # `name` and `NEO_PLANE_ID` resolve from, so a parity orchestrator can never address the
       # native stack's containers.
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED: "true"
-      NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM: docker-socket
-      NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH: /var/run/docker.sock
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *plane-id
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: chroma,kb-server,mc-server
-      NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS: inspect,logs,stats
-      NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS: restart
     volumes:
       - ../..:/app
       # The PLANE ROOT rides a project-scoped named volume, not the repo bind above. Docker applies

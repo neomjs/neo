@@ -40,7 +40,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         '@concurrent-gitlab-agent-14388'
     ]);
 
-    async function createServerWithoutBoot() {
+    async function createServerWithoutBoot({autoProvisionIdentitySources} = {}) {
         const originalBoot = Server.prototype.boot;
 
         Server.prototype.boot = async () => {};
@@ -49,6 +49,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         try {
             await serverInstance.ready();
+
+            if (autoProvisionIdentitySources) {
+                serverInstance.aiConfig = {auth: {autoProvisionIdentitySources}}
+            }
         } finally {
             Server.prototype.boot = originalBoot;
         }
@@ -234,7 +238,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     test('#14388: GitLab-PAT request context auto-provisions a missing AgentIdentity', async () => {
         await GraphService.initAsync();
 
-        const serverInstance = await createServerWithoutBoot();
+        const serverInstance = await createServerWithoutBoot({
+            autoProvisionIdentitySources: ['gitlab-pat']
+        });
 
         try {
             const context = await serverInstance.buildRequestContext({
@@ -453,7 +459,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             }
         });
 
-        const serverInstance = await createServerWithoutBoot();
+        const serverInstance = await createServerWithoutBoot({
+            autoProvisionIdentitySources: ['gitlab-pat']
+        });
 
         try {
             const context = await serverInstance.buildRequestContext({
@@ -491,7 +499,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             properties: {createdAt: '2026-01-01T00:00:00.000Z'}
         });
 
-        const serverInstance = await createServerWithoutBoot();
+        const serverInstance = await createServerWithoutBoot({
+            autoProvisionIdentitySources: ['gitlab-pat']
+        });
 
         try {
             await expect(serverInstance.buildRequestContext({
@@ -537,7 +547,9 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     test('#14388: concurrent first GitLab-PAT logins converge on one durable identity', async () => {
         await GraphService.initAsync();
 
-        const serverInstance = await createServerWithoutBoot();
+        const serverInstance = await createServerWithoutBoot({
+            autoProvisionIdentitySources: ['gitlab-pat']
+        });
 
         try {
             const reqAuth = {
@@ -614,6 +626,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 encoding: 'utf8',
                 env     : {
                     ...process.env,
+                    NEO_AUTH_MODE          : 'gitlab-pat',
                     NEO_MEMORY_DB_PATH_TEST: testDbPath,
                     UNIT_TEST_MODE         : 'true'
                 },

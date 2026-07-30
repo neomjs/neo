@@ -2,6 +2,7 @@ import { test, expect }                    from '@playwright/test';
 import path                                from 'path';
 import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
+import RootConfigBase                      from '../../../../../../../ai/configBase.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -11,8 +12,6 @@ test.describe('Memory Core Config (#10010)', () => {
     let originalConfig;
     let originalClassHierarchy;
     let tier1Template;
-    let tier1TemplateData;
-    let tier1TemplateFormulas;
     let tier1Root;
     let tier1Config;
 
@@ -46,15 +45,10 @@ test.describe('Memory Core Config (#10010)', () => {
         // side-effect import only registers it on FIRST module-eval — in a reused Playwright worker
         // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
         // template tree, making inheritance deterministic across workers.
-        tier1Template         = (await import('../../../../../../../ai/config.template.mjs')).default;
-        tier1TemplateData     = tier1Template._data;
-        tier1TemplateFormulas = tier1Template._formulas;
-        Neo.ai = Neo.ai || {};
+        tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        Neo.ai        = Neo.ai || {};
         delete Neo.ai.Config;
-        tier1Root = Neo.create(ConfigProvider, {
-            data    : tier1TemplateData,
-            formulas: tier1TemplateFormulas
-        });
+        tier1Root     = Neo.create(RootConfigBase);
         Neo.ai.Config = tier1Root;
         tier1Config   = createConfigProxy(tier1Root);
     });
@@ -209,13 +203,10 @@ test.describe('Memory Core Config (#10010)', () => {
         // Post-split, MC declares none of these locally — they are Tier-1-owned, so env
         // precedence lives at the OWNER. Build a fresh realm root WITH the env set, register it, and
         // a fresh MC child inherits the overrides up the getParent() chain. (config._data is the raw
-        // MC meta-leaf tree; tier1TemplateData is the raw Tier-1 meta-leaf tree.)
+        // MC meta-leaf tree; RootConfigBase owns the canonical Tier-1 declarations + formulas.)
         const prevRoot = Neo.ai?.Config;
         delete Neo.ai.Config;
-        const freshRoot = Neo.create(ConfigProvider, {
-            data    : tier1TemplateData,
-            formulas: tier1TemplateFormulas
-        });
+        const freshRoot = Neo.create(RootConfigBase);
         Neo.ai.Config   = freshRoot;
         const freshMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 

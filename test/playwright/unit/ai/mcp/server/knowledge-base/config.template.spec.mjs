@@ -1,6 +1,7 @@
 import {test, expect}                      from '@playwright/test';
 import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
+import RootConfigBase                      from '../../../../../../../ai/configBase.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
@@ -10,8 +11,6 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalConfig;
     let originalClassHierarchy;
     let tier1Template;
-    let tier1TemplateData;
-    let tier1TemplateFormulas;
     let tier1Root;
     let tier1Config;
 
@@ -40,14 +39,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // dummyEmbeddingFunction from Tier-1 via the getParent() chain. A reused Playwright worker
         // may have the Tier-1 module cached after the registry entry was cleared, so install the
         // fresh root BEFORE the child base evaluates and snapshots its Tier-1-derived defaults.
-        tier1Template         = (await import('../../../../../../../ai/config.template.mjs')).default;
-        tier1TemplateData     = tier1Template._data;
-        tier1TemplateFormulas = tier1Template._formulas;
-        Neo.ai = Neo.ai || {};
-        tier1Root = Neo.create(ConfigProvider, {
-            data    : tier1TemplateData,
-            formulas: tier1TemplateFormulas
-        });
+        tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        Neo.ai        = Neo.ai || {};
+        delete Neo.ai.Config;
+        tier1Root     = Neo.create(RootConfigBase);
         Neo.ai.Config = tier1Root;
         tier1Config   = createConfigProxy(tier1Root);
         config        = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
@@ -142,10 +137,8 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // so env precedence lives at the OWNER. Build a fresh realm root WITH the env set and
         // register it so the child inherits the override up the getParent() chain.
         const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(ConfigProvider, {
-            data    : tier1TemplateData,
-            formulas: tier1TemplateFormulas
-        });
+        delete Neo.ai.Config;
+        const freshRoot = Neo.create(RootConfigBase);
         Neo.ai.Config   = freshRoot;
 
         try {

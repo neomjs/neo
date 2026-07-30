@@ -5,6 +5,7 @@ import path             from 'path';
 import Neo              from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../../ai/ConfigProvider.mjs';
+import RootConfigBase                            from '../../../../ai/configBase.mjs';
 import {CHROMA_TEST_DATABASE}                    from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
 import Env                                       from '../../../../src/util/Env.mjs';
 
@@ -13,10 +14,7 @@ test.describe('Tier 1 Config Immutability', () => {
     let originalConfig;
     let originalClassHierarchy;
 
-    const createIsolatedConfig = () => createConfigProxy(Neo.create(ConfigProvider, {
-        data    : Config._data,
-        formulas: Config._formulas
-    }));
+    const createIsolatedConfig = () => createConfigProxy(Neo.create(RootConfigBase));
 
     test.beforeAll(async () => {
         originalConfig         = Neo.ai?.Config;
@@ -368,8 +366,8 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
-        expect(Config.orchestrator.deploymentMode).toBe('local');
-        expect(Config.orchestrator.authorityProfile).toBe('legacy-mixed');
+        expect(Config.orchestrator.deploymentMode).toBe(process.env.NEO_AI_DEPLOYMENT_MODE || 'cloud');
+        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || 'container-plane');
         expect(Config.orchestrator.intervals).toMatchObject({
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,
@@ -498,17 +496,17 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         const ollamaEnabledEnv = process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED?.trim().toLowerCase();
-        const ollamaDisabled   = ['false', 'no', 'off', '0'].includes(ollamaEnabledEnv);
+        const ollamaEnabled    = ['true', 'yes', 'on', '1'].includes(ollamaEnabledEnv);
 
         expect(Config.orchestrator.ollama).toEqual({
-            enabled: ollamaEnabledEnv === undefined ? true : !ollamaDisabled
+            enabled: ollamaEnabled
         });
 
         const lmsEnabledEnv = process.env.NEO_ORCHESTRATOR_LMS_ENABLED?.trim().toLowerCase();
-        const lmsDisabled   = ['false', 'no', 'off', '0'].includes(lmsEnabledEnv);
+        const lmsEnabled    = ['true', 'yes', 'on', '1'].includes(lmsEnabledEnv);
 
         expect(Config.orchestrator.lms).toMatchObject({
-            enabled: lmsEnabledEnv === undefined ? true : !lmsDisabled,
+            enabled: lmsEnabled,
             model  : process.env.NEO_ORCHESTRATOR_LMS_MODEL || 'qwen3-embedding-8b',
             port   : process.env.NEO_ORCHESTRATOR_LMS_PORT || '1234'
         });
@@ -559,21 +557,30 @@ test.describe('Tier 1 Config Immutability', () => {
     test('ships explicit PAT admission leaves with safe defaults', () => {
         expect(Config.auth.allowedClientIds).toEqual([]);
         expect(Config.auth.allowedUsers).toEqual([]);
+        expect(Config.auth.trustProxyIdentity).toBe(false);
         expect(Config.auth.pinFirstProviderSubject).toBe(false);
+        expect(Config.auth.autoProvisionIdentitySources).toEqual([]);
         expect(Config.auth.providerBootstrapPat).toBe('');
         expect(Config.auth.providerBootstrapPatFile).toBe('');
 
         const isolatedConfig = createIsolatedConfig();
 
         try {
+            isolatedConfig.setEnvOverride('NEO_AUTH_MODE', 'github-pat');
+
+            expect(isolatedConfig.auth.pinFirstProviderSubject).toBe(true);
+            expect(isolatedConfig.auth.autoProvisionIdentitySources).toEqual(['github-pat']);
+
             isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', ['mcp-oauth-app']);
             isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_USERS', ['neo-gpt']);
-            isolatedConfig.setEnvOverride('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', true);
+            isolatedConfig.setEnvOverride('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', false);
+            isolatedConfig.setEnvOverride('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', []);
             isolatedConfig.setEnvOverride('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT', 'fixture-bootstrap-pat');
 
             expect(isolatedConfig.auth.allowedClientIds).toEqual(['mcp-oauth-app']);
             expect(isolatedConfig.auth.allowedUsers).toEqual(['neo-gpt']);
-            expect(isolatedConfig.auth.pinFirstProviderSubject).toBe(true);
+            expect(isolatedConfig.auth.pinFirstProviderSubject).toBe(false);
+            expect(isolatedConfig.auth.autoProvisionIdentitySources).toEqual([]);
             expect(isolatedConfig.auth.providerBootstrapPat).toBe('fixture-bootstrap-pat');
 
             isolatedConfig.setEnvOverride('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT', '');

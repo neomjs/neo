@@ -32,6 +32,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
     test('parseArgs uses dotenv-compatible environment defaults', () => {
         const args = parseArgs([], {
             NEO_MCP_HEALTHCHECK_URL                     : 'http://mc-server:3001',
+            NEO_MCP_HEALTHCHECK_PATH                    : '/mc/mcp',
             NEO_MCP_HEALTHCHECK_IDENTITY                : 'deploy-probe',
             NEO_MCP_HEALTHCHECK_TOKEN_ENV               : 'TOKEN_SLOT',
             TOKEN_SLOT                                  : 'secret-token',
@@ -44,6 +45,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         expect(args).toEqual({
             url                  : 'http://mc-server:3001',
+            mcpPath              : '/mc/mcp',
             identity             : 'deploy-probe',
             bearerToken          : 'secret-token',
             bearerTokenEnv       : 'TOKEN_SLOT',
@@ -207,6 +209,35 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         ]);
     });
 
+    test('runHealthcheck supports a routed MCP path below one shared ingress', async () => {
+        let connectedUrl;
+
+        class FakeTransport {
+            constructor(url) {
+                this.url = url;
+            }
+        }
+
+        class FakeClient {
+            async connect(transport) {
+                connectedUrl = transport.url.toString();
+            }
+            async callTool() {
+                return {structuredContent: {status: 'healthy'}};
+            }
+            async close() {}
+        }
+
+        await runHealthcheck({
+            url           : 'http://127.0.0.1:3102',
+            mcpPath       : '/mc/mcp',
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        });
+
+        expect(connectedUrl).toBe('http://127.0.0.1:3102/mc/mcp');
+    });
+
     test('runHealthcheck fails on unhealthy status', async () => {
         class FakeTransport {}
         class FakeClient {
@@ -323,25 +354,28 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(compose.services.orchestrator.depends_on['mc-server']).toEqual({condition: 'service_healthy'});
     });
 
-    test('production compose pins cloud-profile local wake boundaries, and does NOT pin the mailbox policy', () => {
+    test('production compose inherits cloud/container defaults and does NOT pin local lanes or mailbox policy', () => {
         const compose         = readProductionCompose();
         const orchestratorEnv = environmentMap(compose.services.orchestrator);
         const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
 
-        expect(orchestratorEnv).toMatchObject({
-            NEO_AI_DEPLOYMENT_MODE                              : 'cloud',
-            NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE               : 'container-plane',
-            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED           : 'false',
-            NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : 'false',
-            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED              : 'false',
-            NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: 'false',
-            NEO_ORCHESTRATOR_MLX_ENABLED                        : 'false',
-            NEO_ORCHESTRATOR_LMS_ENABLED                        : 'false',
-            NEO_ORCHESTRATOR_OLLAMA_ENABLED                     : 'false'
-        });
+        for (const key of [
+            'NEO_AI_DEPLOYMENT_MODE',
+            'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE',
+            'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
+            'NEO_ORCHESTRATOR_MLX_ENABLED',
+            'NEO_ORCHESTRATOR_LMS_ENABLED',
+            'NEO_ORCHESTRATOR_OLLAMA_ENABLED'
+        ]) {
+            expect(orchestratorEnv[key], `${key} duplicates an AiConfig default`).toBeUndefined();
+        }
 
-        // The cloud profile legitimately pins the wake/model boundaries above — a cloud deployment must
-        // not sync our dev repo or spawn local models. It must NOT pin the mailbox policy: doing so
+        // The cloud/container and local-model boundaries now belong to AiConfig. Compose must
+        // also NOT pin the mailbox policy: doing so
         // overrode the library default of `open` and left members of a single-organisation deployment
         // unable to message each other without a grant per pair. A deployment is a trust boundary, so
         // peer-trust is the default and `blocked` belongs to a multi-tenant install that sets it
@@ -408,7 +442,29 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             });
         }
 
-        expect(orchestratorEnv.NEO_ORCHESTRATOR_MLX_ENABLED).toBe('false');
+        expect(orchestratorEnv.NEO_ORCHESTRATOR_MLX_ENABLED).toBeUndefined();
+    });
+
+    test('local Agent OS overlay binds one physical plane and exposes only routed loopback MCP', () => {
+        const source = fs.readFileSync(
+            new URL('../../../../../../ai/deploy/docker-compose.local-agent-os.yml', import.meta.url),
+            'utf8'
+        );
+
+        expect(source).toContain('source: ../../.neo-ai-data');
+        expect(source).toContain('source: ../../.neo-ai-data/chroma/unified');
+        expect(source).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
+        expect(source).toContain('target: /app/.neo-ai-data');
+        expect(source).toContain('NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data/orchestrator-container-plane');
+        expect(source).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
+        expect(source).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
+        expect(source).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
+        expect(source).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        expect(source).not.toContain('environment: GH_TOKEN');
+        expect(source).toContain('"127.0.0.1:3102:8080"');
+        expect(source).not.toContain('docker-compose.dev.yml');
+        expect(source).not.toContain('legacy-mixed');
+        expect(source).not.toContain('safe-stop');
     });
 });
 

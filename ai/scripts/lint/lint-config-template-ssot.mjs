@@ -44,7 +44,8 @@ import path                           from 'node:path';
 import process                        from 'node:process';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
-import {parse} from 'acorn';
+import {parse}            from 'acorn';
+import {load as loadYaml} from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -55,6 +56,7 @@ const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
 // declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
 const CONFIG_BASE_BASENAME               = 'configBase.mjs';
 const CONFIG_LEAF_PARITY_REL             = 'ai/scripts/lint/config-leaf-parity.json';
+const COMPOSE_DEFAULT_PARITY_KEY         = '$composeDefaultParity';
 const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
 const SCAN_ROOT_REL                      = 'ai';
 const TEST_SCAN_ROOT_REL                 = 'test';
@@ -378,6 +380,44 @@ export function collectConfigPathKindsFromSource(source) {
 }
 
 /**
+ * @summary Runs resolved config collection with a raw Tier-1 parent instance.
+ *
+ * Config-isolation specs may delete `Neo.ai.Config` after the root module is cached. Re-importing
+ * cannot replay registration, while assigning the exported Proxy violates ConfigProvider#getParent's
+ * raw-instance contract. A fresh ConfigBase is declaration-equivalent to the thin root template;
+ * when this helper creates it, the root is removed again so lint imports cannot mutate later tests.
+ * @param {String} rootDir Repo root.
+ * @param {Function} callback Work that requires the Tier-1 parent.
+ * @returns {Promise<*>}
+ */
+async function withTier1ConfigForLint(rootDir, callback) {
+    globalThis.Neo ??= {};
+    globalThis.Neo.config ??= {environment: 'development'};
+
+    await import(pathToFileURL(path.join(rootDir, 'src/Neo.mjs')).href);
+
+    let transientRoot;
+
+    if (!Neo.ai?.Config) {
+        const RootConfigBase = (await import(
+            pathToFileURL(path.join(rootDir, 'ai', CONFIG_BASE_BASENAME)).href
+        )).default;
+
+        transientRoot = Neo.create(RootConfigBase);
+        Neo.ai.Config = transientRoot
+    }
+
+    try {
+        return await callback()
+    } finally {
+        if (transientRoot) {
+            if (Neo.ai?.Config === transientRoot) delete Neo.ai.Config;
+            transientRoot.destroy()
+        }
+    }
+}
+
+/**
  * @summary Collects declared config paths from a config class's OWN static `config.data` tree —
  * the declaration-form-transparent collector.
  *
@@ -406,25 +446,27 @@ export function collectConfigPathKindsFromSource(source) {
  * @returns {Promise<{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}>}
  */
 export async function collectConfigPathKindsFromTemplate(templatePath) {
-    globalThis.Neo ??= {};
-    globalThis.Neo.config ??= {environment: 'development'};
-
-    // The template's import chain reaches `Neo.gatekeep` via ConfigProvider — src/Neo.mjs must
-    // evaluate FIRST (the same 4-line boot `ai:config-print` uses), or the chain dies on contact.
-    const neoRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-
-    await import(pathToFileURL(path.join(neoRootDir, 'src/Neo.mjs')).href);
-
-    const module_            = await import(pathToFileURL(templatePath).href),
-          ConfigClass        = module_.default,
-          data               = ConfigClass?.config?.data,
-          primitiveLeafPaths = new Set(),
+    const
+        neoRootDir         = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..'),
+        primitiveLeafPaths = new Set(),
           liveProxyPaths     = new Set(),
           isDescriptor       = v => v && typeof v === 'object' && !Array.isArray(v) &&
                               'default' in v && 'env' in v && 'type' in v;
 
     // A template shell (createConfigProxy export, no own data) contributes nothing — its sibling
     // configBase carries the declarations, and the caller unions both.
+    if (path.basename(templatePath) === CONFIG_TEMPLATE_BASENAME &&
+        fs.existsSync(path.join(path.dirname(templatePath), CONFIG_BASE_BASENAME))
+    ) {
+        return {primitiveLeafPaths, liveProxyPaths}
+    }
+
+    const
+        module_     = await withTier1ConfigForLint(neoRootDir, () =>
+            import(pathToFileURL(templatePath).href)),
+        ConfigClass = module_.default,
+        data        = ConfigClass?.config?.data;
+
     if (!data || typeof data !== 'object') {
         return {primitiveLeafPaths, liveProxyPaths}
     }
@@ -470,6 +512,65 @@ export async function collectDeclaredConfigPathsFromTemplate(templatePath) {
     }
 
     return [...union].sort()
+}
+
+/**
+ * @summary Collects env-bound defaults from one meta-leaf tree.
+ * @param {Object} data Static `config.data` descriptor tree.
+ * @param {String[]} [parts] Current config path.
+ * @param {Object} [out] Env name to descriptor rows.
+ * @returns {Object}
+ */
+function collectConfigEnvDefaultsFromData(data, parts = [], out = {}) {
+    for (const [prop, value] of Object.entries(data || {})) {
+        const configPath = [...parts, prop];
+
+        if (value && typeof value === 'object' && !Array.isArray(value) &&
+            Object.hasOwn(value, 'default')
+        ) {
+            if (value.env) {
+                out[value.env] ||= [];
+                out[value.env].push({
+                    configPath: configPath.join('.'),
+                    default   : value.default
+                })
+            }
+        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+            collectConfigEnvDefaultsFromData(value, configPath, out)
+        }
+    }
+
+    return out
+}
+
+/**
+ * @summary Builds the effective env/default declaration map for one runtime config template.
+ *
+ * Tier-1 defaults apply to every server; a server's sibling `configBase.mjs` then contributes
+ * its narrower leaves. This reads descriptor metadata, not resolved environment values, so the
+ * Compose guard compares declarations without importing operator state.
+ * @param {Object} options
+ * @param {String} options.template Repo-relative config template.
+ * @param {String} [options.rootDir] Repo root.
+ * @returns {Promise<Object>} Env name to descriptor rows.
+ */
+export async function buildConfigEnvDefaultsForTemplate({template, rootDir = ROOT_DIR}) {
+    return withTier1ConfigForLint(rootDir, async () => {
+        const
+            rootBase    = path.join(rootDir, 'ai', CONFIG_BASE_BASENAME),
+            templateAbs = path.join(rootDir, template),
+            serverBase  = path.join(path.dirname(templateAbs), CONFIG_BASE_BASENAME),
+            files       = [...new Set([rootBase, serverBase])],
+            out         = {};
+
+        for (const file of files) {
+            const ConfigClass = (await import(pathToFileURL(file).href)).default;
+
+            collectConfigEnvDefaultsFromData(ConfigClass?.config?.data, [], out)
+        }
+
+        return out
+    })
 }
 
 /**
@@ -1162,7 +1263,9 @@ export async function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
  */
 export async function detectConfigLeafParityViolations({rootDir = ROOT_DIR, expectation} = {}) {
     const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
-          expected     = expectation ?? (fs.existsSync(snapshotPath) ? JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {}),
+          document     = expectation ?? (fs.existsSync(snapshotPath) ? JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {}),
+          expected     = Object.fromEntries(Object.entries(document)
+              .filter(([key]) => !key.startsWith('$'))),
           actual       = await buildConfigLeafParitySnapshot({rootDir}),
           result       = {added: {}, errors: {}, missing: {}, untracked: [], vanished: []};
 
@@ -1234,6 +1337,234 @@ function reportConfigLeafParity(parity) {
         console.error('If the change is deliberate, record it:');
         console.error(`    node ${SELF_REL_FILE} --update-parity`);
         console.error('and commit the snapshot in the SAME commit, so the removal is reviewable.')
+    }
+}
+
+/**
+ * @summary Resolves list-form, map-form, and YAML-merge Compose environments into one map.
+ * @param {Object|Array|String|null} environment Compose environment declaration.
+ * @param {Map<String,*>} [out] Accumulator.
+ * @returns {Map<String,*>}
+ */
+function collectComposeEnvironment(environment, out = new Map()) {
+    if (Array.isArray(environment)) {
+        environment.forEach(entry => collectComposeEnvironment(entry, out));
+        return out
+    }
+
+    if (typeof environment === 'string') {
+        const separator = environment.indexOf('='),
+              env       = separator === -1 ? environment : environment.slice(0, separator),
+              value     = separator === -1 ? null : environment.slice(separator + 1);
+
+        out.set(env, value);
+        return out
+    }
+
+    if (!environment || typeof environment !== 'object') return out;
+
+    if (Object.hasOwn(environment, '<<')) {
+        collectComposeEnvironment(environment['<<'], out)
+    }
+
+    for (const [env, value] of Object.entries(environment)) {
+        if (env !== '<<') out.set(env, value)
+    }
+
+    return out
+}
+
+/**
+ * @summary Serializes scalar/CSV config defaults the same way Compose environment values arrive.
+ * @param {*} value Config descriptor default.
+ * @returns {String|undefined}
+ */
+function serializeConfigDefault(value) {
+    if (Array.isArray(value)) return value.join(',');
+    if (['boolean', 'number', 'string'].includes(typeof value)) return String(value);
+}
+
+/**
+ * @summary Compares parsed Compose profiles with declared config defaults and the committed census.
+ *
+ * This is deliberately a small deployment-boundary guard, not a general Compose evaluator:
+ * interpolated values are deployment choices and therefore skipped; literal values are compared
+ * with the owning config template, while retired/derived env names fail by policy.
+ * @param {Object} options
+ * @param {Object} options.policy Committed `$composeDefaultParity` policy.
+ * @param {Object} options.composeDocuments Repo-relative Compose path to parsed YAML.
+ * @param {Object} options.envDefaultsByTemplate Config template to env/default descriptor rows.
+ * @returns {Array<Object>} Violations.
+ */
+export function detectComposeDefaultRestatementsFromDocuments({
+    policy = {},
+    composeDocuments = {},
+    envDefaultsByTemplate = {}
+} = {}) {
+    const
+        violations   = [],
+        forbiddenEnv = policy.forbiddenEnv || {},
+        environments = {};
+
+    for (const [file, profile] of Object.entries(policy.profiles || {})) {
+        const document = composeDocuments[file];
+
+        if (!document) {
+            violations.push({kind: 'compose-profile-missing', file});
+            continue
+        }
+
+        environments[file] = {};
+
+        for (const [service, serviceConfig] of Object.entries(document.services || {})) {
+            const environment = collectComposeEnvironment(serviceConfig?.environment);
+
+            environments[file][service] = environment;
+
+            for (const [env, value] of environment) {
+                if (Object.hasOwn(forbiddenEnv, env)) {
+                    violations.push({
+                        env,
+                        file,
+                        kind  : 'derived-or-retired-env',
+                        reason: forbiddenEnv[env],
+                        service,
+                        value : value == null ? null : String(value)
+                    });
+                    continue
+                }
+
+                const
+                    template = profile.services?.[service],
+                    rows     = envDefaultsByTemplate[template]?.[env] || [],
+                    rendered = value == null ? null : String(value);
+
+                if (!template || rendered == null || rendered.includes('${')) continue;
+
+                const match = rows.find(row => serializeConfigDefault(row.default) === rendered);
+
+                if (match) {
+                    violations.push({
+                        configPath: match.configPath,
+                        env,
+                        file,
+                        kind      : 'matches-config-default',
+                        service,
+                        value     : rendered
+                    })
+                }
+            }
+        }
+    }
+
+    const census = policy.census;
+
+    if (census?.profile) {
+        const
+            actual = new Set(Object.values(environments[census.profile] || {})
+                .flatMap(environment => [...environment.keys()])
+                .filter(env => /^(?:NEO_|MCP_)/.test(env))),
+            buckets = [
+                ...(census.requiredDeploymentInputs || []),
+                ...(census.optionalOverrides || []),
+                ...(census.secrets || [])
+            ],
+            expected = new Set(buckets),
+            duplicates = [...new Set(buckets.filter((env, index) => buckets.indexOf(env) !== index))],
+            missing    = [...expected].filter(env => !actual.has(env)).sort(),
+            unexpected = [...actual].filter(env => !expected.has(env)).sort();
+
+        if (duplicates.length || missing.length || unexpected.length ||
+            actual.size !== census.remainingUniqueKeys
+        ) {
+            violations.push({
+                actualUniqueKeys  : actual.size,
+                duplicates,
+                expectedUniqueKeys: census.remainingUniqueKeys,
+                file              : census.profile,
+                kind              : 'census-drift',
+                missing,
+                unexpected
+            })
+        }
+    }
+
+    return violations
+}
+
+/**
+ * @summary Loads the committed Compose/default parity surface and returns violations.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Object} [options.policy] Injected policy.
+ * @returns {Promise<Array<Object>>}
+ */
+export async function detectComposeDefaultRestatements({rootDir = ROOT_DIR, policy} = {}) {
+    if (!policy) {
+        const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
+              document     = fs.existsSync(snapshotPath) ?
+                  JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {};
+
+        policy = document[COMPOSE_DEFAULT_PARITY_KEY]
+    }
+
+    if (!policy) return [];
+
+    const
+        composeDocuments      = {},
+        envDefaultsByTemplate = {},
+        violations            = [];
+
+    for (const file of Object.keys(policy.profiles || {})) {
+        try {
+            composeDocuments[file] = loadYaml(fs.readFileSync(path.join(rootDir, file), 'utf8'))
+        } catch (error) {
+            violations.push({
+                error: error?.message || String(error),
+                file,
+                kind : 'compose-profile-unreadable'
+            })
+        }
+    }
+
+    const templates = new Set(Object.values(policy.profiles || {})
+        .flatMap(profile => Object.values(profile.services || {})));
+
+    for (const template of templates) {
+        envDefaultsByTemplate[template] = await buildConfigEnvDefaultsForTemplate({rootDir, template})
+    }
+
+    return [
+        ...violations,
+        ...detectComposeDefaultRestatementsFromDocuments({
+            composeDocuments,
+            envDefaultsByTemplate,
+            policy
+        })
+    ]
+}
+
+/**
+ * @summary Prints Compose/default parity violations.
+ * @param {Array<Object>} violations Violations.
+ * @returns {void}
+ */
+function reportComposeDefaultRestatements(violations) {
+    console.error('[lint-config-template-ssot] Compose default parity FAILED');
+
+    for (const violation of violations) {
+        if (violation.kind === 'census-drift') {
+            console.error(`  ${violation.file}: census expected ${violation.expectedUniqueKeys}, found ${violation.actualUniqueKeys}`);
+            if (violation.missing.length) console.error(`    missing: ${violation.missing.join(', ')}`);
+            if (violation.unexpected.length) console.error(`    unexpected: ${violation.unexpected.join(', ')}`);
+            if (violation.duplicates.length) console.error(`    duplicate classifications: ${violation.duplicates.join(', ')}`);
+        } else if (violation.kind === 'matches-config-default') {
+            console.error(`  ${violation.file} ${violation.service}: ${violation.env}=${violation.value} matches ${violation.configPath}`);
+        } else if (violation.kind === 'derived-or-retired-env') {
+            console.error(`  ${violation.file} ${violation.service}: ${violation.env} is derived/retired — ${violation.reason}`);
+        } else {
+            console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
+        }
     }
 }
 
@@ -1648,12 +1979,14 @@ export async function runLint(options = {}) {
           }),
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
           parityResult     = await detectConfigLeafParityViolations({rootDir}),
+          composeDefaultViolations = await detectComposeDefaultRestatements({rootDir}),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
               implementationResult.staleBaseline.length > 0,
           hasModuleScopeFailures = moduleScopeResult.newViolations.length > 0 ||
               moduleScopeResult.staleBaseline.length > 0,
           hasTestConfigFailures = testConfigResult.violations.length > 0,
+          hasComposeDefaultFailures = composeDefaultViolations.length > 0,
           hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
               Object.keys(parityResult.added).length > 0 ||
               Object.keys(parityResult.errors || {}).length > 0 ||
@@ -1663,16 +1996,22 @@ export async function runLint(options = {}) {
         reportConfigLeafParity(parityResult)
     }
 
+    if (hasComposeDefaultFailures) {
+        reportComposeDefaultRestatements(composeDefaultViolations)
+    }
+
     if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures &&
-        !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures
+        !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures &&
+        !hasComposeDefaultFailures
     ) {
         console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${testConfigResult.violations.length} test config-authority violation(s), all baselined or target-zero.`);
         return {
             exitCode: 0,
             ...result,
-            implementation: implementationResult,
-            moduleScope   : moduleScopeResult,
-            testConfig    : testConfigResult
+            implementation : implementationResult,
+            moduleScope    : moduleScopeResult,
+            testConfig     : testConfigResult,
+            composeDefaults: {violations: composeDefaultViolations}
         };
     }
 
@@ -1753,9 +2092,10 @@ export async function runLint(options = {}) {
     return {
         exitCode: 1,
         ...result,
-        implementation: implementationResult,
-        moduleScope   : moduleScopeResult,
-        testConfig    : testConfigResult
+        implementation : implementationResult,
+        moduleScope    : moduleScopeResult,
+        testConfig     : testConfigResult,
+        composeDefaults: {violations: composeDefaultViolations}
     };
 }
 
@@ -1770,6 +2110,7 @@ async function main() {
         console.log('when ai/ implementation code adds mechanical ADR-19 AiConfig SSOT violations,');
         console.log('when ai/ implementation code adds module-scope AiConfig leaf captures,');
         console.log('when test code imports an ignored overlay / exports a config-template-derived authority,');
+        console.log('when Compose restates a config default / derived-retired env,');
         console.log('or when a declared config path leaves a template surface without updating the snapshot.');
         console.log('');
         console.log('  --update-parity   rewrite the config-leaf-parity snapshot from the live templates');
@@ -1780,15 +2121,19 @@ async function main() {
         // Deliberately NOT a --fix: this rewrites the record of what the repo declares, so it must be
         // an explicit act whose diff a reviewer reads. A flag that silently reconciled on every lint
         // run would turn the guard into a rubber stamp for the exact removal it exists to catch.
-        const snapshot = await buildConfigLeafParitySnapshot(),
-              total    = Object.values(snapshot).reduce((sum, paths) => sum + (Array.isArray(paths) ? paths.length : 0), 0);
+        const
+            parityPath = path.join(ROOT_DIR, CONFIG_LEAF_PARITY_REL),
+            current    = fs.existsSync(parityPath) ? JSON.parse(fs.readFileSync(parityPath, 'utf8')) : {},
+            reserved   = Object.fromEntries(Object.entries(current).filter(([key]) => key.startsWith('$'))),
+            snapshot   = await buildConfigLeafParitySnapshot(),
+            total      = Object.values(snapshot).reduce((sum, paths) => sum + (Array.isArray(paths) ? paths.length : 0), 0);
 
         if (Object.values(snapshot).some(paths => !Array.isArray(paths))) {
             console.error('[lint-config-template-ssot] parity update REFUSED: at least one template could not be resolved (see errors above) — the snapshot would record an unverifiable surface. Resolve the declaration form first.');
             process.exit(1);
         }
 
-        fs.writeFileSync(path.join(ROOT_DIR, CONFIG_LEAF_PARITY_REL), `${JSON.stringify(snapshot, null, 4)}\n`);
+        fs.writeFileSync(parityPath, `${JSON.stringify({...reserved, ...snapshot}, null, 4)}\n`);
         console.log(`[lint-config-template-ssot] parity snapshot updated: ${Object.keys(snapshot).length} template(s), ${total} declared path(s).`);
         console.log('Commit it in the SAME commit as the change it records.');
         process.exit(0);

@@ -16,6 +16,22 @@ process.env.UNIT_TEST_MODE = 'true';
 // allow-list, while every non-Brain spec remains a genuinely pure Node.js unit run.
 export const brainTestMatch = /[\\/]ai[\\/].*\.spec\.mjs$/;
 
+// The daemon imports the eager Tier-1 + Memory Core config graph. Config-template unit specs
+// intentionally unregister those singleton namespaces during their fixtures, so worker reuse can
+// leave the redirected module cached after its namespace was removed. Give the daemon its own
+// project/worker realm while retaining the same run-scoped Chroma capability.
+export const orchestratorDaemonTestMatch =
+    /[\\/]ai[\\/]daemons[\\/]orchestrator[\\/]daemon\.spec\.mjs$/;
+
+// These config specs intentionally unregister and re-register their runtime namespaces. A reused
+// worker cannot replay an already-cached template/base module after a namespace is deleted, so each
+// destructive namespace-isolation spec gets its own process realm.
+export const tier1ConfigTemplateTestMatch = /[\\/]ai[\\/]config\.template\.spec\.mjs$/;
+export const knowledgeBaseConfigTemplateTestMatch =
+    /[\\/]ai[\\/]mcp[\\/]server[\\/]knowledge-base[\\/]config\.template\.spec\.mjs$/;
+export const memoryCoreConfigTemplateTestMatch =
+    /[\\/]ai[\\/]mcp[\\/]server[\\/]memory-core[\\/]config\.template\.spec\.mjs$/;
+
 // Profiling specs assert wall-clock performance budgets, which only mean anything on an UNCONTENDED
 // CPU. Under multi-worker parallelism the shallow-clone filter has measured ~750ms against its 400ms
 // budget — inside the old deep-clone band — so a bulk-parallel run cannot host them. They run in
@@ -47,7 +63,29 @@ export default defineConfig({
     }, {
         name        : 'unit-brain',
         dependencies: ['chroma-setup'],
+        testIgnore  : [
+            orchestratorDaemonTestMatch,
+            tier1ConfigTemplateTestMatch,
+            knowledgeBaseConfigTemplateTestMatch,
+            memoryCoreConfigTemplateTestMatch
+        ],
         testMatch   : brainTestMatch
+    }, {
+        name        : 'unit-brain-orchestrator-daemon',
+        dependencies: ['chroma-setup'],
+        testMatch   : orchestratorDaemonTestMatch
+    }, {
+        name        : 'unit-brain-tier1-config',
+        dependencies: ['chroma-setup'],
+        testMatch   : tier1ConfigTemplateTestMatch
+    }, {
+        name        : 'unit-brain-knowledge-base-config',
+        dependencies: ['chroma-setup'],
+        testMatch   : knowledgeBaseConfigTemplateTestMatch
+    }, {
+        name        : 'unit-brain-memory-core-config',
+        dependencies: ['chroma-setup'],
+        testMatch   : memoryCoreConfigTemplateTestMatch
     }, {
         // Isolation is TWO mechanisms, because neither alone suffices:
         //   1. `dependencies: ['unit']` is the BARRIER — this project does not START until the bulk
