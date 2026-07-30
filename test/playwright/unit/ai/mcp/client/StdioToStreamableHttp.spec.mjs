@@ -1,11 +1,12 @@
-import {expect, test}  from '@playwright/test';
-import {spawn}         from 'node:child_process';
-import {once}          from 'node:events';
-import {createServer}  from 'node:http';
-import {fileURLToPath} from 'node:url';
+import {expect, test}     from '@playwright/test';
+import {spawn, spawnSync} from 'node:child_process';
+import {once}             from 'node:events';
+import {createServer}     from 'node:http';
+import {fileURLToPath}    from 'node:url';
 import {
     bridgeTransports,
     createProgram,
+    getStartupFailureMessage,
     parseArgs,
     startBridge
 } from '../../../../../../ai/mcp/client/stdioToStreamableHttp.mjs';
@@ -100,6 +101,29 @@ test.describe('stdioToStreamableHttp', () => {
 
         expect(error?.code).toBe('commander.helpDisplayed');
         expect(output.join('')).toContain('--token-env <name>')
+    });
+
+    test('only closed local configuration errors cross the startup diagnostic boundary', () => {
+        const
+            reflectedBearer = 'remote body echoed Bearer must-not-print',
+            getParseError   = argv => {
+                try {
+                    parseArgs(argv)
+                } catch (error) {
+                    return error
+                }
+            },
+            localError = getParseError([
+                '--url',
+                'not a url',
+                '--token-env',
+                'NEO_MCP_REMOTE_TOKEN'
+            ]);
+
+        expect(getStartupFailureMessage(localError)).toBe('Bridge endpoint must be a valid URL.');
+        expect(getStartupFailureMessage(new Error(reflectedBearer))).toBe('Neo MCP bridge failed to start.');
+        expect(getStartupFailureMessage({message: reflectedBearer})).toBe('Neo MCP bridge failed to start.');
+        expect(getStartupFailureMessage(null)).toBe('Neo MCP bridge failed to start.')
     });
 
     test('forwards both directions, binds the negotiated protocol, and closes once', async () => {
@@ -241,6 +265,90 @@ test.describe('stdioToStreamableHttp', () => {
 
         expect(local.started).toBe(0);
         expect(remote.started).toBe(0)
+    });
+
+    test('reports bounded local CLI configuration failures without echoing secret-shaped input', () => {
+        const
+            secretShapedUrl   = 'not-a-url-with-secret-shaped-input',
+            tokenShapedSlot   = 'ghp_SENTINEL_TOKEN_ENV_VALUE',
+            unknownTokenValue = 'SENTINEL_ARGV_TOKEN_VALUE',
+            subprocessEnv     = Object.fromEntries(
+                Object.entries(process.env).filter(([key]) => !['FORCE_COLOR', 'NO_COLOR'].includes(key))
+            ),
+            cases             = [{
+                args: [
+                    '--url',
+                    'https://mcp.example.test/mc/mcp',
+                    '--token-env',
+                    tokenShapedSlot
+                ],
+                expected: 'Bridge bearer environment slot is missing or empty.',
+                env     : Object.fromEntries(
+                    Object.entries(subprocessEnv).filter(([key]) => key !== tokenShapedSlot)
+                )
+            }, {
+                args: [
+                    '--url',
+                    secretShapedUrl,
+                    '--token-env',
+                    'NEO_MCP_REMOTE_TOKEN'
+                ],
+                expected: 'Bridge endpoint must be a valid URL.'
+            }, {
+                args: [
+                    '--url',
+                    'file:///private/secret-shaped-path',
+                    '--token-env',
+                    'NEO_MCP_REMOTE_TOKEN'
+                ],
+                expected: "Bridge endpoint protocol must be 'http:' or 'https:'."
+            }, {
+                args: [
+                    '--url',
+                    'https://mcp.example.test/mc/mcp',
+                    '--token-env',
+                    'invalid secret-shaped slot'
+                ],
+                expected: 'Bridge token environment slot must be a valid environment variable name.'
+            }, {
+                args: [
+                    '--url',
+                    'https://mcp.example.test/mc/mcp',
+                    '--token-env',
+                    'NEO_MCP_REMOTE_TOKEN',
+                    `--token=${unknownTokenValue}`
+                ],
+                expected: 'Neo MCP bridge failed to start.'
+            }, {
+                args: [
+                    '--url',
+                    'https://mcp.example.test/mc/mcp'
+                ],
+                expected: 'Neo MCP bridge failed to start.'
+            }, {
+                args: [
+                    '--url',
+                    'https://mcp.example.test/mc/mcp',
+                    '--token-env'
+                ],
+                expected: 'Neo MCP bridge failed to start.'
+            }];
+
+        for (const fixture of cases) {
+            const result = spawnSync(process.execPath, [BRIDGE_ENTRYPOINT, ...fixture.args], {
+                encoding: 'utf8',
+                env     : fixture.env || {...subprocessEnv, NEO_MCP_REMOTE_TOKEN: 'must-not-print'}
+            });
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(`${fixture.expected}\n`);
+            expect(result.stderr).not.toContain(secretShapedUrl);
+            expect(result.stderr).not.toContain('/private/secret-shaped-path');
+            expect(result.stderr).not.toContain('invalid secret-shaped slot');
+            expect(result.stderr).not.toContain(tokenShapedSlot);
+            expect(result.stderr).not.toContain(unknownTokenValue);
+            expect(result.stderr).not.toContain('must-not-print')
+        }
     })
 
     test('a reflected bearer response produces one sanitized error and exits nonzero', async () => {
