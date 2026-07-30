@@ -128,4 +128,34 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(operationIds.filter(id => id === 'get_conversation')).toHaveLength(1);
         expect(operationIds).not.toContain('certify_merge_readiness');
     });
+
+    test('#16191 extends list_pull_requests with a bounded believed-open falsifier', () => {
+        const filePath   = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
+        const doc        = yaml.load(fs.readFileSync(filePath, 'utf8'));
+        const operations = Object.values(doc.paths).flatMap(pathItem =>
+            Object.values(pathItem).filter(value => value?.operationId)
+        );
+        const operation    = operations.find(value => value.operationId === 'list_pull_requests');
+        const believedOpen = operation.parameters.find(parameter => parameter.name === 'believedOpen');
+        const response     = doc.components.schemas.PullRequestListResponse.properties;
+        const belief       = doc.components.schemas.PullRequestBelief;
+
+        expect(operation['x-neo-tool-summary']).toContain('believedOpen');
+        expect(operation['x-neo-tool-summary'].length).toBeLessThanOrEqual(120);
+        expect(operation.description.length).toBeLessThanOrEqual(1024);
+        expect(believedOpen.schema).toMatchObject({
+            type       : 'array',
+            maxItems   : 100,
+            uniqueItems: true,
+            items      : {
+                type   : 'integer',
+                minimum: 1
+            }
+        });
+        expect(response.checkedAt.format).toBe('date-time');
+        expect(response.belief.$ref).toBe('#/components/schemas/PullRequestBelief');
+        expect(belief.required).toEqual(['stillOpen', 'falsified', 'unverifiable']);
+        expect(operations.filter(value => value.operationId === 'list_pull_requests')).toHaveLength(1);
+        expect(operations.some(value => value.operationId === 'falsify_pull_request_belief')).toBe(false);
+    });
 });

@@ -174,6 +174,46 @@ export const FETCH_PULL_REQUESTS = `
 `;
 
 /**
+ * @summary Builds one PR-board query with direct lookups for a validated believed-open coordinate.
+ *
+ * The default {@link FETCH_PULL_REQUESTS} string remains the source of the board selection. Each
+ * believed number receives a deterministic GraphQL alias at the repository level, so the caller
+ * can classify exact current state without inferring from the bounded board connection.
+ *
+ * @param {Number[]} believedOpen Prevalidated unique positive pull-request numbers.
+ * @returns {{query: String, lookups: Array<{alias: String, number: Number}>}}
+ */
+export function buildPullRequestsWithBeliefQuery(believedOpen) {
+    const lookups = believedOpen.map((number, index) => ({
+        alias: `believedOpen${index}`,
+        number
+    }));
+
+    if (lookups.length === 0) {
+        return {
+            query: FETCH_PULL_REQUESTS,
+            lookups
+        }
+    }
+
+    const selections = lookups.map(({alias, number}) => `
+      ${alias}: pullRequest(number: ${number}) {
+        number
+        state
+        mergedAt
+      }`
+    ).join('');
+
+    return {
+        query: FETCH_PULL_REQUESTS.replace(
+            /\n    }\n  }\n\s*$/,
+            `${selections}\n    }\n  }\n`
+        ),
+        lookups
+    }
+}
+
+/**
  * @summary Search resolved pull requests for runtime history exploration.
  *
  * The search connection provides the outer resolved-PR census while each pull request includes

@@ -15,6 +15,7 @@ import {
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {
+    buildPullRequestsWithBeliefQuery,
     FETCH_PULL_REQUESTS,
     GET_CONVERSATION,
     GET_MERGE_READINESS
@@ -53,6 +54,7 @@ const DROP_SUPERSEDE_CONTRACT_FIELDS = [
 
 const MERGE_READINESS_PROJECTION     = 'merge-readiness';
 const MERGE_READINESS_SCHEMA_VERSION = 'neo.merge-readiness/v1';
+const MAX_BELIEVED_OPEN              = 100;
 
 function stableStringify(value) {
     if (Array.isArray(value)) {
@@ -130,6 +132,72 @@ function normalizePullRequestListItem(pullRequest) {
         baseRefName     : pullRequest.baseRefName ?? null,
         headRefOid      : pullRequest.headRefOid ?? null,
         mergeStateStatus: pullRequest.mergeStateStatus ?? null
+    }
+}
+
+/**
+ * @summary Validates the optional caller-owned believed-open PR coordinate before GitHub I/O.
+ * @param {Number[]|undefined} believedOpen Candidate exact pull-request numbers.
+ * @returns {String|null} A validation message, or null when the coordinate is valid or absent.
+ */
+function getBelievedOpenValidationMessage(believedOpen) {
+    if (believedOpen === undefined) {
+        return null;
+    }
+
+    if (!Array.isArray(believedOpen)) {
+        return 'believedOpen must be an array when provided.'
+    }
+
+    if (believedOpen.length > MAX_BELIEVED_OPEN) {
+        return `believedOpen accepts at most ${MAX_BELIEVED_OPEN} pull-request numbers.`
+    }
+
+    if (!believedOpen.every(number => Number.isInteger(number) && number > 0)) {
+        return 'believedOpen entries must be positive integers.'
+    }
+
+    if (new Set(believedOpen).size !== believedOpen.length) {
+        return 'believedOpen entries must be unique.'
+    }
+
+    return null;
+}
+
+/**
+ * @summary Classifies every submitted PR coordinate from its direct aliased GitHub row.
+ * @param {Object} repository Repository result containing the direct alias fields.
+ * @param {Array<{alias: String, number: Number}>} lookups Ordered alias-to-number lookup plan.
+ * @returns {{stillOpen: Number[], falsified: Object[], unverifiable: Object[]}}
+ */
+function projectBelievedOpen(repository, lookups) {
+    const stillOpen    = [];
+    const falsified    = [];
+    const unverifiable = [];
+
+    lookups.forEach(({alias, number}) => {
+        const pullRequest = repository[alias];
+
+        if (pullRequest?.state === 'OPEN') {
+            stillOpen.push(number);
+        } else if (['CLOSED', 'MERGED'].includes(pullRequest?.state)) {
+            falsified.push({
+                number,
+                state   : pullRequest.state,
+                mergedAt: pullRequest.mergedAt ?? null
+            })
+        } else {
+            unverifiable.push({
+                number,
+                reason: 'not-found-or-inaccessible'
+            })
+        }
+    });
+
+    return {
+        stillOpen,
+        falsified,
+        unverifiable
     }
 }
 
@@ -2172,12 +2240,27 @@ class PullRequestService extends Base {
 
     /**
      * Fetches a list of pull requests from GitHub.
-     * @param {object} [options]                                           The options for listing pull requests
-     * @param {number} [options.limit=aiConfig.pullRequest.defaults.limit] The maximum number of PRs to return
-     * @param {string} [options.state=aiConfig.pullRequest.defaults.state] The state of the pull requests to list (open, closed, merged, all)
+     * @param {object}   [options]                                           The options for listing pull requests
+     * @param {number}   [options.limit=aiConfig.pullRequest.defaults.limit] The maximum number of PRs to return
+     * @param {string}   [options.state=aiConfig.pullRequest.defaults.state] The state of the pull requests to list (open, closed, merged, all)
+     * @param {Number[]} [options.believedOpen]                              Exact PR numbers whose open belief should be falsified
      * @returns {Promise<object>} A promise that resolves to the list of pull requests or a structured error.
      */
-    async listPullRequests({limit=aiConfig.pullRequest.defaults.limit, state=aiConfig.pullRequest.defaults.state} = {}) {
+    async listPullRequests({
+        believedOpen,
+        limit = aiConfig.pullRequest.defaults.limit,
+        state = aiConfig.pullRequest.defaults.state
+    } = {}) {
+
+        const validationMessage = getBelievedOpenValidationMessage(believedOpen);
+
+        if (validationMessage) {
+            return {
+                error  : 'Invalid believedOpen input',
+                message: validationMessage,
+                code   : 'INVALID_BELIEVED_OPEN'
+            }
+        }
 
         const variables = {
             owner : aiConfig.owner,
@@ -2187,12 +2270,28 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data         = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
+            const beliefPlan = believedOpen === undefined
+                ? null
+                : buildPullRequestsWithBeliefQuery(believedOpen);
+            const response = beliefPlan
+                ? await GraphqlService.query(beliefPlan.query, variables, {strict: false})
+                : await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
+            const data = beliefPlan && response && Object.hasOwn(response, 'data')
+                ? response.data
+                : response;
             const pullRequests = data.repository.pullRequests.nodes.map(normalizePullRequestListItem);
-            return {
+
+            const result = {
                 count: pullRequests.length,
                 pullRequests
             };
+
+            if (beliefPlan) {
+                result.checkedAt = new Date().toISOString();
+                result.belief    = projectBelievedOpen(data.repository, beliefPlan.lookups);
+            }
+
+            return result;
         } catch (error) {
             logger.error('Error fetching pull requests via GraphQL:', error);
             return {
