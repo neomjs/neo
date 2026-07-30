@@ -21,18 +21,11 @@ export const MCP_SERVERS = Object.freeze([
 ]);
 
 /**
- * The exact installed bridge release used by Claude Desktop's command-only MCP artifact. The
- * package manifest, lockfile, runtime capability probe, and generated-config tests all bind to
- * this value; a version change is therefore an explicit reviewed compatibility event.
- * @type {String}
- */
-export const CLAUDE_DESKTOP_MCP_REMOTE_VERSION = '0.1.38';
-
-/**
  * Harness families whose installed configuration grammar can represent remote HTTP MCP servers.
- * Claude Desktop uses the pinned local stdio↔HTTP bridge rather than a direct HTTP entry.
- * Antigravity and Native stay local: presenting a tenant choice for a harness whose artifact
- * cannot encode it would turn a product selection into a late boot failure.
+ * For Fleet-owned local/private endpoints, Claude Desktop uses Neo's local stdio↔Streamable-HTTP
+ * bridge rather than a direct HTTP entry; account-level public connectors are outside this generated
+ * artifact. Antigravity and Native stay local: presenting a tenant choice for a harness whose
+ * artifact cannot encode it would turn a product selection into a late boot failure.
  * @type {ReadonlyArray<String>}
  */
 export const REMOTE_HTTP_HARNESS_TYPES = Object.freeze([
@@ -185,7 +178,6 @@ export function supportsRemoteMcpTransport(harnessType) {
 }
 
 export default {
-    CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
     MCP_SERVERS,
     REMOTE_HTTP_HARNESS_TYPES,
     REMOTE_MCP_CREDENTIAL_ENV_VAR,

@@ -5,7 +5,6 @@ import crypto                     from 'node:crypto';
 import {fileURLToPath}            from 'node:url';
 import {hydrateCurrentWorktree}   from '../../scripts/migrations/bootstrapWorktree.mjs';
 import {
-    CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR,
     resolveMcpMatrix,
@@ -395,9 +394,9 @@ function assertHarnessSupported({agent, plan}) {
 }
 
 /**
- * @summary Revalidate Claude Desktop's exact installed `mcp-remote` package before hydration. The
- * lifecycle performs the same gate before checkout provisioning; this local check prevents direct
- * composer callers from manufacturing a structurally plausible proof over missing or drifted bytes.
+ * @summary Revalidate Claude Desktop's exact installed Neo bridge before hydration. The lifecycle
+ * performs the same gate before checkout provisioning; this local check prevents direct composer
+ * callers from manufacturing a structurally plausible proof over missing or drifted bytes.
  * @param {Object} options
  * @param {Object} options.agent
  * @param {Object[]} options.plan
@@ -415,32 +414,15 @@ async function assertRemoteBridgeCapability({agent, plan, capability, mainChecko
     }
 
     const
-        bridge              = capability?.bridge,
-        expectedPackagePath = path.join(mainCheckout, 'node_modules/mcp-remote/package.json'),
-        expectedEntrypoint  = path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js');
+        bridge             = capability?.bridge,
+        expectedEntrypoint = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs');
 
     if (capability?.harnessType !== 'claude-desktop' ||
         !bridge ||
-        bridge.packageName !== 'mcp-remote' ||
-        bridge.version !== CLAUDE_DESKTOP_MCP_REMOTE_VERSION ||
+        bridge.kind !== 'neo-stdio-streamable-http' ||
         bridge.command !== nodePath ||
         bridge.entrypoint !== expectedEntrypoint) {
-        throw unsupported('Claude Desktop remote MCP requires the exact installed mcp-remote capability proof')
-    }
-
-    let packageManifest;
-
-    try {
-        packageManifest = JSON.parse(await fileSystem.readFile(expectedPackagePath, 'utf8'))
-    } catch {
-        throw unsupported(`Claude Desktop mcp-remote package manifest is missing or unreadable at '${expectedPackagePath}'`)
-    }
-
-    if (packageManifest.name !== 'mcp-remote' ||
-        packageManifest.version !== CLAUDE_DESKTOP_MCP_REMOTE_VERSION) {
-        throw unsupported(
-            `Claude Desktop mcp-remote package must be exactly ${CLAUDE_DESKTOP_MCP_REMOTE_VERSION}`
-        )
+        throw unsupported('Claude Desktop remote MCP requires the exact installed Neo bridge capability proof')
     }
 
     const
@@ -448,14 +430,14 @@ async function assertRemoteBridgeCapability({agent, plan, capability, mainChecko
         bridgeStat = await fileSystem.lstat(expectedEntrypoint).catch(() => null);
 
     if (!nodeStat?.isFile() || !bridgeStat?.isFile()) {
-        throw unsupported('Claude Desktop mcp-remote Node command or installed bridge entrypoint is absent')
+        throw unsupported('Claude Desktop bridge Node command or installed entrypoint is absent')
     }
 
     try {
         await fileSystem.access(nodePath, fsConstants.X_OK);
         await fileSystem.access(expectedEntrypoint, fsConstants.R_OK)
     } catch {
-        throw unsupported('Claude Desktop mcp-remote Node command or installed bridge entrypoint is inaccessible')
+        throw unsupported('Claude Desktop bridge Node command or installed entrypoint is inaccessible')
     }
 }
 
@@ -672,8 +654,12 @@ async function prepareClaudeJsonArtifact({
     })
 }
 
-/** @private */
-function renderClaudeJsonContent({agent, plan, remoteMcpCapability, instanceHome, interpolateEnv}) {
+/**
+ * @summary Render Claude-family MCP JSON. Claude Desktop receives Neo's local command bridge for
+ * remote rows; direct-HTTP-capable Claude Code receives native HTTP entries.
+ * @private
+ */
+function renderClaudeJsonContent({agent, plan, remoteMcpCapability, interpolateEnv}) {
     const servers = {};
 
     for (const server of plan) {
@@ -685,15 +671,11 @@ function renderClaudeJsonContent({agent, plan, remoteMcpCapability, instanceHome
                     command: remoteMcpCapability.bridge.command,
                     args   : [
                         remoteMcpCapability.bridge.entrypoint,
+                        '--url',
                         server.url,
-                        '--header',
-                        `Authorization: Bearer \${${server.credentialEnvVar}}`,
-                        '--transport',
-                        'http-only'
-                    ],
-                    env: {
-                        MCP_REMOTE_CONFIG_DIR: path.join(instanceHome, 'mcp-remote')
-                    }
+                        '--token-env',
+                        server.credentialEnvVar
+                    ]
                 }
             } else {
                 servers[server.name] = {

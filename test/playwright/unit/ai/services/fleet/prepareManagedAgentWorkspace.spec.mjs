@@ -14,7 +14,6 @@ import {
     WORKSPACE_ARTIFACT_STATES,
     prepareManagedAgentWorkspace
 } from '../../../../../../ai/services/fleet/prepareManagedAgentWorkspace.mjs';
-import {CLAUDE_DESKTOP_MCP_REMOTE_VERSION} from '../../../../../../src/ai/fleet/mcpServers.mjs';
 
 // Temp-filesystem contract tests: the real artifact writer runs, while checkout hydration is an
 // injected recorder. `hydrateCurrentWorktree` has its own real temp-checkout suite; this spec proves
@@ -55,14 +54,10 @@ test.beforeEach(async () => {
 
     await fs.mkdir(path.join(mainCheckout, '.codex'), {recursive: true});
     await fs.writeFile(path.join(mainCheckout, '.codex', 'config.template.toml'), TEMPLATE, 'utf8');
-    await fs.mkdir(path.join(mainCheckout, 'node_modules/mcp-remote/dist'), {recursive: true});
-    await fs.writeFile(path.join(mainCheckout, 'node_modules/mcp-remote/package.json'), JSON.stringify({
-        name   : 'mcp-remote',
-        version: CLAUDE_DESKTOP_MCP_REMOTE_VERSION
-    }), 'utf8');
+    await fs.mkdir(path.join(mainCheckout, 'ai/mcp/client'), {recursive: true});
     await fs.writeFile(
-        path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js'),
-        '// installed pinned bridge entrypoint\n',
+        path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
+        '// installed Neo bridge entrypoint\n',
         'utf8'
     );
     for (const relativePath of MCP_ENTRYPOINTS) {
@@ -111,10 +106,9 @@ function claudeDesktopRemoteCapability(checkout, nodePath=NODE_PATH) {
         binaryPath      : '/Applications/Claude.app/Contents/MacOS/Claude',
         launchBinaryPath: '/Applications/Claude.app/Contents/MacOS/Claude',
         bridge          : {
-            packageName: 'mcp-remote',
-            version    : CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
-            command    : nodePath,
-            entrypoint : path.join(checkout, 'node_modules/mcp-remote/dist/proxy.js')
+            kind      : 'neo-stdio-streamable-http',
+            command   : nodePath,
+            entrypoint: path.join(checkout, 'ai/mcp/client/stdioToStreamableHttp.mjs')
         }
     }
 }
@@ -128,7 +122,7 @@ async function read(filePath) {
  * Each route exposes a resource-labelled probe tool so the generated MC and KB bridge entries can
  * be proven independently through their actual stdio subprocess.
  * @param {String} token Expected bearer token.
- * @returns {Promise<{baseUrl: String, close: Function}>}
+ * @returns {Promise<{baseUrl: String, close: Function, sessionCount: Function}>}
  */
 async function startBridgeFixture(token) {
     const
@@ -188,7 +182,8 @@ async function startBridgeFixture(token) {
             await Promise.allSettled([...mcpServers].map(server => server.close()));
             await Promise.allSettled([...transports].map(transport => transport.close()));
             await new Promise(resolve => httpServer.close(resolve))
-        }
+        },
+        sessionCount: () => sessions.size
     }
 }
 
@@ -726,35 +721,27 @@ test.describe('prepareManagedAgentWorkspace', () => {
             inspect    : async (opts, result) => {
                 const
                     config = JSON.parse(await read(path.join(result.instanceHome, 'claude_desktop_config.json'))),
-                    bridge = path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js');
+                    bridge = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs');
 
                 expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
                     command: NODE_PATH,
                     args   : [
                         bridge,
+                        '--url',
                         'https://tenant.example.com/agentos/mc/mcp',
-                        '--header',
-                        'Authorization: Bearer ${NEO_MCP_REMOTE_TOKEN}',
-                        '--transport',
-                        'http-only'
-                    ],
-                    env: {
-                        MCP_REMOTE_CONFIG_DIR: path.join(result.instanceHome, 'mcp-remote')
-                    }
+                        '--token-env',
+                        'NEO_MCP_REMOTE_TOKEN'
+                    ]
                 });
                 expect(config.mcpServers['neo-mjs-knowledge-base']).toEqual({
                     command: NODE_PATH,
                     args   : [
                         bridge,
+                        '--url',
                         'https://tenant.example.com/agentos/kb/mcp',
-                        '--header',
-                        'Authorization: Bearer ${NEO_MCP_REMOTE_TOKEN}',
-                        '--transport',
-                        'http-only'
-                    ],
-                    env: {
-                        MCP_REMOTE_CONFIG_DIR: path.join(result.instanceHome, 'mcp-remote')
-                    }
+                        '--token-env',
+                        'NEO_MCP_REMOTE_TOKEN'
+                    ]
                 });
                 expect(config.mcpServers['neo-mjs-neural-link'].command).toBe(NODE_PATH)
             }
@@ -1074,7 +1061,8 @@ test.describe('prepareManagedAgentWorkspace', () => {
                     await client.close()
                 }
 
-                expect(stderr).not.toContain(token)
+                expect(stderr).not.toContain(token);
+                await expect.poll(fixture.sessionCount).toBe(0)
             }
         } finally {
             await fixture.close()
@@ -1091,26 +1079,19 @@ test.describe('prepareManagedAgentWorkspace', () => {
             code: 'FLEET_WORKSPACE_UNSUPPORTED'
         });
 
-        const wrongVersion = options(makeAgent('claude-desktop'), 'remote-desktop-wrong-version');
+        const wrongKind = options(makeAgent('claude-desktop'), 'remote-desktop-wrong-kind');
 
-        wrongVersion.mcpTransport = remoteTransport();
-        await fs.writeFile(path.join(mainCheckout, 'node_modules/mcp-remote/package.json'), JSON.stringify({
-            name   : 'mcp-remote',
-            version: '0.1.37'
-        }), 'utf8');
+        wrongKind.mcpTransport = remoteTransport();
+        wrongKind.remoteMcpCapability.bridge.kind = 'generic-proxy';
 
-        await expect(prepareManagedAgentWorkspace(wrongVersion)).rejects.toMatchObject({
+        await expect(prepareManagedAgentWorkspace(wrongKind)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'
         });
 
         const missingBridge = options(makeAgent('claude-desktop'), 'remote-desktop-missing-bridge');
 
         missingBridge.mcpTransport = remoteTransport();
-        await fs.writeFile(path.join(mainCheckout, 'node_modules/mcp-remote/package.json'), JSON.stringify({
-            name   : 'mcp-remote',
-            version: CLAUDE_DESKTOP_MCP_REMOTE_VERSION
-        }), 'utf8');
-        await fs.rm(path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js'));
+        await fs.rm(path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'));
 
         await expect(prepareManagedAgentWorkspace(missingBridge)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'

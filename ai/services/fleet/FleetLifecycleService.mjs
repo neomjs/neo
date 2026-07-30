@@ -1,12 +1,11 @@
-import {execFile, spawn}          from 'child_process';
-import fs                         from 'fs';
-import path                       from 'path';
-import {fileURLToPath}            from 'url';
-import AiConfig                   from '../../config.mjs';
-import {generateLocalBearerToken} from '../../mcp/server/shared/helpers/localBearer.mjs';
-import Base                       from '../../../src/core/Base.mjs';
+import {execFile, execFileSync, spawn} from 'child_process';
+import fs                              from 'fs';
+import path                            from 'path';
+import {fileURLToPath}                 from 'url';
+import AiConfig                        from '../../config.mjs';
+import {generateLocalBearerToken}      from '../../mcp/server/shared/helpers/localBearer.mjs';
+import Base                            from '../../../src/core/Base.mjs';
 import {
-    CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR
 } from '../../../src/ai/fleet/mcpServers.mjs';
@@ -86,34 +85,41 @@ const AMBIENT_ENV_ALLOWLIST = Object.freeze([
 const PROTO_ENV_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
 
 /**
- * @summary Inspect the exact checkout-installed `mcp-remote` package without executing it. Claude
- * Desktop invokes the package through the already-proven Node binary; package name, version,
- * entrypoint readability, and Node executability form its pre-provisioning admission proof.
+ * @summary Inspect Neo's checkout-installed stdio-to-Streamable-HTTP bridge without executing it.
+ * Claude Desktop invokes the reviewed entrypoint through the already-proven Node binary;
+ * entrypoint readability and Node executability form its pre-provisioning admission proof.
  * @param {Object} options
  * @param {String} options.mainCheckout Installed canonical checkout.
  * @param {String} options.nodePath Node binary used to execute the bridge.
- * @returns {{packageName: String, version: String, command: String, entrypoint: String}}
+ * @returns {{kind: String, command: String, entrypoint: String}}
  * @private
  */
-function probeClaudeDesktopMcpRemote({mainCheckout, nodePath}) {
+function probeClaudeDesktopMcpBridge({mainCheckout, nodePath}) {
     const
-        packagePath = path.join(mainCheckout, 'node_modules/mcp-remote/package.json'),
-        entrypoint  = path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js'),
-        manifest    = JSON.parse(fs.readFileSync(packagePath, 'utf8')),
-        nodeStat    = fs.statSync(nodePath),
-        bridgeStat  = fs.lstatSync(entrypoint);
+        entrypoint = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
+        nodeStat   = fs.statSync(nodePath),
+        bridgeStat = fs.lstatSync(entrypoint);
 
     if (!nodeStat.isFile() || !bridgeStat.isFile()) {
-        throw new Error('mcp-remote Node command or bridge entrypoint is not a file')
+        throw new Error('Claude Desktop bridge Node command or entrypoint is not a file')
     }
 
     fs.accessSync(nodePath, fs.constants.X_OK);
     fs.accessSync(entrypoint, fs.constants.R_OK);
 
+    const help = execFileSync(nodePath, [entrypoint, '--help'], {
+        encoding: 'utf8',
+        env     : {PATH: process.env.PATH},
+        timeout : 3000
+    });
+
+    if (!help.includes('--url <url>') || !help.includes('--token-env <name>')) {
+        throw new Error('Claude Desktop bridge entrypoint does not expose Fleet grammar')
+    }
+
     return {
-        packageName: manifest.name,
-        version    : manifest.version,
-        command    : nodePath,
+        kind   : 'neo-stdio-streamable-http',
+        command: nodePath,
         entrypoint
     }
 }
@@ -296,12 +302,12 @@ class FleetLifecycleService extends Base {
     execFileFn = null
 
     /**
-     * Installed `mcp-remote` package probe for Claude Desktop. Defaults to the bounded package
-     * manifest/filesystem inspector; injectable so lifecycle specs can falsify missing/drifted
-     * releases without mutating this checkout's dependency tree.
-     * @member {Function|null} mcpRemoteCapabilityProbeFn=null
+     * Installed Neo bridge probe for Claude Desktop. Defaults to the bounded filesystem inspector;
+     * injectable so lifecycle specs can falsify missing/drifted capability without mutating this
+     * checkout.
+     * @member {Function|null} claudeDesktopBridgeCapabilityProbeFn=null
      */
-    mcpRemoteCapabilityProbeFn = null
+    claudeDesktopBridgeCapabilityProbeFn = null
 
     /**
      * Fetch implementation for the Fleet-owned OpenCode session-creation request. Defaults to the
@@ -1332,16 +1338,15 @@ class FleetLifecycleService extends Base {
             let bridge;
 
             try {
-                bridge = this.getMcpRemoteCapabilityProbe()({mainCheckout, nodePath})
+                bridge = this.getClaudeDesktopBridgeCapabilityProbe()({mainCheckout, nodePath})
             } catch {
-                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' mcp-remote capability probe failed for agent '${id}'.`)
+                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' bridge capability probe failed for agent '${id}'.`)
             }
 
-            if (bridge?.packageName !== 'mcp-remote' ||
-                bridge.version !== CLAUDE_DESKTOP_MCP_REMOTE_VERSION ||
+            if (bridge?.kind !== 'neo-stdio-streamable-http' ||
                 !path.isAbsolute(bridge.command || '') ||
                 !path.isAbsolute(bridge.entrypoint || '')) {
-                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' does not expose Fleet's required mcp-remote@${CLAUDE_DESKTOP_MCP_REMOTE_VERSION} grammar for agent '${id}'.`)
+                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' does not expose Fleet's required Neo stdio-to-Streamable-HTTP bridge for agent '${id}'.`)
             }
 
             return {harnessType, binaryPath, launchBinaryPath, bridge}
@@ -1697,11 +1702,12 @@ class FleetLifecycleService extends Base {
     }
 
     /**
-     * @returns {Function} Claude Desktop's installed `mcp-remote` capability inspector.
+     * @summary Resolve the injectable or default Claude Desktop bridge capability inspector.
+     * @returns {Function} Claude Desktop's installed Neo bridge capability inspector.
      * @private
      */
-    getMcpRemoteCapabilityProbe() {
-        return this.mcpRemoteCapabilityProbeFn || probeClaudeDesktopMcpRemote;
+    getClaudeDesktopBridgeCapabilityProbe() {
+        return this.claudeDesktopBridgeCapabilityProbeFn || probeClaudeDesktopMcpBridge;
     }
 
     /**
