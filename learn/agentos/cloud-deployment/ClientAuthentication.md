@@ -132,6 +132,26 @@ For a headless agent, inject it the way your platform injects any secret (env va
 
 These assume `NEO_MCP_TOKEN` holds your PAT and the server is reachable at `https://mcp.<your-host>/mc/mcp` (Memory Core) or `https://mcp.<your-host>/kb/mcp` (Knowledge Base).
 
+#### Fleet vocabulary: target, transport, adapter
+
+Fleet keeps three layers explicit. The public agent definition selects an MCP **target**:
+resident services or one connected tenant. Workspace preparation resolves that intent into plan
+rows whose `target` is `resident` or `tenant` and whose canonical MCP `transport` is `stdio` or
+`streamable-http`. Only the final harness adapter translates that plan into product grammar such as
+Codex `streamable_http`, Claude Code `http`, or Claude Desktop's local command bridge. Vendor
+spellings never enter the public registry, and target placement is never named after a wire
+protocol.
+
+```mermaid
+flowchart TD
+    intent["Public intent<br/>mcpTarget: resident or tenant"] --> plan["Resolved plan row<br/>target + canonical transport"]
+    plan --> stdio["stdio"]
+    plan --> streamable["streamable-http"]
+    streamable --> codexAdapter["Codex adapter<br/>streamable_http"]
+    streamable --> claudeAdapter["Claude Code adapter<br/>http"]
+    streamable --> desktopAdapter["Claude Desktop adapter<br/>local stdio bridge"]
+```
+
 For a publicly reachable endpoint, Claude's current default is an account-level native connector:
 open **Settings → Connectors → Add custom connector** and enter the MCP URL. The current
 [custom-connector contract](https://claude.com/docs/connectors/custom/remote-mcp) also supports fixed

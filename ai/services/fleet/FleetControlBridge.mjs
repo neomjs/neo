@@ -206,7 +206,7 @@ class FleetControlBridge extends Base {
      * @param {Object} [definition.metadata]         Free-form non-secret metadata.
      * @param {String} [definition.modelProvider]    The agent's model-provider login; resolves via the AiConfig SSOT leaf when omitted.
      * @param {Object|null} [definition.mcpServers]   Complete sparse MCP overrides; omitted/null follows live defaults, exactly like configureAgent.
-     * @param {Object|null} [definition.mcpTransport] Local stdio or one connected remote tenant id.
+     * @param {Object|null} [definition.mcpTarget] Resident services or one connected tenant id.
      * @returns {Object} The public agent definition (no credential), or a controlled
      *     `{status:'rejected', reason}` outcome for FleetRegistryService validation failures.
      */
@@ -214,14 +214,14 @@ class FleetControlBridge extends Base {
         try {
             const
                 registry        = this.getRegistry(),
-                transport       = definition?.mcpTransport,
-                selectingRemote = transport?.mode === 'remote-http' &&
-                    typeof transport.tenantId === 'string' &&
-                    !!transport.tenantId.trim(),
-                agentId   = definition?.id || definition?.githubUsername,
-                existing  = selectingRemote && agentId ? registry.getAgent(agentId) : null,
-                rejected  = selectingRemote && !existing &&
-                    this.rejectUnavailableRemoteMcpSelection(transport);
+                target          = definition?.mcpTarget,
+                selectingTenant = target?.kind === 'tenant' &&
+                    typeof target.tenantId === 'string' &&
+                    !!target.tenantId.trim(),
+                agentId  = definition?.id || definition?.githubUsername,
+                existing = selectingTenant && agentId ? registry.getAgent(agentId) : null,
+                rejected = selectingTenant && !existing &&
+                    this.rejectUnavailableMcpTarget(target);
 
             if (rejected) return rejected;
 
@@ -265,25 +265,25 @@ class FleetControlBridge extends Base {
      * @summary Configure an existing agent through one serializable curated intent. Validation
      * failures become an explicit domain outcome the Accounts card may render; unexpected service
      * failures still throw and are sanitized by dispatchFleetRequest.
-     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTransport?}`
+     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTarget?}`
      * @returns {{status: 'accepted', agent: Object}|{status: 'rejected', reason: String}}
      */
     configureAgent(intent) {
         try {
             const
-                registry  = this.getRegistry(),
-                transport = intent && Object.hasOwn(intent, 'mcpTransport')
-                    ? intent.mcpTransport
+                registry = this.getRegistry(),
+                target   = intent && Object.hasOwn(intent, 'mcpTarget')
+                    ? intent.mcpTarget
                     : null,
-                selectingRemote = transport?.mode === 'remote-http' &&
-                    typeof transport.tenantId === 'string' &&
-                    !!transport.tenantId.trim(),
-                existing  = selectingRemote ? registry.getAgent(intent?.id) : null,
-                unchanged = transport?.mode === 'remote-http' &&
-                    existing?.mcpTransport?.mode === 'remote-http' &&
-                    existing.mcpTransport.tenantId === transport.tenantId,
+                selectingTenant = target?.kind === 'tenant' &&
+                    typeof target.tenantId === 'string' &&
+                    !!target.tenantId.trim(),
+                existing  = selectingTenant ? registry.getAgent(intent?.id) : null,
+                unchanged = target?.kind === 'tenant' &&
+                    existing?.mcpTarget?.kind === 'tenant' &&
+                    existing.mcpTarget.tenantId === target.tenantId,
                 rejected = existing && !unchanged &&
-                    this.rejectUnavailableRemoteMcpSelection(transport);
+                    this.rejectUnavailableMcpTarget(target);
 
             if (rejected) return rejected;
 
@@ -304,26 +304,26 @@ class FleetControlBridge extends Base {
     }
 
     /**
-     * @summary Reject a NEW remote target selection unless the Brain tenant authority can resolve it
+     * @summary Reject a NEW tenant target selection unless the Brain tenant authority can resolve it
      * as connected. Registry persistence remains provider-neutral; this Body→Brain boundary prevents
      * a stale/direct wire intent from bypassing the card's inert-target affordance. An unchanged
      * already-persisted selection is deliberately handled by its normal start-time readiness gate.
-     * @param {Object|null} transport
+     * @param {Object|null} target
      * @returns {Object|null} Controlled rejection or `null`.
      * @protected
      */
-    rejectUnavailableRemoteMcpSelection(transport) {
-        if (transport?.mode !== 'remote-http' ||
-            typeof transport.tenantId !== 'string' ||
-            !transport.tenantId.trim()) {
+    rejectUnavailableMcpTarget(target) {
+        if (target?.kind !== 'tenant' ||
+            typeof target.tenantId !== 'string' ||
+            !target.tenantId.trim()) {
             return null
         }
 
-        if (this.getTenantService().resolveMcpResources(transport.tenantId)) return null;
+        if (this.getTenantService().resolveMcpResources(target.tenantId)) return null;
 
         return {
             status: 'rejected',
-            reason: `Remote MCP tenant '${transport.tenantId}' is unavailable.`
+            reason: `MCP tenant '${target.tenantId}' is unavailable.`
         }
     }
 

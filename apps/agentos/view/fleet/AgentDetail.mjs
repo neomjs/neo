@@ -572,7 +572,7 @@ class AgentDetail extends Container {
      * response. This owner contributes only its store resolution and its status sink (the card).
      * Fail-closed and readback-only by construction —
      * see {@link module:apps/agentos/view/fleet/configIntentRoundTrip}.
-     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTransport?}` (+ event envelope,
+     * @param {Object} intent `{id, harnessType?, mcpServers?, mcpTarget?}` (+ event envelope,
      *     stripped by the runner).
      * @returns {Promise<void>}
      */

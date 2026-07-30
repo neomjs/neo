@@ -322,7 +322,7 @@ class Accounts extends DashboardPanel {
      * onto the store record, which re-renders the card. Fail-closed: without a bridge nothing
      * mutates locally — a config that did not persist must never render as if it had.
      * @param {Object} intent The one wire shape:
-     *     `{id, harnessType?, mcpServers?, mcpTransport?}`.
+     *     `{id, harnessType?, mcpServers?, mcpTarget?}`.
      * @returns {Promise<void>}
      */
     async onAgentConfigIntent(intent={}) {
