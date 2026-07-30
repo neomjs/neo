@@ -8,8 +8,8 @@ import {sanitizeContent}                                                    from
  *
  * Covers the branch-ready first slice: a pure author-tier classifier plus a pure sanitizer/defanger
  * with fixtures for both documented attack variants (link-bearing marketing URL, link-free
- * product-name seeding), the engagement-bait / external-endpoint variant, and the self-promotional
- * licensing-pitch variant — plus the load-bearing negatives (trusted authors untouched, clean
+ * product-name seeding), the engagement-bait / external-endpoint variant, and the maintainer
+ * dual-licensing variant — plus the load-bearing negatives (trusted authors untouched, clean
  * content not over-redacted).
  */
 test.describe('Neo.ai.services.shared.contentTrust.authorTrustClassifier', () => {
@@ -114,7 +114,7 @@ test.describe('Neo.ai.services.shared.contentTrust.astroturfSanitizer', () => {
         expect(signalIds).toContain('external-endpoint-offer')
     });
 
-    test('licensing-pitch variant: self-promotional maintenance + commercial terms are FLAGGED, not redacted', () => {
+    test('licensing-pitch variant: maintainer disclosure + commercial terms are FLAGGED, not redacted', () => {
         const positives = [
             'I maintain ExampleGraph, which is source-available and free for non-commercial use, while commercial use requires separate permission.',
             'We also maintain ExampleTool — free for non commercial use; commercial use requires a separate license.'
@@ -127,13 +127,13 @@ test.describe('Neo.ai.services.shared.contentTrust.astroturfSanitizer', () => {
             expect(result.wasModified).toBe(false);
             expect(result.redactions).toEqual([]);
             expect(result.signals).toEqual([{
-                id  : 'self-promotional-licensing-pitch',
-                note: 'self-promotional product maintenance paired with non-commercial and commercial-use terms'
+                id  : 'maintainer-dual-licensing-terms',
+                note: 'first-person product maintenance paired with non-commercial and commercial-use terms'
             }])
         })
     });
 
-    test('licensing-pitch signal requires self-promotion and both licensing legs in one bounded sentence', () => {
+    test('licensing-pitch signal requires first-person maintenance and both licensing legs in one bounded sentence', () => {
         const negatives = [
             'I maintain ExampleGraph and use it at work.',
             'This dependency is source-available; check whether commercial use requires separate permission.',

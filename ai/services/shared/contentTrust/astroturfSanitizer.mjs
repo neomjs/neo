@@ -62,12 +62,12 @@ const STEALTH_SIGNALS = [
         note   : 'offer to stand up an external endpoint / index our repo (external-infra-on-our-content)'
     },
     {
-        id     : 'self-promotional-licensing-pitch',
+        id     : 'maintainer-dual-licensing-terms',
         // Incident fixture: "I maintain <product> ... free for non-commercial use, while commercial
         // use requires separate permission." Require all three parts in one bounded sentence:
         // self-reference plus both licensing legs. Ordinary maintainer or licensing context stays clean.
         pattern: /\b(?:i|we)\s+(?:also\s+)?maintain\b(?=[^.!?\n]{0,120}\b(?:source[- ]available|free\s+for\s+non[- ]commercial\s+use)\b)(?=[^.!?\n]{0,120}\bcommercial\s+use\s+requires?\s+(?:(?:a\s+)?(?:separate|specific)\s+|a\s+)?(?:permission|licen[cs]e)\b)/i,
-        note   : 'self-promotional product maintenance paired with non-commercial and commercial-use terms'
+        note   : 'first-person product maintenance paired with non-commercial and commercial-use terms'
     }
 ];
 
