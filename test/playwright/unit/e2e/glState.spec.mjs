@@ -6,7 +6,8 @@ import {
     GPU_INTENT_ARGS,
     isEngineProfile,
     isFilmTake,
-    PRESENTING_LAUNCH_ARGS
+    PRESENTING_LAUNCH_ARGS,
+    requiresGlProbe
 }                                                from '../../e2e/utils/gpuIntent.mjs';
 import {readGlState, SOFTWARE_RENDERER_MARKERS}   from '../../e2e/utils/glState.mjs';
 
@@ -128,28 +129,34 @@ test.describe('e2e/utils/glState', () => {
             expect(isEngineProfile()).toBe(false);
             expect(isFilmTake()).toBe(false);
             expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(false);
 
             process.env.NEO_E2E_ENGINE_PROFILE = '0';
             expect(isEngineProfile()).toBe(false);
             expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(false);
 
             process.env.NEO_E2E_ENGINE_PROFILE = 'false';
             expect(isEngineProfile()).toBe(false);
             expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(false);
 
             process.env.NEO_E2E_ENGINE_PROFILE = 'engine';
             expect(isEngineProfile()).toBe(false);
             expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(false);
 
             delete process.env.NEO_E2E_ENGINE_PROFILE;
             process.env.NEO_FILM_TAKE = '1';
             expect(isFilmTake()).toBe(true);
             expect(activeLaunchArgs()).toBe(PRESENTING_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(false);
 
             delete process.env.NEO_FILM_TAKE;
             process.env.NEO_E2E_ENGINE_PROFILE = '1';
             expect(isEngineProfile()).toBe(true);
             expect(activeLaunchArgs()).toBe(ENGINE_LAUNCH_ARGS);
+            expect(requiresGlProbe()).toBe(true);
             expect(ENGINE_LAUNCH_ARGS).toContain('--disable-frame-rate-limit');
             expect(PRESENTING_LAUNCH_ARGS).not.toContain('--disable-frame-rate-limit');
 
@@ -168,6 +175,56 @@ test.describe('e2e/utils/glState', () => {
                 delete process.env.NEO_FILM_TAKE
             } else {
                 process.env.NEO_FILM_TAKE = previousFilm
+            }
+        }
+    });
+
+    test('#16151 presenting config has one Chrome owner; engine config retains the GL probe', async () => {
+        const
+            previousEngine = process.env.NEO_E2E_ENGINE_PROFILE,
+            previousFilm   = process.env.NEO_FILM_TAKE,
+            previousPort   = process.env.NEO_E2E_PORT;
+
+        try {
+            delete process.env.NEO_E2E_ENGINE_PROFILE;
+            process.env.NEO_FILM_TAKE = '1';
+
+            const presentingConfig = (
+                await import(`../../playwright.config.e2e.mjs?profile=presenting-${Date.now()}`)
+            ).default;
+
+            expect(presentingConfig.projects.map(project => project.name)).toEqual(['chromium']);
+            expect(presentingConfig.projects[0].dependencies).toBeUndefined();
+            expect(presentingConfig.projects[0].use.launchOptions.args).toBe(PRESENTING_LAUNCH_ARGS);
+
+            delete process.env.NEO_FILM_TAKE;
+            process.env.NEO_E2E_ENGINE_PROFILE = '1';
+
+            const engineConfig = (
+                await import(`../../playwright.config.e2e.mjs?profile=engine-${Date.now()}`)
+            ).default;
+
+            expect(engineConfig.projects.map(project => project.name)).toEqual(['gl-probe', 'chromium']);
+            expect(engineConfig.projects[1].dependencies).toEqual(['gl-probe']);
+            expect(engineConfig.projects[0].use.launchOptions.args).toBe(ENGINE_LAUNCH_ARGS);
+            expect(engineConfig.projects[1].use.launchOptions.args).toBe(ENGINE_LAUNCH_ARGS)
+        } finally {
+            if (previousEngine === undefined) {
+                delete process.env.NEO_E2E_ENGINE_PROFILE
+            } else {
+                process.env.NEO_E2E_ENGINE_PROFILE = previousEngine
+            }
+
+            if (previousFilm === undefined) {
+                delete process.env.NEO_FILM_TAKE
+            } else {
+                process.env.NEO_FILM_TAKE = previousFilm
+            }
+
+            if (previousPort === undefined) {
+                delete process.env.NEO_E2E_PORT
+            } else {
+                process.env.NEO_E2E_PORT = previousPort
             }
         }
     });

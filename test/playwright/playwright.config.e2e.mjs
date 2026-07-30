@@ -2,7 +2,7 @@ import './configTemplateResolver.mjs';
 
 import {defineConfig, devices} from '@playwright/test';
 import {resolveFreePortSync}   from './resolveFreePort.mjs';
-import {activeLaunchArgs}      from './e2e/utils/gpuIntent.mjs';
+import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the
@@ -12,6 +12,21 @@ const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
 // and resolveFreePortSync returns a FRESH port per call — without pinning, the webServer and a worker's
 // baseURL land on different ports (ERR_CONNECTION_REFUSED). Children inherit this; a real pin is a no-op.
 process.env.NEO_E2E_PORT = String(PORT);
+
+const
+    launchArgs     = activeLaunchArgs(),
+    needsGlProbe   = requiresGlProbe(launchArgs),
+    browserProject = {
+        name: 'chromium',
+        use : {
+            channel: 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
+            // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
+            // launches with. A second copy here would drift, and drift between two statements of one
+            // fact is how a dead GL flag stayed invisible for five months. The mode selection
+            // (presenting default vs explicit engine profile) lives there for the same reason.
+            launchOptions: {args: launchArgs}
+        }
+    };
 
 export default defineConfig({
     testDir      : './e2e',
@@ -41,23 +56,17 @@ export default defineConfig({
         reuseExistingServer: false
     },
 
-    projects: [{
+    // A presenting run makes no GPU claim, so its plan contains one branded-Chrome owner. The
+    // explicit engine profile keeps the separate live-GL gate and its dependency ordering.
+    projects: needsGlProbe ? [{
         // Boot gate: observes that the GPU-intent flags below actually resolve to hardware
         // GL before a single benchmark attributes a number to acceleration it may not have. Launches
         // with the SAME args as the suite — probing a different browser would prove nothing.
         name     : 'gl-probe',
         testMatch: /gl\.setup\.mjs$/,
-        use      : {channel: 'chrome', launchOptions: {args: activeLaunchArgs()}}
+        use      : {channel: 'chrome', launchOptions: {args: launchArgs}}
     }, {
-        name        : 'chromium',
-        dependencies: ['gl-probe'],
-        use         : {
-            channel      : 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
-            // Declared once in e2e/utils/gpuIntent.mjs so the boot probe reads the same list this
-            // launches with. A second copy here would drift, and drift between two statements of one
-            // fact is how a dead GL flag stayed invisible for five months. The mode selection
-            // (presenting default vs explicit engine profile) lives there for the same reason.
-            launchOptions: {args: activeLaunchArgs()}
-        }
-    }]
+        ...browserProject,
+        dependencies: ['gl-probe']
+    }] : [browserProject]
 });
