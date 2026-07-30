@@ -1,7 +1,14 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'node:fs/promises';
-import os             from 'node:os';
-import path           from 'node:path';
+import {test, expect}                  from '@playwright/test';
+import {Client}                        from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport}          from '@modelcontextprotocol/sdk/client/stdio.js';
+import {createMcpExpressApp}           from '@modelcontextprotocol/sdk/server/express.js';
+import {McpServer}                     from '@modelcontextprotocol/sdk/server/mcp.js';
+import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import crypto                          from 'node:crypto';
+import fs                              from 'node:fs/promises';
+import os                              from 'node:os';
+import path                            from 'node:path';
+import {fileURLToPath}                 from 'node:url';
 import {
     ManagedWorkspacePreparationError,
     WORKSPACE_ARTIFACT_STATES,
@@ -25,7 +32,8 @@ enabled = true
 hooks = true
 `;
 
-const NODE_PATH = process.execPath;
+const NODE_PATH    = process.execPath;
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 const MCP_ENTRYPOINTS = [
     'ai/mcp/server/memory-core/mcp-server.mjs',
@@ -46,6 +54,12 @@ test.beforeEach(async () => {
 
     await fs.mkdir(path.join(mainCheckout, '.codex'), {recursive: true});
     await fs.writeFile(path.join(mainCheckout, '.codex', 'config.template.toml'), TEMPLATE, 'utf8');
+    await fs.mkdir(path.join(mainCheckout, 'ai/mcp/client'), {recursive: true});
+    await fs.writeFile(
+        path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
+        '// installed Neo bridge entrypoint\n',
+        'utf8'
+    );
     for (const relativePath of MCP_ENTRYPOINTS) {
         const filePath = path.join(mainCheckout, relativePath);
         await fs.mkdir(path.dirname(filePath), {recursive: true});
@@ -70,7 +84,7 @@ function makeHydrate() {
 }
 
 function options(agent, repoName = agent.id) {
-    return {
+    const result = {
         agent,
         repoPath        : path.join(repoRoot, repoName),
         instanceRoot,
@@ -78,10 +92,99 @@ function options(agent, repoName = agent.id) {
         nodePath        : NODE_PATH,
         hydrateWorkspace: makeHydrate()
     };
+
+    if (agent.harnessType === 'claude-desktop') {
+        result.remoteMcpCapability = claudeDesktopRemoteCapability(mainCheckout)
+    }
+
+    return result
+}
+
+function claudeDesktopRemoteCapability(checkout, nodePath=NODE_PATH) {
+    return {
+        harnessType     : 'claude-desktop',
+        binaryPath      : '/Applications/Claude.app/Contents/MacOS/Claude',
+        launchBinaryPath: '/Applications/Claude.app/Contents/MacOS/Claude',
+        bridge          : {
+            kind      : 'neo-stdio-streamable-http',
+            command   : nodePath,
+            entrypoint: path.join(checkout, 'ai/mcp/client/stdioToStreamableHttp.mjs')
+        }
+    }
 }
 
 async function read(filePath) {
     return fs.readFile(filePath, 'utf8');
+}
+
+/**
+ * @summary Start two authenticated Streamable-HTTP MCP resources behind one ephemeral listener.
+ * Each route exposes a resource-labelled probe tool so the generated MC and KB bridge entries can
+ * be proven independently through their actual stdio subprocess.
+ * @param {String} token Expected bearer token.
+ * @returns {Promise<{baseUrl: String, close: Function, sessionCount: Function}>}
+ */
+async function startBridgeFixture(token) {
+    const
+        app        = createMcpExpressApp({allowedHosts: ['127.0.0.1']}),
+        sessions   = new Map(),
+        mcpServers = new Set(),
+        transports = new Set();
+
+    app.use((request, response, next) => {
+        if (request.headers.authorization !== `Bearer ${token}`) {
+            response.setHeader('WWW-Authenticate', 'Bearer');
+            response.status(401).json({error: 'unauthorized'});
+            return
+        }
+
+        next()
+    });
+
+    for (const resource of ['mc', 'kb']) {
+        app.all(`/${resource}/mcp`, async (request, response) => {
+            const sessionId = request.headers['mcp-session-id'];
+            let   transport = sessionId && sessions.get(`${resource}:${sessionId}`);
+
+            if (!transport) {
+                let mcpServer;
+
+                transport = new StreamableHTTPServerTransport({
+                    sessionIdGenerator  : () => crypto.randomUUID(),
+                    onsessioninitialized: id => sessions.set(`${resource}:${id}`, transport),
+                    onsessionclosed     : id => sessions.delete(`${resource}:${id}`)
+                });
+                mcpServer = new McpServer({name: `${resource}-bridge-fixture`, version: '1.0.0'});
+                mcpServer.registerTool('bridge_probe', {
+                    description: `Return the ${resource} fixture identity.`,
+                    inputSchema: {}
+                }, async () => ({
+                    content          : [{type: 'text', text: resource}],
+                    structuredContent: {resource}
+                }));
+                mcpServers.add(mcpServer);
+                transports.add(transport);
+                await mcpServer.connect(transport)
+            }
+
+            await transport.handleRequest(request, response, request.body)
+        })
+    }
+
+    const httpServer = await new Promise((resolve, reject) => {
+        const server = app.listen(0, '127.0.0.1', () => resolve(server));
+        server.once('error', reject)
+    });
+
+    return {
+        baseUrl: `http://127.0.0.1:${httpServer.address().port}`,
+        close  : async () => {
+            await Promise.allSettled([...mcpServers].map(server => server.close()));
+            await Promise.allSettled([...transports].map(transport => transport.close()));
+            await new Promise(resolve => httpServer.close(resolve))
+        },
+        sessionCount: () => sessions.size
+    }
 }
 
 function remoteTransport(endpoint='https://tenant.example.com/agentos') {
@@ -614,6 +717,35 @@ test.describe('prepareManagedAgentWorkspace', () => {
                 expect(config.mcpServers['neo-mjs-neural-link'].command).toBe(NODE_PATH)
             }
         }, {
+            harnessType: 'claude-desktop',
+            inspect    : async (opts, result) => {
+                const
+                    config = JSON.parse(await read(path.join(result.instanceHome, 'claude_desktop_config.json'))),
+                    bridge = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs');
+
+                expect(config.mcpServers['neo-mjs-memory-core']).toEqual({
+                    command: NODE_PATH,
+                    args   : [
+                        bridge,
+                        '--url',
+                        'https://tenant.example.com/agentos/mc/mcp',
+                        '--token-env',
+                        'NEO_MCP_REMOTE_TOKEN'
+                    ]
+                });
+                expect(config.mcpServers['neo-mjs-knowledge-base']).toEqual({
+                    command: NODE_PATH,
+                    args   : [
+                        bridge,
+                        '--url',
+                        'https://tenant.example.com/agentos/kb/mcp',
+                        '--token-env',
+                        'NEO_MCP_REMOTE_TOKEN'
+                    ]
+                });
+                expect(config.mcpServers['neo-mjs-neural-link'].command).toBe(NODE_PATH)
+            }
+        }, {
             harnessType: 'kimi-code',
             inspect    : async opts => {
                 const config = JSON.parse(await read(path.join(opts.repoPath, '.kimi-code', 'mcp.json')));
@@ -735,6 +867,10 @@ test.describe('prepareManagedAgentWorkspace', () => {
             cases               = [{
                 harnessType  : 'claude-code',
                 artifactPath : (opts, result) => path.join(result.instanceHome, 'mcp-config.json'),
+                operatorBlock: strictOperatorBlock
+            }, {
+                harnessType  : 'claude-desktop',
+                artifactPath : (opts, result) => path.join(result.instanceHome, 'claude_desktop_config.json'),
                 operatorBlock: strictOperatorBlock
             }, {
                 harnessType  : 'kimi-code',
@@ -863,14 +999,104 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(hydrationCalls).toHaveLength(0)
     });
 
-    test('unsupported Claude Desktop remote transport fails before hydration or artifact writes', async () => {
-        const opts = options(makeAgent('claude-desktop'), 'remote-desktop');
+    test('Claude Desktop generated bridges list and call both ephemeral HTTP resources without leaking the bearer', async () => {
+        const
+            token   = 'plane-secret-that-must-never-reach-artifacts-or-argv',
+            fixture = await startBridgeFixture(token),
+            opts    = options(makeAgent('claude-desktop'), 'remote-desktop-live-bridge');
 
-        opts.mcpTransport = remoteTransport();
+        opts.mainCheckout       = PROJECT_ROOT;
+        opts.remoteMcpCapability = claudeDesktopRemoteCapability(PROJECT_ROOT);
+        opts.mcpTransport        = remoteTransport(fixture.baseUrl);
 
-        await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
+        try {
+            const
+                result     = await prepareManagedAgentWorkspace(opts),
+                configPath = path.join(result.instanceHome, 'claude_desktop_config.json'),
+                raw        = await read(configPath),
+                config     = JSON.parse(raw);
+
+            expect(raw).not.toContain(token);
+            expect(JSON.stringify(result)).not.toContain(token);
+
+            for (const [serverName, resource] of [
+                ['neo-mjs-memory-core', 'mc'],
+                ['neo-mjs-knowledge-base', 'kb']
+            ]) {
+                const
+                    entry     = config.mcpServers[serverName],
+                    transport = new StdioClientTransport({
+                        command: entry.command,
+                        args   : entry.args,
+                        env    : {
+                            ...process.env,
+                            ...entry.env,
+                            NEO_MCP_REMOTE_TOKEN : token
+                        },
+                        stderr: 'pipe'
+                    }),
+                    client = new Client({
+                        name   : `claude-desktop-${resource}-bridge-test`,
+                        version: '1.0.0'
+                    }, {
+                        capabilities: {}
+                    });
+                let stderr = '';
+
+                transport.stderr.on('data', chunk => {
+                    stderr += chunk
+                });
+
+                expect(entry.args.join(' ')).not.toContain(token);
+
+                try {
+                    await client.connect(transport);
+
+                    const {tools} = await client.listTools();
+                    const result  = await client.callTool({name: 'bridge_probe', arguments: {}});
+
+                    expect(tools.map(tool => tool.name)).toContain('bridge_probe');
+                    expect(result.content).toContainEqual({type: 'text', text: resource})
+                } finally {
+                    await client.close()
+                }
+
+                expect(stderr).not.toContain(token);
+                await expect.poll(fixture.sessionCount).toBe(0)
+            }
+        } finally {
+            await fixture.close()
+        }
+    });
+
+    test('Claude Desktop remote transport rejects missing or drifted bridge capability before hydration', async () => {
+        const missingProof = options(makeAgent('claude-desktop'), 'remote-desktop-missing-proof');
+
+        missingProof.mcpTransport = remoteTransport();
+        delete missingProof.remoteMcpCapability;
+
+        await expect(prepareManagedAgentWorkspace(missingProof)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_UNSUPPORTED'
         });
+
+        const wrongKind = options(makeAgent('claude-desktop'), 'remote-desktop-wrong-kind');
+
+        wrongKind.mcpTransport = remoteTransport();
+        wrongKind.remoteMcpCapability.bridge.kind = 'generic-proxy';
+
+        await expect(prepareManagedAgentWorkspace(wrongKind)).rejects.toMatchObject({
+            code: 'FLEET_WORKSPACE_UNSUPPORTED'
+        });
+
+        const missingBridge = options(makeAgent('claude-desktop'), 'remote-desktop-missing-bridge');
+
+        missingBridge.mcpTransport = remoteTransport();
+        await fs.rm(path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'));
+
+        await expect(prepareManagedAgentWorkspace(missingBridge)).rejects.toMatchObject({
+            code: 'FLEET_WORKSPACE_UNSUPPORTED'
+        });
+
         expect(hydrationCalls).toHaveLength(0);
         await expect(fs.stat(instanceRoot)).rejects.toMatchObject({code: 'ENOENT'})
     });

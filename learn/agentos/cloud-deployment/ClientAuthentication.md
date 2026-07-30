@@ -132,15 +132,42 @@ For a headless agent, inject it the way your platform injects any secret (env va
 
 These assume `NEO_MCP_TOKEN` holds your PAT and the server is reachable at `https://mcp.<your-host>/mc/mcp` (Memory Core) or `https://mcp.<your-host>/kb/mcp` (Knowledge Base).
 
+For a publicly reachable endpoint, Claude's current default is an account-level native connector:
+open **Settings → Connectors → Add custom connector** and enter the MCP URL. The current
+[custom-connector contract](https://claude.com/docs/connectors/custom/remote-mcp) also supports fixed
+request headers, including `Authorization: Bearer …`; request-header authentication remains a beta
+rollout, so its absence in an account is a product-capability boundary rather than a reason to add a
+local proxy. The token is entered into the connector's protected header field, not written into a
+Fleet artifact.
+
+Native connectors originate from Anthropic's cloud and therefore cannot reach localhost or a
+private-only network. For the exact Fleet case where Claude Desktop must reach the same machine's
+canonical container plane, Neo ships a deliberately narrow stdio-to-Streamable-HTTP bridge:
+
 ```bash
-# mcp-remote (stdio ↔ HTTP bridge — e.g. for Claude Desktop):
-npx -y mcp-remote https://mcp.<your-host>/mc/mcp --header "Authorization: Bearer ${NEO_MCP_TOKEN}"
+# Local/private Streamable HTTP fallback for a stdio-only client.
+# The bearer value stays in the inherited environment and never enters argv.
+node ./ai/mcp/client/stdioToStreamableHttp.mjs \
+  --url https://mcp.<your-host>/mc/mcp \
+  --token-env NEO_MCP_TOKEN
 
 # Claude Code (static-header path; note: if the header is rejected it reports the
 # connection failed rather than falling back to OAuth — remove it to use Path A):
 claude mcp add --transport http neo-mc https://mcp.<your-host>/mc/mcp \
   --header "Authorization: Bearer ${NEO_MCP_TOKEN}"
 ```
+
+Fleet-managed Claude Desktop residents invoke that reviewed checkout entrypoint directly. The
+generated argv contains only the endpoint and `NEO_MCP_REMOTE_TOKEN` slot name; the raw token remains
+inherited process state. The bridge has no OAuth, browser callback, SSE-fallback, cache, or package
+download surface.
+
+Remove the bridge projection when the canonical plane becomes reachable through Claude's native
+public connector with the required authentication, through a supported private tunnel, or through
+a future managed local artifact that can encode the same loopback Streamable-HTTP URL plus inherited
+secret reference directly. Anthropic's
+[local-versus-remote guidance](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors)
+owns the current reachability distinction.
 
 ### MCP Inspector
 

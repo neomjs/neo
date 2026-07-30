@@ -754,7 +754,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [{
                 id            : 'desktop',
                 githubUsername: 'desktop',
-                harnessType   : 'claude-desktop',
+                harnessType   : 'antigravity',
                 mcpTransport  : {mode: 'remote-http', tenantId: 'missing-tenant'}
             }]}),
             tenants = Neo.create(FleetTenants, {data: [{
