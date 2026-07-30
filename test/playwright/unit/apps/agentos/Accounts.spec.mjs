@@ -727,22 +727,22 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         expect(cardText(card)).not.toMatch(/Authorization|Bearer|credentialEnvVar/);
         expect(tenants.get('tenant-a').credential).toBeUndefined();
 
-        card.onCardClick({path: [{id: `${card.id}__transport__tenant-a`}]});
-        card.onCardClick({path: [{id: `${card.id}__transport__tenant-b`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__tenant-a`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__tenant-b`}]});
 
         expect(intents).toHaveLength(1);
         expect(intents[0]).toMatchObject({
-            id          : 'ada',
-            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+            id       : 'ada',
+            mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
         });
-        expect(record.mcpTransport).toBeNull();
+        expect(record.mcpTarget).toBeNull();
 
-        record.set({mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}});
+        record.set({mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}});
         card.refresh();
-        card.onCardClick({path: [{id: `${card.id}__transport__local`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__local`}]});
 
-        expect(intents[1]).toMatchObject({id: 'ada', mcpTransport: null});
-        expect(record.mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+        expect(intents[1]).toMatchObject({id: 'ada', mcpTarget: null});
+        expect(record.mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
 
         card.destroy();
         tenants.destroy();
@@ -755,7 +755,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
                 id            : 'desktop',
                 githubUsername: 'desktop',
                 harnessType   : 'antigravity',
-                mcpTransport  : {mode: 'remote-http', tenantId: 'missing-tenant'}
+                mcpTarget     : {kind: 'tenant', tenantId: 'missing-tenant'}
             }]}),
             tenants = Neo.create(FleetTenants, {data: [{
                 id      : 'connected',
@@ -774,9 +774,9 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         expect(cardText(card)).toContain('Unavailable for this harness');
         expect(cardText(card)).toContain('missing-tenant · Saved target unavailable');
 
-        card.onCardClick({path: [{id: `${card.id}__transport__connected`}]});
-        card.onCardClick({path: [{id: `${card.id}__transport__offline`}]});
-        card.onCardClick({path: [{id: `${card.id}__transport__missing-tenant`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__connected`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__offline`}]});
+        card.onCardClick({path: [{id: `${card.id}__target__missing-tenant`}]});
 
         expect(intents).toEqual([]);
 

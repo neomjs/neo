@@ -266,7 +266,7 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
     test('remote target intent crosses the wire exactly while event envelopes and credential-shaped noise are stripped', async () => {
         const store = makeStore([
-            {id: 'ada', githubUsername: 'ada', harnessType: 'codex', mcpTransport: null}
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex', mcpTarget: null}
         ]);
         let received;
 
@@ -277,19 +277,19 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
                 return {
                     status: 'accepted',
                     agent : {
-                        id          : 'ada',
-                        harnessType : 'codex',
-                        mcpServers  : null,
-                        mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+                        id         : 'ada',
+                        harnessType: 'codex',
+                        mcpServers : null,
+                        mcpTarget  : {kind: 'tenant', tenantId: 'tenant-a'}
                     }
                 }
             }}),
             intent: {
-                id          : 'ada',
-                mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'},
-                source      : 'component-event-envelope',
-                credential  : 'must-not-cross',
-                headers     : {Authorization: 'Bearer secret'}
+                id        : 'ada',
+                mcpTarget : {kind: 'tenant', tenantId: 'tenant-a'},
+                source    : 'component-event-envelope',
+                credential: 'must-not-cross',
+                headers   : {Authorization: 'Bearer secret'}
             },
             owner        : {},
             setSaveStatus: () => {},
@@ -297,11 +297,11 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         });
 
         expect(received).toEqual({
-            id          : 'ada',
-            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+            id       : 'ada',
+            mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
         });
         expect(JSON.stringify(received)).not.toMatch(/must-not-cross|Authorization|Bearer secret/);
-        expect(store.get('ada').mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+        expect(store.get('ada').mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
 
         store.destroy()
     })

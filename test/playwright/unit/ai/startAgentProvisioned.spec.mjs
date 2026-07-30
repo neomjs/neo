@@ -67,15 +67,16 @@ function makeEnsureRepo(repoPath = '/managed/agent/repo', events) {
 
 function buildPreparedMcpPlan(args, mcpMatrix) {
     return Object.entries(mcpMatrix).map(([key, enabled]) => {
-        const remote = args.mcpTransport?.resources?.[key];
+        const resource = args.mcpTarget?.resources?.[key];
 
         return {
             key,
             name              : `neo-mjs-${key}`,
             enabled,
-            mode              : remote ? 'remote-http' : 'stdio',
-            url               : remote?.url || null,
-            credentialEnvVar  : remote ? 'NEO_MCP_REMOTE_TOKEN' : null,
+            target            : resource ? 'tenant' : 'resident',
+            transport         : resource ? 'streamable-http' : 'stdio',
+            url               : resource?.url || null,
+            credentialEnvVar  : resource ? 'NEO_MCP_REMOTE_TOKEN' : null,
             command           : '/usr/bin/node',
             sourceRoot        : '/installed/neo',
             args              : [`/installed/neo/ai/mcp/server/${key}/mcp-server.mjs`],
@@ -122,7 +123,7 @@ function repoAgent(id = 'a') {
 function remoteRepoAgent(id = 'a') {
     const agents = repoAgent(id);
 
-    agents[id].mcpTransport = {mode: 'remote-http', tenantId: 'tenant-a'};
+    agents[id].mcpTarget = {kind: 'tenant', tenantId: 'tenant-a'};
 
     return agents
 }
@@ -269,8 +270,8 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
             credential      : planePat,
             expectedIdentity: '@a'
         }]);
-        expect(prepareWorkspace.calls[0].mcpTransport).toEqual({
-            mode            : 'remote-http',
+        expect(prepareWorkspace.calls[0].mcpTarget).toEqual({
+            kind            : 'tenant',
             credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
             resources       : {
                 'memory-core'   : {url: 'https://tenant.example.com/mc/mcp'},
@@ -301,8 +302,8 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
                 'github-workflow': false,
                 'gitlab-workflow': false
             }),
-            mcpTransport: {
-                mode     : 'remote-http',
+            mcpTarget: {
+                kind     : 'tenant',
                 resources: {
                     'memory-core'   : {url: 'https://tenant.example.com/mc/mcp'},
                     'knowledge-base': {url: 'https://tenant.example.com/kb/mcp'}
@@ -389,8 +390,8 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
             lifecycle        = makeLifecycle({
                 agents: {
                     a: {
-                        id          : 'a', harnessType: 'codex', metadata: {},
-                        mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+                        id       : 'a', harnessType: 'codex', metadata: {},
+                        mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
                     }
                 },
                 credentials: {a: 'ghp_x'}

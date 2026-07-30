@@ -1399,7 +1399,7 @@ class FleetLifecycleService extends Base {
      * @param {String} options.repoPath Canonical prepared checkout path.
      * @param {String} options.instanceHome Canonical prepared harness instance home.
      * @param {Object} options.mcpMatrix Effective MCP enabled-state matrix.
-     * @param {Object} options.mcpTransport Resolved non-secret remote transport plan.
+     * @param {Object} options.mcpTarget Resolved non-secret tenant target.
      * @param {Object[]} options.mcpPlan Exact non-secret renderer input returned by workspace preparation.
      * @returns {Promise<Object>} Redacted receipt plus a producer-bound MC/KB capture plan.
      */
@@ -1409,7 +1409,7 @@ class FleetLifecycleService extends Base {
         repoPath,
         instanceHome,
         mcpMatrix,
-        mcpTransport,
+        mcpTarget,
         mcpPlan
     } = {}) {
         const
@@ -1427,9 +1427,9 @@ class FleetLifecycleService extends Base {
             !path.isAbsolute(instanceHome || '') ||
             !mcpMatrix ||
             typeof mcpMatrix !== 'object' ||
-            !mcpTransport ||
-            mcpTransport.mode !== 'remote-http' ||
-            !mcpTransport.resources ||
+            !mcpTarget ||
+            mcpTarget.kind !== 'tenant' ||
+            !mcpTarget.resources ||
             !Array.isArray(mcpPlan) ||
             !/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(agentIdentity)) {
             throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: malformed prepared Codex inspection input for agent '${agent?.id || 'unknown'}'.`)
@@ -1489,21 +1489,24 @@ class FleetLifecycleService extends Base {
 
             if (REMOTE_MCP_SERVER_KEYS.has(key)) {
                 const
-                    resource         = mcpTransport.resources[key],
+                    resource         = mcpTarget.resources[key],
                     staticHeaders    = transport.http_headers,
                     envHeaderAliases = transport.env_http_headers;
 
                 if (transport.type !== 'streamable_http' ||
                     transport.url !== resource?.url ||
                     transport.bearer_token_env_var !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
-                    planRow.mode !== 'remote-http' ||
+                    planRow.target !== 'tenant' ||
+                    planRow.transport !== 'streamable-http' ||
                     planRow.url !== resource?.url ||
                     planRow.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
                     (staticHeaders && Object.keys(staticHeaders).length > 0) ||
                     (envHeaderAliases && Object.keys(envHeaderAliases).length > 0)) {
                     throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' reported a non-canonical remote projection for '${name}'.`)
                 }
-            } else if (transport.type !== 'stdio' || planRow.mode !== 'stdio') {
+            } else if (transport.type !== 'stdio' ||
+                planRow.target !== 'resident' ||
+                planRow.transport !== 'stdio') {
                 throw new Error(`FleetLifecycleService.inspectPreparedRemoteMcpAdapter: installed '${harnessType}' moved local-only '${name}' off stdio.`)
             }
         }

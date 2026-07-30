@@ -99,13 +99,13 @@ export async function startAgentProvisioned({
     if (!agent) throw new Error(`startAgentProvisioned: unknown agent '${agentId}'.`);
 
     const
-        repo      = agent.metadata?.repo,
-        transport = agent.mcpTransport;
+        repo   = agent.metadata?.repo,
+        target = agent.mcpTarget;
 
     // No repo coordinates ⇒ nothing to provision; start in the inherited cwd (backward-compatible).
     if (!repo) {
-        if (transport?.mode === 'remote-http') {
-            throw new Error(`startAgentProvisioned: remote MCP agent '${agentId}' requires a managed repo.`)
+        if (target?.kind === 'tenant') {
+            throw new Error(`startAgentProvisioned: tenant MCP agent '${agentId}' requires a managed repo.`)
         }
 
         return lifecycleService.start(agentId);
@@ -128,21 +128,21 @@ export async function startAgentProvisioned({
         resolvedMcpCredential,
         remoteCapability;
 
-    if (transport?.mode === 'remote-http') {
+    if (target?.kind === 'tenant') {
         const activeTenantService = tenantService ?? (await import('./FleetTenantService.mjs')).default;
 
         resolvedCredential = registry.resolveCredential(agentId);
 
-        remotePlan = activeTenantService.resolveMcpResources(transport.tenantId);
+        remotePlan = activeTenantService.resolveMcpResources(target.tenantId);
 
         if (!remotePlan) {
-            throw new Error(`startAgentProvisioned: remote MCP tenant '${transport.tenantId}' is unavailable for agent '${agentId}'.`)
+            throw new Error(`startAgentProvisioned: MCP tenant '${target.tenantId}' is unavailable for agent '${agentId}'.`)
         }
 
-        resolvedMcpCredential = activeTenantService.resolveMcpCredential(transport.tenantId);
+        resolvedMcpCredential = activeTenantService.resolveMcpCredential(target.tenantId);
 
         if (!resolvedMcpCredential) {
-            throw new Error(`startAgentProvisioned: remote MCP tenant '${transport.tenantId}' has no plane credential for agent '${agentId}'.`)
+            throw new Error(`startAgentProvisioned: MCP tenant '${target.tenantId}' has no plane credential for agent '${agentId}'.`)
         }
 
         remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent, {
@@ -152,7 +152,7 @@ export async function startAgentProvisioned({
 
         const expectedIdentity = expectedAgentIdentity(agent);
         const readiness        = await activeTenantService.probeSeatCredential({
-            tenantId  : transport.tenantId,
+            tenantId  : target.tenantId,
             credential: resolvedMcpCredential,
             expectedIdentity
         });
@@ -187,8 +187,8 @@ export async function startAgentProvisioned({
         mainCheckout,
         nodePath,
         remoteMcpCapability: remoteCapability,
-        mcpTransport       : remotePlan && {
-            mode            : 'remote-http',
+        mcpTarget          : remotePlan && {
+            kind            : 'tenant',
             credentialEnvVar: REMOTE_MCP_CREDENTIAL_ENV_VAR,
             resources       : remotePlan.resources
         }
@@ -198,7 +198,7 @@ export async function startAgentProvisioned({
         throw new Error(`startAgentProvisioned: preparation did not return the canonical provisioned repoPath for agent '${agentId}'.`);
     }
 
-    if (transport?.mode === 'remote-http') {
+    if (target?.kind === 'tenant') {
         await lifecycleService.inspectPreparedRemoteMcpAdapter({
             agent,
             binaryPath  : remoteCapability.binaryPath,
@@ -206,8 +206,8 @@ export async function startAgentProvisioned({
             instanceHome: prepared.instanceHome,
             mcpMatrix   : prepared.mcpMatrix,
             mcpPlan     : prepared.mcpPlan,
-            mcpTransport: {
-                mode     : 'remote-http',
+            mcpTarget   : {
+                kind     : 'tenant',
                 resources: remotePlan.resources
             }
         })
@@ -215,7 +215,7 @@ export async function startAgentProvisioned({
 
     return lifecycleService.start(agentId, {
         cwd: prepared.repoPath,
-        ...(transport?.mode === 'remote-http'
+        ...(target?.kind === 'tenant'
             ? {resolvedCredential, resolvedMcpCredential, remoteMcpCapability: remoteCapability}
             : {})
     });

@@ -8,7 +8,7 @@ import {
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR,
     resolveMcpMatrix,
-    supportsRemoteMcpTransport
+    supportsTenantMcpTarget
 } from '../../../src/ai/fleet/mcpServers.mjs';
 import {deriveAgentInstanceHome}                           from './deriveAgentInstanceHome.mjs';
 import {LAUNCHABLE_HARNESS_TYPES}                          from './deriveHarnessLaunchSpec.mjs';
@@ -155,8 +155,8 @@ export class ManagedWorkspacePreparationError extends Error {
  * @param {String}   options.instanceRoot        Absolute Fleet harness-home root.
  * @param {String}  [options.mainCheckout]       Installed canonical checkout; defaults to this module's repo root.
  * @param {String}  [options.nodePath]           Node executable used for installed MCP entrypoints.
- * @param {Object}  [options.mcpTransport]       Resolved non-secret remote plan:
- *     `{mode:'remote-http', credentialEnvVar, resources:{memory-core:{url},knowledge-base:{url}}}`.
+ * @param {Object}  [options.mcpTarget]          Resolved non-secret tenant target:
+ *     `{kind:'tenant', credentialEnvVar, resources:{memory-core:{url},knowledge-base:{url}}}`.
  * @param {Object}  [options.remoteMcpCapability] Exact non-secret installed-adapter proof returned
  *     by `FleetLifecycleService.assertRemoteMcpCapability`.
  * @param {Function}[options.hydrateWorkspace]    Import-safe checkout hydration seam.
@@ -176,7 +176,7 @@ export async function prepareManagedAgentWorkspace({
     hydrateWorkspace = hydrateCurrentWorktree,
     deriveInstanceHome = deriveAgentInstanceHome,
     resolveMatrix = resolveMcpMatrix,
-    mcpTransport = null,
+    mcpTarget = null,
     remoteMcpCapability = null,
     fileSystem = fs,
     log = () => {}
@@ -196,7 +196,7 @@ export async function prepareManagedAgentWorkspace({
         canonicalRepoPath = path.resolve(repoPath),
         installedRoot     = path.resolve(mainCheckout),
         mcpMatrix         = resolveMatrix(agent.mcpServers),
-        plan              = createMcpPlan({mcpMatrix, repoPath: canonicalRepoPath, mainCheckout: installedRoot, nodePath, mcpTransport}),
+        plan              = createMcpPlan({mcpMatrix, repoPath: canonicalRepoPath, mainCheckout: installedRoot, nodePath, mcpTarget}),
         instanceHome      = deriveInstanceHome({instanceRoot, agentId: agent.id, harnessType: agent.harnessType});
 
     // Hardest/unsupported adapter gate runs before hydration or artifact writes. A failed product
@@ -264,21 +264,22 @@ export async function prepareManagedAgentWorkspace({
 }
 
 /** @private */
-function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTransport}) {
-    assertMcpTransportPlan(mcpTransport);
+function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTarget}) {
+    assertMcpTargetPlan(mcpTarget);
 
     return MCP_SERVERS.map(entry => {
         const
             descriptor = MCP_SERVER_DESCRIPTORS[entry.key],
-            remote     = mcpTransport?.mode === 'remote-http' && mcpTransport.resources[entry.key];
+            resource   = mcpTarget?.kind === 'tenant' && mcpTarget.resources[entry.key];
 
         return {
             key             : entry.key,
             name            : `${NEO_MCP_NAME_PREFIX}${entry.key}`,
             enabled         : mcpMatrix[entry.key] === true,
-            mode            : remote ? 'remote-http' : 'stdio',
-            url             : remote?.url ?? null,
-            credentialEnvVar: remote ? mcpTransport.credentialEnvVar : null,
+            target          : resource ? 'tenant' : 'resident',
+            transport       : resource ? 'streamable-http' : 'stdio',
+            url             : resource?.url ?? null,
+            credentialEnvVar: resource ? mcpTarget.credentialEnvVar : null,
             command         : nodePath,
             sourceRoot      : mainCheckout,
             args            : [
@@ -294,21 +295,21 @@ function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTranspor
 }
 
 /** @private */
-function assertMcpTransportPlan(transport) {
-    if (transport === null) return;
+function assertMcpTargetPlan(target) {
+    if (target === null) return;
 
-    const topLevelKeys = new Set(['mode', 'credentialEnvVar', 'resources']);
+    const topLevelKeys = new Set(['kind', 'credentialEnvVar', 'resources']);
 
-    if (!transport ||
-        typeof transport !== 'object' ||
-        Array.isArray(transport) ||
-        Object.keys(transport).some(key => !topLevelKeys.has(key)) ||
-        transport.mode !== 'remote-http' ||
-        transport.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
-        !transport.resources ||
-        typeof transport.resources !== 'object' ||
-        Array.isArray(transport.resources)) {
-        throw unsupported('remote MCP transport plan is malformed')
+    if (!target ||
+        typeof target !== 'object' ||
+        Array.isArray(target) ||
+        Object.keys(target).some(key => !topLevelKeys.has(key)) ||
+        target.kind !== 'tenant' ||
+        target.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
+        !target.resources ||
+        typeof target.resources !== 'object' ||
+        Array.isArray(target.resources)) {
+        throw unsupported('tenant MCP target plan is malformed')
     }
 
     const
@@ -319,7 +320,7 @@ function assertMcpTransportPlan(transport) {
         };
     let deploymentBase = null;
 
-    for (const [key, resource] of Object.entries(transport.resources)) {
+    for (const [key, resource] of Object.entries(target.resources)) {
         let url;
 
         try {
@@ -355,8 +356,8 @@ function assertMcpTransportPlan(transport) {
         deploymentBase = candidateBase
     }
 
-    if (![...allowed].every(key => transport.resources[key])) {
-        throw unsupported('remote MCP transport requires both memory-core and knowledge-base resources')
+    if (![...allowed].every(key => target.resources[key])) {
+        throw unsupported('tenant MCP target requires both memory-core and knowledge-base resources')
     }
 }
 
@@ -370,9 +371,9 @@ function assertHarnessSupported({agent, plan}) {
         throw unsupported(`harness '${agent.harnessType}' has no launch/workspace adapter`);
     }
 
-    if (plan.some(server => server.mode === 'remote-http') &&
-        !supportsRemoteMcpTransport(agent.harnessType)) {
-        throw unsupported(`harness '${agent.harnessType}' has no proven secret-safe remote MCP grammar`)
+    if (plan.some(server => server.target === 'tenant') &&
+        !supportsTenantMcpTarget(agent.harnessType)) {
+        throw unsupported(`harness '${agent.harnessType}' has no proven secret-safe tenant MCP grammar`)
     }
 
     const catalogUnsupported = plan.find(server => server.enabled && server.unsupportedReason);
@@ -409,7 +410,7 @@ function assertHarnessSupported({agent, plan}) {
  */
 async function assertRemoteBridgeCapability({agent, plan, capability, mainCheckout, nodePath, fileSystem}) {
     if (agent.harnessType !== 'claude-desktop' ||
-        !plan.some(server => server.enabled && server.mode === 'remote-http')) {
+        !plan.some(server => server.enabled && server.target === 'tenant')) {
         return
     }
 
@@ -452,7 +453,7 @@ async function assertRealDirectory(directoryPath, label, fileSystem) {
 
 /** @private */
 async function assertExecutablePlan({plan, nodePath, fileSystem}) {
-    const localEnabled = plan.filter(server => server.enabled && server.mode === 'stdio');
+    const localEnabled = plan.filter(server => server.enabled && server.transport === 'stdio');
 
     if (localEnabled.length === 0) return;
 
@@ -469,7 +470,7 @@ async function assertExecutablePlan({plan, nodePath, fileSystem}) {
     }
 
     for (const server of plan) {
-        if (!server.enabled || server.mode !== 'stdio') continue;
+        if (!server.enabled || server.transport !== 'stdio') continue;
 
         const
             entrypoint = server.args[0],
@@ -572,7 +573,7 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
         homePath       = path.join(homeRoot, 'config.toml'),
         memoriesPath   = path.join(homeRoot, 'memories'),
         homeContent    = renderCodexHomeConfig(),
-        remote         = plan.some(server => server.mode === 'remote-http'),
+        remote         = plan.some(server => server.target === 'tenant'),
         artifacts      = [];
 
     artifacts.push(...await convergeTransportArtifact({
@@ -647,7 +648,7 @@ async function prepareClaudeJsonArtifact({
         mergeTransport : (existing, desired) => mergeJsonTransport(existing, desired, 'mcpServers'),
         adapter        : agent.harnessType,
         instanceHome   : trustedRoot,
-        remote         : plan.some(server => server.mode === 'remote-http'),
+        remote         : plan.some(server => server.target === 'tenant'),
         ownedLabel     : 'mcpServers.neo-mjs-*',
         trustedRoot,
         fileSystem
@@ -665,7 +666,7 @@ function renderClaudeJsonContent({agent, plan, remoteMcpCapability, interpolateE
     for (const server of plan) {
         if (!server.enabled) continue;
 
-        if (server.mode === 'remote-http') {
+        if (server.transport === 'streamable-http') {
             if (agent.harnessType === 'claude-desktop') {
                 servers[server.name] = {
                     command: remoteMcpCapability.bridge.command,
@@ -937,7 +938,7 @@ function renderCodexProjectConfig(template, plan) {    const
 
 /** @private */
 function renderCodexMcpTable(server) {
-    if (server.mode === 'remote-http') {
+    if (server.transport === 'streamable-http') {
         return [
             `[mcp_servers.\"${server.name}\"]`,
             `url = ${JSON.stringify(server.url)}`,
@@ -1264,15 +1265,15 @@ const TRANSPORT_SERVER_NAMES = Object.freeze([
 
 /** @private */
 function localizePlan(plan) {
-    return plan.map(server => server.mode === 'remote-http'
-        ? {...server, mode: 'stdio', url: null, credentialEnvVar: null}
+    return plan.map(server => server.target === 'tenant'
+        ? {...server, target: 'resident', transport: 'stdio', url: null, credentialEnvVar: null}
         : {...server});
 }
 
 /** @private */
 function createRemoteServerMap(plan) {
     return Object.fromEntries(plan
-        .filter(server => server.mode === 'remote-http')
+        .filter(server => server.target === 'tenant')
         .map(server => [server.name, {
             url             : server.url,
             credentialEnvVar: server.credentialEnvVar

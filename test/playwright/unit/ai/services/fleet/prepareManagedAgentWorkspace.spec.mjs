@@ -187,9 +187,9 @@ async function startBridgeFixture(token) {
     }
 }
 
-function remoteTransport(endpoint='https://tenant.example.com/agentos') {
+function tenantTarget(endpoint='https://tenant.example.com/agentos') {
     return {
-        mode            : 'remote-http',
+        kind            : 'tenant',
         credentialEnvVar: 'NEO_MCP_REMOTE_TOKEN',
         resources       : {
             'memory-core'   : {url: `${endpoint}/mc/mcp`},
@@ -239,7 +239,9 @@ test.describe('prepareManagedAgentWorkspace', () => {
             Array.isArray(server.args) &&
             Array.isArray(server.runtimeEnv) &&
             Array.isArray(server.requiredRuntimeEnv) &&
-            Array.isArray(server.secretEnv)
+            Array.isArray(server.secretEnv) &&
+            server.target === 'resident' &&
+            server.transport === 'stdio'
         )).toBe(true);
         expect(result.artifacts.map(item => item.status)).toEqual([
             WORKSPACE_ARTIFACT_STATES.CREATED,
@@ -339,7 +341,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
     test('a remote Codex home refuses a managed-project trust downgrade instead of silently ignoring its generated MCP config', async () => {
         const opts = options(makeAgent('codex'));
 
-        opts.mcpTransport = remoteTransport();
+        opts.mcpTarget = tenantTarget();
 
         const
             first      = await prepareManagedAgentWorkspace(opts),
@@ -788,11 +790,18 @@ test.describe('prepareManagedAgentWorkspace', () => {
         for (const {harnessType, inspect} of cases) {
             const opts = options(makeAgent(harnessType), `remote-${harnessType}`);
 
-            opts.mcpTransport = remoteTransport();
+            opts.mcpTarget = tenantTarget();
 
             const result = await prepareManagedAgentWorkspace(opts);
 
             await inspect(opts, result);
+            expect(result.mcpPlan.find(server => server.key === 'memory-core'))
+                .toMatchObject({target: 'tenant', transport: 'streamable-http'});
+            expect(result.mcpPlan.find(server => server.key === 'knowledge-base'))
+                .toMatchObject({target: 'tenant', transport: 'streamable-http'});
+            expect(result.mcpPlan.find(server => server.key === 'neural-link'))
+                .toMatchObject({target: 'resident', transport: 'stdio'});
+                expect(JSON.stringify(result.mcpPlan)).not.toContain(['remote', 'http'].join('-'));
 
             const receipt = JSON.parse(await read(path.join(result.instanceHome, '.neo-fleet-mcp-transport.json')));
 
@@ -823,7 +832,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             'utf8'
         );
 
-        opts.mcpTransport = remoteTransport();
+        opts.mcpTarget = tenantTarget();
         const firstRemote = await prepareManagedAgentWorkspace(opts);
         const firstSource = await read(projectPath);
         const receiptPath = path.join(firstRemote.instanceHome, '.neo-fleet-mcp-transport.json');
@@ -835,7 +844,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(await read(homePath)).toContain('# Fleet-managed remote MCP project trust begin');
         expect(JSON.parse(await read(receiptPath)).adapter).toBe('codex');
 
-        opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+        opts.mcpTarget = tenantTarget('https://other.example.com/agentos');
         await prepareManagedAgentWorkspace(opts);
 
         const secondSource = await read(projectPath);
@@ -845,7 +854,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         expect(secondSource).toContain('https://other.example.com/agentos/mc/mcp');
         expect(secondSource).not.toContain('https://tenant.example.com/agentos/mc/mcp');
 
-        opts.mcpTransport = null;
+        opts.mcpTarget = null;
         const backToLocal = await prepareManagedAgentWorkspace(opts);
         const localSource = await read(projectPath);
 
@@ -893,7 +902,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
             await fs.writeFile(artifactPath, localWithOperator, 'utf8');
 
-            opts.mcpTransport = remoteTransport();
+            opts.mcpTarget = tenantTarget();
             const firstRemote = await prepareManagedAgentWorkspace(opts);
             const firstSource = await read(artifactPath);
             const receiptPath = path.join(firstRemote.instanceHome, '.neo-fleet-mcp-transport.json');
@@ -908,7 +917,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             );
 
             await fs.writeFile(artifactPath, edited, 'utf8');
-            opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+            opts.mcpTarget = tenantTarget('https://other.example.com/agentos');
 
             await expect(prepareManagedAgentWorkspace(opts), entry.harnessType).rejects.toMatchObject({
                 code: 'FLEET_WORKSPACE_DIVERGENT'
@@ -924,7 +933,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             expect(secondSource, entry.harnessType).toContain('https://other.example.com/agentos/mc/mcp');
             expect(secondSource, entry.harnessType).not.toContain('https://tenant.example.com/agentos/mc/mcp');
 
-            opts.mcpTransport = null;
+            opts.mcpTarget = null;
             await prepareManagedAgentWorkspace(opts);
 
             expect(await read(artifactPath), entry.harnessType).toBe(localWithOperator);
@@ -937,7 +946,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
             opts        = options(makeAgent('codex'), 'edited-remote'),
             projectPath = path.join(opts.repoPath, '.codex', 'config.toml');
 
-        opts.mcpTransport = remoteTransport();
+        opts.mcpTarget = tenantTarget();
         await prepareManagedAgentWorkspace(opts);
 
         const edited = (await read(projectPath)).replace(
@@ -946,7 +955,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
         );
 
         await fs.writeFile(projectPath, edited, 'utf8');
-        opts.mcpTransport = remoteTransport('https://other.example.com/agentos');
+        opts.mcpTarget = tenantTarget('https://other.example.com/agentos');
 
         await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
             code: 'FLEET_WORKSPACE_DIVERGENT'
@@ -956,40 +965,40 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
     test('remote plan grammar rejects extra/secret fields, incomplete resources, and split deployment bases before hydration', async () => {
         const malformed = [{
-            ...remoteTransport(),
+            ...tenantTarget(),
             token: 'secret'
         }, {
-            ...remoteTransport(),
+            ...tenantTarget(),
             resources: {
-                ...remoteTransport().resources,
+                ...tenantTarget().resources,
                 'memory-core': {
                     url    : 'https://tenant.example.com/agentos/mc/mcp',
                     headers: {Authorization: 'Bearer secret'}
                 }
             }
         }, {
-            ...remoteTransport(),
+            ...tenantTarget(),
             resources: {
                 'memory-core': {url: 'https://tenant.example.com/agentos/mc/mcp'}
             }
         }, {
-            ...remoteTransport(),
+            ...tenantTarget(),
             resources: {
                 'memory-core'   : {url: 'https://tenant.example.com/agentos/mc/mcp'},
                 'knowledge-base': {url: 'https://other.example.com/agentos/kb/mcp'}
             }
         }, {
-            ...remoteTransport(),
+            ...tenantTarget(),
             credentialEnvVar: 'GH_TOKEN'
         }, {
-            ...remoteTransport(),
+            ...tenantTarget(),
             credentialEnvVar: 'NOT VALID'
         }];
 
-        for (const [index, mcpTransport] of malformed.entries()) {
+        for (const [index, mcpTarget] of malformed.entries()) {
             const opts = options(makeAgent('codex'), `malformed-${index}`);
 
-            opts.mcpTransport = mcpTransport;
+            opts.mcpTarget = mcpTarget;
 
             await expect(prepareManagedAgentWorkspace(opts)).rejects.toMatchObject({
                 code: 'FLEET_WORKSPACE_UNSUPPORTED'
@@ -1007,7 +1016,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
         opts.mainCheckout       = PROJECT_ROOT;
         opts.remoteMcpCapability = claudeDesktopRemoteCapability(PROJECT_ROOT);
-        opts.mcpTransport        = remoteTransport(fixture.baseUrl);
+        opts.mcpTarget           = tenantTarget(fixture.baseUrl);
 
         try {
             const
@@ -1072,7 +1081,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
     test('Claude Desktop remote transport rejects missing or drifted bridge capability before hydration', async () => {
         const missingProof = options(makeAgent('claude-desktop'), 'remote-desktop-missing-proof');
 
-        missingProof.mcpTransport = remoteTransport();
+        missingProof.mcpTarget = tenantTarget();
         delete missingProof.remoteMcpCapability;
 
         await expect(prepareManagedAgentWorkspace(missingProof)).rejects.toMatchObject({
@@ -1081,7 +1090,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
         const wrongKind = options(makeAgent('claude-desktop'), 'remote-desktop-wrong-kind');
 
-        wrongKind.mcpTransport = remoteTransport();
+        wrongKind.mcpTarget = tenantTarget();
         wrongKind.remoteMcpCapability.bridge.kind = 'generic-proxy';
 
         await expect(prepareManagedAgentWorkspace(wrongKind)).rejects.toMatchObject({
@@ -1090,7 +1099,7 @@ test.describe('prepareManagedAgentWorkspace', () => {
 
         const missingBridge = options(makeAgent('claude-desktop'), 'remote-desktop-missing-bridge');
 
-        missingBridge.mcpTransport = remoteTransport();
+        missingBridge.mcpTarget = tenantTarget();
         await fs.rm(path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'));
 
         await expect(prepareManagedAgentWorkspace(missingBridge)).rejects.toMatchObject({
