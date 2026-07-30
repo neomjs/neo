@@ -448,13 +448,19 @@ test.describe('owner boundary + overlay order (source contracts)', () => {
         const source         = readFileSync(new URL('../../../../../../ai/scripts/maintenance/backup.mjs', import.meta.url), 'utf8');
 
         // The exported primitive's body never names the sync/receipt machinery
-        const runBackupBody = source.slice(source.indexOf('export async function runBackup({'), source.indexOf('export async function runBackupWithOffHostSync'));
+        const
+            wrapperStart    = source.indexOf('export async function runBackupWithOffHostSync'),
+            wrapperDocStart = source.lastIndexOf('/**', wrapperStart),
+            runBackupBody   = source.slice(source.indexOf('export async function runBackup({'), wrapperDocStart);
         expect(runBackupBody).not.toContain('runOffHostSync');
         expect(runBackupBody).not.toContain('writeBackupReceipt');
 
         // Overlay-load-first: the CLI footer loads the top-level overlay BEFORE the wrapper runs
         const footer = source.slice(source.indexOf("if (import.meta.url === `file://"));
         expect(footer.indexOf('await loadTopLevelAiConfig()')).toBeLessThan(footer.indexOf('runBackupWithOffHostSync()'));
+        expect(footer).toContain('.catch(error => {');
+        expect(footer).toContain('reportBackupTerminalFailure(error);');
+        expect(footer).toContain('process.exit(1)');
 
         // Bundle root + retention resolve from the AiConfig leaf, never the module constant
         expect(source).toContain('path.join(AiConfig.backupPath, `backup-${timestamp}`)');
@@ -474,15 +480,19 @@ test.describe('wrapper lease/truth semantics (source contracts + projection shap
         const leaseBody = wrapperBody.slice(0, wrapperBody.indexOf("owner: 'backup'"));
         expect(leaseBody).toContain('(withLeaseImpl ?? withHeavyMaintenanceLease)(async () =>');
         expect(leaseBody).toContain("syncStatus       : 'not-run-backup-failed'");
-        expect(leaseBody).toContain('runOffHostSync');
+        const syncCall = 'syncOutcome = await runOffHostSyncImpl';
+        expect(leaseBody).toContain(syncCall);
         expect(leaseBody).toContain('writeBackupReceipt');
+        expect(leaseBody).toContain('resolveCloudOnlyDefault(');
+        expect(leaseBody).toContain('AiConfig.orchestrator.cloudOnly.offHostBackupRequired');
+        expect(leaseBody).toContain('AiConfig.orchestrator.deploymentMode');
 
         // no receipt write happens outside the lease call
         const afterLease = wrapperBody.slice(wrapperBody.indexOf("owner: 'backup'"));
         expect(afterLease).not.toContain('writeBackupReceipt({');
 
         // backup.durationMs measures runBackup only, never sync time
-        expect(leaseBody.indexOf('backupStartedAt')).toBeLessThan(leaseBody.indexOf('runOffHostSync'));
+        expect(leaseBody.indexOf('backupStartedAt')).toBeLessThan(leaseBody.indexOf(syncCall));
         expect(leaseBody).toContain('backupDurationMs');
 
         // unexpected sync errors become a sync outcome, never a backup failure
@@ -532,14 +542,26 @@ test.describe('wrapper + projection behavioral witnesses', () => {
 
     const completedLease = result => async fn => ({status: 'completed', result: await fn()});
 
+    const fakeSyncOutcome = status => ({
+        completionScope: 'direct-child',
+        descendants    : 'unknown',
+        durationMs     : 1,
+        exitCode       : status === 'success' ? 0 : 3,
+        signal         : null,
+        status,
+        stderrTail     : 'credential-canary /private/secret/cloud-target',
+        terminatedVia  : 'exit'
+    });
+
     test('success path: receipt carries provenance, sync outcome, and a local-backup-scoped duration', async () => {
         const root = makeTmp();
         try {
             const {runBackupWithOffHostSync} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
             const result                     = await runBackupWithOffHostSync({
-                runBackupImpl: async () => fakeBundle(root),
-                withLeaseImpl: completedLease(),
-                backupRoot   : root
+                runBackupImpl        : async () => fakeBundle(root),
+                withLeaseImpl        : completedLease(),
+                backupRoot           : root,
+                offHostBackupRequired: false
             });
 
             expect(result.result.bundleRoot).toContain('backup-2026-07-22');
@@ -578,24 +600,79 @@ test.describe('wrapper + projection behavioral witnesses', () => {
         }
     });
 
-    test('validation path: a malformed subtree yields the validation-failed receipt and never launches a child', async () => {
-        const root = makeTmp();
-        try {
-            const {runBackupWithOffHostSync} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+    test('required/optional terminal matrix preserves the receipt before deciding the operation', async () => {
+        const {
+            REQUIRED_OFFHOST_BACKUP_ERROR_CODE,
+            reportBackupTerminalFailure,
+            runBackupWithOffHostSync
+        } = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
 
-            await runBackupWithOffHostSync({
-                runBackupImpl: async () => fakeBundle(root),
-                withLeaseImpl: completedLease(),
-                backupRoot   : root,
-                syncConfig   : {command: 'rsync', timeoutMs: 5} // out-of-bounds: validation failure
-            });
+        const cases = [
+            {status: 'disabled',          syncConfig: {command: ''}},
+            {status: 'validation-failed', syncConfig: {command: 'rsync', argv: ['--token=credential-canary{bad}']}},
+            {status: 'failed',            syncConfig: VALID_CONFIG},
+            {status: 'timeout',           syncConfig: VALID_CONFIG},
+            {status: 'success',           syncConfig: VALID_CONFIG}
+        ];
 
-            const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
-            expect(read.status).toBe('ok');
-            expect(read.receipt.backup.status).toBe('success'); // the bundle completed — only the sync was refused
-            expect(read.receipt.offHostSync.status).toBe('validation-failed');
-        } finally {
-            rmSync(root, {force: true, recursive: true})
+        for (const offHostBackupRequired of [false, true]) {
+            for (const {status, syncConfig} of cases) {
+                const root = makeTmp();
+
+                try {
+                    const
+                        warnings     = [],
+                        originalWarn = console.warn;
+
+                    console.warn = (...args) => warnings.push(args.map(String).join(' '));
+
+                    const run = runBackupWithOffHostSync({
+                        runBackupImpl     : async () => fakeBundle(root),
+                        withLeaseImpl     : completedLease(),
+                        backupRoot        : root,
+                        syncConfig,
+                        runOffHostSyncImpl: async () => fakeSyncOutcome(status),
+                        offHostBackupRequired
+                    }).finally(() => {
+                        console.warn = originalWarn
+                    });
+
+                    if (offHostBackupRequired && status !== 'success') {
+                        const error = await run.then(() => null, value => value);
+
+                        expect(error).toBeInstanceOf(Error);
+                        expect(error).toMatchObject({
+                            code             : REQUIRED_OFFHOST_BACKUP_ERROR_CODE,
+                            message          : expect.not.stringContaining('credential-canary'),
+                            offHostSyncStatus: status
+                        });
+                        expect(warnings.join('\n')).not.toContain('credential-canary');
+                        expect(warnings.join('\n')).not.toContain('/private/secret/cloud-target');
+
+                        const terminal = [];
+                        reportBackupTerminalFailure(error, {error: (...args) => terminal.push(args.map(String).join(' '))});
+
+                        expect(terminal).toEqual([
+                            `❌ Backup failed: ${REQUIRED_OFFHOST_BACKUP_ERROR_CODE} (status=${status}).`
+                        ]);
+                        expect(terminal.join('\n')).not.toContain('credential-canary');
+                        expect(terminal.join('\n')).not.toContain('/private/secret/cloud-target');
+                    } else {
+                        await expect(run).resolves.toMatchObject({status: 'completed'});
+
+                        if (!offHostBackupRequired && ['validation-failed', 'failed', 'timeout'].includes(status)) {
+                            expect(warnings).toHaveLength(1)
+                        }
+                    }
+
+                    const read = await readBackupReceipt({filePath: path.join(root, 'last-backup-receipt.json')});
+                    expect(read.status).toBe('ok');
+                    expect(read.receipt.backup.status).toBe('success');
+                    expect(read.receipt.offHostSync.status).toBe(status)
+                } finally {
+                    rmSync(root, {force: true, recursive: true})
+                }
+            }
         }
     });
 
