@@ -141,7 +141,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
               stateDot = card.down({ntype: 'fm-state-dot'});
 
         // all sources wired + observed → the honest nominal summary; the dot pulses live
-        expect(strip.html).toBe('all sources nominal');
+        expect(strip.text).toBe('all sources nominal');
         expect(strip.cls).toContain('fm-strip-ok');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(true);
@@ -157,7 +157,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
 
         expect(card.id).toBe(beforeId);
         expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
-        expect(strip.html).toBe('Runtime not nominal +1');   // pure status: full word, no ▸ affordance, never the RUN/REP/ROS acronym wall
+        expect(strip.text).toBe('Runtime not nominal +1');   // pure status: full word, no ▸ affordance, never the RUN/REP/ROS acronym wall
         expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('unobserved');
         expect(stateDot.live).toBe(false);
@@ -175,7 +175,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             ...observedSources,
             runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'inferred'}
         }});
-        expect(strip.html).toBe('all sources nominal');
+        expect(strip.text).toBe('all sources nominal');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(false);
         expect(card.down({reference: 'control-toggle'}).disabled).toBe(false);
@@ -340,7 +340,8 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(status().hidden).toBe(false);
         expect(status().text).toBe('⚠ rejected: harness offline');
 
-        // a NEW attempt takes visual priority over a stale reason (the clear-on-new-intent nuance, render side)
+        // control-status-priority: a NEW attempt takes visual priority over a stale reason (the
+        // clear-on-new-intent nuance, render side)
         applySet(card, {pendingAction: 'start'});
         expect(status().text).toBe('start…');
 
@@ -491,7 +492,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         // the measured 7–17 open lanes cannot read as one line: the line keeps the CURRENT lane,
         // the badge carries the honest total. A short lane renders whole (one fm-lane-whole span);
         // the head+tail middle elision only engages for a long lane.
-        // inert text node (not html/innerHTML) — remote lane strings must never execute
+        // lane-is-text-node: inert text node (not html/innerHTML) — remote lane strings must never execute
         expect(card.down({reference: 'card-lane'}).vdom.cn[0].text).toBe('harness-UI shell + left-rail nav');
         expect(badge().hidden).toBe(false);
         expect(badge().text).toBe('17 lanes');
@@ -602,6 +603,198 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(provenance().hidden).toBe(false);
         expect(provenance().text).toBe('◇');
 
+        card.destroy()
+    });
+
+    test('strip-is-status (#15536): the strip is a pure role=status INERT text node — meaning survives colour removal and no innerHTML sink carries the summary', () => {
+        const
+            card  = createCard({agentId: 'vega', state: 'ok'}),
+            strip = () => card.down({reference: 'source-strip'});
+
+        // the role must reach the DOM through the vdom ROOT — a role that only lived in memory would
+        // announce nothing, and this strip is the card's source live-region
+        expect(strip().vdom.role).toBe('status');
+        expect(strip().vdom['aria-label']).toBe('Source health: all sources nominal.');
+
+        // the word is an INERT text node, never innerHTML. `html` here would make safety a property
+        // summarizeFleetSources must preserve forever (it composes from a frozen label map today, so
+        // there is no live exploit) rather than one the card cannot get wrong. A text node holds even
+        // if a later edit folds a source REASON into the summary — the same contract the lane keeps.
+        expect(strip().text).toBe('all sources nominal');
+        expect(strip().html ?? null).toBeNull();
+        expect(strip().vdom.html ?? null).toBeNull();
+
+        // no disclosure affordance on a non-interactive status node — the card-name drill IS the card's
+        // one route to full facts. A ▸ expander would need this to become a container or carry a
+        // handler; assert neither, so reintroducing one fails here instead of passing quietly.
+        expect(strip().ntype).toBe('component');
+        expect(strip().handler ?? null).toBeNull();
+
+        // WCAG 1.4.1: `fm-strip-<level>` colours only the ::before dot, so the WORD itself must change
+        // with the level — otherwise colour would be the sole carrier of the health fact
+        const nominalText = strip().text;
+
+        applySet(card, {sources: {
+            roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',     confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+        }});
+
+        expect(strip().cls).toContain('fm-strip-bad');
+        expect(strip().text).not.toBe(nominalText);
+        expect(strip().text).toBe('Runtime not nominal');
+        // the sink stays closed ACROSS an update, not merely at construct time
+        expect(strip().html ?? null).toBeNull();
+        expect(strip().vdom.html ?? null).toBeNull();
+
+        // defense in depth, and the reason the historic `html:` was never exploitable: the summariser
+        // is CLOSED over adapter data. A hostile `source` literal off the fleet wire is read only for
+        // the expected-producer COMPARISON in normalizeSourceFact, so it fails the row closed and can
+        // never reach the rendered word. This pins the contract's "controlled literal from the
+        // summariser, never adapter prose" as a WITNESS rather than a claim in prose.
+        const hostile = '<img src=x onerror="alert(1)">';
+
+        applySet(card, {sources: {
+            roster    : {source: 'fleet:listAgents',  state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus', state: 'wired', confidence: 'observed'},
+            runtime   : {source: hostile,             state: 'wired', confidence: 'observed'}
+        }});
+
+        // the hostile producer fails the runtime row closed → BOTH rendered strings are pinned to the
+        // summariser's own frozen literals, and those exact matches ARE the containment proof. No
+        // `not.toContain(hostile)` alongside them: an assertion that cannot independently fail is not a
+        // witness. The aria-label is pinned separately because it is built by its own labels join.
+        expect(strip().text).toBe('Runtime not nominal');
+        expect(strip().vdom['aria-label']).toBe('Source health: Runtime not nominal.');
+        expect(strip().html ?? null).toBeNull();
+
+        card.destroy()
+    });
+
+    test('lane-elision-distinguishes (#15536): two lanes sharing a long prefix collapse to the SAME head yet keep DIFFERENT tails — the shared-prefix falsifier, without hover', () => {
+        // The AC's falsifier, using the same two fixtures the AgentCardSynthesisRenderNL goldens render
+        // (both share "control-plane", both carry a 2-digit overflow count) so the unit and the e2e
+        // cannot drift apart. The goldens catch a VISUAL regression; this owns the SEMANTIC claim, which
+        // a regenerated baseline could otherwise bless away.
+        const
+            laneA = 'control-plane restart actuator R3 seam reconciliation across the multi-window dock topology',
+            laneB = 'control-plane deployment-state bridge self-heal recent-event-limit tuning + overlay migration',
+            cut   = line => AgentCard.elideLaneLine(line);
+
+        // both elide (each is past the two-line clamp), so each yields a head+tail pair, never `whole`
+        expect(cut(laneA).whole).toBeUndefined();
+        expect(cut(laneB).whole).toBeUndefined();
+
+        // the HEADS are identical — that is what makes this a real falsifier rather than a happy path:
+        // a head-only elision would render these two distinct lanes as the same visible fragment
+        expect(cut(laneA).head).toBe(cut(laneB).head);
+
+        // ...and the preserved TAILS are what still tell them apart, each non-empty
+        expect(cut(laneA).tail).not.toBe(cut(laneB).tail);
+        expect(cut(laneA).tail.length).toBeGreaterThan(0);
+        expect(cut(laneB).tail.length).toBeGreaterThan(0);
+
+        // rendered: the distinguishing tail reaches the DOM as its own inert text node, with NO hover or
+        // title fallback carrying the truth — a tooltip-only tail would fail the touch-access AC
+        const
+            card = createCard({agentId: 'vega', laneLine: laneA, openLaneCount: 23, state: 'ok'}),
+            lane = () => card.down({reference: 'card-lane'});
+
+        expect(lane().vdom.cn).toHaveLength(2);
+        expect(lane().vdom.cn[0].cls).toContain('fm-lane-elide');
+        expect(lane().vdom.cn[1].cls).toContain('fm-lane-tail');
+        expect(lane().vdom.cn[1].text).toBe(cut(laneA).tail);
+        expect(lane().vdom.cn[1].html ?? null).toBeNull();      // inert node, not innerHTML
+        expect(lane().vdom.title ?? null).toBeNull();           // the tail is VISIBLE, never hover-only
+
+        // re-seating onto the sibling lane keeps the same instance and swaps only the tail — the badge
+        // count is a separate axis and must not be what distinguishes them
+        const laneId = lane().id;
+
+        applySet(card, {laneLine: laneB, openLaneCount: 17});
+        expect(lane().id).toBe(laneId);
+        expect(lane().vdom.cn[0].text).toBe(cut(laneB).head);
+        expect(lane().vdom.cn[1].text).toBe(cut(laneB).tail);
+        expect(card.down({reference: 'card-lane-count'}).text).toBe('17 lanes');
+
+        card.destroy()
+    });
+
+    test('avatar-persists (#15536): a null avatarUrl keeps the slot and its accessible name — the head row never collapses, and no lifecycle state hides the face', () => {
+        const
+            card   = createCard({agentId: 'vega', displayName: 'Vega', avatarUrl: 'vega.png', state: 'ok'}),
+            avatar = () => card.down({reference: 'card-avatar'});
+
+        expect(avatar().src).toBe('vega.png');
+        expect(avatar().alt).toBe('Vega');
+        expect(avatar().hidden).toBe(false);
+
+        // avatarUrl dropped (absent or unreachable picture) → the SLOT SURVIVES: src goes null while the
+        // component stays mounted and visible, so the head row keeps its geometry instead of reflowing
+        // the identity column. `hidden: true` here would be exactly the demotion the operator invariant
+        // bans, and the alt is RETAINED so the face slot still names its resident.
+        const avatarId = avatar().id;
+
+        applySet(card, {avatarUrl: null});
+        expect(avatar().id).toBe(avatarId);          // same instance — updated in place, never re-keyed
+        expect(avatar().src ?? null).toBeNull();
+        expect(avatar().hidden).toBe(false);
+        expect(avatar().alt).toBe('Vega');
+
+        // ...and no lifecycle state hides it either: a benched row still shows the face, which is the
+        // fast-recognition / fleet-individuality anchor the invariant protects
+        applySet(card, {state: 'off', sources: null});
+        expect(avatar().hidden).toBe(false);
+        expect(avatar().alt).toBe('Vega');
+
+        // NOTE: width-mode persistence (narrow 294 / regular 360 / roomy 720, both themes) is NOT a unit
+        // concern — those modes are card-owned SCSS @container rules, witnessed by the goldens in
+        // test/playwright/e2e/agentos/AgentCardSynthesisRenderNL.spec.mjs. This spec owns the
+        // data-driven half only; the checklist entry cites both witnesses, not this one alone.
+        card.destroy()
+    });
+
+    test('verbs-in-flow (#15536): both lifecycle verbs are real always-rendered native Buttons — no overflow trigger, no hover-only reveal, a visible power verb in EVERY state', () => {
+        const
+            card    = createCard({agentId: 'vega', displayName: 'Vega', state: 'off'}),
+            verbs   = () => card.down({reference: 'control-verbs'}),
+            toggle  = () => card.down({reference: 'control-toggle'}),
+            restart = () => card.down({reference: 'control-restart'});
+
+        // the ⋯ overflow trigger was dropped on operator UX direction (2026-07-19: a generic 3-dots
+        // trigger read as "no one knows what that means"). Assert the rail holds EXACTLY the two real
+        // verbs, so a later "just tuck them behind a menu" fails here rather than passing quietly.
+        expect(verbs().items).toHaveLength(2);
+        expect(verbs().items.map(item => item.vdom.tag)).toEqual(['button', 'button']);
+        expect(verbs().hidden).toBe(false);
+
+        // native <button>s sit in ordinary Tab order — that is what makes this not a hover-only reveal.
+        // A hover-gated control would have to be hidden or aria-hidden at rest; neither is.
+        expect(toggle().hidden).toBe(false);
+        expect(toggle().vdom['aria-hidden'] ?? null).toBeNull();
+
+        // stopped: the power verb offers the only meaningful action, restart is withheld
+        expect(toggle().iconCls).toBe('fa-solid fa-play');
+        expect(restart().hidden).toBe(true);
+
+        // the toggle is CONTEXTUAL but never ABSENT — every running-side state keeps a visible power
+        // verb whose glyph follows the state, and restart becomes meaningful
+        for (const state of ['ok', 'idle', 'wedged', 'limited']) {
+            applySet(card, {state});
+            expect(toggle().hidden,  `toggle stays visible in ${state}`).toBe(false);
+            expect(toggle().iconCls, `toggle glyph follows ${state}`).toBe('fa-solid fa-stop');
+            expect(restart().hidden, `restart is offered in ${state}`).toBe(false)
+        }
+
+        // back to stopped — the verb is still there, just contextual again (never an empty rail)
+        applySet(card, {state: 'off'});
+        expect(toggle().hidden).toBe(false);
+        expect(toggle().iconCls).toBe('fa-solid fa-play');
+        expect(restart().hidden).toBe(true);
+
+        // NOTE: the 44px narrow touch target is a card-owned @container rule; the AgentCardSynthesisRenderNL
+        // goldens witness the width modes. This spec owns the structural half — the verbs exist, stay in
+        // flow, and stay visible regardless of lifecycle state.
         card.destroy()
     })
 });

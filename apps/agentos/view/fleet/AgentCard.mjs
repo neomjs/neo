@@ -403,11 +403,17 @@ class AgentCard extends Container {
         // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
         // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
         // colours the ::before dot; summary.text is a controlled literal from summarizeFleetSources.
+        // Rendered as an inert `text` node, NEVER `html`: that literal is safe only because the
+        // summariser composes it from a frozen label map over a hardcoded key order, so `html` would
+        // make safety a property the summariser must preserve forever rather than one the card cannot
+        // get wrong — the same reason the lane above is a text node (escaping is forgettable; a text
+        // node is not). A later edit folding a source REASON into the summary is then inert by
+        // construction instead of an innerHTML path.
         const strip = me.getReference('source-strip');
 
         strip.set({
             cls : ['fm-card-strip', `fm-strip-${summary.level}`],
-            html: summary.text
+            text: summary.text
         });
         strip.changeVdomRootKey('aria-label', summary.ariaLabel);
 
