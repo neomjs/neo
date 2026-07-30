@@ -28,7 +28,8 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 
 test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
-    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave, AiConfig;
+    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService,
+        WebhookDeliveryService, callTool, originalAutoSave, originalWebhookDeliver, AiConfig;
 
     test.beforeAll(async () => {
         // Isolation is by construction: `storagePaths.graph` resolves `graphTest` (`:memory:`) and
@@ -41,6 +42,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         // asserts against the overlay would pass or fail on one machine's uncommitted edits.
         AiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../ai/services/memory-core/CoalescingEngineService.mjs')).default;
+        WebhookDeliveryService  = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
         LifecycleService        = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         ({callTool}             = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
 
@@ -54,12 +56,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         originalAutoSave         = GraphService.db.autoSave;
         GraphService.db.autoSave = true;
+        originalWebhookDeliver   = WebhookDeliveryService.deliver;
     });
 
     test.afterAll(async () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
+        WebhookDeliveryService.deliver = originalWebhookDeliver;
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, fs, 'clear');
     });
 
@@ -80,6 +84,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         // sibling specs in the same worker, so cross-singleton state must be reset).
         WakeSubscriptionService.subscriptionCache.clear();
         WakeSubscriptionService.liveCursor = 0;
+        CoalescingEngineService.configure(AiConfig.orchestrator.wakeDispatch);
+        WebhookDeliveryService.configure(AiConfig.orchestrator.wakeDispatch);
 
         GraphService.upsertNode({id: '@alice', type: 'AGENT', name: 'Alice', properties: {}});
         GraphService.upsertNode({id: '@bob',   type: 'AGENT', name: 'Bob',   properties: {}});
@@ -1373,7 +1379,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
-    test('emitHeartbeatPulse is an idempotent no-op without an active bridge-daemon subscription', async () => {
+    test('emitHeartbeatPulse is an idempotent no-op without an active Shape B/C subscription', async () => {
         const sqlite = GraphService.db.storage.db;
         const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
 
@@ -1387,7 +1393,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         expect(emitted).toEqual({
             status        : 'skipped',
-            reason        : 'no-active-bridge-daemon-subscription',
+            reason        : 'no-active-interrupt-subscription',
             targetIdentity: '@alice'
         });
         expect(pulseRows).toBe(0);
@@ -1423,8 +1429,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
-    test('emitHeartbeatPulse still no-ops when subscription is non-bridge-daemon (mcp-notifications / a2a-webhook)', async () => {
-        // Non-bridge routes remain outside the heartbeat-pulse transport contract.
+    test('emitHeartbeatPulse still no-ops when only an mcp-notifications subscription exists', async () => {
+        // Shape A remains outside the turn-priced host-interrupt transport contract.
         const sqlite = GraphService.db.storage.db;
         insertDurableSubscription({
             trigger              : 'SENT_TO_ME',
@@ -1436,12 +1442,25 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
 
         expect(emitted.status).toBe('skipped');
-        expect(emitted.reason).toBe('no-active-bridge-daemon-subscription');
+        expect(emitted.reason).toBe('no-active-interrupt-subscription');
         const pulseRows = sqlite.prepare(`
             SELECT COUNT(*) as count FROM GraphLog
             WHERE log_id > ? AND entity_type = 'heartbeat_pulse'
         `).get(before).count;
         expect(pulseRows).toBe(0);
+    });
+
+    test('emitHeartbeatPulse fires when only an a2a-webhook subscription exists', async () => {
+        insertDurableSubscription({
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'a2a-webhook',
+            harnessTargetMetadata: {url: 'http://127.0.0.1:18080/wake', signingKey: 'test-key'}
+        });
+
+        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+
+        expect(emitted.status).toBe('emitted');
+        expect(emitted.entityId).toMatch(/^HEARTBEAT_PULSE:@alice:/);
     });
     // -----------------------------------------------------------------------------
     // pump()
@@ -1449,6 +1468,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
     test.describe('pump', () => {
         let emittedEvents = [];
+        let webhookEvents = [];
         let mockMcpServer = {
             notification: async (event) => {
                 emittedEvents.push(event);
@@ -1457,8 +1477,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
         test.beforeEach(async () => {
             emittedEvents = [];
+            webhookEvents = [];
             CoalescingEngineService.clearMcpServers();
             CoalescingEngineService.clearAll();
+            WebhookDeliveryService.deliver = async (subscription, eventData) => {
+                webhookEvents.push({subscription, eventData});
+                return 'delivered';
+            };
         });
 
         test('graceful no-op when CoalescingEngineService has no mcpServer registered', async () => {
@@ -1810,7 +1835,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents.length).toBe(1);
         });
 
-        test('skips bridge-daemon / a2a-webhook / disabled targets', async () => {
+        test('dispatches a2a-webhook while skipping bridge-daemon and disabled targets', async () => {
             CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -1828,8 +1853,42 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await WakeSubscriptionService.pump();
             await CoalescingEngineService.flushAll();
-            // None of the subscriptions target mcp-notifications
+
             expect(emittedEvents.length).toBe(0);
+            expect(webhookEvents).toHaveLength(1);
+            expect(webhookEvents[0].eventData.eventType).toBe('wake/digest');
+            expect(webhookEvents[0].eventData.payload.sourceEventIds).toContain('MSG:6');
+        });
+
+        test('refreshes a cached webhook route after it degrades', async () => {
+            let subscriptionId;
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const result = await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'a2a-webhook',
+                    harnessTargetMetadata: {url: 'test'}
+                });
+                subscriptionId = result.subscriptionId;
+            });
+
+            const subscription = GraphService.db.nodes.get(subscriptionId);
+            GraphService.upsertNode({
+                id        : subscriptionId,
+                type      : 'WAKE_SUBSCRIPTION',
+                properties: {
+                    ...subscription.properties,
+                    harnessTarget: 'degraded'
+                }
+            });
+            GraphService.upsertNode({id: 'MSG:DEGRADED-WEBHOOK', type: 'MESSAGE', properties: {from: '@bob'}});
+            GraphService.linkNodes('MSG:DEGRADED-WEBHOOK', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(WakeSubscriptionService.subscriptionCache.get(subscriptionId).harnessTarget).toBe('degraded');
+            expect(webhookEvents).toEqual([]);
         });
 
         test('concurrent pump() invocations do not double-emit', async () => {

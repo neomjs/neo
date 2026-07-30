@@ -11,10 +11,15 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import crypto         from 'crypto';
+import {test, expect}       from '@playwright/test';
+import Neo                  from '../../../../../../src/Neo.mjs';
+import * as core            from '../../../../../../src/core/_export.mjs';
+import crypto               from 'crypto';
+import fs                   from 'node:fs/promises';
+import os                   from 'node:os';
+import path                 from 'node:path';
+import {createWakeReceiver} from '../../../../../../ai/daemons/wake/receiver.mjs';
+import {WakeReceiverState}  from '../../../../../../ai/daemons/wake/receiverState.mjs';
 
 let WebhookDeliveryService;
 let GraphService;
@@ -78,6 +83,7 @@ test.describe('WebhookDeliveryService', () => {
 
         // Reset the service state
         WebhookDeliveryService.consecutiveFailures.clear();
+        WebhookDeliveryService.configure({attemptTimeoutSeconds: 30});
     });
 
     test.afterEach(() => {
@@ -92,8 +98,9 @@ test.describe('WebhookDeliveryService', () => {
             payload      : { message: 'hello' }
         };
 
-        await WebhookDeliveryService.deliver(subscription, eventData);
+        const outcome = await WebhookDeliveryService.deliver(subscription, eventData);
 
+        test.expect(outcome).toBe('delivered');
         test.expect(fetchCalls.length).toBe(1);
         const { url, options } = fetchCalls[0];
         test.expect(url).toBe('http://localhost:8080/webhook');
@@ -107,14 +114,84 @@ test.describe('WebhookDeliveryService', () => {
         test.expect(options.headers['X-Neo-Wake-Signature']).toBe(expectedSig);
     });
 
+    test('real sender and receiver agree on exact-body HMAC and durable acceptance', async () => {
+        const stateDir       = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-shape-b-contract-'));
+        const state          = new WakeReceiverState({stateDir});
+        const key            = 'a'.repeat(64);
+        const subscriptionId = 'WAKE_SUB:shape-b-contract';
+        let   dispatchCount  = 0;
+
+        await state.init();
+        const receiver = createWakeReceiver({
+            manifest: {
+                schemaVersion: 1,
+                routes       : {
+                    [subscriptionId]: {
+                        signingKey           : key,
+                        agentIdentity        : '@alice',
+                        harnessTargetMetadata: {adapter: 'tmux', tmuxSession: 'test'},
+                        adapterConfig        : {attemptTimeoutMs: 100}
+                    }
+                }
+            },
+            state,
+            dispatch: async () => {
+                dispatchCount++;
+                return 'delivered';
+            },
+            logger: {error() {}, warn() {}, log() {}}
+        });
+
+        await new Promise((resolve, reject) => {
+            receiver.server.once('error', reject);
+            receiver.server.listen(0, '127.0.0.1', resolve);
+        });
+
+        try {
+            global.fetch = originalFetch;
+            const eventData = {
+                schemaVersion: '1.0',
+                eventType    : 'wake/digest',
+                eventId      : 'wake-digest:shape-b-contract',
+                subscriptionId,
+                agentIdentity: '@alice',
+                payload      : {
+                    totalEvents   : 1,
+                    sourceEventIds: ['MESSAGE:shape-b-contract'],
+                    breakdown     : {}
+                },
+                emittedAt: new Date().toISOString()
+            };
+            const subscription = {
+                id        : subscriptionId,
+                properties: {
+                    harnessTargetMetadata: {
+                        url       : `http://127.0.0.1:${receiver.server.address().port}/wake`,
+                        signingKey: key
+                    }
+                }
+            };
+
+            expect(await WebhookDeliveryService.deliver(subscription, eventData)).toBe('delivered');
+            await receiver.drain();
+
+            expect(await state.list('delivered')).toHaveLength(1);
+            expect(dispatchCount).toBe(1);
+        } finally {
+            await new Promise(resolve => receiver.server.close(resolve));
+            await fs.rm(stateDir, {recursive: true, force: true});
+        }
+    });
+
     test('marks degraded immediately on 4xx response', async () => {
         const subscription = GraphService.getNode({ id: 'WAKE_SUB:123' });
         const eventData    = { eventId: '01HXXX' };
 
         global.mockFetchResponse = () => ({ ok: false, status: 400 });
 
-        await WebhookDeliveryService.deliver(subscription, eventData);
+        const outcome = await WebhookDeliveryService.deliver(subscription, eventData);
 
+        test.expect(outcome).toBe('skipped');
         test.expect(fetchCalls.length).toBe(1); // No retries for 4xx
         test.expect(updatedNodes.length).toBe(1);
         test.expect(updatedNodes[0].properties.harnessTarget).toBe('degraded');
@@ -129,18 +206,26 @@ test.describe('WebhookDeliveryService', () => {
 
         global.mockFetchResponse = () => ({ ok: false, status: 500 });
 
-        await WebhookDeliveryService.deliver(subscription, eventData);
+        expect(await WebhookDeliveryService.deliver(subscription, eventData)).toBe('failed');
         test.expect(updatedNodes.length).toBe(0); // 1st failure
 
-        await WebhookDeliveryService.deliver(subscription, eventData);
+        expect(await WebhookDeliveryService.deliver(subscription, eventData)).toBe('failed');
         test.expect(updatedNodes.length).toBe(0); // 2nd failure
 
-        await WebhookDeliveryService.deliver(subscription, eventData);
+        expect(await WebhookDeliveryService.deliver(subscription, eventData)).toBe('failed');
         test.expect(updatedNodes.length).toBe(1); // 3rd failure
 
         global.setTimeout = originalSetTimeout;
 
         test.expect(fetchCalls.length).toBe(12); // 3 events * 4 attempts
         test.expect(updatedNodes[0].properties.harnessTarget).toBe('degraded');
+    });
+
+    test('refuses unsigned Shape-B delivery without issuing a request', async () => {
+        const subscription = GraphService.getNode({id: 'WAKE_SUB:123'});
+        delete subscription.properties.harnessTargetMetadata.signingKey;
+
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXX'})).toBe('skipped');
+        expect(fetchCalls).toHaveLength(0);
     });
 });

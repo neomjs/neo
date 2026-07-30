@@ -114,6 +114,67 @@ The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wa
 
 **Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. (The Orchestrator's per-lane outcomes are recorded via `recordTaskOutcome`, but no longer surfaced as a healthcheck block — the verbose `orchestrator.tasks` block was trimmed to keep the probe lean.)
 
+### 3d. Signed graphless host receiver
+
+The Docker-canonical cutover uses Shape B for the irreducible host final mile.
+Container Memory Core owns graph matching, turn-priced coalescing, HMAC signing,
+and retry; `ai:wake-receiver` owns only durable acceptance and local harness
+effects. It does not import or open GraphLog/SQLite.
+
+Create a host-local route manifest outside version control and restrict it to
+0600. The subscription id, signing key, identity, and adapter metadata must
+match the active `a2a-webhook` subscription:
+
+```json
+{
+  "schemaVersion": 1,
+  "routes": {
+    "WAKE_SUB:<subscription-id>": {
+      "signingKey": "<server-returned-signing-key>",
+      "agentIdentity": "@neo-gpt",
+      "harnessTargetMetadata": {
+        "adapter": "codex-app-server",
+        "appName": "Codex"
+      },
+      "adapterConfig": {
+        "attemptTimeoutMs": 30000,
+        "codexBinary": "/absolute/path/to/codex"
+      }
+    }
+  }
+}
+```
+
+Start the receiver with explicit paths and port; there are no deployment-path
+defaults:
+
+```bash
+chmod 0600 /absolute/path/to/wake-receiver-routes.json
+mkdir -p -m 0700 /absolute/path/to/wake-receiver-state
+npm run ai:wake-receiver -- \
+  --manifest /absolute/path/to/wake-receiver-routes.json \
+  --state-dir /absolute/path/to/wake-receiver-state \
+  --host <docker-reachable-host-bind-address> \
+  --port 3199
+```
+
+[Docker Desktop documents `host.docker.internal`](https://docs.docker.com/desktop/features/networking/networking-how-tos/#connect-a-container-to-a-service-on-the-host)
+as the container-side name for a service on the host. The receiver side
+deliberately has no hidden bind default: select an IP literal that the live
+Docker engine can reach, witness the route, and restrict the port at the host
+firewall when the bind is broader than loopback. Do not assume that
+`127.0.0.1` is reachable from a bridge-network container.
+
+The receiver accepts only `POST /wake`, verifies the exact body HMAC before
+parsing, persists a 0600 `pending` record before returning 202, and deduplicates
+webhook retries by stable source identity. On restart, `pending` drains; an
+interrupted `dispatching` record becomes terminal `unknown` and is not replayed.
+In that ambiguity, the unread mailbox remains authoritative.
+
+This receiver supersedes the host GraphLog-tail wake daemon only after the
+real Docker-to-host witness is accepted. The hard-cut cleanup then deletes the
+Shape-C graph worker; it is not retained as a fallback.
+
 ## 4. Disabling the heartbeat lane
 
 The heartbeat lane is config-gated; there is no plist to uninstall. To disable it for a given Orchestrator process:

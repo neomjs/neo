@@ -61,7 +61,9 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator', () => {
         expect(matchHeartbeatPulse({trace: {...pulseTrace, entity_type: 'edges'}, harnessTarget: 'bridge-daemon', agentIdentity: '@neo-opus-vega'})).toBe(null);
     });
 
-    test('returns null when harnessTarget is not the frozen bridge-daemon route value (#12008)', () => {
+    test('matches the signed Shape-B route and rejects non-interrupt Shape A (#16180)', () => {
+        expect(matchHeartbeatPulse({trace: pulseTrace, harnessTarget: 'a2a-webhook', agentIdentity: '@neo-opus-vega'}))
+            .toEqual({targetIdentity: '@neo-opus-vega', pulseId: 'p1', logId: 42});
         expect(matchHeartbeatPulse({trace: pulseTrace, harnessTarget: 'mcp-notifications', agentIdentity: '@neo-opus-vega'})).toBe(null);
     });
 
@@ -113,6 +115,12 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
         const trace = {entity_type: 'heartbeat_pulse', entity_id: `HEARTBEAT_PULSE:${OWNER}:p1`, log_id: 42};
         expect(match(sub({trigger: 'HEARTBEAT_PULSE', harnessTarget: 'bridge-daemon'}), {entity: null}, trace))
             .toEqual({type: 'heartbeat_pulse', payload: {targetIdentity: OWNER, pulseId: 'p1'}, logId: 42});
+    });
+
+    test('heartbeat_pulse: wraps an eligible a2a-webhook pulse', () => {
+        const trace = {entity_type: 'heartbeat_pulse', entity_id: `HEARTBEAT_PULSE:${OWNER}:p2`, log_id: 43};
+        expect(match(sub({trigger: 'SENT_TO_ME', harnessTarget: 'a2a-webhook'}), {entity: null}, trace))
+            .toEqual({type: 'heartbeat_pulse', payload: {targetIdentity: OWNER, pulseId: 'p2'}, logId: 43});
     });
 
     // --- SENT_TO_ME ---

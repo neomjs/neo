@@ -21,7 +21,8 @@ import {
     Memory_StorageRouter              as StorageRouter,
     Memory_MailboxService             as MailboxService,
     Memory_WakeSubscriptionService    as WakeSubscriptionService,
-    Memory_CoalescingEngineService    as CoalescingEngineService
+    Memory_CoalescingEngineService    as CoalescingEngineService,
+    Memory_WebhookDeliveryService     as WebhookDeliveryService
 } from '../../../services.mjs';
 import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
 import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
@@ -270,6 +271,11 @@ class Server extends BaseServer {
      */
     async boot() {
         await this.loadCustomConfig();
+
+        const wakeDispatch = aiConfig.orchestrator.wakeDispatch;
+
+        CoalescingEngineService.configure(wakeDispatch);
+        WebhookDeliveryService.configure(wakeDispatch);
 
         this.mcpServer = this.createMcpServer();
 

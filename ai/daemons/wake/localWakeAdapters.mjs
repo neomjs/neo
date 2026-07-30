@@ -1,0 +1,818 @@
+/**
+ * @module ai/daemons/wake/localWakeAdapters
+ * @summary Graphless local adapter boundary for the signed host wake receiver.
+ *
+ * Every route resolves from host-local metadata or a live local process/session envelope. There
+ * is no GraphService, SQLite, graph query, Memory Core config, or database path in this dependency
+ * closure. Unknown/missing/stale local authority fails closed and leaves the mailbox authoritative.
+ * Container Memory Core remains the owner of graph-resident presence and wake-policy decisions.
+ */
+import fs                 from 'fs-extra';
+import os                 from 'node:os';
+import path               from 'node:path';
+import {spawn, spawnSync} from 'node:child_process';
+
+import {applyHarnessMetadataDefaults} from './hostHarnessMetadata.mjs';
+import {
+    getDefaultInstanceTarget,
+    resolveGuiInstancePid
+} from './instanceResolver.mjs';
+import {withOutboxLock}      from './outboxLock.mjs';
+import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
+
+const LOOPBACK_HOSTS     = new Set(['127.0.0.1', 'localhost', '::1']);
+const ABORTABLE_ADAPTERS = new Set([
+    'opencode-server',
+    'kimi-server',
+    'webhook',
+    'test-hang-abortable'
+]);
+const OPENCODE_REBIND_SETTLE_MS = 50;
+let   deliveryPromise           = Promise.resolve();
+
+/**
+ * @summary Formats the structured Shape-B digest into the resident wake prompt.
+ * @param {Object} envelope Signed wake/digest envelope.
+ * @returns {String}
+ */
+export function formatLocalWakeDigest(envelope = {}) {
+    const payload       = envelope.payload || {};
+    const breakdown     = payload.breakdown || {};
+    const total         = Number(payload.totalEvents) || 0;
+    const identity      = envelope.agentIdentity || 'unknown';
+    const latestMessage = breakdown.sent_to_me?.latest || {};
+    const priority      = normalizeWakePriority(
+        breakdown.sent_to_me?.highestPriority || latestMessage.priority
+    );
+    const lines = [`[WAKE][priority:${priority}] ${total} events for ${identity}:`];
+
+    if (breakdown.sent_to_me?.count > 0) {
+        const latestPriority = normalizeWakePriority(latestMessage.priority);
+        const prioritySuffix = latestPriority === priority ? '' : `, latest priority: ${latestPriority}`;
+        const latest         = latestMessage.subject
+            ? `"${latestMessage.subject}"${latestMessage.from ? ` from ${latestMessage.from}` : ''}${prioritySuffix}`
+            : latestMessage.messageId || 'mailbox event';
+        lines.push(`- ${breakdown.sent_to_me.count} new messages (latest: ${latest})`);
+    }
+    if (breakdown.task_state_changed?.count > 0) {
+        const latest = breakdown.task_state_changed.latest || {};
+        lines.push(`- ${breakdown.task_state_changed.count} task state changes` +
+            `${latest.taskId ? ` (latest: ${latest.taskId} → ${latest.newState || 'changed'})` : ''}`);
+    }
+    if (breakdown.permission_granted?.count > 0) {
+        lines.push(`- ${breakdown.permission_granted.count} permission grants`);
+    }
+    if (breakdown.heartbeat_pulse?.count > 0) {
+        const latest  = breakdown.heartbeat_pulse.latest || {};
+        const summary = decodeHeartbeatPulseSummary(latest.pulseId);
+        let   extra   = '';
+
+        if (summary?.source === 'github-notification') {
+            extra = `; latest GitHub ${summary.latest?.reason || 'notification'}: ` +
+                `"${summary.latest?.title || summary.latest?.id || 'untitled'}"` +
+                `${formatPullRequestStateEcho(summary)}` +
+                `${summary.latest?.url ? ` (${summary.latest.url})` : ''}`;
+        } else if (summary?.source === 'idle-out-nudge') {
+            extra = `; idle-out nudge — ${summary.reason || 'idle'}; ` +
+                `next: ${summary.nextAction || 'claim a lane'}`;
+        }
+
+        lines.push(`- ${breakdown.heartbeat_pulse.count} heartbeat pulses${extra}`);
+    }
+
+    const isPureHeartbeat = breakdown.heartbeat_pulse?.count > 0 &&
+        !breakdown.sent_to_me?.count &&
+        !breakdown.task_state_changed?.count &&
+        !breakdown.permission_granted?.count;
+
+    if (isPureHeartbeat) {
+        lines.push('', WAKE_LANE_DIRECTIVE);
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * @summary Normalizes a digest priority to the A2A mailbox vocabulary.
+ * @param {String} priority
+ * @returns {'low'|'normal'|'high'}
+ * @private
+ */
+function normalizeWakePriority(priority) {
+    return ['low', 'normal', 'high'].includes(priority) ? priority : 'normal';
+}
+
+/**
+ * @summary Decodes a bounded structured heartbeat summary embedded in a pulse id.
+ * @param {String} pulseId
+ * @returns {Object|null}
+ * @private
+ */
+function decodeHeartbeatPulseSummary(pulseId = '') {
+    const separator = pulseId.indexOf('.');
+    if (separator <= 0) return null;
+
+    const source = pulseId.slice(0, separator);
+    if (!['github-notification', 'idle-out-nudge'].includes(source)) return null;
+
+    try {
+        const parsed = JSON.parse(Buffer.from(pulseId.slice(separator + 1), 'base64url').toString('utf8'));
+        return parsed?.source === source ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Formats the optional live pull-request state echo in a heartbeat summary.
+ * @param {Object} summary
+ * @returns {String}
+ * @private
+ */
+function formatPullRequestStateEcho(summary = {}) {
+    const pullRequest = summary.latest?.pullRequest;
+    if (!pullRequest?.state || !pullRequest?.number) return '';
+
+    const mergedAt  = pullRequest.mergedAt  ? `, mergedAt ${pullRequest.mergedAt}`   : '';
+    const checkedAt = pullRequest.checkedAt ? `, checkedAt ${pullRequest.checkedAt}` : '';
+    return ` [PR #${pullRequest.number}: ${pullRequest.state}${mergedAt}${checkedAt}]`;
+}
+
+/**
+ * @summary Dispatches one accepted receiver record through its selected local adapter.
+ *
+ * Calls are globally serialized to preserve GUI focus safety. The attempt-bound caller may return
+ * `unknown` for a non-abortable adapter while the underlying serialized promise settles; later
+ * dispatches still remain queued behind that real completion.
+ *
+ * @param {Object} record Durable receiver record.
+ * @param {Object} [dependencies] Injectable host effects for tests.
+ * @returns {Promise<'delivered'|'skipped'|'failed'|'unknown'>}
+ */
+export async function dispatchLocalWake(record, dependencies = {}) {
+    const meta           = record?.route?.harnessTargetMetadata || {};
+    const adapterConfig  = record?.route?.adapterConfig || {};
+    const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
+    const adapter        = meta.adapter || defaultAdapter;
+    const timeoutMs      = adapterConfig.attemptTimeoutMs;
+    const controller     = new AbortController();
+    const digest         = formatLocalWakeDigest(record?.envelope);
+    const abortable      = meta.addressType === 'webhookUrl' || ABORTABLE_ADAPTERS.has(adapter);
+
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new Error('local wake adapter requires positive adapterConfig.attemptTimeoutMs');
+    }
+
+    const attempt = deliveryPromise.then(() => performDispatch({
+        adapter,
+        adapterConfig,
+        digest,
+        meta,
+        record,
+        signal: controller.signal,
+        dependencies
+    }));
+    deliveryPromise = attempt.catch(() => {});
+
+    let timer;
+    const timeout = new Promise(resolve => {
+        timer = setTimeout(() => {
+            controller.abort();
+            resolve(abortable ? 'failed' : 'unknown');
+        }, timeoutMs);
+    });
+
+    try {
+        return await Promise.race([attempt, timeout]);
+    } catch {
+        return 'failed';
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
+ * @summary Performs one adapter attempt after the global delivery owner is acquired.
+ * @private
+ */
+async function performDispatch({adapter, adapterConfig, digest, meta, record, signal, dependencies}) {
+    const effects = {
+        fetch           : globalThis.fetch,
+        fs,
+        getDefaultTarget: getDefaultInstanceTarget,
+        homedir         : os.homedir,
+        log             : console,
+        platform        : process.platform,
+        resolveGuiInstancePid,
+        spawnAsync,
+        ...dependencies
+    };
+
+    if (adapter === 'test') {
+        effects.log.log?.(`[Wake Receiver Test Adapter] ${record.subscriptionId}: ${digest}`);
+        return 'delivered';
+    }
+    if (adapter === 'test-fail') return 'failed';
+    if (adapter === 'test-hang') {
+        await new Promise(resolve => setTimeout(resolve, timeoutForTest(adapterConfig)));
+        return 'delivered';
+    }
+    if (adapter === 'test-hang-abortable') {
+        if (signal.aborted) throw new Error('test-hang-abortable adapter: aborted before dispatch');
+        await new Promise((resolve, reject) => {
+            signal.addEventListener(
+                'abort',
+                () => reject(new Error('test-hang-abortable adapter: aborted by attempt bound')),
+                {once: true}
+            );
+        });
+        return 'delivered';
+    }
+    if (meta.addressType === 'webhookUrl' && meta.instanceAddress) {
+        await deliverWebhook({digest, effects, meta, signal});
+        return 'delivered';
+    }
+    if (adapter === 'codex-app-server') {
+        if (meta.appName !== 'Codex' || typeof adapterConfig.codexBinary !== 'string') return 'skipped';
+        await effects.spawnAsync(adapterConfig.codexBinary, ['debug', 'app-server', 'send-message-v2', digest]);
+        return 'delivered';
+    }
+    if (adapter === 'opencode-server') {
+        await deliverOpenCode({digest, effects, meta, signal});
+        return 'delivered';
+    }
+    if (adapter === 'kimi-server') {
+        await deliverKimiServer({digest, effects, meta, signal});
+        return 'delivered';
+    }
+    if (adapter === 'kimi-pull-bridge') {
+        await deliverKimiPullBridge({digest, effects, meta, record});
+        return 'delivered';
+    }
+    if (adapter === 'tmux') {
+        const session = meta.addressType === 'tmuxSession'
+            ? meta.instanceAddress
+            : meta.tmuxSession;
+        if (typeof session !== 'string' || session.length === 0) return 'skipped';
+        await effects.spawnAsync('tmux', ['send-keys', '-t', session, digest, 'C-m']);
+        return 'delivered';
+    }
+    if (adapter === 'webhook') {
+        await deliverWebhook({digest, effects, meta, signal});
+        return 'delivered';
+    }
+    if (adapter === 'osascript') {
+        return deliverOsascript({digest, effects, meta, record});
+    }
+
+    return 'skipped';
+}
+
+/**
+ * @summary Delivers into one live OpenCode session using its 0600 loopback envelope.
+ * @private
+ */
+async function deliverOpenCode({digest, effects, meta, signal}) {
+    const envelopePath = meta.envelopePath
+        || path.join(effects.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
+    const first = await readOpenCodeEnvelope(effects, envelopePath);
+
+    try {
+        await postOpenCodeDigest(effects, first, digest, signal);
+    } catch (error) {
+        if (!isConnectionRefused(error) || signal.aborted) throw error;
+
+        await new Promise(resolve => setTimeout(resolve, OPENCODE_REBIND_SETTLE_MS));
+
+        const rebound = await readOpenCodeEnvelope(effects, envelopePath);
+
+        if (
+            rebound.sessionId !== first.sessionId ||
+            rebound.projectId !== first.projectId ||
+            rebound.directory !== first.directory
+        ) {
+            throw new Error('opencode-server authority tuple changed during coordinate rebind; refusing session retarget');
+        }
+        if (
+            rebound.hostname === first.hostname &&
+            rebound.port === first.port &&
+            rebound.username === first.username &&
+            rebound.password === first.password
+        ) {
+            const unchanged = new Error('opencode-server coordinates did not change after connection refusal');
+            unchanged.code  = 'ECONNREFUSED';
+            throw unchanged;
+        }
+
+        await postOpenCodeDigest(effects, rebound, digest, signal);
+    }
+}
+
+/**
+ * @summary Reads and validates the OpenCode seat envelope used as route authority.
+ * @private
+ */
+async function readOpenCodeEnvelope(effects, envelopePath) {
+    const envelope                                                              = await readJson(effects.fs, envelopePath, 'opencode-server seat envelope');
+    const {hostname, port, sessionId, projectId, directory, username, password} = envelope;
+
+    for (const [key, value] of Object.entries({
+        hostname,
+        sessionId,
+        projectId,
+        directory,
+        username,
+        password
+    })) {
+        if (typeof value !== 'string' || value.length === 0) {
+            throw new Error(`opencode-server envelope requires '${key}'`);
+        }
+    }
+    if (!path.isAbsolute(directory)) throw new Error('opencode-server envelope requires an absolute directory');
+    if (!validPort(port)) throw new Error('opencode-server envelope requires a valid port');
+    if (!LOOPBACK_HOSTS.has(hostname)) throw new Error('opencode-server envelope requires loopback');
+
+    return {hostname, port, sessionId, projectId, directory, username, password};
+}
+
+/**
+ * @summary Posts one digest against already-validated OpenCode coordinates.
+ * @private
+ */
+async function postOpenCodeDigest(effects, envelope, digest, signal) {
+    const {hostname, port, sessionId, username, password} = envelope;
+    const deliverySignal                                  = AbortSignal.any([signal, AbortSignal.timeout(5000)]);
+    const response                                        = await effects.fetch(
+        `http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/prompt_async`,
+        {
+            method : 'POST',
+            headers: {
+                'content-type' : 'application/json',
+                'authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+            },
+            body    : JSON.stringify({parts: [{type: 'text', text: digest}]}),
+            redirect: 'error',
+            signal  : deliverySignal
+        }
+    );
+
+    if (response.status !== 204) {
+        throw new Error(`opencode-server prompt_async expected HTTP 204, received ${response.status}`);
+    }
+}
+
+/**
+ * @summary True only when transport coordinates refused the connection.
+ * @private
+ */
+function isConnectionRefused(error) {
+    return error?.code === 'ECONNREFUSED' || error?.cause?.code === 'ECONNREFUSED';
+}
+
+/**
+ * @summary Delivers into one live Kimi session through its loopback server.
+ * @private
+ */
+async function deliverKimiServer({digest, effects, meta, signal}) {
+    const envelopePath     = meta.envelopePath || path.join(effects.homedir(), '.kimi-code', 'wake-envelope.json');
+    const tokenPath        = meta.tokenPath    || path.join(effects.homedir(), '.kimi-code', 'server.token');
+    const envelope         = await readJson(effects.fs, envelopePath, 'kimi-server wake envelope');
+    const {sessionId, cwd} = envelope;
+
+    if (typeof sessionId !== 'string' || typeof cwd !== 'string' || (meta.cwd && meta.cwd !== cwd)) {
+        throw new Error('kimi-server envelope does not match the configured seat');
+    }
+
+    const {host, port} = await resolveKimiCoordinates(effects, meta);
+    const token        = String(await effects.fs.readFile(tokenPath, 'utf8')).trim();
+
+    if (!LOOPBACK_HOSTS.has(host) || !validPort(port) || token.length === 0) {
+        throw new Error('kimi-server has invalid loopback coordinates or token');
+    }
+
+    const deliverySignal = AbortSignal.any([signal, AbortSignal.timeout(5000)]);
+    const response       = await effects.fetch(
+        `http://${host}:${port}/api/v1/sessions/${encodeURIComponent(sessionId)}/prompts`,
+        {
+            method  : 'POST',
+            headers : {'content-type': 'application/json', 'authorization': `Bearer ${token}`},
+            body    : JSON.stringify({content: [{type: 'text', text: digest}]}),
+            redirect: 'error',
+            signal  : deliverySignal
+        }
+    );
+    if (response.status !== 200) {
+        throw new Error(`kimi-server submitPrompt expected HTTP 200, received ${response.status}`);
+    }
+    const body = await response.json();
+    if (body?.code !== 0) {
+        throw new Error(`kimi-server submitPrompt expected code 0, received ${JSON.stringify(body?.code ?? null)}`);
+    }
+}
+
+/**
+ * @summary Resolves one unambiguous live Kimi loopback coordinate source.
+ * @private
+ */
+async function resolveKimiCoordinates(effects, meta) {
+    if (meta.lockPath) {
+        return readJson(effects.fs, meta.lockPath, 'kimi-server lock override');
+    }
+
+    const legacyPath = path.join(effects.homedir(), '.kimi-code', 'server', 'lock');
+    try {
+        return await readJson(effects.fs, legacyPath, 'kimi-server legacy lock');
+    } catch {
+        // v0.28+ has no legacy lock.
+    }
+
+    const instancesDir = path.join(effects.homedir(), '.kimi-code', 'server', 'instances');
+    const live         = [];
+
+    for (const entry of await effects.fs.readdir(instancesDir)) {
+        if (!entry.endsWith('.json')) continue;
+        try {
+            const candidate = await readJson(effects.fs, path.join(instancesDir, entry), 'kimi-server instance');
+            if (Number.isInteger(candidate.pid) && isProcessAlive(candidate.pid)) live.push(candidate);
+        } catch {
+            // Malformed/stale candidates are not coordinate authority.
+        }
+    }
+
+    if (live.length !== 1) {
+        throw new Error(`kimi-server requires exactly one live instance, found ${live.length}`);
+    }
+    return live[0];
+}
+
+/**
+ * @summary Queues a pull-bridge wake under the existing strict outbox lock.
+ * @private
+ */
+async function deliverKimiPullBridge({digest, effects, meta, record}) {
+    const envelopePath                                                     = meta.envelopePath || path.join(effects.homedir(), '.kimi-code', 'wake-envelope.json');
+    const outboxPath                                                       = path.resolve(meta.outboxPath || path.join(effects.homedir(), '.kimi-code', 'wake-outbox.jsonl'));
+    const envelope                                                         = await readJson(effects.fs, envelopePath, 'kimi-pull-bridge wake envelope');
+    const {agentIdentity, sessionId, cwd, pid: processEpoch, pidStartedAt} = envelope;
+
+    if (agentIdentity !== record.route.agentIdentity ||
+        typeof sessionId !== 'string' ||
+        typeof cwd !== 'string' ||
+        !Number.isInteger(processEpoch) ||
+        typeof pidStartedAt !== 'string' ||
+        (meta.cwd && meta.cwd !== cwd)
+    ) {
+        throw new Error('kimi-pull-bridge envelope does not match the configured seat owner');
+    }
+    if (!isProcessAlive(processEpoch) || readProcessStartTime(processEpoch) !== pidStartedAt) {
+        throw new Error('kimi-pull-bridge envelope names a stale owner process');
+    }
+
+    const seatDir      = path.dirname(path.resolve(envelopePath));
+    const realSeatDir  = await effects.fs.realpath(seatDir);
+    const outboxParent = path.dirname(outboxPath);
+
+    if (!outboxPath.startsWith(seatDir + path.sep) && !outboxPath.startsWith(realSeatDir + path.sep)) {
+        throw new Error('kimi-pull-bridge outbox escapes the seat authority');
+    }
+    await effects.fs.ensureDir(outboxParent, {mode: 0o700});
+    const realParent = await effects.fs.realpath(outboxParent);
+    if (realParent !== realSeatDir && !realParent.startsWith(realSeatDir + path.sep)) {
+        throw new Error('kimi-pull-bridge outbox resolves outside the seat authority');
+    }
+    if (await effects.fs.pathExists(outboxPath)) {
+        if ((await effects.fs.lstat(outboxPath)).isSymbolicLink()) {
+            throw new Error('kimi-pull-bridge refuses a symbolic-link outbox');
+        }
+        await effects.fs.chmod(outboxPath, 0o600);
+    }
+
+    const entry = {
+        wakeId        : record.recordKey.slice(0, 16),
+        subscriptionId: record.subscriptionId,
+        agentIdentity,
+        sessionId,
+        processEpoch,
+        pidStartedAt,
+        digest,
+        writtenAt     : new Date().toISOString()
+    };
+
+    await withOutboxLock(outboxPath, () =>
+        effects.fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600})
+    );
+}
+
+/**
+ * @summary Delivers through a configured loopback webhook adapter.
+ * @private
+ */
+async function deliverWebhook({digest, effects, meta, signal}) {
+    const url = new URL(meta.instanceAddress || meta.url || '');
+    if (!LOOPBACK_HOSTS.has(url.hostname)) throw new Error('local webhook adapter requires loopback');
+
+    const response = await effects.fetch(url, {
+        method : 'POST',
+        headers: {'content-type': 'application/json'},
+        body   : JSON.stringify({digest}),
+        signal
+    });
+    if (!response.ok) throw new Error(`local webhook adapter failed with HTTP ${response.status}`);
+}
+
+/**
+ * @summary Delivers through the existing draft-preserving, frontmost-verified macOS path.
+ * @private
+ */
+async function deliverOsascript({digest, effects, meta, record}) {
+    if (effects.platform !== 'darwin') return 'skipped';
+
+    const resolvedMeta = applyHarnessMetadataDefaults(meta);
+    const appName      = resolvedMeta.appName;
+    if (!['Antigravity', 'Claude', 'Codex'].includes(appName)) return 'skipped';
+    if (appName === 'Codex' && !resolvedMeta.focusSeedKey) return 'skipped';
+
+    let   instancePid     = null;
+    const addressType     = resolvedMeta.addressType || (resolvedMeta.userDataDir ? 'userDataDir' : null);
+    const instanceAddress = resolvedMeta.instanceAddress
+        || (addressType === 'userDataDir' ? resolvedMeta.userDataDir : null);
+
+    if (addressType === 'pid' || addressType === 'userDataDir') {
+        try {
+            instancePid = await effects.resolveGuiInstancePid({
+                instanceAddress,
+                addressType,
+                deploymentMode: 'local',
+                target        : 'wake receiver',
+                appName
+            });
+        } catch {
+            return 'skipped';
+        }
+    } else {
+        const target = await effects.getDefaultTarget({appName});
+        if (['ambiguous', 'probe-failed'].includes(target.status)) return 'skipped';
+        instancePid = target.pid;
+    }
+
+    const args = buildOsascriptArgs({
+        appName,
+        digest,
+        focusSeedKey     : resolvedMeta.focusSeedKey,
+        focusSeedSequence: resolvedMeta.focusSeedSequence,
+        instancePid,
+        tabShortcut      : resolvedMeta.tabShortcut
+    });
+    const outcome = await deliverOsascriptWithRetry(effects, args, record.subscriptionId);
+    return outcome;
+}
+
+/**
+ * @summary Builds the draft-preserving AppleScript argument vector.
+ * @private
+ */
+function buildOsascriptArgs({appName, digest, focusSeedKey, focusSeedSequence, instancePid, tabShortcut}) {
+    const escapedAppName        = escapeAppleScript(appName);
+    const targetPid             = instancePid ? String(instancePid) : '';
+    const appActivateLine       = `  tell application "${escapedAppName}" to activate`;
+    const instanceFrontmostLine = instancePid
+        ? `  tell application "System Events" to set frontmost of (first process whose unix id is ${instancePid}) to true`
+        : null;
+    const args = [
+        '-e', 'on assertTargetFrontmost(appName, targetBundleId, targetProcessId, phase)',
+        '-e', '  tell application "System Events"',
+        '-e', '    set frontmostProcess to first application process whose frontmost is true',
+        '-e', '    if targetProcessId is not "" then',
+        '-e', '      set currentPid to (unix id of frontmostProcess) as string',
+        '-e', '      if currentPid is not targetProcessId then',
+        '-e', '        set currentBundleId to ""',
+        '-e', '        try',
+        '-e', '          set currentBundleId to (bundle identifier of frontmostProcess) as string',
+        '-e', '        end try',
+        '-e', '        if currentBundleId is not targetBundleId then error "Target app lost frontmost status " & phase',
+        '-e', '      end if',
+        '-e', '    else if targetBundleId is not "" then',
+        '-e', '      set currentBundleId to ""',
+        '-e', '      try',
+        '-e', '        set currentBundleId to (bundle identifier of frontmostProcess) as string',
+        '-e', '      end try',
+        '-e', '      if currentBundleId is not targetBundleId then error "Target app lost frontmost status " & phase',
+        '-e', '    else if (name of frontmostProcess) is not appName then',
+        '-e', '      error "Target app lost frontmost status " & phase',
+        '-e', '    end if',
+        '-e', '  end tell',
+        '-e', 'end assertTargetFrontmost',
+        '-e', 'on run argv',
+        '-e', '  set wakePayload to (item 1 of argv)',
+        '-e', `  set targetAppName to "${escapedAppName}"`,
+        '-e', '  set targetBundleId to ""',
+        '-e', '  try',
+        '-e', `    set targetBundleId to id of application "${escapedAppName}"`,
+        '-e', '  end try',
+        '-e', `  set targetProcessId to "${targetPid}"`,
+        '-e', '  try',
+        '-e', '    set savedClipboard to the clipboard as string',
+        '-e', '  on error',
+        '-e', '    set savedClipboard to ""',
+        '-e', '  end try',
+        '-e', '  try',
+        '-e', '  set targetRaised to false',
+        '-e', '  repeat 12 times',
+        '-e', appActivateLine,
+        ...(instanceFrontmostLine ? ['-e', instanceFrontmostLine] : []),
+        '-e', '    delay 0.25',
+        '-e', '    try',
+        '-e', '      my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
+        '-e', '      set targetRaised to true',
+        '-e', '      exit repeat',
+        '-e', '    end try',
+        '-e', '  end repeat',
+        '-e', '  if not targetRaised then my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")',
+        '-e', '  tell application "System Events"',
+        '-e', '    set frontmostProcess to first application process whose frontmost is true',
+        '-e', '    tell frontmostProcess'
+    ];
+
+    if (tabShortcut) {
+        const shifted = String(tabShortcut).startsWith('shift+');
+        const key     = shifted ? String(tabShortcut).slice(6) : String(tabShortcut);
+        args.push('-e', shifted
+            ? `      keystroke "${escapeAppleScript(key)}" using {command down, shift down}`
+            : `      keystroke "${escapeAppleScript(key)}" using command down`);
+        args.push('-e', '      delay 0.5');
+    }
+    if (focusSeedSequence === 'r-undo') {
+        args.push('-e', '      keystroke "r"', '-e', '      delay 0.2', '-e', '      keystroke "z" using command down', '-e', '      delay 0.2');
+    } else if (focusSeedKey) {
+        args.push('-e', focusSeedKey === 'space' || focusSeedKey === ' '
+            ? '      key code 49'
+            : `      keystroke "${escapeAppleScript(focusSeedKey)}"`);
+        args.push('-e', '      delay 0.2');
+        if (appName === 'Codex' && focusSeedKey === 'r') {
+            args.push('-e', '      keystroke "z" using command down', '-e', '      delay 0.2');
+        }
+    }
+
+    args.push(
+        '-e', '      my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before prompt clear")',
+        '-e', '      set the clipboard to ""',
+        '-e', '      keystroke "a" using command down',
+        '-e', '      delay 0.2',
+        '-e', '      keystroke "x" using command down',
+        '-e', '      delay 0.2',
+        '-e', '    end tell',
+        '-e', '  end tell',
+        '-e', '  try',
+        '-e', '    set userInput to the clipboard as string',
+        '-e', '  on error',
+        '-e', '    set userInput to ""',
+        '-e', '  end try',
+        '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake clipboard set")',
+        '-e', '  set the clipboard to wakePayload',
+        '-e', '  delay 0.2',
+        '-e', '  my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake paste")',
+        '-e', '  tell application "System Events"',
+        '-e', '    set frontmostProcess to first application process whose frontmost is true',
+        '-e', '    tell frontmostProcess',
+        '-e', '      keystroke "v" using command down',
+        '-e', '      delay 0.5',
+        ...(appName === 'Codex' ? ['-e', '      key code 53', '-e', '      delay 0.45'] : []),
+        '-e', '      key code 36',
+        '-e', '      delay 1.0',
+        '-e', '    end tell',
+        '-e', '  end tell',
+        '-e', '  if userInput is not "" then',
+        '-e', '    my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before user input restore clipboard set")',
+        '-e', '    set the clipboard to userInput',
+        '-e', '    delay 0.2',
+        '-e', '    my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before user input restore paste")',
+        '-e', '    tell application "System Events"',
+        '-e', '      set frontmostProcess to first application process whose frontmost is true',
+        '-e', '      tell frontmostProcess',
+        '-e', '        keystroke "v" using command down',
+        '-e', '      end tell',
+        '-e', '    end tell',
+        '-e', '  end if',
+        '-e', '  delay 0.5',
+        '-e', '  set the clipboard to savedClipboard',
+        '-e', '  on error errMsg',
+        '-e', '    set the clipboard to savedClipboard',
+        '-e', '    error errMsg',
+        '-e', '  end try',
+        '-e', 'end run',
+        digest
+    );
+    return args;
+}
+
+/**
+ * @summary Retries only pre-submit frontmost races; post-submit restore races count delivered.
+ * @private
+ */
+async function deliverOsascriptWithRetry(effects, args, subscriptionId) {
+    for (let attempt = 1; attempt <= 4; attempt++) {
+        try {
+            await effects.spawnAsync('osascript', args);
+            return 'delivered';
+        } catch (error) {
+            const message = String(error.message || '');
+            const race    = /lost frontmost status|-2700/.test(message);
+            if (race && /user input restore/.test(message)) return 'delivered';
+            if (race && attempt < 4) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+                continue;
+            }
+            effects.log.error?.(`[Wake Receiver] osascript failed for ${subscriptionId}`);
+            return 'failed';
+        }
+    }
+    return 'failed';
+}
+
+/**
+ * @summary Injection-safe child-process wrapper.
+ * @private
+ */
+function spawnAsync(command, args) {
+    return new Promise((resolve, reject) => {
+        const child  = spawn(command, args, {stdio: ['ignore', 'ignore', 'pipe']});
+        let   stderr = '';
+        child.stderr.on('data', value => { stderr += value.toString(); });
+        child.on('error', reject);
+        child.on('close', code => {
+            if (code === 0) return resolve();
+            reject(new Error(stderr.trim() || `${command} exited with code ${code}`));
+        });
+    });
+}
+
+/**
+ * @summary Reads one JSON authority file with an adapter-scoped error.
+ * @private
+ */
+async function readJson(fsImpl, filePath, label) {
+    try {
+        return JSON.parse(await fsImpl.readFile(filePath, 'utf8'));
+    } catch (error) {
+        throw new Error(`${label} '${filePath}' is unreadable (${error.message})`);
+    }
+}
+
+/**
+ * @summary Returns whether a candidate is a valid TCP port.
+ * @param {*} value
+ * @returns {Boolean}
+ * @private
+ */
+function validPort(value) {
+    return Number.isInteger(value) && value > 0 && value <= 65535;
+}
+
+/**
+ * @summary Probes whether a host-local process id still exists.
+ * @param {Number} pid
+ * @returns {Boolean}
+ * @private
+ */
+function isProcessAlive(pid) {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (error) {
+        return error.code === 'EPERM';
+    }
+}
+
+/**
+ * @summary Reads the operating-system process start stamp used as a PID-reuse fence.
+ * @param {Number} pid
+ * @returns {String|null}
+ * @private
+ */
+function readProcessStartTime(pid) {
+    try {
+        return spawnSync('ps', ['-p', String(pid), '-o', 'lstart=']).stdout?.toString().trim() || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Escapes a value for interpolation inside an AppleScript string literal.
+ * @param {*} value
+ * @returns {String}
+ * @private
+ */
+function escapeAppleScript(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
+ * @summary Extends a synthetic hang beyond its configured test attempt bound.
+ * @param {Object} adapterConfig
+ * @returns {Number}
+ * @private
+ */
+function timeoutForTest(adapterConfig) {
+    return Math.max(adapterConfig.attemptTimeoutMs * 2, 50);
+}

@@ -13,8 +13,9 @@
 import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {resolveResidentFamily}        from '../../services/graph/agentFamilyResolution.mjs';
+import {applyHarnessMetadataDefaults} from '../../daemons/wake/hostHarnessMetadata.mjs';
 
-export {normalizeAgentIdentityNodeId};
+export {applyHarnessMetadataDefaults, normalizeAgentIdentityNodeId};
 
 const FAMILY_HARNESS_TARGETS = Object.freeze({
     claude: Object.freeze({
@@ -29,43 +30,6 @@ const FAMILY_HARNESS_TARGETS = Object.freeze({
         adapter: 'codex-app-server'
     })
 });
-
-const APP_HARNESS_DEFAULTS = Object.freeze({
-    Antigravity: Object.freeze({
-        tabShortcut: 'shift+i'
-    }),
-    Claude: Object.freeze({
-        tabShortcut      : '3',
-        focusSeedSequence: 'r-undo'
-    })
-});
-
-/**
- * @summary Apply host-app default shortcuts while preserving explicit metadata.
- *
- * `undefined` means "use the known app default"; `null` remains a deliberate opt-out.
- *
- * @param {Object} metadata Harness target metadata.
- * @returns {Object} Copy of metadata with host-app defaults applied.
- */
-export function applyHarnessMetadataDefaults(metadata = {}) {
-    const result   = {...metadata};
-    const defaults = APP_HARNESS_DEFAULTS[result.appName] || {};
-
-    if (result.tabShortcut === undefined && Object.hasOwn(defaults, 'tabShortcut')) {
-        result.tabShortcut = defaults.tabShortcut;
-    }
-
-    if (
-        result.focusSeedSequence === undefined &&
-        result.focusSeedKey === undefined &&
-        Object.hasOwn(defaults, 'focusSeedSequence')
-    ) {
-        result.focusSeedSequence = defaults.focusSeedSequence;
-    }
-
-    return result;
-}
 
 /**
  * @summary Resolve the fresh-session harness target for an AgentIdentity.
