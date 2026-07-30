@@ -33,6 +33,8 @@ const
     COMMIT_TICKET_PATTERN         = /\(#(\d+)\)\s*$/,
     CONVENTIONAL_TYPE_PATTERN     = /^([a-z][a-z0-9-]*)(?:\([^()\r\n]+\))?!?:\s+\S/;
 
+export {COMMIT_TICKET_PATTERN, DECLARED_TICKET_PATTERN};
+
 export const CHANGE_CLASS_TO_TYPE = Object.freeze({
     capability  : 'feat',
     restoration : 'fix',

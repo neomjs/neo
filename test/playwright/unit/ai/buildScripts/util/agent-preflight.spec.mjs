@@ -1,7 +1,10 @@
 import {test, expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
 import path           from 'node:path';
 import {
+    COMMIT_TICKET_PATTERN,
     createProgram,
+    DECLARED_TICKET_PATTERN,
     detectContractLedgerDrift,
     extractLedgerSignatures,
     filterMjsFiles,
@@ -107,6 +110,16 @@ test.describe('agent-preflight utility', () => {
 
     test('accepts a PR body that mirrors the template anchors', () => {
         expect(validatePrBody(validBody).valid).toBe(true)
+    });
+
+    test('keeps the local stacked-ticket regexes byte-aligned with hosted lint', () => {
+        const hostedWorkflow = readFileSync(
+            path.join(process.cwd(), '.github/workflows/agent-pr-body-lint.yml'),
+            'utf8'
+        );
+
+        expect(hostedWorkflow).toContain(DECLARED_TICKET_PATTERN.toString());
+        expect(hostedWorkflow).toContain(COMMIT_TICKET_PATTERN.toString())
     });
 
     test('parses the NUL-delimited branch log used by the stacked-PR guard', () => {
