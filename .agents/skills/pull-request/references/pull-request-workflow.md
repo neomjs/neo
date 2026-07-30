@@ -17,8 +17,10 @@ Before the first commit, declare §3.1's class (`capability`, `restoration`, or
 `zero-delta`) and run `npm run agent-preflight -- --change-class <class>
 --commit-subject "<subject>" [files...]`. This repair pass may align blocks. For
 final check-only validation, add `--no-fix`, `--pr-title "<title>"`, and, when
-available, `--pr-body <draft-body.md>`. The same class then gates both subjects.
-Calls without semantic inputs stay diagnostic-compatible; partial inputs fail.
+available after the final commit, `--pr-body <draft-body.md>`; use `--pr-base
+<ref>` when the PR target is not `origin/dev`. The same run locally rejects
+stacked commit tickets missing from `Resolves` / `Refs` / `Related`. The class
+still gates both subjects; calls without semantic inputs stay compatible.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 

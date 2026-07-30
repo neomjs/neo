@@ -1,16 +1,22 @@
 import {test, expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
 import path           from 'node:path';
 import {
+    COMMIT_TICKET_PATTERN,
     createProgram,
+    DECLARED_TICKET_PATTERN,
     detectContractLedgerDrift,
     extractLedgerSignatures,
     filterMjsFiles,
     findShippedSignature,
+    getPrBranchCommits,
     normalizeSignatureShape,
     parseArgs,
+    parsePrCommitLog,
     runAgentPreflight,
     validateChangeClass,
-    validatePrBody
+    validatePrBody,
+    validateStackedPrTickets
 }                     from '../../../../../../buildScripts/util/agent-preflight.mjs';
 
 const validBody = [
@@ -60,6 +66,7 @@ test.describe('agent-preflight utility', () => {
         expect(help).toContain('--commit-subject <subject>');
         expect(help).toContain('--pr-title <title>');
         expect(help).toContain('--pr-body <file>');
+        expect(help).toContain('--pr-base <ref>');
         expect(help).toContain('--pr-draft');
         expect(help).toContain('--no-fix');
         expect(help).toContain('Check-only mode')
@@ -71,6 +78,7 @@ test.describe('agent-preflight utility', () => {
             '--commit-subject', 'feat(build): add a guard (#16111)',
             '--pr-title', 'feat(build): add a guard (#16111)',
             '--pr-body', 'body.md',
+            '--pr-base', 'upstream/dev',
             '--pr-draft',
             '--no-fix',
             'src/a.mjs'
@@ -80,6 +88,7 @@ test.describe('agent-preflight utility', () => {
             files        : ['src/a.mjs'],
             fix          : false,
             help         : false,
+            prBase       : 'upstream/dev',
             prBody       : 'body.md',
             prDraft      : true,
             prTitle      : 'feat(build): add a guard (#16111)'
@@ -89,6 +98,7 @@ test.describe('agent-preflight utility', () => {
     test('uses Commander option validation for unknown flags and missing values', () => {
         expect(() => parseArgs(['--bogus'])).toThrow();
         expect(() => parseArgs(['--pr-body'])).toThrow();
+        expect(() => parseArgs(['--pr-base'])).toThrow();
         expect(() => parseArgs(['--change-class'])).toThrow();
         expect(() => parseArgs(['--commit-subject'])).toThrow();
         expect(() => parseArgs(['--pr-title'])).toThrow()
@@ -100,6 +110,96 @@ test.describe('agent-preflight utility', () => {
 
     test('accepts a PR body that mirrors the template anchors', () => {
         expect(validatePrBody(validBody).valid).toBe(true)
+    });
+
+    test('keeps the local stacked-ticket regexes byte-aligned with hosted lint', () => {
+        const hostedWorkflow = readFileSync(
+            path.join(process.cwd(), '.github/workflows/agent-pr-body-lint.yml'),
+            'utf8'
+        );
+
+        expect(hostedWorkflow).toContain(DECLARED_TICKET_PATTERN.toString());
+        expect(hostedWorkflow).toContain(COMMIT_TICKET_PATTERN.toString())
+    });
+
+    test('parses the NUL-delimited branch log used by the stacked-PR guard', () => {
+        expect(parsePrCommitLog(
+            'aaaaaaaaaa\0feat(build): base witness (#15955)\0' +
+            'bbbbbbbbbb\0fix(build): stacked repair (#16153)\0'
+        )).toEqual([
+            {sha: 'aaaaaaaaaa', subject: 'feat(build): base witness (#15955)'},
+            {sha: 'bbbbbbbbbb', subject: 'fix(build): stacked repair (#16153)'}
+        ])
+    });
+
+    test('reads PR branch commits relative to the explicit intended base', () => {
+        const calls = [];
+
+        expect(getPrBranchCommits({
+            base: 'origin/dev',
+            cwd : '/repo',
+            execFileSyncImpl(cmd, args, options) {
+                calls.push({args, cmd, options});
+                return 'aaaaaaaaaa\0fix(build): repair (#16157)\0'
+            }
+        })).toEqual([
+            {sha: 'aaaaaaaaaa', subject: 'fix(build): repair (#16157)'}
+        ]);
+        expect(calls[0].cmd).toBe('git');
+        expect(calls[0].args).toEqual([
+            'log',
+            '-z',
+            '--format=%H%x00%s',
+            '--reverse',
+            'origin/dev..HEAD'
+        ])
+    });
+
+    test('accepts a legitimate stack when every commit ticket is declared', () => {
+        const result = validateStackedPrTickets(
+            `${validBody}\nRelated: #15955`,
+            [
+                {sha: 'aaaaaaaaaaaa', subject: 'feat(build): base witness (#15955)'},
+                {sha: 'bbbbbbbbbbbb', subject: 'fix(build): stacked repair (#12345)'}
+            ]
+        );
+
+        expect(result.valid).toBe(true);
+        expect(result.declaredTickets).toEqual(['12345', '15955']);
+        expect(result.foreignCommits).toEqual([])
+    });
+
+    test('rejects inherited ticketed commits that the PR body does not declare', () => {
+        const result = validateStackedPrTickets(validBody, [
+            {sha: '046d3571cd1dbb5e', subject: 'feat(workstation): witness blackout (#15955)'},
+            {sha: '3088764ced065a23', subject: 'test(workstation): correct witness (#15955)'},
+            {sha: '4da73f690321dc1b', subject: 'fix(dashboard): retain topology (#12345)'}
+        ]);
+
+        expect(result.valid).toBe(false);
+        expect(result.foreignCommits).toEqual([
+            {
+                sha    : '046d3571cd',
+                subject: 'feat(workstation): witness blackout (#15955)',
+                ticket : '15955'
+            },
+            {
+                sha    : '3088764ced',
+                subject: 'test(workstation): correct witness (#15955)',
+                ticket : '15955'
+            }
+        ])
+    });
+
+    test('allows repeated declared tickets and leaves unticketed subjects to the commit gate', () => {
+        const result = validateStackedPrTickets(validBody, [
+            {sha: 'aaaaaaaaaaaa', subject: 'feat(build): first slice (#12345)'},
+            {sha: 'bbbbbbbbbbbb', subject: 'fix(build): second slice (#12345)'},
+            {sha: 'cccccccccccc', subject: 'chore(data): generated sync [skip ci]'}
+        ]);
+
+        expect(result.valid).toBe(true);
+        expect(result.foreignCommits).toEqual([])
     });
 
     test('accepts a draft PR body with a non-closing reference instead of Resolves', () => {
@@ -235,7 +335,67 @@ test.describe('agent-preflight utility', () => {
         expect(status).toBe(0);
         expect(stderr).toBe('');
         expect(stdout).toContain('agent-preflight: 0 .mjs files in scope; skipped source gates.');
-        expect(stdout).toContain('agent-preflight: PR body contains the required template anchors.')
+        expect(stdout).toContain('agent-preflight: PR body contains the required template anchors.');
+        expect(stdout).toContain('agent-preflight: stacked PR tickets match 1 declared ticket(s) across 0 commit(s).')
+    });
+
+    test('fails before PR creation when a stacked commit ticket is undeclared', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv            : ['--pr-body', 'body.md'],
+            cwd             : '/repo',
+            execFileSyncImpl: (cmd, args) => {
+                if (cmd !== 'git' || args.includes('--name-only')) return '';
+
+                return [
+                    '046d3571cd1dbb5e', 'feat(workstation): witness blackout (#15955)',
+                    '3088764ced065a23', 'test(workstation): correct witness (#15955)',
+                    '4da73f690321dc1b', 'fix(dashboard): retain topology (#12345)',
+                    ''
+                ].join('\0')
+            },
+            existsSyncImpl  : () => true,
+            readFileSyncImpl: () => validBody,
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(1);
+        expect(stdout).toContain('PR body contains the required template anchors');
+        expect(stderr).toContain('stacked PR ticket declaration lint failed against origin/dev');
+        expect(stderr).toContain('`046d3571cd` claims #15955');
+        expect(stderr).toContain('`3088764ced` claims #15955');
+        expect(stderr).toContain('1 gate(s) failed: pr-body-stack')
+    });
+
+    test('passes the same stack after the inherited ticket is declared', () => {
+        let stdout = '';
+        let stderr = '';
+
+        const status = runAgentPreflight({
+            argv            : ['--pr-body', 'body.md'],
+            cwd             : '/repo',
+            execFileSyncImpl: (cmd, args) => {
+                if (cmd !== 'git' || args.includes('--name-only')) return '';
+
+                return [
+                    '046d3571cd1dbb5e', 'feat(workstation): witness blackout (#15955)',
+                    '3088764ced065a23', 'test(workstation): correct witness (#15955)',
+                    '4da73f690321dc1b', 'fix(dashboard): retain topology (#12345)',
+                    ''
+                ].join('\0')
+            },
+            existsSyncImpl  : () => true,
+            readFileSyncImpl: () => `${validBody}\nRelated: #15955`,
+            stderr          : {write: value => { stderr += value }},
+            stdout          : {write: value => { stdout += value }}
+        });
+
+        expect(status).toBe(0);
+        expect(stderr).toBe('');
+        expect(stdout).toContain('stacked PR tickets match 2 declared ticket(s) across 3 commit(s)')
     });
 
     test('emits STALE_OVERLAY findings as a non-blocking local-dev warning (#14675)', () => {
