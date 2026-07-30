@@ -197,6 +197,34 @@ The election is **per profile**, not one bind-versus-volume rule imposed on unli
 
 **Revalidation trigger:** adding a durable profile, moving a profile-pinned leaf, changing the local 31xx/81xx publication, or enabling a local-only wake lane inside a container profile reopens this election. The change must update this matrix and re-run plane-config coherence, static Compose placement coverage, served-identity checks, and the integration-parity topology suite.
 
+### 10.8 Orchestrator task-authority profiles (#16166)
+
+`orchestrator.deploymentMode` and task authority are orthogonal. Deployment mode owns the existing
+local-only/cloud-only defaults; it cannot express two supervisors on one machine. The Tier-1 leaf
+`orchestrator.authorityProfile` therefore resolves exactly one explicit role:
+
+| Profile | Owned authority classes | Disposition |
+|---|---|---|
+| `legacy-mixed` | host-edge + container-plane + shared-primitive | Compatibility profile for existing maintainer checkouts until #16167 performs the machine cutover. It is a named value, never a fallback inferred from `deploymentMode`. |
+| `host-edge` | host-edge | Owns local session/desktop/worktree/process effects. It cannot reclaim plane work through a per-lane boolean. |
+| `container-plane` | container-plane + shared-primitive | Owns cloud-capable Agent OS maintenance. Compose declares this role for both production and dev-parity orchestrators. |
+
+The leaf is the only environment binding (`NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE`). The daemon
+entrypoint reads it once at `start()`; leaf consumers do not re-read env, infer a role from
+`deploymentMode`, pass the role down a call chain, or mutate runtime config. The pure
+`taskAuthority.mjs` policy consumes that resolved value and the canonical task registries.
+
+Before PID recovery, database initialization, or polling, the orchestrator audits the relevant
+topology for an explicit classification plus exactly one owner per continuous, scheduled,
+recurring-internal, or auxiliary-child lane. Unknown roles, missing classifications, ownership
+gaps, and duplicate owners fail boot. A secret-free `orchestrator-authority.json` receipt records
+`role`, `task`, `authorityClass`, and `effectiveOwner`; per-lane enable flags remain enablement only
+and cannot transfer authority.
+
+**Sunset trigger:** once #16167 proves the maintainer-machine Docker cutover, remove
+`legacy-mixed` only after every supported non-container checkout has an explicit disposition.
+Until then it preserves backwards compatibility without weakening the target two-role audit.
+
 ---
 
 Origin Session ID: `3ecb40bf-bfef-40b1-8693-a8aae5afa1b7`

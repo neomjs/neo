@@ -74,6 +74,13 @@ import {
 } from './scheduling/pipeline.mjs';
 import {DEFAULT_SCRIPT_DIR} from './taskDefinitions.mjs';
 import {
+    AUXILIARY_TASK_REGISTRY,
+    buildAuthorityReceipt as buildTaskAuthorityReceipt,
+    CONTINUOUS_TASK_REGISTRY,
+    INTERNAL_TASK_REGISTRY,
+    isTaskOwnedByProfile
+} from './taskAuthority.mjs';
+import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
 } from './services/heavyMaintenanceLeasePrimitives.mjs';
@@ -238,12 +245,16 @@ export class Orchestrator extends Base {
     embedDrainLivenessWatchdogGetDueTask = embedDrainLivenessWatchdogGetDueTaskImport
     buildConfiguredTaskDefinitionsService = buildConfiguredTaskDefinitionsImport
     inspectHeavyMaintenanceLeaseFn = inspectHeavyMaintenanceLeaseSync
+    recordBootIdentityFactFn       = recordBootIdentityFact
 
     isPolling                     = false
     pollHandle                    = null
     db                            = null
     logFile                       = null
     stateFile                     = null
+    authorityProfile              = null
+    authorityReceipt              = null
+    authorityReceiptFile          = null
     primaryDevSyncRootsConfig     = null
     maintenanceDeferralLogKeys    = null
     heavyMaintenanceTaskNames     = DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
@@ -397,7 +408,7 @@ export class Orchestrator extends Base {
     beforeSetProcessSupervisorService(value) {
         return ClassSystemUtil.beforeSetInstance(value, ProcessSupervisorService, {
             dataDir                : this.dataDir,
-            taskDefinitions        : this.taskDefinitions,
+            taskDefinitions        : this.getAuthorityScopedTaskDefinitions(),
             taskStateService       : this.taskStateService,
             healthService          : this.healthService,
             recoveryActuatorService: this.recoveryActuatorService,
@@ -808,7 +819,7 @@ export class Orchestrator extends Base {
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;
-        this.processSupervisorService.taskDefinitions       = value;
+        this.processSupervisorService.taskDefinitions       = this.getAuthorityScopedTaskDefinitions(value);
         this.maintenanceBackpressureService.taskDefinitions = value;
     }
     // Service-graph reconciliation, not arbitrary circular wiring: the supervisor needs the actuator to
@@ -940,6 +951,137 @@ export class Orchestrator extends Base {
     get neuralLinkBridgeLivenessTimeoutMs() { return AiConfig.orchestrator.neuralLinkBridge.livenessProbeTimeoutMs; }
 
     /**
+     * @summary Returns the entrypoint-resolved authority profile. Before `start()` captures
+     * the leaf, construction-time service wiring reads the same Tier-1 value directly.
+     * @returns {String}
+     */
+    getResolvedAuthorityProfile() {
+        return this.authorityProfile ?? AiConfig.orchestrator.authorityProfile
+    }
+
+    /**
+     * @summary Resolves whether this orchestrator role owns one task's canonical class.
+     * Profile routing is strict; per-lane enable flags cannot transfer ownership.
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isTaskAuthorityOwned(taskName) {
+        return isTaskOwnedByProfile({
+            profile: this.getResolvedAuthorityProfile(),
+            taskName
+        });
+    }
+
+    /**
+     * @summary Returns the enabled continuous children owned by this role.
+     *
+     * Registry presence supplies identity/classification; the existing AiConfig getter
+     * supplies enablement. Both must pass, preventing an authority profile from reviving
+     * a lane whose deployment-mode toggle disabled it.
+     *
+     * @param {Object} [taskDefinitions=this.taskDefinitions] Built task table.
+     * @returns {String[]}
+     */
+    getEnabledContinuousTaskNames(taskDefinitions = this.taskDefinitions) {
+        return CONTINUOUS_TASK_REGISTRY
+            .filter(descriptor => taskDefinitions?.[descriptor.taskName])
+            .filter(descriptor => !descriptor.enabledBy || Boolean(this[descriptor.enabledBy]))
+            .filter(descriptor => this.isTaskAuthorityOwned(descriptor.taskName))
+            .map(descriptor => descriptor.taskName);
+    }
+
+    /**
+     * @summary Projects the full task-definition map to the subset this role may
+     * supervise or recover.
+     *
+     * Scheduled definitions follow authority directly. Continuous children additionally
+     * honor their enable gate; the auxiliary Chroma-defrag child follows Chroma's actual
+     * supervision eligibility. This keeps PID recovery from crossing the authority split
+     * before the first poll.
+     *
+     * @param {Object} [taskDefinitions=this.taskDefinitions] Full task table.
+     * @returns {Object}
+     */
+    getAuthorityScopedTaskDefinitions(taskDefinitions = this.taskDefinitions) {
+        if (!taskDefinitions) {
+            return {};
+        }
+
+        const continuousNames        = new Set(CONTINUOUS_TASK_REGISTRY.map(({taskName}) => taskName));
+        const enabledContinuousNames = new Set(this.getEnabledContinuousTaskNames(taskDefinitions));
+
+        return Object.fromEntries(Object.entries(taskDefinitions).filter(([taskName]) => {
+            if (!this.isTaskAuthorityOwned(taskName)) {
+                return false;
+            }
+            if (continuousNames.has(taskName)) {
+                return enabledContinuousNames.has(taskName);
+            }
+            if (taskName === 'chromaDefrag') {
+                return enabledContinuousNames.has('chroma');
+            }
+            return true;
+        }));
+    }
+
+    /**
+     * @summary Returns the scheduled descriptor registry owned by this role.
+     * @returns {Object[]}
+     */
+    getAuthorityScheduledRegistry() {
+        return TASK_REGISTRY.filter(({taskName}) => this.isTaskAuthorityOwned(taskName));
+    }
+
+    /**
+     * @summary Projects persisted task state to this role's owned task set.
+     *
+     * A host-edge cutover reuses the former mixed supervisor's data directory. Filtering
+     * prevents stale plane-task `running` flags from backpressuring host-only work after
+     * PID recovery has correctly stopped adopting those plane children.
+     *
+     * @returns {Object}
+     */
+    getAuthorityTaskState() {
+        const state      = this.taskStateService.getState();
+        const ownedNames = new Set([
+            ...this.getAuthorityScheduledRegistry().map(({taskName}) => taskName),
+            ...Object.keys(this.getAuthorityScopedTaskDefinitions())
+        ]);
+
+        return Object.fromEntries(
+            Object.entries(state).filter(([taskName]) => ownedNames.has(taskName))
+        );
+    }
+
+    /**
+     * @summary Audits the canonical topology and builds this role's machine-readable
+     * ownership receipt. Unknown profiles, unclassified lanes, gaps, and duplicates throw.
+     * @returns {Object}
+     */
+    createAuthorityReceipt() {
+        return buildTaskAuthorityReceipt({
+            profile           : this.getResolvedAuthorityProfile(),
+            auxiliaryRegistry : AUXILIARY_TASK_REGISTRY,
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY,
+            internalRegistry  : INTERNAL_TASK_REGISTRY
+        });
+    }
+
+    /**
+     * @summary Persists the already-audited, secret-free authority receipt before any
+     * child recovery, database initialization, or polling begins.
+     * @returns {void}
+     */
+    writeAuthorityReceipt() {
+        this.authorityReceipt = {
+            ...this.authorityReceipt,
+            generatedAt: new Date().toISOString()
+        };
+        fs.writeJsonSync(this.authorityReceiptFile, this.authorityReceipt, {spaces: 2});
+    }
+
+    /**
      * @summary Delegates config-backed task-table construction to the orchestrator task builder.
      * @param {Object} options
      * @param {String} options.scriptDir Script directory.
@@ -961,6 +1103,9 @@ export class Orchestrator extends Base {
             return;
         }
 
+        this.authorityProfile = AiConfig.orchestrator.authorityProfile;
+        this.authorityReceipt = this.createAuthorityReceipt();
+
         const scriptDir = options.scriptDir || DEFAULT_SCRIPT_DIR;
         const dataDir   = options.dataDir   || AiConfig.orchestrator.dataDir;
 
@@ -973,6 +1118,7 @@ export class Orchestrator extends Base {
         this.dbPath                    = options.dbPath   || AiConfig.orchestrator.dbPath;
         this.logFile                   = options.logFile  || path.join(dataDir, 'orchestrator.log');
         this.stateFile                 = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
+        this.authorityReceiptFile       = options.authorityReceiptFile || path.join(dataDir, 'orchestrator-authority.json');
         this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath ?? this.heavyMaintenanceLeasePath;
         this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig !== undefined
             ? options.primaryDevSyncRootsConfig
@@ -982,6 +1128,7 @@ export class Orchestrator extends Base {
         this._chromaDefragInFlight = false;
 
         fs.ensureDirSync(this.dataDir);
+        this.writeAuthorityReceipt();
 
         // Prune stale daily-rotated archives so the data dir doesn't accrue them unboundedly.
         pruneOldDailyLogs({dir: path.dirname(this.logFile), baseName: path.basename(this.logFile)});
@@ -1005,7 +1152,7 @@ export class Orchestrator extends Base {
 
         this.db = await this.initializeDatabaseFn(this.dbPath);
 
-        if (this.swarmHeartbeatEnabled) {
+        if (this.isTaskAuthorityOwned('swarm-heartbeat') && this.swarmHeartbeatEnabled) {
             try {
                 this.swarmHeartbeatService.identity        = this.swarmHeartbeatIdentity;
                 this.swarmHeartbeatService.pollIntervalMs  = AiConfig.orchestrator.intervals.swarmHeartbeatMs;
@@ -1019,7 +1166,7 @@ export class Orchestrator extends Base {
         }
 
         this.isPolling = true;
-        this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
+        this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.poll();
     }
 
@@ -1119,17 +1266,7 @@ export class Orchestrator extends Base {
         const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
 
-        const continuousTasks = [
-            ...(this.chromaDaemonEnabled ? ['chroma'] : []),
-            ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
-            ...(this.devServerEnabled    ? ['devServer'] : []),
-            ...(this.neuralLinkBridgeEnabled ? ['neuralLinkBridge'] : []),
-            ...(this.embedDaemonEnabled  ? ['embedDaemon'] : []),
-            ...(this.messageDaemonEnabled ? ['messageDaemon'] : []),
-            'mlx',
-            'ollama',
-            'lms'
-        ];
+        const continuousTasks     = this.getEnabledContinuousTaskNames();
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
             this.processSupervisorService.reconcileSingletonPort(taskName);
@@ -1170,7 +1307,12 @@ export class Orchestrator extends Base {
         }
 
         runSchedulingPipeline({
-            ...buildOrchestratorSchedulingOptions({orchestrator: this, config: AiConfig, now, registry: TASK_REGISTRY})
+            ...buildOrchestratorSchedulingOptions({
+                orchestrator: this,
+                config      : AiConfig,
+                now,
+                registry    : this.getAuthorityScheduledRegistry()
+            })
         });
 
         // Persist this process's advisory boot-identity fact to the shared runtime-state dir for the
@@ -1178,17 +1320,23 @@ export class Orchestrator extends Base {
         // (never gates a cycle) and self-observing: a genuine produce/write failure is surfaced through
         // onError (the LIVE log path); the trailing .catch is only a belt-and-suspenders guard for an
         // unexpected rejection, matching the sibling writes below.
-        recordBootIdentityFact({
-            source : this.bootIdentitySource,
-            dir    : this.dataDir,
-            onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
-        }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
+        if (this.isTaskAuthorityOwned('boot-identity-fact')) {
+            this.recordBootIdentityFactFn({
+                source : this.bootIdentitySource,
+                dir    : this.dataDir,
+                onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
+            }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
+        }
 
-        this.deploymentStateBridgeService?.writeSnapshotIfDue()
-            .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
+        if (this.isTaskAuthorityOwned('deployment-state-bridge')) {
+            this.deploymentStateBridgeService?.writeSnapshotIfDue()
+                .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
+        }
 
-        this.runFreezeReprobeCycleIfActive(now)
-            .catch(error => this.writeLog('ERROR', `[Orchestrator] Freeze re-probe cycle failed: ${error.message}`));
+        if (this.isTaskAuthorityOwned('freeze-reprobe')) {
+            this.runFreezeReprobeCycleIfActive(now)
+                .catch(error => this.writeLog('ERROR', `[Orchestrator] Freeze re-probe cycle failed: ${error.message}`));
+        }
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);

@@ -806,6 +806,18 @@ class ConfigBase extends ConfigProvider {
                  */
                 deploymentMode: leaf('local', 'NEO_AI_DEPLOYMENT_MODE', 'string'),
                 /**
+                 * Orchestrator task-authority role. This is intentionally independent from
+                 * `deploymentMode`: storage/deployment defaults cannot express which process owns
+                 * host/session effects versus plane maintenance on the same machine.
+                 *
+                 * `legacy-mixed` preserves existing maintainer checkouts until an explicit
+                 * machine cutover. Container profiles declare `container-plane`; the
+                 * eventual host-edge overlay declares `host-edge`. Unknown values fail the
+                 * orchestrator's preflight ownership audit.
+                 * @type {'legacy-mixed'|'host-edge'|'container-plane'}
+                 */
+                authorityProfile: leaf('legacy-mixed', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string'),
+                /**
                  * Filesystem root under which tenant-repo mirrors are stored. The
                  * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,
                  * so this value names the PARENT of that directory — typically

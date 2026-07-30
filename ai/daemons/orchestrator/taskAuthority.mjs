@@ -1,0 +1,389 @@
+/**
+ * Canonical authority classes expressed as the runtime ownership vocabulary for the
+ * split host-edge + container-plane topology.
+ *
+ * `shared-primitive` remains distinct from `container-plane`: it records that the
+ * capability is required by both environments even though the target topology gives
+ * its single lifecycle owner to the container plane (for example, Compose owns Chroma).
+ *
+ * @type {Readonly<Object>}
+ */
+export const ORCHESTRATOR_AUTHORITY_CLASS = Object.freeze({
+    containerPlane : 'container-plane',
+    hostEdge       : 'host-edge',
+    sharedPrimitive: 'shared-primitive'
+});
+
+/**
+ * Legal runtime profiles. `legacy-mixed` is an explicit compatibility profile for
+ * existing maintainer checkouts until an explicit machine cutover; it is never inferred
+ * from `deploymentMode`.
+ *
+ * @type {Readonly<Object>}
+ */
+export const ORCHESTRATOR_AUTHORITY_PROFILE = Object.freeze({
+    containerPlane: 'container-plane',
+    hostEdge      : 'host-edge',
+    legacyMixed   : 'legacy-mixed'
+});
+
+/**
+ * The target two-process topology whose ownership matrix must remain gap-free and
+ * duplicate-free.
+ *
+ * @type {ReadonlyArray<String>}
+ */
+export const TARGET_ORCHESTRATOR_AUTHORITY_PROFILES = Object.freeze([
+    ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge,
+    ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane
+]);
+
+/**
+ * Profile-to-class ownership is the single routing rule. Per-lane enable flags may
+ * disable configured work, but they cannot move a lane to a different authority.
+ *
+ * @type {Readonly<Object<String, ReadonlyArray<String>>>}
+ */
+export const AUTHORITY_CLASSES_BY_PROFILE = Object.freeze({
+    [ORCHESTRATOR_AUTHORITY_PROFILE.legacyMixed]: Object.freeze([
+        ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+        ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+        ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
+    ]),
+    [ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge]: Object.freeze([
+        ORCHESTRATOR_AUTHORITY_CLASS.hostEdge
+    ]),
+    [ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane]: Object.freeze([
+        ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+        ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
+    ])
+});
+
+/**
+ * Exhaustive task-to-authority classification.
+ *
+ * This is deliberately a task map, not another set of per-profile booleans. Both the
+ * continuous-child registry and scheduled registry project their `authorityClass`
+ * from this map, so adding a task without classifying it fails during construction or
+ * boot instead of silently inheriting the current process.
+ *
+ * @type {Readonly<Object<String, String>>}
+ * @see learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md
+ * @see learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md
+ */
+export const TASK_AUTHORITY_BY_NAME = Object.freeze({
+    chroma                               : ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive,
+    bridgeDaemon                         : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    devServer                            : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    neuralLinkBridge                     : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    embedDaemon                          : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    messageDaemon                        : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    mlx                                  : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    ollama                               : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    lms                                  : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    summary                              : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'memory-summary-backfill'            : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    kbSync                               : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    githubWorkflowSync                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    backup                               : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'graphlog-compaction'                : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'temporal-summary'                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    chromaDefrag                         : ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive,
+    'primary-dev-sync'                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    'tenant-repo-sync'                   : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    dream                                : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'message-concept-harvest'            : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'golden-path'                        : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'swarm-heartbeat'                    : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    'embed-drain-liveness-watchdog'      : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'rem-consolidation-liveness-watchdog': ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'data-integrity-sweep'               : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'boot-identity-fact'                 : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'deployment-state-bridge'            : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+    'freeze-reprobe'                     : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane
+});
+
+/**
+ * Canonical continuous-child registry.
+ *
+ * `enabledBy` names the Orchestrator getter that applies the existing AiConfig lane
+ * toggle. A missing `enabledBy` means task-definition presence is the enablement gate
+ * (the configured local model launchers).
+ *
+ * @type {ReadonlyArray<Object>}
+ */
+export const CONTINUOUS_TASK_REGISTRY = Object.freeze([
+    {taskName: 'chroma',           enabledBy: 'chromaDaemonEnabled'},
+    {taskName: 'bridgeDaemon',     enabledBy: 'bridgeDaemonEnabled'},
+    {taskName: 'devServer',        enabledBy: 'devServerEnabled'},
+    {taskName: 'neuralLinkBridge', enabledBy: 'neuralLinkBridgeEnabled'},
+    {taskName: 'embedDaemon',      enabledBy: 'embedDaemonEnabled'},
+    {taskName: 'messageDaemon',    enabledBy: 'messageDaemonEnabled'},
+    {taskName: 'mlx'},
+    {taskName: 'ollama'},
+    {taskName: 'lms'}
+].map(descriptor => Object.freeze({
+    ...descriptor,
+    authorityClass: getTaskAuthorityClass(descriptor.taskName)
+})));
+
+/**
+ * Recurring poll-side effects which are neither child processes nor cadence-picked
+ * tasks. Keeping them in the same inventory prevents an authority split from leaving
+ * an unclassified side door after the scheduled pipeline returns.
+ *
+ * @type {ReadonlyArray<Object>}
+ */
+export const INTERNAL_TASK_REGISTRY = Object.freeze([
+    {taskName: 'boot-identity-fact'},
+    {taskName: 'deployment-state-bridge'},
+    {taskName: 'freeze-reprobe'}
+].map(descriptor => Object.freeze({
+    ...descriptor,
+    authorityClass: getTaskAuthorityClass(descriptor.taskName)
+})));
+
+/**
+ * On-demand supervised children which are not continuous processes or cadence-picked
+ * tasks. Chroma defrag follows Chroma's shared-primitive authority and enablement.
+ *
+ * @type {ReadonlyArray<Object>}
+ */
+export const AUXILIARY_TASK_REGISTRY = Object.freeze([
+    {taskName: 'chromaDefrag'}
+].map(descriptor => Object.freeze({
+    ...descriptor,
+    authorityClass: getTaskAuthorityClass(descriptor.taskName)
+})));
+
+/**
+ * @summary Returns the canonical authority class for one orchestrator task and fails
+ * closed when the task has not been classified.
+ * @param {String} taskName Stable orchestrator task name.
+ * @param {Object} [taskAuthorityByName=TASK_AUTHORITY_BY_NAME] Injectable classification map.
+ * @returns {String}
+ */
+export function getTaskAuthorityClass(
+    taskName,
+    taskAuthorityByName = TASK_AUTHORITY_BY_NAME
+) {
+    const authorityClass = taskAuthorityByName?.[taskName];
+
+    if (!authorityClass) {
+        throw new Error(`[orchestrator-authority] Unclassified task "${taskName}".`);
+    }
+
+    return authorityClass;
+}
+
+/**
+ * @summary Adds canonical authority metadata to a freshly-built task-definition map.
+ * Construction fails if any definition lacks a classification.
+ * @param {Object} taskDefinitions Mutable task-definition map under construction.
+ * @returns {Object} The same map, enriched with `authorityClass`.
+ */
+export function attachTaskAuthority(taskDefinitions = {}) {
+    for (const [taskName, definition] of Object.entries(taskDefinitions)) {
+        definition.authorityClass = getTaskAuthorityClass(taskName);
+    }
+
+    return taskDefinitions;
+}
+
+/**
+ * @summary Asserts that a requested runtime authority profile is explicitly legal.
+ * @param {String} profile Requested profile.
+ * @param {Object} [authorityClassesByProfile=AUTHORITY_CLASSES_BY_PROFILE] Injectable matrix.
+ * @returns {String} The validated profile.
+ */
+export function assertAuthorityProfile(
+    profile,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE
+) {
+    if (!Object.hasOwn(authorityClassesByProfile, profile)) {
+        throw new Error(
+            `[orchestrator-authority] Unknown authority profile "${profile}". ` +
+            `Expected one of: ${Object.keys(authorityClassesByProfile).join(', ')}.`
+        );
+    }
+
+    return profile;
+}
+
+/**
+ * @summary Resolves whether one authority profile owns a task's canonical class.
+ * @param {Object} options
+ * @param {String} options.profile Runtime authority profile.
+ * @param {String} options.taskName Stable task name.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @param {Object} [options.taskAuthorityByName] Injectable task classification.
+ * @returns {Boolean}
+ */
+export function isTaskOwnedByProfile({
+    profile,
+    taskName,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE,
+    taskAuthorityByName       = TASK_AUTHORITY_BY_NAME
+}) {
+    assertAuthorityProfile(profile, authorityClassesByProfile);
+
+    const authorityClass = getTaskAuthorityClass(taskName, taskAuthorityByName);
+
+    return authorityClassesByProfile[profile].includes(authorityClass);
+}
+
+/**
+ * @summary Builds the exhaustive continuous + scheduled + internal + auxiliary lane
+ * inventory and rejects duplicate task names or registry metadata that disagrees with
+ * the canonical map.
+ * @param {Object} options
+ * @param {Object[]} options.continuousRegistry Continuous-child descriptors.
+ * @param {Object[]} options.scheduledRegistry Scheduled-task descriptors.
+ * @param {Object[]} options.internalRegistry Recurring internal-effect descriptors.
+ * @param {Object[]} options.auxiliaryRegistry On-demand supervised-child descriptors.
+ * @returns {Object[]} Normalized `{task, kind, authorityClass}` lanes.
+ */
+export function buildAuthorityLaneInventory({
+    continuousRegistry = CONTINUOUS_TASK_REGISTRY,
+    scheduledRegistry  = [],
+    internalRegistry   = INTERNAL_TASK_REGISTRY,
+    auxiliaryRegistry  = AUXILIARY_TASK_REGISTRY
+} = {}) {
+    const lanes = [
+        ...continuousRegistry.map(descriptor => ({
+            task          : descriptor.taskName,
+            kind          : 'continuous',
+            authorityClass: descriptor.authorityClass
+        })),
+        ...scheduledRegistry.map(descriptor => ({
+            task          : descriptor.taskName,
+            kind          : 'scheduled',
+            authorityClass: descriptor.authorityClass
+        })),
+        ...internalRegistry.map(descriptor => ({
+            task          : descriptor.taskName,
+            kind          : 'internal',
+            authorityClass: descriptor.authorityClass
+        })),
+        ...auxiliaryRegistry.map(descriptor => ({
+            task          : descriptor.taskName,
+            kind          : 'auxiliary',
+            authorityClass: descriptor.authorityClass
+        }))
+    ];
+    const seen = new Set();
+
+    for (const lane of lanes) {
+        if (!lane.task) {
+            throw new Error('[orchestrator-authority] Registry entry is missing taskName.');
+        }
+        if (seen.has(lane.task)) {
+            throw new Error(`[orchestrator-authority] Task "${lane.task}" is registered more than once.`);
+        }
+        seen.add(lane.task);
+
+        const expectedClass = getTaskAuthorityClass(lane.task);
+        if (lane.authorityClass !== expectedClass) {
+            throw new Error(
+                `[orchestrator-authority] Task "${lane.task}" registry class ` +
+                `"${lane.authorityClass}" does not match canonical class "${expectedClass}".`
+            );
+        }
+    }
+
+    return lanes;
+}
+
+/**
+ * @summary Audits a topology for exactly one owner per lane. Gaps and duplicate owners
+ * throw before either orchestrator begins work.
+ * @param {Object} options
+ * @param {Object[]} options.lanes Normalized lane inventory.
+ * @param {String[]} options.profiles Profiles participating in the topology.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @returns {Object[]} Lane ownership rows with one `effectiveOwner`.
+ */
+export function auditAuthorityTopology({
+    lanes,
+    profiles,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE
+} = {}) {
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+        throw new Error('[orchestrator-authority] Topology must declare at least one authority profile.');
+    }
+
+    const uniqueProfiles = [...new Set(profiles)];
+    if (uniqueProfiles.length !== profiles.length) {
+        throw new Error('[orchestrator-authority] Topology contains a duplicate authority profile.');
+    }
+
+    uniqueProfiles.forEach(profile => assertAuthorityProfile(profile, authorityClassesByProfile));
+
+    return lanes.map(lane => {
+        const owners = uniqueProfiles.filter(profile =>
+            authorityClassesByProfile[profile].includes(lane.authorityClass)
+        );
+
+        if (owners.length !== 1) {
+            const failure = owners.length === 0 ? 'ownership gap' : 'double ownership';
+            throw new Error(
+                `[orchestrator-authority] ${failure} for task "${lane.task}" ` +
+                `(class="${lane.authorityClass}", owners=${JSON.stringify(owners)}).`
+            );
+        }
+
+        return {...lane, effectiveOwner: owners[0]};
+    });
+}
+
+/**
+ * @summary Builds the secret-free, machine-readable ownership receipt for one
+ * orchestrator role after auditing the relevant topology.
+ * @param {Object} options
+ * @param {String} options.profile Runtime authority profile.
+ * @param {Object[]} options.continuousRegistry Continuous-child descriptors.
+ * @param {Object[]} options.scheduledRegistry Scheduled-task descriptors.
+ * @param {Object[]} options.internalRegistry Recurring internal-effect descriptors.
+ * @param {Object[]} options.auxiliaryRegistry On-demand supervised-child descriptors.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @returns {{schemaVersion:Number, role:String, topologyProfiles:String[], tasks:Object[]}}
+ */
+export function buildAuthorityReceipt({
+    profile,
+    continuousRegistry = CONTINUOUS_TASK_REGISTRY,
+    scheduledRegistry  = [],
+    internalRegistry   = INTERNAL_TASK_REGISTRY,
+    auxiliaryRegistry  = AUXILIARY_TASK_REGISTRY,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE
+} = {}) {
+    assertAuthorityProfile(profile, authorityClassesByProfile);
+
+    const lanes = buildAuthorityLaneInventory({
+        continuousRegistry,
+        scheduledRegistry,
+        internalRegistry,
+        auxiliaryRegistry
+    });
+    const topologyProfiles = profile === ORCHESTRATOR_AUTHORITY_PROFILE.legacyMixed
+        ? [ORCHESTRATOR_AUTHORITY_PROFILE.legacyMixed]
+        : [...TARGET_ORCHESTRATOR_AUTHORITY_PROFILES];
+    const audited = auditAuthorityTopology({
+        lanes,
+        profiles: topologyProfiles,
+        authorityClassesByProfile
+    });
+
+    return {
+        schemaVersion: 1,
+        role         : profile,
+        topologyProfiles,
+        tasks        : audited.map(lane => ({
+            role          : profile,
+            task          : lane.task,
+            kind          : lane.kind,
+            authorityClass: lane.authorityClass,
+            effectiveOwner: lane.effectiveOwner,
+            active        : lane.effectiveOwner === profile
+        }))
+    };
+}

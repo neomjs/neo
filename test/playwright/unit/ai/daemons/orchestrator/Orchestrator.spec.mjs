@@ -14,6 +14,9 @@ import {
     buildTaskDefinitions,
     classifyChromaHealth
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
+import {
+    ORCHESTRATOR_AUTHORITY_PROFILE
+} from '../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 import os                                           from 'os';
 import {createBootIdentityReadSource}               from '../../../../../../ai/services/fleet/createBootIdentityReadSource.mjs';
@@ -167,6 +170,7 @@ function createTestOrchestrator(config = {}) {
     })};
     orchestrator.swarmHeartbeatService    = config.swarmHeartbeatService    || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()};
 
+    orchestrator.authorityProfile = config.authorityProfile ?? ORCHESTRATOR_AUTHORITY_PROFILE.legacyMixed;
     orchestrator.writeLog  = () => {};
 
     return orchestrator;
@@ -230,6 +234,148 @@ function restoreConfigObject(target, prior) {
 }
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
+    test('authority profiles filter continuous supervision, scheduled work, and PID recovery (#16166)', () => {
+        const hostEdge = createTestOrchestrator({
+            authorityProfile     : ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge,
+            deploymentMode       : 'local',
+            bridgeDaemonEnabled  : true,
+            devServerEnabled     : true,
+            embedDaemonEnabled   : true,
+            messageDaemonEnabled : true,
+            primaryDevSyncEnabled: true,
+            swarmHeartbeatEnabled: true
+        });
+        const hostContinuous = hostEdge.getEnabledContinuousTaskNames();
+        const hostScheduled  = hostEdge.getAuthorityScheduledRegistry().map(({taskName}) => taskName);
+        const hostRecovery   = Object.keys(hostEdge.getAuthorityScopedTaskDefinitions());
+        TaskStateService.taskState.summary.running = true;
+        const hostState = hostEdge.getAuthorityTaskState();
+
+        expect(hostContinuous).toEqual(expect.arrayContaining([
+            'bridgeDaemon', 'devServer', 'neuralLinkBridge'
+        ]));
+        for (const taskName of ['chroma', 'embedDaemon', 'messageDaemon']) {
+            expect(hostContinuous).not.toContain(taskName);
+        }
+        expect(hostScheduled).toEqual(expect.arrayContaining([
+            'kbSync', 'githubWorkflowSync', 'primary-dev-sync', 'swarm-heartbeat', 'temporal-summary'
+        ]));
+        expect(hostScheduled).not.toContain('summary');
+        expect(hostScheduled).not.toContain('dream');
+        expect(hostScheduled).not.toContain('data-integrity-sweep');
+        expect(hostRecovery).toContain('bridgeDaemon');
+        expect(hostRecovery).not.toContain('summary');
+        expect(hostRecovery).not.toContain('chroma');
+        expect(hostState).not.toHaveProperty('summary');
+
+        const containerPlane = createTestOrchestrator({
+            authorityProfile     : ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane,
+            deploymentMode       : 'local',
+            bridgeDaemonEnabled  : true,
+            devServerEnabled     : true,
+            embedDaemonEnabled   : true,
+            messageDaemonEnabled : true,
+            primaryDevSyncEnabled: true,
+            swarmHeartbeatEnabled: true
+        });
+        const containerContinuous = containerPlane.getEnabledContinuousTaskNames();
+        const containerScheduled  = containerPlane.getAuthorityScheduledRegistry().map(({taskName}) => taskName);
+        const containerRecovery   = Object.keys(containerPlane.getAuthorityScopedTaskDefinitions());
+
+        expect(containerContinuous).toEqual(expect.arrayContaining(['embedDaemon', 'messageDaemon']));
+        for (const taskName of ['bridgeDaemon', 'devServer', 'neuralLinkBridge']) {
+            expect(containerContinuous).not.toContain(taskName);
+        }
+        expect(containerScheduled).toEqual(expect.arrayContaining([
+            'summary', 'dream', 'graphlog-compaction', 'message-concept-harvest',
+            'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog',
+            'data-integrity-sweep'
+        ]));
+        expect(containerScheduled).not.toContain('kbSync');
+        expect(containerScheduled).not.toContain('primary-dev-sync');
+        expect(containerScheduled).not.toContain('swarm-heartbeat');
+        expect(containerRecovery).toContain('summary');
+        expect(containerRecovery).not.toContain('bridgeDaemon');
+        expect(containerRecovery).not.toContain('primary-dev-sync');
+    });
+
+    test('writes a secret-free machine-readable authority receipt and rejects unknown roles (#16166)', () => {
+        const dataDir      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-orchestrator-authority-'));
+        const receiptPath  = path.join(dataDir, 'orchestrator-authority.json');
+        const orchestrator = createTestOrchestrator({
+            authorityProfile: ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge
+        });
+
+        try {
+            orchestrator.authorityReceipt     = orchestrator.createAuthorityReceipt();
+            orchestrator.authorityReceiptFile = receiptPath;
+            orchestrator.writeAuthorityReceipt();
+
+            const receipt = fs.readJsonSync(receiptPath);
+            expect(receipt).toMatchObject({
+                schemaVersion   : 1,
+                role            : 'host-edge',
+                topologyProfiles: ['host-edge', 'container-plane']
+            });
+            expect(receipt.generatedAt).toEqual(expect.any(String));
+            expect(receipt.tasks.find(({task}) => task === 'bridgeDaemon')).toMatchObject({
+                role          : 'host-edge',
+                authorityClass: 'host-edge',
+                effectiveOwner: 'host-edge',
+                active        : true
+            });
+            expect(receipt.tasks.find(({task}) => task === 'summary')).toMatchObject({
+                role          : 'host-edge',
+                authorityClass: 'container-plane',
+                effectiveOwner: 'container-plane',
+                active        : false
+            });
+            expect(JSON.stringify(receipt)).not.toMatch(/token|password|secret/i);
+
+            orchestrator.authorityProfile = 'unknown-role';
+            expect(() => orchestrator.createAuthorityReceipt()).toThrow(/Unknown authority profile/);
+        } finally {
+            fs.removeSync(dataDir);
+        }
+    });
+
+    test('host-edge poll cannot execute container-plane internal effects (#16166)', async () => {
+        const runPoll = authorityProfile => {
+            const calls        = [];
+            const orchestrator = createTestOrchestrator({authorityProfile});
+
+            orchestrator.getEnabledContinuousTaskNames  = () => [];
+            orchestrator.getAuthorityScheduledRegistry  = () => [];
+            orchestrator.recordBootIdentityFactFn       = () => {
+                calls.push('boot-identity-fact');
+                return Promise.resolve();
+            };
+            orchestrator.deploymentStateBridgeService = {
+                writeSnapshotIfDue() {
+                    calls.push('deployment-state-bridge');
+                    return Promise.resolve();
+                }
+            };
+            orchestrator.runFreezeReprobeCycleIfActive = () => {
+                calls.push('freeze-reprobe');
+                return Promise.resolve();
+            };
+
+            orchestrator.poll();
+
+            return calls;
+        };
+
+        expect(runPoll(ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge)).toEqual([]);
+        expect(runPoll(ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane)).toEqual([
+            'boot-identity-fact',
+            'deployment-state-bridge',
+            'freeze-reprobe'
+        ]);
+
+        await Promise.resolve();
+    });
+
     test('freeze re-probe forwards one bounded signal and clears its deadline after success (#15694)', async () => {
         const orchestrator = Object.create(Orchestrator.prototype);
 
@@ -864,7 +1010,6 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         TaskStateService.taskState.devServer.running   = false;
         TaskStateService.taskState.devServer.lastRunAt = 0;
         cloudOrchestrator.taskDefinitions.devServer.livenessProbe = async () => false;
-        cloudOrchestrator.processSupervisorService.taskDefinitions.devServer.livenessProbe = async () => false;
         cloudOrchestrator.processSupervisorService.runTask = (taskName, reason) => {
             cloudStarted.push({taskName, reason});
             return true;
@@ -1225,7 +1370,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             command        : '/node',
             args           : ['/repo/ai/scripts/maintenance/compactGraphLog.mjs', '--apply'],
             pidFileName    : 'graphlog-compaction.pid',
-            expectedCommand: 'compactGraphLog.mjs'
+            expectedCommand: 'compactGraphLog.mjs',
+            authorityClass : 'container-plane'
         });
 
         const orchestrator = createTestOrchestrator({

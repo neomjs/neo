@@ -100,11 +100,15 @@ export function buildSchedulingContext({db, state, now, intervals, enables, hook
  * @returns {Object} `runSchedulingPipeline()` options.
  */
 export function buildOrchestratorSchedulingOptions({orchestrator, config, now, registry}) {
+    const state = typeof orchestrator.getAuthorityTaskState === 'function'
+        ? orchestrator.getAuthorityTaskState()
+        : orchestrator.taskStateService.getState();
+
     return {
         registry,
         context: buildSchedulingContext({
             db       : orchestrator.db,
-            state    : orchestrator.taskStateService.getState(),
+            state,
             now,
             intervals: {
                 summarySweep                   : config.orchestrator.intervals.summarySweepMs,
