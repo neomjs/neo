@@ -27,7 +27,7 @@ import path from 'node:path';
  */
 
 /**
- * @summary The institution's canonical local plane identity — the ONE exported literal.
+ * @summary The institution's canonical local plane identity — the ONE exported configured identity literal.
  *
  * It crosses the module boundary because two consumers must compare against the same value: the
  * `plane.id` leaf declares it as its default, and {@link assertPlaneCoherence} treats it as the
@@ -36,10 +36,21 @@ import path from 'node:path';
  * consumers, not a defaults copy kept in step.
  *
  * Overlays, cloud deployments and ephemeral isolation planes override it through the leaf's env
- * binding — a stable literal, deliberately carrying no path or checkout content.
+ * binding — a stable literal, deliberately carrying no path or checkout content. The exported
+ * `UNKNOWN_PLANE_ID` below is a read-side non-identity sentinel, not a competing configured identity.
  * @type {String}
  */
 export const CANONICAL_PLANE_ID = 'neo-local-canonical';
+
+/**
+ * @summary Read-side sentinel for durable records written before plane provenance existed.
+ *
+ * This is deliberately NOT a valid configured plane identity. A missing historical value must surface
+ * honestly without becoming a plane a new writer can claim; otherwise a deployment configured as
+ * `unknown` would be indistinguishable from legacy evidence whose producer cannot be attributed.
+ * @type {String}
+ */
+export const UNKNOWN_PLANE_ID = 'unknown';
 
 /**
  * Module-internal only. `dataRootRelative` is consumed by the opacity predicate and the anchor
@@ -61,7 +72,8 @@ const PLANE_DEFAULTS = Object.freeze({
  * @returns {Boolean}
  */
 export function isOpaquePlaneId(value) {
-    return typeof value === 'string' && value.length > 0 &&
+    return typeof value === 'string' && value.length > 0 && value.trim() === value &&
+        value !== UNKNOWN_PLANE_ID &&
         !value.includes('/') && !value.includes('\\') &&
         !value.includes(PLANE_DEFAULTS.dataRootRelative)
 }

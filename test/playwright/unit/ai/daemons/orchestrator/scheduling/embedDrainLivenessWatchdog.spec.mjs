@@ -55,8 +55,8 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — getEmbedDr
         const oldest = now - 5 * HOUR_MS;       // 5h old (the oldest pending)
         const newer  = now - 1 * HOUR_MS;       // 1h old
 
-        await appendWalMemory(record('m-old', oldest), {dir: walDir});
-        await appendWalMemory(record('m-new', newer),  {dir: walDir});
+        await appendWalMemory(record('m-old', oldest), {dir: walDir, planeId: 'test-memory-plane'});
+        await appendWalMemory(record('m-new', newer),  {dir: walDir, planeId: 'test-memory-plane'});
 
         const result = await getEmbedDrainPendingAge({walDir, now});
 
@@ -70,8 +70,11 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — getEmbedDr
         const oldest = now - 5 * HOUR_MS;
         const newer  = now - 1 * HOUR_MS;
 
-        const {segmentKey: oldKey} = await appendWalMemory(record('m-old', oldest), {dir: walDir});
-        await appendWalMemory(record('m-new', newer), {dir: walDir});
+        const {segmentKey: oldKey} = await appendWalMemory(
+            record('m-old', oldest),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        );
+        await appendWalMemory(record('m-new', newer), {dir: walDir, planeId: 'test-memory-plane'});
 
         // Embed the OLDEST record → only the newer record stays pending.
         await appendWalEmbedMarker({id: 'm-old', segmentKey: oldKey}, {dir: walDir});
@@ -269,7 +272,10 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
 
     test('(c) a stalled backlog records a failed outcome AND fires the one-shot alarm', async () => {
         const now = Date.now();
-        await appendWalMemory(record('m-stale', now - 8 * HOUR_MS), {dir: walDir}); // 8h > 6h threshold
+        await appendWalMemory(
+            record('m-stale', now - 8 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        ); // 8h > 6h threshold
 
         const outcomes = [];
         const alarmCalls = [];
@@ -294,7 +300,10 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
 
     test('(d) a fresh backlog records a completed outcome and fires NO alarm', async () => {
         const now = Date.now();
-        await appendWalMemory(record('m-fresh', now - 1 * HOUR_MS), {dir: walDir}); // 1h < 6h threshold
+        await appendWalMemory(
+            record('m-fresh', now - 1 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        ); // 1h < 6h threshold
 
         const outcomes = [];
         const alarmCalls = [];
@@ -311,7 +320,10 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
 
     test('(e) consecutive stalled checks fire the alarm exactly once until a healthy check resets it', async () => {
         const now = Date.now();
-        await appendWalMemory(record('m-stale', now - 9 * HOUR_MS), {dir: walDir});
+        await appendWalMemory(
+            record('m-stale', now - 9 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        );
 
         const outcomes = [];
         const alarmCalls = [];
@@ -333,14 +345,20 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
         expect(taskStateService.getTaskState('embed-drain-liveness-watchdog').embedDrainAlarm.alarmed).toBe(false);
 
         // A NEW stall re-alarms (latch was cleared by the healthy check).
-        await appendWalMemory(record('m-stale-2', Date.now() - 9 * HOUR_MS), {dir: walDir});
+        await appendWalMemory(
+            record('m-stale-2', Date.now() - 9 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        );
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime: makeRuntime()});
         expect(alarmCalls).toHaveLength(2);
     });
 
     test('(d/gate) alarm is suppressed when embedDaemonEnabled is false (no local drainer to blame)', async () => {
         const now = Date.now();
-        await appendWalMemory(record('m-stale', now - 8 * HOUR_MS), {dir: walDir});
+        await appendWalMemory(
+            record('m-stale', now - 8 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        );
 
         const outcomes = [];
         const alarmCalls = [];
@@ -359,7 +377,10 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
 
     test('(f) a health-service that throws does NOT propagate and fires no alarm', async () => {
         const now = Date.now();
-        await appendWalMemory(record('m-stale', now - 8 * HOUR_MS), {dir: walDir});
+        await appendWalMemory(
+            record('m-stale', now - 8 * HOUR_MS),
+            {dir: walDir, planeId: 'test-memory-plane'}
+        );
 
         const alarmCalls = [];
         const dispatcher = async payload => { alarmCalls.push(payload); };

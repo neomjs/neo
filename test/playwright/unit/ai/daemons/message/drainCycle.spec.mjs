@@ -42,7 +42,7 @@ test.describe('Neo.ai.daemons.message.drainCycle', () => {
         optionalEdges: {relatedTickets: [], relatedSessions: [], taggedConcepts: []}
     });
 
-    const seed = id => appendWalMessage(record(id), {dir: tmpDir});
+    const seed = id => appendWalMessage(record(id), {dir: tmpDir, planeId: 'test-message-plane'});
 
     test('without a replay processor, the cycle skips WAL reads instead of doing active no-op work', async () => {
         await seed('MESSAGE:deferred');

@@ -1,17 +1,32 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs/promises';
+import {mkdtemp, rm}  from 'node:fs/promises';
+import os             from 'node:os';
+import path           from 'node:path';
 import {
     ELIGIBILITY_EFFECT,
     OVERLAY_TAGGING_PRODUCER,
     PILOT_TERMINALS,
     PROMOTION_REPLAY_PRODUCER,
+    deriveDemotionTerminal,
+    deriveDualCorpusReplayReceipt,
     deriveReplayCompletion,
     diffSegmentIdentity,
     eligibilityEffect,
     evaluateDemotion,
     evaluatePromotion,
+    produceOverlayScan,
     validateOverlayScan
 } from '../../../../../../ai/scripts/diagnostics/pilotPlaneTerminal.mjs';
 import {digestAppliedStages} from '../../../../../../ai/scripts/diagnostics/walReplayPlan.mjs';
+import {
+    appendWalMemory,
+    getWalRecordsFileName
+} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
+import {
+    appendWalMessage,
+    getMessageWalRecordsFileName
+} from '../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs';
 
 // AC5's parenthetical — "never a silent abandon" — is the whole specification. So most assertions here are
 // about the ABSENCE of exits: every path names a terminal, an unprovable claim never opens eligibility, and
@@ -21,22 +36,22 @@ import {digestAppliedStages} from '../../../../../../ai/scripts/diagnostics/walR
 // every one of them checked the SHAPE of a claim and mistook that for checking the claim.
 //   * two caller booleans passed as proof of replay        -> verification runs HERE
 //   * a structurally valid typed receipt passed as proof   -> verification runs HERE
-//   * a bare [] claiming an impossible scan                -> capability gate
-//   * an invented planeIdSource string unlocking clean     -> capability gate
+//   * a bare [] claiming an impossible scan                -> invoked dual-WAL producer
+//   * an invented planeIdSource string unlocking clean     -> caller can no longer supply the scan
 //   * segment COUNTS offered as proof of no-loss           -> set inclusion by id
 //   * a self-consistent SUBSET of the corpus certifying    -> unconditional containment
 //   * a NO-OP FUNCTION satisfying the promotion gate       -> unconditional containment
 //
-// The last two are why BOTH certifying terminals are now unreachable, and why they are closed DIFFERENTLY.
+// Promotion remains mechanically unreachable until a complete replay adapter owns its observations.
 // Deriving the plan here closed the forged plan but not the unknown denominator: a caller passing part of the
 // corpus verifies as cleanly as one passing all of it, and no validation rule can tell them apart. What was
 // missing was never a stricter check — it was a producer of fact.
 //
 // The first attempt at that repair was itself the same defect: a `typeof PROMOTION_REPLAY_PRODUCER !== 'function'`
 // gate type-checked the capability but never INVOKED it, so a no-op stub fell through to caller-owned
-// observations. Demotion keeps a gate because its logic is complete and only its input is missing; promotion has
-// no branch and no parameter, because a capability that must *act* cannot be verified by checking that it
-// *exists*. Requiring a thing is not proving a fact — the recurring shape in every row above.
+// observations. Demotion is now open only through an invoked producer that reads both WAL stores strictly;
+// promotion has no branch and no parameter, because a capability that must *act* cannot be verified by checking
+// that it *exists*. Requiring a thing is not proving a fact — the recurring shape in every row above.
 
 const S         = ids => new Set(ids),
       allStages = ids => ({embedded: S(ids), graph: S(ids)});
@@ -336,73 +351,241 @@ test.describe('⭐ deriveReplayCompletion — the math, directly executed, minti
     });
 });
 
-test.describe('⭐ evaluateDemotion — clean is MECHANICALLY unreachable while the producer is absent', () => {
-    test('the substrate has no plane-id producer, and that is recorded as a constant', () => {
-        // A constant, not a parameter. Asking the caller to NAME a source only checked that a string was
-        // present, so an invented name unlocked a clean terminal: requiring a field is not proving a fact.
-        expect(OVERLAY_TAGGING_PRODUCER).toBeNull();
+test.describe('deriveDualCorpusReplayReceipt — plane-bound memory + message replay component proof', () => {
+    const sourcePlaneId = 'neo-pilot-source',
+          targetPlaneId = 'neo-local-canonical',
+          memorySource  = [{id: 'memory-a', timestamp: 1, planeId: sourcePlaneId}],
+          messageSource = [{id: 'MESSAGE:a', timestamp: 2, planeId: sourcePlaneId}],
+          validSpec     = () => ({
+              sourcePlaneId,
+              targetPlaneId,
+              memory: {
+                  payloadEntries     : memorySource,
+                  targetEntriesAfter : [{...memorySource[0], planeId: targetPlaneId}, {id: 'other-memory', planeId: targetPlaneId}],
+                  appliedStagesBefore: allStages(['seed']),
+                  appliedStagesAfter : allStages(['seed', 'memory-a', 'other-memory'])
+              },
+              messages: {
+                  payloadEntries     : messageSource,
+                  targetEntriesAfter : [{...messageSource[0], planeId: targetPlaneId}, {id: 'MESSAGE:other', planeId: targetPlaneId}],
+                  appliedStagesBefore: {graph: S(['MESSAGE:seed'])},
+                  appliedStagesAfter : {graph: S(['MESSAGE:seed', 'MESSAGE:a', 'MESSAGE:other'])}
+              }
+          });
+
+    test('binds distinct source/target planes and exact family-typed record sets', () => {
+        const result = deriveDualCorpusReplayReceipt(validSpec());
+
+        expect(result.ok).toBe(true);
+        expect(result.receipt.sourcePlaneId).toBe(sourcePlaneId);
+        expect(result.receipt.targetPlaneId).toBe(targetPlaneId);
+        expect(result.receipt.families.memory.sourceRecordIds).toEqual(['memory-a']);
+        expect(result.receipt.families.memory.targetRecordIds).toEqual(['memory-a']);
+        expect(result.receipt.families.memory.unrelatedTargetRecordIds).toEqual(['other-memory']);
+        expect(result.receipt.families.messages.sourceRecordIds).toEqual(['MESSAGE:a']);
+        expect(result.receipt.families.messages.targetRecordIds).toEqual(['MESSAGE:a']);
+        expect(result.receipt.families.messages.continuity.requiredStages).toEqual(['graph']);
     });
 
-    test('⭐ NO argument combination yields demoted-clean — including a plausible invented scan', () => {
-        // Euclid's exact falsifier: a non-empty planeIdSource with zero scanned and zero tagged segments.
-        const candidates = [
-            {overlayScan: {planeIdSource: 'segment header planeId', scannedSegmentCount: 0, taggedSegments: []},
-             preCloneSegmentIds: [], postPilotSegmentIds: []},
-            {overlayScan: {planeIdSource: 'wal-store', scannedSegmentCount: 140, taggedSegments: []},
-             preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1', 's2']},
-            {overlayScan: {planeIdSource: null, scannedSegmentCount: 1, taggedSegments: []},
-             preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']},
-            {overlayScan: []}, {overlayScan: {}}, {}, null, undefined
-        ];
+    test('replayed origin identity cannot masquerade as the target accepting plane', () => {
+        const spec = validSpec();
 
-        for (const spec of candidates) {
-            const result = evaluateDemotion(spec);
+        spec.messages.targetEntriesAfter[0] = {...messageSource[0]};
 
-            expect(result.terminal).toBe('failed-contained');
-            expect(result.eligibility).toBe('denied');
-        }
+        const result = deriveDualCorpusReplayReceipt(spec);
+
+        expect(result.ok).toBe(false);
+        expect(result.reason).toContain('origin identity must not masquerade as target write identity');
     });
 
-    test('the refusal blames the SUBSTRATE, not the caller, and says quarantine', () => {
-        // The message a real operator will read mid-demotion. It must not send them hunting for a bad argument.
-        const result = evaluateDemotion({
-            overlayScan       : {planeIdSource: 'segment header planeId', scannedSegmentCount: 140, taggedSegments: []},
-            preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']
-        });
+    test('unknown source provenance, missing target rows, and non-monotonic stage state fail closed', () => {
+        const unknown = validSpec();
+        unknown.memory.payloadEntries = [{...memorySource[0], planeId: 'unknown'}];
+        expect(deriveDualCorpusReplayReceipt(unknown).reason).toContain('unknown or mixed source provenance');
 
-        expect(result.reason).toContain('UNPROVABLE, not merely');
-        expect(result.reason).toContain('no argument can change that');
-        expect(result.reason).toContain('missing producer');
-        expect(result.reason).toContain('Quarantine');
+        const missing = validSpec();
+        missing.messages.targetEntriesAfter = [];
+        expect(deriveDualCorpusReplayReceipt(missing).reason).toContain('absent from the target WAL');
+
+        const lost = validSpec();
+        lost.memory.appliedStagesAfter = allStages(['memory-a']);
+        expect(deriveDualCorpusReplayReceipt(lost).reason).toContain('lost');
     });
 });
 
-// POSITIVE CONTROLS for the logic behind the capability gate. Without these the gate would hide whether the
-// demotion reasoning works at all, and opening the path later would be an untested one-line change.
-test.describe('validateOverlayScan — the logic behind the gate, tested directly', () => {
-    test('a bare array is not a scan', () => {
-        expect(validateOverlayScan([])).toContain('not a bare array');
-        expect(validateOverlayScan(['x'])).toContain('not a bare array');
+test.describe('evaluateDemotion — invoked dual-WAL provenance producer', () => {
+    const CUTOVER   = Date.UTC(2026, 6, 30, 0);
+    const BEFORE    = CUTOVER - 24 * 60 * 60 * 1000;
+    const AFTER     = CUTOVER + 1000;
+    const CANONICAL = 'neo-local-canonical';
+    const OVERLAY   = 'neo-pilot-overlay';
+
+    let memoryWalDir, messageWalDir;
+
+    const memoryRecord = (id, timestamp) => ({
+        id,
+        timestamp,
+        metadata: {prompt: id, thought: id, response: id},
+        document: id
+    });
+    const messageRecord = (id, timestamp) => ({
+        id,
+        timestamp,
+        graphProjectionVersion: 1,
+        message               : {id, type: 'MESSAGE', name: id, properties: {subject: id}},
+        routing               : {sentBy: '@alice', to: '@bob', senderUserId: 'alice', broadcastRecipients: []},
+        optionalEdges         : {relatedTickets: [], relatedSessions: [], taggedConcepts: []}
     });
 
-    test('an absent scan is unproven, not clean', () => {
-        for (const value of [undefined, null, 'scan', 42]) {
-            expect(validateOverlayScan(value)).toContain('unproven, not clean');
-        }
+    test.beforeEach(async () => {
+        memoryWalDir  = await mkdtemp(path.join(os.tmpdir(), 'neo-pilot-memory-'));
+        messageWalDir = await mkdtemp(path.join(os.tmpdir(), 'neo-pilot-message-'));
     });
 
-    test('⭐ an INVENTED planeIdSource is rejected against the substrate\'s producer', () => {
-        // Not merely "is a string" — it must BE the producer the substrate provides. While that is null,
-        // every named source is invented by construction.
-        const invented = validateOverlayScan({planeIdSource: 'segment header planeId', scannedSegmentCount: 1, taggedSegments: []});
-
-        expect(invented).toContain('is not the substrate\'s plane-id producer');
-        expect(invented).toContain('naming a field is not producing the fact');
+    test.afterEach(async () => {
+        await Promise.all([
+            rm(memoryWalDir, {recursive: true, force: true}),
+            rm(messageWalDir, {recursive: true, force: true})
+        ]);
     });
 
-    test('a missing planeIdSource is named as such', () => {
-        expect(validateOverlayScan({scannedSegmentCount: 1, taggedSegments: []})).toContain('must name where');
-        expect(validateOverlayScan({planeIdSource: '  ', scannedSegmentCount: 1, taggedSegments: []})).toContain('must name where');
+    test('the source names the actual immutable WAL field, not a caller assertion', () => {
+        expect(OVERLAY_TAGGING_PRODUCER).toBe('wal-record.planeId');
+    });
+
+    test('reaches demoted-clean with concurrent canonical writes and pre-cutover legacy context', async () => {
+        const legacyKey  = '2026-07-29',
+              legacyPath = path.join(memoryWalDir, getWalRecordsFileName(legacyKey));
+
+        await fs.writeFile(
+            legacyPath,
+            `${JSON.stringify({...memoryRecord('legacy-memory', BEFORE), segmentKey: legacyKey})}\n`,
+            'utf8'
+        );
+        await appendWalMemory(memoryRecord('canonical-memory', AFTER), {
+            dir    : memoryWalDir,
+            planeId: CANONICAL
+        });
+        await appendWalMessage(messageRecord('MESSAGE:canonical', AFTER + 1), {
+            dir    : messageWalDir,
+            planeId: CANONICAL
+        });
+
+        const result = await evaluateDemotion({
+            memoryWalDir,
+            messageWalDir,
+            overlayPlaneId    : OVERLAY,
+            cutoverStartedAt  : CUTOVER,
+            preCloneSegmentIds: [getWalRecordsFileName(legacyKey)]
+        });
+
+        expect(result.terminal).toBe('demoted-clean');
+        expect(result.eligibility).toBe('unchanged');
+        expect(result.receipt.legacyUnknownTotal).toBe(1);
+        expect(result.receipt.concurrentGainTotal).toBe(2);
+        expect(result.receipt.knownPlaneCounts).toEqual({[CANONICAL]: 2});
+        expect(result.receipt.recordIds).toEqual({
+            memory  : ['canonical-memory'],
+            messages: ['MESSAGE:canonical']
+        });
+    });
+
+    test('one overlay-stamped durable record forces failed-contained with the segment named', async () => {
+        await appendWalMemory(memoryRecord('overlay-memory', AFTER), {
+            dir    : memoryWalDir,
+            planeId: OVERLAY
+        });
+
+        const result = await evaluateDemotion({
+            memoryWalDir,
+            messageWalDir,
+            overlayPlaneId    : OVERLAY,
+            cutoverStartedAt  : CUTOVER,
+            preCloneSegmentIds: []
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('overlay-tagged segment');
+        expect(result.reason).toContain(getWalRecordsFileName('2026-07-30'));
+    });
+
+    test('one provenance-unknown record inside the cutover window forces failed-contained', async () => {
+        const segmentKey = '2026-07-30';
+
+        await fs.writeFile(
+            path.join(messageWalDir, getMessageWalRecordsFileName(segmentKey)),
+            `${JSON.stringify({...messageRecord('MESSAGE:unknown', AFTER), segmentKey})}\n`,
+            'utf8'
+        );
+
+        const result = await evaluateDemotion({
+            memoryWalDir,
+            messageWalDir,
+            overlayPlaneId    : OVERLAY,
+            cutoverStartedAt  : CUTOVER,
+            preCloneSegmentIds: []
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('inside the cutover window');
+        expect(result.reason).toContain('messages:MESSAGE:unknown');
+    });
+
+    test('a torn row fails the invoked strict scan instead of disappearing from evidence', async () => {
+        const {filePath} = await appendWalMessage(messageRecord('MESSAGE:valid', AFTER), {
+            dir    : messageWalDir,
+            planeId: CANONICAL
+        });
+
+        await fs.appendFile(filePath, '{"id":"MESSAGE:torn"', 'utf8');
+
+        const result = await evaluateDemotion({
+            memoryWalDir,
+            messageWalDir,
+            overlayPlaneId    : OVERLAY,
+            cutoverStartedAt  : CUTOVER,
+            preCloneSegmentIds: []
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('line 2 is not valid JSON');
+        expect(result.reason).toContain('quarantined');
+    });
+
+    test('a caller-authored clean scan is ignored; only configured roots reach the producer', async () => {
+        const result = await evaluateDemotion({
+            overlayScan: {
+                planeIdSource      : OVERLAY_TAGGING_PRODUCER,
+                scannedSegmentCount: 0,
+                taggedSegments     : []
+            }
+        });
+
+        expect(result.terminal).toBe('failed-contained');
+        expect(result.reason).toContain('memoryWalDir and messageWalDir are required');
+    });
+
+    test('the pure derivation validates a scan shape but carries no producer authority', async () => {
+        await appendWalMemory(memoryRecord('canonical-memory', AFTER), {
+            dir    : memoryWalDir,
+            planeId: CANONICAL
+        });
+
+        const scan = await produceOverlayScan({
+            memoryWalDir,
+            messageWalDir,
+            overlayPlaneId  : OVERLAY,
+            cutoverStartedAt: CUTOVER
+        });
+
+        expect(validateOverlayScan(scan)).toBeNull();
+        expect(validateOverlayScan({...scan, planeIdSource: 'invented'}))
+            .toContain('is not the substrate\'s plane-id producer');
+        expect(deriveDemotionTerminal({
+            overlayScan        : scan,
+            preCloneSegmentIds : [],
+            postPilotSegmentIds: scan.segmentIds
+        }).terminal).toBe('demoted-clean');
     });
 });
 
@@ -438,7 +621,7 @@ test.describe('diffSegmentIdentity — identity, not cardinality', () => {
 });
 
 test.describe('no path exits without a named terminal', () => {
-    test('both evaluators always return a member of PILOT_TERMINALS', () => {
+    test('both evaluators always return a member of PILOT_TERMINALS', async () => {
         const inputs = [
             undefined, null, {}, 'string', 42, [],
             {plan: {}}, {continuity: {ok: true, monotonic: true}},
@@ -447,23 +630,23 @@ test.describe('no path exits without a named terminal', () => {
             {preCloneSegmentIds: ['s1'], postPilotSegmentIds: ['s1']}
         ];
 
-        for (const input of inputs) {
-            for (const evaluate of [evaluatePromotion, evaluateDemotion]) {
-                const result = evaluate(input);
+        const assertNamedTerminal = result => {
+            expect(PILOT_TERMINALS).toContain(result.terminal);
+            expect(typeof result.reason).toBe('string');
+            expect(result.reason.length).toBeGreaterThan(0);
+            expect(result.eligibility).toBe(eligibilityEffect(result.terminal));
+            if (result.eligibility === 'opened') expect(result.terminal).toBe('committed');
+        };
 
-                expect(PILOT_TERMINALS).toContain(result.terminal);
-                expect(typeof result.reason).toBe('string');
-                expect(result.reason.length).toBeGreaterThan(0);
-                expect(result.eligibility).toBe(eligibilityEffect(result.terminal));
-                // Only a commit may carry an opened eligibility, whatever the input.
-                if (result.eligibility === 'opened') expect(result.terminal).toBe('committed');
-                // ⭐ And at THIS head neither evaluator can reach a certifying terminal at all: both are held
-                // shut by a capability constant. This is the whole-module statement of the two gates — if a
-                // future edit opens either without landing its producer, this fails regardless of which
-                // argument path the edit took.
-                expect(result.terminal).toBe('failed-contained');
-                expect(result.eligibility).toBe('denied');
-            }
+        for (const input of inputs) {
+            const promotion = evaluatePromotion(input),
+                  demotion  = await evaluateDemotion(input);
+
+            assertNamedTerminal(promotion);
+            assertNamedTerminal(demotion);
+            // Promotion remains closed; malformed demotion calls fail contained because no producer scan ran.
+            expect(promotion.terminal).toBe('failed-contained');
+            expect(demotion.terminal).toBe('failed-contained');
         }
     });
 });

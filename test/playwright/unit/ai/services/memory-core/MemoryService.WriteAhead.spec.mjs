@@ -49,11 +49,13 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
     test.describe.configure({mode: 'serial'});
 
     let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter,
-        originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, collectionTouches, testWalDir;
+        originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, collectionTouches,
+        testPlaneId, testWalDir;
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         testWalDir     = aiConfig.memoryWal.dir;
+        testPlaneId    = aiConfig.plane.id;
 
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         ({default: MemoryService, MEMORY_ACCEPTED_MESSAGE} =
@@ -148,6 +150,10 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         // that counts this write, so a fresh write is never reported as 0 pending.
         expect(result.visibility.pendingDrainDepth).toBeGreaterThan(0);
         expect(typeof result.visibility.oldestPendingAgeMs).toBe('number');
+
+        const [acceptedRecord] = await readPendingWalRecords({dir: testWalDir, ids: [result.id]});
+
+        expect(acceptedRecord.planeId).toBe(testPlaneId);
 
         // It must not swing the other way either — the write IS durable, so nothing in the response
         // may read as failure or partial success.

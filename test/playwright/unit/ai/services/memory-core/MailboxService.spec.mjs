@@ -227,6 +227,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(records[0].id).toBe(res.messageId);
         expect(records[0].message.properties.subject).toBe('Hello');
         expect(records[0].routing).toMatchObject({sentBy: '@alice', to: '@bob', senderUserId: 'alice'});
+        expect(records[0].planeId).toBe(mailboxAiConfig.plane.id);
 
         const pending = await readPendingMessageWalRecords({dir: messageWalDir});
         expect(pending).toHaveLength(0);

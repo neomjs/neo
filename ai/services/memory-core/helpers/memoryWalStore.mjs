@@ -1,6 +1,7 @@
-import fs               from 'fs/promises';
-import path             from 'path';
-import {withAppendLock} from './walAppendLock.mjs';
+import fs                                  from 'fs/promises';
+import path                                from 'path';
+import {UNKNOWN_PLANE_ID, isOpaquePlaneId} from '../../../planeConfig.mjs';
+import {withAppendLock}                    from './walAppendLock.mjs';
 
 /**
  * @summary Durable JSONL write-ahead store for `add_memory` payloads.
@@ -111,24 +112,29 @@ export function getWalGraphMarkersFileName(segmentKey) {
  * @param {String} record.document  The combined text the embedder will index.
  * @param {Object} options
  * @param {String} options.dir Directory for WAL segment files.
+ * @param {String} options.planeId Resolved server plane identity; stamped after caller fields.
  * @param {Date|Number} [options.now] Clock source for the segment key (defaults to record.timestamp).
  * @param {Object} [options.lockOptions] Forwarded to {@link withAppendLock} (tuning + spec injection of
  *     fs/clock/liveness/sleep). Omit for the default per-append serialization.
  * @returns {Promise<{filePath: String, segmentKey: String}>}
  */
-export async function appendWalMemory(record, {dir, now, lockOptions} = {}) {
+export async function appendWalMemory(record, {dir, planeId, now, lockOptions} = {}) {
     if (!dir) {
         throw new TypeError('appendWalMemory: dir is required');
     }
     if (typeof record?.id !== 'string' || record.id.length === 0) {
         throw new TypeError('appendWalMemory: record.id is required');
     }
+    if (!isOpaquePlaneId(planeId)) {
+        throw new TypeError('appendWalMemory: planeId must be an opaque resolved plane identity');
+    }
 
     await fs.mkdir(dir, {recursive: true});
 
     const segmentKey = getWalSegmentKey(now ?? record.timestamp ?? new Date());
     const filePath   = path.join(dir, getWalRecordsFileName(segmentKey));
-    const line       = `${JSON.stringify({...record, segmentKey})}\n`;
+    // Server provenance is LAST so a caller-owned record.planeId can never spoof the accepting plane.
+    const line = `${JSON.stringify({...record, segmentKey, planeId})}\n`;
 
     // Serialize cross-process writers so a SHARED WAL dir cannot interleave multi-KB records; on a
     // bounded acquire-timeout it falls through and writes UNLOCKED, so the never-fail turn-save
@@ -233,6 +239,54 @@ async function readJsonlEntries(filePath) {
 }
 
 /**
+ * @summary Surfaces absent or invalid historical provenance as the explicit read-side `unknown` sentinel.
+ *
+ * No durable row is rewritten. Current valid provenance is preserved byte-for-byte in the returned object;
+ * only rows whose writer cannot be attributed receive the sentinel in memory.
+ * @param {Object} record Parsed WAL record.
+ * @returns {Object} Record with a usable `planeId` or `unknown`.
+ */
+function surfaceWalPlaneProvenance(record) {
+    return isOpaquePlaneId(record?.planeId) ? record : {...record, planeId: UNKNOWN_PLANE_ID}
+}
+
+/**
+ * @summary Strictly parses one JSONL payload file for parity evidence.
+ *
+ * Operational readers deliberately skip torn rows so serving remains available. A demotion proof cannot:
+ * an unreadable row may be the overlay write under investigation, so this evidence reader refuses the
+ * whole segment on the first malformed line.
+ * @param {String} filePath JSONL payload path.
+ * @returns {Promise<Object>} `{ok, records}` or `{ok:false, reason}`.
+ */
+async function readJsonlEntriesStrict(filePath) {
+    let text;
+
+    try {
+        text = await fs.readFile(filePath, 'utf8');
+    } catch (e) {
+        return {ok: false, reason: `${filePath}: ${e?.message || String(e)}`}
+    }
+
+    const records = [];
+
+    for (const [index, rawLine] of text.split('\n').entries()) {
+        if (!rawLine.trim()) continue;
+
+        try {
+            records.push(surfaceWalPlaneProvenance(JSON.parse(rawLine)));
+        } catch (e) {
+            return {
+                ok    : false,
+                reason: `${filePath}: line ${index + 1} is not valid JSON (${e?.message || String(e)})`
+            }
+        }
+    }
+
+    return {ok: true, records}
+}
+
+/**
  * @summary Lists segment keys present in the WAL directory, newest first.
  * @param {String} dir Directory for WAL segment files.
  * @returns {Promise<String[]>} Sorted segment keys (lexicographic desc === chronological desc).
@@ -250,6 +304,34 @@ async function listWalSegmentKeys(dir) {
         .map(name => name.match(SEGMENT_RE)?.[1])
         .filter(Boolean)
         .sort((a, b) => b.localeCompare(a));
+}
+
+/**
+ * @summary Strictly enumerates memory WAL payload segments with normalized plane provenance.
+ *
+ * This is the Memory WAL store's evidence-producing boundary for pilot demotion. Segment identities are
+ * canonical payload file names, never inferred checkout paths, and malformed rows fail the scan closed.
+ * @param {Object} options
+ * @param {String} options.dir Directory for memory WAL payload segments.
+ * @returns {Promise<Object>} `{ok, segments}` or `{ok:false, reason}`.
+ */
+export async function readMemoryWalProvenanceSegments({dir} = {}) {
+    if (!dir) {
+        return {ok: false, reason: 'readMemoryWalProvenanceSegments: dir is required'}
+    }
+
+    const segments = [];
+
+    for (const segmentKey of await listWalSegmentKeys(dir)) {
+        const segmentId = getWalRecordsFileName(segmentKey),
+              parsed    = await readJsonlEntriesStrict(path.join(dir, segmentId));
+
+        if (!parsed.ok) return parsed;
+
+        segments.push({segmentId, segmentKey, records: parsed.records});
+    }
+
+    return {ok: true, segments}
 }
 
 /**
@@ -308,7 +390,8 @@ export async function readPendingWalRecords({dir, ids, limit, markerType = 'embe
     for (const segmentKey of await listWalSegmentKeys(dir)) {
         if (pending.length >= bounded) break;
 
-        const records = await readJsonlEntries(path.join(dir, getWalRecordsFileName(segmentKey)));
+        const records = (await readJsonlEntries(path.join(dir, getWalRecordsFileName(segmentKey))))
+            .map(surfaceWalPlaneProvenance);
         if (records.length === 0) continue;
 
         // Same marker read the per-write disclosure uses, so "pending" here and "reconciled" there
