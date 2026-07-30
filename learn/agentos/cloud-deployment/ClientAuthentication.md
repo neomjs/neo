@@ -133,14 +133,25 @@ For a headless agent, inject it the way your platform injects any secret (env va
 These assume `NEO_MCP_TOKEN` holds your PAT and the server is reachable at `https://mcp.<your-host>/mc/mcp` (Memory Core) or `https://mcp.<your-host>/kb/mcp` (Knowledge Base).
 
 ```bash
-# mcp-remote (stdio ↔ HTTP bridge — e.g. for Claude Desktop):
-npx -y mcp-remote https://mcp.<your-host>/mc/mcp --header "Authorization: Bearer ${NEO_MCP_TOKEN}"
+# mcp-remote 0.1.38 (stdio ↔ HTTP bridge — e.g. for Claude Desktop).
+# Single quotes keep the env-slot reference literal; mcp-remote resolves it inside the child.
+npx -y mcp-remote@0.1.38 https://mcp.<your-host>/mc/mcp \
+  --header 'Authorization: Bearer ${NEO_MCP_TOKEN}' \
+  --transport http-only
 
 # Claude Code (static-header path; note: if the header is rejected it reports the
 # connection failed rather than falling back to OAuth — remove it to use Path A):
 claude mcp add --transport http neo-mc https://mcp.<your-host>/mc/mcp \
   --header "Authorization: Bearer ${NEO_MCP_TOKEN}"
 ```
+
+Fleet-managed Claude Desktop residents do not perform a floating `npx` install. Neo pins
+`mcp-remote` in its package lock, verifies the installed package version before provisioning, and
+generates a direct Node invocation whose header contains only `${NEO_MCP_REMOTE_TOKEN}`. Remove that
+bridge projection once Claude Desktop's managed JSON can encode the same loopback Streamable-HTTP
+URL plus inherited secret reference directly. Each generated bridge also receives a
+resident-home-local `MCP_REMOTE_CONFIG_DIR`; no OAuth/cache state is shared through the operator's
+ambient home.
 
 ### MCP Inspector
 

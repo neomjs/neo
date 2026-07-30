@@ -33,9 +33,9 @@ function makeLifecycle({
             }
         }),
         getInstanceRoot          : () => '/instances',
-        assertRemoteMcpCapability: async agent => {
+        assertRemoteMcpCapability: async (agent, options) => {
             events?.push('capability');
-            calls.capability.push(agent);
+            calls.capability.push({agent, options});
 
             if (capabilityError) throw capabilityError;
 
@@ -258,7 +258,10 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
             'start'
         ]);
         expect(lifecycle.calls.credential).toEqual(['a']);
-        expect(lifecycle.calls.capability).toEqual([agents.a]);
+        expect(lifecycle.calls.capability).toEqual([{
+            agent  : agents.a,
+            options: {mainCheckout: undefined, nodePath: undefined}
+        }]);
         expect(tenantService.calls.resolve).toEqual(['tenant-a']);
         expect(tenantService.calls.credential).toEqual(['tenant-a']);
         expect(tenantService.calls.probe).toEqual([{
@@ -273,6 +276,11 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
                 'memory-core'   : {url: 'https://tenant.example.com/mc/mcp'},
                 'knowledge-base': {url: 'https://tenant.example.com/kb/mcp'}
             }
+        });
+        expect(prepareWorkspace.calls[0].remoteMcpCapability).toEqual({
+            harnessType     : 'codex',
+            binaryPath      : '/bin/harness',
+            launchBinaryPath: '/bin/harness'
         });
         expect(lifecycle.calls.inspection).toEqual([{
             agent       : agents.a,

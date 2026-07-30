@@ -5,6 +5,7 @@ import crypto                     from 'node:crypto';
 import {fileURLToPath}            from 'node:url';
 import {hydrateCurrentWorktree}   from '../../scripts/migrations/bootstrapWorktree.mjs';
 import {
+    CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR,
     resolveMcpMatrix,
@@ -157,6 +158,8 @@ export class ManagedWorkspacePreparationError extends Error {
  * @param {String}  [options.nodePath]           Node executable used for installed MCP entrypoints.
  * @param {Object}  [options.mcpTransport]       Resolved non-secret remote plan:
  *     `{mode:'remote-http', credentialEnvVar, resources:{memory-core:{url},knowledge-base:{url}}}`.
+ * @param {Object}  [options.remoteMcpCapability] Exact non-secret installed-adapter proof returned
+ *     by `FleetLifecycleService.assertRemoteMcpCapability`.
  * @param {Function}[options.hydrateWorkspace]    Import-safe checkout hydration seam.
  * @param {Function}[options.deriveInstanceHome]  Per-agent home derivation seam.
  * @param {Function}[options.resolveMatrix]       Sparse-at-rest MCP resolver seam.
@@ -175,6 +178,7 @@ export async function prepareManagedAgentWorkspace({
     deriveInstanceHome = deriveAgentInstanceHome,
     resolveMatrix = resolveMcpMatrix,
     mcpTransport = null,
+    remoteMcpCapability = null,
     fileSystem = fs,
     log = () => {}
 } = {}) {
@@ -199,6 +203,14 @@ export async function prepareManagedAgentWorkspace({
     // Hardest/unsupported adapter gate runs before hydration or artifact writes. A failed product
     // authority proof cannot leave a checkout looking partially resident-ready.
     assertHarnessSupported({agent, plan});
+    await assertRemoteBridgeCapability({
+        agent,
+        plan,
+        capability  : remoteMcpCapability,
+        mainCheckout: installedRoot,
+        nodePath,
+        fileSystem
+    });
     await assertNoSymlinkSegments({
         rootPath  : path.resolve(instanceRoot),
         targetPath: instanceHome,
@@ -228,12 +240,14 @@ export async function prepareManagedAgentWorkspace({
         instanceHome,
         mainCheckout: installedRoot,
         plan,
+        remoteMcpCapability,
         fileSystem
     });
 
-    // The plan contains executable paths, public URLs, and ENV-SLOT NAMES only — never values.
-    // Returning the exact renderer input lets a post-render consumer bind its observations to the
-    // generated adapter without re-deriving a second stdio grammar from source or ambient config.
+    // The logical plan contains executable paths, public URLs, and ENV-SLOT NAMES only — never
+    // values. Direct-HTTP adapters return their exact renderer input for installed readback;
+    // Claude Desktop's command-only bridge is independently bound by the capability proof plus
+    // generated-artifact/real-transport tests, while this plan retains the transport intent.
     return {
         repoPath: canonicalRepoPath,
         instanceHome,
@@ -380,6 +394,71 @@ function assertHarnessSupported({agent, plan}) {
     }
 }
 
+/**
+ * @summary Revalidate Claude Desktop's exact installed `mcp-remote` package before hydration. The
+ * lifecycle performs the same gate before checkout provisioning; this local check prevents direct
+ * composer callers from manufacturing a structurally plausible proof over missing or drifted bytes.
+ * @param {Object} options
+ * @param {Object} options.agent
+ * @param {Object[]} options.plan
+ * @param {Object|null} options.capability
+ * @param {String} options.mainCheckout
+ * @param {String} options.nodePath
+ * @param {Object} options.fileSystem
+ * @returns {Promise<void>}
+ * @private
+ */
+async function assertRemoteBridgeCapability({agent, plan, capability, mainCheckout, nodePath, fileSystem}) {
+    if (agent.harnessType !== 'claude-desktop' ||
+        !plan.some(server => server.enabled && server.mode === 'remote-http')) {
+        return
+    }
+
+    const
+        bridge              = capability?.bridge,
+        expectedPackagePath = path.join(mainCheckout, 'node_modules/mcp-remote/package.json'),
+        expectedEntrypoint  = path.join(mainCheckout, 'node_modules/mcp-remote/dist/proxy.js');
+
+    if (capability?.harnessType !== 'claude-desktop' ||
+        !bridge ||
+        bridge.packageName !== 'mcp-remote' ||
+        bridge.version !== CLAUDE_DESKTOP_MCP_REMOTE_VERSION ||
+        bridge.command !== nodePath ||
+        bridge.entrypoint !== expectedEntrypoint) {
+        throw unsupported('Claude Desktop remote MCP requires the exact installed mcp-remote capability proof')
+    }
+
+    let packageManifest;
+
+    try {
+        packageManifest = JSON.parse(await fileSystem.readFile(expectedPackagePath, 'utf8'))
+    } catch {
+        throw unsupported(`Claude Desktop mcp-remote package manifest is missing or unreadable at '${expectedPackagePath}'`)
+    }
+
+    if (packageManifest.name !== 'mcp-remote' ||
+        packageManifest.version !== CLAUDE_DESKTOP_MCP_REMOTE_VERSION) {
+        throw unsupported(
+            `Claude Desktop mcp-remote package must be exactly ${CLAUDE_DESKTOP_MCP_REMOTE_VERSION}`
+        )
+    }
+
+    const
+        nodeStat   = await fileSystem.stat(nodePath).catch(() => null),
+        bridgeStat = await fileSystem.lstat(expectedEntrypoint).catch(() => null);
+
+    if (!nodeStat?.isFile() || !bridgeStat?.isFile()) {
+        throw unsupported('Claude Desktop mcp-remote Node command or installed bridge entrypoint is absent')
+    }
+
+    try {
+        await fileSystem.access(nodePath, fsConstants.X_OK);
+        await fileSystem.access(expectedEntrypoint, fsConstants.R_OK)
+    } catch {
+        throw unsupported('Claude Desktop mcp-remote Node command or installed bridge entrypoint is inaccessible')
+    }
+}
+
 /** @private */
 async function assertRealDirectory(directoryPath, label, fileSystem) {
     const stat = await fileSystem.lstat(directoryPath).catch(() => null);
@@ -457,7 +536,15 @@ async function assertNoSymlinkSegments({rootPath, targetPath, fileSystem, label}
 }
 
 /** @private */
-async function prepareHarnessArtifacts({agent, repoPath, instanceHome, mainCheckout, plan, fileSystem}) {
+async function prepareHarnessArtifacts({
+    agent,
+    repoPath,
+    instanceHome,
+    mainCheckout,
+    plan,
+    remoteMcpCapability,
+    fileSystem
+}) {
     switch (agent.harnessType) {
         case 'codex':
         case 'codex-desktop':
@@ -472,6 +559,7 @@ async function prepareHarnessArtifacts({agent, repoPath, instanceHome, mainCheck
                 filePath      : path.join(instanceHome, 'mcp-config.json'),
                 trustedRoot   : instanceHome,
                 plan,
+                remoteMcpCapability,
                 fileSystem,
                 interpolateEnv: true
             });
@@ -481,6 +569,7 @@ async function prepareHarnessArtifacts({agent, repoPath, instanceHome, mainCheck
                 filePath      : path.join(instanceHome, 'claude_desktop_config.json'),
                 trustedRoot   : instanceHome,
                 plan,
+                remoteMcpCapability,
                 fileSystem,
                 interpolateEnv: false
             });
@@ -543,10 +632,30 @@ async function prepareCodexArtifacts({agent, repoPath, instanceHome, mainCheckou
 }
 
 /** @private */
-async function prepareClaudeJsonArtifact({agent, filePath, trustedRoot, plan, fileSystem, interpolateEnv}) {
+async function prepareClaudeJsonArtifact({
+    agent,
+    filePath,
+    trustedRoot,
+    plan,
+    remoteMcpCapability,
+    fileSystem,
+    interpolateEnv
+}) {
     const
-        desiredContent = renderClaudeJsonContent({agent, plan, interpolateEnv}),
-        legacyContent  = renderClaudeJsonContent({agent, plan: localizePlan(plan), interpolateEnv});
+        desiredContent = renderClaudeJsonContent({
+            agent,
+            plan,
+            remoteMcpCapability,
+            instanceHome: trustedRoot,
+            interpolateEnv
+        }),
+        legacyContent  = renderClaudeJsonContent({
+            agent,
+            plan        : localizePlan(plan),
+            remoteMcpCapability,
+            instanceHome: trustedRoot,
+            interpolateEnv
+        });
 
     return convergeTransportArtifact({
         filePath,
@@ -564,18 +673,35 @@ async function prepareClaudeJsonArtifact({agent, filePath, trustedRoot, plan, fi
 }
 
 /** @private */
-function renderClaudeJsonContent({agent, plan, interpolateEnv}) {
+function renderClaudeJsonContent({agent, plan, remoteMcpCapability, instanceHome, interpolateEnv}) {
     const servers = {};
 
     for (const server of plan) {
         if (!server.enabled) continue;
 
         if (server.mode === 'remote-http') {
-            servers[server.name] = {
-                type   : 'http',
-                url    : server.url,
-                headers: {Authorization: `Bearer \${${server.credentialEnvVar}}`}
-            };
+            if (agent.harnessType === 'claude-desktop') {
+                servers[server.name] = {
+                    command: remoteMcpCapability.bridge.command,
+                    args   : [
+                        remoteMcpCapability.bridge.entrypoint,
+                        server.url,
+                        '--header',
+                        `Authorization: Bearer \${${server.credentialEnvVar}}`,
+                        '--transport',
+                        'http-only'
+                    ],
+                    env: {
+                        MCP_REMOTE_CONFIG_DIR: path.join(instanceHome, 'mcp-remote')
+                    }
+                }
+            } else {
+                servers[server.name] = {
+                    type   : 'http',
+                    url    : server.url,
+                    headers: {Authorization: `Bearer \${${server.credentialEnvVar}}`}
+                }
+            }
             continue
         }
 

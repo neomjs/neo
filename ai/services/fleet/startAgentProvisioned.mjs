@@ -145,7 +145,10 @@ export async function startAgentProvisioned({
             throw new Error(`startAgentProvisioned: remote MCP tenant '${transport.tenantId}' has no plane credential for agent '${agentId}'.`)
         }
 
-        remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent);
+        remoteCapability = await lifecycleService.assertRemoteMcpCapability(agent, {
+            mainCheckout,
+            nodePath
+        });
 
         const expectedIdentity = expectedAgentIdentity(agent);
         const readiness        = await activeTenantService.probeSeatCredential({
@@ -180,10 +183,11 @@ export async function startAgentProvisioned({
     const prepared = await prepareWorkspace({
         agent,
         repoPath,
-        instanceRoot: instanceRoot ?? lifecycleService.getInstanceRoot?.(),
+        instanceRoot       : instanceRoot ?? lifecycleService.getInstanceRoot?.(),
         mainCheckout,
         nodePath,
-        mcpTransport: remotePlan && {
+        remoteMcpCapability: remoteCapability,
+        mcpTransport       : remotePlan && {
             mode            : 'remote-http',
             credentialEnvVar: REMOTE_MCP_CREDENTIAL_ENV_VAR,
             resources       : remotePlan.resources

@@ -223,6 +223,7 @@
         "jsdoc-api"                    : "^9.3.6",
         "lint-staged"                  : "^17.0.8",
         "marked"                       : "^18.0.5",
+        "mcp-remote"                   : "0.1.38",
         "mermaid"                      : "^11.16.0",
         "monaco-editor"                : "0.50.0",
         "parse5"                       : "^8.0.1",

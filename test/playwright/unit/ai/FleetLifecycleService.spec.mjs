@@ -18,9 +18,10 @@ import fs                from 'fs';
 import os                from 'os';
 import path              from 'path';
 
-import Neo                   from '../../../../src/Neo.mjs';
-import * as core             from '../../../../src/core/_export.mjs';
-import FleetLifecycleService from '../../../../ai/services/fleet/FleetLifecycleService.mjs';
+import Neo                                 from '../../../../src/Neo.mjs';
+import * as core                           from '../../../../src/core/_export.mjs';
+import {CLAUDE_DESKTOP_MCP_REMOTE_VERSION} from '../../../../src/ai/fleet/mcpServers.mjs';
+import FleetLifecycleService               from '../../../../ai/services/fleet/FleetLifecycleService.mjs';
 
 let nextPid = 1000;
 
@@ -112,6 +113,7 @@ function install({agents = {}, creds = {}} = {}) {
     // Stub the version probe by default so no spec spawns a real auxiliary subprocess; the
     // env-boundary test injects its own recorder.
     FleetLifecycleService.execFileFn      = () => {};
+    FleetLifecycleService.mcpRemoteCapabilityProbeFn = null;
     FleetLifecycleService.fetchFn         = null;
     FleetLifecycleService.openCodeHookExecFileFn = null;
     FleetLifecycleService.openCodeBootstrapTimeoutMs = 10000;
@@ -1104,17 +1106,25 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
     test('accepts only the exact adapter grammar/version for every supported harness family', async () => {
         install();
         FleetLifecycleService.harnessBinaryPaths = {
-            codex          : process.execPath,
-            'codex-desktop': process.execPath,
-            'claude-code'  : process.execPath,
-            'kimi-code'    : process.execPath,
-            opencode       : process.execPath
+            codex           : process.execPath,
+            'codex-desktop' : process.execPath,
+            'claude-code'   : process.execPath,
+            'claude-desktop': process.execPath,
+            'kimi-code'     : process.execPath,
+            opencode        : process.execPath
         };
 
         const
-            outputs = new Map([
+            desktopBridge = {
+                packageName: 'mcp-remote',
+                version    : CLAUDE_DESKTOP_MCP_REMOTE_VERSION,
+                command    : process.execPath,
+                entrypoint : '/installed/neo/node_modules/mcp-remote/dist/proxy.js'
+            },
+            outputs       = new Map([
                 ['codex',         'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
                 ['codex-desktop', 'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
+                ['claude-desktop', null],
                 ['claude-code',   'Usage: mcp add --transport http --header Header'],
                 ['kimi-code',     'kimi 0.29.1'],
                 ['opencode',      'opencode 1.18.5']
@@ -1126,17 +1136,22 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
             calls.push({command, args, opts, harnessType});
             callback(null, outputs.get(harnessType), '')
         };
+        FleetLifecycleService.mcpRemoteCapabilityProbeFn = () => desktopBridge;
 
         for (const harnessType of outputs.keys()) {
             calls.push({pendingHarness: harnessType});
 
-            await expect(FleetLifecycleService.assertRemoteMcpCapability({
-                id: `seat-${harnessType}`, harnessType
-            })).resolves.toEqual({
+            const expected = {
                 harnessType,
                 binaryPath      : process.execPath,
                 launchBinaryPath: process.execPath
-            })
+            };
+
+            if (harnessType === 'claude-desktop') expected.bridge = desktopBridge;
+
+            await expect(FleetLifecycleService.assertRemoteMcpCapability({
+                id: `seat-${harnessType}`, harnessType
+            })).resolves.toEqual(expected)
         }
 
         const probeCalls = calls.filter(call => call.command);
@@ -1153,11 +1168,11 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
     test('rejects missing flags, wrong versions, unknown families, and unavailable binaries', async () => {
         install();
         FleetLifecycleService.harnessBinaryPaths = {
-            codex          : process.execPath,
-            'codex-desktop': process.execPath,
-            'claude-code'  : process.execPath,
-            'kimi-code'    : process.execPath,
-            opencode       : process.execPath
+            codex           : process.execPath,
+            'claude-code'   : process.execPath,
+            'claude-desktop': process.execPath,
+            'kimi-code'     : process.execPath,
+            opencode        : process.execPath
         };
 
         const rejects = [
@@ -1174,6 +1189,25 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
                 id: `seat-${harnessType}`, harnessType
             })).rejects.toThrow(/does not expose Fleet's required remote MCP grammar/)
         }
+
+        FleetLifecycleService.mcpRemoteCapabilityProbeFn = () => ({
+            packageName: 'mcp-remote',
+            version    : '0.1.37',
+            command    : process.execPath,
+            entrypoint : '/installed/neo/node_modules/mcp-remote/dist/proxy.js'
+        });
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-claude-desktop', harnessType: 'claude-desktop'
+        })).rejects.toThrow(/does not expose Fleet's required mcp-remote/)
+
+        FleetLifecycleService.mcpRemoteCapabilityProbeFn = () => {
+            throw new Error('missing package')
+        };
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-claude-desktop', harnessType: 'claude-desktop'
+        })).rejects.toThrow(/mcp-remote capability probe failed/)
 
         FleetLifecycleService.harnessBinaryPaths['native-neo'] = process.execPath;
 
