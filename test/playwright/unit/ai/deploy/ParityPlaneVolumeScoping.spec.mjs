@@ -334,6 +334,8 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 
         // ...and the anchor is the single place the root is declared.
         expect(compose['x-plane-env'].NEO_PLANE_DATA_ROOT).toBe('/app/.neo-ai-data-parity');
+        expect(compose['x-plane-env'].NEO_KB_EMBEDDING_RESUME_STATE_DIR)
+            .toBe(`${compose['x-plane-env'].NEO_PLANE_DATA_ROOT}/kb-sync`);
         expect(compose['x-plane-env'].NEO_NL_LOG_PATH)
             .toBe(`${compose['x-plane-env'].NEO_PLANE_DATA_ROOT}/logs`);
 

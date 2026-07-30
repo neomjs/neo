@@ -396,7 +396,7 @@ class VectorService extends Base {
             return [chunk];
         }
 
-        const maxInputBytes = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
+        const maxInputBytes   = Math.max(1, guardrail.safeProcessingLimitTokens * 3),
               prefixBytes     = Buffer.byteLength(`${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n`, 'utf8'),
               maxContentBytes = Math.max(1, maxInputBytes - prefixBytes - 128),
               parts           = this.splitTextByByteBudget(content, maxContentBytes);
@@ -863,11 +863,22 @@ class VectorService extends Base {
     }
 
     /**
-     * @summary Resolves the gitignored directory holding the KB embedding resume-state marker.
+     * @summary Resolves the configured directory holding the KB embedding resume-state marker.
+     *
+     * An explicit instance seam supports isolated tests. Production consumes the resolved KB
+     * config leaf; it never reconstructs the canonical data root from the checkout location.
      * @returns {String}
      */
     getResumeStateDir() {
-        return this.resumeStateDir ?? path.resolve(aiConfig.neoRootDir, '.neo-ai-data', 'kb-sync');
+        const resumeStateDir = this.resumeStateDir ?? aiConfig.embeddingResumeStateDir;
+
+        if (typeof resumeStateDir !== 'string' || resumeStateDir.trim() === '') {
+            throw new Error(
+                'VectorService.getResumeStateDir: aiConfig.embeddingResumeStateDir is required.'
+            )
+        }
+
+        return resumeStateDir
     }
 
     /**
@@ -1118,7 +1129,7 @@ class VectorService extends Base {
 
         const embedResult = await this.embedChunks({collection, chunksToProcess});
 
-        const count = await collection.count();
+        const count   = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
         return {message, embedded: embedResult.embedded, deleted: idsToDelete.length};

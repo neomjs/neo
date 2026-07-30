@@ -128,6 +128,7 @@ function activateStorageScope() {
         process.env.NEO_TEST_CONFIG_TEMPLATE_SCOPE           = scope;
         process.env.NEO_MEMORY_LOG_PATH                      = path.join(storageRoot, 'memory-core-logs');
         process.env.NEO_KB_LOG_PATH                          = path.join(storageRoot, 'knowledge-base-logs');
+        process.env.NEO_KB_EMBEDDING_RESUME_STATE_DIR        = path.join(storageRoot, 'kb-sync');
         process.env.NEO_NL_LOG_PATH                          = path.join(storageRoot, 'neural-link-logs');
         process.env.NEO_TELEMETRY_DB_PATH_TEST               = path.join(storageRoot, 'telemetry.sqlite');
         process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH =
