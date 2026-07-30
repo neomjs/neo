@@ -669,6 +669,49 @@ encryption deferred to multi-tenant transition under #9999; pre-#9999 the
 secret lives plaintext in the per-tenant SQLite, which is the same trust
 boundary as the rest of the data).
 
+#### 6.2.4 Amendment — signed same-machine host dispatcher (2026-07-30)
+
+A Docker-canonical Memory Core may use Shape B to reach an irreducible host-only
+harness effect on the same machine. This does **not** authorize a second graph
+consumer on the host. The ownership boundary is:
+
+- container Memory Core owns GraphLog matching, graph-resident presence and
+  `wakePolicy`, digest/coalescing, signing, bounded HTTP retry, and subscription
+  degradation;
+- the host receiver requires an explicit IP-literal bind, verifies HMAC over
+  the exact raw request bytes, validates the signed route identity, and durably
+  accepts the event before returning 2xx. The deployment must select and witness
+  a Docker-reachable host bind; loopback reachability is never assumed;
+- the receiver's transitive dependency closure contains no graph service/query,
+  SQLite driver, Memory Core config, or graph/database path; and
+- the host adapter owns only facts it can prove locally: live process/session
+  authority, instance targeting, focus safety, draft preservation, and the
+  selected local invocation.
+
+The receiver stores a 0600 record keyed by the subscription plus canonical
+`sourceEventIds` (falling back to `eventId`). The signing key stays only in a
+separate 0600 route manifest and is never copied into accepted-event state.
+Retries of the same logical digest therefore converge on one record.
+
+Dispatch uses the durable state machine:
+
+```
+pending -> dispatching -> delivered | skipped | failed | unknown
+```
+
+`pending` is the only replayable state. The receiver writes `dispatching`
+before invoking a non-idempotent local adapter. On restart, retained `pending`
+work drains; an interrupted `dispatching` record becomes terminal `unknown`
+and is never replayed, because the GUI/process side effect may already have
+landed. The unread mailbox is the recovery authority for that ambiguity.
+
+This shape is a same-machine final mile, not a remote graph adapter, fleet
+migration controller, shared-token service, or permanent local/cloud parity
+plane. The signing key is the request authority when the Docker-reachable bind
+is broader than loopback; the host firewall should restrict that port to the
+local Docker boundary. A broader remote/multi-machine product must re-open the
+boundary.
+
 ### 6.3 Wake Daemon Protocol (Shape C)
 
 The wake daemon is a long-running process consuming the `GraphLog` delta
@@ -734,6 +777,14 @@ the log. Each tracks its own `lastSyncId` independently. Per OQ 5
 (non-blocking pending), empirical verification of any cross-consumer
 interference is part of the Shape C implementation sub-ticket.
 
+#### 6.3.5 Sunset when Shape B reaches the same host
+
+Once Section 6.2.4 is witnessed for a machine, its Shape-C direct GraphLog
+consumer is superseded. It must be deleted rather than retained as a fallback:
+the container is the graph authority and the host keeps only the graphless
+final mile. Rollback may exist only inside an unreleased operator cutover
+window; it is not a second steady-state topology.
+
 ### 6.4 Token-Economy Throttle (per OQ 6)
 
 Wake events MUST NOT be 1:1 with the event stream at high velocity. Coalescing
@@ -796,10 +847,20 @@ prescribed.
   and unchanged** across all three shapes; an explicit `0` is exempt from
   the rolling/refractory/cap semantics.
 
-**Shapes A/B are deliberately untouched** — their `CoalescingEngineService`
-keeps the original fixed 30-second contract; a future consumer with
-turn-priced Shape A/B deliveries re-opens this amendment rather than
-silently reusing it.
+**Shape A is deliberately untouched.** A Shape-B route whose webhook is the
+same-machine resident dispatcher from Section 6.2.4 is turn-priced too: the
+webhook parse itself is cheap, but successful delivery starts a harness turn.
+For that route, container-owned `CoalescingEngineService` applies the same
+rolling window, confirmed-delivery refractory, and hard cap described above,
+with mechanism values injected from `AiConfig.orchestrator.wakeDispatch` at the
+Memory Core entrypoint. A per-subscription explicit `0` remains immediate.
+The engine serializes per-subscription dispatch so an event arriving while the
+first webhook is in flight cannot bypass the refractory before that delivery
+outcome is known.
+
+A future Shape-B consumer whose endpoint is demonstrably parse-only may re-open
+the cost-model distinction. It must not silently inherit turn-priced behavior
+or add a parallel coalescing implementation.
 
 When the coalesce timer fires with N ≥ 1 queued events:
 

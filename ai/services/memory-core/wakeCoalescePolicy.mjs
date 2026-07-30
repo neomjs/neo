@@ -31,7 +31,11 @@
  * `wokenWatermark.mjs`). The daemon supplies `firstQueuedAt` / `lastFlushAt`; this module only
  * decides delays and message-age admission.
  *
- * @module ai/daemons/wake/coalescePolicy
+ * Memory Core now owns this policy for Shape B. The legacy Shape-C daemon imports the same
+ * functions until the graph-tailing route is removed at cutover, so the transition cannot fork
+ * the turn-priced wake contract.
+ *
+ * @module ai/services/memory-core/wakeCoalescePolicy
  */
 
 /**
@@ -99,12 +103,13 @@ export function isMessageWakeFresh({sentAt, now = Date.now(), maxAgeMs = MESSAGE
  * @param {Object}      opts
  * @param {Number|null} [opts.overrideSeconds] `harnessTargetMetadata.coalesceWindow` (seconds).
  * @param {Number}      opts.defaultSeconds    The config-leaf default (seconds).
+ * @param {Number}      [opts.capMs=COALESCE_HARD_CAP_MS] Configured hard-cap ceiling.
  * @returns {Number} Effective window in ms.
  */
-export function resolveCoalesceWindowMs({overrideSeconds, defaultSeconds}) {
+export function resolveCoalesceWindowMs({overrideSeconds, defaultSeconds, capMs = COALESCE_HARD_CAP_MS}) {
     let seconds = overrideSeconds ?? defaultSeconds;
 
-    seconds = Math.max(0, Math.min(COALESCE_HARD_CAP_MS / 1000, seconds));
+    seconds = Math.max(0, Math.min(capMs / 1000, seconds));
 
     return seconds * 1000
 }

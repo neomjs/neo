@@ -1180,7 +1180,7 @@ class ConfigBase extends ConfigProvider {
                      * Default coalescing window (seconds) for event wakes: after an event queues,
                      * the daemon waits this long for FURTHER events before flushing one digest —
                      * and the window is ROLLING (each new arrival extends the wait; the hard
-                     * 300s flush cap in `ai/daemons/wake/coalescePolicy.mjs` bounds total
+                     * 300s flush cap in `ai/services/memory-core/wakeCoalescePolicy.mjs` bounds total
                      * latency). Sized for the swarm's real INTER-turn cadence — lifecycle
                      * messages land minutes apart, and every wake costs a full harness turn, so
                      * waking per-message is the dominant token waste (the prior 30s fixed

@@ -89,11 +89,11 @@ export function parseHeartbeatPulseEntityId(entityId, prefix = HEARTBEAT_PULSE_E
  * @summary Evaluates a GraphLog trace against a subscription's heartbeat-pulse eligibility.
  *
  * Returns the matched pulse (`{targetIdentity, pulseId, logId}`) when the trace is a heartbeat
- * pulse for a `bridge-daemon`-routed subscription whose `agentIdentity` matches the pulse target;
- * `null` otherwise. The caller formats the match into its own delivery shape.
+ * pulse for an interrupt-capable Shape B/C subscription whose `agentIdentity` matches the pulse
+ * target; `null` otherwise. The caller formats the match into its own delivery shape.
  *
- * `harnessTarget === 'bridge-daemon'` is the FROZEN subscription route value, kept verbatim through
- * the bridge→wake-daemon process rename — it is a wire/route value, not the daemon process name.
+ * `bridge-daemon` remains the sunset-bound Shape-C route value; `a2a-webhook` is the signed
+ * Shape-B route that replaces it for the Docker-canonical local topology.
  *
  * @param {Object}        options
  * @param {Object}        options.trace                                  GraphLog row (`{entity_type, entity_id, log_id}`).
@@ -105,7 +105,7 @@ export function parseHeartbeatPulseEntityId(entityId, prefix = HEARTBEAT_PULSE_E
  */
 export function matchHeartbeatPulse({trace, harnessTarget, agentIdentity, entityType = HEARTBEAT_PULSE_ENTITY_TYPE, prefix = HEARTBEAT_PULSE_ENTITY_PREFIX}) {
     if (trace?.entity_type !== entityType) return null;
-    if (harnessTarget !== 'bridge-daemon')  return null;
+    if (!['bridge-daemon', 'a2a-webhook'].includes(harnessTarget)) return null;
 
     const pulse = parseHeartbeatPulseEntityId(trace.entity_id, prefix);
     if (!pulse || pulse.targetIdentity !== agentIdentity) return null;
@@ -283,7 +283,7 @@ export function match(subscription, entityData, trace) {
     const {trigger, harnessTarget, agentIdentity, filters = {}} = subscription || {};
     if (!agentIdentity) return null;
 
-    // HEARTBEAT_PULSE — GraphLog-only; the `bridge-daemon` route gate lives in matchHeartbeatPulse.
+    // HEARTBEAT_PULSE — GraphLog-only; the Shape B/C route gate lives in matchHeartbeatPulse.
     if (trace?.entity_type === HEARTBEAT_PULSE_ENTITY_TYPE) {
         const pulse = matchHeartbeatPulse({trace, harnessTarget, agentIdentity});
         return pulse

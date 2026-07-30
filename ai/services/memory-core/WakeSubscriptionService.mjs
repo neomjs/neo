@@ -211,9 +211,9 @@ class WakeSubscriptionService extends Base {
     _pumping = false
 
     /**
-     * Evaluates recent GraphLog deltas and pushes matching events to connected
-     * Shape A (MCP notification) clients. Intended to be called by mutation paths
-     * (e.g. MailboxService, PermissionService) for low-latency delivery.
+     * Evaluates recent GraphLog deltas and pushes matching events to active Shape A
+     * (MCP notification) and Shape B (signed webhook) routes. Intended to be called by
+     * mutation paths (e.g. MailboxService, PermissionService) for low-latency delivery.
      * @returns {Promise<void>}
      */
     async pump() {
@@ -234,12 +234,12 @@ class WakeSubscriptionService extends Base {
                 return;
             }
 
-            // Shape A delivery needs every active mcp-notifications subscription, not only routes
-            // that were touched through this process's lazy cache.
-            this._warmMcpSubscriptions();
+            // Live push needs every active Shape A/B subscription, not only routes that were
+            // touched through this process's lazy cache.
+            this._warmPushSubscriptions();
 
             const activeSubs = Array.from(this.subscriptionCache.values())
-                .filter(sub => sub.harnessTarget === 'mcp-notifications' && sub.status === 'active');
+                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && sub.status === 'active');
 
             if (activeSubs.length === 0) {
                 this._setLiveCursor(delta.lastLogId);
@@ -310,19 +310,24 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Ensures all active 'mcp-notifications' subscriptions are in cache.
+     * Ensures all active Shape A (`mcp-notifications`) and Shape B (`a2a-webhook`)
+     * subscriptions are in cache.
      * @protected
      */
-    _warmMcpSubscriptions() {
+    _warmPushSubscriptions() {
         const db = GraphService.db;
         if (!db) return;
         for (const node of db.nodes.items) {
             if (node.label !== 'WAKE_SUBSCRIPTION') continue;
-            const props = node.properties || {};
-            if (props.harnessTarget === 'mcp-notifications' && props.status === 'active') {
-                if (!this.subscriptionCache.has(node.id)) {
-                    this.subscriptionCache.set(node.id, {id: node.id, ...props});
-                }
+            const props   = node.properties || {};
+            const cached  = this.subscriptionCache.get(node.id);
+            const isPush  = ['mcp-notifications', 'a2a-webhook'].includes(props.harnessTarget);
+            const wasPush = ['mcp-notifications', 'a2a-webhook'].includes(cached?.harnessTarget);
+
+            // Refresh active routes and invalidate a cached push route when webhook delivery
+            // degraded or an operator changed/retired it since the previous pump.
+            if (isPush || wasPush) {
+                this.subscriptionCache.set(node.id, {id: node.id, ...props});
             }
         }
     }
@@ -1206,11 +1211,11 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Emits a durable GraphLog-only heartbeat pulse for an active bridge-daemon route.
+     * @summary Emits a durable GraphLog-only heartbeat pulse for an active Shape B/C interrupt route.
      *
      * Heartbeat pulses are interrupt transport hints, not mailbox content. The pulse writes only a
      * tagged `GraphLog` row, never a `MESSAGE` node or `SENT_TO` edge, so it is replayable by
-     * `resync()` and bridge-daemon tailing without surfacing in inbox listings.
+     * `resync()` and push delivery without surfacing in inbox listings.
      *
      * @param {Object} opts
      * @param {String} opts.targetIdentity AgentIdentity node id that should receive the pulse.
@@ -1220,13 +1225,13 @@ class WakeSubscriptionService extends Base {
     async emitHeartbeatPulse({targetIdentity, pulseId} = {}) {
         if (!targetIdentity) throw new Error("Missing 'targetIdentity' parameter.");
 
-        // Heartbeat pulses ride the existing bridge-daemon route; a dedicated
+        // Heartbeat pulses ride an existing interrupt-capable Shape B/C route; a dedicated
         // HEARTBEAT_PULSE trigger is not exposed by manage_wake_subscription.
-        if (!this._hasActiveBridgeDaemonRoute(targetIdentity)) {
-            logger.info(`[WakeSubscription] heartbeat pulse skipped for ${targetIdentity}: no active bridge-daemon subscription.`);
+        if (!this._hasActiveInterruptRoute(targetIdentity)) {
+            logger.info(`[WakeSubscription] heartbeat pulse skipped for ${targetIdentity}: no active Shape B/C subscription.`);
             return {
                 status: 'skipped',
-                reason: 'no-active-bridge-daemon-subscription',
+                reason: 'no-active-interrupt-subscription',
                 targetIdentity
             };
         }
@@ -1442,7 +1447,7 @@ class WakeSubscriptionService extends Base {
      * @returns {Object|null} Wrapped heartbeat-pulse event or null.
      */
     _evaluateHeartbeatPulseAgainstSubscription(trace, subscription) {
-        // Heartbeat pulses dispatch through the established bridge-daemon route regardless of the
+        // Heartbeat pulses dispatch through an interrupt-capable Shape B/C route regardless of the
         // subscription's original trigger. The parse + eligibility live in the shared,
         // GraphService-free `heartbeatPulseEvaluator` (also consumed by the standalone wake-daemon),
         // so the two heartbeat-pulse evaluators cannot drift; this service still owns the
@@ -1693,7 +1698,7 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Returns true if the identity has at least one active bridge-daemon
+     * @summary Returns true if the identity has at least one active Shape B/C interrupt
      * subscription, regardless of trigger type.
      *
      * Heartbeat-pulse emission uses route reachability rather than a dedicated trigger.
@@ -1702,20 +1707,23 @@ class WakeSubscriptionService extends Base {
      * @returns {Boolean}
      * @protected
      */
-    _hasActiveBridgeDaemonRoute(identity) {
+    _hasActiveInterruptRoute(identity) {
         const sqlite = GraphService.db?.storage?.db;
         if (sqlite) {
             const row = sqlite.prepare(`
                 SELECT count(*) as count FROM Nodes
                 WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
                   AND json_extract(data, '$.properties.agentIdentity') = ?
-                  AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
+                  AND json_extract(data, '$.properties.harnessTarget') IN ('bridge-daemon', 'a2a-webhook')
                   AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
             `).get(identity);
             return (row?.count || 0) > 0;
         }
 
-        return this._getCandidateSubscriptionsFromMemory(identity, sub => sub.harnessTarget === 'bridge-daemon').length > 0;
+        return this._getCandidateSubscriptionsFromMemory(
+            identity,
+            sub => ['bridge-daemon', 'a2a-webhook'].includes(sub.harnessTarget)
+        ).length > 0;
     }
 
     /**

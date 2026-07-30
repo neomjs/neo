@@ -2,15 +2,26 @@ import crypto                 from 'crypto';
 import Base                   from '../../../src/core/Base.mjs';
 import WebhookDeliveryService from './WebhookDeliveryService.mjs';
 import logger                 from '../../mcp/server/memory-core/logger.mjs';
+import {
+    computeFlushDelayMs,
+    computeFlushHoldMs,
+    resolveCoalesceWindowMs
+} from './wakeCoalescePolicy.mjs';
+
+const WAKE_PRIORITY_RANKS = Object.freeze({
+    low   : 0,
+    normal: 1,
+    high  : 2
+});
 
 /**
  * @summary Token-economy throttle / coalescing engine for the cross-harness
  * autonomous wake substrate.
  *
  * Wake events MUST NOT be 1:1 with the underlying event stream at high velocity. This
- * engine batches per-subscription events within a configurable window (default 30s,
- * overridable per subscription via `harnessTargetMetadata.coalesceWindow`, clamped 0-300s)
- * and emits a single **digest** payload at window-flush time. Without this throttle,
+ * engine batches per-subscription events within the entrypoint-injected wake-dispatch policy,
+ * overridable per subscription via `harnessTargetMetadata.coalesceWindow`, and emits a single
+ * **digest** payload at window-flush time. Without this throttle,
  * broadcast bursts and Task state transition flurries cause catastrophic token burn
  * and session thrashing.
  *
@@ -23,9 +34,9 @@ import logger                 from '../../mcp/server/memory-core/logger.mjs';
  * - `bridge-daemon` → no-op (Shape C handles its own coalescing in-process per ADR §6.3)
  * - `disabled` / `none` → no-op (subscription opted out of push)
  *
- * Wake daemon (Shape C) maintains a parallel coalescer in `ai/daemons/wake/daemon.mjs`
- * because it runs out-of-process; this engine handles the in-process Shape A + Shape B
- * routing only.
+ * Shape B and the sunset-bound Shape C daemon consume the same pure rolling-window /
+ * refractory / hard-cap policy module. This engine owns the in-process Shape A + Shape B
+ * routing and only arms its refractory after a confirmed delivery.
  *
  * @class Neo.ai.services.memory-core.CoalescingEngineService
  * @extends Neo.core.Base
@@ -47,20 +58,25 @@ class CoalescingEngineService extends Base {
     }
 
     /**
-     * @member {Number} defaultWindowSeconds=30
+     * @member {Number|null} defaultWindowSeconds=null
      * @protected
-     * @summary Default coalescing window for wake-digest delivery. Overridable per subscription
-     * via `harnessTargetMetadata.coalesceWindow`. Clamped to [0, 300] at enqueue time.
+     * @summary Entrypoint-injected coalescing window for wake-digest delivery.
      */
-    defaultWindowSeconds = 30
+    defaultWindowSeconds = null
 
     /**
-     * @member {Number} maxWindowSeconds=300
+     * @member {Number|null} refractoryMs=null
      * @protected
-     * @summary Hard upper bound on coalescing window (5 minutes). Beyond this, events
-     * are stale enough that the agent's response would be on already-superseded state.
+     * @summary Entrypoint-injected post-delivery refractory in milliseconds.
      */
-    maxWindowSeconds = 300
+    refractoryMs = null
+
+    /**
+     * @member {Number|null} hardCapMs=null
+     * @protected
+     * @summary Entrypoint-injected maximum queue age in milliseconds.
+     */
+    hardCapMs = null
 
     /**
      * @member {Set<McpServer>} mcpServers
@@ -70,12 +86,60 @@ class CoalescingEngineService extends Base {
 
     /**
      * Per-subscription queue + timer state.
-     * Structure: `Map<subscriptionId, {queue: Object[], timer: ?TimerId, subscription: Object, windowStart: ?Date}>`
+     * Structure: `Map<subscriptionId, {queue: Object[], timer: ?TimerId, subscription: Object, firstQueuedAt: Number}>`
      * Populated lazily on first enqueue; cleared on flush.
      * @member {Map<String, Object>} coalesceState
      * @protected
      */
     coalesceState = new Map()
+
+    /**
+     * Last confirmed delivery time by subscription. Failed, skipped, and unknown outcomes never
+     * arm the refractory because they do not prove that a turn-priced wake reached the seat.
+     * @member {Map<String, Number>}
+     * @protected
+     */
+    lastFlushAtBySub = new Map()
+
+    /**
+     * One active digest dispatch per subscription.
+     *
+     * A new event can arrive after a queue has been detached for delivery but before the
+     * confirmed-delivery refractory is armed. The next flush waits on this promise so it evaluates
+     * rolling/refractory/hard-cap policy against the completed outcome rather than dispatching a
+     * second turn-priced wake concurrently.
+     * @member {Map<String, Promise>}
+     * @protected
+     */
+    dispatchInFlight = new Map()
+
+    /**
+     * @summary Injects the canonical AiConfig wake-dispatch leaves at the Memory Core entrypoint.
+     *
+     * The service deliberately does not import `AiConfig`: the Memory Core entrypoint is the
+     * composition root, preventing hidden defaults from drifting across deployment topology.
+     *
+     * @param {Object} options
+     * @param {Number} options.coalesceWindowSeconds
+     * @param {Number} options.flushRefractorySeconds
+     * @param {Number} options.flushHardCapSeconds
+     */
+    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds} = {}) {
+        const values = {coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds};
+
+        for (const [name, value] of Object.entries(values)) {
+            if (!Number.isFinite(value) || value < 0) {
+                throw new Error(`CoalescingEngineService.configure requires non-negative finite '${name}'`);
+            }
+        }
+        if (flushHardCapSeconds === 0) {
+            throw new Error("CoalescingEngineService.configure requires 'flushHardCapSeconds' greater than zero");
+        }
+
+        this.defaultWindowSeconds = coalesceWindowSeconds;
+        this.refractoryMs         = flushRefractorySeconds * 1000;
+        this.hardCapMs            = flushHardCapSeconds * 1000;
+    }
 
     /**
      * @summary Registers an MCP server instance for push notifications.
@@ -138,26 +202,39 @@ class CoalescingEngineService extends Base {
             return;
         }
 
-        let state = this.coalesceState.get(subId);
+        this._assertConfigured();
+
+        const now   = Date.now();
+        let   state = this.coalesceState.get(subId);
+
         if (!state) {
-            state = {queue: [], timer: null, subscription, windowStart: null};
+            state = {queue: [], timer: null, subscription, firstQueuedAt: now};
             this.coalesceState.set(subId, state);
         } else {
             state.subscription = subscription;
         }
 
         state.queue.push(event);
-        if (!state.windowStart) state.windowStart = new Date();
-
-        if (state.timer) return;
+        if (state.timer) clearTimeout(state.timer);
 
         const windowMs = this._resolveWindowMs(subscription);
-        if (windowMs === 0) {
-            this._flush(subId);
+        const delayMs  = computeFlushDelayMs({
+            now,
+            windowMs,
+            firstQueuedAt: state.firstQueuedAt,
+            lastFlushAt  : this.lastFlushAtBySub.get(subId) || 0,
+            refractoryMs : this.refractoryMs,
+            capMs        : this.hardCapMs
+        });
+
+        if (delayMs === 0) {
+            void this._flush(subId);
             return;
         }
 
-        state.timer = setTimeout(() => this._flush(subId), windowMs);
+        state.timer = setTimeout(() => {
+            void this._flush(subId);
+        }, delayMs);
     }
 
     /**
@@ -166,7 +243,7 @@ class CoalescingEngineService extends Base {
      */
     async flushAll() {
         const ids = Array.from(this.coalesceState.keys());
-        await Promise.all(ids.map(id => this._flush(id)));
+        await Promise.all(ids.map(id => this._flush(id, {force: true})));
     }
 
     /**
@@ -178,6 +255,7 @@ class CoalescingEngineService extends Base {
             if (state.timer) clearTimeout(state.timer);
         }
         this.coalesceState.clear();
+        this.lastFlushAtBySub.clear();
     }
 
     /**
@@ -190,11 +268,24 @@ class CoalescingEngineService extends Base {
      * @returns {Number} window in milliseconds (0 = immediate-flush)
      */
     _resolveWindowMs(subscription) {
-        const meta     = subscription.harnessTargetMetadata || {};
-        const override = meta.coalesceWindow;
-        let   seconds  = (override === undefined || override === null) ? this.defaultWindowSeconds : override;
-        seconds        = Math.max(0, Math.min(this.maxWindowSeconds, Number(seconds) || 0));
-        return seconds * 1000;
+        this._assertConfigured();
+
+        const meta = subscription.harnessTargetMetadata || {};
+        return resolveCoalesceWindowMs({
+            overrideSeconds: meta.coalesceWindow,
+            defaultSeconds : this.defaultWindowSeconds,
+            capMs          : this.hardCapMs
+        });
+    }
+
+    /**
+     * @summary Fails loudly when the Memory Core entrypoint did not inject canonical wake policy.
+     * @protected
+     */
+    _assertConfigured() {
+        if (![this.defaultWindowSeconds, this.refractoryMs, this.hardCapMs].every(Number.isFinite)) {
+            throw new Error('CoalescingEngineService is not configured by the Memory Core entrypoint');
+        }
     }
 
     /**
@@ -203,24 +294,70 @@ class CoalescingEngineService extends Base {
      *
      * @protected
      * @param {String} subscriptionId
+     * @param {Object} [options]
+     * @param {Boolean} [options.force=false] Bypass the policy hold for graceful shutdown/tests.
      * @returns {Promise<void>}
      */
-    async _flush(subscriptionId) {
+    async _flush(subscriptionId, {force = false} = {}) {
         const state = this.coalesceState.get(subscriptionId);
         if (!state || state.queue.length === 0) {
             this.coalesceState.delete(subscriptionId);
             return;
         }
 
-        const {queue, subscription, windowStart} = state;
+        const activeDispatch = this.dispatchInFlight.get(subscriptionId);
+        if (activeDispatch) {
+            if (state.timer) {
+                clearTimeout(state.timer);
+                state.timer = null;
+            }
+            await activeDispatch;
+            return this._flush(subscriptionId, {force});
+        }
+
+        const {queue, subscription, firstQueuedAt} = state;
         if (state.timer) {
             clearTimeout(state.timer);
             state.timer = null;
         }
+
+        if (!force) {
+            const windowMs = this._resolveWindowMs(subscription);
+            const holdMs   = computeFlushHoldMs({
+                now         : Date.now(),
+                windowMs,
+                firstQueuedAt,
+                lastFlushAt : this.lastFlushAtBySub.get(subscriptionId) || 0,
+                refractoryMs: this.refractoryMs,
+                capMs       : this.hardCapMs
+            });
+
+            if (holdMs > 0) {
+                state.timer = setTimeout(() => {
+                    void this._flush(subscriptionId);
+                }, holdMs);
+                return;
+            }
+        }
+
         this.coalesceState.delete(subscriptionId);
 
-        const digest = this._buildDigestEnvelope(subscription, queue, windowStart);
-        await this._dispatchDigest(subscription, digest);
+        const digest          = this._buildDigestEnvelope(subscription, queue, firstQueuedAt);
+        const dispatchPromise = this._dispatchDigest(subscription, digest)
+            .then(outcome => {
+                if (outcome === 'delivered') {
+                    this.lastFlushAtBySub.set(subscriptionId, Date.now());
+                }
+                return outcome;
+            })
+            .finally(() => {
+                if (this.dispatchInFlight.get(subscriptionId) === dispatchPromise) {
+                    this.dispatchInFlight.delete(subscriptionId);
+                }
+            });
+
+        this.dispatchInFlight.set(subscriptionId, dispatchPromise);
+        await dispatchPromise;
     }
 
     /**
@@ -233,22 +370,34 @@ class CoalescingEngineService extends Base {
      * @protected
      * @param {Object} subscription
      * @param {Object[]} events Queued event envelopes
-     * @param {Date} windowStart When the first event in this window was enqueued
+     * @param {Number} firstQueuedAt Epoch ms when the first event in this window was enqueued
      * @returns {Object} Digest envelope
      */
-    _buildDigestEnvelope(subscription, events, windowStart) {
+    _buildDigestEnvelope(subscription, events, firstQueuedAt) {
         const breakdown = {
-            sent_to_me        : {count: 0, latest: null},
+            sent_to_me        : {count: 0, latest: null, highestPriority: 'normal'},
             task_state_changed: {count: 0, latest: null},
-            permission_granted: {count: 0, latest: null}
+            permission_granted: {count: 0, latest: null},
+            heartbeat_pulse   : {count: 0, latest: null}
         };
 
         for (const evt of events) {
             switch (evt.eventType) {
-                case 'wake/sent_to_me':
+                case 'wake/sent_to_me': {
+                    const priority = Object.hasOwn(WAKE_PRIORITY_RANKS, evt.payload?.priority)
+                        ? evt.payload.priority
+                        : 'normal';
+
                     breakdown.sent_to_me.count++;
                     breakdown.sent_to_me.latest = evt.payload;
+                    if (
+                        WAKE_PRIORITY_RANKS[priority] >
+                        WAKE_PRIORITY_RANKS[breakdown.sent_to_me.highestPriority]
+                    ) {
+                        breakdown.sent_to_me.highestPriority = priority;
+                    }
                     break;
+                }
                 case 'wake/task_state_changed':
                     breakdown.task_state_changed.count++;
                     breakdown.task_state_changed.latest = evt.payload;
@@ -257,25 +406,59 @@ class CoalescingEngineService extends Base {
                     breakdown.permission_granted.count++;
                     breakdown.permission_granted.latest = evt.payload;
                     break;
+                case 'wake/heartbeat_pulse':
+                    breakdown.heartbeat_pulse.count++;
+                    breakdown.heartbeat_pulse.latest = evt.payload;
+                    break;
             }
         }
 
-        const emittedAt = new Date();
+        const emittedAt      = new Date();
+        const sourceEventIds = events.map(event => this._getSourceEventId(event));
+        const eventId        = `wake-digest:${crypto
+            .createHash('sha256')
+            .update(JSON.stringify([subscription.id, sourceEventIds]))
+            .digest('hex')}`;
 
         return {
             schemaVersion : '1.0',
             eventType     : 'wake/digest',
-            eventId       : `01H${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
+            eventId,
             logId         : events[events.length - 1]?.logId,
             agentIdentity : subscription.agentIdentity,
             subscriptionId: subscription.id,
             payload       : {
                 totalEvents: events.length,
                 breakdown,
-                windowMs   : windowStart ? (emittedAt.getTime() - windowStart.getTime()) : 0
+                sourceEventIds,
+                windowMs   : Number.isFinite(firstQueuedAt) ? emittedAt.getTime() - firstQueuedAt : 0
             },
             emittedAt: emittedAt.toISOString()
         };
+    }
+
+    /**
+     * @summary Resolves the stable source identity used for digest retry/dedupe.
+     *
+     * Typed GraphLog rows already expose `sourceEventId`; mailbox and heartbeat events expose
+     * their canonical domain ids in payload. The generated envelope id is the final fallback.
+     *
+     * @param {Object} event Wake event envelope.
+     * @returns {String}
+     * @protected
+     */
+    _getSourceEventId(event) {
+        const payload = event?.payload || {};
+
+        return String(
+            event?.sourceEventId
+            || payload.messageId
+            || payload.taskId
+            || payload.permissionId
+            || payload.pulseId
+            || event?.eventId
+            || 'unknown'
+        );
     }
 
     /**
@@ -284,7 +467,7 @@ class CoalescingEngineService extends Base {
      * @protected
      * @param {Object} subscription
      * @param {Object} digest Envelope produced by `_buildDigestEnvelope`
-     * @returns {Promise<void>}
+     * @returns {Promise<'delivered'|'skipped'|'failed'>}
      */
     async _dispatchDigest(subscription, digest) {
         const target = subscription.harnessTarget;
@@ -297,40 +480,43 @@ class CoalescingEngineService extends Base {
                 }
             };
             try {
-                await WebhookDeliveryService.deliver(subscriptionForDelivery, digest);
+                return await WebhookDeliveryService.deliver(subscriptionForDelivery, digest);
             } catch (e) {
                 logger.error(`[CoalescingEngine] WebhookDeliveryService.deliver failed for ${subscription.id}: ${e.message}`);
+                return 'failed';
             }
-            return;
         }
 
         if (target === 'mcp-notifications') {
             if (this.mcpServers.size === 0) {
                 logger.warn(`[CoalescingEngine] mcp-notifications digest dropped — no mcpServers registered: ${subscription.id}`);
-                return;
+                return 'skipped';
             }
 
+            let delivered = false;
             for (const server of this.mcpServers) {
                 try {
                     await server.notification({
                         method: 'notifications/message',
                         params: digest
                     });
+                    delivered = true;
                 } catch (e) {
                     logger.error(`[CoalescingEngine] mcp-notifications dispatch failed for ${subscription.id} on server: ${e.message}`);
                 }
             }
-            return;
+            return delivered ? 'delivered' : 'failed';
         }
 
         if (target === 'bridge-daemon' || target === 'disabled' || target === 'none') {
             // Wake daemon coalesces in-process per ADR §6.3 (out-of-process consumer).
             // disabled/none subscriptions opted out of push; heartbeat polling covers
             // them per ADR §6.5 (Heartbeat-Bypass Detection).
-            return;
+            return 'skipped';
         }
 
         logger.warn(`[CoalescingEngine] Unknown harnessTarget '${target}' for ${subscription.id}; dropping digest.`);
+        return 'skipped';
     }
 
     /**
@@ -340,7 +526,7 @@ class CoalescingEngineService extends Base {
      * @protected
      * @param {Object} subscription
      * @param {Object} event
-     * @returns {Promise<void>}
+     * @returns {Promise<'delivered'|'skipped'|'failed'>}
      */
     async _dispatchRaw(subscription, event) {
         const target = subscription.harnessTarget;
@@ -353,19 +539,20 @@ class CoalescingEngineService extends Base {
                 }
             };
             try {
-                await WebhookDeliveryService.deliver(subscriptionForDelivery, event);
+                return await WebhookDeliveryService.deliver(subscriptionForDelivery, event);
             } catch (e) {
                 logger.error(`[CoalescingEngine] WebhookDeliveryService.deliver failed for ${subscription.id} (raw): ${e.message}`);
+                return 'failed';
             }
-            return;
         }
 
         if (target === 'mcp-notifications') {
             if (this.mcpServers.size === 0) {
                 logger.warn(`[CoalescingEngine] mcp-notifications raw dropped — no mcpServers registered: ${subscription.id}`);
-                return;
+                return 'skipped';
             }
 
+            let delivered = false;
             for (const server of this.mcpServers) {
                 try {
                     // Direct MCP consumers expect raw events over MCP.
@@ -374,18 +561,20 @@ class CoalescingEngineService extends Base {
                         method: 'notifications/message',
                         params: event
                     });
+                    delivered = true;
                 } catch (e) {
                     logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id} on server: ${e.message}`);
                 }
             }
-            return;
+            return delivered ? 'delivered' : 'failed';
         }
 
         if (target === 'bridge-daemon' || target === 'disabled' || target === 'none') {
-            return;
+            return 'skipped';
         }
 
         logger.warn(`[CoalescingEngine] Unknown harnessTarget '${target}' for ${subscription.id}; dropping raw event.`);
+        return 'skipped';
     }
 }
 
