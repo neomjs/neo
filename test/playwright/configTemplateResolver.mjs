@@ -106,6 +106,13 @@ function resolve(specifier, context, nextResolve) {
  * @returns {String} Effective disposable storage root.
  */
 function activateStorageScope() {
+    // Product AiConfig defaults describe the canonical cloud/container plane. Playwright is an
+    // explicit disposable test profile and historically exercises the single-process local
+    // topology; declare that posture before any redirected config template evaluates. Preserve
+    // shell-provided values so cloud-specific tests can still opt in deliberately.
+    process.env.NEO_AI_DEPLOYMENT_MODE ??= 'local';
+    process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE ??= 'legacy-mixed';
+
     const inheritedBoundary = process.env.NEO_TEST_CONFIG_TEMPLATES === 'true';
     let   boundaryRoot      = inheritedBoundary && process.env.NEO_TEST_STORAGE_ROOT;
 

@@ -207,8 +207,8 @@ services:
           cpus: "1.0"
 
   # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
-  # image via the generalized `SERVICE_ENTRYPOINT` arg. `NEO_AI_DEPLOYMENT_MODE=cloud`
-  # activates the cloud-safe scheduler profile — only the cloud-deployable lanes
+  # image via the generalized `SERVICE_ENTRYPOINT` arg. AiConfig defaults to the
+  # cloud/container-plane scheduler profile — only the cloud-deployable lanes
   # (summary, backup, dream, golden-path) run; local-only lanes and local inference
   # launchers (primary-dev-sync, kbSync, bridgeDaemon, MLX/LMS/Ollama) are disabled.
   # `cloud` profile — started by `docker compose --profile cloud up`.
@@ -222,18 +222,6 @@ services:
         NEO_REF: ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
-      - NEO_AI_DEPLOYMENT_MODE=cloud
-      - NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=container-plane
-      - NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false
-      - NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED=false
-      - NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false
-      - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
-      - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
-      - NEO_ORCHESTRATOR_MLX_ENABLED=false
-      - NEO_ORCHESTRATOR_LMS_ENABLED=false
-      - NEO_ORCHESTRATOR_OLLAMA_ENABLED=false
-      - NEO_AI_ORCHESTRATOR_DIR=/app/.neo-ai-data/orchestrator-daemon
-      - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data
       - *handoff-file-env
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}

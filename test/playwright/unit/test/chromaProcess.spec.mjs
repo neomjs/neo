@@ -9,7 +9,10 @@ import {
     startChromaProcess,
     stopDetachedProcess
 } from '../../chromaProcess.mjs';
-import unitConfig, {brainTestMatch} from '../../playwright.config.unit.mjs';
+import unitConfig, {
+    brainTestMatch,
+    orchestratorDaemonTestMatch
+} from '../../playwright.config.unit.mjs';
 
 test.describe('playwright.config.unit — Chroma capability admission', () => {
     test('Body files stay pure while Brain files depend on run-scoped Chroma', () => {
@@ -32,7 +35,10 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs'))).toBe(true);
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/util/Array.spec.mjs'))).toBe(false);
         expect(projects['unit-brain'].testMatch).toBe(brainTestMatch);
+        expect(projects['unit-brain'].testIgnore).toBe(orchestratorDaemonTestMatch);
         expect(projects['unit-brain'].dependencies).toEqual(['chroma-setup']);
+        expect(projects['unit-brain-orchestrator-daemon'].testMatch).toBe(orchestratorDaemonTestMatch);
+        expect(projects['unit-brain-orchestrator-daemon'].dependencies).toEqual(['chroma-setup']);
         expect(projects['chroma-setup'].teardown).toBe('chroma-teardown');
     });
 });

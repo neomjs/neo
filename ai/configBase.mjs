@@ -800,23 +800,22 @@ class ConfigBase extends ConfigProvider {
                 dbPath: leaf(path.resolve(planeDataRootDefault, 'sqlite/memory-core-graph.sqlite'), 'NEO_AI_DB_PATH', 'string', {planeMember: true}),
                 /**
                  * Deployment profile for Agent OS maintenance ownership.
-                 * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
-                 * maintenance lanes unless a narrower localOnly override opts them back in.
+                 * `cloud` is the canonical Agent OS posture and disables local-only maintenance
+                 * lanes unless a host process explicitly opts into `local`.
                  * @type {'local'|'cloud'}
                  */
-                deploymentMode: leaf('local', 'NEO_AI_DEPLOYMENT_MODE', 'string'),
+                deploymentMode: leaf('cloud', 'NEO_AI_DEPLOYMENT_MODE', 'string'),
                 /**
                  * Orchestrator task-authority role. This is intentionally independent from
                  * `deploymentMode`: storage/deployment defaults cannot express which process owns
                  * host/session effects versus plane maintenance on the same machine.
                  *
-                 * `legacy-mixed` preserves existing maintainer checkouts until an explicit
-                 * machine cutover. Container profiles declare `container-plane`; the
-                 * eventual host-edge overlay declares `host-edge`. Unknown values fail the
-                 * orchestrator's preflight ownership audit.
+                 * `container-plane` is the canonical default. A machine-local Orchestrator
+                 * explicitly declares `host-edge`; `legacy-mixed` exists only for rollback to a
+                 * pre-cutover revision. Unknown values fail the preflight ownership audit.
                  * @type {'legacy-mixed'|'host-edge'|'container-plane'}
                  */
-                authorityProfile: leaf('legacy-mixed', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string'),
+                authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string'),
                 /**
                  * Filesystem root under which tenant-repo mirrors are stored. The
                  * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,
@@ -1438,14 +1437,14 @@ class ConfigBase extends ConfigProvider {
                  * - `enabled`: whether the orchestrator may supervise `ollama serve` for local-dev
                  *   roles explicitly routed through the native `ollama` provider. The task is
                  *   still omitted when no configured chat / embedding role targets `ollama`, so
-                 *   this default does not start Ollama for the standard OpenAI-compatible setup.
+                 *   the operator must explicitly opt a host edge into supervising Ollama.
                  *   When active, `OLLAMA_HOST`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_CONTEXT_LENGTH`, and
                  *   `OLLAMA_MAX_LOADED_MODELS` are derived from the canonical provider and
                  *   local-model config leaves.
                  * @type {Object}
                  */
                 ollama: {
-                    enabled: leaf(true, 'NEO_ORCHESTRATOR_OLLAMA_ENABLED', 'boolean')
+                    enabled: leaf(false, 'NEO_ORCHESTRATOR_OLLAMA_ENABLED', 'boolean')
                 },
                 /**
                  * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
@@ -1456,8 +1455,8 @@ class ConfigBase extends ConfigProvider {
                  * for local chat + embedding workloads; pick at most one via the respective `enabled` flag.
                  *
                  * - `enabled`: whether the orchestrator should supervise an `lms server start`
-                 *   child process. Enabled by default for local Agent OS chat + embedding roles;
-                 *   **macOS-only** (LM Studio CLI is not
+                 *   child process. Disabled by default: provider processes are deployment choices,
+                 *   not implicit Orchestrator children. The launcher remains **macOS-only** (LM Studio CLI is not
                  *   shipped for Linux containers, so this lane is local-dev substrate, not
                  *   cloud-deployment substrate).
                  * - `model`: legacy single-model field kept for existing operator overlays. The
@@ -1469,7 +1468,7 @@ class ConfigBase extends ConfigProvider {
                  * @type {Object}
                  */
                 lms: {
-                    enabled: leaf(true, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
+                    enabled: leaf(false, 'NEO_ORCHESTRATOR_LMS_ENABLED', 'boolean'),
                     model  : leaf('qwen3-embedding-8b', 'NEO_ORCHESTRATOR_LMS_MODEL', 'string'),
                     port   : leaf('1234', 'NEO_ORCHESTRATOR_LMS_PORT', 'string')
                 }

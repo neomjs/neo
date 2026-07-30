@@ -16,6 +16,13 @@ process.env.UNIT_TEST_MODE = 'true';
 // allow-list, while every non-Brain spec remains a genuinely pure Node.js unit run.
 export const brainTestMatch = /[\\/]ai[\\/].*\.spec\.mjs$/;
 
+// The daemon imports the eager Tier-1 + Memory Core config graph. Config-template unit specs
+// intentionally unregister those singleton namespaces during their fixtures, so worker reuse can
+// leave the redirected module cached after its namespace was removed. Give the daemon its own
+// project/worker realm while retaining the same run-scoped Chroma capability.
+export const orchestratorDaemonTestMatch =
+    /[\\/]ai[\\/]daemons[\\/]orchestrator[\\/]daemon\.spec\.mjs$/;
+
 // Profiling specs assert wall-clock performance budgets, which only mean anything on an UNCONTENDED
 // CPU. Under multi-worker parallelism the shallow-clone filter has measured ~750ms against its 400ms
 // budget — inside the old deep-clone band — so a bulk-parallel run cannot host them. They run in
@@ -47,7 +54,12 @@ export default defineConfig({
     }, {
         name        : 'unit-brain',
         dependencies: ['chroma-setup'],
+        testIgnore  : orchestratorDaemonTestMatch,
         testMatch   : brainTestMatch
+    }, {
+        name        : 'unit-brain-orchestrator-daemon',
+        dependencies: ['chroma-setup'],
+        testMatch   : orchestratorDaemonTestMatch
     }, {
         // Isolation is TWO mechanisms, because neither alone suffices:
         //   1. `dependencies: ['unit']` is the BARRIER — this project does not START until the bulk

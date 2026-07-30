@@ -1,0 +1,93 @@
+# One-machine canonical Agent OS overlay (#16167).
+#
+# Apply after docker-compose.yml. The base owns the runtime topology; this file
+# only binds the existing local plane, adds loopback ingress, and selects the
+# loopback-only, provider-verified GitHub-PAT profile used by distinct residents.
+
+x-local-plane-bind: &local-plane-bind
+  type: bind
+  source: ../../.neo-ai-data
+  target: /app/.neo-ai-data
+  bind:
+    create_host_path: false
+
+x-local-auth: &local-auth
+  NEO_AUTH_MODE: github-pat
+  NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat
+  NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token
+
+x-local-provider: &local-provider
+  NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:11434}
+
+services:
+  chroma:
+    restart: unless-stopped
+    volumes: !override
+      - type: bind
+        source: ../../.neo-ai-data/chroma/unified
+        target: /chroma/unified
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  kb-server:
+    restart: unless-stopped
+    environment:
+      <<: [*local-auth, *local-provider]
+    volumes: !override
+      - *local-plane-bind
+    secrets:
+      - mcp-auth-token
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--expected-plane-id", "neo-local-canonical", "--expected-plane-data-root", "/app/.neo-ai-data"]
+
+  mc-server:
+    restart: unless-stopped
+    environment:
+      <<: [*local-auth, *local-provider]
+    volumes: !override
+      - *local-plane-bind
+    secrets:
+      - mcp-auth-token
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--expected-plane-id", "neo-local-canonical", "--expected-plane-data-root", "/app/.neo-ai-data"]
+
+  orchestrator:
+    restart: unless-stopped
+    environment:
+      <<: *local-provider
+      # The forward-only container role starts with its own cadence and never
+      # needs a reverse merge into the retired mixed host scheduler.
+      NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data/orchestrator-container-plane
+    volumes: !override
+      - *local-plane-bind
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+
+  ingress:
+    restart: unless-stopped
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    volumes: !override
+      - type: bind
+        source: ./Caddyfile.local-agent-os
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+    ports: !override
+      - "127.0.0.1:3102:8080"
+    depends_on:
+      kb-server:
+        condition: service_healthy
+      mc-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8080"]
+
+secrets:
+  mcp-auth-token:
+    environment: GH_TOKEN

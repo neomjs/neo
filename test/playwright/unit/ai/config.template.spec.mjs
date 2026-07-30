@@ -368,8 +368,8 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
-        expect(Config.orchestrator.deploymentMode).toBe('local');
-        expect(Config.orchestrator.authorityProfile).toBe('legacy-mixed');
+        expect(Config.orchestrator.deploymentMode).toBe(process.env.NEO_AI_DEPLOYMENT_MODE || 'cloud');
+        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || 'container-plane');
         expect(Config.orchestrator.intervals).toMatchObject({
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,
@@ -498,17 +498,17 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         const ollamaEnabledEnv = process.env.NEO_ORCHESTRATOR_OLLAMA_ENABLED?.trim().toLowerCase();
-        const ollamaDisabled   = ['false', 'no', 'off', '0'].includes(ollamaEnabledEnv);
+        const ollamaEnabled    = ['true', 'yes', 'on', '1'].includes(ollamaEnabledEnv);
 
         expect(Config.orchestrator.ollama).toEqual({
-            enabled: ollamaEnabledEnv === undefined ? true : !ollamaDisabled
+            enabled: ollamaEnabled
         });
 
         const lmsEnabledEnv = process.env.NEO_ORCHESTRATOR_LMS_ENABLED?.trim().toLowerCase();
-        const lmsDisabled   = ['false', 'no', 'off', '0'].includes(lmsEnabledEnv);
+        const lmsEnabled    = ['true', 'yes', 'on', '1'].includes(lmsEnabledEnv);
 
         expect(Config.orchestrator.lms).toMatchObject({
-            enabled: lmsEnabledEnv === undefined ? true : !lmsDisabled,
+            enabled: lmsEnabled,
             model  : process.env.NEO_ORCHESTRATOR_LMS_MODEL || 'qwen3-embedding-8b',
             port   : process.env.NEO_ORCHESTRATOR_LMS_PORT || '1234'
         });

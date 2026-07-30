@@ -101,6 +101,7 @@ export function parseArgs(argv = [], env = process.env) {
         .exitOverride()
         .allowExcessArguments(false)
         .option('--url <url>', 'Base URL of the MCP server.', env.NEO_MCP_HEALTHCHECK_URL || DEFAULT_URL)
+        .option('--mcp-path <path>', 'MCP endpoint path below the base URL.', env.NEO_MCP_HEALTHCHECK_PATH || '/mcp')
         .option('--identity <identity>', 'Trusted proxy identity header value.', env.NEO_MCP_HEALTHCHECK_IDENTITY || 'neo-container-healthcheck')
         .option('--bearer-token-env <name>', 'Environment variable containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_ENV || 'NEO_MCP_HEALTHCHECK_TOKEN')
         .option('--bearer-token-file <path>', 'File containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_FILE || null)
@@ -121,6 +122,7 @@ export function parseArgs(argv = [], env = process.env) {
 
     return {
         url                  : options.url,
+        mcpPath              : options.mcpPath,
         identity             : options.identity,
         bearerToken,
         bearerTokenEnv       : options.bearerTokenEnv,
@@ -226,6 +228,7 @@ export function readToolJson(result) {
  * @param {String|null} [options.bearerToken]
  * @param {String} [options.expectedStatus='healthy']
  * @param {String} [options.clientName='neo-container-healthcheck']
+ * @param {String} [options.mcpPath='/mcp'] MCP endpoint path below `url`.
  * @param {Number} [options.timeoutMs=DEFAULT_TIMEOUT_MS]
  * @param {Function} [options.ClientClass=Client] Injectable SDK client constructor for tests.
  * @param {Function} [options.TransportClass=StreamableHTTPClientTransport] Injectable transport constructor for tests.
@@ -239,6 +242,7 @@ export async function runHealthcheck({
     expectedPlaneId       = null,
     expectedPlaneDataRoot = null,
     clientName            = 'neo-container-healthcheck',
+    mcpPath               = '/mcp',
     timeoutMs             = DEFAULT_TIMEOUT_MS,
     ClientClass           = Client,
     TransportClass        = StreamableHTTPClientTransport
@@ -247,7 +251,7 @@ export async function runHealthcheck({
     const headers         = buildHeaders({identity, bearerToken});
     const abortController = new AbortController();
 
-    const transport = new TransportClass(new URL('/mcp', baseUrl), {
+    const transport = new TransportClass(new URL(mcpPath, baseUrl), {
         requestInit: {
             headers,
             signal: abortController.signal
