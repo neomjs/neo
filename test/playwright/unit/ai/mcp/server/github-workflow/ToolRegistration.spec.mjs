@@ -1,8 +1,17 @@
+import {setup}         from '../../../../../setup.mjs';
 import {test, expect}  from '@playwright/test';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import * as yaml       from 'js-yaml';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
+
+setup({
+    appConfig: {
+        name: 'GitHubWorkflowToolRegistrationTest'
+    }
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -129,7 +138,7 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(operationIds).not.toContain('certify_merge_readiness');
     });
 
-    test('#16191 extends list_pull_requests with a bounded believed-open falsifier', () => {
+    test('#16191/#16194 publish the bounded believed-open falsifier through tools/list', async () => {
         const filePath   = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
         const doc        = yaml.load(fs.readFileSync(filePath, 'utf8'));
         const operations = Object.values(doc.paths).flatMap(pathItem =>
@@ -144,6 +153,21 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(operation['x-neo-tool-summary'].length).toBeLessThanOrEqual(120);
         expect(operation.description.length).toBeLessThanOrEqual(1024);
         expect(believedOpen.schema).toMatchObject({
+            type       : 'array',
+            maxItems   : 100,
+            uniqueItems: true,
+            items      : {
+                type   : 'integer',
+                minimum: 1
+            }
+        });
+
+        const {listTools} = await import('../../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        const toolSchema  = listTools().tools
+            .find(tool => tool.name === 'list_pull_requests')
+            .inputSchema.properties.believedOpen;
+
+        expect(toolSchema).toMatchObject({
             type       : 'array',
             maxItems   : 100,
             uniqueItems: true,
