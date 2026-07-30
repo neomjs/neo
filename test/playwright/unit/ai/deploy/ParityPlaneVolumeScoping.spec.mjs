@@ -427,7 +427,12 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(source).toContain('lsof -nP -iTCP:8000 -sTCP:LISTEN');
         expect(source).toContain('/Users/Shared/neo-agent-os-cutover-16167');
         expect(source.match(/cutover-state\.json/g).length).toBeGreaterThanOrEqual(2);
-        expect(source).toContain('bearer credential env: `NEO_MCP_REMOTE_TOKEN`');
+        expect(source.match(/bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/g)).toHaveLength(2);
+        expect(source).toContain('/Users/Shared/codex/neomjs/neo/.codex/config.toml');
+        expect(source).toContain('/Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.codex/config.toml');
+        expect(source).toContain('neo-gpt.codex-config.pre-cutover.toml');
+        expect(source).toContain('neo-gpt-emmy.codex-config.pre-cutover.toml');
+        expect(source).toContain('`klarso-mc`, `klarso-kb`, `neo-mjs-github-workflow`, and');
         expect(source).toContain('http://host.docker.internal:3199/wake');
         expect(source).toContain('wake/receiver\\.mjs');
         expect(source).not.toContain('The only persistent host edge is the standalone wake daemon');
