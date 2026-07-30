@@ -5,9 +5,10 @@ import {isTrustedTier} from './authorTrustClassifier.mjs';
  *
  * The empirical attack class: an outside automated account posts a credible, peer-toned technical
  * comment, then seeds a marketing payload — a traversable marketing URL, a *link-free* bare product
- * name, or a vendor pitch carrying a reward-conditional engagement bait plus an offer to stand up an
- * external endpoint against our repo. Two harms: an agent traversing the URL walks into a
- * watering-hole / injection payload, and the comment is ingested into the KB (`resources/content/
+ * name, a vendor pitch carrying a reward-conditional engagement bait plus an offer to stand up an
+ * external endpoint against our repo, or a self-promotional product introduction paired with
+ * non-commercial and commercial-use licensing terms. Two harms: an agent traversing the URL walks
+ * into a watering-hole / injection payload, and the comment is ingested into the KB (`resources/content/
  * issues/*.md`) — turning our corpus into an SEO / name-seeding link-farm.
  *
  * This function is the pure transform both boundaries will call (the `get_conversation` read path
@@ -59,6 +60,14 @@ const STEALTH_SIGNALS = [
         // "stand up a hosted MCP endpoint" / "index your repo" — offering to run external infra on our content.
         pattern: /\b(?:host(?:ed)?|stand\s*up|spin\s*up|set\s*up|provide|offer)\b[^.!?\n]{0,60}\b(?:mcp\b|endpoint\b|index(?:ing)?\s+(?:your|the|this)\s+(?:repo|repository|codebase)\b)/i,
         note   : 'offer to stand up an external endpoint / index our repo (external-infra-on-our-content)'
+    },
+    {
+        id     : 'maintainer-dual-licensing-terms',
+        // Incident fixture: "I maintain <product> ... free for non-commercial use, while commercial
+        // use requires separate permission." Require all three parts in one bounded sentence:
+        // self-reference plus both licensing legs. Ordinary maintainer or licensing context stays clean.
+        pattern: /\b(?:i|we)\s+(?:also\s+)?maintain\b(?=[^.!?\n]{0,120}\b(?:source[- ]available|free\s+for\s+non[- ]commercial\s+use)\b)(?=[^.!?\n]{0,120}\bcommercial\s+use\s+requires?\s+(?:(?:a\s+)?(?:separate|specific)\s+|a\s+)?(?:permission|licen[cs]e)\b)/i,
+        note   : 'first-person product maintenance paired with non-commercial and commercial-use terms'
     }
 ];
 
@@ -113,7 +122,7 @@ export function sanitizeContent(content, {tier, productNameDenylist = []} = {}) 
     }
 
     const redactions = [];
-    let sanitized = content;
+    let   sanitized  = content;
 
     // 1. Markdown links first — preserve the human-readable text, quarantine the target.
     sanitized = sanitized.replace(MD_LINK_RE, (match, text, url) => {
