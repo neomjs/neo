@@ -12,6 +12,8 @@ import {
     collectConfigPathKindsFromSource,
     collectDeclaredConfigPaths,
     detectAiConfigImplementationViolations,
+    detectComposeDefaultRestatements,
+    detectComposeDefaultRestatementsFromDocuments,
     detectConfigLeafParityViolations,
     detectInlineEnvLeaves,
     detectModuleScopeAiConfigCaptures,
@@ -569,31 +571,107 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         }
     });
 
+    test('Compose parity names both literal-default and retired/derived restatements', () => {
+        const violations = detectComposeDefaultRestatementsFromDocuments({
+            policy: {
+                profiles: {
+                    'compose.yml': {
+                        services: {server: 'config.template.mjs'}
+                    }
+                },
+                forbiddenEnv: {
+                    NEO_AUTO_SYNC: 'retired startup control'
+                }
+            },
+            composeDocuments: {
+                'compose.yml': {
+                    services: {
+                        server: {
+                            environment: [
+                                'MCP_HTTP_PORT=3000',
+                                'NEO_AUTO_SYNC=false',
+                                'NEO_PROVIDER=${NEO_PROVIDER:-}'
+                            ]
+                        }
+                    }
+                }
+            },
+            envDefaultsByTemplate: {
+                'config.template.mjs': {
+                    MCP_HTTP_PORT: [{configPath: 'mcpHttpPort', default: 3000}],
+                    NEO_PROVIDER : [{configPath: 'provider', default: 'cloud'}]
+                }
+            }
+        });
+
+        expect(violations).toEqual([
+            expect.objectContaining({
+                configPath: 'mcpHttpPort',
+                env       : 'MCP_HTTP_PORT',
+                kind      : 'matches-config-default'
+            }),
+            expect.objectContaining({
+                env : 'NEO_AUTO_SYNC',
+                kind: 'derived-or-retired-env'
+            })
+        ])
+    });
+
+    test('Compose parity: shipped canonical profiles contain no matching defaults or census drift', async () => {
+        const previousRoot = globalThis.Neo?.ai?.Config;
+
+        if (previousRoot !== undefined) delete globalThis.Neo.ai.Config;
+
+        try {
+            expect(await detectComposeDefaultRestatements()).toEqual([]);
+            expect(globalThis.Neo?.ai?.Config).toBeUndefined()
+        } finally {
+            if (previousRoot !== undefined) globalThis.Neo.ai.Config = previousRoot
+        }
+    });
+
     // ---- config leaf parity: a dropped leaf is silent at every other gate ----
 
     test('parity: the shipped tree matches its snapshot — no false positive on what is merged', async () => {
-        const parity = await detectConfigLeafParityViolations();
+        await expect.poll(async () => {
+            const parity = await detectConfigLeafParityViolations();
 
-        expect(parity.missing).toEqual({});
-        expect(parity.added).toEqual({});
-        expect(parity.untracked).toEqual([]);
-        expect(parity.vanished).toEqual([])
+            return {
+                added    : parity.added,
+                missing  : parity.missing,
+                untracked: parity.untracked,
+                vanished : parity.vanished
+            }
+        }, {
+            message: 'committed parity must settle after parallel on-disk lint fixtures are removed',
+            timeout: 10_000
+        }).toEqual({
+            added    : {},
+            missing  : {},
+            untracked: [],
+            vanished : []
+        })
     });
 
     test('parity: the snapshot covers every server template plus the Tier-1 root', async () => {
-        const snapshot = await buildConfigLeafParitySnapshot();
-
-        expect(Object.keys(snapshot).sort()).toEqual([
+        const expectedTemplates = [
             'ai/config.template.mjs',
             'ai/mcp/server/github-workflow/config.template.mjs',
             'ai/mcp/server/gitlab-workflow/config.template.mjs',
             'ai/mcp/server/knowledge-base/config.template.mjs',
             'ai/mcp/server/memory-core/config.template.mjs',
             'ai/mcp/server/neural-link/config.template.mjs'
-        ]);
+        ];
+
+        await expect.poll(async () => Object.keys(await buildConfigLeafParitySnapshot()).sort(), {
+            message: 'template census must settle after parallel on-disk lint fixtures are removed',
+            timeout: 10_000
+        }).toEqual(expectedTemplates);
 
         // a base is read THROUGH its template, never listed as a surface of its own — it declares no
         // runtime namespace, and listing it would double-count every path it contributes
+        const snapshot = await buildConfigLeafParitySnapshot();
+
         Object.keys(snapshot).forEach(template => expect(template).not.toContain('configBase.mjs'))
     });
 

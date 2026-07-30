@@ -10,11 +10,13 @@ only before the first resident is released onto the new endpoint.
 ## 1. Prepare outside the writer-stop window
 
 From the repository root, require a clean exact merged revision and the
-gitignored `.env` containing `GH_TOKEN`. The canonical Compose project name,
-host bind, provider route, and restart policies live in the reviewed Compose
-files; only the image revision is cutover-specific. Persist that revision and
-the rollback coordinates outside the repository so they survive the required
-reboot:
+gitignored `.env` containing `GH_TOKEN`. Provision that PAT once into the
+gitignored Compose secret source; subsequent `up` invocations consume the file
+and do not require a credential in the invoking shell. The canonical Compose
+project name, host bind, provider route, and restart policies live in the
+reviewed Compose files; only the image revision is cutover-specific. Persist
+that revision and the rollback coordinates outside the repository so they
+survive the required reboot:
 
 ```sh
 export NEO_EXPECTED_CUTOVER_REVISION="paste-full-merged-sha-from-16167"
@@ -27,6 +29,10 @@ export NEO_CUTOVER_OLD_ROOT="${NEO_CUTOVER_STAGE}/pre-docker-root"
 
 test ! -e "${NEO_CUTOVER_STAGE}"
 mkdir -m 700 "${NEO_CUTOVER_STAGE}"
+install -d -m 700 .neo-ai-secrets
+node --input-type=module -e \
+  'import fs from "node:fs"; import {parse} from "dotenv"; const token=parse(fs.readFileSync(".env")).GH_TOKEN?.trim(); if(!token) process.exit(1); fs.writeFileSync(".neo-ai-secrets/mcp-auth-token", `${token}\n`, {mode:0o600}); fs.chmodSync(".neo-ai-secrets/mcp-auth-token",0o600)'
+test "$(stat -f '%Lp' .neo-ai-secrets/mcp-auth-token)" = "600"
 node --input-type=module -e \
   'import fs from "node:fs"; fs.writeFileSync(`${process.env.NEO_CUTOVER_STAGE}/cutover-state.json`, JSON.stringify({revision:process.env.NEO_REVISION,oldRoot:process.env.NEO_CUTOVER_OLD_ROOT},null,2), {mode:0o600})'
 
@@ -259,7 +265,13 @@ Switch each known resident MCP definition to:
 
 Each resident keeps its own GitHub PAT in `NEO_MCP_REMOTE_TOKEN`; do not share
 one bootstrap identity and do not alias the plane credential to the repository
-workflow's `GH_TOKEN` slot.
+workflow's `GH_TOKEN` slot. Fleet currently persists one encrypted remote-MCP
+bearer per tenant, while the seat probe requires that bearer to resolve to the
+selected resident identity. Before releasing a second resident, prove its
+tenant/seat credential maps to that resident; a repository PAT, wake HMAC, or
+first resident's plane bearer is not a substitute. If per-seat cardinality is
+not yet represented, keep that resident stopped until the dedicated Fleet
+contract lands.
 
 ## Forward-only boundary
 

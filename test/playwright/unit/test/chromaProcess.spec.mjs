@@ -11,7 +11,10 @@ import {
 } from '../../chromaProcess.mjs';
 import unitConfig, {
     brainTestMatch,
-    orchestratorDaemonTestMatch
+    knowledgeBaseConfigTemplateTestMatch,
+    memoryCoreConfigTemplateTestMatch,
+    orchestratorDaemonTestMatch,
+    tier1ConfigTemplateTestMatch
 } from '../../playwright.config.unit.mjs';
 
 test.describe('playwright.config.unit — Chroma capability admission', () => {
@@ -35,10 +38,21 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs'))).toBe(true);
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/util/Array.spec.mjs'))).toBe(false);
         expect(projects['unit-brain'].testMatch).toBe(brainTestMatch);
-        expect(projects['unit-brain'].testIgnore).toBe(orchestratorDaemonTestMatch);
+        expect(projects['unit-brain'].testIgnore).toEqual([
+            orchestratorDaemonTestMatch,
+            tier1ConfigTemplateTestMatch,
+            knowledgeBaseConfigTemplateTestMatch,
+            memoryCoreConfigTemplateTestMatch
+        ]);
         expect(projects['unit-brain'].dependencies).toEqual(['chroma-setup']);
         expect(projects['unit-brain-orchestrator-daemon'].testMatch).toBe(orchestratorDaemonTestMatch);
         expect(projects['unit-brain-orchestrator-daemon'].dependencies).toEqual(['chroma-setup']);
+        expect(projects['unit-brain-tier1-config'].testMatch).toBe(tier1ConfigTemplateTestMatch);
+        expect(projects['unit-brain-tier1-config'].dependencies).toEqual(['chroma-setup']);
+        expect(projects['unit-brain-knowledge-base-config'].testMatch).toBe(knowledgeBaseConfigTemplateTestMatch);
+        expect(projects['unit-brain-knowledge-base-config'].dependencies).toEqual(['chroma-setup']);
+        expect(projects['unit-brain-memory-core-config'].testMatch).toBe(memoryCoreConfigTemplateTestMatch);
+        expect(projects['unit-brain-memory-core-config'].dependencies).toEqual(['chroma-setup']);
         expect(projects['chroma-setup'].teardown).toBe('chroma-teardown');
     });
 });

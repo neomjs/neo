@@ -60,11 +60,7 @@ services:
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
-      - NEO_AUTO_SYNC=false
-      - NEO_KB_AUTO_START_DATABASE=false
       - NEO_CHROMA_HOST=chroma
-      - NEO_CHROMA_PORT=8000
-      - MCP_HTTP_PORT=3000
       # One scalar owns the graph path shared by KB, MC, and the orchestrator. Aliases below
       # preserve the existing per-service env lists while making partial edits inexpressible.
       - &memory-db-env NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
@@ -122,7 +118,6 @@ services:
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
-      - NEO_MC_PRIMARY=false
       # `NEO_MAILBOX_DEFAULT_REPLY_POLICY` is deliberately NOT set here.
       #
       # This template used to pin it to `blocked`, which overrode the library default of `open` for
@@ -145,16 +140,7 @@ services:
       #
       # Not restated as `=open` on purpose: that would duplicate the leaf's default in a second place
       # and silently pin today's value if the leaf ever changes. The leaf owns it.
-      - NEO_AUTO_SUMMARIZE=false
-      - NEO_MEM_AUTO_START_DATABASE=false
-      - NEO_MEM_AUTO_START_INFERENCE=false
-      - NEO_AUTO_DREAM=false
-      - NEO_AUTO_GOLDEN_PATH=false
-      - NEO_REAL_TIME_MEMORY_PARSING=false
-      - NEO_AUTO_INGEST_FS=false
       - NEO_CHROMA_HOST=chroma
-      - NEO_CHROMA_PORT=8000
-      - MCP_HTTP_PORT=3001
       - *memory-db-env
       # The cloud Golden Path writer and this MCP reader resolve one handoff file.
       # Keep the path on their dedicated shared volume so container recreates do
@@ -168,11 +154,10 @@ services:
       - NEO_MEMORY_WAL_IN_PROCESS_DRAIN=true
       - NEO_MEMORY_WAL_POLL_INTERVAL_MS=250
       - NEO_MEMORY_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal
-      # Mirror the memory WAL host mode for accepted A2A messages. Defaults derive the message
-      # WAL below NEO_MEMORY_WAL_DIR, but the explicit path documents the shared volume boundary.
+      # Mirror the memory WAL host mode for accepted A2A messages. Its directory derives from
+      # NEO_MEMORY_WAL_DIR, so Compose does not restate that formula.
       - NEO_MESSAGE_WAL_IN_PROCESS_DRAIN=true
       - NEO_MESSAGE_WAL_POLL_INTERVAL_MS=250
-      - NEO_MESSAGE_WAL_DIR=/app/.neo-ai-data/sqlite/memory-wal/messages
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
@@ -232,11 +217,8 @@ services:
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
-      - NEO_CHROMA_PORT=8000
       - *memory-db-env
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
-      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM=docker-socket
-      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH=/var/run/docker.sock
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}
       # `orchestrator` is in this list deliberately, and it is the reason the list needed changing.
       #
@@ -250,8 +232,6 @@ services:
       # lifecycle operations aimed at the orchestrator structurally — restarting it through the bridge
       # it publishes would kill the process serving the request before any outcome could be reported.
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model,orchestrator
-      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS=inspect,logs,stats
-      - NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS=restart
     volumes:
       # Scheduler cadence, tenant-repo revisions, recovery ledgers, logs, and
       # process-epoch files share AiConfig.orchestrator.dataDir. Persist the
@@ -297,7 +277,7 @@ services:
     # margin) = orchestrator is alive and polling. 90s start_period covers the
     # first-poll latency on cold container boot.
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"const fs=require('fs');const d=process.env.NEO_AI_ORCHESTRATOR_DIR;if(!d)process.exit(1);const f=d+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch(e){process.exit(1)}\""]
+      test: ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const fs=await import('node:fs');const f=AiConfig.orchestrator.dataDir+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch{process.exit(1)}"]
       interval: 60s
       timeout: 5s
       retries: 3

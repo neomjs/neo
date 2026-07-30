@@ -456,10 +456,11 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(source).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
         expect(source).toContain('target: /app/.neo-ai-data');
         expect(source).toContain('NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data/orchestrator-container-plane');
-        expect(source).toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat');
-        expect(source).not.toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT');
+        expect(source).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
+        expect(source).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
         expect(source).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
-        expect(source).toContain('environment: GH_TOKEN');
+        expect(source).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        expect(source).not.toContain('environment: GH_TOKEN');
         expect(source).toContain('"127.0.0.1:3102:8080"');
         expect(source).not.toContain('docker-compose.dev.yml');
         expect(source).not.toContain('legacy-mixed');

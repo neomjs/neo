@@ -140,12 +140,10 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             source       = fs.readFileSync(composePath, 'utf8');
 
         expect(mcpServices.length, 'no MCP service derived from TARGET_SERVER — auth assertions would be vacuous').toBeGreaterThan(0);
-        expect(providerAuth).toMatchObject({
-            NEO_AUTH_MODE                           : 'github-pat',
-            NEO_AUTH_TRUST_PROXY_IDENTITY           : 'false',
-            NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT     : 'true',
-            NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: 'github-pat'
-        });
+        expect(providerAuth).toMatchObject({NEO_AUTH_MODE: 'github-pat'});
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_TRUST_PROXY_IDENTITY');
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT');
+        expect(providerAuth).not.toHaveProperty('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
         expect(providerAuth).not.toHaveProperty('NEO_AUTH_ALLOWED_USERS');
         expect(providerAuth).not.toHaveProperty('NEO_MCP_LISTEN_HOST');
 
@@ -350,15 +348,18 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             .toBe(compose['x-plane-env'].NEO_PLANE_ID);
     });
 
-    test('the relocated dev profile explicitly places its profile-pinned tenant mirrors', () => {
+    test('the relocated dev profile places tenant mirrors and inherits container authority', () => {
         const
             planeEnvironment = compose['x-plane-env'],
             planeRoot        = planeEnvironment.NEO_PLANE_DATA_ROOT,
-            orchestrator     = compose.services?.orchestrator;
+            orchestrator     = compose.services?.orchestrator,
+            configSource     = fs.readFileSync(path.join(repoRoot, 'ai/configBase.mjs'), 'utf8');
 
         expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
         expect(orchestrator.environment['<<']).toBe(planeEnvironment);
-        expect(orchestrator.environment.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
+        expect(orchestrator.environment).not.toHaveProperty('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+        expect(configSource)
+            .toContain("authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
     });
 
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
@@ -388,10 +389,12 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(overlaySource).toContain('source: ../../.neo-ai-data');
         expect(overlaySource).toContain('source: ../../.neo-ai-data/chroma/unified');
         expect(overlaySource).toContain('NEO_AUTH_MODE: github-pat');
-        expect(overlaySource).toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat');
-        expect(overlaySource).not.toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT');
+        expect(overlaySource).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
+        expect(overlaySource).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
         expect(overlaySource).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
         expect(overlaySource).toContain('NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token');
+        expect(overlaySource).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        expect(overlaySource).not.toContain('environment: GH_TOKEN');
         expect(overlaySource).toContain(
             'NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:11434}'
         );

@@ -219,6 +219,32 @@ orthogonal while making the container reality the zero-override path. Secrets,
 provider/tenant choices, network placement, and privileged runtime capabilities
 remain deployment inputs rather than config policy.
 
+The #16039 rerun makes that boundary mechanical. Canonical Compose carried 45
+unique `NEO_*`/`MCP_*` keys before the cut: 10 were already-retired MCP startup
+controls and seven more restated static or derived defaults. The guarded surface
+now contains 28 unique keys:
+
+| Deployment category | Keys | Meaning |
+|---|---:|---|
+| Required choices / placement / capabilities | 11 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist |
+| Optional overrides | 15 | Provider/model/ask selections and non-default WAL cadences |
+| Secrets | 2 | OpenAI-compatible and KB ask credentials; secret values never become config policy |
+
+`ai/scripts/lint/config-leaf-parity.json` owns the exact classified key lists,
+service-to-config-template map, and retired/derived denylist. The existing
+AiConfig lint fails when canonical base/dev Compose reintroduces a denied env,
+sets a literal equal to the owning leaf default, or drifts the 28-key census.
+Interpolated provider choices remain deployment inputs and are not mistaken for
+literal default restatements.
+
+Authentication is the worked derivation example. `auth.mode=github-pat` derives
+`autoProvisionIdentitySources=['github-pat']` and a safe single-provider-subject
+pin; GitLab derives its own provenance, while non-PAT modes derive no provider
+source. A plural-resident GitHub plane explicitly opts the pin out. The
+bootstrap/healthcheck PAT is provisioned once as a file-backed Compose secret;
+repository workflow PATs, signed-wake HMACs, and resident remote-MCP bearers are
+distinct credentials.
+
 The leaf is the only environment binding (`NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE`). The daemon
 entrypoint reads it once at `start()`; leaf consumers do not re-read env, infer a role from
 `deploymentMode`, pass the role down a call chain, or mutate runtime config. The pure

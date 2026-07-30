@@ -13,7 +13,9 @@ x-local-plane-bind: &local-plane-bind
 
 x-local-auth: &local-auth
   NEO_AUTH_MODE: github-pat
-  NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES: github-pat
+  # The auth-mode default pins one bootstrap subject. This machine intentionally
+  # serves several identity-bound residents, so the profile explicitly opts out.
+  NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"
   NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token
 
 x-local-provider: &local-provider
@@ -90,4 +92,4 @@ services:
 
 secrets:
   mcp-auth-token:
-    environment: GH_TOKEN
+    file: ../../.neo-ai-secrets/mcp-auth-token

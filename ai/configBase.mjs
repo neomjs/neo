@@ -405,14 +405,19 @@ class ConfigBase extends ConfigProvider {
                 // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.
                 allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
                 /**
-                 * @summary Pins a rosterless local GitHub-PAT process to the provider subject
-                 * resolved from the configured bootstrap carrier before the HTTP listener opens.
+                 * @summary Optional deployment override for the auth-mode-derived provider pin.
                  *
-                 * This is an explicit admission policy, never an alternate meaning for an empty
-                 * `allowedUsers`. Generic PAT profiles remain unchanged while this is `false`.
+                 * Null preserves the safe mode default: GitHub-PAT pins the bootstrap provider
+                 * subject, while auth modes without a provider bootstrap do not. A plural-resident
+                 * GitHub-PAT plane explicitly sets this false; no Compose profile restates true.
+                 * @type {Boolean|null}
+                 */
+                pinFirstProviderSubjectOverride: leaf(null, 'NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', 'boolean'),
+                /**
+                 * @summary Effective first-provider-subject policy derived from `auth.mode`.
                  * @type {Boolean}
                  */
-                pinFirstProviderSubject: leaf(false, 'NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT', 'boolean'),
+                pinFirstProviderSubject: leaf(false),
                 /**
                  * @summary Bootstrap PAT used only when `pinFirstProviderSubject` is enabled.
                  *
@@ -433,13 +438,20 @@ class ConfigBase extends ConfigProvider {
                  * @type {String}
                  */
                 providerBootstrapPatFile: leaf('', 'NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE', 'string'),
-                // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
-                // 'github-pat' is deliberately NOT in the default: github.com is a public identity
-                // surface, so auto-provisioning must be opt-in for deployments that scope their caller
-                // set (allowedUsers, GHES, private network). Auth success without a bound AgentIdentity
-                // leaves graph-gated tools fail-closed rather than broken — authentication does not
-                // imply Agent OS admission; the exclusion keeps admission explicit instead of ambient.
-                autoProvisionIdentitySources: leaf(['gitlab-pat'], 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv')
+                /**
+                 * @summary Optional deployment override for auth-mode-derived identity provisioning.
+                 *
+                 * Null derives the one provider provenance from `auth.mode`; an explicit empty CSV
+                 * disables provisioning. This keeps selector and derived source in one config
+                 * authority instead of requiring every deployment to repeat the obvious mapping.
+                 * @type {String[]|null}
+                 */
+                autoProvisionIdentitySourcesOverride: leaf(null, 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv'),
+                /**
+                 * @summary Effective request-time identity-provisioning provenance.
+                 * @type {String[]}
+                 */
+                autoProvisionIdentitySources: leaf([])
             },
             /**
              * @summary Deployment-wide chat / generation model provider.
@@ -1659,6 +1671,10 @@ class ConfigBase extends ConfigProvider {
          * Reactive computed config values (`Neo.state.Provider` formulas).
          */
         formulas: {
+            'auth.pinFirstProviderSubject': data => data.auth.pinFirstProviderSubjectOverride ??
+                data.auth.mode === 'github-pat',
+            'auth.autoProvisionIdentitySources': data => data.auth.autoProvisionIdentitySourcesOverride ??
+                (['github-pat', 'gitlab-pat'].includes(data.auth.mode) ? [data.auth.mode] : []),
             'engines.chroma.useTestDatabase': data => data.engines.chroma.useUnitTestDatabase || data.engines.chroma.useTestHarness,
             'engines.chroma.dataDir'        : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
             'engines.chroma.host'           : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
