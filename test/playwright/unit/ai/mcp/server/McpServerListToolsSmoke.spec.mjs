@@ -484,7 +484,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
-    test('knowledge-base and memory-core read deployment-state snapshots through public tools (#13926)', async () => {
+    test('knowledge-base and memory-core read worker-local deployment snapshots (#13926, #16171)', async () => {
         const snapshot = createDeploymentStateSnapshot({
             generatedAt : Date.now(),
             recoveryRuns: {
@@ -510,8 +510,13 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
         const
             snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-            snapshotExists     = fs.existsSync(snapshotPathConfig),
-            originalSnapshot   = snapshotExists ? fs.readFileSync(snapshotPathConfig) : null;
+            testStorageRoot    = process.env.NEO_TEST_STORAGE_ROOT;
+
+        expect(testStorageRoot).toBeTruthy();
+
+        const snapshotRelativePath = path.relative(testStorageRoot, snapshotPathConfig);
+
+        expect(snapshotRelativePath.startsWith('..') || path.isAbsolute(snapshotRelativePath)).toBe(false);
 
         try {
             await writeDeploymentStateSnapshot({filePath: snapshotPathConfig, snapshot});
@@ -563,11 +568,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 });
             }
         } finally {
-            if (snapshotExists) {
-                fs.writeFileSync(snapshotPathConfig, originalSnapshot);
-            } else {
-                fs.rmSync(snapshotPathConfig, {force: true});
-            }
+            fs.rmSync(snapshotPathConfig, {force: true});
         }
     });
 
