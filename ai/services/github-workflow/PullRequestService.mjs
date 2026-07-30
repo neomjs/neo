@@ -100,6 +100,39 @@ function normalizeRequestedReviewer(node) {
     return {kind: 'unknown', login: null};
 }
 
+/**
+ * @summary Projects one PR board row with explicit nulls when GitHub does not prove a freshness field.
+ * @param {Object} pullRequest GitHub pull-request node from the list query.
+ * @returns {Object}
+ */
+function normalizePullRequestListItem(pullRequest) {
+    const
+        reviewConnection = pullRequest.reviewRequests,
+        reviewers        = Array.isArray(reviewConnection?.nodes)
+            ? reviewConnection.nodes.map(normalizeRequestedReviewer)
+                .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)))
+            : null,
+        reviewSourceReady = Array.isArray(reviewers) &&
+            typeof reviewConnection?.pageInfo?.hasNextPage === 'boolean' &&
+            !reviewConnection.pageInfo.hasNextPage &&
+            reviewers.every(item => item.kind !== 'unknown');
+
+    return {
+        number          : pullRequest.number,
+        title           : pullRequest.title,
+        url             : pullRequest.url,
+        createdAt       : pullRequest.createdAt,
+        author          : pullRequest.author,
+        state           : pullRequest.state,
+        mergedAt        : pullRequest.mergedAt ?? null,
+        reviewDecision  : pullRequest.reviewDecision ?? null,
+        reviewRequests  : reviewSourceReady ? reviewers : null,
+        baseRefName     : pullRequest.baseRefName ?? null,
+        headRefOid      : pullRequest.headRefOid ?? null,
+        mergeStateStatus: pullRequest.mergeStateStatus ?? null
+    }
+}
+
 function classifyEmittedContext(node) {
     if (node?.__typename === 'CheckRun' && node.name) {
         let state;
@@ -2155,7 +2188,7 @@ class PullRequestService extends Base {
 
         try {
             const data         = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
-            const pullRequests = data.repository.pullRequests.nodes;
+            const pullRequests = data.repository.pullRequests.nodes.map(normalizePullRequestListItem);
             return {
                 count: pullRequests.length,
                 pullRequests

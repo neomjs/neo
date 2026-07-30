@@ -139,10 +139,34 @@ export const FETCH_PULL_REQUESTS = `
           title
           url
           createdAt
+          mergedAt
+          baseRefName
+          headRefOid
+          mergeStateStatus
+          reviewDecision
           author {
             login
           }
           state
+          reviewRequests(first: 100) {
+            pageInfo {
+              hasNextPage
+            }
+            nodes {
+              requestedReviewer {
+                __typename
+                ... on User {
+                  login
+                }
+                ... on Team {
+                  slug
+                  organization {
+                    login
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

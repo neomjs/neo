@@ -103,7 +103,7 @@ The full bi-directional sync is intentionally not an agent MCP tool. The Data Sy
 
 ### 4.3 Pull Request Management
 
-*   **`list_pull_requests`**: Lists PRs with status filtering.
+*   **`list_pull_requests`**: Lists PRs with status filtering plus current base/head, review-decision, reviewer-request, merge-time, and merge-state fields. `reviewRequests: null` means the source was unavailable or incomplete; `[]` means fetched and empty.
 *   **`checkout_pull_request`**: Checks out a PR branch in an explicitly supplied caller workspace using `gh pr checkout`; missing `repoPath` is rejected so a shared MCP server cannot silently mutate its own checkout.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
 *   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.

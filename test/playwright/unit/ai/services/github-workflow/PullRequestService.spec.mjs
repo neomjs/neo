@@ -14,6 +14,180 @@ setup({
     }
 });
 
+test.describe('Neo.ai.services.github-workflow.PullRequestService — list freshness fields (#16165)', () => {
+    let GraphqlService;
+    let PullRequestService;
+    let originalQuery;
+    let capturedQuery;
+    let capturedVariables;
+
+    const row = (overrides = {}) => ({
+        number          : 16165,
+        title           : 'Board freshness',
+        url             : 'https://github.com/neomjs/neo/pull/16166',
+        createdAt       : '2026-07-30T11:00:00Z',
+        author          : {login: 'neo-gpt-emmy'},
+        state           : 'OPEN',
+        mergedAt        : null,
+        reviewDecision  : 'REVIEW_REQUIRED',
+        baseRefName     : 'dev',
+        headRefOid      : 'a'.repeat(40),
+        mergeStateStatus: 'CLEAN',
+        reviewRequests  : {
+            pageInfo: {hasNextPage: false},
+            nodes   : [{
+                requestedReviewer: {__typename: 'User', login: 'neo-opus-vega'}
+            }, {
+                requestedReviewer: {
+                    __typename  : 'Team',
+                    slug        : 'maintainers',
+                    organization: {login: 'neomjs'}
+                }
+            }]
+        },
+        ...overrides
+    });
+
+    test.beforeAll(async () => {
+        GraphqlService     = (await import(
+            '../../../../../../ai/services/github-workflow/GraphqlService.mjs'
+        )).default;
+        PullRequestService = (await import(
+            '../../../../../../ai/services/github-workflow/PullRequestService.mjs'
+        )).default;
+        originalQuery      = GraphqlService.query.bind(GraphqlService)
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery
+    });
+
+    test.beforeEach(() => {
+        capturedQuery     = null;
+        capturedVariables = null;
+
+        GraphqlService.query = async (query, variables) => {
+            capturedQuery     = query;
+            capturedVariables = variables;
+
+            return {repository: {pullRequests: {nodes: [row()]}}}
+        }
+    });
+
+    test('requests and returns the full current PR-state row without changing list inputs', async () => {
+        const result = await PullRequestService.listPullRequests({limit: 7, state: 'open'});
+
+        for (const field of [
+            'mergedAt',
+            'reviewDecision',
+            'reviewRequests',
+            'baseRefName',
+            'headRefOid',
+            'mergeStateStatus'
+        ]) {
+            expect(capturedQuery).toContain(field)
+        }
+
+        expect(capturedQuery).toContain('reviewRequests(first: 100)');
+        expect(capturedVariables).toEqual({
+            owner : 'neomjs',
+            repo  : 'neo',
+            limit : 7,
+            states: 'OPEN'
+        });
+        expect(result).toEqual({
+            count       : 1,
+            pullRequests: [{
+                number        : 16165,
+                title         : 'Board freshness',
+                url           : 'https://github.com/neomjs/neo/pull/16166',
+                createdAt     : '2026-07-30T11:00:00Z',
+                author        : {login: 'neo-gpt-emmy'},
+                state         : 'OPEN',
+                mergedAt      : null,
+                reviewDecision: 'REVIEW_REQUIRED',
+                reviewRequests: [
+                    {kind: 'team', login: 'neomjs/maintainers'},
+                    {kind: 'user', login: 'neo-opus-vega'}
+                ],
+                baseRefName     : 'dev',
+                headRefOid      : 'a'.repeat(40),
+                mergeStateStatus: 'CLEAN'
+            }]
+        })
+    });
+
+    test('distinguishes complete-empty reviewer requests from unavailable or incomplete sources', async () => {
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes: [
+                        row({number: 1, reviewRequests: {pageInfo: {hasNextPage: false}, nodes: []}}),
+                        row({number: 2, reviewRequests: null}),
+                        row({number: 3, reviewRequests: {pageInfo: {hasNextPage: true}, nodes: []}}),
+                        row({
+                            number        : 4,
+                            reviewRequests: {
+                                pageInfo: {hasNextPage: false},
+                                nodes   : [{requestedReviewer: {__typename: 'Bot', login: 'unknown'}}]
+                            }
+                        })
+                    ]
+                }
+            }
+        });
+
+        const result = await PullRequestService.listPullRequests();
+
+        expect(result.pullRequests.map(item => item.reviewRequests)).toEqual([
+            [],
+            null,
+            null,
+            null
+        ])
+    });
+
+    test('emits explicit nulls for unavailable scalar freshness fields', async () => {
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes: [row({
+                        mergedAt        : undefined,
+                        reviewDecision  : undefined,
+                        baseRefName     : undefined,
+                        headRefOid      : undefined,
+                        mergeStateStatus: undefined
+                    })]
+                }
+            }
+        });
+
+        const result = await PullRequestService.listPullRequests();
+
+        expect(result.pullRequests[0]).toMatchObject({
+            mergedAt        : null,
+            reviewDecision  : null,
+            baseRefName     : null,
+            headRefOid      : null,
+            mergeStateStatus: null
+        })
+    });
+
+    test('preserves the structured GraphQL error shape', async () => {
+        GraphqlService.query = async () => {
+            throw new Error('source unavailable')
+        };
+
+        const result = await PullRequestService.listPullRequests();
+
+        expect(result).toMatchObject({
+            error  : 'GraphQL API request failed',
+            message: 'source unavailable',
+            code   : 'GRAPHQL_API_ERROR'
+        })
+    })
+});
+
 test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-readiness projection (#16029)', () => {
     let PullRequestService;
 
