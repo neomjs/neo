@@ -1,9 +1,10 @@
-import {execFile, spawn}          from 'child_process';
-import fs                         from 'fs';
-import path                       from 'path';
-import AiConfig                   from '../../config.mjs';
-import {generateLocalBearerToken} from '../../mcp/server/shared/helpers/localBearer.mjs';
-import Base                       from '../../../src/core/Base.mjs';
+import {execFile, execFileSync, spawn} from 'child_process';
+import fs                              from 'fs';
+import path                            from 'path';
+import {fileURLToPath}                 from 'url';
+import AiConfig                        from '../../config.mjs';
+import {generateLocalBearerToken}      from '../../mcp/server/shared/helpers/localBearer.mjs';
+import Base                            from '../../../src/core/Base.mjs';
 import {
     MCP_SERVERS,
     REMOTE_MCP_CREDENTIAL_ENV_VAR
@@ -18,6 +19,8 @@ import {cleanupCodexDesktopCrashpad, probeCodexDesktopCapabilities} from './mana
 // `--tool-projection-mode`. Intentionally NOT a configurable field — an override would set a var the
 // NL server never reads, silently dropping the forced read-only projection (fail-OPEN).
 const TOOL_PROJECTION_MODE_ENV_VAR = 'NEO_NL_TOOL_PROJECTION_MODE';
+
+const DEFAULT_MAIN_CHECKOUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 // The agent-identity env var is a CROSS-PROCESS CONTRACT too: the MCP identity resolution chain
 // (`RequestContextService`, `Orchestrator`, `KbAlertingService`, `assertExpectedIdentity`) reads this
@@ -80,6 +83,46 @@ const AMBIENT_ENV_ALLOWLIST = Object.freeze([
 // defining an own property — a registry-authored `{"__proto__": …}` must be rejected, never
 // assigned. JSON.parse creates these as OWN keys, so they DO survive into Object.entries.
 const PROTO_ENV_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * @summary Inspect Neo's checkout-installed stdio-to-Streamable-HTTP bridge without executing it.
+ * Claude Desktop invokes the reviewed entrypoint through the already-proven Node binary;
+ * entrypoint readability and Node executability form its pre-provisioning admission proof.
+ * @param {Object} options
+ * @param {String} options.mainCheckout Installed canonical checkout.
+ * @param {String} options.nodePath Node binary used to execute the bridge.
+ * @returns {{kind: String, command: String, entrypoint: String}}
+ * @private
+ */
+function probeClaudeDesktopMcpBridge({mainCheckout, nodePath}) {
+    const
+        entrypoint = path.join(mainCheckout, 'ai/mcp/client/stdioToStreamableHttp.mjs'),
+        nodeStat   = fs.statSync(nodePath),
+        bridgeStat = fs.lstatSync(entrypoint);
+
+    if (!nodeStat.isFile() || !bridgeStat.isFile()) {
+        throw new Error('Claude Desktop bridge Node command or entrypoint is not a file')
+    }
+
+    fs.accessSync(nodePath, fs.constants.X_OK);
+    fs.accessSync(entrypoint, fs.constants.R_OK);
+
+    const help = execFileSync(nodePath, [entrypoint, '--help'], {
+        encoding: 'utf8',
+        env     : {PATH: process.env.PATH},
+        timeout : 3000
+    });
+
+    if (!help.includes('--url <url>') || !help.includes('--token-env <name>')) {
+        throw new Error('Claude Desktop bridge entrypoint does not expose Fleet grammar')
+    }
+
+    return {
+        kind   : 'neo-stdio-streamable-http',
+        command: nodePath,
+        entrypoint
+    }
+}
 
 // Per-family auth-marker files inside an instance home: present ⇒ the home has completed its
 // operator-owned per-home login; absent ⇒ `authRequired` surfaces `true` so the cockpit shows the
@@ -257,6 +300,14 @@ class FleetLifecycleService extends Base {
      * @member {Function|null} execFileFn=null
      */
     execFileFn = null
+
+    /**
+     * Installed Neo bridge probe for Claude Desktop. Defaults to the bounded filesystem inspector;
+     * injectable so lifecycle specs can falsify missing/drifted capability without mutating this
+     * checkout.
+     * @member {Function|null} claudeDesktopBridgeCapabilityProbeFn=null
+     */
+    claudeDesktopBridgeCapabilityProbeFn = null
 
     /**
      * Fetch implementation for the Fleet-owned OpenCode session-creation request. Defaults to the
@@ -1257,11 +1308,17 @@ class FleetLifecycleService extends Base {
      * home mutation. This is a blocking admission gate, not the later best-effort version surface:
      * each family is checked against the exact grammar Fleet will generate.
      * @param {Object} agent Raw agent definition.
+     * @param {Object} [options]
+     * @param {String} [options.mainCheckout] Installed canonical checkout.
+     * @param {String} [options.nodePath] Node binary used for command-only MCP bridges.
      * @returns {Promise<Object>} Non-secret `{harnessType,binaryPath,launchBinaryPath}` proof. For
      *     Codex Desktop, `binaryPath` is the bundled Codex config consumer and
      *     `launchBinaryPath` is the desktop harness executable; other families use one path for both.
      */
-    async assertRemoteMcpCapability(agent) {
+    async assertRemoteMcpCapability(agent, {
+        mainCheckout = DEFAULT_MAIN_CHECKOUT,
+        nodePath = process.execPath
+    } = {}) {
         const
             {harnessType, id} = agent,
             binaryFamily      = harnessType === 'codex-desktop' ? 'codex' : harnessType,
@@ -1275,6 +1332,24 @@ class FleetLifecycleService extends Base {
         }
         if (!launchBinaryPath) {
             throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: launch binary '${configuredLaunch || harnessType}' is unavailable for agent '${id}'.`)
+        }
+
+        if (harnessType === 'claude-desktop') {
+            let bridge;
+
+            try {
+                bridge = this.getClaudeDesktopBridgeCapabilityProbe()({mainCheckout, nodePath})
+            } catch {
+                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' bridge capability probe failed for agent '${id}'.`)
+            }
+
+            if (bridge?.kind !== 'neo-stdio-streamable-http' ||
+                !path.isAbsolute(bridge.command || '') ||
+                !path.isAbsolute(bridge.entrypoint || '')) {
+                throw new Error(`FleetLifecycleService.assertRemoteMcpCapability: installed 'claude-desktop' does not expose Fleet's required Neo stdio-to-Streamable-HTTP bridge for agent '${id}'.`)
+            }
+
+            return {harnessType, binaryPath, launchBinaryPath, bridge}
         }
 
         let args;
@@ -1624,6 +1699,15 @@ class FleetLifecycleService extends Base {
      */
     getExecFileFn() {
         return this.execFileFn || execFile;
+    }
+
+    /**
+     * @summary Resolve the injectable or default Claude Desktop bridge capability inspector.
+     * @returns {Function} Claude Desktop's installed Neo bridge capability inspector.
+     * @private
+     */
+    getClaudeDesktopBridgeCapabilityProbe() {
+        return this.claudeDesktopBridgeCapabilityProbeFn || probeClaudeDesktopMcpBridge;
     }
 
     /**

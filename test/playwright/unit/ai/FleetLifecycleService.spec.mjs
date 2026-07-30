@@ -112,6 +112,7 @@ function install({agents = {}, creds = {}} = {}) {
     // Stub the version probe by default so no spec spawns a real auxiliary subprocess; the
     // env-boundary test injects its own recorder.
     FleetLifecycleService.execFileFn      = () => {};
+    FleetLifecycleService.claudeDesktopBridgeCapabilityProbeFn = null;
     FleetLifecycleService.fetchFn         = null;
     FleetLifecycleService.openCodeHookExecFileFn = null;
     FleetLifecycleService.openCodeBootstrapTimeoutMs = 10000;
@@ -1101,20 +1102,46 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
 });
 
 test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capability admission', () => {
-    test('accepts only the exact adapter grammar/version for every supported harness family', async () => {
+    test('the default Claude Desktop probe executes the reviewed bridge grammar', async () => {
+        install();
+        FleetLifecycleService.harnessBinaryPaths = {'claude-desktop': process.execPath};
+
+        const proof = await FleetLifecycleService.assertRemoteMcpCapability({
+            id         : 'seat-claude-desktop',
+            harnessType: 'claude-desktop'
+        }, {
+            mainCheckout: process.cwd(),
+            nodePath    : process.execPath
+        });
+
+        expect(proof.bridge).toEqual({
+            kind      : 'neo-stdio-streamable-http',
+            command   : process.execPath,
+            entrypoint: path.join(process.cwd(), 'ai/mcp/client/stdioToStreamableHttp.mjs')
+        })
+    });
+
+    test('accepts only the exact adapter grammar for every supported harness family', async () => {
         install();
         FleetLifecycleService.harnessBinaryPaths = {
-            codex          : process.execPath,
-            'codex-desktop': process.execPath,
-            'claude-code'  : process.execPath,
-            'kimi-code'    : process.execPath,
-            opencode       : process.execPath
+            codex           : process.execPath,
+            'codex-desktop' : process.execPath,
+            'claude-code'   : process.execPath,
+            'claude-desktop': process.execPath,
+            'kimi-code'     : process.execPath,
+            opencode        : process.execPath
         };
 
         const
-            outputs = new Map([
+            desktopBridge = {
+                kind      : 'neo-stdio-streamable-http',
+                command   : process.execPath,
+                entrypoint: '/installed/neo/ai/mcp/client/stdioToStreamableHttp.mjs'
+            },
+            outputs       = new Map([
                 ['codex',         'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
                 ['codex-desktop', 'Usage: mcp add --url <URL> --bearer-token-env-var <ENV>'],
+                ['claude-desktop', null],
                 ['claude-code',   'Usage: mcp add --transport http --header Header'],
                 ['kimi-code',     'kimi 0.29.1'],
                 ['opencode',      'opencode 1.18.5']
@@ -1126,17 +1153,22 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
             calls.push({command, args, opts, harnessType});
             callback(null, outputs.get(harnessType), '')
         };
+        FleetLifecycleService.claudeDesktopBridgeCapabilityProbeFn = () => desktopBridge;
 
         for (const harnessType of outputs.keys()) {
             calls.push({pendingHarness: harnessType});
 
-            await expect(FleetLifecycleService.assertRemoteMcpCapability({
-                id: `seat-${harnessType}`, harnessType
-            })).resolves.toEqual({
+            const expected = {
                 harnessType,
                 binaryPath      : process.execPath,
                 launchBinaryPath: process.execPath
-            })
+            };
+
+            if (harnessType === 'claude-desktop') expected.bridge = desktopBridge;
+
+            await expect(FleetLifecycleService.assertRemoteMcpCapability({
+                id: `seat-${harnessType}`, harnessType
+            })).resolves.toEqual(expected)
         }
 
         const probeCalls = calls.filter(call => call.command);
@@ -1150,14 +1182,14 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
         ])
     });
 
-    test('rejects missing flags, wrong versions, unknown families, and unavailable binaries', async () => {
+    test('rejects missing flags, wrong bridge kinds, unknown families, and unavailable binaries', async () => {
         install();
         FleetLifecycleService.harnessBinaryPaths = {
-            codex          : process.execPath,
-            'codex-desktop': process.execPath,
-            'claude-code'  : process.execPath,
-            'kimi-code'    : process.execPath,
-            opencode       : process.execPath
+            codex           : process.execPath,
+            'claude-code'   : process.execPath,
+            'claude-desktop': process.execPath,
+            'kimi-code'     : process.execPath,
+            opencode        : process.execPath
         };
 
         const rejects = [
@@ -1174,6 +1206,24 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
                 id: `seat-${harnessType}`, harnessType
             })).rejects.toThrow(/does not expose Fleet's required remote MCP grammar/)
         }
+
+        FleetLifecycleService.claudeDesktopBridgeCapabilityProbeFn = () => ({
+            kind      : 'generic-proxy',
+            command   : process.execPath,
+            entrypoint: '/installed/neo/ai/mcp/client/stdioToStreamableHttp.mjs'
+        });
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-claude-desktop', harnessType: 'claude-desktop'
+        })).rejects.toThrow(/does not expose Fleet's required Neo stdio-to-Streamable-HTTP bridge/)
+
+        FleetLifecycleService.claudeDesktopBridgeCapabilityProbeFn = () => {
+            throw new Error('missing bridge')
+        };
+
+        await expect(FleetLifecycleService.assertRemoteMcpCapability({
+            id: 'seat-claude-desktop', harnessType: 'claude-desktop'
+        })).rejects.toThrow(/bridge capability probe failed/)
 
         FleetLifecycleService.harnessBinaryPaths['native-neo'] = process.execPath;
 

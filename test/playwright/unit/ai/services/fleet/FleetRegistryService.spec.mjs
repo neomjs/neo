@@ -324,17 +324,17 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
 
         expect(FleetRegistryService.configureAgent({
             id         : 'portable',
-            harnessType: 'claude-code'
+            harnessType: 'claude-desktop'
         }).mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
 
         const before = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
 
         expect(() => FleetRegistryService.configureAgent({
             id         : 'portable',
-            harnessType: 'claude-desktop'
+            harnessType: 'antigravity'
         })).toThrow(/does not support remote MCP transport/);
         expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(before);
-        expect(FleetRegistryService.getAgent('portable').harnessType).toBe('claude-code')
+        expect(FleetRegistryService.getAgent('portable').harnessType).toBe('claude-desktop')
     });
 
     test('transport grammar rejects every secret-bearing or authority-bearing shape without a write', () => {
@@ -362,7 +362,7 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
 
         expect(() => FleetRegistryService.defineAgent({
             githubUsername: 'unsupported-remote',
-            harnessType   : 'claude-desktop',
+            harnessType   : 'antigravity',
             mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
         })).toThrow(/does not support remote MCP transport/)
     });
