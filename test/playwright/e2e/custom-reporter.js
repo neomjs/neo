@@ -2,26 +2,18 @@ import fs from 'fs-extra';
 import os from 'os';
 import { execSync } from 'child_process';
 import path from 'path';
-import {isEngineProfile, isFilmTake} from './utils/gpuIntent.mjs';
+import {isEngineProfile} from './utils/gpuIntent.mjs';
 
 const
   ANSI_ESCAPE_PATTERN = /\u001B\[[0-?]*[ -/]*[@-~]/g,
   PROCESS_EXIT_PATTERN = /\[pid=(\d+)]\s+<process did exit: exitCode=([^,>]+), signal=([^>]+)>/;
 
 /**
- * @summary Resolves the human-readable Neo launch profile without duplicating launch-argument policy.
- * @returns {'presenting'|'film'|'engine'|'invalid-film-engine'}
+ * @summary Resolves the Neo browser launch profile without conflating film run mode with launch policy.
+ * @returns {'presenting'|'engine'}
  */
 export function resolveE2eProfileName() {
-  const
-    engine = isEngineProfile(),
-    film   = isFilmTake();
-
-  if (engine && film) return 'invalid-film-engine';
-  if (engine) return 'engine';
-  if (film) return 'film';
-
-  return 'presenting'
+  return isEngineProfile() ? 'engine' : 'presenting'
 }
 
 /**
@@ -61,7 +53,7 @@ export function classifyBrowserLaunchExit(error, {
 
   // The process-exit grammar also appears during normal browser teardown. Only a rejected
   // BrowserType launch proves that Playwright never yielded a usable Browser fixture.
-  if (!/\bbrowserType\.launch(?:PersistentContext)?:/.test(text) || !match) return null;
+  if (!/\bbrowserType\.launch:/.test(text) || !match) return null;
 
   const
     exitValue = match[2].trim(),

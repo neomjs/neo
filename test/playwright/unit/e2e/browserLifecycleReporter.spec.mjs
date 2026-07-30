@@ -26,7 +26,8 @@ const launchExit = ({
  *
  * The reporter owns classification and retention only. Playwright still owns the browser and the
  * failing launch already owns the test result. These units therefore use the exact public error-log
- * grammar with fakes instead of creating another browser lifecycle merely to test diagnostics.
+ * version-pinned runner grammar with fakes instead of creating another browser lifecycle merely
+ * to test diagnostics.
  */
 test.describe('e2e/custom-reporter browser lifecycle', () => {
     test('#16161 classifies SIGABRT without inventing transport state', () => {
@@ -63,6 +64,10 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
             'Error: Target page, context or browser has been closed'
         )).toBeNull();
 
+        expect(classifyBrowserLaunchExit(launchExit({
+            prefix: 'Error: browserType.launchPersistentContext: Target page, context or browser has been closed'
+        }))).toBeNull();
+
         const error = launchExit({
             prefix: '\u001B[31mError: browserType.launch: Target page, context or browser has been closed\u001B[0m'
         });
@@ -73,7 +78,7 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
         })
     });
 
-    test('#16161 names the canonical presenting, film, and engine profiles', () => {
+    test('#16161 keeps film as a presenting run mode instead of inventing a third launch profile', () => {
         const
             previousEngine = process.env.NEO_E2E_ENGINE_PROFILE,
             previousFilm   = process.env.NEO_FILM_TAKE;
@@ -84,14 +89,11 @@ test.describe('e2e/custom-reporter browser lifecycle', () => {
             expect(resolveE2eProfileName()).toBe('presenting');
 
             process.env.NEO_FILM_TAKE = '1';
-            expect(resolveE2eProfileName()).toBe('film');
+            expect(resolveE2eProfileName()).toBe('presenting');
 
             delete process.env.NEO_FILM_TAKE;
             process.env.NEO_E2E_ENGINE_PROFILE = '1';
-            expect(resolveE2eProfileName()).toBe('engine');
-
-            process.env.NEO_FILM_TAKE = '1';
-            expect(resolveE2eProfileName()).toBe('invalid-film-engine')
+            expect(resolveE2eProfileName()).toBe('engine')
         } finally {
             if (previousEngine === undefined) {
                 delete process.env.NEO_E2E_ENGINE_PROFILE
