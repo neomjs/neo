@@ -161,6 +161,7 @@ paths:
       summary: List Pull Requests
       operationId: list_pull_requests
       x-neo-tool-tier: read
+      x-neo-tool-summary: List PRs; optionally falsify exact PR numbers supplied through believedOpen.
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
@@ -171,6 +172,7 @@ paths:
         - To get a high-level overview of pending work (using the default `state: 'open'`).
         - To research historical context by looking at past work (e.g., using `state: 'closed'` or `state: 'merged'`).
         - To find a specific pull request number for use in other tools.
+        - To falsify an exact caller-owned list of believed-open PR numbers in the same source read.
         - When the user asks questions like:
           - "What pull requests are currently open?"
           - "Show me recently merged PRs."
@@ -179,7 +181,7 @@ paths:
         - After calling this tool, summarize the list of PRs for the user.
         - Use the current head, review, reviewer-request, and merge-state fields before making a PR-state claim.
         - `reviewRequests: null` means the reviewer source was unavailable or incomplete; `[]` means fetched and empty.
-        - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
+        - `believedOpen` resolves each supplied number directly; it never infers terminal state from bounded-page absence.
       tags: [Pull Requests]
       parameters:
         - name: limit
@@ -199,6 +201,17 @@ paths:
             type: string
             enum: [open, closed, merged, all]
             default: open
+        - name: believedOpen
+          in: query
+          required: false
+          description: Up to 100 exact PR numbers currently believed open; over-cap input is rejected before GitHub I/O.
+          schema:
+            type: array
+            maxItems: 100
+            uniqueItems: true
+            items:
+              type: integer
+              minimum: 1
       responses:
         '200':
           description: A list of open pull requests.
@@ -2013,6 +2026,50 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PullRequest'
+        checkedAt:
+          type: string
+          format: date-time
+          description: Source-read completion time; present only when believedOpen is supplied.
+        belief:
+          $ref: '#/components/schemas/PullRequestBelief'
+
+    PullRequestBelief:
+      type: object
+      required: [stillOpen, falsified, unverifiable]
+      properties:
+        stillOpen:
+          type: array
+          description: Submitted numbers whose directly resolved current state is OPEN.
+          items:
+            type: integer
+        falsified:
+          type: array
+          description: Submitted numbers whose directly resolved current state is terminal.
+          items:
+            type: object
+            required: [number, state, mergedAt]
+            properties:
+              number:
+                type: integer
+              state:
+                type: string
+                enum: [CLOSED, MERGED]
+              mergedAt:
+                type: string
+                format: date-time
+                nullable: true
+        unverifiable:
+          type: array
+          description: Submitted numbers the direct lookup could not observe; these are not falsified.
+          items:
+            type: object
+            required: [number, reason]
+            properties:
+              number:
+                type: integer
+              reason:
+                type: string
+                enum: [not-found-or-inaccessible]
 
     PullRequestConversation:
       type: object
