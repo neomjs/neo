@@ -65,7 +65,9 @@ services:
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
-      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      # One scalar owns the graph path shared by KB, MC, and the orchestrator. Aliases below
+      # preserve the existing per-service env lists while making partial edits inexpressible.
+      - &memory-db-env NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
@@ -153,11 +155,11 @@ services:
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
-      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - *memory-db-env
       # The cloud Golden Path writer and this MCP reader resolve one handoff file.
       # Keep the path on their dedicated shared volume so container recreates do
       # not erase the morning surface served by get_sandman_handoff.
-      - NEO_HANDOFF_FILE_PATH=/app/.neo-ai-data/handoff/sandman_handoff.md
+      - &handoff-file-env NEO_HANDOFF_FILE_PATH=/app/.neo-ai-data/handoff/sandman_handoff.md
       # Single-process container = no orchestrator-supervised embed daemon: the server hosts the
       # WAL drain loop itself (sole-drainer invariant — exactly one loop per WAL dir; never enable
       # alongside the embed daemon). Without it, the decoupled add_memory writes the WAL but nothing
@@ -231,7 +233,7 @@ services:
       - NEO_ORCHESTRATOR_OLLAMA_ENABLED=false
       - NEO_AI_ORCHESTRATOR_DIR=/app/.neo-ai-data/orchestrator-daemon
       - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data
-      - NEO_HANDOFF_FILE_PATH=/app/.neo-ai-data/handoff/sandman_handoff.md
+      - *handoff-file-env
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
@@ -242,7 +244,7 @@ services:
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
-      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - *memory-db-env
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_MECHANISM=docker-socket
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_SOCKET_PATH=/var/run/docker.sock

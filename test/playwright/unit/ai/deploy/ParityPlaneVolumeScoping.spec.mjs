@@ -37,14 +37,18 @@ import {load as yamlLoad} from 'js-yaml';
 
 const
     repoRoot          = path.resolve(process.cwd()),
+    baseComposePath   = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
     composePath       = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
     parityOverlayPath = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
+    testComposePath   = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml'),
     parityConfigPath  = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
     paritySpecPath    = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
     parityServerPath  = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
     parityProbePath   = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
+    baseCompose       = yamlLoad(fs.readFileSync(baseComposePath, 'utf8')),
     compose           = yamlLoad(fs.readFileSync(composePath, 'utf8')),
-    parityOverlay     = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8'));
+    parityOverlay     = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8')),
+    testCompose       = yamlLoad(fs.readFileSync(testComposePath, 'utf8'));
 
 /*
  * The service sets below are DERIVED from the compose file, never listed. A hardcoded roster
@@ -190,6 +194,13 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('the elected engine band is loopback-only and no provisional slots remain', () => {
+        const source = fs.readFileSync(composePath, 'utf8');
+
+        expect(compose.services?.chroma?.ports).toEqual(['127.0.0.1:8100:8000']);
+        expect(source).not.toContain('ELECTION-SLOT')
+    });
+
     test('the CI overlay replaces provider auth with one mounted local-bearer fixture', () => {
         const
             auth          = parityOverlay['x-parity-auth-env'],
@@ -249,6 +260,21 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 
         expect(orchestratorEnvironment).not.toContain('NEO_AUTH_');
         expect(orchestratorEnvironment).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN')
+    });
+
+    test('the CI overlay inherits placement and cannot override profile-pinned plane leaves', () => {
+        const source = fs.readFileSync(parityOverlayPath, 'utf8');
+
+        expect(parityOverlay).not.toHaveProperty('x-plane-env');
+        expect(source).not.toContain('NEO_PLANE_DATA_ROOT');
+        expect(source).not.toContain('NEO_TENANT_REPO_MIRROR_ROOT');
+
+        for (const service of planeEnvServices) {
+            const overlayEnvironment = parityOverlay.services?.[service]?.environment ?? {};
+
+            expect(overlayEnvironment).not.toHaveProperty('NEO_PLANE_DATA_ROOT');
+            expect(overlayEnvironment).not.toHaveProperty('NEO_TENANT_REPO_MIRROR_ROOT')
+        }
     });
 
     test('the PLANE ROOT rides a named volume in every service, not the repo bind', () => {
@@ -319,6 +345,16 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             .toBe(compose['x-plane-env'].NEO_PLANE_ID);
     });
 
+    test('the relocated dev profile explicitly places its profile-pinned tenant mirrors', () => {
+        const
+            planeEnvironment = compose['x-plane-env'],
+            planeRoot        = planeEnvironment.NEO_PLANE_DATA_ROOT,
+            orchestrator     = compose.services?.orchestrator;
+
+        expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
+        expect(orchestrator.environment['<<']).toBe(planeEnvironment)
+    });
+
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
         // The anchor/alias pair cannot drift: `*plane-id` IS the node `&plane-id` defines, so
         // there is no second value to keep in step. Asserting on the parsed tree proves the
@@ -333,5 +369,56 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         // silently canonicalizing it. A custom variable takes the normalize path and would need
         // a grammar guard — a copy of Compose's rule, wrong the day Compose changes it.
         expect(source).toMatch(/&plane-id\s+"\$\{COMPOSE_PROJECT_NAME:-/);
+    });
+});
+
+test.describe('data-plane profile election — base and integration-fixture dispositions', () => {
+    test('base/cloud keeps the canonical tenant-mirror root', () => {
+        expect(baseCompose.services?.orchestrator?.environment)
+            .toContain('NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data')
+    });
+
+    test('base Compose aliases only the repeated graph and handoff entries', () => {
+        const
+            source                = fs.readFileSync(baseComposePath, 'utf8'),
+            servicesWithGraphPath = Object.entries(baseCompose.services ?? {})
+                .filter(([, service]) => (service.environment ?? [])
+                    .some(entry => String(entry).startsWith('NEO_MEMORY_DB_PATH='))),
+            servicesWithHandoffPath = Object.entries(baseCompose.services ?? {})
+                .filter(([, service]) => (service.environment ?? [])
+                    .some(entry => String(entry).startsWith('NEO_HANDOFF_FILE_PATH=')));
+
+        expect(source.match(/NEO_MEMORY_DB_PATH=\/app\/\.neo-ai-data\/sqlite\/memory-core-graph\.sqlite/g))
+            .toHaveLength(1);
+        expect(source.match(/\*memory-db-env/g)).toHaveLength(2);
+        expect(source.match(/NEO_HANDOFF_FILE_PATH=\/app\/\.neo-ai-data\/handoff\/sandman_handoff\.md/g))
+            .toHaveLength(1);
+        expect(source.match(/\*handoff-file-env/g)).toHaveLength(1);
+        expect(servicesWithGraphPath).toHaveLength(3);
+        expect(servicesWithHandoffPath).toHaveLength(2);
+
+        for (const [serviceName, service] of servicesWithGraphPath) {
+            expect(service.environment, serviceName)
+                .toContain('NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite')
+        }
+
+        for (const [serviceName, service] of servicesWithHandoffPath) {
+            expect(service.environment, serviceName)
+                .toContain('NEO_HANDOFF_FILE_PATH=/app/.neo-ai-data/handoff/sandman_handoff.md')
+        }
+    });
+
+    test('the test Compose file remains an isolated fixture, not a durable parity profile', () => {
+        const
+            source          = fs.readFileSync(testComposePath, 'utf8'),
+            memoryDbEntries = Object.values(testCompose.services ?? {})
+                .flatMap(service => service.environment ?? [])
+                .filter(entry => String(entry).startsWith('NEO_MEMORY_DB_PATH='));
+
+        expect(testCompose).not.toHaveProperty('name');
+        expect(testCompose).not.toHaveProperty('x-plane-env');
+        expect(memoryDbEntries.length).toBeGreaterThan(0);
+        expect(memoryDbEntries.every(entry => entry.includes('/tmp/neo-integration/'))).toBe(true);
+        expect(source).not.toContain('/app/.neo-ai-data-parity')
     });
 });
