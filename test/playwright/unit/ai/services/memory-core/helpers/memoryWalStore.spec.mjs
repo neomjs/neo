@@ -16,6 +16,7 @@ import {
     getWalRecordsFileName,
     getWalSegmentKey,
     pruneReconciledWalSegments,
+    readMemoryWalProvenanceSegments,
     readPendingWalRecords
 } from '../../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
 
@@ -59,7 +60,10 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('appendWalMemory writes the full payload into its day segment and reports the key', async () => {
-        const {filePath, segmentKey} = await appendWalMemory(record('m1', DAY1), {dir: tmpDir});
+        const {filePath, segmentKey} = await appendWalMemory(
+            {...record('m1', DAY1), planeId: 'spoofed-caller-plane'},
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
 
         expect(segmentKey).toBe('2026-06-01');
         expect(filePath).toBe(path.join(tmpDir, 'wal-2026-06-01.jsonl'));
@@ -72,18 +76,26 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
         expect(entry.segmentKey).toBe('2026-06-01');
         expect(entry.metadata.prompt).toBe('p-m1');
         expect(entry.document).toBe('doc-m1');
+        expect(entry.planeId).toBe('test-memory-plane');
     });
 
     test('appendWalMemory and appendWalEmbedMarker reject missing required inputs', async () => {
         await expect(appendWalMemory(record('m1', DAY1), {})).rejects.toThrow('dir is required');
-        await expect(appendWalMemory({timestamp: DAY1}, {dir: tmpDir})).rejects.toThrow('record.id is required');
+        await expect(appendWalMemory({timestamp: DAY1}, {dir: tmpDir, planeId: 'test-memory-plane'}))
+            .rejects.toThrow('record.id is required');
+        await expect(appendWalMemory(record('m1', DAY1), {dir: tmpDir}))
+            .rejects.toThrow('planeId must be an opaque resolved plane identity');
+        await expect(appendWalMemory(record('m1', DAY1), {dir: tmpDir, planeId: '../spoof'}))
+            .rejects.toThrow('planeId must be an opaque resolved plane identity');
+        await expect(appendWalMemory(record('m1', DAY1), {dir: tmpDir, planeId: 'unknown'}))
+            .rejects.toThrow('planeId must be an opaque resolved plane identity');
         await expect(appendWalEmbedMarker({id: 'm1'}, {dir: tmpDir})).rejects.toThrow('id and segmentKey are required');
         await expect(appendWalGraphProjectionMarker({id: 'm1'}, {dir: tmpDir})).rejects.toThrow('id and segmentKey are required');
     });
 
     test('readPendingWalRecords returns appended records until their embed marker lands', async () => {
-        await appendWalMemory(record('m1', DAY1), {dir: tmpDir});
-        await appendWalMemory(record('m2', DAY1), {dir: tmpDir});
+        await appendWalMemory(record('m1', DAY1), {dir: tmpDir, planeId: 'test-memory-plane'});
+        await appendWalMemory(record('m2', DAY1), {dir: tmpDir, planeId: 'test-memory-plane'});
 
         expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['m1', 'm2']);
 
@@ -93,8 +105,11 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('graph-projection pending state is tracked independently from embed reconciliation', async () => {
-        await appendWalMemory(record('legacy', DAY1), {dir: tmpDir});
-        await appendWalMemory({...record('m1', DAY1), graphProjectionVersion: 1}, {dir: tmpDir});
+        await appendWalMemory(record('legacy', DAY1), {dir: tmpDir, planeId: 'test-memory-plane'});
+        await appendWalMemory(
+            {...record('m1', DAY1), graphProjectionVersion: 1},
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
 
         await appendWalEmbedMarker({id: 'm1', segmentKey: '2026-06-01'}, {dir: tmpDir});
 
@@ -107,9 +122,9 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('readPendingWalRecords filters by ids, bounds by limit, and reads newest segments first', async () => {
-        await appendWalMemory(record('old', DAY1), {dir: tmpDir});
-        await appendWalMemory(record('new-a', DAY2), {dir: tmpDir});
-        await appendWalMemory(record('new-b', DAY2), {dir: tmpDir});
+        await appendWalMemory(record('old', DAY1), {dir: tmpDir, planeId: 'test-memory-plane'});
+        await appendWalMemory(record('new-a', DAY2), {dir: tmpDir, planeId: 'test-memory-plane'});
+        await appendWalMemory(record('new-b', DAY2), {dir: tmpDir, planeId: 'test-memory-plane'});
 
         expect((await readPendingWalRecords({dir: tmpDir, ids: ['new-b']})).map(r => r.id)).toEqual(['new-b']);
 
@@ -118,21 +133,51 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('reads tolerate a torn line and a missing directory', async () => {
-        const {filePath} = await appendWalMemory(record('m1', DAY1), {dir: tmpDir});
+        const {filePath} = await appendWalMemory(
+            record('m1', DAY1),
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
         await fs.appendFile(filePath, '{"id":"torn-mid-append', 'utf8');
 
         expect((await readPendingWalRecords({dir: tmpDir})).map(r => r.id)).toEqual(['m1']);
         expect(await readPendingWalRecords({dir: path.join(tmpDir, 'missing')})).toEqual([]);
     });
 
+    test('legacy rows remain readable as unknown while strict evidence retains current provenance', async () => {
+        const segmentKey = getWalSegmentKey(DAY1),
+              filePath   = path.join(tmpDir, getWalRecordsFileName(segmentKey));
+
+        await fs.writeFile(filePath, `${JSON.stringify({...record('legacy', DAY1), segmentKey})}\n`, 'utf8');
+        await appendWalMemory(record('current', DAY1), {dir: tmpDir, planeId: 'test-memory-plane'});
+
+        const pending = await readPendingWalRecords({dir: tmpDir}),
+              strict  = await readMemoryWalProvenanceSegments({dir: tmpDir});
+
+        expect(pending.map(({id, planeId}) => ({id, planeId}))).toEqual([
+            {id: 'legacy', planeId: 'unknown'},
+            {id: 'current', planeId: 'test-memory-plane'}
+        ]);
+        expect(strict.ok).toBe(true);
+        expect(strict.segments[0].records.map(({id, planeId}) => ({id, planeId}))).toEqual([
+            {id: 'legacy', planeId: 'unknown'},
+            {id: 'current', planeId: 'test-memory-plane'}
+        ]);
+    });
+
     test('pruning removes only fully-reconciled, non-active segments beyond the retention bound', async () => {
         // Three reconciled segments + one with a pending record.
         for (const [id, ms, key] of [['a', DAY1, '2026-06-01'], ['b', DAY2, '2026-06-02'], ['c', DAY3, '2026-06-03']]) {
-            await appendWalMemory({...record(id, ms), graphProjectionVersion: 1}, {dir: tmpDir});
+            await appendWalMemory(
+                {...record(id, ms), graphProjectionVersion: 1},
+                {dir: tmpDir, planeId: 'test-memory-plane'}
+            );
             await appendWalEmbedMarker({id, segmentKey: key}, {dir: tmpDir});
             await appendWalGraphProjectionMarker({id, segmentKey: key}, {dir: tmpDir});
         }
-        await appendWalMemory(record('pending', Date.UTC(2026, 4, 30, 12)), {dir: tmpDir}); // 2026-05-30
+        await appendWalMemory(
+            record('pending', Date.UTC(2026, 4, 30, 12)),
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        ); // 2026-05-30
 
         const removed = await pruneReconciledWalSegments({dir: tmpDir, retentionLimit: 1, activeSegmentKey: '2026-06-03'});
 
@@ -150,12 +195,21 @@ test.describe('Neo.ai.services.memory-core.helpers.memoryWalStore', () => {
     });
 
     test('pruning preserves graph-projection-pending records even after embed reconciliation', async () => {
-        await appendWalMemory({...record('graph-pending', DAY1), graphProjectionVersion: 1}, {dir: tmpDir});
+        await appendWalMemory(
+            {...record('graph-pending', DAY1), graphProjectionVersion: 1},
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
         await appendWalEmbedMarker({id: 'graph-pending', segmentKey: '2026-06-01'}, {dir: tmpDir});
 
-        await appendWalMemory(record('old-style-reconciled-a', DAY2), {dir: tmpDir});
+        await appendWalMemory(
+            record('old-style-reconciled-a', DAY2),
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
         await appendWalEmbedMarker({id: 'old-style-reconciled-a', segmentKey: '2026-06-02'}, {dir: tmpDir});
-        await appendWalMemory(record('old-style-reconciled-b', DAY3), {dir: tmpDir});
+        await appendWalMemory(
+            record('old-style-reconciled-b', DAY3),
+            {dir: tmpDir, planeId: 'test-memory-plane'}
+        );
         await appendWalEmbedMarker({id: 'old-style-reconciled-b', segmentKey: '2026-06-03'}, {dir: tmpDir});
 
         const removed = await pruneReconciledWalSegments({dir: tmpDir, retentionLimit: 1, activeSegmentKey: '2026-06-04'});

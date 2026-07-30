@@ -1,6 +1,7 @@
-import fs               from 'fs/promises';
-import path             from 'path';
-import {withAppendLock} from './walAppendLock.mjs';
+import fs                                  from 'fs/promises';
+import path                                from 'path';
+import {UNKNOWN_PLANE_ID, isOpaquePlaneId} from '../../../planeConfig.mjs';
+import {withAppendLock}                    from './walAppendLock.mjs';
 
 /**
  * @summary Durable JSONL write-ahead store for accepted A2A mailbox messages.
@@ -72,23 +73,28 @@ export function getMessageWalGraphMarkersFileName(segmentKey) {
  * @param {Number} record.timestamp Epoch-ms write time.
  * @param {Object} options
  * @param {String} options.dir Message WAL directory.
+ * @param {String} options.planeId Resolved server plane identity; stamped after caller fields.
  * @param {Date|Number} [options.now] Clock source for the segment key.
  * @param {Object} [options.lockOptions] Forwarded to {@link withAppendLock}.
  * @returns {Promise<{filePath: String, segmentKey: String}>}
  */
-export async function appendWalMessage(record, {dir, now, lockOptions} = {}) {
+export async function appendWalMessage(record, {dir, planeId, now, lockOptions} = {}) {
     if (!dir) {
         throw new TypeError('appendWalMessage: dir is required');
     }
     if (typeof record?.id !== 'string' || !record.id.startsWith('MESSAGE:')) {
         throw new TypeError('appendWalMessage: record.id must be a MESSAGE:* id');
     }
+    if (!isOpaquePlaneId(planeId)) {
+        throw new TypeError('appendWalMessage: planeId must be an opaque resolved plane identity');
+    }
 
     await fs.mkdir(dir, {recursive: true});
 
     const segmentKey = getMessageWalSegmentKey(now ?? record.timestamp ?? new Date());
     const filePath   = path.join(dir, getMessageWalRecordsFileName(segmentKey));
-    const line       = `${JSON.stringify({...record, segmentKey})}\n`;
+    // Server provenance is LAST so a caller-owned record.planeId can never spoof the accepting plane.
+    const line = `${JSON.stringify({...record, segmentKey, planeId})}\n`;
 
     await withAppendLock(filePath, () => fs.appendFile(filePath, line, 'utf8'), lockOptions);
 
@@ -159,6 +165,53 @@ async function readJsonlEntries(filePath) {
 }
 
 /**
+ * @summary Surfaces absent or invalid historical provenance as the explicit read-side `unknown` sentinel.
+ *
+ * This is a read projection only; legacy files stay untouched. A valid stamped identity is returned
+ * unchanged so drains and repair paths preserve the accepted-write evidence.
+ * @param {Object} record Parsed message WAL record.
+ * @returns {Object} Record with a usable `planeId` or `unknown`.
+ */
+function surfaceWalPlaneProvenance(record) {
+    return isOpaquePlaneId(record?.planeId) ? record : {...record, planeId: UNKNOWN_PLANE_ID}
+}
+
+/**
+ * @summary Strictly parses one message JSONL payload for parity evidence.
+ *
+ * Serving readers skip torn lines; demotion evidence refuses them because an unreadable row cannot be
+ * proven older than the cutover window or unrelated to the overlay.
+ * @param {String} filePath JSONL payload path.
+ * @returns {Promise<Object>} `{ok, records}` or `{ok:false, reason}`.
+ */
+async function readJsonlEntriesStrict(filePath) {
+    let text;
+
+    try {
+        text = await fs.readFile(filePath, 'utf8');
+    } catch (e) {
+        return {ok: false, reason: `${filePath}: ${e?.message || String(e)}`}
+    }
+
+    const records = [];
+
+    for (const [index, rawLine] of text.split('\n').entries()) {
+        if (!rawLine.trim()) continue;
+
+        try {
+            records.push(surfaceWalPlaneProvenance(JSON.parse(rawLine)));
+        } catch (e) {
+            return {
+                ok    : false,
+                reason: `${filePath}: line ${index + 1} is not valid JSON (${e?.message || String(e)})`
+            }
+        }
+    }
+
+    return {ok: true, records}
+}
+
+/**
  * @summary Builds a cacheable signature for graph-projection marker files.
  * @param {String} dir Message WAL directory.
  * @param {String[]} segmentKeys Segment keys newest first.
@@ -210,6 +263,34 @@ async function listMessageWalSegmentKeys(dir) {
 }
 
 /**
+ * @summary Strictly enumerates message WAL payload segments with normalized plane provenance.
+ *
+ * This is the Message WAL store's half of the pilot demotion evidence producer. It owns the canonical
+ * file grammar, keeps message and memory families distinct, and refuses malformed payload rows.
+ * @param {Object} options
+ * @param {String} options.dir Directory for message WAL payload segments.
+ * @returns {Promise<Object>} `{ok, segments}` or `{ok:false, reason}`.
+ */
+export async function readMessageWalProvenanceSegments({dir} = {}) {
+    if (!dir) {
+        return {ok: false, reason: 'readMessageWalProvenanceSegments: dir is required'}
+    }
+
+    const segments = [];
+
+    for (const segmentKey of await listMessageWalSegmentKeys(dir)) {
+        const segmentId = getMessageWalRecordsFileName(segmentKey),
+              parsed    = await readJsonlEntriesStrict(path.join(dir, segmentId));
+
+        if (!parsed.ok) return parsed;
+
+        segments.push({segmentId, segmentKey, records: parsed.records});
+    }
+
+    return {ok: true, segments}
+}
+
+/**
  * @summary Reads message WAL records from newest segment to oldest, skipping corrupt lines.
  * @param {Object} options
  * @param {String} options.dir Message WAL directory.
@@ -223,7 +304,8 @@ export async function readWalMessages({dir} = {}) {
     const records = [];
 
     for (const segmentKey of await listMessageWalSegmentKeys(dir)) {
-        records.push(...await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey))));
+        records.push(...(await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey))))
+            .map(surfaceWalPlaneProvenance));
     }
 
     return records;
@@ -297,9 +379,9 @@ export async function readWalMessagesByIds({dir, ids, limit} = {}) {
 
     if (!Array.isArray(ids) || ids.length === 0) return [];
 
-    const idFilter  = new Set(ids.filter(id => typeof id === 'string' && id.startsWith('MESSAGE:')));
-    const bounded   = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : Infinity;
-    const records   = [];
+    const idFilter      = new Set(ids.filter(id => typeof id === 'string' && id.startsWith('MESSAGE:')));
+    const bounded       = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : Infinity;
+    const records       = [];
     const {segmentById} = await getMessageWalGraphProjectionStats({dir});
     const idsBySegment  = new Map();
 
@@ -316,7 +398,8 @@ export async function readWalMessagesByIds({dir, ids, limit} = {}) {
     for (const [segmentKey, segmentIds] of idsBySegment) {
         if (records.length >= bounded) break;
 
-        const segmentRecords = await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey)));
+        const segmentRecords = (await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey))))
+            .map(surfaceWalPlaneProvenance);
 
         for (const record of segmentRecords) {
             if (records.length >= bounded) break;
@@ -348,7 +431,8 @@ export async function readPendingMessageWalRecords({dir, ids, limit} = {}) {
     for (const segmentKey of await listMessageWalSegmentKeys(dir)) {
         if (pending.length >= bounded) break;
 
-        const records = await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey)));
+        const records = (await readJsonlEntries(path.join(dir, getMessageWalRecordsFileName(segmentKey))))
+            .map(surfaceWalPlaneProvenance);
         if (records.length === 0) continue;
 
         const markedIds = new Set(
