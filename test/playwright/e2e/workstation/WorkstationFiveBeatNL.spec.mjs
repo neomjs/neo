@@ -1742,8 +1742,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(pageErrors).toEqual([])
     });
 
-    // Flip this red-control direction when the compositor-visible handoff is repaired.
-    test('first tear-out red control — source projection presents a cleared body',
+    test('first tear-out preserves dense source continuity through projection',
         async ({page, neuralLink}, testInfo) => {
             const userAgent = await page.evaluate(() => navigator.userAgent);
 
@@ -1767,12 +1766,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             await assertWorkspaceContinuity({
                 continuity,
-                expectedCleared: true,
-                label          : 'first-tear-out-source-projection',
+                label: 'first-tear-out-source-projection',
                 testInfo
             });
             expect(ownerResult.errors).toEqual([]);
-            expect(ownerResult.applied, 'the red control must still complete its first tear-out commit').toBe(true);
+            expect(ownerResult.applied, 'the continuity guard must still complete its first tear-out commit').toBe(true);
             expect(pageErrors).toEqual([])
         }
     );

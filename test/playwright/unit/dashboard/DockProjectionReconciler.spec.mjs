@@ -59,7 +59,7 @@ const createThreeChildSplitModel = () => {
     return model
 };
 
-const reconcileModel = async (model, mutate, {geometryOnly=false}={}) => {
+const reconcileModel = async (model, mutate, {geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
     const
         panes = Object.fromEntries(Object.entries(model.items)
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
@@ -94,13 +94,15 @@ const reconcileModel = async (model, mutate, {geometryOnly=false}={}) => {
         host,
         nextConfig,
         placeholders,
+        preserveItemIds,
+        retainTopology,
         resolveItem: itemId => panes[itemId],
         onProjectionStaged() {
             stagedCount++
         }
     });
 
-    return {host, nextModel, oldShell, result, stagedCount}
+    return {host, nextModel, oldShell, panes, result, stagedCount}
 };
 
 test.describe('Neo.dashboard.DockProjectionReconciler', () => {
@@ -360,6 +362,54 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
         try {
             expect(receipt.stagedCount).toBe(1);
             expect(receipt.result.nextShell).not.toBe(receipt.oldShell)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
+    test('reconciles an explicit same-topology item detachment without replacing the shell', async () => {
+        const model = createSplitModel();
+
+        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+        model.nodes['alpha-tabs'].items.push('gamma');
+
+        const receipt = await reconcileModel(model, nextModel => {
+            nextModel.nodes['alpha-tabs'].items = ['alpha']
+        }, {
+            preserveItemIds: ['gamma'],
+            retainTopology : true
+        });
+
+        try {
+            const
+                alphaTab = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell)
+                    .get('alpha-tabs'),
+                body     = alphaTab.getCardContainer(),
+                bar      = alphaTab.getTabBar();
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.host.items).toEqual([receipt.oldShell]);
+            expect(body.items).toEqual([receipt.panes.alpha]);
+            expect(bar.items.map(button => button.text)).toEqual(['Alpha']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha']);
+            expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
+            expect(Boolean(receipt.panes.gamma.parent?.items?.includes(receipt.panes.gamma))).toBe(false);
+            expect(receipt.result.reconciledItems).toBe(true);
+            expect(receipt.stagedCount).toBe(1)
+        } finally {
+            receipt.panes.gamma.destroy();
+            receipt.host.destroy()
+        }
+    });
+
+    test('fails an explicit retained-topology admission closed when structure changes', async () => {
+        const receipt = await reconcileModel(createSplitModel(), nextModel => {
+            nextModel.nodes['root-split'].orientation = 'vertical'
+        }, {retainTopology: true});
+
+        try {
+            expect(receipt.result.nextShell).not.toBe(receipt.oldShell);
+            expect(String(receipt.result.nextShell.layout.ntype).replace(/^layout-/, '')).toBe('vbox')
         } finally {
             receipt.host.destroy()
         }

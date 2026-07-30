@@ -119,10 +119,20 @@ class DockProjectionReconciler extends Base {
      * @param {Neo.component.Base} oldShell
      * @param {Object} nextConfig
      * @param {Map<String,Neo.component.Base>} placeholders
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.reconcileItems=false] Admit tab item/active deltas while retaining
+     *     the proven-identical structural shell.
+     * @param {Iterable<String>} [options.preserveItemIds=[]]
+     * @param {Function|null} [options.resolveItem=null]
      * @returns {{currentTabs:Map,nextShell:Neo.component.Base,plans:Map}|null}
      * @static
      */
-    static reconcileStableTopology(oldShell, nextConfig, placeholders) {
+    static reconcileStableTopology(
+        oldShell,
+        nextConfig,
+        placeholders,
+        {preserveItemIds=[], reconcileItems=false, resolveItem=null}={}
+    ) {
         const
             currentNodes = this.collectProjectionTopology(oldShell),
             nextNodes    = this.collectProjectionTopology(nextConfig);
@@ -148,8 +158,8 @@ class DockProjectionReconciler extends Base {
                     currentItems = current.node.getTabBar()?.sortZoneConfig?.dockItemIds || [],
                     nextItems    = next.node.headerToolbar?.sortZoneConfig?.dockItemIds || [];
 
-                if (current.node.activeIndex !== next.node.activeIndex
-                    || currentItems.join('\0') !== nextItems.join('\0')) {
+                if (!reconcileItems && (current.node.activeIndex !== next.node.activeIndex
+                    || currentItems.join('\0') !== nextItems.join('\0'))) {
                     return null
                 }
             }
@@ -180,12 +190,26 @@ class DockProjectionReconciler extends Base {
             }
         });
 
+        const materializedBars = new Set();
+
+        if (reconcileItems) {
+            this.reconcileTabChrome(
+                plans,
+                placeholders,
+                currentTabs,
+                oldShell,
+                resolveItem,
+                preserveItemIds,
+                materializedBars
+            )
+        }
+
         placeholders.forEach(placeholder => {
             !placeholder.parent && !placeholder.isDestroyed && placeholder.destroy()
         });
         placeholders.clear();
 
-        return {currentTabs, nextShell: oldShell, plans}
+        return {currentTabs, materializedBars, nextShell: oldShell, plans, reconciledItems: reconcileItems}
     }
 
     /**
@@ -256,6 +280,8 @@ class DockProjectionReconciler extends Base {
      * @param {Object} options
      * @param {Neo.container.Base} options.host Dock host containing the current shell.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
+     * @param {Boolean} [options.retainTopology=false] Explicitly admits in-place item reconciliation
+     *     only when every structural dock node retains its identity, ancestry, order, and orientation.
      * @param {*} options.nextConfig Fresh {@link Neo.dashboard.DockLayoutAdapter} projection.
      * @param {Map<String,Neo.component.Base>} options.placeholders Item placeholders created by the caller.
      * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes which are absent
@@ -273,6 +299,7 @@ class DockProjectionReconciler extends Base {
         nextConfig,
         placeholders,
         preserveItemIds=[],
+        retainTopology=false,
         resolveItem,
         onProjectionStaged=null,
         shellIndex=0,
@@ -284,11 +311,27 @@ class DockProjectionReconciler extends Base {
             throw new Error(`Dock projection could not find a current shell at index ${shellIndex}`)
         }
 
-        const stableProjection = geometryOnly
-            ? this.reconcileStableTopology(oldShell, nextConfig, placeholders)
+        const stableProjection = geometryOnly || retainTopology
+            ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
+                preserveItemIds,
+                reconcileItems: retainTopology,
+                resolveItem
+            })
             : null;
 
         if (stableProjection) {
+            stableProjection.reconciledItems &&
+                await onProjectionStaged?.({
+                    currentTabs: stableProjection.currentTabs,
+                    nextShell  : oldShell,
+                    oldShell,
+                    plans      : stableProjection.plans
+                });
+            await Promise.all([...stableProjection.materializedBars].map(bar => {
+                bar.sortZone?.adjustItemCls(true);
+                bar.updateDepth = -1;
+                return bar.promiseUpdate()
+            }));
             host.updateDepth = -1;
             host.update();
             await host.promiseUpdate();
