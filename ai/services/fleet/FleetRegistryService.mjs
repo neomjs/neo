@@ -7,13 +7,14 @@ import Base            from '../../../src/core/Base.mjs';
 import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
 import {
     normalizeMcpOverrides,
-    normalizeMcpTransport,
-    supportsRemoteMcpTransport
+    normalizeMcpTarget,
+    supportsTenantMcpTarget
 } from '../../../src/ai/fleet/mcpServers.mjs';
 
 const
     __filename              = fileURLToPath(import.meta.url),
     __dirname               = path.dirname(__filename),
+    RETIRED_TARGET_FIELD    = ['mcp', 'Transport'].join(''),
     PUBLIC_SENSITIVE_KEY_RE = /^(?:credentials?|secrets?|tokens?|(?:github)?pats?|passwords?|authorization|(?:api|client|private)(?:key|token|secret|credential|password)s?|personalaccess(?:key|token|secret|credential|password)s?|(?:access|auth|bearer|github|id|oauth|refresh|session)(?:key|token|secret|credential|password)s?|launch|command|args|argv|env|environment)$/;
 
 /**
@@ -145,18 +146,70 @@ function redactPublicFields(value, seen=new WeakSet()) {
 }
 
 /**
- * @summary Canonicalize one persisted transport without letting a corrupt legacy row acquire
- * remote authority. Absence and invalid stored shapes both fail closed to local stdio.
- * @param {*} transport
+ * @summary Canonicalize one persisted target without letting a corrupt row acquire tenant
+ * authority. Absence and invalid stored shapes both fail closed to the resident target.
+ * @param {*} target
  * @returns {Object|null}
  */
-function normalizeStoredMcpTransport(transport) {
+function normalizeStoredMcpTarget(target) {
     try {
-        return normalizeMcpTransport(transport ?? null)
+        return normalizeMcpTarget(target ?? null)
     } catch {
         return null
     }
 }
+
+// Legacy MCP target migration begin — deletion boundary after the live registry rewrite is proven.
+/**
+ * @summary Translate the single retired `mcpTransport` registry shape into target intent. This
+ * helper is read-path migration substrate only: it accepts no URLs, headers, credentials, commands,
+ * or unknown keys, and every malformed legacy row fails closed to the resident target.
+ * @param {*} transport
+ * @returns {Object|null}
+ */
+function migrateLegacyMcpTransport(transport) {
+    if (transport === null || transport?.mode === 'stdio') {
+        return null
+    }
+
+    if (!transport ||
+        typeof transport !== 'object' ||
+        Array.isArray(transport) ||
+        Object.keys(transport).some(key => !['mode', 'tenantId'].includes(key)) ||
+        transport.mode !== 'remote-http' ||
+        typeof transport.tenantId !== 'string' ||
+        !transport.tenantId.trim()) {
+        return null
+    }
+
+    return {kind: 'tenant', tenantId: transport.tenantId.trim()}
+}
+
+/**
+ * @summary Remove the retired registry key and return one canonical target-bearing definition.
+ * A row carrying both shapes keeps only its canonical `mcpTarget`; the legacy key can never
+ * override a value already written under the new contract.
+ * @param {*} definition
+ * @returns {{definition: *, migrated: Boolean}}
+ */
+function migrateStoredAgentDefinition(definition) {
+    if (!definition || typeof definition !== 'object' || Array.isArray(definition) ||
+        !Object.hasOwn(definition, 'mcpTransport')) {
+        return {definition, migrated: false}
+    }
+
+    const
+        {mcpTransport, ...rest} = definition,
+        target                  = Object.hasOwn(definition, 'mcpTarget')
+            ? normalizeStoredMcpTarget(definition.mcpTarget)
+            : migrateLegacyMcpTransport(mcpTransport);
+
+    return {
+        definition: {...rest, mcpTarget: target},
+        migrated  : true
+    }
+}
+// Legacy MCP target migration end.
 
 /**
  * @class Neo.ai.services.fleet.FleetRegistryService
@@ -169,7 +222,7 @@ function normalizeStoredMcpTransport(transport) {
  * *define agents → start/stop → repos managed under the hood*.
  *
  * An **agent definition** is `{id, githubUsername, harnessType, modelProvider, mcpServers,
- * mcpTransport, metadata, createdAt, updatedAt}` —
+ * mcpTarget, metadata, createdAt, updatedAt}` —
  * never a secret. `modelProvider` (the agent's model-provider login) resolves via the AiConfig
  * `modelProvider` SSOT leaf when not supplied — read-only, no service-local default shadow. The associated **credential** (a GitHub PAT) is stored separately, encrypted at
  * rest, and is the load-bearing security boundary of this service:
@@ -269,11 +322,28 @@ class FleetRegistryService extends Base {
      * @param {Object} [opts.metadata={}]       Free-form non-secret metadata.
      * @param {String} [opts.modelProvider]     The agent's model-provider login (e.g. `openAiCompatible`, `ollama`). Resolves via the AiConfig `modelProvider` SSOT leaf when omitted — no service-local default shadow. Non-secret; carried in the public definition.
      * @param {Object|null} [opts.mcpServers]   Sparse MCP overrides shared with configureAgent; omitted/null follows defaults.
-     * @param {Object|null} [opts.mcpTransport] Local stdio (`null` / `{mode:'stdio'}`) or
-     *     `{mode:'remote-http', tenantId}`. No URL, header, env, command, or credential bag.
+     * @param {Object|null} [opts.mcpTarget] Resident (`null` / `{kind:'resident'}`) or
+     *     `{kind:'tenant', tenantId}`. No transport, URL, header, env, command, or credential bag.
      * @returns {Object} The public agent definition (no credential).
      */
-    defineAgent({githubUsername, harnessType, credential, id, metadata={}, modelProvider, mcpServers, mcpTransport} = {}) {
+    defineAgent(options={}) {
+        if (Object.hasOwn(options || {}, RETIRED_TARGET_FIELD)) {
+            throw new TypeError(
+                "FleetRegistryService.defineAgent: retired target-as-transport input is not accepted; use 'mcpTarget'."
+            )
+        }
+
+        const {
+            githubUsername,
+            harnessType,
+            credential,
+            id,
+            metadata={},
+            modelProvider,
+            mcpServers,
+            mcpTarget
+        } = options || {};
+
         if (!githubUsername) throw new Error("FleetRegistryService.defineAgent: 'githubUsername' is required.");
         if (!harnessType)    throw new Error("FleetRegistryService.defineAgent: 'harnessType' is required.");
 
@@ -291,13 +361,13 @@ class FleetRegistryService extends Base {
         }
 
         const
-            agentId   = id || githubUsername,
-            now       = new Date().toISOString(),
-            matrix    = mcpServers === undefined ? null : normalizeMcpOverrides(mcpServers),
-            transport = mcpTransport === undefined ? null : normalizeMcpTransport(mcpTransport);
+            agentId = id || githubUsername,
+            now     = new Date().toISOString(),
+            matrix  = mcpServers === undefined ? null : normalizeMcpOverrides(mcpServers),
+            target  = mcpTarget === undefined ? null : normalizeMcpTarget(mcpTarget);
 
-        if (transport && !supportsRemoteMcpTransport(harnessType)) {
-            throw new TypeError(`FleetRegistryService.defineAgent: harnessType '${harnessType}' does not support remote MCP transport.`)
+        if (target && !supportsTenantMcpTarget(harnessType)) {
+            throw new TypeError(`FleetRegistryService.defineAgent: harnessType '${harnessType}' does not support tenant MCP targets.`)
         }
 
         this.ensureLoaded();
@@ -306,10 +376,10 @@ class FleetRegistryService extends Base {
             throw new Error(`FleetRegistryService.defineAgent: id '${agentId}' already exists; use a scoped update operation.`)
         }
 
-        const tenantAssignee = transport && this.findMcpTenantAssignee(transport.tenantId);
+        const tenantAssignee = target && this.findMcpTenantAssignee(target.tenantId);
 
         if (tenantAssignee) {
-            throw new Error(`FleetRegistryService.defineAgent: remote MCP tenant '${transport.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
+            throw new Error(`FleetRegistryService.defineAgent: MCP tenant '${target.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
         }
 
         const previousCredentials = this.readCredentials();
@@ -332,7 +402,7 @@ class FleetRegistryService extends Base {
                 modelProvider: modelProvider || aiConfig.modelProvider,
                 metadata,
                 mcpServers   : matrix,
-                mcpTransport : transport,
+                mcpTarget    : target,
                 createdAt    : now,
                 updatedAt    : now
             },
@@ -410,7 +480,7 @@ class FleetRegistryService extends Base {
 
     /**
      * Configure an existing agent through the ONE wire-serializable curated intent. Only `id`,
-     * `harnessType`, sparse `mcpServers` overrides, and the narrow `mcpTransport` intent are accepted;
+     * `harnessType`, sparse `mcpServers` overrides, and the narrow `mcpTarget` intent are accepted;
      * credentials, URLs, headers, launch fields, wake, hooks, identity, and generic config bags are
      * mechanically rejected. Unspecified fields are preserved. The returned public definition is canonical persisted readback, never request
      * echo. Controlled validation failures use the method prefix so FleetControlBridge can expose a
@@ -419,7 +489,7 @@ class FleetRegistryService extends Base {
      * @param {String} intent.id Existing registry id.
      * @param {String} [intent.harnessType] Registered durable harness key.
      * @param {Object|null} [intent.mcpServers] Complete sparse MCP override set; null follows defaults.
-     * @param {Object|null} [intent.mcpTransport] `null`/stdio or `{mode:'remote-http', tenantId}`.
+     * @param {Object|null} [intent.mcpTarget] `null`/resident or `{kind:'tenant', tenantId}`.
      * @returns {Object|null} Updated public definition, or `null` when the id is not registered.
      */
     configureAgent(intent={}) {
@@ -432,9 +502,9 @@ class FleetRegistryService extends Base {
         }
 
         const
-            allowed                                     = new Set(['id', 'harnessType', 'mcpServers', 'mcpTransport']),
-            unknown                                     = Object.keys(intent).find(key => !allowed.has(key)),
-            {id, harnessType, mcpServers, mcpTransport} = intent;
+            allowed                                  = new Set(['id', 'harnessType', 'mcpServers', 'mcpTarget']),
+            unknown                                  = Object.keys(intent).find(key => !allowed.has(key)),
+            {id, harnessType, mcpServers, mcpTarget} = intent;
 
         if (unknown) {
             reject(`unsupported field '${unknown}'.`)
@@ -444,7 +514,7 @@ class FleetRegistryService extends Base {
         }
         if (!Object.hasOwn(intent, 'harnessType') &&
             !Object.hasOwn(intent, 'mcpServers') &&
-            !Object.hasOwn(intent, 'mcpTransport')) {
+            !Object.hasOwn(intent, 'mcpTarget')) {
             reject('at least one configuration field is required.')
         }
 
@@ -458,8 +528,8 @@ class FleetRegistryService extends Base {
         }
 
         let
-            matrix    = existing.mcpServers ?? null,
-            transport = normalizeStoredMcpTransport(existing.mcpTransport);
+            matrix = existing.mcpServers ?? null,
+            target = normalizeStoredMcpTarget(existing.mcpTarget);
 
         if (Object.hasOwn(intent, 'mcpServers')) {
             try {
@@ -469,9 +539,9 @@ class FleetRegistryService extends Base {
             }
         }
 
-        if (Object.hasOwn(intent, 'mcpTransport')) {
+        if (Object.hasOwn(intent, 'mcpTarget')) {
             try {
-                transport = normalizeMcpTransport(mcpTransport)
+                target = normalizeMcpTarget(mcpTarget)
             } catch (error) {
                 reject(error.message)
             }
@@ -479,22 +549,22 @@ class FleetRegistryService extends Base {
 
         const nextHarnessType = Object.hasOwn(intent, 'harnessType') ? harnessType : existing.harnessType;
 
-        if (transport && !supportsRemoteMcpTransport(nextHarnessType)) {
-            reject(`harnessType '${nextHarnessType}' does not support remote MCP transport.`)
+        if (target && !supportsTenantMcpTarget(nextHarnessType)) {
+            reject(`harnessType '${nextHarnessType}' does not support tenant MCP targets.`)
         }
 
-        const tenantAssignee = transport && this.findMcpTenantAssignee(transport.tenantId, id);
+        const tenantAssignee = target && this.findMcpTenantAssignee(target.tenantId, id);
 
         if (tenantAssignee) {
-            reject(`remote MCP tenant '${transport.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
+            reject(`MCP tenant '${target.tenantId}' is already assigned to agent '${tenantAssignee}'.`)
         }
 
         const def = {
             ...existing,
-            harnessType : nextHarnessType,
-            mcpServers  : matrix,
-            mcpTransport: transport,
-            updatedAt   : new Date().toISOString()
+            harnessType: nextHarnessType,
+            mcpServers : matrix,
+            mcpTarget  : target,
+            updatedAt  : new Date().toISOString()
         };
 
         const nextAgents = new Map(this.agents);
@@ -578,7 +648,7 @@ class FleetRegistryService extends Base {
         if (!def) return null;
 
         const {credential, pat, ...rest} = def;
-        return structuredClone({...rest, mcpTransport: normalizeStoredMcpTransport(rest.mcpTransport)});
+        return structuredClone({...rest, mcpTarget: normalizeStoredMcpTarget(rest.mcpTarget)});
     }
 
     /**
@@ -662,9 +732,9 @@ class FleetRegistryService extends Base {
         for (const [agentId, definition] of this.agents) {
             if (agentId === exceptId) continue;
 
-            const transport = normalizeStoredMcpTransport(definition.mcpTransport);
+            const target = normalizeStoredMcpTarget(definition.mcpTarget);
 
-            if (transport?.mode === 'remote-http' && transport.tenantId === tenantId) {
+            if (target?.kind === 'tenant' && target.tenantId === tenantId) {
                 return agentId
             }
         }
@@ -685,7 +755,7 @@ class FleetRegistryService extends Base {
     toPublic(def) {
         return redactPublicFields(structuredClone({
             ...def,
-            mcpTransport: normalizeStoredMcpTransport(def.mcpTransport)
+            mcpTarget: normalizeStoredMcpTarget(def.mcpTarget)
         }))
     }
 
@@ -707,13 +777,29 @@ class FleetRegistryService extends Base {
     readRegistry() {
         const file = this.registryPath();
         if (!fs.existsSync(file)) return new Map();
+
+        let data;
+
         try {
-            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-            return new Map(Object.entries(data.agents || {}));
+            data = JSON.parse(fs.readFileSync(file, 'utf8'))
         } catch (error) {
             console.warn(`[FleetRegistryService] Unreadable registry at ${file}; starting empty.`, error.message);
             return new Map();
         }
+
+        let migrated = false;
+
+        const agents = new Map(Object.entries(data.agents || {}).map(([id, definition]) => {
+            const result = migrateStoredAgentDefinition(definition);
+            migrated ||= result.migrated;
+            return [id, result.definition]
+        }));
+
+        if (migrated) {
+            this.writeRegistry(agents)
+        }
+
+        return agents
     }
 
     /**

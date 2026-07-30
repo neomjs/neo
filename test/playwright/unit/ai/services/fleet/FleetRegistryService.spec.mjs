@@ -20,6 +20,49 @@ import FleetRegistryService from '../../../../../../ai/services/fleet/FleetRegis
 import fs                   from 'fs';
 import os                   from 'os';
 import path                 from 'path';
+import {fileURLToPath}      from 'url';
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
+
+function sourceFiles(directory) {
+    return fs.readdirSync(directory, {withFileTypes: true}).flatMap(entry => {
+        const filePath = path.join(directory, entry.name);
+
+        if (entry.isDirectory()) {
+            return sourceFiles(filePath)
+        }
+
+        return /\.(?:md|mjs)$/.test(entry.name) ? [filePath] : []
+    })
+}
+
+function stripVocabularyExceptions(source, filePath) {
+    const markerPairs = [
+        [
+            ['// Legacy MCP target ', 'migration begin'].join(''),
+            ['// Legacy MCP target ', 'migration end.'].join('')
+        ],
+        [
+            ['// Retired MCP target vocabulary ', 'fixture begin'].join(''),
+            ['// Retired MCP target vocabulary ', 'fixture end.'].join('')
+        ]
+    ];
+
+    for (const [beginMarker, endMarker] of markerPairs) {
+        let begin;
+
+        while ((begin = source.indexOf(beginMarker)) >= 0) {
+            const end = source.indexOf(endMarker, begin + beginMarker.length);
+
+            expect(end, `${filePath}: missing ${endMarker}`).toBeGreaterThan(begin);
+            source = source.slice(0, begin) + source.slice(end + endMarker.length)
+        }
+
+        expect(source.includes(endMarker), `${filePath}: orphan ${endMarker}`).toBe(false)
+    }
+
+    return source
+}
 
 // FleetRegistryService is a singleton. Pointing `dataDir` at a fresh temp dir per test makes
 // ensureLoaded reload an empty registry (isolation) and keeps every write off the real
@@ -251,32 +294,32 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         expect(FleetRegistryService.resolveCredential('neo-gpt')).toBe('ghp_config_secret')
     });
 
-    test('persists the narrow remote transport intent and canonicalizes explicit stdio to local null', () => {
+    test('persists narrow tenant target intent and canonicalizes explicit resident intent to null', () => {
         const created = FleetRegistryService.defineAgent({
             githubUsername: 'remote-seat',
             harnessType   : 'codex',
-            mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
+            mcpTarget     : {kind: 'tenant', tenantId: 'tenant-a'}
         });
 
-        expect(created.mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
-        expect(FleetRegistryService.getDefinition('remote-seat').mcpTransport)
-            .toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+        expect(created.mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
+        expect(FleetRegistryService.getDefinition('remote-seat').mcpTarget)
+            .toEqual({kind: 'tenant', tenantId: 'tenant-a'});
 
         const local = FleetRegistryService.configureAgent({
-            id          : 'remote-seat',
-            mcpTransport: {mode: 'stdio'}
+            id       : 'remote-seat',
+            mcpTarget: {kind: 'resident'}
         });
 
-        expect(local.mcpTransport).toBeNull();
+        expect(local.mcpTarget).toBeNull();
         expect(JSON.parse(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8'))
-            .agents['remote-seat'].mcpTransport).toBeNull()
+            .agents['remote-seat'].mcpTarget).toBeNull()
     });
 
     test('one tenant descriptor cannot collapse two canonical seats onto the same remote provider subject', () => {
         FleetRegistryService.defineAgent({
             githubUsername: 'first-seat',
             harnessType   : 'codex',
-            mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
+            mcpTarget     : {kind: 'tenant', tenantId: 'tenant-a'}
         });
 
         const beforeDefine = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
@@ -284,7 +327,7 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         expect(() => FleetRegistryService.defineAgent({
             githubUsername: 'second-seat',
             harnessType   : 'codex',
-            mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
+            mcpTarget     : {kind: 'tenant', tenantId: 'tenant-a'}
         })).toThrow(/tenant 'tenant-a' is already assigned to agent 'first-seat'/);
         expect(FleetRegistryService.getAgent('second-seat')).toBeNull();
         expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(beforeDefine);
@@ -293,69 +336,70 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
 
         // The incumbent may re-assert its own canonical target, but another seat may not claim it.
         expect(FleetRegistryService.configureAgent({
-            id          : 'first-seat',
-            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
-        }).mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+            id       : 'first-seat',
+            mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
+        }).mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
 
         const beforeConfigure = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
 
         expect(() => FleetRegistryService.configureAgent({
-            id          : 'second-seat',
-            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
+            id       : 'second-seat',
+            mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
         })).toThrow(/tenant 'tenant-a' is already assigned to agent 'first-seat'/);
         expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(beforeConfigure);
 
         // Explicit opt-out releases the credential-bearing subject for a later canonical seat.
         expect(FleetRegistryService.configureAgent({
-            id: 'first-seat', mcpTransport: {mode: 'stdio'}
-        }).mcpTransport).toBeNull();
+            id: 'first-seat', mcpTarget: {kind: 'resident'}
+        }).mcpTarget).toBeNull();
         expect(FleetRegistryService.configureAgent({
-            id          : 'second-seat',
-            mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
-        }).mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'})
+            id       : 'second-seat',
+            mcpTarget: {kind: 'tenant', tenantId: 'tenant-a'}
+        }).mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'})
     });
 
-    test('remote transport follows a harness change only when the target family can encode it', () => {
+    test('tenant target follows a harness change only when the target family can encode it', () => {
         FleetRegistryService.defineAgent({
             githubUsername: 'portable',
             harnessType   : 'codex',
-            mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
+            mcpTarget     : {kind: 'tenant', tenantId: 'tenant-a'}
         });
 
         expect(FleetRegistryService.configureAgent({
             id         : 'portable',
             harnessType: 'claude-desktop'
-        }).mcpTransport).toEqual({mode: 'remote-http', tenantId: 'tenant-a'});
+        }).mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
 
         const before = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
 
         expect(() => FleetRegistryService.configureAgent({
             id         : 'portable',
             harnessType: 'antigravity'
-        })).toThrow(/does not support remote MCP transport/);
+        })).toThrow(/does not support tenant MCP targets/);
         expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(before);
         expect(FleetRegistryService.getAgent('portable').harnessType).toBe('claude-desktop')
     });
 
-    test('transport grammar rejects every secret-bearing or authority-bearing shape without a write', () => {
-        FleetRegistryService.defineAgent({githubUsername: 'transport-guard', harnessType: 'codex'});
+    test('target grammar rejects every transport, secret, or authority-bearing shape without a write', () => {
+        FleetRegistryService.defineAgent({githubUsername: 'target-guard', harnessType: 'codex'});
         const before = fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8');
 
         const rejected = [
-            {mode: 'remote-http', tenantId: 'tenant-a', url: 'https://tenant.example/mc/mcp'},
-            {mode: 'remote-http', tenantId: 'tenant-a', headers: {Authorization: 'Bearer secret'}},
-            {mode: 'remote-http', tenantId: 'tenant-a', env: {TOKEN: 'secret'}},
-            {mode: 'remote-http', tenantId: 'tenant-a', command: 'proxy'},
-            {mode: 'remote-http', tenantId: 'tenant-a', credential: 'secret'},
-            {mode: 'remote-http', tenantId: '   '},
-            {mode: 'unknown', tenantId: 'tenant-a'},
+            {kind: 'tenant', tenantId: 'tenant-a', transport: 'streamable-http'},
+            {kind: 'tenant', tenantId: 'tenant-a', url: 'https://tenant.example/mc/mcp'},
+            {kind: 'tenant', tenantId: 'tenant-a', headers: {Authorization: 'Bearer secret'}},
+            {kind: 'tenant', tenantId: 'tenant-a', env: {TOKEN: 'secret'}},
+            {kind: 'tenant', tenantId: 'tenant-a', command: 'proxy'},
+            {kind: 'tenant', tenantId: 'tenant-a', credential: 'secret'},
+            {kind: 'tenant', tenantId: '   '},
+            {kind: 'unknown', tenantId: 'tenant-a'},
             [],
-            'remote-http'
+            'tenant'
         ];
 
-        rejected.forEach(mcpTransport => {
+        rejected.forEach(mcpTarget => {
             expect(() => FleetRegistryService.configureAgent({
-                id: 'transport-guard', mcpTransport
+                id: 'target-guard', mcpTarget
             })).toThrow(/FleetRegistryService\.configureAgent/);
             expect(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')).toBe(before)
         });
@@ -363,8 +407,8 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         expect(() => FleetRegistryService.defineAgent({
             githubUsername: 'unsupported-remote',
             harnessType   : 'antigravity',
-            mcpTransport  : {mode: 'remote-http', tenantId: 'tenant-a'}
-        })).toThrow(/does not support remote MCP transport/)
+            mcpTarget     : {kind: 'tenant', tenantId: 'tenant-a'}
+        })).toThrow(/does not support tenant MCP targets/)
     });
 
     test('partial patches preserve unspecified config; all-default and null matrices persist as null', () => {
@@ -431,7 +475,23 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         fs.rmSync(otherDir, {recursive: true, force: true})
     });
 
-    test('legacy hydration fails absent or corrupt transport rows closed to local null', () => {
+    test('defineAgent rejects retired target-as-transport input instead of degrading it to resident', () => {
+        const retiredTargetField = ['mcp', 'Transport'].join('');
+
+        expect(() => FleetRegistryService.defineAgent({
+            githubUsername      : 'legacy-wire',
+            harnessType         : 'codex',
+            [retiredTargetField]: {
+                mode    : ['remote', 'http'].join('-'),
+                tenantId: 'tenant-a'
+            }
+        })).toThrow("retired target-as-transport input is not accepted; use 'mcpTarget'");
+
+        expect(FleetRegistryService.getAgent('legacy-wire')).toBeNull()
+    });
+
+    // Retired MCP target vocabulary fixture begin
+    test('legacy transport hydration rewrites exact rows once and fails corrupt rows closed', () => {
         const registryPath = path.join(tmpDir, 'registry.json');
 
         fs.writeFileSync(registryPath, JSON.stringify({
@@ -439,6 +499,11 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
                 absent: {
                     id      : 'absent', githubUsername: 'absent', harnessType: 'codex',
                     metadata: {}, mcpServers: null
+                },
+                legacy: {
+                    id          : 'legacy', githubUsername: 'legacy', harnessType: 'codex',
+                    metadata    : {}, mcpServers: null,
+                    mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
                 },
                 corrupt: {
                     id          : 'corrupt', githubUsername: 'corrupt', harnessType: 'codex',
@@ -457,11 +522,80 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
 
         FleetRegistryService.dataDir = tmpDir;
 
-        expect(FleetRegistryService.getAgent('absent').mcpTransport).toBeNull();
-        expect(FleetRegistryService.getAgent('corrupt').mcpTransport).toBeNull();
-        expect(FleetRegistryService.getDefinition('corrupt').mcpTransport).toBeNull();
+        expect(FleetRegistryService.getAgent('absent').mcpTarget).toBeNull();
+        expect(FleetRegistryService.getAgent('legacy').mcpTarget)
+            .toEqual({kind: 'tenant', tenantId: 'tenant-a'});
+        expect(FleetRegistryService.getAgent('corrupt').mcpTarget).toBeNull();
+        expect(FleetRegistryService.getDefinition('corrupt').mcpTarget).toBeNull();
+
+        const rewritten = JSON.parse(fs.readFileSync(registryPath, 'utf8')).agents;
+
+        expect(rewritten.legacy).not.toHaveProperty('mcpTransport');
+        expect(rewritten.legacy.mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
+        expect(rewritten.corrupt).not.toHaveProperty('mcpTransport');
+        expect(rewritten.corrupt.mcpTarget).toBeNull();
 
         fs.rmSync(reloadDir, {recursive: true, force: true})
+    });
+    // Retired MCP target vocabulary fixture end.
+
+    test('retired target vocabulary and adapter spellings stay inside their named boundaries', () => {
+        const
+            roots              = ['ai', 'apps', 'learn', 'src', 'test'].map(name => path.join(PROJECT_ROOT, name)),
+            retiredTargetField = ['mcp', 'Transport'].join(''),
+            retiredTargetMode  = ['remote', 'http'].join('-'),
+            codexAdapterToken  = ['streamable', 'http'].join('_'),
+            claudeAdapterToken = 'http',
+            retiredPattern     = new RegExp(`\\b${retiredTargetField}\\b|${retiredTargetMode}`),
+            codexPattern       = new RegExp(`\\b${codexAdapterToken}\\b`),
+            claudePattern      = new RegExp(
+                `(?:['"]?(?:type|transport)['"]?|transport\\.type)\\s*(?:!==|===|!=|==|=|:)\\s*(['"])${claudeAdapterToken}\\1`
+            ),
+            fleetSurface      = filePath => {
+                const relative = path.relative(PROJECT_ROOT, filePath);
+
+                return [
+                    'ai/services/fleet/',
+                    'apps/agentos/',
+                    'learn/agentos/',
+                    'src/ai/fleet/',
+                    'test/playwright/unit/ai/services/fleet/',
+                    'test/playwright/unit/apps/agentos/'
+                ].some(prefix => relative.startsWith(prefix)) ||
+                    [
+                        'test/playwright/unit/ai/FleetLifecycleService.spec.mjs',
+                        'test/playwright/unit/ai/startAgentProvisioned.spec.mjs'
+                    ].includes(relative)
+            },
+            adapterOwners = new Map([
+                ['ai/services/fleet/FleetLifecycleService.mjs', new Set([codexAdapterToken])],
+                ['ai/services/fleet/prepareManagedAgentWorkspace.mjs', new Set([claudeAdapterToken])],
+                ['learn/agentos/cloud-deployment/ClientAuthentication.md',
+                    new Set([codexAdapterToken, claudeAdapterToken])],
+                ['test/playwright/unit/ai/FleetLifecycleService.spec.mjs', new Set([codexAdapterToken])],
+                ['test/playwright/unit/ai/services/fleet/prepareManagedAgentWorkspace.spec.mjs',
+                    new Set([claudeAdapterToken])]
+            ]);
+
+        for (const filePath of roots.flatMap(sourceFiles)) {
+            const
+                relative = path.relative(PROJECT_ROOT, filePath),
+                source   = stripVocabularyExceptions(fs.readFileSync(filePath, 'utf8'), filePath);
+
+            expect(source, relative).not.toMatch(retiredPattern);
+
+            if (fleetSurface(filePath)) {
+                const allowed = adapterOwners.get(relative) || new Set();
+
+                if (codexPattern.test(source)) {
+                    expect(allowed.has(codexAdapterToken), `${relative}: ${codexAdapterToken}`).toBe(true)
+                }
+
+                if (claudePattern.test(source)) {
+                    expect(allowed.has(claudeAdapterToken), `${relative}: ${claudeAdapterToken}`).toBe(true)
+                }
+            }
+        }
     });
 
     test('a failed atomic publish leaves both cache and registry.json on the prior accepted state', () => {

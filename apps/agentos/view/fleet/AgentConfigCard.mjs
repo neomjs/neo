@@ -4,7 +4,7 @@ import {
     listMcpServers,
     normalizeMcpOverrides,
     resolveMcpMatrix,
-    supportsRemoteMcpTransport
+    supportsTenantMcpTarget
 } from '../../config/mcpServers.mjs';
 
 /**
@@ -157,10 +157,10 @@ class AgentConfigCard extends Component {
             me.fire('configIntent', {id: record.id, mcpServers: normalizeMcpOverrides(matrix)})
         } else if (kind === 'harness' && key !== record.harnessType) {
             me.fire('configIntent', {id: record.id, harnessType: key})
-        } else if (kind === 'transport') {
+        } else if (kind === 'target') {
             if (key === 'local') {
-                record.mcpTransport?.mode === 'remote-http' &&
-                    me.fire('configIntent', {id: record.id, mcpTransport: null});
+                record.mcpTarget?.kind === 'tenant' &&
+                    me.fire('configIntent', {id: record.id, mcpTarget: null});
                 return
             }
 
@@ -174,14 +174,14 @@ class AgentConfigCard extends Component {
 
             const tenant = me.tenantStore?.get(tenantId);
 
-            if (supportsRemoteMcpTransport(record.harnessType) &&
+            if (supportsTenantMcpTarget(record.harnessType) &&
                 tenant?.status === 'connected' &&
                 typeof tenant.endpoint === 'string' &&
                 tenant.endpoint &&
-                record.mcpTransport?.tenantId !== tenantId) {
+                record.mcpTarget?.tenantId !== tenantId) {
                 me.fire('configIntent', {
-                    id          : record.id,
-                    mcpTransport: {mode: 'remote-http', tenantId}
+                    id       : record.id,
+                    mcpTarget: {kind: 'tenant', tenantId}
                 })
             }
         }
@@ -296,14 +296,14 @@ class AgentConfigCard extends Component {
     createTargetChoices(record) {
         const
             me               = this,
-            selectedTenantId = record.mcpTransport?.mode === 'remote-http'
-                ? record.mcpTransport.tenantId
+            selectedTenantId = record.mcpTarget?.kind === 'tenant'
+                ? record.mcpTarget.tenantId
                 : null,
-            remoteSupported  = supportsRemoteMcpTransport(record.harnessType),
+            tenantSupported  = supportsTenantMcpTarget(record.harnessType),
             records          = me.tenantStore?.items || [],
             choices          = [{
-                id  : `${me.id}__transport__local`,
-                cls : ['fm-chip', 'fm-transport-choice', selectedTenantId ? 'is-selectable' : 'is-selected'],
+                id  : `${me.id}__target__local`,
+                cls : ['fm-chip', 'fm-target-choice', selectedTenantId ? 'is-selectable' : 'is-selected'],
                 text: 'Local services'
             }];
 
@@ -311,25 +311,25 @@ class AgentConfigCard extends Component {
             const
                 selected  = tenant.id === selectedTenantId,
                 connected = tenant.status === 'connected' && typeof tenant.endpoint === 'string' && !!tenant.endpoint,
-                available = remoteSupported && connected,
+                available = tenantSupported && connected,
                 state     = selected
                     ? ['is-selected', ...(available ? [] : ['is-unavailable'])]
                     : [available ? 'is-selectable' : 'is-unavailable'],
                 suffix    = connected
-                    ? (remoteSupported ? '' : ' · Unavailable for this harness')
+                    ? (tenantSupported ? '' : ' · Unavailable for this harness')
                     : ' · Unavailable';
 
             choices.push({
-                id  : `${me.id}__transport__${encodeURIComponent(tenant.id)}`,
-                cls : ['fm-chip', 'fm-transport-choice', ...state],
+                id  : `${me.id}__target__${encodeURIComponent(tenant.id)}`,
+                cls : ['fm-chip', 'fm-target-choice', ...state],
                 text: `${tenant.endpoint}${suffix}`
             })
         }
 
         if (selectedTenantId && !records.some(tenant => tenant.id === selectedTenantId)) {
             choices.push({
-                id  : `${me.id}__transport__${encodeURIComponent(selectedTenantId)}`,
-                cls : ['fm-chip', 'fm-transport-choice', 'is-selected', 'is-unavailable'],
+                id  : `${me.id}__target__${encodeURIComponent(selectedTenantId)}`,
+                cls : ['fm-chip', 'fm-target-choice', 'is-selected', 'is-unavailable'],
                 text: `${selectedTenantId} · Saved target unavailable`
             })
         }

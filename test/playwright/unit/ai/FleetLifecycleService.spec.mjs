@@ -78,8 +78,8 @@ function agentDef(id, extra = {}) {
     return {id, githubUsername: id, harnessType: 'codex', metadata: {launch: LAUNCH}, ...extra};
 }
 
-/** Exact non-secret renderer input returned by prepareManagedAgentWorkspace for a remote Codex seat. */
-function remoteMcpPlan(resources, matrix) {
+/** Exact non-secret renderer input returned by prepareManagedAgentWorkspace for a tenant Codex seat. */
+function tenantMcpPlan(resources, matrix) {
     return Object.entries(matrix).map(([key, enabled]) => {
         const remote = ['memory-core', 'knowledge-base'].includes(key);
 
@@ -87,7 +87,8 @@ function remoteMcpPlan(resources, matrix) {
             key,
             name              : `neo-mjs-${key}`,
             enabled,
-            mode              : remote ? 'remote-http' : 'stdio',
+            target            : remote ? 'tenant' : 'resident',
+            transport         : remote ? 'streamable-http' : 'stdio',
             url               : remote ? resources[key].url : null,
             credentialEnvVar  : remote ? 'NEO_MCP_REMOTE_TOKEN' : null,
             command           : process.execPath,
@@ -1315,8 +1316,8 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
             repoPath    : '/managed/seat-codex/neo',
             instanceHome: '/instances/seat-codex',
             mcpMatrix   : matrix,
-            mcpTransport: {mode: 'remote-http', resources},
-            mcpPlan     : remoteMcpPlan(resources, matrix)
+            mcpTarget   : {kind: 'tenant', resources},
+            mcpPlan     : tenantMcpPlan(resources, matrix)
         })).resolves.toEqual({
             harnessType: 'codex',
             inspected  : true,
@@ -1418,8 +1419,8 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
                 repoPath    : '/managed/seat-codex/neo',
                 instanceHome: '/instances/seat-codex',
                 mcpMatrix   : matrix,
-                mcpTransport: {mode: 'remote-http', resources},
-                mcpPlan     : remoteMcpPlan(resources, matrix)
+                mcpTarget   : {kind: 'tenant', resources},
+                mcpPlan     : tenantMcpPlan(resources, matrix)
             })).rejects.toThrow(/inspectPreparedRemoteMcpAdapter/)
         }
 
@@ -1433,8 +1434,8 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — remote MCP capabi
             repoPath    : '/managed/seat-codex/neo',
             instanceHome: '/instances/seat-codex',
             mcpMatrix   : matrix,
-            mcpTransport: {mode: 'remote-http', resources},
-            mcpPlan     : remoteMcpPlan(resources, matrix)
+            mcpTarget   : {kind: 'tenant', resources},
+            mcpPlan     : tenantMcpPlan(resources, matrix)
         })).rejects.toThrow(/could not consume the generated MCP projection/)
     });
 

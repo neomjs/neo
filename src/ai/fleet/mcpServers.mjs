@@ -28,7 +28,7 @@ export const MCP_SERVERS = Object.freeze([
  * artifact cannot encode it would turn a product selection into a late boot failure.
  * @type {ReadonlyArray<String>}
  */
-export const REMOTE_HTTP_HARNESS_TYPES = Object.freeze([
+export const TENANT_MCP_HARNESS_TYPES = Object.freeze([
     'codex',
     'codex-desktop',
     'claude-code',
@@ -127,64 +127,65 @@ export function normalizeMcpOverrides(overrides, catalog=MCP_SERVERS) {
 }
 
 /**
- * @summary Validate and canonicalize the deliberately tiny MCP transport intent. Local stdio is
- * represented as `null`; remote HTTP carries only a public tenant id. URLs, headers, environment
- * bags, commands, and credentials have no grammar here, so they cannot cross the Body→Brain wire.
- * @param {Object|null} transport
- * @returns {{mode: 'remote-http', tenantId: String}|null}
+ * @summary Validate and canonicalize the deliberately tiny MCP target intent. The resident target
+ * is represented as `null`; a connected tenant carries only its public id. URLs, transports,
+ * headers, environment bags, commands, and credentials have no grammar here, so they cannot cross
+ * the Body→Brain wire.
+ * @param {Object|null} target
+ * @returns {{kind: 'tenant', tenantId: String}|null}
  */
-export function normalizeMcpTransport(transport) {
-    if (transport === null) {
+export function normalizeMcpTarget(target) {
+    if (target === null) {
         return null
     }
 
-    if (!transport || typeof transport !== 'object' || Array.isArray(transport)) {
-        throw new TypeError('MCP transport must be an object or null.')
+    if (!target || typeof target !== 'object' || Array.isArray(target)) {
+        throw new TypeError('MCP target must be an object or null.')
     }
 
     const
-        {mode}  = transport,
-        allowed = mode === 'remote-http'
-            ? new Set(['mode', 'tenantId'])
-            : new Set(['mode']),
-        unknown = Object.keys(transport).find(key => !allowed.has(key));
+        {kind}  = target,
+        allowed = kind === 'tenant'
+            ? new Set(['kind', 'tenantId'])
+            : new Set(['kind']),
+        unknown = Object.keys(target).find(key => !allowed.has(key));
 
     if (unknown) {
-        throw new TypeError(`Unsupported MCP transport field '${unknown}'.`)
+        throw new TypeError(`Unsupported MCP target field '${unknown}'.`)
     }
 
-    if (mode === 'stdio') {
+    if (kind === 'resident') {
         return null
     }
 
-    if (mode !== 'remote-http') {
-        throw new TypeError(`Unsupported MCP transport mode '${mode}'.`)
+    if (kind !== 'tenant') {
+        throw new TypeError(`Unsupported MCP target kind '${kind}'.`)
     }
 
-    if (typeof transport.tenantId !== 'string' || !transport.tenantId.trim()) {
-        throw new TypeError("Remote MCP transport requires a non-empty 'tenantId'.")
+    if (typeof target.tenantId !== 'string' || !target.tenantId.trim()) {
+        throw new TypeError("Tenant MCP target requires a non-empty 'tenantId'.")
     }
 
-    return {mode: 'remote-http', tenantId: transport.tenantId.trim()}
+    return {kind: 'tenant', tenantId: target.tenantId.trim()}
 }
 
 /**
- * @summary Whether a registered harness family can encode the remote HTTP MCP grammar.
+ * @summary Whether a registered harness family can consume a connected tenant MCP target.
  * @param {String} harnessType
  * @returns {Boolean}
  */
-export function supportsRemoteMcpTransport(harnessType) {
-    return REMOTE_HTTP_HARNESS_TYPES.includes(harnessType)
+export function supportsTenantMcpTarget(harnessType) {
+    return TENANT_MCP_HARNESS_TYPES.includes(harnessType)
 }
 
 export default {
     MCP_SERVERS,
-    REMOTE_HTTP_HARNESS_TYPES,
+    TENANT_MCP_HARNESS_TYPES,
     REMOTE_MCP_CREDENTIAL_ENV_VAR,
     defaultMcpMatrix,
     listMcpServers,
     normalizeMcpOverrides,
-    normalizeMcpTransport,
+    normalizeMcpTarget,
     resolveMcpMatrix,
-    supportsRemoteMcpTransport
+    supportsTenantMcpTarget
 };
