@@ -814,12 +814,13 @@ class ConfigBase extends ConfigProvider {
                  * per-repo overrides fall back through this Tier-1 default. Env override:
                  * `NEO_TENANT_REPO_MIRROR_ROOT`.
                  * Deliberately NOT derived from the local plane anchor: this default names the
-                 * CLOUD profile's plane root (the lane is cloud-only), and re-anchoring it
-                 * locally would silently break containerized defaults. The per-profile
-                 * plane-placement election owns unifying profile-pinned members.
+                 * canonical base/cloud profile's plane root (the lane is cloud-only), and
+                 * re-anchoring the default locally would silently break containerized deployments.
+                 * Relocated profiles bind this leaf explicitly; the dev parity profile does so in
+                 * its shared `x-plane-env` map.
                  * @type {String}
                  */
-                tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string', {planeMember: false, planeMemberReason: 'cloud-profile-pinned — the per-profile placement election owns profile-pinned members (#15798 OQ10b)'}),
+                tenantRepoMirrorRoot: leaf('/app/.neo-ai-data', 'NEO_TENANT_REPO_MIRROR_ROOT', 'string', {planeMember: false, planeMemberReason: 'profile-pinned — canonical in base/cloud; relocated profiles bind explicitly (#15800)'}),
                 /**
                  * Provider-readiness probe parameters consumed by the orchestrator dream task
                  * and the standalone Sandman CLI runner. The probe issues an HTTP GET against
@@ -1659,8 +1660,8 @@ class ConfigBase extends ConfigProvider {
  * @summary The plane-member paths this Tier-1 base claims — the enumerable input for the
  * F-invariant's member-coherence clause (`assertPlaneMemberCoherence`): each entry must
  * resolve beneath the resolved `plane.dataRoot` or be explicitly placed per profile.
- * Deliberately excludes `orchestrator.tenantRepoMirrorRoot` (cloud-profile-pinned; the
- * per-profile placement election owns profile-pinned members).
+ * Deliberately excludes `orchestrator.tenantRepoMirrorRoot` (profile-pinned: canonical in
+ * base/cloud, explicitly bound by relocated profiles).
  */
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'auth.seatTokenRegistryPath',
