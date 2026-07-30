@@ -433,6 +433,9 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(source).toContain('neo-gpt.codex-config.pre-cutover.toml');
         expect(source).toContain('neo-gpt-emmy.codex-config.pre-cutover.toml');
         expect(source).toContain('`klarso-mc`, `klarso-kb`, `neo-mjs-github-workflow`, and');
+        expect(source.match(/export NEO_MCP_REMOTE_TOKEN="\$\(node/g)).toHaveLength(2);
+        expect(source).toContain('--user-data-dir="${HOME}/.codex-app-instances/neo-gpt-emmy"');
+        expect(source).toContain('The repo `.env` files are token sources, not Codex application environments.');
         expect(source).toContain('http://host.docker.internal:3199/wake');
         expect(source).toContain('wake/receiver\\.mjs');
         expect(source).not.toContain('The only persistent host edge is the standalone wake daemon');

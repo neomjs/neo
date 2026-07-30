@@ -305,12 +305,40 @@ that resident; a repository PAT, wake HMAC, or first resident's plane bearer is
 not a substitute. If per-seat cardinality is not yet represented, keep that
 resident stopped until the dedicated Fleet contract lands.
 
-Fully quit and relaunch each isolated Codex application instance after its file
-is changed; editing TOML does not retarget MCP tools already loaded by a running
-resident. The Claude Desktop config is a separately owned cutover surface and
-is not edited by this procedure. After the live receipt is accepted, update the
-tracked `.codex/config.template.toml` to the remote steady state in the cleanup
-series; do not point fresh residents at the replacement before the flip.
+The repo `.env` files are token sources, not Codex application environments.
+After fully quitting both instances and changing their TOML, launch each binary
+directly from the repository root so the fixed remote-MCP slot is inherited by
+the correct process. The token value remains outside TOML and argv:
+
+```sh
+export NEO_CODEX_BIN="/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+test -x "${NEO_CODEX_BIN}"
+
+export NEO_MCP_REMOTE_TOKEN="$(node --input-type=module -e \
+  'import fs from "node:fs"; import {parse} from "dotenv"; const token=parse(fs.readFileSync(process.argv[1])).GH_TOKEN?.trim(); if(!token) process.exit(1); process.stdout.write(token)' \
+  /Users/Shared/codex/neomjs/neo/.env)"
+test -n "${NEO_MCP_REMOTE_TOKEN}"
+"${NEO_CODEX_BIN}" \
+  --open-project=/Users/Shared/codex/neomjs/neo &
+unset NEO_MCP_REMOTE_TOKEN
+
+export NEO_MCP_REMOTE_TOKEN="$(node --input-type=module -e \
+  'import fs from "node:fs"; import {parse} from "dotenv"; const token=parse(fs.readFileSync(process.argv[1])).GH_TOKEN?.trim(); if(!token) process.exit(1); process.stdout.write(token)' \
+  /Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.env)"
+test -n "${NEO_MCP_REMOTE_TOKEN}"
+"${NEO_CODEX_BIN}" \
+  --user-data-dir="${HOME}/.codex-app-instances/neo-gpt-emmy" \
+  --open-project=/Users/Shared/agents/neo-gpt-emmy/neomjs/neo &
+unset NEO_MCP_REMOTE_TOKEN
+unset NEO_CODEX_BIN
+```
+
+Do not assume a Finder or `open` launch inherits either repo's `.env`. Editing
+TOML also does not retarget MCP tools already loaded by a running resident. The
+Claude Desktop config is a separately owned cutover surface and is not edited
+by this procedure. After the live receipt is accepted, update the tracked
+`.codex/config.template.toml` to the remote steady state in the cleanup series;
+do not point fresh residents at the replacement before the flip.
 
 ## Forward-only boundary
 
