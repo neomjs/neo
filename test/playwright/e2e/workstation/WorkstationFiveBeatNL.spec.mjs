@@ -871,11 +871,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * real window set.
      * @param {Object} data
      * @param {Object} data.app Neural Link app wrapper.
+     * @param {Boolean} [data.captureContinuity=false] Capture only the second cross-window dock leg.
      * @param {Object} data.page Playwright page.
      * @param {String} data.wsId Workspace component id.
      * @returns {Promise<Object>}
      */
-    async function stageMergedVessel({app, page, wsId}) {
+    async function stageMergedVessel({app, captureContinuity=false, page, wsId}) {
         const
             targetPopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             ownerResult        = await app.callMethod(wsId, 'executeTearOutStep', [
@@ -885,7 +886,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             targetPopup        = await targetPopupPromise,
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
             showCursor          = filmPace.showCursor ?? false,
-            cursorProofPromise  = captureFilmCursorLifecycle({
+            dockAction          = () => captureFilmCursorLifecycle({
                 action: () => app.callMethod(wsId, 'executeCrossWindowDockStep', [
                     {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
                     {
@@ -901,6 +902,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 sourcePage         : page,
                 targetPage         : targetPopup
             }),
+            cursorProofPromise  = captureContinuity
+                ? captureWorkspaceContinuity(page, dockAction)
+                : dockAction(),
             targetProxy = targetPopup.locator('.workstation-vessel-dragproxy');
 
         await expect(targetProxy, 'exactly one Workstation proxy must render in the target popup')
@@ -911,8 +915,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(computedOpacity, 'the live target proxy must leave the dock preview legible').toBe(.7);
 
-        const [{evidence: cursorEvidence, result: dockResult}, sourcePopup] =
+        const [dockCapture, sourcePopup] =
             await Promise.all([cursorProofPromise, sourcePopupPromise]);
+        const
+            cursorProof                                    = captureContinuity ? dockCapture.result : dockCapture,
+            {evidence: cursorEvidence, result: dockResult} = cursorProof;
 
         dockResult.proof?.remoteSnapshot?.targetProxy &&
             (dockResult.proof.remoteSnapshot.targetProxy.computedOpacity = computedOpacity);
@@ -922,7 +929,15 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             timeout: 15000
         }).toBe(true);
 
-        return {cursorEvidence, dockResult, ownerResult, showCursor, sourcePopup, targetPopup}
+        return {
+            continuity: captureContinuity ? dockCapture : null,
+            cursorEvidence,
+            dockResult,
+            ownerResult,
+            showCursor,
+            sourcePopup,
+            targetPopup
+        }
     }
 
     /**
@@ -1114,6 +1129,53 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
     }
 
+    /**
+     * @summary Enforces the dense-workspace presented-frame entropy contract for one action.
+     * @param {Object} config Assertion inputs.
+     * @param {Object} config.continuity Receipt returned by captureWorkspaceContinuity().
+     * @param {String} config.label Stable attachment and log label.
+     * @param {Object} config.testInfo Playwright test metadata.
+     * @param {Boolean} [config.expectedCleared=false] Known-defect red-control direction.
+     * @param {Object} [config.receipt] Additional action-specific log fields.
+     * @returns {Promise<void>}
+     */
+    async function assertWorkspaceContinuity({
+        continuity,
+        expectedCleared=false,
+        label,
+        receipt={},
+        testInfo
+    }) {
+        console.log('[rendered-continuity]', JSON.stringify({
+            baselineEntropy: continuity.baselineEntropy,
+            frameCount     : continuity.frameCount,
+            label,
+            minEntropy     : continuity.minEntropy,
+            minFrameIndex  : continuity.minFrameIndex,
+            ...receipt
+        }));
+
+        expect(continuity.frameCount,
+            `${label} must expose consecutive compositor frames`).toBeGreaterThan(2);
+
+        const entropyFloor = continuity.baselineEntropy * 0.65;
+
+        if (continuity.minEntropy < entropyFloor) {
+            await testInfo.attach(`${label}-minimum-entropy-frame`, {
+                body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
+                contentType: 'image/jpeg'
+            })
+        }
+
+        if (expectedCleared) {
+            expect(continuity.minEntropy,
+                `${label} red control must expose the confirmed cleared-body frame`).toBeLessThan(entropyFloor)
+        } else {
+            expect(continuity.minEntropy,
+                `${label} must not present a cleared dense workspace body`).toBeGreaterThanOrEqual(entropyFloor)
+        }
+    }
+
     test('scene 1 — the room is alive: resize and theme preserve continuity', async ({page, neuralLink}, testInfo) => {
         const logs       = [],
               pageErrors = [];
@@ -1171,28 +1233,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 spec       = continuity ? continuity.result : await runSpec();
 
             if (continuity) {
-                console.log('[rendered-continuity]', JSON.stringify({
-                    baselineEntropy: continuity.baselineEntropy,
-                    frameCount     : continuity.frameCount,
-                    minEntropy     : continuity.minEntropy,
-                    minFrameIndex  : continuity.minFrameIndex,
-                    run            : run + 1
-                }));
-
-                expect(continuity.frameCount,
-                    'the resize/reset boundary must expose consecutive compositor frames').toBeGreaterThan(2);
-
-                const entropyFloor = continuity.baselineEntropy * 0.65;
-
-                if (continuity.minEntropy < entropyFloor) {
-                    await testInfo.attach(`scene-1-run-${run + 1}-minimum-entropy-frame`, {
-                        body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
-                        contentType: 'image/jpeg'
-                    })
-                }
-
-                expect(continuity.minEntropy,
-                    'no presented frame may clear the dense workspace body').toBeGreaterThanOrEqual(entropyFloor)
+                await assertWorkspaceContinuity({
+                    continuity,
+                    label  : `scene-1-run-${run + 1}-resize`,
+                    receipt: {run: run + 1},
+                    testInfo
+                })
             }
 
             expect(spec.completed, 'the spec-mode replay must complete cleanly').toBe(true);
@@ -1710,6 +1756,27 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])
     });
+
+    // Flip this red-control direction when the compositor-visible handoff is repaired.
+    test('candidate 2 red control — cross-window dock presents a cleared body',
+        async ({page, neuralLink}, testInfo) => {
+            const {app, pageErrors, wsId} = await boot({page, neuralLink});
+            const
+                {continuity, dockResult, ownerResult} =
+                    await stageMergedVessel({app, captureContinuity: true, page, wsId});
+
+            await assertWorkspaceContinuity({
+                continuity,
+                expectedCleared: true,
+                label          : 'candidate-2-cross-window-dock',
+                testInfo
+            });
+            expect(ownerResult.applied, 'the setup tear-out must commit before the measured leg').toBe(true);
+            expect(dockResult.errors).toEqual([]);
+            expect(dockResult.applied, 'the red control must still complete its remote dock commit').toBe(true);
+            expect(pageErrors).toEqual([])
+        }
+    );
 
     test('scene 2 (native titlebar) — a physical macOS popup drag previews, embodies, and returns home', async ({page, neuralLink}) => {
         test.skip(process.platform !== 'darwin', 'the physical titlebar witness is macOS-only');
