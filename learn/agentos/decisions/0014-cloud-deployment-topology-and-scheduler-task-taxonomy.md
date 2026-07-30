@@ -190,6 +190,48 @@ Epic #12679's temporal-pyramid substrate (ADR 0028) adds a durable L1/L2 aggrega
 
 **Updated summary:** local-only = `{bridgeDaemon, mlx, kbSync, primary-dev-sync, swarm-heartbeat, temporal-summary}` (cloud-deployable + shared-primitive sets unchanged).
 
+### 2026-07-30 — exhaustive host-edge / container-plane authority projection (#16166)
+
+The original taxonomy correctly separated cloud-deployable, local-only, and shared primitives, but
+the runtime grew beyond its last amendment: additional continuous children, digestion lanes,
+health/watchdog lanes, and local process effects were not represented in one mechanically exhaustive
+surface. #16166 projects the decision vocabulary into a fail-closed runtime authority map and names
+the target two-role topology:
+
+| Runtime authority class | Continuous children | Scheduled tasks | Target owner |
+|---|---|---|---|
+| `host-edge` (the operational form of `local-only`) | `bridgeDaemon`, `devServer`, `neuralLinkBridge`, `mlx`, `ollama`, `lms` | `kbSync`, `githubWorkflowSync`, `primary-dev-sync`, `temporal-summary`, `swarm-heartbeat` | host-edge orchestrator |
+| `container-plane` (cloud-capable Agent OS work) | `embedDaemon`, `messageDaemon` | `summary`, `memory-summary-backfill`, `backup`, `graphlog-compaction`, `tenant-repo-sync`, `dream`, `message-concept-harvest`, `golden-path`, `embed-drain-liveness-watchdog`, `rem-consolidation-liveness-watchdog`, `data-integrity-sweep` | container plane |
+| `shared-primitive` | `chroma` | — | container plane in the split topology; Compose owns its lifecycle |
+
+The three recurring poll-side effects which are neither child processes nor cadence-picked tasks are
+also explicit container-plane lanes: `boot-identity-fact`, `deployment-state-bridge`, and
+`freeze-reprobe`. This prevents internal post-pipeline work from becoming an unclassified route
+around the two registries. A host-edge scheduler also projects persisted task state to its owned set,
+so stale plane-task `running` flags from the former mixed supervisor cannot backpressure local work.
+
+`chromaDefrag` is an explicit auxiliary-child registry entry rather than a continuous or scheduled
+lane; it follows `chroma`'s shared-primitive authority and can run only where Chroma supervision
+itself is enabled.
+
+The local compatibility profile (`legacy-mixed`) temporarily owns all three classes; it is not part
+of the target split and has an explicit retirement trigger in ADR 0019 §10.8.
+
+Two constraints are now mechanical:
+
+1. the continuous-child, scheduling, recurring-internal, and auxiliary-child registries project
+   `authorityClass` from the same task map, so a newly registered lane without an ADR
+   classification fails construction/test; and
+2. the canonical `{host-edge, container-plane}` matrix must yield exactly one owner for every
+   registered lane before work begins.
+
+Per-lane toggles still decide whether owned work is enabled; they cannot move work across the
+authority boundary. In particular, a container-plane profile cannot opt into desktop wake,
+maintainer-worktree mutation, dev-server/Neural-Link process ownership, or local model launchers.
+The shared Chroma row remains a capability taxonomy statement: in the target topology its effective
+owner is the container plane while the Compose service, not the orchestrator child supervisor,
+executes that lifecycle.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

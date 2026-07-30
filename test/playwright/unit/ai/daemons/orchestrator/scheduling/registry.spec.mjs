@@ -1,10 +1,24 @@
 import {test, expect}                         from '@playwright/test';
 import {TASK_REGISTRY}                        from '../../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES} from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
+import {
+    auditAuthorityTopology,
+    AUTHORITY_CLASSES_BY_PROFILE,
+    AUXILIARY_TASK_REGISTRY,
+    buildAuthorityLaneInventory,
+    buildAuthorityReceipt,
+    CONTINUOUS_TASK_REGISTRY,
+    getTaskAuthorityClass,
+    INTERNAL_TASK_REGISTRY,
+    ORCHESTRATOR_AUTHORITY_CLASS,
+    ORCHESTRATOR_AUTHORITY_PROFILE,
+    TARGET_ORCHESTRATOR_AUTHORITY_PROFILES
+} from '../../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
 
 const VALID_EXECUTION_KINDS     = ['supervised-child-process', 'service-runner', 'in-process-async', 'local-only-service', 'health-check'];
 const VALID_MAINTENANCE_CLASSES = ['continuous', 'heavy', 'graph-dependent', 'lightweight-signal', 'local-only', 'health-monitor'];
 const VALID_BACKPRESSURE        = ['none', 'exclusive-heavy', 'after-heavy'];
+const VALID_AUTHORITY_CLASSES   = Object.values(ORCHESTRATOR_AUTHORITY_CLASS);
 
 test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
     test('TASK_REGISTRY is a frozen array (immutability invariant)', () => {
@@ -19,9 +33,146 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
             expect(VALID_EXECUTION_KINDS).toContain(descriptor.executionKind);
             expect(VALID_MAINTENANCE_CLASSES).toContain(descriptor.maintenanceClass);
             expect(VALID_BACKPRESSURE).toContain(descriptor.backpressure);
+            expect(VALID_AUTHORITY_CLASSES).toContain(descriptor.authorityClass);
             expect(Array.isArray(descriptor.dependencies)).toBe(true);
             expect(typeof descriptor.getDueTask).toBe('function');
         }
+    });
+
+    test('continuous + scheduled + internal + auxiliary registries are exhaustively classified by one authority map (#16166)', () => {
+        const lanes = buildAuthorityLaneInventory({
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY
+        });
+
+        expect(lanes).toHaveLength(
+            CONTINUOUS_TASK_REGISTRY.length +
+            TASK_REGISTRY.length +
+            INTERNAL_TASK_REGISTRY.length +
+            AUXILIARY_TASK_REGISTRY.length
+        );
+        expect(new Set(lanes.map(({task}) => task)).size).toBe(lanes.length);
+
+        for (const lane of lanes) {
+            expect(lane.authorityClass).toBe(getTaskAuthorityClass(lane.task));
+        }
+    });
+
+    test('host-edge + container-plane have exactly one owner for every registered lane (#16166)', () => {
+        const lanes = buildAuthorityLaneInventory({
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY
+        });
+        const ownership = auditAuthorityTopology({
+            lanes,
+            profiles: TARGET_ORCHESTRATOR_AUTHORITY_PROFILES
+        });
+
+        expect(ownership).toHaveLength(lanes.length);
+        expect(ownership.every(({effectiveOwner}) =>
+            TARGET_ORCHESTRATOR_AUTHORITY_PROFILES.includes(effectiveOwner)
+        )).toBe(true);
+    });
+
+    test('authority receipts enforce the host-edge / container-plane negative boundary (#16166)', () => {
+        const hostReceipt = buildAuthorityReceipt({
+            profile           : ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge,
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY
+        });
+        const containerReceipt = buildAuthorityReceipt({
+            profile           : ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane,
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY
+        });
+        const hostTasks      = new Map(hostReceipt.tasks.map(task => [task.task, task]));
+        const containerTasks = new Map(containerReceipt.tasks.map(task => [task.task, task]));
+
+        expect(hostTasks.get('bridgeDaemon')).toMatchObject({
+            role          : 'host-edge',
+            authorityClass: 'host-edge',
+            effectiveOwner: 'host-edge',
+            active        : true
+        });
+        expect(hostTasks.get('primary-dev-sync').active).toBe(true);
+        expect(hostTasks.get('summary').active).toBe(false);
+        expect(hostTasks.get('embedDaemon').active).toBe(false);
+        expect(hostTasks.get('data-integrity-sweep').active).toBe(false);
+        expect(hostTasks.get('deployment-state-bridge').active).toBe(false);
+        expect(hostTasks.get('freeze-reprobe').active).toBe(false);
+        expect(hostTasks.get('chromaDefrag').active).toBe(false);
+
+        expect(containerTasks.get('summary').active).toBe(true);
+        expect(containerTasks.get('embedDaemon').active).toBe(true);
+        expect(containerTasks.get('data-integrity-sweep').active).toBe(true);
+        expect(containerTasks.get('deployment-state-bridge').active).toBe(true);
+        expect(containerTasks.get('freeze-reprobe').active).toBe(true);
+        expect(containerTasks.get('chromaDefrag')).toMatchObject({
+            kind          : 'auxiliary',
+            authorityClass: 'shared-primitive',
+            effectiveOwner: 'container-plane',
+            active        : true
+        });
+        expect(containerTasks.get('bridgeDaemon').active).toBe(false);
+        expect(containerTasks.get('primary-dev-sync').active).toBe(false);
+        expect(containerTasks.get('devServer').active).toBe(false);
+        expect(containerTasks.get('chroma')).toMatchObject({
+            authorityClass: 'shared-primitive',
+            effectiveOwner: 'container-plane',
+            active        : true
+        });
+    });
+
+    test('legacy-mixed is explicit compatibility ownership, not a deployment-mode fallback (#16166)', () => {
+        const receipt = buildAuthorityReceipt({
+            profile           : ORCHESTRATOR_AUTHORITY_PROFILE.legacyMixed,
+            continuousRegistry: CONTINUOUS_TASK_REGISTRY,
+            scheduledRegistry : TASK_REGISTRY
+        });
+
+        expect(receipt.topologyProfiles).toEqual(['legacy-mixed']);
+        expect(receipt.tasks.every(({effectiveOwner, active}) =>
+            effectiveOwner === 'legacy-mixed' && active
+        )).toBe(true);
+    });
+
+    test('unknown tasks, ownership gaps, and double owners fail closed (#16166)', () => {
+        expect(() => getTaskAuthorityClass('new-unclassified-lane'))
+            .toThrow(/Unclassified task "new-unclassified-lane"/);
+
+        const lane = [{
+            task          : 'bridgeDaemon',
+            kind          : 'continuous',
+            authorityClass: ORCHESTRATOR_AUTHORITY_CLASS.hostEdge
+        }];
+        const gapMatrix = {
+            ...AUTHORITY_CLASSES_BY_PROFILE,
+            [ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge]      : [],
+            [ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane]: [
+                ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+                ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
+            ]
+        };
+        const duplicateMatrix = {
+            ...AUTHORITY_CLASSES_BY_PROFILE,
+            [ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge]      : [ORCHESTRATOR_AUTHORITY_CLASS.hostEdge],
+            [ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane]: [
+                ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+                ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
+                ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
+            ]
+        };
+
+        expect(() => auditAuthorityTopology({
+            lanes                    : lane,
+            profiles                 : TARGET_ORCHESTRATOR_AUTHORITY_PROFILES,
+            authorityClassesByProfile: gapMatrix
+        })).toThrow(/ownership gap/);
+        expect(() => auditAuthorityTopology({
+            lanes                    : lane,
+            profiles                 : TARGET_ORCHESTRATOR_AUTHORITY_PROFILES,
+            authorityClassesByProfile: duplicateMatrix
+        })).toThrow(/double ownership/);
     });
 
     test('taskName is unique across descriptors (no collision)', () => {

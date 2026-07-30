@@ -1,6 +1,7 @@
 import path            from 'path';
 import net             from 'net';
 import {fileURLToPath} from 'url';
+import {attachTaskAuthority} from './taskAuthority.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -528,5 +529,5 @@ export function buildTaskDefinitions({
         }
     };
 
-    return tasks;
+    return attachTaskAuthority(tasks);
 }

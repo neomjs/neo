@@ -11,6 +11,7 @@ import {
     getMaxOllamaContextLength,
     resolveOllamaHostPort
 } from '../taskDefinitions.mjs';
+import {attachTaskAuthority} from '../taskAuthority.mjs';
 
 /**
  * @summary Builds the orchestrator's config-backed child-process task table.
@@ -48,7 +49,7 @@ export function buildConfiguredTaskDefinitions({
     applyConfiguredLmsTask(tasks);
     applyConfiguredOllamaTask(tasks);
 
-    return tasks;
+    return attachTaskAuthority(tasks);
 }
 
 /**

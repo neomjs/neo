@@ -369,6 +369,7 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
         expect(Config.orchestrator.deploymentMode).toBe('local');
+        expect(Config.orchestrator.authorityProfile).toBe('legacy-mixed');
         expect(Config.orchestrator.intervals).toMatchObject({
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,

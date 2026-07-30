@@ -10,6 +10,7 @@ import {getDueTask as getTenantRepoSyncDueTask}                   from './tenant
 import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}       from './embedDrainLivenessWatchdog.mjs';
 import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
 import {getDueTask as getDataIntegritySweepDueTask}               from './dataIntegritySweep.mjs';
+import {getTaskAuthorityClass}                                    from '../taskAuthority.mjs';
 
 function toTimestampMs(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -54,7 +55,7 @@ function getLatestTimestampMs(...values) {
  * @see collectDueCandidates
  * @see pickNextCandidate
  */
-export const TASK_REGISTRY = Object.freeze([
+const taskRegistry = [
     {
         taskName        : 'summary',
         executionKind   : 'supervised-child-process',
@@ -334,4 +335,9 @@ export const TASK_REGISTRY = Object.freeze([
             });
         }
     }
-]);
+];
+
+export const TASK_REGISTRY = Object.freeze(taskRegistry.map(descriptor => ({
+    ...descriptor,
+    authorityClass: getTaskAuthorityClass(descriptor.taskName)
+})));

@@ -330,6 +330,7 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         expect(orchestratorEnv).toMatchObject({
             NEO_AI_DEPLOYMENT_MODE                              : 'cloud',
+            NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE               : 'container-plane',
             NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED           : 'false',
             NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : 'false',
             NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED              : 'false',

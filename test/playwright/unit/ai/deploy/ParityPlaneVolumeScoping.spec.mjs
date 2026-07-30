@@ -352,7 +352,8 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             orchestrator     = compose.services?.orchestrator;
 
         expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
-        expect(orchestrator.environment['<<']).toBe(planeEnvironment)
+        expect(orchestrator.environment['<<']).toBe(planeEnvironment);
+        expect(orchestrator.environment.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
     });
 
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
