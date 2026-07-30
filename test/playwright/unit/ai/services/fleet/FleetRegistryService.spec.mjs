@@ -36,34 +36,6 @@ function sourceFiles(directory) {
     })
 }
 
-function stripVocabularyExceptions(source, filePath) {
-    const markerPairs = [
-        [
-            ['// Legacy MCP target ', 'migration begin'].join(''),
-            ['// Legacy MCP target ', 'migration end.'].join('')
-        ],
-        [
-            ['// Retired MCP target vocabulary ', 'fixture begin'].join(''),
-            ['// Retired MCP target vocabulary ', 'fixture end.'].join('')
-        ]
-    ];
-
-    for (const [beginMarker, endMarker] of markerPairs) {
-        let begin;
-
-        while ((begin = source.indexOf(beginMarker)) >= 0) {
-            const end = source.indexOf(endMarker, begin + beginMarker.length);
-
-            expect(end, `${filePath}: missing ${endMarker}`).toBeGreaterThan(begin);
-            source = source.slice(0, begin) + source.slice(end + endMarker.length)
-        }
-
-        expect(source.includes(endMarker), `${filePath}: orphan ${endMarker}`).toBe(false)
-    }
-
-    return source
-}
-
 // FleetRegistryService is a singleton. Pointing `dataDir` at a fresh temp dir per test makes
 // ensureLoaded reload an empty registry (isolation) and keeps every write off the real
 // ~/.neo-ai-data. No credential is passed, so the crypto/storeCredential path is never exercised.
@@ -490,55 +462,6 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         expect(FleetRegistryService.getAgent('legacy-wire')).toBeNull()
     });
 
-    // Retired MCP target vocabulary fixture begin
-    test('legacy transport hydration rewrites exact rows once and fails corrupt rows closed', () => {
-        const registryPath = path.join(tmpDir, 'registry.json');
-
-        fs.writeFileSync(registryPath, JSON.stringify({
-            agents: {
-                absent: {
-                    id      : 'absent', githubUsername: 'absent', harnessType: 'codex',
-                    metadata: {}, mcpServers: null
-                },
-                legacy: {
-                    id          : 'legacy', githubUsername: 'legacy', harnessType: 'codex',
-                    metadata    : {}, mcpServers: null,
-                    mcpTransport: {mode: 'remote-http', tenantId: 'tenant-a'}
-                },
-                corrupt: {
-                    id          : 'corrupt', githubUsername: 'corrupt', harnessType: 'codex',
-                    metadata    : {}, mcpServers: null,
-                    mcpTransport: {
-                        mode   : 'remote-http', tenantId: 'tenant-a',
-                        headers: {Authorization: 'Bearer legacy-secret'}
-                    }
-                }
-            }
-        }));
-
-        const reloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-fleet-reg-reload-'));
-        FleetRegistryService.dataDir = reloadDir;
-        expect(FleetRegistryService.listAgents()).toEqual([]);
-
-        FleetRegistryService.dataDir = tmpDir;
-
-        expect(FleetRegistryService.getAgent('absent').mcpTarget).toBeNull();
-        expect(FleetRegistryService.getAgent('legacy').mcpTarget)
-            .toEqual({kind: 'tenant', tenantId: 'tenant-a'});
-        expect(FleetRegistryService.getAgent('corrupt').mcpTarget).toBeNull();
-        expect(FleetRegistryService.getDefinition('corrupt').mcpTarget).toBeNull();
-
-        const rewritten = JSON.parse(fs.readFileSync(registryPath, 'utf8')).agents;
-
-        expect(rewritten.legacy).not.toHaveProperty('mcpTransport');
-        expect(rewritten.legacy.mcpTarget).toEqual({kind: 'tenant', tenantId: 'tenant-a'});
-        expect(rewritten.corrupt).not.toHaveProperty('mcpTransport');
-        expect(rewritten.corrupt.mcpTarget).toBeNull();
-
-        fs.rmSync(reloadDir, {recursive: true, force: true})
-    });
-    // Retired MCP target vocabulary fixture end.
-
     test('retired target vocabulary and adapter spellings stay inside their named boundaries', () => {
         const
             roots              = ['ai', 'apps', 'learn', 'src', 'test'].map(name => path.join(PROJECT_ROOT, name)),
@@ -580,7 +503,7 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
         for (const filePath of roots.flatMap(sourceFiles)) {
             const
                 relative = path.relative(PROJECT_ROOT, filePath),
-                source   = stripVocabularyExceptions(fs.readFileSync(filePath, 'utf8'), filePath);
+                source   = fs.readFileSync(filePath, 'utf8');
 
             expect(source, relative).not.toMatch(retiredPattern);
 
