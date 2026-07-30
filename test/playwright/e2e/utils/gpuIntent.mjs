@@ -134,3 +134,18 @@ export function activeLaunchArgs() {
 export function claimsGpuAcceleration(args = PRESENTING_LAUNCH_ARGS) {
     return args.some(arg => GPU_INTENT_ARGS.includes(arg))
 }
+
+/**
+ * @summary Whether the active E2E browser contract requires a separate live-GL effect probe.
+ *
+ * A presenting run claims no GPU acceleration, so launching a second branded-Chrome owner merely
+ * to report "nothing demanded" adds a same-bundle application-registration boundary without
+ * protecting a claim. Engine runs retain the probe because their GPU-intent flags make live GL a
+ * measured prerequisite rather than an optional diagnostic.
+ *
+ * @param {String[]} [args=activeLaunchArgs()]
+ * @returns {Boolean}
+ */
+export function requiresGlProbe(args = activeLaunchArgs()) {
+    return claimsGpuAcceleration(args)
+}
