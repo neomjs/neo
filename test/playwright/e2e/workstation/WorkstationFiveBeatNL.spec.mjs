@@ -946,9 +946,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 width : globalThis.innerWidth
             })),
             box      = await page.locator('.workstation-dock-host').boundingBox(),
-            session  = await page.context().newCDPSession(page),
-            frames   = [],
-            acks     = [];
+            session = await page.context().newCDPSession(page),
+            frames  = [],
+            acks    = [];
         let resolveFirstFrame;
 
         expect(box, 'the dock host must expose a measurable compositor region').toBeTruthy();
@@ -1114,6 +1114,53 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         }
     }
 
+    /**
+     * @summary Enforces the dense-workspace presented-frame entropy contract for one action.
+     * @param {Object} config Assertion inputs.
+     * @param {Object} config.continuity Receipt returned by captureWorkspaceContinuity().
+     * @param {String} config.label Stable attachment and log label.
+     * @param {Object} config.testInfo Playwright test metadata.
+     * @param {Boolean} [config.expectedCleared=false] Known-defect red-control direction.
+     * @param {Object} [config.receipt] Additional action-specific log fields.
+     * @returns {Promise<void>}
+     */
+    async function assertWorkspaceContinuity({
+        continuity,
+        expectedCleared=false,
+        label,
+        receipt={},
+        testInfo
+    }) {
+        console.log('[rendered-continuity]', JSON.stringify({
+            baselineEntropy: continuity.baselineEntropy,
+            frameCount     : continuity.frameCount,
+            label,
+            minEntropy     : continuity.minEntropy,
+            minFrameIndex  : continuity.minFrameIndex,
+            ...receipt
+        }));
+
+        expect(continuity.frameCount,
+            `${label} must expose consecutive compositor frames`).toBeGreaterThan(2);
+
+        const entropyFloor = continuity.baselineEntropy * 0.65;
+
+        if (continuity.minEntropy < entropyFloor) {
+            await testInfo.attach(`${label}-minimum-entropy-frame`, {
+                body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
+                contentType: 'image/jpeg'
+            })
+        }
+
+        if (expectedCleared) {
+            expect(continuity.minEntropy,
+                `${label} red control must expose the confirmed cleared-body frame`).toBeLessThan(entropyFloor)
+        } else {
+            expect(continuity.minEntropy,
+                `${label} must not present a cleared dense workspace body`).toBeGreaterThanOrEqual(entropyFloor)
+        }
+    }
+
     test('scene 1 — the room is alive: resize and theme preserve continuity', async ({page, neuralLink}, testInfo) => {
         const logs       = [],
               pageErrors = [];
@@ -1171,28 +1218,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 spec       = continuity ? continuity.result : await runSpec();
 
             if (continuity) {
-                console.log('[rendered-continuity]', JSON.stringify({
-                    baselineEntropy: continuity.baselineEntropy,
-                    frameCount     : continuity.frameCount,
-                    minEntropy     : continuity.minEntropy,
-                    minFrameIndex  : continuity.minFrameIndex,
-                    run            : run + 1
-                }));
-
-                expect(continuity.frameCount,
-                    'the resize/reset boundary must expose consecutive compositor frames').toBeGreaterThan(2);
-
-                const entropyFloor = continuity.baselineEntropy * 0.65;
-
-                if (continuity.minEntropy < entropyFloor) {
-                    await testInfo.attach(`scene-1-run-${run + 1}-minimum-entropy-frame`, {
-                        body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
-                        contentType: 'image/jpeg'
-                    })
-                }
-
-                expect(continuity.minEntropy,
-                    'no presented frame may clear the dense workspace body').toBeGreaterThanOrEqual(entropyFloor)
+                await assertWorkspaceContinuity({
+                    continuity,
+                    label  : `scene-1-run-${run + 1}-resize`,
+                    receipt: {run: run + 1},
+                    testInfo
+                })
             }
 
             expect(spec.completed, 'the spec-mode replay must complete cleanly').toBe(true);
@@ -1710,6 +1741,41 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])
     });
+
+    // Flip this red-control direction when the compositor-visible handoff is repaired.
+    test('first tear-out red control — source projection presents a cleared body',
+        async ({page, neuralLink}, testInfo) => {
+            const userAgent = await page.evaluate(() => navigator.userAgent);
+
+            test.skip(
+                userAgent.includes('HeadlessChrome'),
+                'run with --headed because CDP screencast compositor frames are required'
+            );
+
+            const {app, pageErrors, wsId} = await boot({page, neuralLink});
+            const
+                popupPromise = page.waitForEvent('popup', {timeout: 90000}),
+                continuity   = await captureWorkspaceContinuity(page, () =>
+                    app.callMethod(wsId, 'executeTearOutStep', [
+                        {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
+                        filmPace
+                    ])
+                ),
+                ownerResult = continuity.result;
+
+            await popupPromise;
+
+            await assertWorkspaceContinuity({
+                continuity,
+                expectedCleared: true,
+                label          : 'first-tear-out-source-projection',
+                testInfo
+            });
+            expect(ownerResult.errors).toEqual([]);
+            expect(ownerResult.applied, 'the red control must still complete its first tear-out commit').toBe(true);
+            expect(pageErrors).toEqual([])
+        }
+    );
 
     test('scene 2 (native titlebar) — a physical macOS popup drag previews, embodies, and returns home', async ({page, neuralLink}) => {
         test.skip(process.platform !== 'darwin', 'the physical titlebar witness is macOS-only');

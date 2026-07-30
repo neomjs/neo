@@ -4847,7 +4847,11 @@ class Workspace extends Container {
                 options : opt(outX, outY, outSX, outSY, 0)
             }]});
 
-            let committed      = await me.waitForTearOutCommit(itemId),
+            let committed = await me.waitForTearOutCommit(itemId);
+
+            committed && await me.refreshPromise;
+
+            let
                 documentAfter  = DockZoneModel.clone(me.dockModel),
                 absentFromTree = !Object.values(documentAfter.nodes).some(zoneNode => zoneNode.items?.includes(itemId)),
                 keptInCatalog  = Boolean(documentAfter.items?.[itemId]);
