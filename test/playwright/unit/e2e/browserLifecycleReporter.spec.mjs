@@ -30,6 +30,12 @@ const launchExit = ({
  * to test diagnostics.
  */
 test.describe('e2e/custom-reporter browser lifecycle', () => {
+    test('#16161 binds the internal launch-exit grammar to Playwright Core 1.61.1', async () => {
+        const manifest = await fs.readJson(path.resolve('node_modules/playwright-core/package.json'));
+
+        expect(manifest.version).toBe('1.61.1')
+    });
+
     test('#16161 classifies SIGABRT without inventing transport state', () => {
         expect(classifyBrowserLaunchExit(launchExit(), {
             channel: 'chrome',
