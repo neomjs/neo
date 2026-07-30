@@ -12,6 +12,11 @@ import {assessDevReferenceAuthority, detectStaleBranch} from './branchFreshness.
  * thousands of LOC where actual feature was 10-100 LOC, producing review-surface
  * signal-to-noise asymmetry + squash-merge git-history pollution.
  *
+ * **Runtime scope:** this is Neo's repository-local maintainer hook, installed by this
+ * checkout through `.husky/pre-push`. Its fixed `dev` coordinate is Neo's integration-line
+ * policy. It is not an Agent OS orchestrator task and is not invoked by cloud tenant-repo
+ * mirrors, which select their own configured ref (defaulting to the remote `HEAD`).
+ *
  * **What this hook checks** (on every `git push`):
  *
  * **Chore-sync commits on feature branches.** If `git log origin/dev..HEAD` contains
