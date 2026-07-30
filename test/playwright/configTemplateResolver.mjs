@@ -130,6 +130,8 @@ function activateStorageScope() {
         process.env.NEO_KB_LOG_PATH                          = path.join(storageRoot, 'knowledge-base-logs');
         process.env.NEO_NL_LOG_PATH                          = path.join(storageRoot, 'neural-link-logs');
         process.env.NEO_TELEMETRY_DB_PATH_TEST               = path.join(storageRoot, 'telemetry.sqlite');
+        process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH =
+            path.join(storageRoot, 'deployment-state', 'snapshot.json');
         process.env.NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH =
             path.join(storageRoot, 'orchestrator-daemon', 'heal-attempts.json');
         process.env.NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR      =
@@ -143,7 +145,7 @@ function activateStorageScope() {
 
 /**
  * @summary Activates template-only test resolution in this process and all descendant Node
- * processes while routing template-derived writable log defaults to disposable test storage.
+ * processes while routing template-derived writable paths to disposable test storage.
  * @returns {{preloadOption: String, storageRoot: String}}
  */
 export function activateConfigTemplateResolver() {

@@ -16,6 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import {parse}        from 'acorn';
 import fs             from 'fs';
+import os             from 'os';
 import path           from 'path';
 import {fileURLToPath,
         pathToFileURL}   from 'url';
@@ -484,7 +485,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
-    test('knowledge-base and memory-core read deployment-state snapshots through public tools (#13926)', async () => {
+    test('knowledge-base and memory-core read worker-local deployment snapshots (#13926, #16171)', async () => {
         const snapshot = createDeploymentStateSnapshot({
             generatedAt : Date.now(),
             recoveryRuns: {
@@ -508,10 +509,16 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             ]
         });
 
+        const snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
+
         const
-            snapshotPathConfig = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-            snapshotExists     = fs.existsSync(snapshotPathConfig),
-            originalSnapshot   = snapshotExists ? fs.readFileSync(snapshotPathConfig) : null;
+            snapshotRelativePath = path.relative(os.tmpdir(), snapshotPathConfig),
+            snapshotPathParts    = snapshotRelativePath.split(path.sep);
+
+        expect(snapshotRelativePath.startsWith('..') || path.isAbsolute(snapshotRelativePath)).toBe(false);
+        expect(snapshotPathParts.some(part => /^neo-playwright-.+/.test(part))).toBe(true);
+        expect(snapshotPathParts.at(-3)).toMatch(/^worker-\d+$/);
+        expect(snapshotPathParts.slice(-2)).toEqual(['deployment-state', 'snapshot.json']);
 
         try {
             await writeDeploymentStateSnapshot({filePath: snapshotPathConfig, snapshot});
@@ -563,11 +570,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 });
             }
         } finally {
-            if (snapshotExists) {
-                fs.writeFileSync(snapshotPathConfig, originalSnapshot);
-            } else {
-                fs.rmSync(snapshotPathConfig, {force: true});
-            }
+            fs.rmSync(snapshotPathConfig, {force: true});
         }
     });
 
