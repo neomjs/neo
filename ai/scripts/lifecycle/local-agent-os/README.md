@@ -257,21 +257,60 @@ test "$(git rev-parse HEAD)" = "${NEO_REVISION}"
 The Compose services use `restart: unless-stopped`; the actual reboot proof, not
 that policy alone, is the acceptance evidence.
 
-Switch each known resident MCP definition to:
+Back up the two isolated Codex seat configs before editing them:
 
-- Memory Core: `http://127.0.0.1:3102/mc/mcp`
-- Knowledge Base: `http://127.0.0.1:3102/kb/mcp`
-- bearer credential env: `NEO_MCP_REMOTE_TOKEN`
+```sh
+install -m 600 \
+  /Users/Shared/codex/neomjs/neo/.codex/config.toml \
+  "${NEO_CUTOVER_STAGE}/neo-gpt.codex-config.pre-cutover.toml"
+install -m 600 \
+  /Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.codex/config.toml \
+  "${NEO_CUTOVER_STAGE}/neo-gpt-emmy.codex-config.pre-cutover.toml"
+```
 
-Each resident keeps its own GitHub PAT in `NEO_MCP_REMOTE_TOKEN`; do not share
-one bootstrap identity and do not alias the plane credential to the repository
-workflow's `GH_TOKEN` slot. Fleet currently persists one encrypted remote-MCP
-bearer per tenant, while the seat probe requires that bearer to resolve to the
-selected resident identity. Before releasing a second resident, prove its
-tenant/seat credential maps to that resident; a repository PAT, wake HMAC, or
-first resident's plane bearer is not a substitute. If per-seat cardinality is
-not yet represented, keep that resident stopped until the dedicated Fleet
-contract lands.
+In each source file above, replace only the root
+`mcp_servers."neo-mjs-memory-core"` and
+`mcp_servers."neo-mjs-knowledge-base"` definitions with:
+
+```toml
+[mcp_servers."neo-mjs-memory-core"]
+url = "http://127.0.0.1:3102/mc/mcp"
+bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-knowledge-base"]
+url = "http://127.0.0.1:3102/kb/mcp"
+bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+```
+
+Remove the old `command`, `args`, `env_vars`, and direct `.env` subsections for
+those two servers. Keep their existing `.tools.*` approval subsections. Leave
+`klarso-mc`, `klarso-kb`, `neo-mjs-github-workflow`, and
+`neo-mjs-neural-link` unchanged: this cut only retargets Neo Memory Core and
+Knowledge Base.
+
+Each isolated Codex application instance must receive its resident's GitHub PAT
+as `NEO_MCP_REMOTE_TOKEN` in its own application environment before restart;
+never put the bearer literal in TOML. Do not share one bootstrap identity and do
+not alias the plane credential to the repository workflow's `GH_TOKEN` slot.
+Fleet currently persists one encrypted remote-MCP bearer per tenant, while the
+seat probe requires that bearer to resolve to the selected resident identity.
+Before releasing a second resident, prove its tenant/seat credential maps to
+that resident; a repository PAT, wake HMAC, or first resident's plane bearer is
+not a substitute. If per-seat cardinality is not yet represented, keep that
+resident stopped until the dedicated Fleet contract lands.
+
+Fully quit and relaunch each isolated Codex application instance after its file
+is changed; editing TOML does not retarget MCP tools already loaded by a running
+resident. The Claude Desktop config is a separately owned cutover surface and
+is not edited by this procedure. After the live receipt is accepted, update the
+tracked `.codex/config.template.toml` to the remote steady state in the cleanup
+series; do not point fresh residents at the replacement before the flip.
 
 ## Forward-only boundary
 
@@ -306,11 +345,19 @@ docker compose --env-file .env \
 
 mv .neo-ai-data "${NEO_CUTOVER_STAGE}/failed-container-root"
 mv "${NEO_CUTOVER_OLD_ROOT}" .neo-ai-data
+
+install -m 600 \
+  "${NEO_CUTOVER_STAGE}/neo-gpt.codex-config.pre-cutover.toml" \
+  /Users/Shared/codex/neomjs/neo/.codex/config.toml
+install -m 600 \
+  "${NEO_CUTOVER_STAGE}/neo-gpt-emmy.codex-config.pre-cutover.toml" \
+  /Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.codex/config.toml
 ```
 
 The receiver probe must be empty before the data move. Restart the tracked preparation
 revision explicitly with `NEO_AI_DEPLOYMENT_MODE=local` and
-`NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=legacy-mixed`, then restore the old stdio
-resident definitions. After resident release, do not roll back: immediately
-open the cleanup PR(s), including removal of the temporary Playwright
-`legacy-mixed` test-profile pin and every obsolete local runtime surface.
+`NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=legacy-mixed`, then fully quit and
+relaunch each restored Codex application instance. After resident release, do
+not roll back: immediately open the cleanup PR(s), including removal of the
+temporary Playwright `legacy-mixed` test-profile pin and every obsolete local
+runtime surface.
