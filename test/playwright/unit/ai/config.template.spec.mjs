@@ -428,9 +428,16 @@ test.describe('Tier 1 Config Immutability', () => {
             vacuum : graphLogCompactionVacuum
         });
 
+        expect(Config._data.orchestrator.deploymentStateBridge.snapshotPath.default)
+            .toContain('.neo-ai-data/deployment-state/snapshot.json');
         expect(Config.orchestrator.deploymentStateBridge).toMatchObject({
-            enabled                 : true,
-            snapshotPath            : expect.stringContaining('.neo-ai-data/deployment-state/snapshot.json'),
+            enabled     : true,
+            snapshotPath: path.join(
+                process.env.NEO_TEST_STORAGE_ROOT,
+                process.env.NEO_TEST_CONFIG_TEMPLATE_SCOPE,
+                'deployment-state',
+                'snapshot.json'
+            ),
             writeIntervalMs         : 30000,
             staleAfterMs            : 2 * 60 * 1000,
             maxSnapshotBytes        : 256 * 1024,

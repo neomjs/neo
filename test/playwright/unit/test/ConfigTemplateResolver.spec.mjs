@@ -14,7 +14,7 @@ import {
 /**
  * @summary Proves the Playwright config-template resolver keeps the entire test module graph on
  * tracked templates, preserves exact module identity, excludes non-template/outside-root configs,
- * and never writes the developer's ignored overlay.
+ * and routes writable state away from developer and runtime storage.
  */
 test.describe('test/playwright/configTemplateResolver (#11976)', () => {
     const rootDir      = path.resolve(import.meta.dirname, '../../../..'),
@@ -82,8 +82,47 @@ test.describe('test/playwright/configTemplateResolver (#11976)', () => {
         expect(process.env.NEO_KB_LOG_PATH.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_NL_LOG_PATH.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_TELEMETRY_DB_PATH_TEST.startsWith(storageRoot)).toBe(true);
+        expect(process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH).toBe(
+            path.join(storageRoot, 'deployment-state', 'snapshot.json')
+        );
         expect(process.env.NEO_RECOVERY_ACTUATOR_HEAL_ATTEMPTS_PATH.startsWith(storageRoot)).toBe(true);
         expect(process.env.NEO_RECOVERY_ACTUATOR_RUN_STATE_DIR.startsWith(storageRoot)).toBe(true);
+    });
+
+    test('routes deployment snapshots to distinct worker-local paths (#16171)', () => {
+        const
+            boundaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-worker-snapshot-paths-')),
+            probe        = `console.log(process.env.NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH)`;
+
+        storageRoots.push(boundaryRoot);
+
+        const snapshotPaths = [0, 1].map(workerIndex => {
+            const env = {
+                ...process.env,
+                NEO_TEST_CONFIG_TEMPLATES: 'true',
+                NEO_TEST_STORAGE_ROOT    : boundaryRoot,
+                NODE_OPTIONS             : `--import=${pathToFileURL(resolverPath).href}`,
+                TEST_WORKER_INDEX        : String(workerIndex),
+                UNIT_TEST_MODE           : 'true'
+            };
+
+            delete env.NEO_TEST_CONFIG_TEMPLATE_SCOPE;
+
+            const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
+                cwd     : rootDir,
+                encoding: 'utf8',
+                env
+            });
+
+            expect(result.status, result.stderr).toBe(0);
+
+            return result.stdout.trim()
+        });
+
+        expect(snapshotPaths).toEqual([
+            path.join(boundaryRoot, 'worker-0', 'deployment-state', 'snapshot.json'),
+            path.join(boundaryRoot, 'worker-1', 'deployment-state', 'snapshot.json')
+        ])
     });
 
     test('preserves an explicit same-worker child writable-path fixture', () => {
