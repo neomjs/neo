@@ -16,7 +16,7 @@ import {
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
-import {createEmbeddingCanaryGate}    from './helpers/embeddingCanaryGate.mjs';
+import {createBoundedRetryGate}       from '../shared/boundedRetryGate.mjs';
 import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
 import {withTimeout}                  from './helpers/withTimeout.mjs';
 import {
@@ -903,27 +903,23 @@ class HealthService extends Base {
     #cacheDuration = 5 * 60 * 1000;
 
     /**
-     * Cached healthy embedding write-canary result.
+     * The embedding write-canary PRODUCER: `{gate, timer, cadenceMs, timeoutMs, keyFor,
+     * clearIntervalImpl, now, stopped}`. Owned by the explicit `startEmbeddingWriteCanary()` /
+     * `stopEmbeddingWriteCanary()` lifecycle (the MC server boot starts it) — never created
+     * lazily from a read path, so a liveness probe performs no inference and cannot start one.
      *
-     * Direct healthcheck callers get request-fresh collection counts even when the broader
-     * healthy cache is still valid. Supersedes the previous cache-only-healthy rationale
-     * ("so degraded probes still retry immediately"): under provider saturation that retried the
-     * expensive canary once per probe, attempts overlapped (container probe intervals run shorter
-     * than the canary deadline), and the failing regime sustained the load that kept it failing.
-     * The gate caches BOTH outcomes (failures with bounded exponential backoff), single-flights
-     * concurrent attempts, and lets liveness probes read without ever running inference.
-     * @member {Object|null} #embeddingWriteCanaryGate
+     * Supersedes the previous cache-only-healthy inline canary: under provider saturation that
+     * retried the expensive canary once per probe, attempts overlapped (container probe intervals
+     * run shorter than the canary deadline), and the failing regime sustained the load that kept
+     * it failing. The gate caches BOTH outcomes (failures with bounded exponential backoff),
+     * single-flights concurrent attempts, and drains superseded generations on key rotation.
+     *
+     * Deliberately NOT touched by `clearCache()`: payload-cache invalidation must never erase
+     * retry state (streak, backoff, in-flight run) — that reopens the attempt-per-probe regime.
+     * @member {Object|null} #embeddingWriteCanary
      * @private
      */
-    #embeddingWriteCanaryGate = null;
-
-    /**
-     * Self-scheduled canary cadence timer (unref'd). The canary runs on its OWN cadence,
-     * decoupled from probe frequency — a liveness probe performs no inference.
-     * @member {Object|null} #embeddingWriteCanaryTimer
-     * @private
-     */
-    #embeddingWriteCanaryTimer = null;
+    #embeddingWriteCanary = null;
 
     /**
      * The status from the previous health check, used to detect state transitions
@@ -1259,13 +1255,11 @@ class HealthService extends Base {
      * @param {Number|Date} now Request time used for the returned `timestamp`.
      * @param {Object} [options]
      * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
-     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<Object|null>} Fresh request snapshot or `null` when a full healthcheck is required.
      * @private
      */
     async #buildRequestFreshCachedHealth(cachedHealth, now, {
-        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
-        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs
     } = {}) {
         if (!cachedHealth) {
             return null;
@@ -1304,7 +1298,7 @@ class HealthService extends Base {
             }
         };
 
-        return this.#applyEmbeddingWriteCanary(freshPayload, embeddingWriteCanaryTimeoutMs);
+        return this.#applyEmbeddingWriteCanary(freshPayload);
     }
 
     /**
@@ -1523,30 +1517,38 @@ class HealthService extends Base {
      * @returns {Promise<Object>}
      * @private
      */
-    async #applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs) {
-        const canary = await this.#getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs);
+    #applyEmbeddingWriteCanary(payload) {
+        const canary   = this.#getEmbeddingWriteCanary();
+        const producer = this.#embeddingWriteCanary;
 
-        const cadenceMs = aiConfig.healthcheck.embeddingWriteCanaryCadenceMs;
+        const cadenceMs = producer?.cadenceMs ?? aiConfig.healthcheck.embeddingWriteCanaryCadenceMs;
         const staleMs   = 3 * Math.max(cadenceMs, aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs);
-        const age       = canary.gate?.checkedAt ? Date.now() - canary.gate.checkedAt : null;
+        const nowMs     = producer?.now() ?? Date.now();
+        const age       = canary.gate?.checkedAt ? nowMs - canary.gate.checkedAt : null;
+
+        // Reassign (never mutate in place) with previous canary lines stripped: apply is
+        // idempotent across repeated reads of the same payload, and a shallow payload copy can
+        // never leak canary lines into the cached original through a shared details array.
+        payload.details = (payload.details || []).filter(detail => !detail.startsWith('Embedding write canary'));
 
         if (canary.status === 'pending') {
-            // First run has not completed yet (cold start). Not a degradation: the container
-            // start_period owns this window, and degrading here would restart-loop a healthy boot.
-            payload.details = payload.details || [];
-            payload.details.push('Embedding write canary pending first scheduled run.');
+            // First run has not completed yet (cold start), or the producer is not started. Not a
+            // degradation: the container start_period owns the boot window, and degrading here
+            // would restart-loop a healthy boot. The producer-missing case is named so a wiring
+            // gap is visible in the payload instead of silently reading as a cold start.
+            payload.details.push(!producer && cadenceMs > 0
+                ? 'Embedding write canary not started (server boot owns startEmbeddingWriteCanary).'
+                : 'Embedding write canary pending first scheduled run.');
         } else if (canary.status === 'healthy' && cadenceMs > 0 && age !== null && age > staleMs) {
             // A healthy result older than three scheduler windows means the cadence loop is not
             // running — reporting stale-healthy forever would be the green-over-broken class this
             // canary exists to prevent.
-            payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
-            payload.details = (payload.details || []).filter(detail => detail !== 'All features are operational');
+            payload.status  = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
+            payload.details = payload.details.filter(detail => detail !== 'All features are operational');
             payload.details.push(`Embedding write canary result is stale (${age}ms old; scheduler window ${cadenceMs}ms) — canary loop not running.`);
         } else if (canary.status !== 'healthy') {
-            payload.status = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
-            payload.details = (payload.details || [])
-                .filter(detail => detail !== 'All features are operational')
-                .filter(detail => !detail.startsWith('Embedding write canary failed:'));
+            payload.status  = payload.status === 'unhealthy' ? 'unhealthy' : 'degraded';
+            payload.details = payload.details.filter(detail => detail !== 'All features are operational');
             // The gate annotation distinguishes "saturated, backing off" (cached failure inside a
             // widening window) from "failing right now" — only one of those is self-inflictable.
             const backoff = canary.gate?.backoffMs
@@ -1559,57 +1561,131 @@ class HealthService extends Base {
     }
 
     /**
-     * Reports the latest embedding write-canary result WITHOUT running inference on the caller's
-     * clock. Liveness probes are readers: the canary itself runs on its own scheduled cadence
-     * (`aiConfig.healthcheck.embeddingWriteCanaryCadenceMs`; `<= 0` disables scheduling for tests
-     * and opt-out), single-flighted and failure-backed-off by the gate, so a probe storm against
-     * a saturated provider produces FEWER attempts, never one per probe.
+     * Reports the latest embedding write-canary result WITHOUT running inference — a pure read
+     * of the producer's gate. Liveness probes are readers by construction: this method cannot
+     * create the producer, start a loop, or trigger a run.
      *
-     * The gate's cache key includes the active provider and expected vector dimension so config
-     * changes do not reuse a canary from a different embedding route.
-     *
-     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
-     * @returns {Promise<Object>} Latest canary block (`status: 'pending'` before the first run).
+     * @returns {Object} Latest canary block (`status: 'pending'` before the first settled run,
+     *   or while the producer is not started).
      * @private
      */
-    async #getEmbeddingWriteCanary(embeddingWriteCanaryTimeoutMs) {
-        this.#ensureEmbeddingWriteCanaryLoop(embeddingWriteCanaryTimeoutMs);
-
-        return this.#embeddingWriteCanaryGate.readLast();
+    #getEmbeddingWriteCanary() {
+        return this.#embeddingWriteCanary?.gate.readLast()
+            ?? {status: 'pending', gate: null};
     }
 
     /**
-     * Lazily creates the canary gate and starts its cadence loop. The first tick fires
-     * immediately (fire-and-forget) so `pending` lasts seconds, not a full cadence window; the
-     * interval is unref'd so it never holds the process open. During a failure-backoff window
-     * the gate returns its cached failure without running, which makes the fixed-cadence tick
-     * self-throttling — attempts DECREASE while the provider struggles.
+     * @summary Starts the embedding write-canary producer — the ONLY place canary inference is
+     * scheduled.
      *
-     * @param {Number} embeddingWriteCanaryTimeoutMs Embedding canary timeout budget.
-     * @private
+     * Explicit lifecycle owner (the MC server boot calls this; probes never do): creates the
+     * bounded-retry gate, fires the first attempt immediately (so `pending` lasts seconds, not a
+     * full cadence window), and drives further attempts on an unref'd interval. During a
+     * failure-backoff window the gate skips without running, so attempts DECREASE while the
+     * provider struggles; when healthy, the configured cadence IS the exercise cadence.
+     *
+     * The generation key includes provider, vector dimension, and timeout so a config change
+     * rotates the gate's generation instead of reusing state from a different embedding route.
+     *
+     * Idempotent while running: a second call returns the existing producer. A STOPPED producer
+     * is replaced — start-after-stop is a restart with a fresh gate.
+     *
+     * @param {Object}   [options] Seams default to config/runtime values; tests inject through
+     *                             them instead of mutating shared config (isolation by construction).
+     * @param {Number}   [options.cadenceMs=aiConfig.healthcheck.embeddingWriteCanaryCadenceMs] `<= 0` disables (returns null).
+     * @param {Number}   [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Per-attempt budget.
+     * @param {Number}   [options.failureTtlMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs] Base failure backoff.
+     * @param {Number}   [options.failureTtlMaxMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs] Backoff ceiling.
+     * @param {Function} [options.runCanary] Canary implementation; defaults to the real write canary.
+     * @param {Function} [options.keyFor] Generation-key builder.
+     * @param {Function} [options.setIntervalImpl=setInterval] Scheduler seam.
+     * @param {Function} [options.clearIntervalImpl=clearInterval] Scheduler teardown seam.
+     * @param {Function} [options.now] Clock seam (threads into the gate and staleness math).
+     * @returns {Object|null} The producer record, or null when disabled by cadence.
+     * @protected
      */
-    #ensureEmbeddingWriteCanaryLoop(embeddingWriteCanaryTimeoutMs) {
-        if (!this.#embeddingWriteCanaryGate) {
-            this.#embeddingWriteCanaryGate = createEmbeddingCanaryGate({
-                runCanary      : () => buildEmbeddingWriteCanaryBlock({timeoutMs: embeddingWriteCanaryTimeoutMs}),
-                healthyTtlMs   : aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs,
-                failureTtlMs   : aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
-                failureTtlMaxMs: aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs
-            });
+    startEmbeddingWriteCanary({
+        cadenceMs         = aiConfig.healthcheck.embeddingWriteCanaryCadenceMs,
+        timeoutMs         = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs,
+        failureTtlMs      = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
+        failureTtlMaxMs   = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
+        runCanary         = () => buildEmbeddingWriteCanaryBlock({timeoutMs}),
+        keyFor            = () => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${timeoutMs}`,
+        setIntervalImpl   = setInterval,
+        clearIntervalImpl = clearInterval,
+        now               = () => Date.now()
+    } = {}) {
+        if (this.#embeddingWriteCanary && !this.#embeddingWriteCanary.stopped) {
+            return this.#embeddingWriteCanary;
         }
 
-        const cadenceMs = aiConfig.healthcheck.embeddingWriteCanaryCadenceMs;
+        if (!(cadenceMs > 0)) {
+            return null;
+        }
 
-        if (this.#embeddingWriteCanaryTimer || !(cadenceMs > 0)) {
+        const gate = createBoundedRetryGate({run: runCanary, failureTtlMs, failureTtlMaxMs, now});
+        const tick = () => { gate.tick({key: keyFor()}).catch(() => {}) };
+
+        tick();
+
+        const timer = setIntervalImpl(tick, cadenceMs);
+
+        timer?.unref?.();
+
+        this.#embeddingWriteCanary = {gate, timer, cadenceMs, timeoutMs, keyFor, clearIntervalImpl, now, stopped: false};
+
+        return this.#embeddingWriteCanary;
+    }
+
+    /**
+     * @summary Stops the embedding write-canary producer: no further scheduled attempts.
+     *
+     * By default the last settled state stays readable (an honest tail, not amnesia), and the
+     * staleness guard will surface a stopped-but-still-probed deployment instead of stale green.
+     * `discardState` additionally forgets the producer — full teardown for shutdown paths and
+     * test isolation on the singleton.
+     *
+     * @param {Object}  [options]
+     * @param {Boolean} [options.discardState=false] Also drop the gate state (reads return pending).
+     * @protected
+     */
+    stopEmbeddingWriteCanary({discardState = false} = {}) {
+        const producer = this.#embeddingWriteCanary;
+
+        if (!producer) {
             return;
         }
 
-        const key  = () => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${embeddingWriteCanaryTimeoutMs}`;
-        const tick = () => { this.#embeddingWriteCanaryGate.probe({key: key()}).catch(() => {}) };
+        if (producer.timer) {
+            producer.clearIntervalImpl(producer.timer);
+            producer.timer = null;
+        }
 
-        tick();
-        this.#embeddingWriteCanaryTimer = setInterval(tick, cadenceMs);
-        this.#embeddingWriteCanaryTimer.unref?.();
+        producer.stopped = true;
+
+        if (discardState) {
+            this.#embeddingWriteCanary = null;
+        }
+    }
+
+    /**
+     * @summary Diagnostic snapshot of the canary producer (tests + operator tooling).
+     * @returns {Object|null} `{running, stopped, cadenceMs, gate}` or null when never started.
+     * @protected
+     */
+    getEmbeddingWriteCanaryState() {
+        const producer = this.#embeddingWriteCanary;
+
+        if (!producer) {
+            return null;
+        }
+
+        return {
+            running  : Boolean(producer.timer),
+            stopped  : producer.stopped,
+            cadenceMs: producer.cadenceMs,
+            gate     : producer.gate.state()
+        };
     }
 
     /**
@@ -1631,13 +1707,11 @@ class HealthService extends Base {
      *
      * @param {Object} [options]
      * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
-     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A comprehensive health status payload
      * @private
      */
     async #performHealthCheck({
-        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
-        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs
     } = {}) {
         const payload = {
             status          : 'healthy',
@@ -1710,7 +1784,7 @@ class HealthService extends Base {
             return payload;
         }
 
-        await this.#applyEmbeddingWriteCanary(payload, embeddingWriteCanaryTimeoutMs);
+        this.#applyEmbeddingWriteCanary(payload);
 
         // Step 3: Check configured provider prerequisites.
         const providerPrerequisites = this.#checkProviderPrerequisites();
@@ -1768,13 +1842,11 @@ class HealthService extends Base {
      * @param {Object} [options]
      * @param {Boolean} [options.freshObservability=true] Refresh request-facing fields on cached healthy results.
      * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
-     * @param {Number} [options.embeddingWriteCanaryTimeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Embedding canary timeout budget.
      * @returns {Promise<object>} A health status payload with session information
      */
     async healthcheck({
         freshObservability = true,
-        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs,
-        embeddingWriteCanaryTimeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+        chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs
     } = {}) {
         try {
             const now = Date.now();
@@ -1792,12 +1864,19 @@ class HealthService extends Base {
                     logger.fileDebug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
 
                     if (!freshObservability) {
-                        return this.#cachedHealth;
+                        // Canary truth is ALWAYS live, even on the fast path: a payload cached
+                        // while the canary was pending/healthy must not keep reading green after
+                        // the flight settles failed. readLast() is pure, so the overlay is free.
+                        // Identity is preserved whenever the canary does not degrade the verdict
+                        // (`ensureHealthy` treats the cached payload as a token); apply works on
+                        // a shallow copy and reassigns `details`, so the cache never mutates.
+                        const overlay = this.#applyEmbeddingWriteCanary({...this.#cachedHealth});
+
+                        return overlay.status === 'healthy' ? this.#cachedHealth : overlay;
                     }
 
                     const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now, {
-                        chromaProbeTimeoutMs,
-                        embeddingWriteCanaryTimeoutMs
+                        chromaProbeTimeoutMs
                     });
 
                     if (freshCachedHealth) {
@@ -1819,8 +1898,7 @@ class HealthService extends Base {
 
             // Create the promise and store it
             this.#healthCheckPromise = this.#performHealthCheck({
-                chromaProbeTimeoutMs,
-                embeddingWriteCanaryTimeoutMs
+                chromaProbeTimeoutMs
             }).finally(() => {
                 // Always clear the promise when done, success or fail
                 this.#healthCheckPromise = null;
@@ -2023,34 +2101,36 @@ class HealthService extends Base {
         this.#cachedHealth  = null;
         this.#lastCheckTime = null;
 
-        if (this.#embeddingWriteCanaryTimer) {
-            clearInterval(this.#embeddingWriteCanaryTimer);
-        }
-        this.#embeddingWriteCanaryGate  = null;
-        this.#embeddingWriteCanaryTimer = null;
+        // Deliberately does NOT touch the embedding write-canary producer: payload invalidation
+        // happens on routine task outcomes, and erasing the gate there would drop failure
+        // streak/backoff, orphan an in-flight canary (allowing overlap), and reopen a
+        // non-degrading pending window. Producer lifetime belongs to start/stop only.
 
         this.#runtimeFreshnessTracker.clearCache();
         logger.fileDebug('[HealthService] Cache cleared, next health check will be fresh');
     }
 
     /**
-     * @summary Runs one embedding write-canary attempt through the gate, on demand.
+     * @summary Runs one embedding write-canary attempt on demand (operator diagnostics).
      *
-     * The scheduled cadence loop is the routine driver; this seam exists for tests and for
-     * operator diagnostics that want a fresh attempt NOW. It still respects the gate's
-     * single-flight and failure-backoff semantics — a call inside a backoff window returns the
-     * cached failure without touching the provider.
+     * The producer's cadence loop is the routine driver — recovery never depends on this seam.
+     * With a started producer it delegates to the gate's `runNow` (joins an in-flight attempt,
+     * deliberately ignores the failure-backoff window, never overlaps, and updates the shared
+     * state probes read). Without a producer it runs one detached canary so a disabled deployment
+     * can still be diagnosed — that one-shot updates nothing.
      *
-     * @param {Number} [timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs]
-     * @returns {Promise<Object>} The canary block the gate resolved.
+     * @param {Number} [timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] One-shot budget (detached path only).
+     * @returns {Promise<Object>} The canary block.
      * @protected
      */
     async runEmbeddingWriteCanaryNow(timeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs) {
-        this.#ensureEmbeddingWriteCanaryLoop(timeoutMs);
+        const producer = this.#embeddingWriteCanary;
 
-        return this.#embeddingWriteCanaryGate.probe({
-            key: `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}:${timeoutMs}`
-        });
+        if (producer) {
+            return producer.gate.runNow({key: producer.keyFor()});
+        }
+
+        return buildEmbeddingWriteCanaryBlock({timeoutMs});
     }
 }
 

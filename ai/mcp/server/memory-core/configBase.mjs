@@ -392,7 +392,10 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingWriteCanaryCadenceMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_CADENCE_MS', 'number'),
                 /**
-                 * Cache window for a HEALTHY canary result.
+                 * Staleness floor for a HEALTHY canary result: a healthy verdict older than
+                 * three times `max(cadence, this)` degrades the healthcheck — a dead scheduler
+                 * must not read green forever. Healthy attempts themselves run at the configured
+                 * cadence (no second TTL on top of the scheduler).
                  * @type {number}
                  */
                 embeddingWriteCanaryHealthyTtlMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_HEALTHY_TTL_MS', 'number'),
