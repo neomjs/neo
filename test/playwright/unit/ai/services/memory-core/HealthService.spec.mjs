@@ -23,6 +23,7 @@ import {LOOPBACK_PROBE_HEALTH_KEY} from '../../../../../../ai/services/memory-co
 import StorageRouter               from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService      from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 import logger                      from '../../../../../../ai/mcp/server/memory-core/logger.mjs';
+import {snapshotAiConfig}          from './util.mjs';
 
 /**
  * @summary Coverage for the identity observability block in the healthcheck payload.
@@ -602,64 +603,123 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(fresh.database.connection.collections.memories.count).toBe(10);
     });
 
-    test('direct healthcheck reuses a recent healthy embedding write canary', async () => {
+    test('liveness probes NEVER run the embedding canary — probes are readers (#16222 AC 1)', async () => {
         let embedCalls = 0;
         TextEmbeddingService.embedText = async () => {
             embedCalls++;
             return new Array(4096).fill(0.1);
         };
 
-        const firstNow = originalDateNow();
-        Date.now = () => firstNow;
+        // Cadence 0 disables the scheduled loop, so any embed here could only come from a probe.
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
+        mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 0;
 
-        const cached = await HealthService.healthcheck();
+        try {
+            HealthService.clearCache();
 
-        expect(cached.status).toBe('healthy');
-        expect(embedCalls).toBe(1);
+            const firstNow = originalDateNow();
+            Date.now = () => firstNow;
 
-        memoryCount  = 11;
-        summaryCount = 21;
-        Date.now = () => firstNow + 30_000;
+            for (let i = 0; i < 3; i++) {
+                Date.now = () => firstNow + i * 60_000;
+                const health = await HealthService.healthcheck();
+                expect(health.status).toBe('healthy');
+            }
 
-        const fresh = await HealthService.healthcheck();
-
-        expect(fresh.status).toBe('healthy');
-        expect(fresh.database.connection.collections.memories.count).toBe(11);
-        // The verbose writeCanary sub-object is trimmed from the lean payload; a healthy probe
-        // leaves status healthy and re-uses the cached canary result (no second embed call).
-        expect(fresh.providers.embedding).not.toHaveProperty('writeCanary');
-        expect(embedCalls).toBe(1);
+            // The regression this contract exists for: previously every cache-expired probe ran
+            // the canary inline; now a probe storm performs zero inference.
+            expect(embedCalls).toBe(0);
+        } finally {
+            restoreCanaryConfig();
+        }
     });
 
-    test('expired embedding write canary cache probes again and degrades on failure', async () => {
-        let embedCalls = 0;
+    test('scheduled canary: failures back off, degrade with reason, and recover autonomously (#16222 AC 2/3/5)', async () => {
+        let embedCalls = 0,
+            failing    = false;
         TextEmbeddingService.embedText = async () => {
             embedCalls++;
-            if (embedCalls === 1) {
-                return new Array(4096).fill(0.1);
-            }
-            throw new Error('embedding provider busy');
+            if (failing) throw new Error('embedding provider busy');
+            return new Array(4096).fill(0.1);
         };
 
-        const firstNow = originalDateNow();
-        Date.now = () => firstNow;
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
+        mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 0;
 
-        const cached = await HealthService.healthcheck();
+        try {
+            HealthService.clearCache();
 
-        expect(cached.status).toBe('healthy');
-        expect(embedCalls).toBe(1);
+            const firstNow = originalDateNow();
+            Date.now = () => firstNow;
 
-        Date.now = () => firstNow + 61_000;
+            // Healthy scheduled run: probes read it without re-running.
+            await HealthService.runEmbeddingWriteCanaryNow();
+            expect(embedCalls).toBe(1);
+            expect((await HealthService.healthcheck()).status).toBe('healthy');
+            expect(embedCalls).toBe(1);
 
-        const refreshed = await HealthService.healthcheck();
+            // Provider degrades; the next scheduled attempt (past the healthy TTL) fails.
+            failing = true;
+            Date.now = () => firstNow + 61_000;
+            await HealthService.runEmbeddingWriteCanaryNow();
+            expect(embedCalls).toBe(2);
 
-        expect(embedCalls).toBe(2);
-        expect(refreshed.status).toBe('degraded');
-        // Degradation DETECTION survives the trim via status + details; the verbose writeCanary
-        // sub-object no longer ships in the payload.
-        expect(refreshed.providers.embedding).not.toHaveProperty('writeCanary');
-        expect(refreshed.details).toContain('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR');
-        expect(refreshed.details).not.toContain('All features are operational');
+            const degraded = await HealthService.healthcheck();
+            expect(degraded.status).toBe('degraded');
+            expect(degraded.details.some(detail =>
+                detail.startsWith('Embedding write canary failed:') &&
+                detail.includes('backing off 30000ms, streak 1')
+            )).toBe(true);
+            expect(degraded.details).not.toContain('All features are operational');
+
+            // Attempts DECREASE under pressure: probes + explicit attempts inside the backoff
+            // window all serve the cached failure — the provider is not touched again.
+            for (let i = 0; i < 5; i++) {
+                await HealthService.healthcheck();
+                await HealthService.runEmbeddingWriteCanaryNow();
+            }
+            expect(embedCalls).toBe(2);
+
+            // Recovery is autonomous: once the window passes and the provider responds, the next
+            // scheduled attempt restores healthy with no operator intervention.
+            failing = false;
+            Date.now = () => firstNow + 61_000 + 30_001;
+            await HealthService.runEmbeddingWriteCanaryNow();
+            expect(embedCalls).toBe(3);
+            expect((await HealthService.healthcheck()).status).toBe('healthy');
+        } finally {
+            restoreCanaryConfig();
+        }
+    });
+
+    test('a stale healthy canary degrades — a dead scheduler must not read green forever', async () => {
+        TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
+
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
+        // A real cadence (so the staleness bound applies) too long to ever fire inside this test.
+        mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 300_000;
+
+        try {
+            HealthService.clearCache();
+
+            const firstNow = originalDateNow();
+            Date.now = () => firstNow;
+
+            await HealthService.runEmbeddingWriteCanaryNow();
+            expect((await HealthService.healthcheck()).status).toBe('healthy');
+
+            // Three scheduler windows with no fresh result: the reader must stop trusting it.
+            Date.now = () => firstNow + 3 * 300_000 + 1_000;
+            const stale = await HealthService.healthcheck();
+
+            expect(stale.status).toBe('degraded');
+            expect(stale.details.some(detail => detail.includes('canary loop not running'))).toBe(true);
+        } finally {
+            restoreCanaryConfig();
+        }
     });
 
     test('healthcheck degrades env-pinned unbound identity warning', async () => {
@@ -769,25 +829,32 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             throw new Error('embedding provider busy');
         };
 
+        // The canary runs on its own schedule (here: the on-demand seam), never on the probe.
+        await HealthService.runEmbeddingWriteCanaryNow();
         const result = await HealthService.healthcheck();
 
         expect(result.status).toBe('degraded');
-        // The lean payload omits the writeCanary sub-object; a failed probe still degrades the
-        // probe via status + a details entry naming the failure.
+        // The lean payload omits the writeCanary sub-object; a failed canary still degrades the
+        // probe via status + a details entry naming the failure and its backoff.
         expect(result.providers.embedding).not.toHaveProperty('writeCanary');
-        expect(result.details).toContain('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR');
+        expect(result.details.some(detail =>
+            detail.startsWith('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR')
+        )).toBe(true);
         expect(result.details).not.toContain('All features are operational');
     });
 
     test('#13458: embedding write canary timeout degrades healthcheck instead of hanging', async () => {
         TextEmbeddingService.embedText = async () => new Promise(() => {});
 
+        await HealthService.runEmbeddingWriteCanaryNow(5);
         const result = await HealthService.healthcheck({
             embeddingWriteCanaryTimeoutMs: 5
         });
 
         expect(result.status).toBe('degraded');
-        expect(result.details).toContain('Embedding write canary failed: consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT');
+        expect(result.details.some(detail =>
+            detail.startsWith('Embedding write canary failed: consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT')
+        )).toBe(true);
         expect(result.details).not.toContain('All features are operational');
     });
 

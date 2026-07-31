@@ -385,6 +385,31 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
+                 * The canary runs on its OWN cadence, decoupled from probe frequency — a liveness
+                 * probe reads the latest result and performs no inference. `<= 0` disables the
+                 * scheduled loop (tests / explicit opt-out).
+                 * @type {number}
+                 */
+                embeddingWriteCanaryCadenceMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_CADENCE_MS', 'number'),
+                /**
+                 * Cache window for a HEALTHY canary result.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryHealthyTtlMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_HEALTHY_TTL_MS', 'number'),
+                /**
+                 * Base cache window for a FAILED canary result. Failures are cached too — the
+                 * previous cache-only-healthy behavior re-ran the expensive canary once per probe
+                 * exactly when the provider was already struggling. Doubles per consecutive
+                 * failure up to the max below, so attempts DECREASE under sustained saturation.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryFailureTtlMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_FAILURE_TTL_MS', 'number'),
+                /**
+                 * Backoff ceiling for the failed-canary cache window.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryFailureTtlMaxMs: leaf(600000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_FAILURE_TTL_MAX_MS', 'number'),
+                /**
                  * Max time to wait for each REM pipeline-state axis.
                  * @type {number}
                  */
