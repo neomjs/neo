@@ -33,10 +33,23 @@ npm run ai:host-edge        # graphless host-edge Orchestrator (host-bound effec
 npm run ai:wake-receiver    # signed Shape-B wake receiver, host port 3199
 ```
 
-Run them in their own terminals. Nothing here is macOS-specific — the launchd section below is
-**supervision only** (start-at-login, restart-on-crash), and everything in this file above it works
-on any platform Node runs on. On Linux or Windows, supervise these two commands with whatever your
-system already uses; there is no Neo-specific requirement.
+Run them in their own terminals. Neither command is macOS-specific; both work on any platform Node
+runs on. On Linux or Windows, supervise them with whatever your system already uses.
+
+> **What the terminal path gives you today, stated precisely.** It resolves the correct *role*, so
+> the process owns host-edge work and cannot claim the container's. It does **not** yet reproduce
+> the full lane posture: the launchd plist additionally pins the host-edge state directory and ~20
+> lane-enablement and provider values (`NEO_ORCHESTRATOR_KB_SYNC_ENABLED`, `…DEV_SERVER_ENABLED`,
+> the daemon toggles, the local provider host). Started bare, the orchestrator therefore takes
+> AiConfig defaults for those lanes and will run some the supervised install disables — and its
+> authority receipt lands in the checkout rather than under
+> `~/Library/Application Support/Neo/AgentOS`.
+>
+> So on macOS the supervised install below remains the complete path. The terminal path is correct
+> for the role and incomplete for the lane set, which is a known gap rather than a preference:
+> that configuration belongs in an AiConfig host-edge profile, not duplicated into a plist and an
+> npm script. Until it moves, prefer the install for a long-running host edge and the terminal for
+> a bounded run.
 
 **Do not use `npm run ai:orchestrator` for this.** That entrypoint takes no role of its own, and the
 daemon now refuses to start without one:
