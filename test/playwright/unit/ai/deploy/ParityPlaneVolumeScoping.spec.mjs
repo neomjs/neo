@@ -71,6 +71,11 @@ const mcpServices = Object.entries(compose.services ?? {})
     .filter(([, service]) => service?.build?.args?.TARGET_SERVER)
     .map(([name]) => name);
 
+/** Base-profile MCP servers, derived independently of the deployment-state mount asserted below. */
+const baseMcpServices = Object.entries(baseCompose.services ?? {})
+    .filter(([, service]) => service?.build?.args?.TARGET_SERVER)
+    .map(([name]) => name);
+
 /** Services binding the plane via the shared `<<: *plane-env` anchor — orthogonal to what they mount. */
 const planeEnvServices = Object.entries(compose.services ?? {})
     .filter(([, service]) => Object.keys(service?.environment ?? {}).includes('<<'))
@@ -382,8 +387,10 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 test.describe('data-plane profile election — base and integration-fixture dispositions', () => {
     test('canonical local hard cut is durable, multi-resident, and wake-only on the host', () => {
         const
-            overlaySource = fs.readFileSync(localOverlayPath, 'utf8'),
-            plistSource   = fs.readFileSync(localWakePlistPath, 'utf8');
+            overlaySource         = fs.readFileSync(localOverlayPath, 'utf8'),
+            plistSource           = fs.readFileSync(localWakePlistPath, 'utf8'),
+            deploymentStateTarget = '/app/.neo-ai-data/deployment-state',
+            deploymentStateVolume = 'shared-deployment-state-data';
 
         expect(overlaySource).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
         expect(overlaySource).toMatch(/^name:\s*&local-project\s/m);
@@ -411,6 +418,18 @@ test.describe('data-plane profile election — base and integration-fixture disp
         );
         expect(overlaySource.match(/restart: unless-stopped/g)).toHaveLength(5);
         expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
+
+        expect(baseCompose.volumes).toHaveProperty(deploymentStateVolume);
+
+        expect(baseMcpServices.length, 'base Compose has no MCP consumers for the deployment-state bridge').toBeGreaterThan(0);
+
+        for (const service of baseMcpServices) {
+            expect(baseCompose.services[service].volumes)
+                .toContain(`${deploymentStateVolume}:${deploymentStateTarget}:ro`)
+        }
+
+        expect(baseCompose.services.orchestrator.volumes)
+            .toContain(`${deploymentStateVolume}:${deploymentStateTarget}`);
 
         expect(plistSource).toContain('<string>ai/daemons/wake/receiver.mjs</string>');
         expect(plistSource).toContain('<string>--manifest</string>');
