@@ -78,15 +78,23 @@ const SENDER_ONLY_METADATA_KEYS = ['signingKey', 'url'];
  */
 export function buildWakeReceiverManifest({
     subscriptions,
-    existingRoutes   = {},
-    attemptTimeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS
+    existingRoutes    = {},
+    adapterConfigById = {},
+    attemptTimeoutMs  = DEFAULT_ATTEMPT_TIMEOUT_MS
 }) {
     if (!Array.isArray(subscriptions)) {
         throw new Error('buildWakeReceiverManifest requires a subscriptions array');
     }
 
     // Additive: start from what is already published so a single-identity build cannot delete a peer.
-    const routes         = {...existingRoutes},
+    //
+    // Carried routes are re-sanitised rather than copied verbatim. A manifest written by an earlier
+    // version can still hold sender-only `signingKey`/`url` inside its metadata, and republishing it
+    // unchanged would keep leaking that into receiver state forever — the fix would only ever apply
+    // to routes that happened to be rebuilt.
+    const routes = Object.fromEntries(
+              Object.entries(existingRoutes).map(([id, route]) => [id, sanitiseRoute(route)])
+          ),
           routeSummaries = [],
           skipped        = [];
 
@@ -99,18 +107,22 @@ export function buildWakeReceiverManifest({
 
         // Every skip is NAMED. A silent omission and a silent bad route are the same failure from the
         // operator's side: something they expected to be wired is not, and nothing said so.
+        // A skipped subscription that the caller OWNS must also have its stale route withdrawn.
+        // Skipping only the input left a retired or retargeted seat's old route published — the
+        // subscription was gone and the route kept accepting wakes for it. Reconciliation is scoped
+        // to ids the caller actually presented, so a peer's route is never touched.
         if (status !== 'active') {
-            skipped.push({subscriptionId: id, reason: `status is '${status}', not 'active'`});
+            withdrawOwnedRoute(routes, id, skipped, `status is '${status}', not 'active'`);
             continue
         }
 
         if (harnessTarget !== DELIVERABLE_HARNESS_TARGET) {
-            skipped.push({
-                subscriptionId: id,
-                reason        : `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path ` +
-                                `(only '${DELIVERABLE_HARNESS_TARGET}' is); this seat cannot receive a container wake ` +
-                                `until it is migrated`
-            });
+            withdrawOwnedRoute(
+                routes, id, skipped,
+                `harnessTarget '${harnessTarget}' is not deliverable on the Shape-B path ` +
+                `(only '${DELIVERABLE_HARNESS_TARGET}' is); this seat cannot receive a container wake ` +
+                'until it is migrated'
+            );
             continue
         }
 
@@ -149,11 +161,15 @@ export function buildWakeReceiverManifest({
             Object.entries(harnessTargetMetadata).filter(([key]) => !SENDER_ONLY_METADATA_KEYS.includes(key))
         );
 
+        // Per-route adapter config comes from the caller, keyed by subscription id. The subscription
+        // record carries none, so without this a Codex seat could never satisfy the receiver's
+        // `codexBinary` requirement from any supported input — the route would be unbuildable rather
+        // than merely unconfigured.
         routes[id] = {
             agentIdentity,
             signingKey,
             harnessTargetMetadata: receiverMetadata,
-            adapterConfig        : {attemptTimeoutMs, ...(subscription.adapterConfig || {})}
+            adapterConfig        : {attemptTimeoutMs, ...(adapterConfigById[id] || {})}
         };
 
         routeSummaries.push({
@@ -175,6 +191,48 @@ export function buildWakeReceiverManifest({
     }
 
     return {manifest: {schemaVersion: 1, routes}, routeSummaries, skipped}
+}
+
+/**
+ * @summary Strips sender-only keys from a route's receiver-visible metadata.
+ * @param {Object} route
+ * @returns {Object}
+ * @private
+ */
+function sanitiseRoute(route) {
+    if (!route?.harnessTargetMetadata || typeof route.harnessTargetMetadata !== 'object') {
+        return route
+    }
+
+    return {
+        ...route,
+        harnessTargetMetadata: Object.fromEntries(
+            Object.entries(route.harnessTargetMetadata)
+                .filter(([key]) => !SENDER_ONLY_METADATA_KEYS.includes(key))
+        )
+    }
+}
+
+/**
+ * Withdraws a route the caller owns but can no longer deliver to, and records why.
+ * @summary Reconciles the caller's own stale routes without touching a peer's.
+ * @param {Object}   routes
+ * @param {String}   subscriptionId
+ * @param {Object[]} skipped
+ * @param {String}   reason
+ * @returns {void}
+ * @private
+ */
+function withdrawOwnedRoute(routes, subscriptionId, skipped, reason) {
+    const withdrawn = Object.hasOwn(routes, subscriptionId);
+
+    delete routes[subscriptionId];
+
+    skipped.push({
+        subscriptionId,
+        reason                : withdrawn ? `${reason}; withdrew its previously published route` : reason,
+        withdrewPublishedRoute: withdrawn
+    })
 }
 
 /**
@@ -283,6 +341,74 @@ export async function readPublishedRoutes(manifestPath) {
 }
 
 /**
+ * Runs a read-modify-write against the shared manifest under a cross-process lock.
+ *
+ * **The unique staging file protects each writer; it does not make the transaction atomic.** Two
+ * peers provisioning at the same moment both read the same predecessor, each merges only its own
+ * route, and the later rename wins — silently unprovisioning the other. Measured before this existed:
+ * 20 of 20 concurrent two-peer builds lost a route. Serialising the whole read/merge/publish is the
+ * fix; serialising only the write is not, because the stale read has already happened by then.
+ *
+ * The lock is a sibling file opened `wx`, so acquisition is atomic and cross-process. A holder that
+ * dies leaves it behind, so an entry older than `staleAfterMs` is reclaimed — bounded rather than
+ * permanent, since a wedged lock would block every seat on the host.
+ *
+ * @summary Serialises shared-manifest mutation so concurrent peers cannot unprovision each other.
+ * @param {Object}   config
+ * @param {String}   config.manifestPath
+ * @param {Function} config.task
+ * @param {Number}   [config.timeoutMs=10000]
+ * @param {Number}   [config.staleAfterMs=60000]
+ * @returns {Promise<*>}
+ */
+export async function withManifestLock({manifestPath, task, timeoutMs = 10000, staleAfterMs = 60000}) {
+    const lockPath = `${manifestPath}.lock`,
+          deadline = Date.now() + timeoutMs;
+
+    let handle;
+
+    while (!handle) {
+        try {
+            handle = await fs.open(lockPath, 'wx', 0o600);
+        } catch (error) {
+            if (error.code !== 'EEXIST') {
+                throw error
+            }
+
+            const age = await fs.stat(lockPath).then(
+                info  => Date.now() - info.mtimeMs,
+                ()    => Infinity  // vanished between open and stat: retry immediately
+            );
+
+            if (age > staleAfterMs) {
+                await fs.rm(lockPath, {force: true});
+                continue
+            }
+
+            if (Date.now() > deadline) {
+                throw new Error(
+                    `Timed out after ${timeoutMs}ms waiting for the manifest lock at ${lockPath}; ` +
+                    'another seat is publishing, or a stale lock needs removing'
+                );
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 25 + Math.floor(Math.random() * 50)))
+        }
+    }
+
+    try {
+        await handle.writeFile(JSON.stringify({pid: process.pid, acquiredAt: new Date().toISOString()}));
+        await handle.close();
+        handle = null;
+
+        return await task()
+    } finally {
+        await handle?.close().catch(() => {});
+        await fs.rm(lockPath, {force: true}).catch(() => {})
+    }
+}
+
+/**
  * @summary Parses CLI flags without hidden deployment-path defaults, mirroring the receiver's parser.
  * @param {String[]} argv
  * @returns {{subscriptionsPath: String, manifestPath: String}}
@@ -319,7 +445,7 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
  * @param {Object} [config.logger=console]
  * @returns {Promise<{published: String, routeSummaries: Object[], skipped: Object[]}>}
  */
-export async function runManifestBuilder({subscriptionsPath, manifestPath, logger = console}) {
+export async function runManifestBuilder({subscriptionsPath, manifestPath, adapterConfigById = {}, logger = console}) {
     if (!subscriptionsPath || !manifestPath) {
         throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path>');
     }
@@ -332,12 +458,22 @@ export async function runManifestBuilder({subscriptionsPath, manifestPath, logge
           // Accept either the raw tool response or a bare array, since the tool wraps its result.
           subscriptions = Array.isArray(parsed) ? parsed : parsed?.subscriptions;
 
-    const {manifest, routeSummaries, skipped} = buildWakeReceiverManifest({
-        subscriptions,
-        existingRoutes: await readPublishedRoutes(manifestPath)
-    });
+    // The whole read/merge/publish runs inside the lock. Holding it only across the write would
+    // leave the stale-read window open, which is the window that loses peer routes.
+    const {manifest, routeSummaries, skipped} = await withManifestLock({
+        manifestPath,
+        task: async () => {
+            const built = buildWakeReceiverManifest({
+                adapterConfigById,
+                subscriptions,
+                existingRoutes: await readPublishedRoutes(manifestPath)
+            });
 
-    await writeValidatedManifest({manifest, targetPath: manifestPath});
+            await writeValidatedManifest({manifest: built.manifest, targetPath: manifestPath});
+
+            return built
+        }
+    });
 
     logger.log(`[Wake Manifest] published ${Object.keys(manifest.routes).length} route(s) to ${manifestPath}`);
 

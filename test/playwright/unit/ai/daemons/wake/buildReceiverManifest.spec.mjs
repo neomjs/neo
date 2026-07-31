@@ -270,6 +270,137 @@ test.describe('runManifestBuilder — per-peer composition', () => {
     test('refuses without both flags rather than guessing a path', async () => {
         await expect(runManifestBuilder({subscriptionsPath: '-'})).rejects.toThrow(/Usage:/)
     });
+
+    test('CONCURRENT peers cannot unprovision each other', async () => {
+        // The sequential spec above proves the merge and is structurally incapable of failing the way
+        // the claim can be wrong. Before the lock, this lost a route in 20/20 trials: both callers read
+        // the same predecessor and the later rename won.
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  quiet        = {log() {}},
+                  inputs       = [];
+
+            for (const [index, identity] of [['a', '@neo-opus-ada'], ['b', '@neo-kimi-iris']]) {
+                const file = path.join(dir, `${index}.json`);
+
+                await writeFile(file, JSON.stringify({subscriptions: [{
+                    ...webhookSubscription,
+                    id                   : `WAKE_SUB:${index.repeat(8)}-0000-4000-8000-00000000000${index === 'a' ? 1 : 2}`,
+                    agentIdentity        : identity,
+                    harnessTargetMetadata: {
+                        ...webhookSubscription.harnessTargetMetadata,
+                        signingKey: index.repeat(64)
+                    }
+                }]}));
+
+                inputs.push(file)
+            }
+
+            await Promise.all(inputs.map(subscriptionsPath =>
+                runManifestBuilder({subscriptionsPath, manifestPath, logger: quiet})
+            ));
+
+            expect(Object.keys(await readPublishedRoutes(manifestPath))).toHaveLength(2)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('withdraws the callers OWN stale route on retarget, leaving peers published', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  quiet        = {log() {}},
+                  live         = path.join(dir, 'live.json'),
+                  retargeted   = path.join(dir, 'retargeted.json'),
+                  peerId       = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000fe';
+
+            await writeFile(live, JSON.stringify({subscriptions: [webhookSubscription]}));
+            // Same id, now on a target the Shape-B path cannot deliver to.
+            await writeFile(retargeted, JSON.stringify({subscriptions: [
+                {...webhookSubscription, harnessTarget: 'bridge-daemon'}
+            ]}));
+
+            await runManifestBuilder({subscriptionsPath: live, manifestPath, logger: quiet});
+
+            // Seed a peer route that the caller does not own and must not touch.
+            const withPeer = buildWakeReceiverManifest({
+                subscriptions : [],
+                existingRoutes: {
+                    ...await readPublishedRoutes(manifestPath),
+                    [peerId]: {
+                        agentIdentity        : '@neo-opus-grace',
+                        signingKey           : PEER_KEY,
+                        harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                        adapterConfig        : {attemptTimeoutMs: 10000}
+                    }
+                }
+            });
+
+            await writeValidatedManifest({manifest: withPeer.manifest, targetPath: manifestPath});
+
+            const result    = await runManifestBuilder({subscriptionsPath: retargeted, manifestPath, logger: quiet}),
+                  published = await readPublishedRoutes(manifestPath);
+
+            // Skipping the input alone left the stale route accepting wakes for a seat that moved.
+            expect(published[webhookSubscription.id]).toBeUndefined();
+            expect(result.skipped[0].withdrewPublishedRoute).toBe(true);
+            expect(published[peerId].agentIdentity).toBe('@neo-opus-grace')
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('sanitises sender secrets carried in from a manifest written by an older version', () => {
+        const legacyId = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000ee';
+
+        const {manifest} = buildWakeReceiverManifest({
+            subscriptions : [],
+            existingRoutes: {
+                [legacyId]: {
+                    agentIdentity: '@neo-gpt-emmy',
+                    signingKey   : PEER_KEY,
+                    // An older build left the sender-only pair inside the metadata.
+                    harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude', signingKey: PEER_KEY, url: 'http://x/'},
+                    adapterConfig        : {attemptTimeoutMs: 10000}
+                }
+            }
+        });
+
+        const carried = manifest.routes[legacyId];
+
+        expect(carried.harnessTargetMetadata.signingKey).toBeUndefined();
+        expect(carried.harnessTargetMetadata.url).toBeUndefined();
+        // The route's own key field is where the receiver reads it, and must survive.
+        expect(carried.signingKey).toBe(PEER_KEY)
+    });
+
+    test('makes Codex adapter config reachable from a supported input', () => {
+        const codexSubscription = {
+            ...webhookSubscription,
+            harnessTargetMetadata: {
+                ...webhookSubscription.harnessTargetMetadata,
+                adapter     : 'codex-app-server',
+                appName     : 'Codex',
+                focusSeedKey: 'space'
+            }
+        };
+
+        // The subscription record carries no adapterConfig, so without a caller-supplied path a
+        // Codex route could never satisfy the receiver's codexBinary requirement.
+        const {manifest} = buildWakeReceiverManifest({
+            subscriptions    : [codexSubscription],
+            adapterConfigById: {[codexSubscription.id]: {codexBinary: '/usr/local/bin/codex'}}
+        });
+
+        expect(manifest.routes[codexSubscription.id].adapterConfig).toEqual({
+            attemptTimeoutMs: 10000,
+            codexBinary     : '/usr/local/bin/codex'
+        })
+    });
 });
 
 test.describe('readPublishedRoutes', () => {
