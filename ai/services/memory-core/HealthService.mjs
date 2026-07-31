@@ -4,6 +4,7 @@ import path                    from 'path';
 import {fileURLToPath}         from 'url';
 import aiConfig                from '../../mcp/server/memory-core/config.mjs';
 import Base                    from '../../../src/core/Base.mjs';
+import {isBundleRestorable}    from './helpers/bundleIntegrity.mjs';
 import RuntimeFreshnessService from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 import ChromaManager           from './managers/ChromaManager.mjs';
 import StorageRouter           from './managers/StorageRouter.mjs';
@@ -669,7 +670,9 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
                 sawCompleted  = true;
             }
 
-            if (Array.isArray(meta.integrity) && meta.integrity.some(check => check?.status === 'empty')) {
+            // Same rule as the backup receipt, imported rather than restated — two copies of one
+            // predicate is how the halves of a contract end up disagreeing.
+            if (isBundleRestorable(meta.integrity) === false) {
                 unusableCount++;
                 continue;
             }

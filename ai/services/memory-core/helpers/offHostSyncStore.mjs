@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
 
+import {summarizeBundleIntegrity} from './bundleIntegrity.mjs';
+
 /**
  * @module ai/services/memory-core/helpers/offHostSyncStore
  * @summary The deployment-global backup receipt store: envelope builder, atomic writer, and
@@ -150,12 +152,19 @@ export function utf8SafeTail(value, maxBytes) {
  * @param {String|null} options.finishedAt
  * @param {Object|null} options.offHostSync Sync outcome or null when not run.
  * @param {String} [options.syncStatus='disabled'] Status when offHostSync is null.
+ * @param {Array<Object>} [options.integrity] `bundle-meta.integrity` checks, summarized into the
+ * receipt so a receipt-only consumer cannot read `backup.status: 'success'` as "restorable".
+ * `status` keeps its meaning — it reports that the local bundle completed, which is a real and
+ * useful fact — it simply stops being the ONLY fact visible here. Additive by construction:
+ * {@link readBackupReceipt} rejects any `schemaVersion` it does not recognise, so bumping the
+ * version to carry this would make every receipt already on disk unreadable.
  * @returns {Object}
  */
-export function buildBackupReceipt({backup, bundleName, bundleCompletedAt, finishedAt, offHostSync, syncStatus = 'disabled'}) {
+export function buildBackupReceipt({backup, bundleName, bundleCompletedAt, finishedAt, integrity, offHostSync, syncStatus = 'disabled'}) {
     return {
         backup,
         bundleCompletedAt: bundleCompletedAt ?? null,
+        integrity        : summarizeBundleIntegrity(integrity),
         bundleName       : bundleName ?? null,
         finishedAt       : finishedAt ?? now(),
         offHostSync      : offHostSync ?? {
