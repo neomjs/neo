@@ -445,17 +445,19 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(orchestratorEnv.NEO_ORCHESTRATOR_MLX_ENABLED).toBeUndefined();
     });
 
-    test('local Agent OS overlay binds one physical plane and exposes only routed loopback MCP', () => {
+    test('local Agent OS overlay inherits the Docker-owned plane and exposes only routed loopback MCP', () => {
         const source = fs.readFileSync(
             new URL('../../../../../../ai/deploy/docker-compose.local-agent-os.yml', import.meta.url),
             'utf8'
         );
 
-        expect(source).toContain('source: ../../.neo-ai-data');
-        expect(source).toContain('source: ../../.neo-ai-data/chroma/unified');
+        expect(source).not.toContain('source: ../../.neo-ai-data');
+        expect(source).not.toContain('source: ../../.neo-ai-data/chroma/unified');
         expect(source).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
-        expect(source).toContain('target: /app/.neo-ai-data');
-        expect(source).toContain('NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data/orchestrator-container-plane');
+        expect(source).not.toMatch(/target:\s*\/app\/\.neo-ai-data(?:\/|$)/m);
+        expect(source).toMatch(/^name:\s*&local-project\s/m);
+        expect(source).toContain('NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *local-project');
+        expect(source).not.toContain('NEO_AI_ORCHESTRATOR_DIR');
         expect(source).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
         expect(source).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
         expect(source).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');

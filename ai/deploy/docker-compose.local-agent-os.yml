@@ -1,15 +1,11 @@
 # One-machine canonical Agent OS overlay (#16167).
 #
-# Apply after docker-compose.yml. The base owns the runtime topology; this file
-# only binds the existing local plane, adds loopback ingress, and selects the
-# loopback-only, provider-verified GitHub-PAT profile used by distinct residents.
+# Apply after docker-compose.yml. The base owns the runtime topology and Docker
+# volumes; this file pins the local project identity, adds loopback ingress, and
+# selects the provider-verified GitHub-PAT profile used by distinct residents.
+# The pre-Docker checkout plane is an import source, never the live target.
 
-x-local-plane-bind: &local-plane-bind
-  type: bind
-  source: ../../.neo-ai-data
-  target: /app/.neo-ai-data
-  bind:
-    create_host_path: false
+name: &local-project "${NEO_LOCAL_AGENT_OS_PROJECT_NAME:-neo-local-agent-os}"
 
 x-local-auth: &local-auth
   NEO_AUTH_MODE: github-pat
@@ -19,17 +15,15 @@ x-local-auth: &local-auth
   NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token
 
 x-local-provider: &local-provider
-  NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:11434}
+  NEO_MODEL_PROVIDER: openAiCompatible
+  NEO_EMBEDDING_PROVIDER: openAiCompatible
+  NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:1234}
+  NEO_OPENAI_COMPATIBLE_MODEL: ${NEO_LOCAL_AGENT_OS_MODEL:-google/gemma-4-26b-a4b}
+  NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: ${NEO_LOCAL_AGENT_OS_EMBEDDING_MODEL:-text-embedding-qwen3-embedding-8b}
 
 services:
   chroma:
     restart: unless-stopped
-    volumes: !override
-      - type: bind
-        source: ../../.neo-ai-data/chroma/unified
-        target: /chroma/unified
-        bind:
-          create_host_path: false
     ports:
       - "127.0.0.1:8000:8000"
 
@@ -37,8 +31,6 @@ services:
     restart: unless-stopped
     environment:
       <<: [*local-auth, *local-provider]
-    volumes: !override
-      - *local-plane-bind
     secrets:
       - mcp-auth-token
     healthcheck:
@@ -48,8 +40,6 @@ services:
     restart: unless-stopped
     environment:
       <<: [*local-auth, *local-provider]
-    volumes: !override
-      - *local-plane-bind
     secrets:
       - mcp-auth-token
     healthcheck:
@@ -59,16 +49,12 @@ services:
     restart: unless-stopped
     environment:
       <<: *local-provider
-      # The forward-only container role starts with its own cadence and never
-      # needs a reverse merge into the retired mixed host scheduler.
-      NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data/orchestrator-container-plane
-    volumes: !override
-      - *local-plane-bind
-      - type: bind
-        source: /var/run/docker.sock
-        target: /var/run/docker.sock
-        bind:
-          create_host_path: false
+      # Keep Docker labels and constrained runtime lookup on one scalar.
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *local-project
+      # This profile uses host LM Studio, not the optional `local-model`
+      # container. Monitor only the Compose services it actually starts.
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: &local-runtime-services chroma,kb-server,mc-server,orchestrator
+      NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES: *local-runtime-services
 
   ingress:
     restart: unless-stopped
