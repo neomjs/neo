@@ -376,6 +376,35 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await Promise.resolve();
     });
 
+    test('host-edge never opens a graph database while plane roles still bootstrap it (#16210)', async () => {
+        const calls                = [];
+        const initializeDatabaseFn = async dbPath => {
+            calls.push(dbPath);
+            return {dbPath};
+        };
+        const hostEdge = createTestOrchestrator({
+            authorityProfile: ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge
+        });
+
+        hostEdge.dbPath               = '/forbidden/retired-host-graph.sqlite';
+        hostEdge.initializeDatabaseFn = initializeDatabaseFn;
+
+        await expect(hostEdge.initializeGraphDatabaseIfOwned()).resolves.toBeNull();
+        expect(calls).toEqual([]);
+
+        const containerPlane = createTestOrchestrator({
+            authorityProfile: ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane
+        });
+
+        containerPlane.dbPath               = '/docker/plane.sqlite';
+        containerPlane.initializeDatabaseFn = initializeDatabaseFn;
+
+        await expect(containerPlane.initializeGraphDatabaseIfOwned()).resolves.toEqual({
+            dbPath: '/docker/plane.sqlite'
+        });
+        expect(calls).toEqual(['/docker/plane.sqlite']);
+    });
+
     test('freeze re-probe forwards one bounded signal and clears its deadline after success (#15694)', async () => {
         const orchestrator = Object.create(Orchestrator.prototype);
 

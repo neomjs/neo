@@ -3,6 +3,14 @@ import fs     from 'fs-extra';
 import path   from 'path';
 
 /**
+ * @summary Captures this Node process start once so a reused PID cannot make a lease from the
+ * previous process epoch look live after a container restart.
+ *
+ * @type {Number}
+ */
+const CURRENT_PROCESS_STARTED_AT = Date.now() - process.uptime() * 1000;
+
+/**
  * @summary Resolves the shared heavy-maintenance lease path without importing Agent OS config.
  *
  * The explicit lease-path override wins and is preserved as caller-owned input for compatibility.
@@ -84,17 +92,42 @@ export function isPidAlive(pid) {
  * @param {Object} [options]
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Function} [options.isPidAlive=isPidAlive] Process liveness probe seam.
+ * @param {Number|String} [options.currentPid=process.pid] Current process id seam.
+ * @param {Date|Number|String} [options.currentProcessStartedAt] Current process start seam.
  * @returns {Boolean}
  */
-export function isLeaseStale(lease, {now = new Date(), isPidAlive: isPidAliveFn = isPidAlive} = {}) {
+export function isLeaseStale(lease, {
+    now                     = new Date(),
+    isPidAlive: isPidAliveFn = isPidAlive,
+    currentPid              = process.pid,
+    currentProcessStartedAt = CURRENT_PROCESS_STARTED_AT
+} = {}) {
     if (!lease || !lease.acquiredAt) {
         return true;
     }
 
-    const nowMs = toTimestamp(now);
+    const acquiredAtMs              = toTimestamp(lease.acquiredAt),
+          currentProcessStartedAtMs = toTimestamp(currentProcessStartedAt),
+          nowMs                     = toTimestamp(now);
 
     if (!Number.isFinite(nowMs)) {
         return false;
+    }
+
+    // PID namespaces commonly restart the orchestrator as PID 1. A liveness
+    // probe alone therefore sees the NEW PID 1 and mistakes the previous
+    // process epoch's persisted lease for a live holder. The process-start
+    // boundary distinguishes those epochs without changing the payload shape.
+    // Historical inspections whose logical `now` predates this process start
+    // deliberately skip the live-process comparison.
+    if (
+        Number(lease.pid) === Number(currentPid) &&
+        Number.isFinite(acquiredAtMs) &&
+        Number.isFinite(currentProcessStartedAtMs) &&
+        nowMs >= currentProcessStartedAtMs &&
+        acquiredAtMs < currentProcessStartedAtMs
+    ) {
+        return true;
     }
 
     if (lease.pid !== undefined && lease.pid !== null && typeof isPidAliveFn === 'function' && !isPidAliveFn(lease.pid)) {
@@ -106,7 +139,6 @@ export function isLeaseStale(lease, {now = new Date(), isPidAlive: isPidAliveFn 
         return nowMs >= expiresAtMs;
     }
 
-    const acquiredAtMs = toTimestamp(lease.acquiredAt);
     const staleAfterMs = Number(lease.staleAfterMs);
 
     return !Number.isFinite(acquiredAtMs) || !Number.isFinite(staleAfterMs) || nowMs - acquiredAtMs >= staleAfterMs;

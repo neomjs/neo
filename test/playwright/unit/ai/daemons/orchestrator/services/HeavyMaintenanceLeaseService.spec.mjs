@@ -216,6 +216,39 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(isPidAlive('not-a-pid')).toBe(false);
     });
 
+    test('#16210: a reused current PID cannot keep the previous process epoch lease alive', () => {
+        const
+            currentPid              = 1,
+            currentProcessStartedAt = new Date('2026-07-31T04:00:00.000Z'),
+            now                     = new Date('2026-07-31T04:02:00.000Z'),
+            lease                   = {
+                acquiredAt  : '2026-07-31T03:59:59.999Z',
+                expiresAt   : '2026-07-31T10:00:00.000Z',
+                pid         : currentPid,
+                staleAfterMs: 6 * 60 * 60 * 1000
+            },
+            options                 = {
+                currentPid,
+                currentProcessStartedAt,
+                isPidAlive: () => true,
+                now
+            };
+
+        expect(isLeaseStale(lease, options)).toBe(true);
+        expect(isLeaseStale({
+            ...lease,
+            acquiredAt: currentProcessStartedAt.toISOString()
+        }, options)).toBe(false);
+        expect(isLeaseStale({
+            ...lease,
+            acquiredAt: '2026-07-31T04:00:00.001Z'
+        }, options)).toBe(false);
+        expect(isLeaseStale({
+            ...lease,
+            pid: 2
+        }, options)).toBe(false);
+    });
+
     test('returns held status for active contention without throwing', async () => {
         const leasePath = createLeasePath('held');
         const now       = new Date('2026-05-16T20:00:00.000Z');
