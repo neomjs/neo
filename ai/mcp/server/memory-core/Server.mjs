@@ -405,8 +405,10 @@ class Server extends BaseServer {
 
         // The canary producer lifecycle is server-owned: liveness probes only READ its latest
         // state, so scheduling must start here — before the first healthcheck — or the canary
-        // would never run at all.
+        // would never run at all. The paired stop fences queued ticks during teardown, so no
+        // late callback can start inference on a dying process.
         HealthService.startEmbeddingWriteCanary();
+        process.on('exit', () => HealthService.stopEmbeddingWriteCanary());
 
         // Healthcheck (sees populated stdioIdentityState post-reorder).
         await this.runHealthcheckAndLogStatus();

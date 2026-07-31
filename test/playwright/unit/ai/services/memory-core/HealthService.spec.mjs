@@ -760,9 +760,10 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         }
     });
 
-    test('stopEmbeddingWriteCanary() clears the timer and prevents later attempts; restart replaces the producer', async () => {
+    test('stopEmbeddingWriteCanary() clears the timer AND fences queued ticks; restart replaces the producer', async () => {
         const flush   = () => new Promise(resolve => setTimeout(resolve, 0));
         const cleared = [];
+        const ticks   = [];
         const timer   = {token: 'canary-timer'};
         let   runs    = 0;
 
@@ -770,7 +771,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             cadenceMs        : 60_000,
             runCanary        : async () => { runs++; return {status: 'healthy'} },
             keyFor           : () => 'unit-key',
-            setIntervalImpl  : () => timer,
+            setIntervalImpl  : fn => { ticks.push(fn); return timer },
             clearIntervalImpl: t => { cleared.push(t) }
         });
 
@@ -781,6 +782,11 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             HealthService.stopEmbeddingWriteCanary();
             expect(cleared).toEqual([timer]);
             expect(HealthService.getEmbeddingWriteCanaryState()).toMatchObject({running: false, stopped: true});
+
+            // The stop FENCE: a callback already queued (or captured by a scheduler) that fires
+            // after stop must be a no-op — clearInterval alone cannot recall it.
+            ticks[0](); await flush();
+            expect(runs).toBe(1);
 
             // Stopped is not amnesia: the last settled state stays readable.
             expect((await HealthService.healthcheck()).status).toBe('healthy');
@@ -797,6 +803,33 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             await flush();
             expect(runs).toBe(2);
             expect(HealthService.getEmbeddingWriteCanaryState()).toMatchObject({running: true, stopped: false});
+        } finally {
+            HealthService.stopEmbeddingWriteCanary({discardState: true});
+        }
+    });
+
+    test('canary truth is projected on unhealthy EARLY-RETURN paths too — a DB-down payload still carries the canary block', async () => {
+        const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs        : 60_000,
+            runCanary        : async () => ({status: 'failed', error: 'saturated'}),
+            keyFor           : () => 'unit-key',
+            setIntervalImpl  : () => ({unref() {}}),
+            clearIntervalImpl: () => {}
+        });
+
+        try {
+            await flush();
+
+            // Force the DB-down early return — the path that previously skipped the canary.
+            ChromaManager.connected = false;
+            ChromaManager.connect   = async () => false;
+
+            const health = await HealthService.healthcheck();
+
+            expect(health.status).toBe('unhealthy');
+            expect(health.details.some(detail => detail.startsWith('Embedding write canary failed:'))).toBe(true);
         } finally {
             HealthService.stopEmbeddingWriteCanary({discardState: true});
         }

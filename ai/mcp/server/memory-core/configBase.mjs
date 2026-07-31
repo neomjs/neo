@@ -386,7 +386,10 @@ class ConfigBase extends ConfigProvider {
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
                  * The canary runs on its OWN cadence, decoupled from probe frequency — a liveness
-                 * probe reads the latest result and performs no inference. `<= 0` disables the
+                 * probe reads the latest result and performs no inference. Container/compose
+                 * healthcheck intervals may therefore be chosen freely (shorter OR longer than
+                 * this cadence): probes never trigger runs, and N probes per cadence window cost
+                 * zero extra inference. `<= 0` disables the
                  * scheduled loop (tests / explicit opt-out).
                  * @type {number}
                  */

@@ -1623,18 +1623,26 @@ class HealthService extends Base {
             return null;
         }
 
-        const gate = createBoundedRetryGate({run: runCanary, failureTtlMs, failureTtlMaxMs, now});
-        const tick = () => { gate.tick({key: keyFor()}).catch(() => {}) };
+        const gate     = createBoundedRetryGate({run: runCanary, failureTtlMs, failureTtlMaxMs, now});
+        const producer = {gate, timer: null, cadenceMs, timeoutMs, keyFor, clearIntervalImpl, now, stopped: false};
+        const tick     = () => {
+            // Stop fence: clearing the interval does not recall callbacks already queued (or
+            // captured by an injected scheduler) — a tick that fires after stop must be a no-op,
+            // or "stop prevents later attempts" is only true for timers, not for work.
+            if (producer.stopped) {
+                return;
+            }
+            gate.tick({key: keyFor()}).catch(() => {});
+        };
 
         tick();
 
-        const timer = setIntervalImpl(tick, cadenceMs);
+        producer.timer = setIntervalImpl(tick, cadenceMs);
+        producer.timer?.unref?.();
 
-        timer?.unref?.();
+        this.#embeddingWriteCanary = producer;
 
-        this.#embeddingWriteCanary = {gate, timer, cadenceMs, timeoutMs, keyFor, clearIntervalImpl, now, stopped: false};
-
-        return this.#embeddingWriteCanary;
+        return producer;
     }
 
     /**
@@ -1762,7 +1770,9 @@ class HealthService extends Base {
             // "Chroma is down" from "Chroma is up on the family you did not dial".
             payload.database.connection[LOOPBACK_PROBE_HEALTH_KEY] = await this.#observeLoopbackFamilies();
 
-            return payload;
+            // Canary truth is projected on EVERY return path, including unhealthy early returns —
+            // a payload that omits the canary block on some paths makes the reader contract lie.
+            return this.#applyEmbeddingWriteCanary(payload);
         }
 
         // Step 2: Check collections
@@ -1775,13 +1785,13 @@ class HealthService extends Base {
         if (collectionsCheck.error) {
             payload.status = 'unhealthy';
             payload.details.push(collectionsCheck.error);
-            return payload;
+            return this.#applyEmbeddingWriteCanary(payload);
         }
 
         if (!collectionsCheck.memories?.exists || !collectionsCheck.summaries?.exists) {
             payload.status = 'unhealthy';
             payload.details.push('One or more required collections are missing');
-            return payload;
+            return this.#applyEmbeddingWriteCanary(payload);
         }
 
         this.#applyEmbeddingWriteCanary(payload);
@@ -1929,13 +1939,13 @@ class HealthService extends Base {
             return health;
         } catch (error) {
             logger.error('[HealthService] Unexpected error during health check:', error);
-            return {
+            return this.#applyEmbeddingWriteCanary({
                 status : 'unhealthy',
                 details: [`Unexpected error: ${error.message}`],
                 error  : 'Health check failed unexpectedly',
                 message: error.message,
                 code   : 'HEALTH_CHECK_ERROR'
-            };
+            });
         }
     }
 

@@ -159,7 +159,35 @@ test.describe('Neo.ai.services.shared.boundedRetryGate', () => {
         expect(gate.readLast().status).toBe('healthy');
     });
 
-    test('a rotated-away in-flight run DRAINS: its result is never delivered to the new generation', async () => {
+    test('GLOBAL single-flight: rotations during a run join it — A→B→A never overlaps (max one run, ever)', async () => {
+        let releaseA;
+        let activeRuns = 0,
+            maxActive  = 0;
+        const gate = createBoundedRetryGate({
+            run: () => {
+                activeRuns++;
+                maxActive = Math.max(maxActive, activeRuns);
+                return new Promise(resolve => {
+                    releaseA = () => { activeRuns--; resolve({status: 'failed', error: 'A-late'}) };
+                });
+            },
+            now: () => 1_000_000
+        });
+
+        const aFlight = gate.tick({key: 'A'});          // in flight, unresolved
+        const bJoin   = gate.tick({key: 'B'});          // rotation: state moves to B, flight JOINED
+        const aJoin   = gate.tick({key: 'A'});          // rotation back: still the same single flight
+
+        // The prior head launched a run per rotation (three concurrent). The contract is ONE.
+        expect(maxActive).toBe(1);
+        expect(gate.state()).toMatchObject({key: 'A', inFlight: true});
+
+        releaseA();
+        await Promise.all([aFlight, bJoin, aJoin]);
+        expect(gate.state().inFlight).toBe(false);
+    });
+
+    test('a rotated-away flight DRAINS: its result is never delivered to a generation with another key', async () => {
         let releaseA;
         const {gate, callCount} = makeGate({
             results: [
@@ -169,19 +197,76 @@ test.describe('Neo.ai.services.shared.boundedRetryGate', () => {
         });
 
         const aFlight = gate.tick({key: 'A'});          // in flight, unresolved
-        const b       = await gate.tick({key: 'B'});    // rotation while A flies
+        const bJoin   = gate.tick({key: 'B'});          // rotation while A flies: JOINS, no second run
 
-        expect(b.status).toBe('healthy');
-        expect(callCount()).toBe(2);
+        expect(callCount()).toBe(1);
 
         releaseA();
-        const aResult = await aFlight;
+        await Promise.all([aFlight, bJoin]);
 
-        // A's caller still gets A's real result, but the CURRENT generation is untouched:
-        // no cache overwrite, no streak inheritance, readLast still serves B.
-        expect(aResult.status).toBe('failed');
-        expect(gate.readLast().status).toBe('healthy');
+        // A's late result is dropped (current key is B): no cache, no streak inheritance.
+        expect(gate.readLast().status).toBe('pending');
         expect(gate.state()).toMatchObject({key: 'B', failureStreak: 0, inFlight: false});
+
+        // The NEXT tick launches for the current generation — rotation converges in one period.
+        expect((await gate.tick({key: 'B'})).status).toBe('healthy');
+        expect(callCount()).toBe(2);
+    });
+
+    test('attempt budget: the streak exhausts into a TERMINAL result with a retained stop reason — no further runs', async () => {
+        let   t     = 0;
+        let   calls = 0;
+        const gate  = createBoundedRetryGate({
+            run             : async () => { calls++; return {status: 'failed', error: 'down'} },
+            failureTtlMs    : 1000,
+            maxFailureStreak: 2,
+            now             : () => t
+        });
+
+        await gate.tick({key: 'k'});                        // streak 1
+        t += 1001;
+        await gate.tick({key: 'k'});                        // streak 2 = budget
+        t += 999_999;                                       // far past any backoff window
+
+        const terminal = await gate.tick({key: 'k'});       // must NOT run
+        expect(calls).toBe(2);
+        expect(terminal.gate.terminal).toBe(true);
+        expect(terminal.gate.stopReason).toContain('attempt budget exhausted (2 consecutive failures, budget 2)');
+        expect(terminal.gate.nextAttemptAt).toBeNull();
+        expect(gate.state().terminal).toBe(true);
+    });
+
+    test('default Infinity budget keeps liveness semantics: ticks past the window keep running, never terminal', async () => {
+        const fail                       = () => ({status: 'failed', error: 'x'});
+        const {gate, callCount, advance} = makeGate({results: [fail(), fail()], failureTtlMs: 1000});
+
+        await gate.tick({key: 'k'});
+        advance(1001);
+        await gate.tick({key: 'k'});
+        expect(callCount()).toBe(2);
+        expect((await gate.tick({key: 'k'})).gate.terminal).toBeUndefined();
+    });
+
+    test('runNow is the named resumption path: it bypasses exhaustion and a healthy settle un-exhausts', async () => {
+        let   healthyNext = false;
+        let   t           = 0;
+        const gate        = createBoundedRetryGate({
+            run             : async () => healthyNext ? {status: 'healthy'} : {status: 'failed', error: 'down'},
+            failureTtlMs    : 1000,
+            maxFailureStreak: 1,
+            now             : () => t
+        });
+
+        await gate.tick({key: 'k'});                        // streak 1 = budget -> terminal
+        t += 999_999;
+        expect((await gate.tick({key: 'k'})).gate.terminal).toBe(true);
+
+        healthyNext = true;
+        const resumed = await gate.runNow({key: 'k'});      // explicit resumption
+
+        expect(resumed.status).toBe('healthy');
+        expect(gate.state()).toMatchObject({failureStreak: 0, terminal: false});
+        expect((await gate.tick({key: 'k'})).status).toBe('healthy');
     });
 
     test('runNow ignores the failure-backoff window but never overlaps an in-flight run', async () => {
