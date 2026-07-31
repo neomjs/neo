@@ -265,19 +265,23 @@ triggers immediate cleanup; the post-cleanup tree does not retain a second runti
 ### 10.9 A plane's escape hatch is not a plane member (#16201)
 
 **An artifact whose purpose is surviving the plane must not resolve beneath it.** `backupPath` was
-`planeMember: true` with a plane-anchored default, which put the protector inside the protected's
-blast radius on two independent axes — and both fired as real incidents rather than theory:
-
-- **Deletion.** A checkout-anchored root sits inside the git working tree. `.neo-ai-data` is
-  gitignored, correctly and non-negotiably at these sizes; `git clean -x` is *defined* as reaching
-  ignored files. Two individually-correct facts, jointly destructive (#16201 — 36 bundles, ~133 GB,
-  one command away).
-- **Capacity.** Bundles and graph on one filesystem fail together under `ENOSPC`: the graph stops
-  accepting writes and the next bundle cannot be written, from one cause at one moment (#16203).
+`planeMember: true` with a plane-anchored default, which resolved the backup root inside the git
+working tree. `.neo-ai-data` is gitignored, correctly and non-negotiably at these sizes; `git clean
+-x` is *defined* as reaching ignored files. Two individually-correct facts, jointly destructive —
+observed as a dry-run listing 36 bundles, ~133 GB, one reflexive command away.
 
 The remedy is classification, not a guard: `planeMember: false` with a `planeMemberReason`, and
 **every profile places it explicitly** — the `orchestrator.tenantRepoMirrorRoot` shape. A member that
 must escape the plane was never a member.
+
+**Scope of the guarantee, bounded deliberately.** The relocation makes the DEFAULT
+checkout-independent: it is no longer derived from the repository location, so ordinary repository
+operations cannot reach it. It does **not** establish that bundles occupy a different physical
+filesystem from the graph, and an explicit override may still place them under a checkout. Whether
+backup and graph should share a failure domain at all is a **separate, latent** concern with its own
+owner; at the time of writing no capacity incident has occurred. This subsection is about
+*placement relative to the checkout*, and must not be cited as having settled the capacity question —
+the two are easy to conflate precisely because one relocation could in principle serve both.
 
 **The paired rule — host source and container target are separate contracts, separately named.**
 Before #16201 the canonical Compose bind source (`./.neo-ai-data/backups`, relative to the project
@@ -293,7 +297,7 @@ So the two are declared separately and never collapsed into one value:
 
 | Contract | Binding | Requirement |
 |---|---|---|
-| Host source | `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) | resolves outside **every** checkout, so no repository operation reaches bundles |
+| Host source | `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) | the **default is checkout-independent**, so no repository operation reaches bundles left at it; an explicit override is unconstrained |
 | Container target | `NEO_BACKUP_PATH` | explicit per-profile placement; mandatory once the leaf left the member walk |
 
 **Generalization for future leaves:** when a leaf crosses a namespace boundary — host filesystem vs

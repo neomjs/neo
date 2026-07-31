@@ -264,11 +264,15 @@ services:
       # rebuilds and host-accessible for off-site copy / inspection.
       #
       # TWO DISTINCT CONTRACTS, deliberately not one value:
-      #   host source      — `NEO_HOST_BACKUP_ROOT`, outside every checkout. The previous
-      #                      `./.neo-ai-data/backups` resolved against the Compose project
-      #                      directory, so on a maintainer machine the bundles lived inside a
-      #                      git working tree and `git clean -x` deleted them — `.neo-ai-data`
-      #                      is gitignored, and `clean -x` is defined as reaching ignored files.
+      #   host source      — `NEO_HOST_BACKUP_ROOT`, whose DEFAULT is checkout-independent. The
+      #                      previous `./.neo-ai-data/backups` resolved against the Compose
+      #                      project directory, so on a maintainer machine the bundles lived
+      #                      inside a git working tree and `git clean -x` deleted them —
+      #                      `.neo-ai-data` is gitignored, and `clean -x` is defined as reaching
+      #                      ignored files. The guarantee is that the DEFAULT no longer derives
+      #                      from the checkout; an explicit override can still place bundles
+      #                      anywhere, and this says nothing about which physical filesystem
+      #                      they share with the graph.
       #   container target — `NEO_BACKUP_PATH` above, the explicit per-profile placement the
       #                      boot walk requires now that the leaf is `planeMember: false`.
       #

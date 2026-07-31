@@ -68,7 +68,7 @@ x-plane-env: &plane-env
   # it. Parity deliberately keeps its bundles INSIDE the parity root: they are disposable
   # fixture artifacts on a Compose-managed named volume, so neither the `git clean -x` vector
   # nor the shared-failure-domain concern that drove the canonical relocation applies here.
-  # The canonical profile places it outside every checkout; this one does not need to.
+  # The canonical profile gives it a checkout-independent default; this one does not need to.
   NEO_BACKUP_PATH: /app/.neo-ai-data-parity/backups
   NEO_TENANT_REPO_MIRROR_ROOT: /app/.neo-ai-data-parity
   NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH: /app/.neo-ai-data-parity/deployment-state/snapshot.json
