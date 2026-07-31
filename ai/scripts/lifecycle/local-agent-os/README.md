@@ -20,6 +20,44 @@ Both host processes keep state under
 `~/Library/Application Support/Neo/AgentOS`, outside every checkout plane.
 `legacy-mixed` and Shape C are not part of this topology.
 
+## The containerized stack alone is not a complete Agent OS
+
+Compose brings up the Memory Core, Knowledge Base, Chroma, and the plane-owning
+Orchestrator, and it reports healthy. It has **no wake delivery and no
+host-bound effects** — those belong to the host edge, a second process that
+Compose neither starts nor mentions. A stack that looks complete while wake is
+dead is the failure this section exists to prevent; it ran that way here for
+hours.
+
+If you are exploring a fork and only want the containerized half, that is a
+valid deployment — you simply do not get wakes.
+
+## Platform matrix
+
+The **runtime is portable**: `ai/daemons/orchestrator/hostEdge.mjs` and
+`ai/daemons/wake/receiver.mjs` run anywhere Node runs. Only the **supervision**
+is platform-specific.
+
+| Platform | Run it | Keep it running |
+|---|---|---|
+| any (macOS, Linux, Windows) | `npm run ai:host-edge` | your terminal, or your own supervisor |
+| macOS | same command | the launchd install below (`RunAtLoad` + `KeepAlive`) |
+| Linux | same command | a systemd user unit wrapping it — not supplied here |
+
+`npm run ai:host-edge` resolves the **complete** host-edge posture from
+`ai/deploy/hostEdgeProfile.mjs`: the `host-edge` role, `deploymentMode=local`,
+a state root outside every checkout, and the lane closure. No installer, no
+plist, no shell-specific syntax. Every key yields to an explicit environment
+value, so a machine without LM Studio starts with
+`NEO_ORCHESTRATOR_LMS_ENABLED=false` set and nothing else changed.
+
+**`npm run ai:orchestrator` is not the host edge.** It starts the same daemon
+with no role declared, and since #16229 that refuses rather than resolving one:
+a role is declared, never inherited. Before the cutover it produced the right
+thing; the container now owns `container-plane`, so a host process claiming it
+is a duplicate owner, and the refusal is what makes that visible instead of
+silent. Declare a role explicitly if you need that entrypoint directly.
+
 ## Start the container plane
 
 Run from the repository root after provisioning `.env` and the mode-0600
@@ -35,7 +73,12 @@ docker compose --env-file .env \
 The canonical project is `neo-local-agent-os` unless
 `NEO_LOCAL_AGENT_OS_PROJECT_NAME` explicitly overrides it.
 
-## Install the host edge
+## Install the host edge (macOS, supervised)
+
+This section is macOS-only: `launchctl` and `plutil` do not exist elsewhere. It
+buys restart-on-login and nothing more — the posture itself comes from
+`hostEdgeProfile.mjs` either way, so the supervised process and a bare
+`npm run ai:host-edge` run identical configuration.
 
 Preserve each current wake subscription's one-time signing key in
 `routes.json`; never print or commit that file. Its schema is validated by
@@ -148,10 +191,15 @@ launchctl bootstrap "gui/$(id -u)" "${NEO_HOST_EDGE_PLIST}"
 ```
 
 Bind `3199` only where Docker Desktop can reach it; keep it blocked from
-untrusted networks. The host-edge template intentionally pins the local
-overlay's default LM Studio port and generation/embedding model IDs; changing a
-`NEO_LOCAL_AGENT_OS_*` provider selection requires a reviewed matching
-LaunchAgent change.
+untrusted networks.
+
+The host-edge LaunchAgent is a **supervision wrapper** (#16229): it launches
+`hostEdge.mjs` and carries only what is genuinely machine-specific — this
+machine's state root and its pinned local LM Studio port and
+generation/embedding model IDs. Changing a `NEO_LOCAL_AGENT_OS_*` provider
+selection still requires a reviewed matching LaunchAgent change. It no longer
+carries the role, the deployment mode, or the lane closure, so the supervised
+path and the portable one cannot drift apart.
 
 ## Prove authority and health
 

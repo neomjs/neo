@@ -210,30 +210,59 @@ local-only/cloud-only defaults; it cannot express two supervisors on one machine
 | `host-edge` | host-edge | Owns local session/desktop/worktree/process effects. It cannot reclaim plane work through a per-lane boolean. |
 | `container-plane` | container-plane + shared-primitive | Owns cloud-capable Agent OS maintenance. Compose declares this role for both production and dev-parity orchestrators. |
 
-The canonical leaf defaults are `deploymentMode=cloud` and
-`authorityProfile=container-plane`. Production Compose therefore does not restate
-those values or the matching disabled local/model lanes. A host Orchestrator, where
-one is elected, opts into both `deploymentMode=local` and
-`authorityProfile=host-edge`; this keeps deployment defaults and task ownership
-orthogonal while making the container reality the zero-override path. Secrets,
-provider/tenant choices, network placement, and privileged runtime capabilities
-remain deployment inputs rather than config policy.
+The canonical leaf default for `deploymentMode` is `cloud`, so production Compose does not restate
+it or the matching disabled local/model lanes.
+
+**`authorityProfile` has NO default — a role is declared, never inherited** *(amended 2026-07-31,
+#16229; this clause originally read "the canonical leaf defaults are `deploymentMode=cloud` and
+`authorityProfile=container-plane`", and the amendment reverses only the second half)*. The original
+clause optimized for the container's zero-override path and got the incentive backwards: it made the
+AMBIGUOUS command the cheap one. `ai/daemons/orchestrator/daemon.mjs` is the entrypoint the plist
+invokes and the entrypoint `npm run ai:orchestrator` invokes; they differ only by environment, so
+after the cutover the pre-cutover muscle-memory command resolved `container-plane` on the host and
+claimed the authority Docker already owned — with nothing in its name or output saying so, and with
+`enforceSingleton` reaching the live daemon's PID file first. A silent duplicate claim is exactly
+what §10.8 exists to prevent, and a default is what made it silent.
+
+Consequences of the empty default, all mechanical:
+
+- **Every launcher declares.** Both Compose profiles set `container-plane`; the machine-local
+  Orchestrator starts through `npm run ai:host-edge`, whose posture module declares `host-edge`;
+  the harness Brain profiles (checkout smoke and packaged product) declare `container-plane`. A new
+  launcher that declares nothing does not start, and a census spec asserts the launcher set.
+- **Requiredness is armed by the emptiness.** `requiredFor` is evaluated on the RESOLVED value, so
+  any non-empty default would leave the requirement permanently unfireable — the default and the
+  guard are one decision, not two.
+- **Validity is a separate gate.** Requiredness proves non-empty and typed; only enum membership
+  proves a value is a role. Both run in `bootOrchestratorCli` ahead of `startOrchestrator`, so a
+  refused launch writes no state directory, no PID file, and no log.
+
+A host Orchestrator opts into `deploymentMode=local` and `authorityProfile=host-edge` together with
+its state root and lane closure — the role alone is not the posture, and that full posture lives in
+`ai/deploy/hostEdgeProfile.mjs` rather than inside a macOS LaunchAgent, so supervision stays
+optional and platform-specific while the runtime stays portable. Secrets, provider/tenant choices,
+network placement, and privileged runtime capabilities remain deployment inputs rather than config
+policy.
 
 The #16039 rerun makes that boundary mechanical. Canonical Compose carried 45
 unique `NEO_*`/`MCP_*` keys before the cut: 10 were already-retired MCP startup
 controls and seven more restated static or derived defaults. The guarded surface
-now contains 28 unique keys:
+now contains 30 unique keys — 28 at the #16039 cut, plus the explicit backup-root
+placement (#16201) and the declared orchestrator role (#16229), both of which are
+required precisely because their leaves no longer carry a usable default:
 
 | Deployment category | Keys | Meaning |
 |---|---:|---|
-| Required choices / placement / capabilities | 11 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist |
+| Required choices / placement / capabilities | 13 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist, backup-root placement, declared authority role |
 | Optional overrides | 15 | Provider/model/ask selections and non-default WAL cadences |
 | Secrets | 2 | OpenAI-compatible and KB ask credentials; secret values never become config policy |
 
 `ai/scripts/lint/config-leaf-parity.json` owns the exact classified key lists,
 service-to-config-template map, and retired/derived denylist. The existing
 AiConfig lint fails when canonical base/dev Compose reintroduces a denied env,
-sets a literal equal to the owning leaf default, or drifts the 28-key census.
+sets a literal equal to the owning leaf default, or drifts the 30-key census. The
+census in `config-leaf-parity.json` is the executable copy and this table is the
+record of it; when they disagree, the JSON is right and this table is stale.
 Interpolated provider choices remain deployment inputs and are not mistaken for
 literal default restatements.
 
