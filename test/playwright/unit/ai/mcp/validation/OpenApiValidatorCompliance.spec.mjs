@@ -726,6 +726,68 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(offenders, `x-handler ops missing x-pass-as-object (arg-shape mismatch):\n${offenders.join('\n')}`).toEqual([]);
     });
 
+    test('every server: an argument-taking operation carries x-pass-as-object unless its handler is positional (#16231)', () => {
+        // The guard above, generalized. That one covers neural-link x-handler ops; the same omission
+        // put every argument-taking file-system tool out of action from the day that server was
+        // created, because nothing asserted over the whole surface. The annotation is required for
+        // correctness, silent when absent, and undocumented, so each new server inherits the trap
+        // intact.
+        //
+        // gitlab-workflow is included here even though the module-level `servers` list omits it — the
+        // trap does not care which suites cover a server. Deduplicated so that adding it to `servers`
+        // later widens the shared list instead of scanning it twice here.
+        const allServers = [...new Set([...servers, 'gitlab-workflow'])].sort();
+
+        // Exceptions need a reason, because an unlisted one is exactly the defect this test catches.
+        const positionalHandlers = {
+            // `toolId => toolService.getToolHandbook(toolId)` — the identical arrow in all six servers.
+            'get_mcp_tool_handbook': 'arrow handler takes the toolId positionally',
+
+            // `getIssueById(issueNumber)` — genuinely positional, single argument.
+            'github-workflow:get_local_issue_by_id': 'handler signature is a single positional issueNumber',
+
+            // `getPullRequestDiff(options)` documents `{Object|number}` and re-wraps a bare number, so
+            // the positional call still resolves pr_number — but `file`, `sha` and `files_only` are
+            // dropped by arity. Listed to keep this guard green, NOT because the dispatch is right.
+            'github-workflow:get_pull_request_diff': 'tolerates a bare pr_number; the other three declared arguments never arrive',
+
+            // `getIngestionProgress({staleAfterMs = 60000} = {})` destructures, but the `= {}` default
+            // keeps it from throwing on a positional call: it falls back to 60000 and the caller's
+            // value never lands. Same category as the entry above.
+            'knowledge-base:get_ingestion_progress': 'destructures behind a `= {}` default; positional call degrades silently'
+        };
+
+        const offenders = [];
+
+        for (const server of allServers) {
+            const doc = yaml.load(fs.readFileSync(path.join(repoRoot, `ai/mcp/server/${server}/openapi.yaml`), 'utf8'));
+
+            for (const [operationId, op] of Object.entries(getOperationsById(doc))) {
+                // The same union ToolService.initializeToolMapping() builds. No argument names means the
+                // operation dispatches identically either way, so only a non-empty set is interesting.
+                const argNames = (op.parameters || []).map(parameter => parameter.name),
+                      schema   = op.requestBody?.content?.['application/json']?.schema;
+
+                if (schema) {
+                    const resolved = schema.$ref
+                        ? schema.$ref.replace(/^#\//, '').split('/').reduce((node, key) => node[key], doc)
+                        : schema;
+
+                    argNames.push(...Object.keys(resolved.properties || {}));
+                }
+
+                if (argNames.length === 0)                          continue;
+                if (op['x-pass-as-object'] === true)                continue;
+                if (positionalHandlers[operationId])                continue;
+                if (positionalHandlers[`${server}:${operationId}`]) continue;
+
+                offenders.push(`${server}.${operationId} (${argNames.join(', ')})`);
+            }
+        }
+
+        expect(offenders, `ops dispatch positionally with no positional handler recorded:\n${offenders.join('\n')}`).toEqual([]);
+    });
+
     test('neural-link inspect_store + list_stores output schemas (object `model` #13372; list_stores `{stores:[]}` envelope + `isLoaded` #10072)', () => {
         const doc     = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8')),
               opsById = getOperationsById(doc),
