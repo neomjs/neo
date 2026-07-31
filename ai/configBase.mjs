@@ -193,9 +193,27 @@ class ConfigBase extends ConfigProvider {
             currentReleaseVersion: leaf('v13.2', 'NEO_CURRENT_RELEASE', 'string'),
             /**
              * Universal JSONL backup/export directory for Agent OS databases.
+             *
+             * Deliberately NOT plane-anchored, and that is the fix rather than a workaround for the
+             * boot walk. A backup exists to survive the plane, so a plane-anchored default resolved
+             * it inside a git working tree: `git clean -x` reaches it because `.neo-ai-data` is
+             * (correctly) gitignored and `clean -x` is defined as removing ignored files. That
+             * deletion vector is what this classification removes.
+             *
+             * Scope, stated precisely because the neighbouring risk is easy to over-claim: this
+             * makes the default CHECKOUT-INDEPENDENT — it is no longer derived from the repository
+             * location. It does NOT guarantee a different physical filesystem from the graph, and
+             * an explicit override may still place bundles anywhere, including back under a
+             * checkout. Separating backup and graph FAILURE DOMAINS is a distinct, latent concern
+             * owned elsewhere and is not addressed here.
+             *
+             * Each deployment profile binds the leaf explicitly — the same profile-pinned shape as
+             * `orchestrator.tenantRepoMirrorRoot`. Container profiles MUST place it: the previous
+             * agreement between this default and the Compose bind was a coincidence of both deriving
+             * from the plane root, not a contract.
              * @type {string}
              */
-            backupPath: leaf(path.resolve(planeDataRootDefault, 'backups'), 'NEO_BACKUP_PATH', 'string', {planeMember: true}),
+            backupPath: leaf(path.resolve(os.homedir(), '.neo-ai', 'backups'), 'NEO_BACKUP_PATH', 'string', {planeMember: false, planeMemberReason: 'escape hatch, not a member — a plane-anchored default resolves the backup root inside the checkout, where ordinary repository operations delete it; every profile binds it explicitly'}),
             /**
              * Path to the wake-daemon liveness sentinel touched on every swarm-heartbeat
              * pulse. Operators / tests can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`.
@@ -1692,7 +1710,6 @@ class ConfigBase extends ConfigProvider {
  */
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'auth.seatTokenRegistryPath',
-    'backupPath',
     'wakeDaemonHeartbeatAlivePath',
     'fleet.instanceRoot',
     'engines.chroma.dataDirProd',

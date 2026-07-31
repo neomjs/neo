@@ -50,10 +50,11 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
     let verifyBundleIntegrity;
     let countNonEmptyJsonlLines;
+    let noticeLegacyBackupRoot;
 
     test.beforeAll(async () => {
         SDK                   = await import('../../../../../../ai/services.mjs');
-        ({runBackup, verifyBundleIntegrity, countNonEmptyJsonlLines} = await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
+        ({runBackup, verifyBundleIntegrity, countNonEmptyJsonlLines, noticeLegacyBackupRoot} = await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
         KB_ChromaManager      = SDK.KB_ChromaManager;
         Memory_StorageRouter  = SDK.Memory_StorageRouter;
 
@@ -420,5 +421,85 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         // The subfolder still exists, so a consumer never has to distinguish "no ledgers" from
         // "this bundle predates ledger capture" by the absence of a directory.
         expect(fs.existsSync(path.join(altBundleRoot, 'ledgers'))).toBe(true);
+    });
+
+    test.describe('noticeLegacyBackupRoot — the relocation notice', () => {
+        // Injected fs: the point of these cases is the DECISION, not the filesystem. A real
+        // temp-dir fixture would exercise fs-extra rather than the branch under test.
+        const makeFs = ({legacyEntries = null, markerExists = false} = {}) => {
+            const writes = [];
+
+            return {
+                writes,
+                pathExists: async () => markerExists,
+                ensureDir : async () => {},
+                writeFile : async (file, body) => { writes.push({file, body}) },
+                readdir   : async () => {
+                    if (legacyEntries === null) {
+                        const error = new Error('ENOENT');
+                        error.code  = 'ENOENT';
+                        throw error
+                    }
+
+                    return legacyEntries
+                }
+            }
+        };
+
+        test('fires and names BOTH roots when bundles remain at the legacy path', async () => {
+            const
+                logged = [],
+                fsImpl = makeFs({legacyEntries: ['backup-2026-07-01T00-00-00.000Z', 'last-backup-receipt.json']}),
+                fired  = await noticeLegacyBackupRoot({
+                    currentRoot: '/new/backups',
+                    legacyRoot : '/repo/.neo-ai-data/backups',
+                    logger     : {warn: message => logged.push(message)},
+                    fsImpl
+                });
+
+            expect(fired).toBe(true);
+            expect(logged.join('\n')).toContain('/repo/.neo-ai-data/backups');
+            expect(logged.join('\n')).toContain('/new/backups');
+
+            // Nothing is moved or deleted: the ONLY write is the marker. This is the assertion
+            // that would catch someone later "helpfully" migrating the bundles.
+            expect(fsImpl.writes).toHaveLength(1);
+            expect(fsImpl.writes[0].file).toContain('/new/backups')
+        });
+
+        test('does NOT repeat once the marker is present', async () => {
+            const fired = await noticeLegacyBackupRoot({
+                currentRoot: '/new/backups',
+                legacyRoot : '/repo/.neo-ai-data/backups',
+                logger     : {warn: () => {}},
+                fsImpl     : makeFs({legacyEntries: ['backup-x'], markerExists: true})
+            });
+
+            expect(fired).toBe(false)
+        });
+
+        test('stays silent for a legacy root holding no bundles, and for one that does not exist', async () => {
+            const base = {
+                currentRoot: '/new/backups',
+                legacyRoot : '/repo/.neo-ai-data/backups',
+                logger     : {warn: () => {}}
+            };
+
+            expect(await noticeLegacyBackupRoot({...base, fsImpl: makeFs({legacyEntries: ['README.md']})})).toBe(false);
+
+            // Absence is the healthy fresh-deployment case and must never surface as an error.
+            expect(await noticeLegacyBackupRoot({...base, fsImpl: makeFs()})).toBe(false)
+        });
+
+        test('stays silent when both roots resolve alike — profiles that keep bundles in-plane on purpose', async () => {
+            const fired = await noticeLegacyBackupRoot({
+                currentRoot: '/plane/backups',
+                legacyRoot : '/plane/backups',
+                logger     : {warn: () => {}},
+                fsImpl     : makeFs({legacyEntries: ['backup-x']})
+            });
+
+            expect(fired).toBe(false)
+        });
     });
 });

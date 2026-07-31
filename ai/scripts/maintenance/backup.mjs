@@ -117,6 +117,10 @@ const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
+// Marks that the pre-relocation in-tree backup root has already been reported once, so the notice
+// does not repeat on every scheduled run after an operator has read it and made a decision.
+const LEGACY_BACKUP_NOTICE_MARKER = '.legacy-backup-root-noticed';
+
 const DEFAULT_CONCEPTS_DIR      = path.join(PROJECT_ROOT, '.neo-ai-data', 'concepts');
 const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datasets', 'rlaif', 'trajectories.jsonl');
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
@@ -717,6 +721,71 @@ async function copyJsonlSource(source, destDir, logger=console, destFileName=nul
 }
 
 /**
+ * @summary Emits a ONE-TIME notice when bundles are found at the pre-relocation, plane-anchored
+ * backup root, so an operator can move them deliberately.
+ *
+ * Nothing is moved or deleted, and that restraint is the point: relocating tens of gigabytes
+ * implicitly, during a config change, on a machine where those bundles may be the only surviving
+ * copy, is a worse risk than leaving them somewhere a notice can point at. The marker file makes
+ * this a notice rather than a recurring nag — an operator who has read it once and decided to keep
+ * the legacy bundles where they are should not be told again on every scheduled run.
+ *
+ * Read-only with respect to the bundle contract: it never touches the local bundle, the receipt, or
+ * the terminal, so it cannot turn a successful backup into a failed one.
+ *
+ * @param {Object}  options
+ * @param {String}  options.currentRoot Resolved `AiConfig.backupPath` — where bundles land now.
+ * @param {String}  options.legacyRoot The pre-relocation location (resolved plane root + `backups`).
+ * @param {Object}  [options.logger=console]
+ * @param {Object}  [options.fsImpl=fs] Injectable for tests.
+ * @returns {Promise<Boolean>} True when a notice was emitted.
+ */
+export async function noticeLegacyBackupRoot({currentRoot, legacyRoot, logger = console, fsImpl = fs}) {
+    if (!currentRoot || !legacyRoot || path.resolve(currentRoot) === path.resolve(legacyRoot)) {
+        return false
+    }
+
+    const markerPath = path.join(currentRoot, LEGACY_BACKUP_NOTICE_MARKER);
+
+    if (await fsImpl.pathExists(markerPath)) {
+        return false
+    }
+
+    let legacyEntries;
+
+    try {
+        legacyEntries = await fsImpl.readdir(legacyRoot)
+    } catch {
+        // No legacy root at all is the common, healthy case — a fresh deployment. Absence is not
+        // an error and must not surface as one.
+        return false
+    }
+
+    if (!legacyEntries.some(name => name.startsWith('backup-'))) {
+        return false
+    }
+
+    logger.warn?.(
+        `[Backup] Bundles were found at the previous in-tree location: ${legacyRoot}\n` +
+        `[Backup] New bundles now land at: ${currentRoot}\n` +
+        '[Backup] Nothing was moved or deleted. That path sits inside the repository working tree, ' +
+        'where `git clean -x`, a re-clone, or a moved worktree will remove it — move the bundles ' +
+        'deliberately if you still need them.'
+    );
+
+    try {
+        await fsImpl.ensureDir(currentRoot);
+        await fsImpl.writeFile(markerPath, `legacy backup root noticed: ${legacyRoot}\n`)
+    } catch (error) {
+        // A marker we could not persist means the notice repeats next run. Strictly better than
+        // letting a marker write fail a backup.
+        logger.warn?.(`[Backup] could not persist the legacy-notice marker: ${error.message}`)
+    }
+
+    return true
+}
+
+/**
  * The lease-owning orchestration path: exported `runBackup()` stays the pure local
  * bundle/retention primitive; this wrapper owns the configured off-host sync step and the
  * deployment-global receipt. Direct module callers of `runBackup()` never fire the configured
@@ -877,6 +946,19 @@ export async function runBackupWithOffHostSync({
 // overlay loads BEFORE any backupPath read (bundle, retention, receipt, snapshot-root).
 if (import.meta.url === `file://${process.argv[1]}`) {
     await loadTopLevelAiConfig();
+
+    // Operator-facing courtesy, deliberately at the CLI layer rather than inside the lease-owning
+    // wrapper. The wrapper is a reusable programmatic surface whose behavioural contract is a
+    // narrow matrix (receipt truth, then terminal decision); a filesystem side effect and a
+    // console warning firing there would reach every programmatic caller and every test that
+    // exercises that matrix. The relocation notice is for a human reading a CLI run, so it lives
+    // where humans invoke it — and it never touches the backup terminal.
+    await noticeLegacyBackupRoot({
+        currentRoot: AiConfig.backupPath,
+        legacyRoot : path.join(AiConfig.plane.dataRoot, 'backups')
+    }).catch(noticeError => {
+        console.warn(`[Backup] legacy-root notice failed: ${noticeError.message}`)
+    });
 
     runBackupWithOffHostSync()
         .then(outcome => {

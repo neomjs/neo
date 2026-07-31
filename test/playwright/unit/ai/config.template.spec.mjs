@@ -290,7 +290,15 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.graphProvider).toBe(process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible');
         expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(Config.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
-        expect(Config.backupPath).toBe(process.env.NEO_BACKUP_PATH || path.resolve(Config.neoRootDir, '.neo-ai-data/backups'));
+        // Relocated out of the plane: a backup that resolves beneath the checkout is deletable
+        // by `git clean -x`, since `.neo-ai-data` is gitignored and `clean -x` is defined as
+        // reaching ignored files.
+        expect(Config.backupPath).toBe(process.env.NEO_BACKUP_PATH || path.resolve(os.homedir(), '.neo-ai', 'backups'));
+
+        // The guarantee, independent of where the default is tuned to next.
+        if (!process.env.NEO_BACKUP_PATH) {
+            expect(Config.backupPath.startsWith(Config.neoRootDir + path.sep)).toBe(false)
+        }
         expect(Config.modelName).toBe('gemini-3.5-flash');
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
 

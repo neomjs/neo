@@ -140,9 +140,17 @@ The deployment substrates have different recovery properties:
   tenant-repo revision/backoff state, recovery ledgers, and logs. Persisted PID
   and lease files are process-epoch artifacts; boot reconciliation safely
   reclaims dead owners instead of deleting the continuity directory.
-- Backup bundles persist via a host bind-mount (`./.neo-ai-data/backups` on the
-  `cloud`-profile orchestrator) that survives container rebuilds; off-site copy
-  or a managed-object-storage target is the disaster-recovery layer above that.
+- Backup bundles persist via a host bind-mount on the `cloud`-profile
+  orchestrator, whose host source is `NEO_HOST_BACKUP_ROOT` (default
+  `${HOME}/.neo-ai/backups`). The default deliberately **does not derive from the
+  Compose project/checkout path** — an earlier project-directory-relative default
+  put bundles inside the git working tree, where `git clean -x` removes them
+  because `.neo-ai-data` is gitignored. That is the extent of the guarantee: an
+  explicit override is unconstrained, and a checkout placed under the default
+  path would still be reachable, so set the override explicitly if either applies. The
+  container target is `NEO_BACKUP_PATH` (`/app/.neo-ai-data/backups`); the two are
+  separate contracts and must not be collapsed into one value. Off-site copy or a
+  managed-object-storage target is the disaster-recovery layer above that.
 
 A named volume is **container-recreation durability**, not disaster recovery.
 The current backup bundle does not copy `orchestrator-state`; include that
