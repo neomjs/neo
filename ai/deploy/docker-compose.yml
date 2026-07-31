@@ -85,6 +85,10 @@ services:
       - NEO_KB_ASK_MAX_RPM=${NEO_KB_ASK_MAX_RPM:-}
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      # Read-only half of the orchestrator -> public MCP deployment-state bridge.
+      # A dedicated volume keeps this graph-independent receipt visible without
+      # granting the KB container Docker/runtime authority.
+      - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
     depends_on:
       chroma:
         condition: service_healthy
@@ -169,6 +173,8 @@ services:
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
       - shared-handoff-data:/app/.neo-ai-data/handoff:ro
+      # Read-only half of the orchestrator -> public MCP deployment-state bridge.
+      - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
     depends_on:
       chroma:
         condition: service_healthy
@@ -240,6 +246,9 @@ services:
       # container recreate. This named volume is durability, not off-host backup.
       - orchestrator-state:/app/.neo-ai-data/orchestrator-daemon
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      # Sole writer for the graph-independent deployment-state bridge consumed
+      # read-only by KB/MC.
+      - shared-deployment-state-data:/app/.neo-ai-data/deployment-state
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
       # The `golden-path` scheduler lane writes the handoff and its derived
       # route artifacts here; mc-server mounts the same directory read-side.
@@ -373,6 +382,7 @@ volumes:
   chroma-data:
   orchestrator-state:
   shared-sqlite-data:
+  shared-deployment-state-data:
   shared-handoff-data:
   tenant-repo-mirrors:
   caddy-data:
