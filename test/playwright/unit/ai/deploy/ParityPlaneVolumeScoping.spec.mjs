@@ -386,8 +386,13 @@ test.describe('data-plane profile election — base and integration-fixture disp
             plistSource   = fs.readFileSync(localWakePlistPath, 'utf8');
 
         expect(overlaySource).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
-        expect(overlaySource).toContain('source: ../../.neo-ai-data');
-        expect(overlaySource).toContain('source: ../../.neo-ai-data/chroma/unified');
+        expect(overlaySource).toMatch(/^name:\s*&local-project\s/m);
+        expect(overlaySource).toContain(
+            'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *local-project'
+        );
+        expect(overlaySource).not.toContain('source: ../../.neo-ai-data');
+        expect(overlaySource).not.toContain('source: ../../.neo-ai-data/chroma/unified');
+        expect(overlaySource).not.toContain('NEO_AI_ORCHESTRATOR_DIR');
         expect(overlaySource).toContain('NEO_AUTH_MODE: github-pat');
         expect(overlaySource).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
         expect(overlaySource).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
@@ -396,7 +401,13 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(overlaySource).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
         expect(overlaySource).not.toContain('environment: GH_TOKEN');
         expect(overlaySource).toContain(
-            'NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:11434}'
+            'NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:1234}'
+        );
+        expect(overlaySource).toContain(
+            'NEO_OPENAI_COMPATIBLE_MODEL: ${NEO_LOCAL_AGENT_OS_MODEL:-google/gemma-4-26b-a4b}'
+        );
+        expect(overlaySource).toContain(
+            'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: ${NEO_LOCAL_AGENT_OS_EMBEDDING_MODEL:-text-embedding-qwen3-embedding-8b}'
         );
         expect(overlaySource.match(/restart: unless-stopped/g)).toHaveLength(5);
         expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
