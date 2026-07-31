@@ -1,182 +1,257 @@
-import {test, expect}                           from '@playwright/test';
-import {mkdtemp, readFile, rm, stat, writeFile} from 'node:fs/promises';
-import {existsSync}                             from 'node:fs';
-import os                                       from 'node:os';
-import path                                     from 'node:path';
+import {test, expect}                                             from '@playwright/test';
+import {mkdtemp, readFile, readdir, rm, stat, symlink, writeFile} from 'node:fs/promises';
+import {existsSync}                                               from 'node:fs';
+import os                                                         from 'node:os';
+import path                                                       from 'node:path';
 
 import {
     buildWakeReceiverManifest,
     fingerprintSigningKey,
-    readExistingSigningKeys,
+    readPublishedRoutes,
     writeValidatedManifest
 } from '../../../../../../ai/daemons/wake/buildReceiverManifest.mjs';
 
-const activeSubscription = {
-    id                   : 'WAKE_SUB:1b7cdb3a-2ae0-4262-9778-c4b86d4bc92a',
+const SERVER_KEY = 'a'.repeat(64),
+      PEER_KEY   = 'b'.repeat(64);
+
+/**
+ * Shape pinned from a real migrated record: `update` MERGES rather than replaces, so a migrated
+ * subscription carries BOTH `userDataDir` (legacy) and `instanceAddress` (current).
+ */
+const webhookSubscription = {
+    id                   : 'WAKE_SUB:84dfc4da-0000-4000-8000-000000000001',
     status               : 'active',
     agentIdentity        : '@neo-opus-ada',
     trigger              : 'SENT_TO_ME',
-    harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
+    harnessTarget        : 'a2a-webhook',
+    harnessTargetMetadata: {
+        adapter        : 'osascript',
+        appName        : 'Claude',
+        tabShortcut    : '3',
+        focusSeedKey   : 'space',
+        addressType    : 'webhookUrl',
+        instanceAddress: 'http://127.0.0.1:45999/wake',
+        userDataDir    : '/legacy/path',
+        signingKey     : SERVER_KEY,
+        url            : 'http://host.docker.internal:45999/wake'
+    }
 };
 
-const retiredSubscription = {
-    ...activeSubscription,
-    id    : 'WAKE_SUB:fc6eace1-b0a3-49fd-9fa1-9f3418db8289',
-    status: 'retired'
+const bridgeDaemonSubscription = {
+    id                   : 'WAKE_SUB:84dfc4da-0000-4000-8000-000000000002',
+    status               : 'active',
+    agentIdentity        : '@neo-kimi-iris',
+    trigger              : 'SENT_TO_ME',
+    harnessTarget        : 'bridge-daemon',
+    harnessTargetMetadata: {appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
 };
 
 async function tempDir() {
     return await mkdtemp(path.join(os.tmpdir(), 'wake-manifest-'))
 }
 
-test.describe('buildWakeReceiverManifest', () => {
-    test('maps active subscriptions to routes and excludes retired ones', () => {
-        const {manifest, routeSummaries} = buildWakeReceiverManifest({
-            subscriptions: [activeSubscription, retiredSubscription]
+test.describe('buildWakeReceiverManifest — key authority', () => {
+    test('uses the server-issued key and never mints one', () => {
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+
+        // A minted key would boot cleanly and 401 every real container wake.
+        expect(manifest.routes[webhookSubscription.id].signingKey).toBe(SERVER_KEY)
+    });
+
+    test('refuses an a2a-webhook record carrying no server key rather than inventing one', () => {
+        const {signingKey, ...rest} = webhookSubscription.harnessTargetMetadata;
+
+        expect(() => buildWakeReceiverManifest({
+            subscriptions: [{...webhookSubscription, harnessTargetMetadata: rest}]
+        })).toThrow(/no server-issued signingKey/i)
+    });
+
+    test('fails closed when the published key disagrees with the server key', () => {
+        expect(() => buildWakeReceiverManifest({
+            subscriptions : [webhookSubscription],
+            existingRoutes: {[webhookSubscription.id]: {signingKey: PEER_KEY}}
+        })).toThrow(/disagrees with the published manifest/i)
+    });
+
+    test('strips sender-only fields from receiver-visible metadata', () => {
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]}),
+              metadata   = manifest.routes[webhookSubscription.id].harnessTargetMetadata;
+
+        expect(metadata.signingKey).toBeUndefined();
+        expect(metadata.url).toBeUndefined();
+        // The legacy/current pair from a merged update must survive untouched.
+        expect(metadata.userDataDir).toBe('/legacy/path');
+        expect(metadata.instanceAddress).toBe('http://127.0.0.1:45999/wake')
+    });
+});
+
+test.describe('buildWakeReceiverManifest — route class', () => {
+    test('skips an undeliverable target with a named reason instead of publishing a dead route', () => {
+        const {manifest, routeSummaries, skipped} = buildWakeReceiverManifest({
+            subscriptions: [webhookSubscription, bridgeDaemonSubscription]
         });
 
-        expect(manifest.schemaVersion).toBe(1);
-        expect(Object.keys(manifest.routes)).toEqual([activeSubscription.id]);
+        // The mixed set is the case that occurs mid-migration, and mid-migration is when this runs.
+        expect(Object.keys(manifest.routes)).toEqual([webhookSubscription.id]);
         expect(routeSummaries).toHaveLength(1);
-
-        const route = manifest.routes[activeSubscription.id];
-
-        expect(route.agentIdentity).toBe('@neo-opus-ada');
-        expect(route.harnessTargetMetadata).toEqual(activeSubscription.harnessTargetMetadata);
-        expect(route.adapterConfig.attemptTimeoutMs).toBeGreaterThan(0);
-        expect(route.signingKey).toHaveLength(64)
+        expect(skipped).toHaveLength(1);
+        expect(skipped[0].subscriptionId).toBe(bridgeDaemonSubscription.id);
+        expect(skipped[0].reason).toMatch(/not deliverable/i)
     });
 
-    test('reuses a supplied signing key instead of rotating it', () => {
-        const signingKey = 'a'.repeat(64);
+    test('reports the adapter the route will actually use, never a platform default', () => {
+        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
 
-        const {manifest, routeSummaries} = buildWakeReceiverManifest({
-            subscriptions: [activeSubscription],
-            signingKeys  : {[activeSubscription.id]: signingKey}
+        // Falling back to the platform default once made the summary assert an adapter that was not
+        // in the manifest — a false statement that reads as confirmation.
+        expect(routeSummaries[0].adapter).toBe('osascript');
+
+        const noAdapter = buildWakeReceiverManifest({
+            subscriptions: [{
+                ...webhookSubscription,
+                harnessTargetMetadata: {...webhookSubscription.harnessTargetMetadata, adapter: undefined}
+            }]
         });
 
-        // Rotating on every build would silently break a container already signing with the old key.
-        expect(manifest.routes[activeSubscription.id].signingKey).toBe(signingKey);
-        expect(routeSummaries[0].reusedKey).toBe(true)
+        expect(noAdapter.routeSummaries[0].adapter).toBeNull()
     });
 
-    test('never exposes a signing key in the summary, only a fingerprint', () => {
-        const signingKey = 'b'.repeat(64);
-
-        const {routeSummaries} = buildWakeReceiverManifest({
-            subscriptions: [activeSubscription],
-            signingKeys  : {[activeSubscription.id]: signingKey}
+    test('skips inactive records and refuses a set that yields no route at all', () => {
+        const {skipped} = buildWakeReceiverManifest({
+            subscriptions : [{...webhookSubscription, status: 'retired'}],
+            existingRoutes: {'WAKE_SUB:keep-me': {signingKey: PEER_KEY}}
         });
 
-        const serialised = JSON.stringify(routeSummaries);
+        expect(skipped[0].reason).toMatch(/status is 'retired'/);
 
-        expect(serialised).not.toContain(signingKey);
-        expect(routeSummaries[0].keyFingerprint).toBe(fingerprintSigningKey(signingKey));
-        expect(routeSummaries[0].keyFingerprint).toHaveLength(12)
+        expect(() => buildWakeReceiverManifest({subscriptions: [bridgeDaemonSubscription]}))
+            .toThrow(/refusing to write an empty manifest/i)
+    });
+});
+
+test.describe('buildWakeReceiverManifest — composition', () => {
+    test('merges into existing routes so one seat cannot delete a peer', () => {
+        const peerId = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000ff';
+
+        const {manifest} = buildWakeReceiverManifest({
+            subscriptions : [webhookSubscription],
+            existingRoutes: {[peerId]: {agentIdentity: '@neo-opus-grace', signingKey: PEER_KEY}}
+        });
+
+        expect(Object.keys(manifest.routes).sort()).toEqual([webhookSubscription.id, peerId].sort());
+        expect(manifest.routes[peerId].signingKey).toBe(PEER_KEY)
     });
 
-    test('refuses to produce an empty manifest', () => {
-        expect(() => buildWakeReceiverManifest({subscriptions: [retiredSubscription]}))
-            .toThrow(/refusing to write an empty manifest/i);
-        expect(() => buildWakeReceiverManifest({subscriptions: 'nope'}))
-            .toThrow(/requires a subscriptions array/i)
-    });
+    test('keeps per-route keys distinct and fingerprints non-reversible', () => {
+        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
 
-    test('refuses a subscription missing the fields the receiver requires', () => {
-        const cases = [
-            [{...activeSubscription, id: 'not-a-wake-sub'},        /not a WAKE_SUB identifier/i],
-            [{...activeSubscription, agentIdentity: ''},           /no agentIdentity/i],
-            [{...activeSubscription, harnessTargetMetadata: null}, /no harnessTargetMetadata/i]
-        ];
-
-        for (const [subscription, pattern] of cases) {
-            expect(() => buildWakeReceiverManifest({subscriptions: [subscription]})).toThrow(pattern)
-        }
+        expect(JSON.stringify(routeSummaries)).not.toContain(SERVER_KEY);
+        expect(routeSummaries[0].keyFingerprint).toBe(fingerprintSigningKey(SERVER_KEY));
+        expect(fingerprintSigningKey(SERVER_KEY)).not.toBe(fingerprintSigningKey(PEER_KEY))
     });
 });
 
 test.describe('writeValidatedManifest', () => {
-    test('writes 0600 and produces a manifest the receiver actually loads', async () => {
+    test('publishes 0600 and leaves no staging residue', async () => {
         const dir = await tempDir();
 
         try {
-            const {manifest} = buildWakeReceiverManifest({subscriptions: [activeSubscription]}),
+            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]}),
                   target     = path.join(dir, 'routes.json');
 
             await writeValidatedManifest({manifest, targetPath: target});
 
-            // Mode matters: the receiver refuses anything group- or world-readable.
             expect((await stat(target)).mode & 0o077).toBe(0);
-            expect(JSON.parse(await readFile(target, 'utf8')).schemaVersion).toBe(1)
+            expect((await readdir(dir)).filter(name => name.includes('staging'))).toEqual([])
         } finally {
             await rm(dir, {force: true, recursive: true})
         }
     });
 
-    test('discards the staging file and publishes nothing when the receiver would reject it', async () => {
+    test('a pre-created staging symlink cannot capture the secrets or become the target', async () => {
         const dir = await tempDir();
 
         try {
-            const target = path.join(dir, 'routes.json');
+            const target = path.join(dir, 'routes.json'),
+                  victim = path.join(dir, 'victim.txt');
 
-            // An unsupported adapter is rejected by the receiver's loader, not by the builder — which
-            // is the point: the generator defers to the receiver rather than duplicating its rules.
-            const {manifest} = buildWakeReceiverManifest({
-                subscriptions: [{
-                    ...activeSubscription,
-                    harnessTargetMetadata: {...activeSubscription.harnessTargetMetadata, adapter: 'test-adapter'}
-                }]
-            });
+            await writeFile(victim, 'original\n');
+            // The old implementation used this exact predictable name and followed the link.
+            await symlink(victim, `${target}.staging`);
+
+            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+
+            await writeValidatedManifest({manifest, targetPath: target});
+
+            expect(await readFile(victim, 'utf8')).toBe('original\n');
+            expect(JSON.parse(await readFile(target, 'utf8')).routes[webhookSubscription.id].signingKey)
+                .toBe(SERVER_KEY)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('publishes nothing and leaves no residue when the receiver rejects the manifest', async () => {
+        const dir = await tempDir();
+
+        try {
+            const target     = path.join(dir, 'routes.json'),
+                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+
+            manifest.routes[webhookSubscription.id].harnessTargetMetadata.adapter = 'test-adapter';
 
             await expect(writeValidatedManifest({manifest, targetPath: target}))
                 .rejects.toThrow(/Refusing to publish a manifest the receiver rejects/i);
 
-            // Neither the target nor the staging file may survive a rejected publish.
             expect(existsSync(target)).toBe(false);
-            expect(existsSync(`${target}.staging`)).toBe(false)
+            expect((await readdir(dir)).filter(name => name.includes('staging'))).toEqual([])
         } finally {
             await rm(dir, {force: true, recursive: true})
         }
     });
 
     test('requires an absolute target path', async () => {
-        const {manifest} = buildWakeReceiverManifest({subscriptions: [activeSubscription]});
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
 
         await expect(writeValidatedManifest({manifest, targetPath: 'routes.json'}))
             .rejects.toThrow(/must be absolute/i)
     });
 });
 
-test.describe('readExistingSigningKeys', () => {
-    test('round-trips keys so a rebuild does not rotate them', async () => {
+test.describe('readPublishedRoutes', () => {
+    test('round-trips published routes for additive rebuilds', async () => {
         const dir = await tempDir();
 
         try {
-            const target      = path.join(dir, 'routes.json'),
-                  {manifest}  = buildWakeReceiverManifest({subscriptions: [activeSubscription]}),
-                  originalKey = manifest.routes[activeSubscription.id].signingKey;
+            const target     = path.join(dir, 'routes.json'),
+                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
 
             await writeValidatedManifest({manifest, targetPath: target});
 
-            const rebuilt = buildWakeReceiverManifest({
-                subscriptions: [activeSubscription],
-                signingKeys  : await readExistingSigningKeys(target)
-            });
+            const published = await readPublishedRoutes(target);
 
-            expect(rebuilt.manifest.routes[activeSubscription.id].signingKey).toBe(originalKey)
+            expect(published[webhookSubscription.id].signingKey).toBe(SERVER_KEY)
         } finally {
             await rm(dir, {force: true, recursive: true})
         }
     });
 
-    test('returns an empty map rather than throwing when no manifest exists', async () => {
+    test('only a MISSING manifest means first boot; corrupt or unreadable stops the build', async () => {
         const dir = await tempDir();
 
         try {
-            expect(await readExistingSigningKeys(path.join(dir, 'absent.json'))).toEqual({});
+            expect(await readPublishedRoutes(path.join(dir, 'absent.json'))).toEqual({});
 
-            await writeFile(path.join(dir, 'garbage.json'), 'not json\n', {mode: 0o600});
-            expect(await readExistingSigningKeys(path.join(dir, 'garbage.json'))).toEqual({})
+            const corrupt = path.join(dir, 'corrupt.json');
+            await writeFile(corrupt, 'not json\n', {mode: 0o600});
+
+            // Returning {} here once rotated live keys and 401'd an already-provisioned container.
+            await expect(readPublishedRoutes(corrupt)).rejects.toThrow(/rotate live signing keys/i);
+
+            const routeless = path.join(dir, 'routeless.json');
+            await writeFile(routeless, '{"schemaVersion":1}\n', {mode: 0o600});
+
+            await expect(readPublishedRoutes(routeless)).rejects.toThrow(/no routes object/i)
         } finally {
             await rm(dir, {force: true, recursive: true})
         }
