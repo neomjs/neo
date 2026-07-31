@@ -82,6 +82,7 @@ import {
     partitionRegistryByAuthority,
     resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
+import {acquireAuthorityLease} from './authorityLease.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
@@ -1227,6 +1228,9 @@ export class Orchestrator extends Base {
         this._chromaDefragInFlight = false;
 
         fs.ensureDirSync(this.dataDir);
+
+        this.acquireRoleLease({dataDir: this.dataDir, factory: options.authorityLeaseFactory});
+
         this.writeAuthorityReceipt();
 
         // Prune stale daily-rotated archives so the data dir doesn't accrue them unboundedly.
@@ -1292,6 +1296,32 @@ export class Orchestrator extends Base {
      * Stops the polling loop.
      * @returns {void}
      */
+    /**
+     * @summary Claims the single-owner authority lease for this role — BEFORE the receipt write.
+     * The receipt is a last-writer-wins artifact, so writing it is itself the
+     * collision the lease closes: a refused boot (a fresh same-role holder, in ANY pid
+     * namespace) must leave the plane exactly as it found it — no receipt, no PID file, no state.
+     *
+     * Extracted from `start()` so the seam is exercisable on a prototype-only instance: the
+     * class's reactive configs (`this.set`) make a full `start()` un-runnable without
+     * constructing the singleton.
+     *
+     * @param {Object} options
+     * @param {String} options.dataDir Orchestrator data dir — the lease lives beside the receipt.
+     * @param {Function} [options.factory] Lease factory (test seam). Defaults to {@link acquireAuthorityLease}.
+     * @returns {Object} The lease handle.
+     */
+    acquireRoleLease({dataDir, factory}) {
+        this.authorityLease = (factory ?? acquireAuthorityLease)({
+            dir    : dataDir,
+            profile: this.authorityProfile,
+            log    : this.writeLog.bind(this)
+        });
+        process.once('exit', () => this.authorityLease?.release());
+
+        return this.authorityLease;
+    }
+
     stop() {
         if (this.pollHandle) {
             clearTimeout(this.pollHandle);
@@ -1299,6 +1329,39 @@ export class Orchestrator extends Base {
         }
 
         this.isPolling = false;
+
+        if (this.authorityLease) {
+            this.authorityLease.release();
+            this.authorityLease = null;
+        }
+    }
+
+    /**
+     * @summary The authority-lease heartbeat: refreshes `lastPulse` and re-verifies ownership
+     * before this poll's mutating actions.
+     *
+     * A lost lease — reclaimed by a successor while this process was paused, or deleted
+     * externally — routes to the refusal path: ERROR, stop, non-zero exit code. Never silent
+     * continuation: an orchestrator that lost its role lease must not keep running lanes
+     * against the plane another holder now owns.
+     * @returns {void}
+     */
+    pulseAuthorityLease() {
+        if (!this.authorityLease) {
+            return;
+        }
+
+        try {
+            this.authorityLease.pulse();
+        } catch (err) {
+            if (err.code === 'FILE_LEASE_LOST') {
+                this.writeLog('ERROR', `[Orchestrator] Authority lease lost: ${err.message} Stopping — a displaced orchestrator must not keep running lanes.`);
+                this.stop();
+                process.exitCode = 1;
+            } else {
+                throw err;
+            }
+        }
     }
 
     /**
@@ -1363,6 +1426,8 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
+        this.pulseAuthorityLease();
+
         const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
 

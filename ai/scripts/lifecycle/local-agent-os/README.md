@@ -231,6 +231,23 @@ node --input-type=module -e \
 The authority receipt must say `host-edge`; no host process may open the Docker
 SQLite or Chroma plane.
 
+## The authority lease: one live role per machine
+
+Since #16230, every orchestrator boot claims a role-scoped lease
+(`.authority-lease-<role>`) beside its authority receipt **before** writing that
+receipt. A second boot declaring a role whose lease is still fresh refuses with a
+structured error naming the holder pid, the role, and both entrypoints, and exits
+non-zero — writing nothing. Liveness is a heartbeat (the holder refreshes the lease
+on its poll cadence; ~60s TTL), **not** a pid probe, so a Docker Desktop container
+holder — whose pid has no host-namespace existence — still reads as live. A lease
+older than the TTL is reclaimed automatically; a clean shutdown releases it.
+
+The practical consequence: `npm run ai:orchestrator` with an explicit
+`container-plane` declaration on a machine where the container already runs that
+role now fails loudly instead of silently double-running heavy lanes. Different
+roles (`host-edge` beside `container-plane`) never contend — the lease file is
+per-role by construction.
+
 ## Stop or recover
 
 Stop only the host edges when repairing their configuration:

@@ -1,0 +1,238 @@
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import os             from 'node:os';
+import path           from 'path';
+import {
+    acquireFileLease,
+    FileLeaseHeldError,
+    FileLeaseLostError
+} from '../../../../../../ai/daemons/shared/fileLease.mjs';
+
+/**
+ * The shared file-lease core, falsifier-first.
+ *
+ * The probes below were authored BEFORE the implementation, against the amended Contract Ledger
+ * on the authority-lease ticket. The load-bearing falsifier is the namespace case: the named
+ * threat is a bare HOST process declaring `container-plane` beside the Docker container that
+ * owns it, and
+ * Docker Desktop runs containers in a VM — the container's pid has NO host-namespace existence
+ * (verified: `docker inspect` State.Pid 335860 → `ps -p` finds nothing). A pid-liveness probe
+ * (`process.kill(pid, 0)` → ESRCH) reads that LIVE holder as dead and reclaims, starting the
+ * duplicate the lease exists to refuse. So the authority lease's liveness is TTL, not pid: a
+ * lease younger than TTL reads HELD regardless of whether the holder's pid is visible.
+ *
+ * Every contender probe below runs with a pid probe that would say DEAD (`() => false`) — so a
+ * pid-liveness implementation fails these tests in the open direction, which is exactly the
+ * defect being pinned.
+ */
+
+const
+    TTL = 60_000,
+    T0  = Date.parse('2026-07-31T23:00:00.000Z');
+
+/** Deterministic clock: a mutable now, advanced by the test. */
+function clock(start = T0) {
+    const ref = {t: start};
+    return {now: () => ref.t, advance: ms => { ref.t += ms; }};
+}
+
+function tmpDir() {
+    return fs.mkdtempSync(path.join(os.tmpdir(), 'neo-file-lease-'));
+}
+
+const LEASE_OPTS = dir => ({
+    dir,
+    filename   : '.authority-lease-container-plane',
+    owner      : '@neo-kimi-phoebe',
+    fields     : {profile: 'container-plane'},
+    lockLabel  : 'authority',
+    remediation: 'host-edge and container-plane declare different roles by design; a same-role second claim is never legitimate.',
+    // The authority lease's TTL strategy, injected the way `authorityLease.mjs` injects it into
+    // the core. Note what it never reads: pid visibility. That is the namespace falsifier — a
+    // pid probe would answer "dead" for a live container holder, and this strategy cannot.
+    isHeldFresh: ({holder, now: at}) => (at - Date.parse(holder.lastPulse ?? holder.startedAt)) < TTL
+});
+
+test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liveness)', () => {
+    test('a fresh claim writes the full diagnostic descriptor and returns a handle', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        const written = fs.readJsonSync(path.join(dir, '.authority-lease-container-plane'));
+        expect(written.pid).toBe(4242);
+        expect(written.owner).toBe('@neo-kimi-phoebe');
+        expect(written.profile).toBe('container-plane');
+        expect(written.startedAt).toBe('2026-07-31T23:00:00.000Z');
+        expect(written.lastPulse).toBe('2026-07-31T23:00:00.000Z');
+
+        handle.release();
+    });
+
+    test('NAMESPACE FALSIFIER (host contender vs container holder): a fresh lease reads HELD even when the holder pid is invisible', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        // The "container": holds the lease. Its pid (7) would read DEAD to any host-namespace
+        // pid probe — simulate by never claiming the dir exists in any process table.
+        acquireFileLease({...LEASE_OPTS(dir), pid: 7, now});
+
+        // The "host bare process": its pid probe cannot see the container (always false).
+        // A pid-liveness lease would reclaim here and start the duplicate — the defect.
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now}))
+            .toThrow(FileLeaseHeldError);
+    });
+
+    test('the refusal names holder pid, role, and remediation (positive control on the error)', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        acquireFileLease({...LEASE_OPTS(dir), pid: 7, now});
+
+        let caught;
+        try {
+            acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now});
+        } catch (err) {
+            caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(FileLeaseHeldError);
+        expect(caught.code).toBe('FILE_LEASE_HELD');
+        expect(caught.holder.pid).toBe(7);
+        expect(caught.holder.profile).toBe('container-plane');
+        expect(caught.message).toContain('container-plane');
+        expect(caught.message).toContain('pid 7');
+        expect(caught.message).toContain('same-role second claim is never legitimate');
+    });
+
+    test('NAMESPACE FALSIFIER (container contender vs dead host holder): a lease older than TTL is reclaimed', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        advance(TTL + 1); // the holder went silent past TTL — dead, wedged, or in another namespace
+
+        const handle  = acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now});
+        const written = fs.readJsonSync(path.join(dir, '.authority-lease-container-plane'));
+
+        expect(written.pid).toBe(9999);
+        handle.release();
+    });
+
+    test('a lease younger than TTL by any margin is HELD; older than TTL is stale (boundary)', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        advance(TTL - 1);
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now}))
+            .toThrow(FileLeaseHeldError);
+
+        advance(2); // now TTL + 1 past the last pulse
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now});
+        handle.release();
+    });
+
+    test('different roles coexist: a fresh other-role lease does not block a different-role claim', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        acquireFileLease({...LEASE_OPTS(dir), pid: 7, now}); // container-plane held
+
+        const hostEdge = acquireFileLease({
+            ...LEASE_OPTS(dir),
+            filename: '.authority-lease-host-edge',
+            fields  : {profile: 'host-edge'},
+            pid     : 8888,
+            now,
+            isAlive : () => false
+        });
+
+        expect(fs.existsSync(path.join(dir, '.authority-lease-host-edge'))).toBe(true);
+        hostEdge.release();
+    });
+
+    test('a corrupt lease file is reclaimed, never a wedge', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        fs.writeFileSync(path.join(dir, '.authority-lease-container-plane'), '{not json', 'utf8');
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+        handle.release();
+    });
+
+    test('pulse refreshes lastPulse and keeps the lease HELD past the original TTL', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        // Heartbeat every 3s for 90s — well past one TTL, never silent.
+        for (let i = 0; i < 30; i++) {
+            advance(3_000);
+            expect(handle.pulse().held).toBe(true);
+        }
+
+        // A contender still refuses: the holder is fresh.
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now}))
+            .toThrow(FileLeaseHeldError);
+
+        handle.release();
+    });
+
+    test('REVALIDATION: a holder paused past TTL whose lease was reclaimed detects the loss on its next pulse — never silent continuation', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        const paused = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        advance(TTL + 1); // paused holder missed 20 beats
+
+        // A contender legitimately reclaims the stale lease.
+        acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now});
+
+        // The paused holder wakes: its next mutating moment must surface the loss.
+        expect(() => paused.pulse()).toThrow(FileLeaseLostError);
+    });
+
+    test('a pulse after a gap with the lease intact still holds (gap alone is not loss)', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+
+        advance(TTL + 1); // nobody reclaimed — the file is still ours, just old
+
+        // The holder re-verifies before its next mutating action: file intact → still ours.
+        expect(handle.pulse().held).toBe(true);
+        handle.release();
+    });
+
+    test('release removes only our own lease; a late release never deletes a successor', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        const first = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+        advance(TTL + 1);
+        const second = acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now}); // reclaims stale
+
+        first.release(); // late — must NOT delete the successor's lock
+        expect(fs.existsSync(path.join(dir, '.authority-lease-container-plane'))).toBe(true);
+
+        second.release();
+        expect(fs.existsSync(path.join(dir, '.authority-lease-container-plane'))).toBe(false);
+    });
+
+    test('our own still-fresh lease re-claimed by the same pid is idempotent-friendly (reclaim own leftover)', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+        handle.release();
+    });
+});
