@@ -2,8 +2,9 @@ import {test, expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import Neo            from '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
-import {Orchestrator}  from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
-import {TASK_REGISTRY} from '../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
+import {Orchestrator}             from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {ProcessSupervisorService} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
+import {TASK_REGISTRY}            from '../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {
     AUTHORITY_CLASSES_BY_PROFILE,
     ORCHESTRATOR_AUTHORITY_PROFILE,
@@ -212,5 +213,68 @@ test.describe('#16197 — the dropped capabilities are ANNOUNCED, not just writt
 
         expect(source).not.toContain("writeLog?.('INFO', `[TenantRepoSync] No tenantRepos configured");
         expect(source).toContain("writeLog?.('DEBUG', `[TenantRepoSync] No tenantRepos configured");
+    });
+});
+
+test.describe("#16197 — a child's own level survives the supervisor, timestamp and all", () => {
+    /**
+     * Lines captured VERBATIM from a live orchestrator boot, not invented for the probe. All three
+     * shapes are real and all three lost their level: `getChildLogLevel` anchored `[INFO]` to the
+     * start of the line, and every child emits a timestamp — sometimes a PID — ahead of it. So the
+     * classifier fell through to its ERROR fail-safe on the entire benign startup sequence, and the
+     * one genuine failure in that window (`Failed to connect to chromadb`) was rendered identically
+     * to it.
+     *
+     * That is the actual mechanism behind the observed `[ERROR] [ProcessSupervisor] … [INFO]
+     * [SessionService] …` pairing. The routing-by-stream reading in the ticket was close but not
+     * the cause: the supervisor DOES read the child's level, it just could not find it.
+     * @type {ReadonlyArray<{expected: String, line: String}>}
+     */
+    const OBSERVED_CHILD_LINES = Object.freeze([
+        {expected: 'INFO',  line: '2026-07-31T19:23:40.798Z [INFO] [SessionService] Initialized new fallback session: d50f3b1e'},
+        {expected: 'INFO',  line: '[2026-07-31T19:23:40.836Z] [INFO] [RecorderService] Action logging disabled.'},
+        {expected: 'INFO',  line: '[2026-07-31T19:23:41.335Z] [PID:27004] [INFO] [Orchestrator] Started. authorityProfile=host-edge'},
+        {expected: 'INFO',  line: '[INFO] [Plain] a child that leads with its level still works'},
+        {expected: 'WARN',  line: '[2026-07-31T19:23:41.335Z] [WARN] [Chroma] slow response'},
+        // The fail-safe, and it must stay: an unprefixed child failure is never downgraded.
+        {expected: 'ERROR', line: 'Failed to connect to chromadb'},
+        {expected: 'ERROR', line: '[2026-07-31T19:23:41.335Z] [ERROR] [Summarize] exited with code 1'}
+    ]);
+
+    test('every observed child shape classifies at the level the CHILD declared', () => {
+        const supervisor = Object.create(ProcessSupervisorService.prototype);
+
+        for (const {expected, line} of OBSERVED_CHILD_LINES) {
+            expect(supervisor.getChildLogLevel(line), `misclassified: ${line}`).toBe(expected);
+        }
+    });
+
+    test('a message that merely CONTAINS a level token is still an error', () => {
+        // The bound on the fix. Relaxing the anchor to "find [INFO] anywhere" would let a genuine
+        // failure whose payload quotes a level silently downgrade — trading one lost signal for a
+        // worse one. Only a leading timestamp/PID may precede the level.
+        const supervisor = Object.create(ProcessSupervisorService.prototype);
+
+        expect(supervisor.getChildLogLevel('Traceback: unexpected [INFO] marker in payload')).toBe('ERROR');
+        expect(supervisor.getChildLogLevel('gibberish [2026-07-31T19:23:41.335Z] [INFO] late')).toBe('ERROR');
+    });
+
+    test('the re-logged line drops the redundant timestamp and level, and KEEPS the PID', () => {
+        const
+            supervisor = Object.create(ProcessSupervisorService.prototype),
+            logs       = [];
+
+        // `defineProperty`, not assignment: `writeLog` is a reactive config on the real class, and
+        // a prototype-only instance has no `#configs` for its setter to reach. An own data property
+        // shadows the accessor so the method under test runs untouched.
+        Object.defineProperty(supervisor, 'writeLog', {value: (level, message) => logs.push({level, message})});
+
+        supervisor.writeChildStderr('[2026-07-31T19:23:41.335Z] [PID:27004] [INFO] [Orchestrator] Started.\n');
+
+        expect(logs).toHaveLength(1);
+        expect(logs[0].level).toBe('INFO');
+        // The outer logger stamps its own timestamp and level, so repeating the child's is noise —
+        // but the PID identifies WHICH child, which the outer logger cannot know.
+        expect(logs[0].message).toBe('[ProcessSupervisor] [PID:27004] [Orchestrator] Started.');
     });
 });
