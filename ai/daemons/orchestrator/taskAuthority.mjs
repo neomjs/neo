@@ -233,6 +233,94 @@ export function isTaskOwnedByProfile({
 }
 
 /**
+ * @summary Splits a scheduling registry into the lanes a role owns and the lanes it does not.
+ *
+ * One derivation, two consumers, and that is the point. The scheduler takes `scheduled`; the
+ * startup announcement takes `disabled`.
+ *
+ * The `scheduled` half is not new behaviour — `getAuthorityScheduledRegistry()` already filtered
+ * the registry by ownership, and it now delegates here rather than filtering separately. What was
+ * missing is the COMPLEMENT: the set a role deliberately does not run existed only as an `active`
+ * flag inside the authority receipt written to `orchestrator-authority.json`, which nothing read
+ * back. So the daemon computed which capabilities it was dropping, wrote that answer to disk, and
+ * announced none of it — which is how a machine sat with Chroma unreachable and wake delivery
+ * dead while its orchestrator reported healthy.
+ *
+ * Computing the complement by subtracting one filter's output from the registry would put the two
+ * halves one edit apart from disagreeing. Producing both in a single pass makes "run it" and
+ * "announce that I am not running it" the same decision, which is the only version where a lane
+ * cannot end up in neither half.
+ *
+ * Fails closed on an unrecognised profile via {@link assertAuthorityProfile}: partitioning an
+ * unknown role into "owns nothing" would present as a healthy daemon running no lanes at all.
+ *
+ * Pure and total — every descriptor lands in exactly one half.
+ *
+ * @param {Object} options
+ * @param {String} options.profile Runtime authority profile.
+ * @param {Array<Object>} options.registry Scheduling descriptors carrying `authorityClass`.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @returns {{scheduled: Array<Object>, disabled: Array<Object>}}
+ */
+export function partitionRegistryByAuthority({
+    profile,
+    registry,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE
+}) {
+    assertAuthorityProfile(profile, authorityClassesByProfile);
+
+    const
+        ownedClasses = authorityClassesByProfile[profile],
+        scheduled    = [],
+        disabled     = [];
+
+    for (const descriptor of registry) {
+        const authorityClass = descriptor.authorityClass ?? getTaskAuthorityClass(descriptor.taskName);
+
+        (ownedClasses.includes(authorityClass) ? scheduled : disabled).push(descriptor);
+    }
+
+    return {disabled, scheduled};
+}
+
+/**
+ * @summary Resolves which TARGET role owns an authority class, by the same single-owner rule
+ * {@link auditAuthorityTopology} enforces.
+ *
+ * Exists so nothing downstream has to restate the mapping as a literal. A presentation-layer
+ * `shared-primitive → container-plane` constant is correct only while the topology has exactly
+ * these two roles: it silently encodes that assumption where nobody would think to look for it,
+ * and the day a third role appears it keeps producing a confident wrong answer instead of failing.
+ * The derivation cannot — it throws, exactly as the topology audit does.
+ *
+ * `legacy-mixed` is deliberately not a candidate: it owns every class, so including it would make
+ * every lookup ambiguous. Ownership is a property of the target split.
+ *
+ * @param {Object} options
+ * @param {String} options.authorityClass Canonical authority class.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @param {ReadonlyArray<String>} [options.profiles] Candidate roles.
+ * @returns {String} The single owning profile.
+ * @throws {Error} On an ownership gap or double ownership.
+ */
+export function resolveAuthorityClassOwner({
+    authorityClass,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE,
+    profiles                  = TARGET_ORCHESTRATOR_AUTHORITY_PROFILES
+}) {
+    const owners = profiles.filter(profile => authorityClassesByProfile[profile]?.includes(authorityClass));
+
+    if (owners.length !== 1) {
+        throw new Error(
+            `[orchestrator-authority] ${owners.length === 0 ? 'ownership gap' : 'double ownership'} ` +
+            `for class "${authorityClass}" (owners=${JSON.stringify(owners)}).`
+        );
+    }
+
+    return owners[0];
+}
+
+/**
  * @summary Builds the exhaustive continuous + scheduled + internal + auxiliary lane
  * inventory and rejects duplicate task names or registry metadata that disagrees with
  * the canonical map.
