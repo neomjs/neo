@@ -1,5 +1,12 @@
 import {setup} from '../../../../setup.mjs';
 
+// Action logging is OFF by default per seat, so this suite — which exercises the schema
+// and the insert path — must opt IN. Set before `setup()` because the config leaf binds this env
+// at module-load time, and mutating the shared config singleton at runtime is forbidden.
+// The complementary default-OFF proof lives in `RecorderServiceDefaultOff.spec.mjs`, which spawns
+// fresh child processes precisely because this assignment is process-wide and cannot be undone.
+process.env.NEO_NL_ACTION_LOGGING = 'true';
+
 const appName = 'RecorderServiceTest';
 
 setup({

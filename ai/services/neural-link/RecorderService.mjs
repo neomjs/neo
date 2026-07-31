@@ -82,6 +82,13 @@ class RecorderService extends Base {
         await super.initAsync();
 
         try {
+            // Gated OFF by default: no connection is opened, so `this.db` stays null and
+            // `log()` no-ops on its existing guard. Silent by design — an ordinary seat should not
+            // emit a line per tool call about telemetry it was never asked to collect.
+            if (!config.actionLoggingEnabled) {
+                return;
+            }
+
             const dbPath = config.memoryCoreDbPath;
             if (!dbPath) {
                 logger.warn('[RecorderService] memoryCoreDbPath not configured. Disabling logging.');

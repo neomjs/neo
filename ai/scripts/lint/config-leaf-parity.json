@@ -616,6 +616,7 @@
         "whoIsOnline.idleCutoffMs"
     ],
     "ai/mcp/server/neural-link/config.template.mjs": [
+        "actionLoggingEnabled",
         "autoConnect",
         "bridgePayloadDebugMaxChars",
         "debug",

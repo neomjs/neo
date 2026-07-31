@@ -58,6 +58,27 @@ class ConfigBase extends ConfigProvider {
              */
             rpcTimeout: leaf(10000, 'NEO_NL_RPC_TIMEOUT', 'number'),
             /**
+             * @summary Whether `RecorderService` writes `nl_action_log` at all. Default OFF.
+             *
+             * Off by default because the writer was pure cost on an ordinary seat: it opened a
+             * READ/WRITE handle on the shared plane graph from every host Neural Link, while its
+             * only attributed consumer produced nothing — `GapInferenceEngine` reads the table
+             * (`GapInferenceEngine.mjs:431-455`) yet the graph held 188 log rows and **zero**
+             * `NL_ACTION_SEQUENCE` edges. Under the container topology that handle is a second
+             * writer against the containerized Memory Core, so off is the correct default.
+             *
+             * This gates WHETHER the recorder writes, never WHERE — `memoryCoreDbPath` below stays
+             * plane-anchored so that anything which does enable it still writes where the readers
+             * look. Un-converging the path would recreate the silent-zero-edges bug that
+             * convergence repaired.
+             *
+             * Enabled deliberately by `ai/scripts/diagnostics/genesisProbe.mjs`, whose per-tool
+             * telemetry oracle SELECTs from `nl_action_log` inside its own disposable root. A
+             * blanket disable would leave that blind probe comparing against an empty oracle.
+             * @type {boolean}
+             */
+            actionLoggingEnabled: leaf(false, 'NEO_NL_ACTION_LOGGING', 'boolean'),
+            /**
              * Path to the memory core SQLite database for action logging.
              * @type {string}
              */
