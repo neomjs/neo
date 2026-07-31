@@ -5,49 +5,77 @@ import os             from 'node:os';
 import path           from 'node:path';
 
 /**
- * @summary Proves Neural Link action logging is OFF by default and opens NO handle on the plane
- * graph, and that the explicit opt-in still works.
+ * @summary Proves the Neural Link action-logging gate is OFF by default and opens NO handle on the
+ * plane graph at boot, that the explicit opt-in still works, and — critically — that the
+ * independent transaction archive/replay contract keeps working under the disabled default.
  *
  * Child processes rather than in-process asserts, for two reasons. First, the gate is a config leaf
  * bound to `NEO_NL_ACTION_LOGGING` at module-load time, so a single process can only ever observe
  * one value — the sibling `RecorderService.spec.mjs` sets it to `true` process-wide and cannot
- * unset it. Second, the claim under test is about a real seat's behaviour at boot, and the defect
- * this guards was a WRITE HANDLE existing on a shared SQLite file. Asserting on a config value, or
- * grepping the source for the flag, would both pass while the handle was still opened — so each
- * case invokes `initAsync()` for real and reports whether a connection exists.
+ * unset it. Second, the claims under test are about a real seat's behaviour: the defect the gate
+ * guards was a WRITE HANDLE on a shared SQLite file, and the defect the archive tests guard was a
+ * real `save_transaction` returning `archive-store-unavailable`. Asserting on config values, or
+ * grepping source for the flag, would pass while both were broken.
+ *
+ * Each guarantee gets its own probe because they are no longer separable in one run: with a lazy
+ * connection, exercising the archive legitimately opens the store, so "no artifact at boot" and
+ * "archive works" cannot be asserted from the same child.
  */
 test.describe('Neural Link action logging default', () => {
     const rootDir = path.resolve(import.meta.dirname, '../../../../../..');
 
     /**
-     * Boots RecorderService in a fresh child process against a throwaway database path and reports
-     * whether a connection was opened.
-     * @param {Object|null} extraEnv Additional env for the child, or null for none
-     * @returns {Object} `{opened, dbPath, fileExists, error}`
+     * Boots RecorderService in a fresh child process against a throwaway database path.
+     * @param {Object}  [options={}]
+     * @param {Object}  [options.extraEnv=null]        Additional env for the child
+     * @param {Boolean} [options.exerciseArchive=false] Also drive a real save + read-back
+     * @returns {Object} Observed child outcome
      */
-    function bootRecorder(extraEnv) {
+    function bootRecorder({extraEnv = null, exerciseArchive = false} = {}) {
         const
-            dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-16207-')),
-            dbPath = path.join(dir, 'graph.sqlite'),
+            dir         = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-nl-gate-')),
+            dbPath      = path.join(dir, 'graph.sqlite'),
+            archiveStep = exerciseArchive ? `
+                const archive = await RecorderService.saveTransactionArchive({
+                    appSessionId: 'spec-session',
+                    name        : 'spec-archive',
+                    transaction : {
+                        // txId is REQUIRED: it feeds source_tx_id, which is NOT NULL. Omitting it
+                        // returned 'archive-save-failed' -- a fixture looser than the contract.
+                        txId        : 'spec-tx',
+                        status      : 'committed',
+                        committedAt : 1234,
+                        originWriter: {agentId: 'spec-agent', sessionId: 'spec-session'},
+                        ops         : [{kind: 'set', value: 1}]
+                    }
+                });
+                const readBack = archive.saved
+                    ? await RecorderService.getTransactionArchive({archiveId: archive.archiveId})
+                    : null;
+                out.archiveSaved  = archive.saved;
+                out.archiveReason = archive.reason ?? null;
+                out.readBackOps   = readBack ? readBack.ops.length : null;
+                out.openedAfter   = Boolean(RecorderService.db);
+            ` : '',
             // Neo must be bootstrapped before any `src/core` module loads -- `Compare.mjs` calls
             // `Neo.gatekeep` at module scope, so importing RecorderService bare throws
             // "Neo is not defined". Same ordering the sibling specs get from `setup.mjs`.
-            // The child reports the path the CONFIG resolved, not the path this test suggested.
-            // Necessary because `memoryCoreDbPath` selects a test destination whenever
-            // `UNIT_TEST_MODE` / `NEO_TEST_CONFIG_TEMPLATES` is inherited from the Playwright
-            // worker, so asserting existence of the suggested path passed vacuously in BOTH cases
-            // -- it proved only that an unused path stayed unused.
+            // The child reports the path the CONFIG resolved, not the path this test suggested,
+            // because `memoryCoreDbPath` selects a test destination whenever the harness markers
+            // are inherited -- asserting on the suggested path passed vacuously in both cases.
             script = `
-                import Neo     from ${JSON.stringify(path.join(rootDir, 'src/Neo.mjs'))};
+                import Neo       from ${JSON.stringify(path.join(rootDir, 'src/Neo.mjs'))};
                 import * as core from ${JSON.stringify(path.join(rootDir, 'src/core/_export.mjs'))};
                 const config          = (await import(${JSON.stringify(path.join(rootDir, 'ai/mcp/server/neural-link/config.mjs'))})).default;
                 const RecorderService = (await import(${JSON.stringify(path.join(rootDir, 'ai/services/neural-link/RecorderService.mjs'))})).default;
                 await RecorderService.initAsync();
-                process.stdout.write(JSON.stringify({
-                    opened      : Boolean(RecorderService.db),
+                const out = {
+                    openedAtBoot: Boolean(RecorderService.db),
                     resolvedPath: config.memoryCoreDbPath,
                     gateValue   : config.actionLoggingEnabled
-                }));
+                };
+                ${archiveStep}
+                process.stdout.write(JSON.stringify(out));
             `,
             childEnv = {...process.env, NEO_MEMORY_DB_PATH: dbPath, ...(extraEnv || {})};
 
@@ -68,55 +96,80 @@ test.describe('Neural Link action logging default', () => {
         delete childEnv.NEO_TELEMETRY_DB_PATH_TEST;
 
         const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
-                cwd     : rootDir,
-                encoding: 'utf8',
-                env     : childEnv
-            });
+            cwd     : rootDir,
+            encoding: 'utf8',
+            env     : childEnv
+        });
 
         let parsed = null;
 
         try { parsed = JSON.parse(result.stdout.trim().split('\n').pop()) } catch {}
 
         return {
-            opened      : parsed ? parsed.opened : null,
-            gateValue   : parsed ? parsed.gateValue : null,
-            resolvedPath: parsed ? parsed.resolvedPath : null,
+            ...(parsed || {}),
             // Existence of the path the config ACTUALLY chose -- the only file that can prove or
             // disprove that a seat left an artifact behind.
             fileExists: Boolean(parsed?.resolvedPath) && fs.existsSync(parsed.resolvedPath),
-            error     : parsed ? null : (result.stderr || '').split('\n').slice(-12).join('\n')
+            error     : parsed ? null : (result.stderr || '').split('\n').slice(-14).join('\n')
         }
     }
 
-    test('opens NO connection and creates NO database file when unset', () => {
-        const outcome = bootRecorder(null);
+    test('unset: no connection and no database file at boot', () => {
+        const outcome = bootRecorder();
 
         expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
         expect(outcome.gateValue).toBe(false);
-        expect(outcome.opened).toBe(false);
+        expect(outcome.openedAtBoot).toBe(false);
         // Guard against a vacuous pass: if the config resolved no path at all, absence of a file
         // would prove nothing about the gate.
         expect(outcome.resolvedPath).toBeTruthy();
         expect(outcome.fileExists).toBe(false)
     });
 
-    test('opens a connection and creates the database when explicitly enabled', () => {
-        const outcome = bootRecorder({NEO_NL_ACTION_LOGGING: 'true'});
+    test('enabled: connection open and database created at boot', () => {
+        const outcome = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}});
 
         expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
         expect(outcome.gateValue).toBe(true);
-        expect(outcome.opened).toBe(true);
+        expect(outcome.openedAtBoot).toBe(true);
         expect(outcome.resolvedPath).toBeTruthy();
-        // The positive control for the test above: the same existence check on the same resolved
-        // path must flip to true, so a false there cannot be an artifact of checking a dead path.
+        // Positive control for the test above: the same existence check on the same resolved path
+        // must flip to true, so a false there cannot be an artifact of checking a dead path.
         expect(outcome.fileExists).toBe(true)
     });
 
+    test('unset: the transaction archive contract STILL works, opening the store on demand', () => {
+        const outcome = bootRecorder({exerciseArchive: true});
+
+        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
+        expect(outcome.gateValue).toBe(false);
+        // Still nothing at boot -- the telemetry guarantee is unchanged.
+        expect(outcome.openedAtBoot).toBe(false);
+        // The regression this test exists for: a valid committed transaction returned
+        // {saved:false, reason:'archive-store-unavailable'} when the gate sat above the connection.
+        expect(outcome.archiveReason).toBeNull();
+        expect(outcome.archiveSaved).toBe(true);
+        // Round-tripped, not merely accepted -- a save that cannot be read back is not a contract.
+        expect(outcome.readBackOps).toBe(1);
+        // And the store was opened lazily by that call rather than at boot.
+        expect(outcome.openedAfter).toBe(true)
+    });
+
+    test('enabled: the transaction archive contract also works', () => {
+        const outcome = bootRecorder({extraEnv: {NEO_NL_ACTION_LOGGING: 'true'}, exerciseArchive: true});
+
+        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
+        expect(outcome.archiveSaved).toBe(true);
+        expect(outcome.readBackOps).toBe(1)
+    });
+
     test('the genesis probe opts in, so its telemetry oracle keeps a source', () => {
-        // Positive control for the two cases above: the default-off tests only prove a seat is
-        // quiet. This one proves the ONE caller that genuinely needs the table still turns it on.
-        // Without it, a blanket disable would leave the blind probe comparing against an empty
-        // oracle -- passing every unit test while silently gutting an external commitment.
+        // Structural tripwire ONLY -- a source-text check carries no behavioural claim. The
+        // behavioural chain lives elsewhere: genesisProbe.spec.mjs asserts the INVOKED
+        // createProbeEnvironments() output carries NEO_NL_ACTION_LOGGING='true', and the
+        // end-to-end non-empty-telemetry AC is annotated as a live residual on the gating
+        // ticket. This line exists so a blanket removal of the opt-in cannot land silently
+        // between those two.
         const source = fs.readFileSync(path.join(rootDir, 'ai/scripts/diagnostics/genesisProbe.mjs'), 'utf8');
 
         expect(source).toContain('NEO_NL_ACTION_LOGGING');
@@ -126,8 +179,11 @@ test.describe('Neural Link action logging default', () => {
     });
 
     test('the cutover writer census matches neural-link', () => {
-        // The census that missed this: `neural-link` was absent from the alternation, so the probe
-        // reported an empty census while two NL processes held write handles on the plane graph.
+        // Structural tripwire ONLY: keeps `neural-link` in the runbook's census alternation. The
+        // original bug was a census reporting empty while two NL processes held write handles, so
+        // the AC's real witness is a LIVE census run asserted non-empty against a live NL --
+        // recorded as PR evidence and annotated on the gating ticket; a document grep cannot
+        // carry that claim.
         const runbook = fs.readFileSync(
             path.join(rootDir, 'ai/scripts/lifecycle/local-agent-os/README.md'), 'utf8'
         );

@@ -58,23 +58,27 @@ class ConfigBase extends ConfigProvider {
              */
             rpcTimeout: leaf(10000, 'NEO_NL_RPC_TIMEOUT', 'number'),
             /**
-             * @summary Whether `RecorderService` writes `nl_action_log` at all. Default OFF.
+             * @summary Whether `RecorderService` writes `nl_action_log` action telemetry. Default OFF.
              *
-             * Off by default because the writer was pure cost on an ordinary seat: it opened a
-             * READ/WRITE handle on the shared plane graph from every host Neural Link, while its
-             * only attributed consumer produced nothing — `GapInferenceEngine` reads the table
-             * (`GapInferenceEngine.mjs:431-455`) yet the graph held 188 log rows and **zero**
-             * `NL_ACTION_SEQUENCE` edges. Under the container topology that handle is a second
-             * writer against the containerized Memory Core, so off is the correct default.
+             * Off by default because action-sequence telemetry is a per-seat opt-in, not a baseline
+             * obligation: enabled, every host Neural Link holds a READ/WRITE handle on the shared
+             * plane graph — under the container topology a second writer beside the containerized
+             * Memory Core — for telemetry the seat never asked to collect. The measurements behind
+             * the default election are recorded on the electing ticket and its PR.
              *
-             * This gates WHETHER the recorder writes, never WHERE — `memoryCoreDbPath` below stays
-             * plane-anchored so that anything which does enable it still writes where the readers
-             * look. Un-converging the path would recreate the silent-zero-edges bug that
-             * convergence repaired.
+             * Scope: this leaf gates the `nl_action_log` telemetry contract ONLY. It never gates
+             * the independent `nl_transaction_archive` save/replay contract hosted by the same
+             * service, which opens its store on demand. And it gates WHETHER telemetry is
+             * written, never WHERE — `memoryCoreDbPath` below stays plane-anchored so an enabled
+             * seat writes where `GapInferenceEngine` / `DreamService` read. Un-converging the path
+             * would recreate the silent-zero-edges split that convergence repaired. Host-edge NL
+             * beside a containerized Memory Core sharing one plane graph is the steady state, not
+             * a cutover transient; routing NL writes through MC's remote API instead belongs to
+             * the streamable-HTTP direction, tracked separately.
              *
              * Enabled deliberately by `ai/scripts/diagnostics/genesisProbe.mjs`, whose per-tool
-             * telemetry oracle SELECTs from `nl_action_log` inside its own disposable root. A
-             * blanket disable would leave that blind probe comparing against an empty oracle.
+             * telemetry oracle reads `nl_action_log` inside its own disposable root. A blanket
+             * disable would leave that blind probe comparing against an empty oracle.
              * @type {boolean}
              */
             actionLoggingEnabled: leaf(false, 'NEO_NL_ACTION_LOGGING', 'boolean'),

@@ -139,7 +139,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
         expect(oldCheck).toBeUndefined();
     });
 
-    test('should save, read, and mark replayed transaction archives', () => {
+    test('should save, read, and mark replayed transaction archives', async () => {
         const transaction = {
             txId        : 'batch:add-grid',
             status      : 'committed',
@@ -155,7 +155,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
             }]
         };
 
-        const saved = RecorderService.saveTransactionArchive({
+        const saved = await RecorderService.saveTransactionArchive({
             appSessionId: 'app-session-1',
             name        : 'Add grid',
             transaction
@@ -170,7 +170,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
             committedAt : 1234
         });
 
-        const archive = RecorderService.getTransactionArchive({archiveId: saved.archiveId});
+        const archive = await RecorderService.getTransactionArchive({archiveId: saved.archiveId});
 
         expect(archive).toMatchObject({
             archiveId     : saved.archiveId,
@@ -185,15 +185,15 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
             ops           : transaction.ops
         });
 
-        expect(RecorderService.recordTransactionReplay({archiveId: saved.archiveId})).toEqual({updated: true});
+        expect(await RecorderService.recordTransactionReplay({archiveId: saved.archiveId})).toEqual({updated: true});
 
-        const replayed = RecorderService.getTransactionArchive({archiveId: saved.archiveId});
+        const replayed = await RecorderService.getTransactionArchive({archiveId: saved.archiveId});
 
         expect(replayed.replayCount).toBe(1);
         expect(replayed.lastReplayedAt).toEqual(expect.any(Number))
     });
 
-    test('should reject non-data transaction archive payloads', () => {
+    test('should reject non-data transaction archive payloads', async () => {
         class NonDataArchiveValue {}
 
         const baseTransaction = {
@@ -210,7 +210,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
             }]
         };
 
-        expect(RecorderService.saveTransactionArchive({
+        expect(await RecorderService.saveTransactionArchive({
             transaction: {
                 ...baseTransaction,
                 ops: [{
@@ -223,7 +223,7 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
             reason: 'transaction-not-data-only: non-data function value at transaction.ops[0].forward.args.handler'
         });
 
-        expect(RecorderService.saveTransactionArchive({
+        expect(await RecorderService.saveTransactionArchive({
             transaction: {
                 ...baseTransaction,
                 ops: [{

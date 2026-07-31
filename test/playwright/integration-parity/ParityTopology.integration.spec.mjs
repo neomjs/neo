@@ -117,7 +117,7 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
             // non-default setting — the point is that RecorderService reported through the Neural
             // Link logger at all, which is what proves the sink is live.
             expect(output).toMatch(
-                /\[RecorderService\] (Connected to Memory Core nl_action_log\.|Action logging disabled; nl_action_log not opened\.)/
+                /\[RecorderService\] (Connected to Memory Core nl_action_log\.|Action logging disabled; transaction archive available on demand\.)/
             );
             expect(output).not.toContain('file sink unavailable');
             expect(output).not.toContain("mkdir '/app/.neo-ai-data/logs'");

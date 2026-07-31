@@ -149,6 +149,11 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(envs.mcpEnv.NEO_MEMORY_DB_PATH).toBe(path.join(root, 'memory-core.sqlite'));
         expect(envs.mcpEnv.NEO_NL_LOG_PATH).toBe(root);
         expect(envs.mcpEnv.NEO_NL_TOOL_PROJECTION_MODE).toBe('local-readonly-probe');
+        // Action logging is OFF by default; the probe's per-tool telemetry oracle reads
+        // nl_action_log, so the rendered child env must carry the explicit opt-in — asserted on
+        // the INVOKED builder output, not on source text. Safe because NEO_MEMORY_DB_PATH above
+        // already pins every write inside this run's disposable root.
+        expect(envs.mcpEnv.NEO_NL_ACTION_LOGGING).toBe('true');
         expect(envs.bridgeEnv[GENESIS_DIAGNOSTIC_ATTESTATION_ENV])
             .toBe(envs.diagnosticAttestations.bridge.commitment);
         expect(envs.mcpEnv[GENESIS_DIAGNOSTIC_ATTESTATION_ENV])
