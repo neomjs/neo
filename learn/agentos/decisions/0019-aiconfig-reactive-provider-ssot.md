@@ -247,18 +247,22 @@ policy.
 The #16039 rerun makes that boundary mechanical. Canonical Compose carried 45
 unique `NEO_*`/`MCP_*` keys before the cut: 10 were already-retired MCP startup
 controls and seven more restated static or derived defaults. The guarded surface
-now contains 28 unique keys:
+now contains 30 unique keys — 28 at the #16039 cut, plus the explicit backup-root
+placement (#16201) and the declared orchestrator role (#16229), both of which are
+required precisely because their leaves no longer carry a usable default:
 
 | Deployment category | Keys | Meaning |
 |---|---:|---|
-| Required choices / placement / capabilities | 11 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist |
+| Required choices / placement / capabilities | 13 | Transport, network/Chroma/plane paths, in-process WAL ownership, Compose project, runtime-access enablement + allowlist, backup-root placement, declared authority role |
 | Optional overrides | 15 | Provider/model/ask selections and non-default WAL cadences |
 | Secrets | 2 | OpenAI-compatible and KB ask credentials; secret values never become config policy |
 
 `ai/scripts/lint/config-leaf-parity.json` owns the exact classified key lists,
 service-to-config-template map, and retired/derived denylist. The existing
 AiConfig lint fails when canonical base/dev Compose reintroduces a denied env,
-sets a literal equal to the owning leaf default, or drifts the 28-key census.
+sets a literal equal to the owning leaf default, or drifts the 30-key census. The
+census in `config-leaf-parity.json` is the executable copy and this table is the
+record of it; when they disagree, the JSON is right and this table is stale.
 Interpolated provider choices remain deployment inputs and are not mistaken for
 literal default restatements.
 

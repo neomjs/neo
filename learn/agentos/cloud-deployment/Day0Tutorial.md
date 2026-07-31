@@ -767,6 +767,35 @@ If any milestone is skipped, name the blocker explicitly. A future agent should
 never have to infer whether the deployment is incomplete, unauthenticated demo
 only, or intentionally deferred.
 
+## What a healthy containerized stack still does not do
+
+Every milestone above can pass, every healthcheck can report green, and the
+deployment can still have **no wake delivery and no host-bound effects**. That is
+not a defect — it is the two-role split working as designed:
+
+| Role | Runs | Owns |
+|---|---|---|
+| `container-plane` | the Compose stack you just brought up | every graph, corpus, and maintenance lane |
+| `host-edge` | a second process on the host, started separately | host/session/desktop effects — wake delivery among them |
+
+Nothing in the containerized stack announces the second half, which is exactly how
+a machine runs for hours with wake dead while everything reports healthy. If your
+deployment needs wake delivery or any host-bound effect, the host edge is a
+separate, explicit step:
+
+```sh
+npm run ai:host-edge
+```
+
+No installer, no plist, and it runs anywhere Node runs — the macOS LaunchAgent is
+optional supervision over that same command. Full procedure, platform matrix, and
+the signed wake-receiver setup:
+[`ai/scripts/lifecycle/local-agent-os/README.md`](../../../ai/scripts/lifecycle/local-agent-os/README.md).
+
+**A containerized-only deployment is a valid choice** — plenty of installs want
+exactly that. It simply does not get wakes, and now it says so rather than leaving
+you to discover it from missing messages.
+
 ## Related
 
 - [Connection Troubleshooting](./Troubleshooting.md) - the connect-error ladder + deployment gotchas (Caddyfile rebuild, network-internal ports, the two auth layers) for when a connection does not work.
