@@ -503,3 +503,41 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         });
     });
 });
+
+/**
+ * @summary The corruption canary must be reachable by name, not only by knowing the file path.
+ *
+ * `backupCorruptionTimeline.mjs` is the artifact-verified diagnostic that classifies each retained
+ * bundle by comparing its manifest claim against actual artifact bytes. Its own module summary says
+ * it exists for "the empty-artifact false-green this incident produced" — it was written AFTER a
+ * previous occurrence of that class. It then sat with no npm script, no scheduler entry, and no
+ * caller anywhere in the repo.
+ *
+ * **A tool nothing invokes is not a control.** During a live incident the only way to learn the
+ * answer was to know the file existed and run it by hand, which is precisely the knowledge an
+ * operator in the middle of a suspected data loss does not have.
+ *
+ * These probes are static on purpose: they read `package.json` and the committed runbook, so no
+ * ambient state can satisfy them.
+ */
+test.describe('backup corruption canary — reachable by name', () => {
+    const repoRoot = process.cwd();
+
+    test('a named npm script invokes the timeline tool', () => {
+        const {scripts} = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+        expect(scripts['ai:check-backup-integrity']).toBeDefined();
+        expect(scripts['ai:check-backup-integrity']).toContain('backupCorruptionTimeline.mjs');
+        // Cross-platform, same rule as every other `ai:` entry — no shell env prefix.
+        expect(scripts['ai:check-backup-integrity']).not.toMatch(/^\s*[A-Z_][A-Z0-9_]*=/);
+    });
+
+    test('the restoration runbook names the script and when to run it', () => {
+        const runbook = fs.readFileSync(path.join(repoRoot, 'learn/agentos/tooling/RestorationRunbook.md'), 'utf8');
+
+        expect(runbook).toContain('ai:check-backup-integrity');
+        // Naming the command without naming the trigger leaves the operator exactly where they were:
+        // holding a tool and no reason to reach for it.
+        expect(runbook).toContain('lastSuccessful');
+    });
+});
