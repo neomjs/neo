@@ -284,6 +284,43 @@ export function partitionRegistryByAuthority({
 }
 
 /**
+ * @summary Resolves which TARGET role owns an authority class, by the same single-owner rule
+ * {@link auditAuthorityTopology} enforces.
+ *
+ * Exists so nothing downstream has to restate the mapping as a literal. A presentation-layer
+ * `shared-primitive → container-plane` constant is correct only while the topology has exactly
+ * these two roles: it silently encodes that assumption where nobody would think to look for it,
+ * and the day a third role appears it keeps producing a confident wrong answer instead of failing.
+ * The derivation cannot — it throws, exactly as the topology audit does.
+ *
+ * `legacy-mixed` is deliberately not a candidate: it owns every class, so including it would make
+ * every lookup ambiguous. Ownership is a property of the target split.
+ *
+ * @param {Object} options
+ * @param {String} options.authorityClass Canonical authority class.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @param {ReadonlyArray<String>} [options.profiles] Candidate roles.
+ * @returns {String} The single owning profile.
+ * @throws {Error} On an ownership gap or double ownership.
+ */
+export function resolveAuthorityClassOwner({
+    authorityClass,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE,
+    profiles                  = TARGET_ORCHESTRATOR_AUTHORITY_PROFILES
+}) {
+    const owners = profiles.filter(profile => authorityClassesByProfile[profile]?.includes(authorityClass));
+
+    if (owners.length !== 1) {
+        throw new Error(
+            `[orchestrator-authority] ${owners.length === 0 ? 'ownership gap' : 'double ownership'} ` +
+            `for class "${authorityClass}" (owners=${JSON.stringify(owners)}).`
+        );
+    }
+
+    return owners[0];
+}
+
+/**
  * @summary Builds the exhaustive continuous + scheduled + internal + auxiliary lane
  * inventory and rejects duplicate task names or registry metadata that disagrees with
  * the canonical map.

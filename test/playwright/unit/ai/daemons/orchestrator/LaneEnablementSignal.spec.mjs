@@ -8,7 +8,8 @@ import {TASK_REGISTRY}            from '../../../../../../ai/daemons/orchestrato
 import {
     AUTHORITY_CLASSES_BY_PROFILE,
     ORCHESTRATOR_AUTHORITY_PROFILE,
-    partitionRegistryByAuthority
+    partitionRegistryByAuthority,
+    resolveAuthorityClassOwner
 } from '../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
 
 /**
@@ -190,6 +191,35 @@ test.describe('#16197 — the dropped capabilities are ANNOUNCED, not just writt
 
         expect(announcer.logs).toHaveLength(1);
         expect(announcer.logs[0].level).toBe('WARN');
+    });
+
+    test('the owning role is DERIVED, so a third role cannot be silently mis-attributed', () => {
+        // The reviewer's challenge, made executable. A `shared-primitive → container-plane` literal
+        // in presentation logic is correct only while the topology has exactly two roles: it would
+        // keep producing a confident answer after a third role made it wrong, and it would do so
+        // from a place nobody audits when changing the topology.
+        //
+        // Injecting a matrix where a THIRD role also owns `shared-primitive` must make the
+        // derivation throw. A literal passes this unchanged, which is exactly why it fails here.
+        const ambiguous = {
+            ...AUTHORITY_CLASSES_BY_PROFILE,
+            'edge-two': Object.freeze(['shared-primitive'])
+        };
+
+        expect(() => resolveAuthorityClassOwner({
+            authorityClass           : 'shared-primitive',
+            authorityClassesByProfile: ambiguous,
+            profiles                 : ['container-plane', 'edge-two']
+        })).toThrow(/double ownership/);
+
+        // …and an unowned class is a gap, not a default.
+        expect(() => resolveAuthorityClassOwner({authorityClass: 'no-such-class'}))
+            .toThrow(/ownership gap/);
+
+        // The real topology still resolves the answer the literal used to hardcode.
+        expect(resolveAuthorityClassOwner({authorityClass: 'shared-primitive'})).toBe(CONTAINER);
+        expect(resolveAuthorityClassOwner({authorityClass: 'container-plane'})).toBe(CONTAINER);
+        expect(resolveAuthorityClassOwner({authorityClass: 'host-edge'})).toBe(HOST_EDGE);
     });
 
     test('a role that owns everything says nothing at all', () => {

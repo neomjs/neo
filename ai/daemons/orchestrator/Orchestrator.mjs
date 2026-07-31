@@ -79,9 +79,8 @@ import {
     CONTINUOUS_TASK_REGISTRY,
     INTERNAL_TASK_REGISTRY,
     isTaskOwnedByProfile,
-    ORCHESTRATOR_AUTHORITY_CLASS,
-    ORCHESTRATOR_AUTHORITY_PROFILE,
-    partitionRegistryByAuthority
+    partitionRegistryByAuthority,
+    resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
@@ -1102,9 +1101,11 @@ export class Orchestrator extends Base {
         const byOwner = new Map();
 
         for (const {authorityClass, taskName} of disabled) {
-            const owner = authorityClass === ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
-                ? ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane
-                : authorityClass;
+            // Derived, never a literal. A `shared-primitive → container-plane` constant here would
+            // be correct only while the topology has exactly two roles, and it would encode that
+            // assumption in presentation logic where nobody would look for it — still producing a
+            // confident answer after a third role made it wrong.
+            const owner = resolveAuthorityClassOwner({authorityClass});
 
             byOwner.set(owner, [...(byOwner.get(owner) || []), taskName]);
         }
