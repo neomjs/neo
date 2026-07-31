@@ -78,7 +78,8 @@ import {
     buildAuthorityReceipt as buildTaskAuthorityReceipt,
     CONTINUOUS_TASK_REGISTRY,
     INTERNAL_TASK_REGISTRY,
-    isTaskOwnedByProfile
+    isTaskOwnedByProfile,
+    partitionRegistryByAuthority
 } from './taskAuthority.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
@@ -1043,11 +1044,33 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Splits the scheduled registry into the lanes this role runs and the lanes it
+     * deliberately does not, in ONE pass.
+     *
+     * Both halves matter and only one was ever produced. The complement — the capabilities this
+     * role is dropping — existed solely as an `active` flag inside the authority receipt, which is
+     * written to disk and never read back, so a dropped lane with no running replacement announced
+     * itself nowhere.
+     *
+     * @returns {{scheduled: Object[], disabled: Object[]}}
+     */
+    getAuthorityRegistryPartition() {
+        return partitionRegistryByAuthority({
+            profile : this.getResolvedAuthorityProfile(),
+            registry: TASK_REGISTRY
+        });
+    }
+
+    /**
      * @summary Returns the scheduled descriptor registry owned by this role.
+     *
+     * Delegates to {@link getAuthorityRegistryPartition} rather than filtering separately: a
+     * complement computed by a second traversal is one edit away from disagreeing with this one,
+     * and a lane that fell out of both would be neither run nor announced.
      * @returns {Object[]}
      */
     getAuthorityScheduledRegistry() {
-        return TASK_REGISTRY.filter(({taskName}) => this.isTaskAuthorityOwned(taskName));
+        return this.getAuthorityRegistryPartition().scheduled;
     }
 
     /**

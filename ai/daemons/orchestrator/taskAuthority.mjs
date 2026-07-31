@@ -233,6 +233,57 @@ export function isTaskOwnedByProfile({
 }
 
 /**
+ * @summary Splits a scheduling registry into the lanes a role owns and the lanes it does not.
+ *
+ * One derivation, two consumers, and that is the point. The scheduler takes `scheduled`; the
+ * startup announcement takes `disabled`.
+ *
+ * The `scheduled` half is not new behaviour — `getAuthorityScheduledRegistry()` already filtered
+ * the registry by ownership, and it now delegates here rather than filtering separately. What was
+ * missing is the COMPLEMENT: the set a role deliberately does not run existed only as an `active`
+ * flag inside the authority receipt written to `orchestrator-authority.json`, which nothing read
+ * back. So the daemon computed which capabilities it was dropping, wrote that answer to disk, and
+ * announced none of it — which is how a machine sat with Chroma unreachable and wake delivery
+ * dead while its orchestrator reported healthy.
+ *
+ * Computing the complement by subtracting one filter's output from the registry would put the two
+ * halves one edit apart from disagreeing. Producing both in a single pass makes "run it" and
+ * "announce that I am not running it" the same decision, which is the only version where a lane
+ * cannot end up in neither half.
+ *
+ * Fails closed on an unrecognised profile via {@link assertAuthorityProfile}: partitioning an
+ * unknown role into "owns nothing" would present as a healthy daemon running no lanes at all.
+ *
+ * Pure and total — every descriptor lands in exactly one half.
+ *
+ * @param {Object} options
+ * @param {String} options.profile Runtime authority profile.
+ * @param {Array<Object>} options.registry Scheduling descriptors carrying `authorityClass`.
+ * @param {Object} [options.authorityClassesByProfile] Injectable profile matrix.
+ * @returns {{scheduled: Array<Object>, disabled: Array<Object>}}
+ */
+export function partitionRegistryByAuthority({
+    profile,
+    registry,
+    authorityClassesByProfile = AUTHORITY_CLASSES_BY_PROFILE
+}) {
+    assertAuthorityProfile(profile, authorityClassesByProfile);
+
+    const
+        ownedClasses = authorityClassesByProfile[profile],
+        scheduled    = [],
+        disabled     = [];
+
+    for (const descriptor of registry) {
+        const authorityClass = descriptor.authorityClass ?? getTaskAuthorityClass(descriptor.taskName);
+
+        (ownedClasses.includes(authorityClass) ? scheduled : disabled).push(descriptor);
+    }
+
+    return {disabled, scheduled};
+}
+
+/**
  * @summary Builds the exhaustive continuous + scheduled + internal + auxiliary lane
  * inventory and rejects duplicate task names or registry metadata that disagrees with
  * the canonical map.
