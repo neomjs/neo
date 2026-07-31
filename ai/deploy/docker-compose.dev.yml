@@ -302,8 +302,13 @@ services:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
     environment:
       <<: *plane-env
-      # AiConfig owns the cloud/container-plane posture and disabled local/model lanes.
-      # This profile declares only its relocated Chroma placement and Docker capability.
+      # AiConfig owns the cloud posture and the disabled local/model lanes; the ROLE is not
+      # inherited. The `authorityProfile` leaf carries no default, so every orchestrator declares
+      # its own — a default cannot be correct for both a container owner and a host-edge one, and
+      # the previous shared default let a host process silently claim this role. Without this line
+      # the daemon refuses at boot rather than starting with an unowned role.
+      NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: container-plane
+      # This profile otherwise declares only its relocated Chroma placement and Docker capability.
       NEO_CHROMA_HOST: chroma
       # Runtime access is scoped to THIS plane's compose project — the same scalar the project
       # `name` and `NEO_PLANE_ID` resolve from, so a parity orchestrator can never address the

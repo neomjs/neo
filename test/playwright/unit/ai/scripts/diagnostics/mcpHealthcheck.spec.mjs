@@ -361,7 +361,6 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
 
         for (const key of [
             'NEO_AI_DEPLOYMENT_MODE',
-            'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE',
             'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',
@@ -373,6 +372,12 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         ]) {
             expect(orchestratorEnv[key], `${key} duplicates an AiConfig default`).toBeUndefined();
         }
+
+        // The authority ROLE is the deliberate exception to "do not restate defaults": its leaf
+        // carries none, precisely because no single default is correct for both a container owner
+        // and a host-edge one. So this key must be PRESENT — its absence would make the daemon
+        // refuse at boot, and its presence is the declaration itself, not a duplicated default.
+        expect(orchestratorEnv.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
 
         // The cloud/container and local-model boundaries now belong to AiConfig. Compose must
         // also NOT pin the mailbox policy: doing so

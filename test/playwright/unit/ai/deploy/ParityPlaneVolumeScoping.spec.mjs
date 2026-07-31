@@ -354,7 +354,7 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
             .toBe(compose['x-plane-env'].NEO_PLANE_ID);
     });
 
-    test('the relocated dev profile places tenant mirrors and inherits container authority', () => {
+    test('the relocated dev profile places tenant mirrors and DECLARES container authority', () => {
         const
             planeEnvironment = compose['x-plane-env'],
             planeRoot        = planeEnvironment.NEO_PLANE_DATA_ROOT,
@@ -363,9 +363,12 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 
         expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
         expect(orchestrator.environment['<<']).toBe(planeEnvironment);
-        expect(orchestrator.environment).not.toHaveProperty('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+
+        // The role is declared, never inherited. The leaf carries NO default, so this profile must
+        // name its own — without it the daemon refuses at boot rather than starting unowned.
+        expect(orchestrator.environment.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
         expect(configSource)
-            .toContain("authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
+            .toContain("authorityProfile: leaf('', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
     });
 
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
