@@ -47,10 +47,10 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
             expect(proxy.transport).toBe(process.env.NEO_TRANSPORT || 'stdio');
             expect(proxy.mcpHttpPort).toBe(Number(process.env.MCP_HTTP_PORT) || 3000);
             expect(ConfigBase.config.data.orchestrator.deploymentMode.default).toBe('cloud');
-            expect(ConfigBase.config.data.orchestrator.authorityProfile.default).toBe('container-plane');
+            expect(ConfigBase.config.data.orchestrator.authorityProfile.default).toBe('');
             expect(proxy.orchestrator.deploymentMode).toBe(process.env.NEO_AI_DEPLOYMENT_MODE || 'cloud');
             expect(proxy.orchestrator.authorityProfile)
-                .toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || 'container-plane');
+                .toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || '');
         } finally {
             instance.destroy();
         }

@@ -230,6 +230,13 @@ services:
       # in the writable layer. Without this line bundles would be written and then destroyed on
       # the next recreate. Paired with the host-source bind below; the two are separate contracts.
       - NEO_BACKUP_PATH=/app/.neo-ai-data/backups
+      # A role is declared, never inherited. The leaf carries no default (see `authorityProfile`
+      # in ai/configBase.mjs), so this line is REQUIRED — without it the daemon refuses at boot
+      # rather than inheriting a role. That refusal is the point: the previous default described
+      # this container's reality, so a host process starting bare claimed the role this service
+      # owns. Both owners now state their own: this one here, a machine-local one via
+      # `npm run ai:host-edge`.
+      - NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=container-plane
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}
       # `orchestrator` is in this list deliberately, and it is the reason the list needed changing.

@@ -20,6 +20,38 @@ Both host processes keep state under
 `~/Library/Application Support/Neo/AgentOS`, outside every checkout plane.
 `legacy-mixed` and Shape C are not part of this topology.
 
+## Start the host edge — terminal, any platform
+
+**The containerized stack alone has no wake delivery and no host-bound effects.** It comes up
+healthy and looks complete; the host edge is a second, separate process you start yourself. If you
+are trying the Agent OS in a fork and wondering why nudges never arrive, this section is why.
+
+Two commands, no installer, from the repository root:
+
+```sh
+npm run ai:host-edge        # graphless host-edge Orchestrator (host-bound effects)
+npm run ai:wake-receiver    # signed Shape-B wake receiver, host port 3199
+```
+
+Run them in their own terminals. Nothing here is macOS-specific — the launchd section below is
+**supervision only** (start-at-login, restart-on-crash), and everything in this file above it works
+on any platform Node runs on. On Linux or Windows, supervise these two commands with whatever your
+system already uses; there is no Neo-specific requirement.
+
+**Do not use `npm run ai:orchestrator` for this.** That entrypoint takes no role of its own, and the
+daemon now refuses to start without one:
+
+```
+[Orchestrator] Failed to start: Required deployment configuration is missing or invalid:
+  - NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE (orchestrator.authorityProfile): absent
+```
+
+A role is **declared, never inherited**. The container declares `container-plane` in its Compose
+service; `ai:host-edge` declares `host-edge`. The refusal exists because there is no default that
+could be correct for both: a shared default describes one owner's reality, so the other silently
+claims a role it does not own — writing authority state and running maintenance lanes against the
+wrong plane, with no error. Declaring is cheap; diagnosing a silent duplicate owner is not.
+
 ## Start the container plane
 
 Run from the repository root after provisioning `.env` and the mode-0600

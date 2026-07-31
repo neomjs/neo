@@ -184,6 +184,58 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
+    // The orchestrator's role must be DECLARED by whoever starts it. These two tests are a pair,
+    // and the pairing is the point: requiredness is evaluated on the RESOLVED value, so a leaf
+    // carrying any non-empty default would make the requirement permanently unfireable — a guard
+    // that boots, runs, and certifies rather than protects. Asserting the refusal without also
+    // asserting the empty default would leave that hole open.
+    test('authorityProfile carries NO default, so the requirement can fire at all', () => {
+        expect(RootConfigBase.config.data.orchestrator.authorityProfile.default).toBe('');
+    });
+
+    test('an undeclared authorityProfile fails the orchestrator-daemon entrypoint closed', () => {
+        const
+            envName  = 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE',
+            original = process.env[envName];
+
+        delete process.env[envName];
+
+        const fresh = createIsolatedConfig();
+
+        try {
+            const
+                undeclared = fresh.validateRequiredEnv({entrypoint: 'orchestrator-daemon'}),
+                finding    = undeclared.findings.find(item => item.leafPath === 'orchestrator.authorityProfile');
+
+            expect(undeclared.ok).toBe(false);
+            expect(finding).toBeTruthy();
+            expect(finding.env).toBe(envName);
+            expect(finding.valueState).toBe('absent');
+            expect(finding.disposition).toBe('fail-closed');
+
+            // The message is the deliverable for whoever hits this, so assert it names the way out
+            // rather than only that something was rejected.
+            expect(finding.reason).toMatch(/declared, never inherited/);
+            expect(finding.reason).toContain('ai:host-edge');
+
+            // …and a declared role passes, so the guard discriminates instead of always refusing.
+            fresh.setEnvOverride(envName, 'container-plane');
+            expect(fresh.validateRequiredEnv({entrypoint: 'orchestrator-daemon'}).findings
+                .some(item => item.leafPath === 'orchestrator.authorityProfile')).toBe(false);
+
+            fresh.setEnvOverride(envName, 'host-edge');
+            expect(fresh.validateRequiredEnv({entrypoint: 'orchestrator-daemon'}).findings
+                .some(item => item.leafPath === 'orchestrator.authorityProfile')).toBe(false);
+        } finally {
+            if (original === undefined) {
+                delete process.env[envName];
+            } else {
+                process.env[envName] = original;
+            }
+            fresh.destroy();
+        }
+    });
+
     test('child configs validate inherited Tier-1 requiredness metadata (#13432)', () => {
         const
             envName          = 'NEO_UNIT_REQUIRED_ENV_VALIDATION_PARENT_URL',
@@ -375,7 +427,9 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
         expect(Config.orchestrator.deploymentMode).toBe(process.env.NEO_AI_DEPLOYMENT_MODE || 'cloud');
-        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || 'container-plane');
+        // A role is declared, never inherited: no default, so an undeclared orchestrator refuses
+        // at boot instead of silently claiming the role another owner already holds.
+        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || '');
         expect(Config.orchestrator.intervals).toMatchObject({
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,

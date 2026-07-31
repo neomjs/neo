@@ -840,12 +840,31 @@ class ConfigBase extends ConfigProvider {
                  * `deploymentMode`: storage/deployment defaults cannot express which process owns
                  * host/session effects versus plane maintenance on the same machine.
                  *
-                 * `container-plane` is the canonical default. A machine-local Orchestrator
-                 * explicitly declares `host-edge`; `legacy-mixed` exists only for rollback to a
-                 * pre-cutover revision. Unknown values fail the preflight ownership audit.
-                 * @type {'legacy-mixed'|'host-edge'|'container-plane'}
+                 * **A role is declared, never inherited — there is deliberately no default.** Both
+                 * owners state their own role: the container profile declares `container-plane`,
+                 * a machine-local Orchestrator declares `host-edge`, and `legacy-mixed` exists only
+                 * for rollback to a pre-cutover revision. Unknown values fail the preflight
+                 * ownership audit.
+                 *
+                 * The empty default is the mechanism, not an oversight. A default cannot be correct
+                 * for both owners, and the previous `container-plane` default silently inverted at
+                 * the cutover: it described the container's reality, so a host process starting with
+                 * it claimed the role the container already owned — writing authority state and
+                 * running maintenance lanes against the wrong plane, with no error. Requiredness is
+                 * evaluated on the RESOLVED value (`ConfigProvider#validateRequiredEnv`), so any
+                 * non-empty default would make the `requiredFor` clause below unfireable.
+                 *
+                 * Environment detection was rejected as the alternative: `/.dockerenv` and cgroup
+                 * inspection infer an *environment*, while a declaration states an *intent* — two
+                 * orchestrators can share an environment, but they cannot share a declaration.
+                 * @type {''|'legacy-mixed'|'host-edge'|'container-plane'}
                  */
-                authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string'),
+                authorityProfile: leaf('', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string', {
+                    requiredFor: [{
+                        entrypoints: ['orchestrator-daemon'],
+                        reason     : 'A role is declared, never inherited. Declare container-plane on the containerized Orchestrator (its Compose service sets it) or host-edge on a machine-local one (npm run ai:host-edge).'
+                    }]
+                }),
                 /**
                  * Filesystem root under which tenant-repo mirrors are stored. The
                  * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,
