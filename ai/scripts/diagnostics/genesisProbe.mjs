@@ -257,11 +257,16 @@ export function createProbeEnvironments({baseEnv = process.env, bearerToken, por
             HOST                                : LOOPBACK_HOST,
             MCP_HTTP_PORT                       : String(ports.mcp),
             NEO_MEMORY_DB_PATH                  : databasePath,
-            NEO_NL_AUTO_CONNECT                 : 'true',
-            NEO_NL_LOG_PATH                     : logPath,
-            NEO_NL_PORT                         : String(ports.bridge),
-            NEO_NL_TOOL_PROJECTION_MODE         : PROBE_PROJECTION_MODE,
-            NEO_TRANSPORT                       : 'streamable-http'
+            // Action logging is OFF by default per seat. The probe's per-tool telemetry
+            // oracle SELECTs from `nl_action_log`, so it must opt IN explicitly — and it is safe
+            // to do so because `NEO_MEMORY_DB_PATH` above already redirects every write into this
+            // run's disposable root, which `assertDiagnosticPathsWithinRoot` enforces below.
+            NEO_NL_ACTION_LOGGING      : 'true',
+            NEO_NL_AUTO_CONNECT        : 'true',
+            NEO_NL_LOG_PATH            : logPath,
+            NEO_NL_PORT                : String(ports.bridge),
+            NEO_NL_TOOL_PROJECTION_MODE: PROBE_PROJECTION_MODE,
+            NEO_TRANSPORT              : 'streamable-http'
         };
 
     assertDiagnosticPathsWithinRoot({databasePath, logPath, root});

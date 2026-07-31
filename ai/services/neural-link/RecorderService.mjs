@@ -74,18 +74,67 @@ class RecorderService extends Base {
     }
 
     /**
-     * Initializes the SQLite connection to the Memory Core and ensures the physical nl_action_log
-     * schema and indices exist. Uses WAL journal mode to support non-blocking concurrent writes.
-     * @returns {Promise<void>}
+     * In-flight open from `ensureStore()` — the single-flight join point for concurrent first
+     * users. Transient: cleared on settle, so a failed open never pins later calls to a cached
+     * failure.
+     * @member {Promise<Object|null>|null} storeOpen=null
+     * @protected
      */
-    async initAsync() {
-        await super.initAsync();
+    storeOpen = null
 
+    /**
+     * @summary Opens the Memory Core connection on demand and ensures both physical schemas exist.
+     *
+     * This service owns TWO independent contracts against one file: `nl_action_log` (action
+     * telemetry) and `nl_transaction_archive` (the durable transaction save/replay product
+     * surface consumed by `InstanceService.saveTransaction()` / `replayTransaction()`).
+     *
+     * The connection is therefore opened lazily rather than at boot, so the two can be gated
+     * separately. A seat with telemetry disabled that never archives a transaction holds NO write
+     * handle on the shared plane graph — the point of the telemetry default — while a seat that
+     * does archive one gets a connection at that moment. Gating the connection instead of the
+     * capability would silently retire the archive contract along with the telemetry.
+     *
+     * Idempotent and SINGLE-FLIGHT: the open path awaits filesystem work, so a bare
+     * check-then-open races — N concurrent first users each observe a null `db` and open N
+     * connections against one shared file. The in-flight promise is assigned synchronously,
+     * before any await, so every concurrent caller joins one real open; it is cleared on settle,
+     * so a failed open resolves `null` for the current waiters while the NEXT call retries fresh
+     * instead of being pinned to a cached failure.
+     * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
+     * @protected
+     */
+    async ensureStore() {
+        if (this.db) {
+            return this.db;
+        }
+
+        if (!this.storeOpen) {
+            this.storeOpen = this.openStore().finally(() => {
+                this.storeOpen = null
+            });
+        }
+
+        return this.storeOpen;
+    }
+
+    /**
+     * @summary The real opener behind `ensureStore()` — never call directly.
+     *
+     * Emits exactly one connection marker per successful open. The enabled path keeps the
+     * boot-contract line naming `nl_action_log`; the on-demand path names the archive instead, so
+     * a disabled seat's log can never imply action telemetry was requested — the marker stays
+     * neutral for the contract that actually opened the store.
+     * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
+     * @protected
+     */
+    async openStore() {
         try {
             const dbPath = config.memoryCoreDbPath;
+
             if (!dbPath) {
-                logger.warn('[RecorderService] memoryCoreDbPath not configured. Disabling logging.');
-                return;
+                logger.warn('[RecorderService] memoryCoreDbPath not configured. Persistence unavailable.');
+                return null;
             }
 
             await fs.ensureDir(path.dirname(dbPath));
@@ -94,7 +143,8 @@ class RecorderService extends Base {
             this.db = new Database(dbPath, { verbose: null });
             this.db.pragma('journal_mode = WAL');
 
-            // System table
+            // Both schemas are created together: they share one file, and creating only one would
+            // leave the other contract failing on first use for no benefit.
             this.db.exec(`
                 CREATE TABLE IF NOT EXISTS nl_action_log (
                     id          TEXT PRIMARY KEY,
@@ -134,10 +184,40 @@ class RecorderService extends Base {
                     ON nl_transaction_archive(archived_at);
             `);
 
-            logger.info('[RecorderService] Connected to Memory Core nl_action_log.');
+            logger.info(config.actionLoggingEnabled
+                ? '[RecorderService] Connected to Memory Core nl_action_log.'
+                : '[RecorderService] Archive store opened on demand.');
+
+            return this.db;
         } catch (err) {
             logger.warn('[RecorderService] Failed to initialize SQLite connection:', err.message);
+
+            return null;
         }
+    }
+
+    /**
+     * Opens the store eagerly only when action logging is enabled, so an enabled seat keeps its
+     * previous boot-time behaviour. With logging disabled nothing is opened here — the archive
+     * contract opens the store on its own first use instead.
+     *
+     * Either branch emits exactly one line, never one per tool call. The line goes through the
+     * Neural Link logger deliberately: that logger is imported at module scope into every process
+     * hosting this service, including servers where the Neural Link itself never runs, so a
+     * misconfigured sink degrades there silently. A positive marker on both paths keeps that
+     * failure observable — without one, an empty log stream would satisfy any negative sink
+     * assertion.
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        if (config.actionLoggingEnabled) {
+            await this.ensureStore();
+            return;
+        }
+
+        logger.info('[RecorderService] Action logging disabled; transaction archive available on demand.');
     }
 
     /**
@@ -146,7 +226,9 @@ class RecorderService extends Base {
      * @param {Object} entry The invocation payload containing sequences, tool metadata, args, and execution times.
      */
     log(entry) {
-        if (!this.db) return;
+        // Explicit gate: the store may be open for the ARCHIVE contract, so a live `db` is no
+        // longer evidence that telemetry was requested.
+        if (!config.actionLoggingEnabled || !this.db) return;
 
         try {
             const insertStmt = this.db.prepare(`
@@ -187,10 +269,10 @@ class RecorderService extends Base {
      * @returns {Array} An array of matched SQLite row objects.
      */
     querySequences({ sinceTimestamp = 0, minSuccessRate, limit } = {}) {
-        if (!this.db) return [];
+        if (!config.actionLoggingEnabled || !this.db) return [];
 
         try {
-            let sql = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
+            let   sql  = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
             const args = [sinceTimestamp];
 
             sql += ` ORDER BY timestamp DESC`;
@@ -212,10 +294,10 @@ class RecorderService extends Base {
      * @param {Number} [days=config.pruneLogsAfterDays] The rolling window in days beyond which older records are permanently discarded.
      */
     pruneOlderThan(days = config.pruneLogsAfterDays) {
-        if (!this.db) return;
+        if (!config.actionLoggingEnabled || !this.db) return;
 
         try {
-            const cutoff = Date.now() - (days * MS_PER_DAY);
+            const cutoff   = Date.now() - (days * MS_PER_DAY);
             const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);
             dropStmt.run(cutoff);
         } catch (err) {
@@ -229,10 +311,12 @@ class RecorderService extends Base {
      * @param {String} [params.appSessionId]
      * @param {String} [params.name]
      * @param {Object} params.transaction
-     * @returns {Object} `{saved:Boolean, archiveId?:String, sourceTxId?:String, archivedAt?:Number, opCount?:Number, reason?:String}`
+     * @returns {Promise<Object>} `{saved:Boolean, archiveId?:String, sourceTxId?:String, archivedAt?:Number, opCount?:Number, reason?:String}`
      */
-    saveTransactionArchive({appSessionId, name, transaction} = {}) {
-        if (!this.db) {
+    async saveTransactionArchive({appSessionId, name, transaction} = {}) {
+        // Opens the store on demand: this contract is independent of the action-telemetry gate, so
+        // it must not depend on boot having opened a connection.
+        if (!await this.ensureStore()) {
             return {saved: false, reason: 'archive-store-unavailable'}
         }
 
@@ -298,10 +382,10 @@ class RecorderService extends Base {
      * Reads one archived transaction for replay.
      * @param {Object} params
      * @param {String} params.archiveId
-     * @returns {Object|null}
+     * @returns {Promise<Object|null>}
      */
-    getTransactionArchive({archiveId} = {}) {
-        if (!this.db || typeof archiveId !== 'string' || archiveId === '') {
+    async getTransactionArchive({archiveId} = {}) {
+        if (typeof archiveId !== 'string' || archiveId === '' || !await this.ensureStore()) {
             return null
         }
 
@@ -336,10 +420,10 @@ class RecorderService extends Base {
      * Records that an archived transaction replay landed successfully.
      * @param {Object} params
      * @param {String} params.archiveId
-     * @returns {{updated:Boolean}}
+     * @returns {Promise<{updated:Boolean}>}
      */
-    recordTransactionReplay({archiveId} = {}) {
-        if (!this.db || typeof archiveId !== 'string' || archiveId === '') {
+    async recordTransactionReplay({archiveId} = {}) {
+        if (typeof archiveId !== 'string' || archiveId === '' || !await this.ensureStore()) {
             return {updated: false}
         }
 
