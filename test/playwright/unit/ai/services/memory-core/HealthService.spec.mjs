@@ -611,7 +611,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         };
 
         // Cadence 0 disables the scheduled loop, so any embed here could only come from a probe.
-        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
         mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 0;
 
@@ -644,7 +644,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
             return new Array(4096).fill(0.1);
         };
 
-        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
         mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 0;
 
@@ -697,7 +697,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     test('a stale healthy canary degrades — a dead scheduler must not read green forever', async () => {
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
-        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const mcConfig            = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const restoreCanaryConfig = snapshotAiConfig(mcConfig, ['healthcheck.embeddingWriteCanaryCadenceMs']);
         // A real cadence (so the staleness bound applies) too long to ever fire inside this test.
         mcConfig.healthcheck.embeddingWriteCanaryCadenceMs = 300_000;
