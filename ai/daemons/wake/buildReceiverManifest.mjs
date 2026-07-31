@@ -33,9 +33,10 @@
  * publish itself is exclusive and symlink-safe. A manifest the receiver would reject never reaches
  * the target path.
  */
-import crypto from 'node:crypto';
-import fs     from 'node:fs/promises';
-import path   from 'node:path';
+import crypto          from 'node:crypto';
+import fs              from 'node:fs/promises';
+import path            from 'node:path';
+import {pathToFileURL} from 'node:url';
 
 import {loadWakeReceiverManifest} from './receiver.mjs';
 
@@ -279,4 +280,100 @@ export async function readPublishedRoutes(manifestPath) {
     }
 
     return parsed.routes
+}
+
+/**
+ * @summary Parses CLI flags without hidden deployment-path defaults, mirroring the receiver's parser.
+ * @param {String[]} argv
+ * @returns {{subscriptionsPath: String, manifestPath: String}}
+ */
+export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
+    const read = name => {
+        const index = argv.indexOf(name);
+        return index >= 0 ? argv[index + 1] : undefined
+    };
+
+    return {
+        subscriptionsPath: read('--subscriptions'),
+        manifestPath     : read('--manifest')
+    }
+}
+
+/**
+ * Runs one build-and-publish pass for whichever seat is calling.
+ *
+ * **This is a per-peer call, not a provisioning batch.** Every family runs it for its own identity
+ * and the result composes: the published manifest is read first and merged into, so three peers on
+ * one host each add their own route without coordinating and without any of them holding authority
+ * over the others' entries. That is why composition is additive rather than replacing — a peer
+ * provisioning itself must not be able to unprovision anyone else.
+ *
+ * Subscriptions arrive as JSON on a path or stdin — the output of `manage_wake_subscription list` —
+ * rather than being fetched here. That keeps the module graphless: the caller already holds an
+ * authenticated session, and this stays runnable on a host that cannot reach the container plane.
+ *
+ * @summary Builds and publishes the caller's routes, reporting skips and fingerprints but never keys.
+ * @param {Object} config
+ * @param {String} config.subscriptionsPath JSON file, or `-` for stdin.
+ * @param {String} config.manifestPath      Absolute manifest destination.
+ * @param {Object} [config.logger=console]
+ * @returns {Promise<{published: String, routeSummaries: Object[], skipped: Object[]}>}
+ */
+export async function runManifestBuilder({subscriptionsPath, manifestPath, logger = console}) {
+    if (!subscriptionsPath || !manifestPath) {
+        throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path>');
+    }
+
+    const raw = subscriptionsPath === '-'
+        ? await readStream(process.stdin)
+        : await fs.readFile(subscriptionsPath, 'utf8');
+
+    const parsed = JSON.parse(raw),
+          // Accept either the raw tool response or a bare array, since the tool wraps its result.
+          subscriptions = Array.isArray(parsed) ? parsed : parsed?.subscriptions;
+
+    const {manifest, routeSummaries, skipped} = buildWakeReceiverManifest({
+        subscriptions,
+        existingRoutes: await readPublishedRoutes(manifestPath)
+    });
+
+    await writeValidatedManifest({manifest, targetPath: manifestPath});
+
+    logger.log(`[Wake Manifest] published ${Object.keys(manifest.routes).length} route(s) to ${manifestPath}`);
+
+    for (const summary of routeSummaries) {
+        logger.log(`  route ${summary.subscriptionId} → ${summary.agentIdentity} ` +
+                   `adapter=${summary.adapter ?? '(none)'} key=${summary.keyFingerprint}`);
+    }
+
+    // Skips are printed, never swallowed: a seat that silently produces no route is indistinguishable
+    // from one that was never attempted, and that is exactly how a peer stays deaf without knowing.
+    for (const entry of skipped) {
+        logger.log(`  SKIPPED ${entry.subscriptionId}: ${entry.reason}`);
+    }
+
+    return {published: manifestPath, routeSummaries, skipped}
+}
+
+/**
+ * @summary Reads a whole stream to a string.
+ * @param {Object} stream
+ * @returns {Promise<String>}
+ * @private
+ */
+async function readStream(stream) {
+    const chunks = [];
+
+    for await (const chunk of stream) {
+        chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks).toString('utf8')
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    runManifestBuilder(parseManifestBuilderArgs()).catch(error => {
+        console.error(`[Wake Manifest] fatal: ${error.message}`);
+        process.exit(1)
+    })
 }

@@ -8,6 +8,7 @@ import {
     buildWakeReceiverManifest,
     fingerprintSigningKey,
     readPublishedRoutes,
+    runManifestBuilder,
     writeValidatedManifest
 } from '../../../../../../ai/daemons/wake/buildReceiverManifest.mjs';
 
@@ -215,6 +216,59 @@ test.describe('writeValidatedManifest', () => {
 
         await expect(writeValidatedManifest({manifest, targetPath: 'routes.json'}))
             .rejects.toThrow(/must be absolute/i)
+    });
+});
+
+test.describe('runManifestBuilder — per-peer composition', () => {
+    test('each family provisions its own seat without unprovisioning another', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  claudeInput  = path.join(dir, 'claude.json'),
+                  kimiInput    = path.join(dir, 'kimi.json'),
+                  lines        = [],
+                  logger       = {log: line => lines.push(line)};
+
+            await writeFile(claudeInput, JSON.stringify({subscriptions: [webhookSubscription]}));
+            await writeFile(kimiInput, JSON.stringify({subscriptions: [
+                {
+                    ...webhookSubscription,
+                    id                   : 'WAKE_SUB:84dfc4da-0000-4000-8000-00000000000a',
+                    agentIdentity        : '@neo-kimi-iris',
+                    harnessTargetMetadata: {
+                        ...webhookSubscription.harnessTargetMetadata,
+                        adapter   : 'kimi-server',
+                        signingKey: PEER_KEY
+                    }
+                },
+                bridgeDaemonSubscription
+            ]}));
+
+            await runManifestBuilder({subscriptionsPath: claudeInput, manifestPath, logger});
+            const second = await runManifestBuilder({subscriptionsPath: kimiInput, manifestPath, logger});
+
+            const published = await readPublishedRoutes(manifestPath);
+
+            // The second caller must not be able to unprovision the first.
+            expect(Object.keys(published)).toHaveLength(2);
+            expect(published[webhookSubscription.id].agentIdentity).toBe('@neo-opus-ada');
+            expect(published['WAKE_SUB:84dfc4da-0000-4000-8000-00000000000a'].agentIdentity)
+                .toBe('@neo-kimi-iris');
+
+            // An undeliverable seat is reported, not silently absent — silence is how a peer stays
+            // deaf without anyone noticing.
+            expect(second.skipped).toHaveLength(1);
+            expect(lines.some(line => line.includes('SKIPPED') && line.includes('not deliverable'))).toBe(true);
+            expect(lines.join('\n')).not.toContain(SERVER_KEY);
+            expect(lines.join('\n')).not.toContain(PEER_KEY)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('refuses without both flags rather than guessing a path', async () => {
+        await expect(runManifestBuilder({subscriptionsPath: '-'})).rejects.toThrow(/Usage:/)
     });
 });
 
