@@ -16,6 +16,16 @@ const ESCALATING_TASK_OUTCOMES      = Object.freeze(new Set(['backup']));
  * logger, and spawn implementation). The orchestrator owns the instance through a
  * reactive config slot and propagates parent mutations through `afterSet*` hooks.
  */
+
+/**
+ * The leading segments a child log line may carry BEFORE its severity: an optional ISO timestamp
+ * (bare or bracketed), then an optional `[PID:n]`, then the level itself. Deliberately anchored and
+ * deliberately narrow — see {@link ProcessSupervisorService#getChildLogLevel} for why a
+ * search-anywhere match would be worse than the bug it fixes.
+ * @type {RegExp}
+ */
+const CHILD_LOG_PREFIX = /^(?:\[?\d{4}-\d{2}-\d{2}T[\d:.]+Z\]?\s*)?(?<pid>\[PID:\d+\]\s*)?\[(?<level>LOG|INFO|WARN|ERROR)\]\s*/;
+
 export class ProcessSupervisorService extends Base {
     static config = {
         /**
@@ -359,19 +369,34 @@ export class ProcessSupervisorService extends Base {
 
     /**
      * Maps child-process stderr log prefixes to daemon log severities.
+     *
+     * The level is NOT line-leading in practice, and assuming it was is what broke this. Every
+     * child stamps a timestamp first, and some add a PID — three real shapes captured from one live
+     * boot:
+     *
+     *     2026-07-31T19:23:40.798Z [INFO] [SessionService] …
+     *     [2026-07-31T19:23:40.836Z] [INFO] [RecorderService] …
+     *     [2026-07-31T19:23:41.335Z] [PID:27004] [INFO] [Orchestrator] …
+     *
+     * An anchor at `^\[(LOG|INFO)\]` matches none of them, so the entire benign startup sequence
+     * fell through to the ERROR fail-safe and rendered identically to the one genuine failure in
+     * the window.
+     *
+     * The prefix it tolerates is BOUNDED on purpose — an optional timestamp, an optional PID, then
+     * the level. Searching for a level token anywhere in the line would fix this case and open a
+     * worse one: a real failure whose payload quotes `[INFO]` would silently downgrade, trading a
+     * lost signal for a hidden error.
      * @param {String} line Child stderr line.
      * @returns {String}
      */
     getChildLogLevel(line) {
-        if (/^\[(LOG|INFO)\](?:\s|$)/.test(line)) {
+        const level = CHILD_LOG_PREFIX.exec(line)?.groups?.level;
+
+        if (level === 'LOG' || level === 'INFO') {
             return 'INFO';
         }
 
-        if (/^\[WARN\](?:\s|$)/.test(line)) {
-            return 'WARN';
-        }
-
-        return 'ERROR';
+        return level === 'WARN' ? 'WARN' : 'ERROR';
     }
 
     /**
@@ -387,7 +412,15 @@ export class ProcessSupervisorService extends Base {
         const lines = data.toString().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
         for (const line of lines) {
-            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${line.replace(/^\[(LOG|INFO|WARN|ERROR)\]\s*/, '')}`);
+            const match = CHILD_LOG_PREFIX.exec(line);
+
+            // Timestamp and level are dropped — the outer logger stamps both. The PID is kept: it
+            // names WHICH child produced the line, which the outer logger cannot know.
+            const message = match
+                ? `${match.groups.pid ? `${match.groups.pid.trim()} ` : ''}${line.slice(match[0].length)}`
+                : line;
+
+            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${message}`);
         }
     }
 

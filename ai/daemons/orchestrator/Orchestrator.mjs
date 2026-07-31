@@ -78,7 +78,9 @@ import {
     buildAuthorityReceipt as buildTaskAuthorityReceipt,
     CONTINUOUS_TASK_REGISTRY,
     INTERNAL_TASK_REGISTRY,
-    isTaskOwnedByProfile
+    isTaskOwnedByProfile,
+    partitionRegistryByAuthority,
+    resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
@@ -1043,11 +1045,90 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Splits the scheduled registry into the lanes this role runs and the lanes it
+     * deliberately does not, in ONE pass.
+     *
+     * Both halves matter and only one was ever produced. The complement — the capabilities this
+     * role is dropping — existed solely as an `active` flag inside the authority receipt, which is
+     * written to disk and never read back, so a dropped lane with no running replacement announced
+     * itself nowhere.
+     *
+     * @returns {{scheduled: Object[], disabled: Object[]}}
+     */
+    getAuthorityRegistryPartition() {
+        return partitionRegistryByAuthority({
+            profile : this.getResolvedAuthorityProfile(),
+            registry: TASK_REGISTRY
+        });
+    }
+
+    /**
      * @summary Returns the scheduled descriptor registry owned by this role.
+     *
+     * Delegates to {@link getAuthorityRegistryPartition} rather than filtering separately: a
+     * complement computed by a second traversal is one edit away from disagreeing with this one,
+     * and a lane that fell out of both would be neither run nor announced.
      * @returns {Object[]}
      */
     getAuthorityScheduledRegistry() {
-        return TASK_REGISTRY.filter(({taskName}) => this.isTaskAuthorityOwned(taskName));
+        return this.getAuthorityRegistryPartition().scheduled;
+    }
+
+    /**
+     * @summary Builds the one-line startup statement of which lanes this role is NOT running.
+     *
+     * A capability this process drops is currently invisible: the authority receipt records it and
+     * nothing reads the receipt, so a machine can run for hours with its scheduler correctly
+     * declining graph work while nothing elsewhere picks that work up. There is no signal at the
+     * moment the gap opens, which is when it is cheap to notice.
+     *
+     * **Deliberately bounded to what this process can honestly assert.** The line names the lanes
+     * and the role that owns each, and stops there — it does NOT claim the owning role is running.
+     * A graphless host edge cannot probe the container plane it is forbidden to open, so a
+     * "replacement is live" check from here would either be a guess or a boundary violation. The
+     * honest form is "I am not running X; container-plane owns it", which is enough for an operator
+     * to ask the next question, and is true regardless of what else is up.
+     *
+     * @returns {String|null} The message, or null when this role owns every lane (`legacy-mixed`).
+     */
+    buildDisabledLaneAnnouncement() {
+        const {disabled} = this.getAuthorityRegistryPartition();
+
+        if (disabled.length === 0) {
+            return null;
+        }
+
+        const byOwner = new Map();
+
+        for (const {authorityClass, taskName} of disabled) {
+            // Derived, never a literal. A `shared-primitive → container-plane` constant here would
+            // be correct only while the topology has exactly two roles, and it would encode that
+            // assumption in presentation logic where nobody would look for it — still producing a
+            // confident answer after a third role made it wrong.
+            const owner = resolveAuthorityClassOwner({authorityClass});
+
+            byOwner.set(owner, [...(byOwner.get(owner) || []), taskName]);
+        }
+
+        const groups = [...byOwner.entries()]
+            .map(([owner, tasks]) => `${owner} owns ${tasks.sort().join(', ')}`)
+            .join('; ');
+
+        return `[Orchestrator] Not running ${disabled.length} lane(s) this role does not own — ${groups}. ` +
+            'This process does not verify that the owning role is live.';
+    }
+
+    /**
+     * @summary Emits {@link buildDisabledLaneAnnouncement} once, at startup.
+     * WARN rather than INFO: a dropped capability with no confirmed owner is the condition an
+     * operator needs to see, and it is emitted exactly once per boot so it cannot become the next
+     * drumbeat this ticket exists to remove.
+     * @returns {void}
+     */
+    announceDisabledLanes() {
+        const message = this.buildDisabledLaneAnnouncement();
+
+        message && this.writeLog('WARN', message);
     }
 
     /**
@@ -1185,6 +1266,7 @@ export class Orchestrator extends Base {
 
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
+        this.announceDisabledLanes();
         this.poll();
     }
 

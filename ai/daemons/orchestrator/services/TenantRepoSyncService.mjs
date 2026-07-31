@@ -966,7 +966,13 @@ class TenantRepoSyncService extends Base {
 
         if (repos.length === 0) {
             const details = {reason: 'no-tenant-repos-configured', repoCount: 0};
-            writeLog?.('INFO', `[TenantRepoSync] No tenantRepos configured; skipping.`);
+            // DEBUG, not INFO: this fires on the 60s sweep cadence forever on any deployment with
+            // no tenant repos, and an INFO line that repeats once a minute costs more than it tells
+            // anyone. It was measured doing exactly that — eight identical lines in eight minutes,
+            // sitting directly above the one genuine failure in the window and making it
+            // indistinguishable from noise. The structured `{status, details}` return is the answer
+            // channel for callers that need one; the log line is not.
+            writeLog?.('DEBUG', `[TenantRepoSync] No tenantRepos configured; skipping.`);
             return {status: 'skipped', details};
         }
 
