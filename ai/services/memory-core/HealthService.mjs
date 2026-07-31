@@ -1559,7 +1559,7 @@ class HealthService extends Base {
                 details.push(`Embedding write canary failed: ${canary.error}`);
             }
         } else {
-            // 'pending' / 'unavailable': appended observability, never a degradation — the
+            // 'pending' / 'unavailable' / 'disabled': appended observability, never a degradation — the
             // payload's existing details (including 'All features are operational') survive.
             details.push(`Embedding write canary ${canary.status}: ${canary.reason}`);
         }
@@ -1592,6 +1592,15 @@ class HealthService extends Base {
         }
 
         const snapshot = producer.gate.snapshot();
+
+        if (producer.disabled) {
+            // Intentional disablement is its own projection — never the old gate truth decaying
+            // into a stale/failure degradation.
+            return {
+                status: 'disabled',
+                reason: 'producer intentionally disabled (cadence <= 0) — scheduling is off until a positive cadence re-arms it'
+            };
+        }
 
         if (snapshot.status === 'healthy') {
             const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs),
@@ -1657,7 +1666,7 @@ class HealthService extends Base {
      *
      * @param {Object}   [options]
      * @param {Number}   [options.cadenceMs=aiConfig.healthcheck.embeddingWriteCanaryCadenceMs] Producer attempt period; `<= 0` disables (disarms an existing schedule, returns null).
-     * @param {Number}   [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Per-attempt provider deadline, bound HERE at first creation — never per healthcheck call.
+     * @param {Number}   [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Per-attempt provider deadline for the DEFAULT attempt body — re-resolved on every arm and read at call time; a provided `runCanary` is opaque and keeps its own bounds.
      * @param {Number}   [options.healthyTtlMs=aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs] Staleness floor for the last healthy result.
      * @param {Number}   [options.failureTtlMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs] Base failure-backoff window (binds at first gate creation).
      * @param {Number}   [options.failureTtlMaxMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs] Backoff ceiling (binds at first gate creation).
@@ -1687,12 +1696,14 @@ class HealthService extends Base {
 
         if (!(cadenceMs > 0)) {
             // Disabled cadence: synchronously disarm AND fence an existing schedule (the epoch
-            // bump makes any queued callback inert), then report disabled.
+            // bump makes any queued callback inert), then report disabled. The projection is
+            // explicit: reads report `disabled` (non-degrading), never the old gate truth.
             if (producer) {
+                producer.disabled = true;
                 producer.epoch++;
                 producer.stopped = true;
 
-                if (producer.timer) {
+                if (producer.timer !== null && producer.timer !== undefined) {
                     producer.clearSchedule(producer.timer);
                     producer.timer = null;
                 }
@@ -1708,8 +1719,9 @@ class HealthService extends Base {
         const schedule   = scheduler     ?? producer?.schedule      ?? ((fn, ms) => setInterval(fn, ms)),
               unschedule = clearSchedule ?? producer?.clearSchedule ?? (handle => clearInterval(handle));
 
-        if (producer?.timer) {
-            // The clearer that PAIRED the old handle clears it — never a different arm's clearer.
+        if (producer?.timer !== null && producer?.timer !== undefined) {
+            // The clearer that PAIRED the old handle clears it — never a different arm's clearer,
+            // and every non-null handle is cleared (a scheduler may legitimately return 0).
             producer.clearSchedule(producer.timer);
             producer.timer = null;
         }
@@ -1726,12 +1738,15 @@ class HealthService extends Base {
                     now: () => producer.clock()
                 }),
                 clearSchedule: unschedule,
+                disabled     : false,
                 schedule,
                 clock        : clock ?? Date.now,
                 keyFor       : keyFor ?? (() => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`),
-                runCanary    : runCanary ?? (() => buildEmbeddingWriteCanaryBlock({timeoutMs})),
-                stopped      : false,
-                timer        : null
+                // The default attempt body reads the arm's timeoutMs AT CALL TIME, so a numeric
+                // re-resolve on re-arm flows through the preserved body without replacing it.
+                runCanary: runCanary ?? (() => buildEmbeddingWriteCanaryBlock({timeoutMs: producer.timeoutMs})),
+                stopped  : false,
+                timer    : null
             };
         } else {
             if (clock)     producer.clock     = clock;
@@ -1743,8 +1758,10 @@ class HealthService extends Base {
         }
 
         producer.cadenceMs    = cadenceMs;
+        producer.disabled     = false;
         producer.healthyTtlMs = healthyTtlMs;
         producer.stopped      = false;
+        producer.timeoutMs    = timeoutMs;
 
         const epoch = ++producer.epoch;
 
@@ -1779,7 +1796,7 @@ class HealthService extends Base {
             producer.epoch++;
             producer.stopped = true;
 
-            if (producer.timer) {
+            if (producer.timer !== null && producer.timer !== undefined) {
                 producer.clearSchedule(producer.timer);
                 producer.timer = null;
             }

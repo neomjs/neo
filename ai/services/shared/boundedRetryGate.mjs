@@ -126,7 +126,9 @@ export function createBoundedRetryGate({
         const failed = !isHealthyOutcome(result);
 
         return {
-            ...result,
+            // structuredClone: no nested object/array inside the result aliases the internal
+            // cache (or any other delivered copy) — outward projections are fully isolated.
+            ...structuredClone(result),
             gate: {
                 key          : gen.key,
                 genId        : gen.id,
@@ -183,7 +185,7 @@ export function createBoundedRetryGate({
 
         if (generation && generation.id === flight.genId) {
             if (isHealthyOutcome(result)) {
-                gen.cached        = {result, checkedAt: settledAt, backoffMs: 0};
+                gen.cached        = {result: structuredClone(result), checkedAt: settledAt, backoffMs: 0};
                 gen.failureStreak = 0;
                 gen.nextAttemptAt = 0;
                 gen.terminal      = false;
@@ -193,7 +195,7 @@ export function createBoundedRetryGate({
 
                 const backoffMs = Math.min(failureTtlMaxMs, failureTtlMs * 2 ** (gen.failureStreak - 1));
 
-                gen.cached = {result, checkedAt: settledAt, backoffMs};
+                gen.cached = {result: structuredClone(result), checkedAt: settledAt, backoffMs};
 
                 if (gen.failureStreak >= maxFailureStreak) {
                     gen.terminal      = true;
@@ -366,13 +368,7 @@ export function createBoundedRetryGate({
                 nextAttemptAt: generation.nextAttemptAt || null,
                 terminal     : generation.terminal,
                 stopReason   : generation.stopReason,
-                cached       : generation.cached
-                    ? {
-                        result   : {...generation.cached.result},
-                        checkedAt: generation.cached.checkedAt,
-                        backoffMs: generation.cached.backoffMs
-                    }
-                    : null
+                cached       : generation.cached ? structuredClone(generation.cached) : null
             };
         }
     };

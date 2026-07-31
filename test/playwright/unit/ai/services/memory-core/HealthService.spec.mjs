@@ -1151,6 +1151,80 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(bodies).toEqual(['X', 'X', 'Y']);
     });
 
+    test('a disabled producer projects a named non-degrading detail, and a positive re-arm restores live truth', async () => {
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'disabled-projection'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect((await HealthService.healthcheck()).status).toBe('healthy');
+
+        expect(HealthService.startEmbeddingWriteCanary({cadenceMs: 0})).toBe(null);
+
+        const disabled = await HealthService.healthcheck({freshObservability: false});
+        expect(disabled.status).toBe('healthy'); // non-degrading by contract — never the old gate truth decaying
+        expect(disabled.details.some(d => d.startsWith('Embedding write canary disabled:'))).toBe(true);
+
+        HealthService.startEmbeddingWriteCanary({ // positive cadence re-arms; the default body is preserved
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'disabled-projection'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const restored = await HealthService.healthcheck({freshObservability: false});
+        expect(restored.status).toBe('healthy');
+        expect(restored.details.some(d => d.startsWith('Embedding write canary disabled:'))).toBe(false);
+    });
+
+    test('the default attempt body reads the arm timeout at call time — a re-arm refresh flows through the preserved body', async () => {
+        TextEmbeddingService.embedText = async () => new Promise(() => {}); // hangs forever
+        HealthService.clearEmbeddingWriteCanaryProducer(); // so the DEFAULT body is created (beforeEach's provided body would be preserved)
+
+        HealthService.startEmbeddingWriteCanary({
+            timeoutMs    : 5,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'timeout-refresh'
+        });
+        await new Promise(resolve => setTimeout(resolve, 30));
+        expect((await HealthService.healthcheck()).status).toBe('degraded'); // the first 5ms bound already fired
+
+        HealthService.startEmbeddingWriteCanary({ // refresh the bound to 80ms; the default body is preserved
+            timeoutMs    : 80,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'timeout-refresh-2' // rotation: fresh generation, no inherited backoff
+        });
+        await new Promise(resolve => setTimeout(resolve, 30));
+
+        // At +30ms the refreshed 80ms attempt is STILL pending — the preserved body did not reuse the old 5ms bound.
+        const mid = await HealthService.healthcheck();
+        expect(mid.details.some(d => d.startsWith('Embedding write canary pending: run in flight'))).toBe(true);
+
+        await new Promise(resolve => setTimeout(resolve, 90));
+
+        const settled = await HealthService.healthcheck();
+        expect(settled.details.some(d => d.startsWith('Embedding write canary failed: consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT'))).toBe(true);
+    });
+
+    test('a scheduler handle of 0 is cleared on stop (every non-null handle clears)', async () => {
+        const cleared = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: h => cleared.push(h),
+            keyFor       : () => 'handle-zero'
+        });
+
+        HealthService.stopEmbeddingWriteCanary();
+
+        expect(cleared).toEqual([0]);
+    });
+
     test('#13458: collection count timeout makes healthcheck resolve unhealthy instead of hanging', async () => {
         StorageRouter.getMemoryCollection = async () => ({
             count: async () => new Promise(() => {}),

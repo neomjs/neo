@@ -389,6 +389,31 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         expect(runs.length).toBe(1);
     });
 
+    test('nested aliases are isolated: mutating snapshot or delivered results cannot rewrite the cache', async () => {
+        const {gate, runs, advance} = makeGate({
+            runImpl: () => ({status: 'failed', error: 'boom', detail: {marker: 'pristine'}, tags: ['a']})
+        });
+
+        const delivered = await gate.tick({key: 'A'}); // settles failed → the cache now holds the failure
+        const snap      = gate.snapshot();
+
+        // Mutate NESTED state through both outward aliases.
+        snap.cached.result.detail.marker = 'mutated';
+        snap.cached.result.tags.push('b');
+        delivered.detail.marker          = 'mutated-delivered';
+
+        advance(500);
+
+        const cached = await gate.tick({key: 'A'}); // backoff-served read from cache
+        expect(runs.length).toBe(1);
+        expect(cached.detail.marker).toBe('pristine');
+        expect(cached.tags).toEqual(['a']);
+
+        const snap2 = gate.snapshot();
+        expect(snap2.cached.result.detail.marker).toBe('pristine');
+        expect(snap2.cached.result.tags).toEqual(['a']);
+    });
+
     test('global single-flight holds across rotations and runNow churn (maxActive === 1)', async () => {
         let activeRuns = 0, maxActive = 0;
 
