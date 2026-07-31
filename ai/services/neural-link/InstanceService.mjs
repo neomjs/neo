@@ -251,7 +251,7 @@ class InstanceService extends Base {
             return snapshot
         }
 
-        return RecorderService.saveTransactionArchive({
+        return await RecorderService.saveTransactionArchive({
             appSessionId,
             name,
             transaction : snapshot.transaction
@@ -268,7 +268,7 @@ class InstanceService extends Base {
      * @returns {Promise<Object>}
      */
     async replayTransaction({sessionId, archiveId}) {
-        const archive = RecorderService.getTransactionArchive({archiveId});
+        const archive = await RecorderService.getTransactionArchive({archiveId});
 
         if (!archive) {
             return {replayed: false, reason: 'archive-not-found'}
@@ -283,7 +283,7 @@ class InstanceService extends Base {
         });
 
         if (result?.replayed) {
-            RecorderService.recordTransactionReplay({archiveId})
+            await RecorderService.recordTransactionReplay({archiveId})
         }
 
         return result

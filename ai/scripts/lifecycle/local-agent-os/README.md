@@ -122,7 +122,7 @@ expected Chroma process:
 
 ```sh
 ps -axo pid=,command= | rg \
-  '[a]i/(mcp/server/(memory-core|knowledge-base)/mcp-server|daemons/.+/daemon|scripts/(lifecycle|maintenance)/.+)\.mjs'
+  '[a]i/(mcp/server/(memory-core|knowledge-base|neural-link)/mcp-server|daemons/.+/daemon|scripts/(lifecycle|maintenance)/.+)\.mjs'
 lsof -nP -iTCP:8000 -sTCP:LISTEN
 ```
 
@@ -130,6 +130,17 @@ The process census must be empty; the listener probe must show exactly the
 expected Chroma server. Stop every competing writer and repeat both probes until
 that invariant holds. Local model-provider processes are not plane writers and
 may stay running.
+
+`neural-link` is in the pattern deliberately (#16207). Its `RecorderService` opens
+the plane graph READ/WRITE when action logging is enabled, and an earlier census
+without it reported **empty** while two Neural Link processes held `fd=...u` write
+handles on `memory-core-graph.sqlite` — caught only because `lsof` on the file
+itself disagreed with the process list. Treat the census as a proxy and the file as
+the truth: when the two disagree, believe `lsof`.
+
+```sh
+lsof .neo-ai-data/sqlite/memory-core-graph.sqlite
+```
 
 With writers quiesced and Chroma still alive, create the logical backup and
 require the authoritative restorable verdict:
@@ -146,7 +157,7 @@ plane has no remaining owner:
 
 ```sh
 ps -axo pid=,command= | rg \
-  '[a]i/(mcp/server/(memory-core|knowledge-base)/mcp-server|daemons/.+/daemon|scripts/(lifecycle|maintenance)/.+)\.mjs|[c]hroma run'
+  '[a]i/(mcp/server/(memory-core|knowledge-base|neural-link)/mcp-server|daemons/.+/daemon|scripts/(lifecycle|maintenance)/.+)\.mjs|[c]hroma run'
 lsof -nP -iTCP:8000 -sTCP:LISTEN
 ```
 
