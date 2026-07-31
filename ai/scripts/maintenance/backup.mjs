@@ -721,28 +721,6 @@ async function copyJsonlSource(source, destDir, logger=console, destFileName=nul
 }
 
 /**
- * The lease-owning orchestration path: exported `runBackup()` stays the pure local
- * bundle/retention primitive; this wrapper owns the configured off-host sync step and the
- * deployment-global receipt. Direct module callers of `runBackup()` never fire the configured
- * command and never overwrite the global receipt.
- *
- * Lease semantics: the sync lifetime extends the exclusive-heavy backup lease; the lease remains
- * held through the bounded-size receipt fsync/rename and releases afterward (no exact wall-clock
- * bound — local filesystem completion is not a hard real-time guarantee). When the deployment
- * requires off-host durability, a non-success sync rejects only AFTER that truthful receipt attempt;
- * the completed local bundle remains `backup.status: 'success'`.
- *
- * @param {Object} [options]
- * @param {Function} [options.runBackupImpl=runBackup] Local bundle primitive.
- * @param {Function|null} [options.withLeaseImpl=null] Heavy-maintenance lease seam.
- * @param {String|null} [options.backupRoot=null] Receipt-root override.
- * @param {Object} [options.syncConfig] Off-host config override.
- * @param {Function} [options.runOffHostSyncImpl=runOffHostSync] Sync runner seam.
- * @param {Boolean} [options.offHostBackupRequired] Resolved requirement override; omitted reads
- * AiConfig through the canonical cloud-only resolver.
- * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
- */
-/**
  * @summary Emits a ONE-TIME notice when bundles are found at the pre-relocation, plane-anchored
  * backup root, so an operator can move them deliberately.
  *
@@ -807,6 +785,28 @@ export async function noticeLegacyBackupRoot({currentRoot, legacyRoot, logger = 
     return true
 }
 
+/**
+ * The lease-owning orchestration path: exported `runBackup()` stays the pure local
+ * bundle/retention primitive; this wrapper owns the configured off-host sync step and the
+ * deployment-global receipt. Direct module callers of `runBackup()` never fire the configured
+ * command and never overwrite the global receipt.
+ *
+ * Lease semantics: the sync lifetime extends the exclusive-heavy backup lease; the lease remains
+ * held through the bounded-size receipt fsync/rename and releases afterward (no exact wall-clock
+ * bound — local filesystem completion is not a hard real-time guarantee). When the deployment
+ * requires off-host durability, a non-success sync rejects only AFTER that truthful receipt attempt;
+ * the completed local bundle remains `backup.status: 'success'`.
+ *
+ * @param {Object} [options]
+ * @param {Function} [options.runBackupImpl=runBackup] Local bundle primitive.
+ * @param {Function|null} [options.withLeaseImpl=null] Heavy-maintenance lease seam.
+ * @param {String|null} [options.backupRoot=null] Receipt-root override.
+ * @param {Object} [options.syncConfig] Off-host config override.
+ * @param {Function} [options.runOffHostSyncImpl=runOffHostSync] Sync runner seam.
+ * @param {Boolean} [options.offHostBackupRequired] Resolved requirement override; omitted reads
+ * AiConfig through the canonical cloud-only resolver.
+ * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
+ */
 export async function runBackupWithOffHostSync({
     runBackupImpl          = runBackup,
     withLeaseImpl          = null,
@@ -868,15 +868,6 @@ export async function runBackupWithOffHostSync({
             {bundleRoot, completedAt} = result,
             bundleName                = path.basename(bundleRoot),
             backupDurationMs          = Date.now() - backupStartedAt;
-
-        // Bundles left at the pre-relocation plane-anchored root are reported, never touched.
-        // Isolated from the terminal deliberately: a notice must not be able to fail a backup.
-        await noticeLegacyBackupRoot({
-            currentRoot: backupRoot ?? AiConfig.backupPath,
-            legacyRoot : path.join(AiConfig.plane.dataRoot, 'backups')
-        }).catch(noticeError => {
-            console.warn(`[Backup] legacy-root notice failed: ${noticeError.message}`)
-        });
 
         let syncOutcome = null,
             syncStatus  = 'disabled';
@@ -955,6 +946,19 @@ export async function runBackupWithOffHostSync({
 // overlay loads BEFORE any backupPath read (bundle, retention, receipt, snapshot-root).
 if (import.meta.url === `file://${process.argv[1]}`) {
     await loadTopLevelAiConfig();
+
+    // Operator-facing courtesy, deliberately at the CLI layer rather than inside the lease-owning
+    // wrapper. The wrapper is a reusable programmatic surface whose behavioural contract is a
+    // narrow matrix (receipt truth, then terminal decision); a filesystem side effect and a
+    // console warning firing there would reach every programmatic caller and every test that
+    // exercises that matrix. The relocation notice is for a human reading a CLI run, so it lives
+    // where humans invoke it — and it never touches the backup terminal.
+    await noticeLegacyBackupRoot({
+        currentRoot: AiConfig.backupPath,
+        legacyRoot : path.join(AiConfig.plane.dataRoot, 'backups')
+    }).catch(noticeError => {
+        console.warn(`[Backup] legacy-root notice failed: ${noticeError.message}`)
+    });
 
     runBackupWithOffHostSync()
         .then(outcome => {
