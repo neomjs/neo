@@ -82,10 +82,17 @@ class RecorderService extends Base {
         await super.initAsync();
 
         try {
-            // Gated OFF by default: no connection is opened, so `this.db` stays null and
-            // `log()` no-ops on its existing guard. Silent by design — an ordinary seat should not
-            // emit a line per tool call about telemetry it was never asked to collect.
+            // Gated OFF by default: no connection is opened, so `this.db` stays null and `log()`
+            // no-ops on its existing guard. Quiet by design — one line at boot, never one per tool
+            // call about telemetry the seat was never asked to collect.
+            //
+            // The line is emitted through the Neural Link logger deliberately. That logger is
+            // imported at module scope into every process hosting this service, including servers
+            // where the Neural Link itself never runs, so a misconfigured sink degrades there
+            // silently. A positive marker on the disabled path keeps that failure observable —
+            // without it, an empty log stream would satisfy any negative sink assertion.
             if (!config.actionLoggingEnabled) {
+                logger.info('[RecorderService] Action logging disabled; nl_action_log not opened.');
                 return;
             }
 
@@ -197,7 +204,7 @@ class RecorderService extends Base {
         if (!this.db) return [];
 
         try {
-            let sql = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
+            let   sql  = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
             const args = [sinceTimestamp];
 
             sql += ` ORDER BY timestamp DESC`;
@@ -222,7 +229,7 @@ class RecorderService extends Base {
         if (!this.db) return;
 
         try {
-            const cutoff = Date.now() - (days * MS_PER_DAY);
+            const cutoff   = Date.now() - (days * MS_PER_DAY);
             const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);
             dropStmt.run(cutoff);
         } catch (err) {
