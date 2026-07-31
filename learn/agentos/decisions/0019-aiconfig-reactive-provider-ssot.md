@@ -274,14 +274,15 @@ The remedy is classification, not a guard: `planeMember: false` with a `planeMem
 **every profile places it explicitly** — the `orchestrator.tenantRepoMirrorRoot` shape. A member that
 must escape the plane was never a member.
 
-**Scope of the guarantee, bounded deliberately.** The relocation makes the DEFAULT
-checkout-independent: it is no longer derived from the repository location, so ordinary repository
-operations cannot reach it. It does **not** establish that bundles occupy a different physical
-filesystem from the graph, and an explicit override may still place them under a checkout. Whether
-backup and graph should share a failure domain at all is a **separate, latent** concern with its own
-owner; at the time of writing no capacity incident has occurred. This subsection is about
-*placement relative to the checkout*, and must not be cited as having settled the capacity question —
-the two are easy to conflate precisely because one relocation could in principle serve both.
+**Scope of the guarantee, bounded deliberately.** The relocation changes how the DEFAULT is
+derived: it no longer derives from the Compose project/checkout path. It does **not** establish that
+bundles occupy a different physical filesystem from the graph or that repository operations can
+never reach them: an explicit override may still place them under a checkout, and a checkout may be
+placed under the default path. Whether backup and graph should share a failure domain at all is a
+**separate, latent** concern with its own owner; at the time of writing no capacity incident has
+occurred. This subsection is about *placement relative to the checkout*, and must not be cited as
+having settled the capacity question — the two are easy to conflate precisely because one
+relocation could in principle serve both.
 
 **The paired rule — host source and container target are separate contracts, separately named.**
 Before #16201 the canonical Compose bind source (`./.neo-ai-data/backups`, relative to the project
