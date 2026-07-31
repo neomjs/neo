@@ -125,8 +125,8 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([
-            {id: 'empty', reason: 'document-empty', message: 'document field was empty'},
-            {id: 'missing', reason: 'document-missing', message: 'document field was missing from the Chroma metadata read'}
+            {id: 'empty', reason: 'document-empty', retryable: false, message: 'document field was empty'},
+            {id: 'missing', reason: 'document-missing', retryable: false, message: 'document field was missing from the Chroma metadata read'}
         ]);
         expect(result.unrecoverableIds).toEqual(['empty', 'missing']);
         expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 1, unrecoverable: 2});
@@ -172,9 +172,10 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([{
-            id     : 'gone',
-            reason : 'metadata-row-missing',
-            message: 'id was absent from the Chroma documents/metadatas read'
+            id       : 'gone',
+            reason   : 'metadata-row-missing',
+            retryable: false,
+            message  : 'id was absent from the Chroma documents/metadatas read'
         }]);
         expect(result.unrecoverableIds).toEqual(['gone']);
         expect(result.counts.reEmbedded).toBe(1);
@@ -213,10 +214,12 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             ['too-large'],
             ['small-2']
         ]);
+        // A provider failure is fate-stamped retryable — a later pass can fix it (unlike document-*).
         expect(result.unrecoverable).toEqual([{
-            id     : 'overcap',
-            reason : 'embedding-provider-error',
-            message: 'context overflow'
+            id       : 'overcap',
+            reason   : 'embedding-provider-error',
+            retryable: true,
+            message  : 'context overflow'
         }]);
         expect(result.unrecoverableIds).toEqual(['overcap']);
         expect(result.data.ids).toEqual(['ok', 'ok2']);
@@ -268,9 +271,10 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([{
-            id     : 'm',
-            reason : 'embedding-result-malformed',
-            message: 'embedFn returned 0 embeddings for 1 documents'
+            id       : 'm',
+            reason   : 'embedding-result-malformed',
+            retryable: true,
+            message  : 'embedFn returned 0 embeddings for 1 documents'
         }]);
         expect(result.unrecoverableIds).toEqual(['m']);
         expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
@@ -325,6 +329,67 @@ test.describe('embedRecoverableDocuments — binary-split isolate-then-rebatch (
         expect([...failedIndexes]).toEqual([]);
         expect(embeddings).toEqual([[3], [3], [3]]);
         expect(calls).toBe(1);
+    });
+
+    test('a transient whole-batch failure is retried at FULL width — recovered without any split', async () => {
+        const widths   = [];
+        const backoffs = [];
+        let   fails    = 1;
+        const embedFn  = async batch => {
+            widths.push(batch.length);
+            if (fails-- > 0) throw new Error('queue timeout');
+            return batch.map(() => [9]);
+        };
+
+        const {failedIndexes} = await embedRecoverableDocuments({
+            embedFn,
+            ids      : ['a', 'b', 'c', 'd'],
+            documents: ['a', 'b', 'c', 'd'],
+            attempts : 3,
+            wait     : async ms => { backoffs.push(ms) }
+        });
+
+        // The saturation regression this exists for: the intact range retried at width 4 —
+        // splitting the transient failure would have multiplied calls against a struggling provider.
+        expect(widths).toEqual([4, 4]);
+        expect([...failedIndexes]).toEqual([]);
+        expect(backoffs).toEqual([1000]);
+    });
+
+    test('attempts exhaust with doubling backoff before a single doc records its failure', async () => {
+        const backoffs = [];
+        let   calls    = 0;
+        const embedFn  = async () => { calls++; throw new Error('still saturated'); };
+
+        const {failures} = await embedRecoverableDocuments({
+            embedFn,
+            ids      : ['only'],
+            documents: ['only'],
+            attempts : 3,
+            backoffMs: 500,
+            wait     : async ms => { backoffs.push(ms) }
+        });
+
+        expect(calls).toBe(3);
+        expect(backoffs).toEqual([500, 1000]);
+        expect(failures).toEqual([{index: 0, reason: 'embedding-provider-error', message: 'still saturated'}]);
+    });
+
+    test('default attempts=1 preserves the historical no-retry contract (split immediately)', async () => {
+        const widths  = [];
+        const embedFn = async batch => {
+            widths.push(batch.length);
+            if (batch.length > 1) throw new Error('fails at full width');
+            return batch.map(() => [1]);
+        };
+
+        const {failedIndexes} = await embedRecoverableDocuments({
+            embedFn, ids: ['a', 'b'], documents: ['a', 'b']
+        });
+
+        // One full-width attempt, then straight to the split — no retry, no wait.
+        expect(widths).toEqual([2, 1, 1]);
+        expect([...failedIndexes]).toEqual([]);
     });
 });
 

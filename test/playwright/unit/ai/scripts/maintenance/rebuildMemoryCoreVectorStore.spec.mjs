@@ -10,6 +10,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import {
     createEmbedFn,
+    groupFailureReceipts,
     readAllIds,
     rebuildCollections
 } from '../../../../../../ai/scripts/maintenance/rebuildMemoryCoreVectorStore.mjs';
@@ -73,7 +74,7 @@ test.describe('Neo.ai.scripts.maintenance.rebuildMemoryCoreVectorStore', () => {
 
         expect(receipt.ok).toBe(true);
         expect(receipt.collections[0]).toMatchObject({name: 'mem', source: 12, planned: 12, targetBefore: 0, targetAfter: 12, reEmbedded: 12});
-        expect(receipt.collections[0].unrecoverable).toEqual([]);
+        expect(receipt.collections[0].failed).toEqual([]);
         // Embeddings actually landed on the target rows (not merely accepted).
         expect(Object.values(target.mem.rows).every(row => Array.isArray(row.embedding))).toBe(true);
     });
@@ -94,21 +95,60 @@ test.describe('Neo.ai.scripts.maintenance.rebuildMemoryCoreVectorStore', () => {
         expect(receipt.collections[0]).toMatchObject({targetBefore: 4, targetAfter: 10, reEmbedded: 6, resumedExisting: 4});
     });
 
-    test('unrecoverable rows are listed fail-loud and flip ok to false', async () => {
+    test('failed rows surface as per-reason receipts, flip ok to false, and the done-line carries the fate rollup', async () => {
         const rows = sourceRows(6);
-        rows['id-3'].document = null; // no document, non-turn metadata -> unrecoverable
+        rows['id-3'].document = null; // no document, non-turn metadata -> terminal content problem
 
+        const lines   = [];
         const receipt = await rebuildCollections({
             sourceClient: makeClient({mem: makeCollection(rows)}),
             targetClient: makeClient({}),
             collections : ['mem'],
             embedFn     : fakeEmbedFn,
-            log         : () => {}
+            log         : line => lines.push(line)
         });
 
         expect(receipt.ok).toBe(false);
-        expect(receipt.collections[0].unrecoverable.map(u => u.id)).toEqual(['id-3']);
+        // Per-reason receipt row, not a per-row dump: fate stamped, samples capped.
+        expect(receipt.collections[0].failed).toEqual([
+            {reason: 'document-missing', count: 1, retryable: false, sampleIds: ['id-3']}
+        ]);
         expect(receipt.collections[0].targetAfter).toBe(5);
+        expect(lines.at(-1)).toContain('failed=1 (0 resumable, 1 terminal)');
+    });
+
+    test('a transient embed outage is absorbed by bounded retry — no failed receipts', async () => {
+        let   failuresLeft = 1;
+        const embedFn      = async docs => {
+            if (failuresLeft-- > 0) throw new Error('queue timeout');
+            return docs.map((_, i) => [i]);
+        };
+
+        const receipt = await rebuildCollections({
+            sourceClient: makeClient({mem: makeCollection(sourceRows(4))}),
+            targetClient: makeClient({}),
+            collections : ['mem'],
+            embedFn,
+            embedRetry  : {attempts: 2, wait: async () => {}},
+            log         : () => {}
+        });
+
+        expect(receipt.ok).toBe(true);
+        expect(receipt.collections[0]).toMatchObject({targetAfter: 4, reEmbedded: 4, failed: []});
+    });
+
+    test('groupFailureReceipts groups by reason, caps samples, and sorts largest first', () => {
+        const entries = [
+            ...Array.from({length: 12}, (_, i) => ({id: `e-${i}`, reason: 'embedding-provider-error', retryable: true})),
+            {id: 'd-0', reason: 'document-empty', retryable: false},
+            {id: 'd-1', reason: 'document-empty', retryable: false}
+        ];
+
+        expect(groupFailureReceipts(entries, 3)).toEqual([
+            {reason: 'embedding-provider-error', count: 12, retryable: true,  sampleIds: ['e-0', 'e-1', 'e-2']},
+            {reason: 'document-empty',           count: 2,  retryable: false, sampleIds: ['d-0', 'd-1']}
+        ]);
+        expect(groupFailureReceipts([])).toEqual([]);
     });
 
     test('pilot --limit slices the planned set without touching the rest', async () => {

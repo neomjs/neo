@@ -12,8 +12,9 @@
  * rows from their DOCUMENTS (which still materialize — only the embedding fetch fails). Recovered batches
  * can either be retained in a merged `{ids, embeddings, documents, metadatas}` buffer or streamed into a
  * resumable shadow collection. A missing-vector row with no recoverable document/embedding is reported as
- * a structured `unrecoverable` entry (`{id, reason, message?}`; counts surfaced, never silently dropped —
- * the fail-loud discipline).
+ * a structured `unrecoverable` entry (`{id, reason, retryable, message?}`; counts surfaced, never silently
+ * dropped — the fail-loud discipline). `retryable` is the classifier-stamped fate: `true` for transient
+ * provider failures a later pass can fix, `false` for content problems no retry can recover.
  *
  * The live shadow run + canonical promotion is operator/env-gated (out of scope without
  * explicit authorization); this module is the pure extraction logic, unit-tested against mocked Chroma.
@@ -44,6 +45,8 @@ import {resolveTurnDocumentForRead} from '../../services/memory-core/helpers/tur
  * @param {Function}   [options.onDataBatch] Optional async sink for each recovered batch.
  * @param {Function}   [options.onProgress] Optional callback receiving 10%-bucket progress events:
  *                                           `{phase, percent, processed, total, counts}`.
+ * @param {Object}     [options.embedRetry] Bounded-retry forwarding for the re-embed leg
+ *                                           (`{attempts, backoffMs, wait}` — see `embedRecoverableDocuments`).
  * @returns {Promise<Object>} Extraction result with data buffers, structured unrecoverable entries,
  *   an ids-only `unrecoverableIds` projection, and repair counts.
  */
@@ -56,7 +59,8 @@ export async function extractMemoryCoreCollectionData({
     skipIds = [],
     collectData = true,
     onDataBatch,
-    onProgress
+    onProgress,
+    embedRetry
 } = {}) {
     if (typeof embedFn !== 'function') {
         throw new Error('extractMemoryCoreCollectionData: embedFn (documents -> embeddings) is required');
@@ -163,7 +167,7 @@ export async function extractMemoryCoreCollectionData({
         }
 
         if (reEmbedDocs.length > 0) {
-            const {embeddings, failedIndexes, failures} = await embedRecoverableDocuments({embedFn, ids: reEmbedIds, documents: reEmbedDocs});
+            const {embeddings, failedIndexes, failures} = await embedRecoverableDocuments({embedFn, ids: reEmbedIds, documents: reEmbedDocs, ...embedRetry});
             const batchData                             = {ids: [], embeddings: [], documents: [], metadatas: []};
 
             for (const failure of failures) {
@@ -220,15 +224,33 @@ function recordUnrecoverable({unrecoverable, counts, id, reason, message} = {}) 
 }
 
 /**
+ * Reason→fate map, owned by the classifier alongside reason assignment. `true` marks failures a
+ * later pass can fix (transient provider trouble — the row's content is intact); `false` marks
+ * content problems no retry can recover (the remedy is source-side repair or explicit acceptance).
+ * Consumers read the stamped `retryable` flag and never re-derive fate from reason strings — a
+ * second mapping would drift. Unknown reasons default to `false`: never promise a resume will fix
+ * what the classifier cannot vouch for.
+ * @type {Object}
+ */
+const RETRYABLE_BY_REASON = {
+    'document-empty'            : false,
+    'document-invalid'          : false,
+    'document-missing'          : false,
+    'embedding-provider-error'  : true,
+    'embedding-result-malformed': true,
+    'metadata-row-missing'      : false
+};
+
+/**
  * @summary Creates the structured unrecoverable row shape consumed by defrag diagnostics.
  * @param {Object} options
  * @param {String} options.id Row id.
  * @param {String} options.reason Stable reason code.
  * @param {String} [options.message] Operator-readable reason detail.
- * @returns {Object} Structured unrecoverable row entry.
+ * @returns {Object} Structured unrecoverable row entry, fate-stamped via `retryable`.
  */
 function createUnrecoverableEntry({id, reason, message} = {}) {
-    const entry = {id, reason};
+    const entry = {id, reason, retryable: RETRYABLE_BY_REASON[reason] ?? false};
 
     if (message) {
         entry.message = message;
@@ -268,17 +290,31 @@ function getDocumentProblem(document) {
 }
 
 /**
- * @summary Embeds a batch; on failure, binary-splits to isolate the failing document(s) and re-batches the survivors.
+ * @summary Embeds a batch; on failure, retries the intact range with backoff, then binary-splits to
+ * isolate the failing document(s) and re-batches the survivors.
  * @param {Object} options
  * @param {Function} options.embedFn Embedding function.
  * @param {String[]} options.ids Row ids paired with `documents`.
  * @param {String[]} options.documents Documents to embed.
+ * @param {Number}   [options.attempts=1] Embed attempts per range before splitting/recording. `1`
+ *                                        preserves the historical no-retry behavior; bulk callers
+ *                                        facing transient provider saturation should raise it.
+ * @param {Number}   [options.backoffMs=1000] Base backoff between attempts, doubling per attempt.
+ * @param {Function} [options.wait] `ms => Promise` — injectable for tests; defaults to setTimeout.
  * @returns {Promise<{embeddings: Number[][], failedIndexes: Set<Number>,
  *                    failures: Array<{index: Number, reason: String, message: String}>}>}
  */
-export async function embedRecoverableDocuments({embedFn, ids, documents} = {}) {
-    const embeddings = new Array(documents.length);
-    const failures   = [];
+export async function embedRecoverableDocuments({
+    embedFn,
+    ids,
+    documents,
+    attempts  = 1,
+    backoffMs = 1000,
+    wait      = ms => new Promise(resolve => setTimeout(resolve, ms))
+} = {}) {
+    const embeddings  = new Array(documents.length);
+    const failures    = [];
+    const maxAttempts = Math.max(1, attempts);
 
     // Embed the widest range that succeeds as a single batch; on failure, binary-split to isolate
     // the failing document(s) and RE-BATCH the survivors — rather than degrading the whole batch to
@@ -298,30 +334,46 @@ export async function embedRecoverableDocuments({embedFn, ids, documents} = {}) 
             return;
         }
 
-        try {
-            const vectors = await embedFn(slice);
+        // Retry the INTACT range before any split: the dominant bulk failure mode is transient
+        // provider saturation, which fails whole batches regardless of content — splitting those
+        // multiplies calls against an already-struggling provider, while backoff gives it room to
+        // drain. A deterministic bad document still fails every attempt and falls through below.
+        let lastError = null;
 
-            if (!Array.isArray(vectors) || vectors.length !== slice.length) {
-                throw createEmbeddingResultError(`embedFn returned ${Array.isArray(vectors) ? vectors.length : 'non-array'} embeddings for ${slice.length} documents`);
-            }
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const vectors = await embedFn(slice);
 
-            for (let i = 0; i < slice.length; i++) {
-                embeddings[start + i] = vectors[i];
-            }
-        } catch (error) {
-            if (slice.length === 1) {
-                failures.push({
-                    index  : start,
-                    reason : getEmbeddingFailureReason(error),
-                    message: error?.message || String(error)
-                });
+                if (!Array.isArray(vectors) || vectors.length !== slice.length) {
+                    throw createEmbeddingResultError(`embedFn returned ${Array.isArray(vectors) ? vectors.length : 'non-array'} embeddings for ${slice.length} documents`);
+                }
+
+                for (let i = 0; i < slice.length; i++) {
+                    embeddings[start + i] = vectors[i];
+                }
+
                 return;
-            }
+            } catch (error) {
+                lastError = error;
 
-            const mid = start + Math.floor(slice.length / 2);
-            await embedRange(start, mid);
-            await embedRange(mid, end);
+                if (attempt < maxAttempts) {
+                    await wait(backoffMs * 2 ** (attempt - 1));
+                }
+            }
         }
+
+        if (slice.length === 1) {
+            failures.push({
+                index  : start,
+                reason : getEmbeddingFailureReason(lastError),
+                message: lastError?.message || String(lastError)
+            });
+            return;
+        }
+
+        const mid = start + Math.floor(slice.length / 2);
+        await embedRange(start, mid);
+        await embedRange(mid, end);
     }
 }
 

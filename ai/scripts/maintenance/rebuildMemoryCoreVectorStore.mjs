@@ -7,8 +7,10 @@
  * against the canonical embedding endpoint, and streams the batches into the TARGET store.
  *
  * Composes `extractMemoryCoreCollectionData` in its degenerate case (`missingVectorIds = allIds`):
- * that module owns batching, resume (`skipIds`), fail-loud `unrecoverable` reporting, and
- * progress. This script owns clients, the collection loop, the embed function, and receipts.
+ * that module owns batching, resume (`skipIds`), bounded embed retry, fail-loud fate-stamped
+ * failure entries, and progress. This script owns clients, the collection loop, the embed
+ * function, and receipts — per-reason receipt rows (`{reason, count, retryable, sampleIds}`)
+ * rather than per-row dumps, since resume-by-diff makes full id lists redundant.
  *
  * Deliberately NOT integrated: AiConfig (both stores are named explicitly via argv — a rebuild
  * must never inherit an ambient URL and hit the wrong store) and the heavy-maintenance lease
@@ -90,11 +92,43 @@ export function createEmbedFn({url, model, batch = 8, concurrency = 6, fetchImpl
 }
 
 /**
+ * @summary Groups per-row failure entries into per-reason receipts.
+ *
+ * The binary verdict an operator needs ("resume, or repair the source?") is a projection of
+ * these rows, not a separate schema field: new reason codes become new array entries, and
+ * reconciliation stays a single sum over `count`.
+ *
+ * @param {Object[]} entries Structured extractor entries (`{id, reason, retryable, message?}`)
+ * @param {Number}   [sampleCap=10] Ids retained per reason — enough to eyeball, never a dump
+ * @returns {Object[]} `[{reason, count, retryable, sampleIds}]`, largest count first
+ */
+export function groupFailureReceipts(entries, sampleCap = 10) {
+    const byReason = new Map();
+
+    for (const entry of entries) {
+        let row = byReason.get(entry.reason);
+
+        if (!row) {
+            row = {reason: entry.reason, count: 0, retryable: entry.retryable === true, sampleIds: []};
+            byReason.set(entry.reason, row);
+        }
+
+        row.count++;
+
+        if (row.sampleIds.length < sampleCap) {
+            row.sampleIds.push(entry.id);
+        }
+    }
+
+    return [...byReason.values()].sort((a, b) => b.count - a.count);
+}
+
+/**
  * @summary Rebuilds the named collections from source into target with a full re-embed.
  *
  * Resumable: ids already present in the target are skipped, so a crashed run continues
- * where it stopped. The receipt is fail-loud — every unrecoverable row is listed, and
- * `ok` is false unless targetAfter + unrecoverable === source for every collection.
+ * where it stopped. The receipt is fail-loud — failures surface as per-reason receipts,
+ * and `ok` is false unless targetAfter covers every planned id with zero failures.
  *
  * @param {Object}   options
  * @param {Object}   options.sourceClient  ChromaClient (or compatible) for the OLD store
@@ -104,10 +138,11 @@ export function createEmbedFn({url, model, batch = 8, concurrency = 6, fetchImpl
  * @param {Number}   [options.getBatch=500]  Source read / re-embed chunk size
  * @param {Number}   [options.limit=0]       Pilot mode: only the first N ids per collection
  * @param {Boolean}  [options.dryRun=false]  Count and plan only; no embeds, no writes
+ * @param {Object}   [options.embedRetry]    Bounded-retry forwarding (`{attempts, backoffMs, wait}`)
  * @param {Function} [options.log=console.error]
- * @returns {Promise<Object>} `{ok, collections: [{name, source, targetBefore, targetAfter, reEmbedded, resumedExisting, unrecoverable}]}`
+ * @returns {Promise<Object>} `{ok, collections: [{name, source, targetBefore, targetAfter, reEmbedded, resumedExisting, failed}]}`
  */
-export async function rebuildCollections({sourceClient, targetClient, collections, embedFn, getBatch = 500, limit = 0, dryRun = false, log = console.error}) {
+export async function rebuildCollections({sourceClient, targetClient, collections, embedFn, getBatch = 500, limit = 0, dryRun = false, embedRetry, log = console.error}) {
     const receipt = {ok: true, collections: []};
 
     for (const name of collections) {
@@ -137,6 +172,7 @@ export async function rebuildCollections({sourceClient, targetClient, collection
             batchSize       : getBatch,
             skipIds,
             collectData     : false,
+            embedRetry,
             onDataBatch     : async batch => {
                 await targetCol.add({ids: batch.ids, embeddings: batch.embeddings, documents: batch.documents, metadatas: batch.metadatas});
             },
@@ -149,18 +185,20 @@ export async function rebuildCollections({sourceClient, targetClient, collection
             targetAfter,
             reEmbedded     : result.counts.reEmbedded,
             resumedExisting: result.counts.resumedExisting ?? 0,
-            unrecoverable  : result.unrecoverable ?? []
+            failed         : groupFailureReceipts(result.unrecoverable ?? [])
         };
+        const failedCount = done.failed.reduce((sum, row) => sum + row.count, 0);
+        const resumable   = done.failed.filter(row => row.retryable).reduce((sum, row) => sum + row.count, 0);
 
-        // Fail-loud reconciliation: every planned id is in the target or named unrecoverable.
-        if (targetAfter + done.unrecoverable.length < entry.planned) {
+        // Fail-loud reconciliation: every planned id is in the target or accounted for by a receipt.
+        if (targetAfter + failedCount < entry.planned) {
             receipt.ok = false;
             done.error = 'reconciliation-shortfall';
         }
-        if (done.unrecoverable.length > 0) receipt.ok = false;
+        if (failedCount > 0) receipt.ok = false;
 
         receipt.collections.push(done);
-        log(`[rebuild] ${name}: done targetAfter=${targetAfter} reEmbedded=${done.reEmbedded} unrecoverable=${done.unrecoverable.length}`);
+        log(`[rebuild] ${name}: done targetAfter=${targetAfter} reEmbedded=${done.reEmbedded} failed=${failedCount} (${resumable} resumable, ${failedCount - resumable} terminal)`);
     }
 
     return receipt;
@@ -177,6 +215,8 @@ if (isDirectRun) {
         .option('--embed-model <id>', 'embedding model identifier', 'text-embedding-qwen3-embedding-8b')
         .option('--embed-batch <n>', 'inputs per embed request', v => parseInt(v, 10), 8)
         .option('--embed-concurrency <n>', 'embed requests in flight', v => parseInt(v, 10), 6)
+        .option('--embed-attempts <n>', 'embed attempts per range before splitting/recording', v => parseInt(v, 10), 3)
+        .option('--embed-backoff <ms>', 'base backoff between embed attempts, doubling per attempt', v => parseInt(v, 10), 1000)
         .option('--get-batch <n>', 'source read chunk size', v => parseInt(v, 10), 500)
         .option('--limit <n>', 'pilot mode: first N ids per collection', v => parseInt(v, 10), 0)
         .option('--dry-run', 'count and plan only', false)
@@ -196,7 +236,8 @@ if (isDirectRun) {
         embedFn     : createEmbedFn({url: opts.embedUrl, model: opts.embedModel, batch: opts.embedBatch, concurrency: opts.embedConcurrency}),
         getBatch    : opts.getBatch,
         limit       : opts.limit,
-        dryRun      : Boolean(opts.dryRun)
+        dryRun      : Boolean(opts.dryRun),
+        embedRetry  : {attempts: opts.embedAttempts, backoffMs: opts.embedBackoff}
     });
 
     console.log(JSON.stringify(receipt, null, 2));
