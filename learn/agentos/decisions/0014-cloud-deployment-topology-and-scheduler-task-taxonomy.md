@@ -249,6 +249,32 @@ surviving consumer or are retired in #16167's immediate cleanup series. The
 `{host-edge, container-plane}` audit remains valid while both Orchestrator profiles exist, and its
 `legacy-mixed` compatibility row plus the Shape-C graph worker sunset after the accepted receipt.
 
+### 2026-07-31 — receiver-only local election superseded by the missing host-actuation incident (#16210)
+
+The receiver-only deployment election above did not instantiate the already-ratified `host-edge`
+Orchestrator role. The cutover therefore removed the only owner capable of starting and loading the
+host LM Studio provider. Container Memory Core and Knowledge Base stayed reachable while their
+embedding provider was absent, making semantic retrieval unavailable despite green process-level
+health. This falsifies the receiver-only election; it does not change the exhaustive authority map.
+
+The canonical local topology now runs two invocations of the same scheduler engine:
+
+1. Compose runs `authorityProfile=container-plane` on Docker-owned volumes for graph, embedding,
+   summary, mini-summary, Dream, backup, and other plane maintenance.
+2. launchd runs `authorityProfile=host-edge` with a distinct host-only state root. It does not
+   assert or open the Docker plane. The initial deployment explicitly enables only LM Studio
+   lifecycle and disables checkout/corpus, graph, dev-server, Neural Link, heartbeat, and legacy
+   Shape-C wake lanes.
+
+The signed graphless Shape-B receiver remains a separate final-mile security boundary; reinstating
+the host-edge Orchestrator does not reinstate the retired GraphLog wake daemon. Any additional
+host-edge lane must prove that it needs a real host effect and that all KB/MC interaction crosses
+authenticated Streamable HTTP. A local SQLite or Chroma path is not an acceptable consumer seam.
+
+Revalidation trigger: if the selected model provider moves fully into Compose, or another durable
+host supervisor replaces the host-edge role, re-evaluate whether this second scheduler invocation
+still owns any enabled lane.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

@@ -36,22 +36,23 @@ import {load as yamlLoad} from 'js-yaml';
  */
 
 const
-    repoRoot           = path.resolve(process.cwd()),
-    baseComposePath    = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
-    localOverlayPath   = path.join(repoRoot, 'ai/deploy/docker-compose.local-agent-os.yml'),
-    localWakePlistPath = path.join(repoRoot, 'ai/deploy/com.neomjs.agent-os-wake.plist'),
-    localRunbookPath   = path.join(repoRoot, 'ai/scripts/lifecycle/local-agent-os/README.md'),
-    composePath        = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
-    parityOverlayPath  = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
-    testComposePath    = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml'),
-    parityConfigPath   = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
-    paritySpecPath     = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
-    parityServerPath   = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
-    parityProbePath    = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
-    baseCompose        = yamlLoad(fs.readFileSync(baseComposePath, 'utf8')),
-    compose            = yamlLoad(fs.readFileSync(composePath, 'utf8')),
-    parityOverlay      = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8')),
-    testCompose        = yamlLoad(fs.readFileSync(testComposePath, 'utf8'));
+    repoRoot               = path.resolve(process.cwd()),
+    baseComposePath        = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
+    localOverlayPath       = path.join(repoRoot, 'ai/deploy/docker-compose.local-agent-os.yml'),
+    localHostEdgePlistPath = path.join(repoRoot, 'ai/deploy/com.neomjs.agent-os-host-edge.plist'),
+    localWakePlistPath     = path.join(repoRoot, 'ai/deploy/com.neomjs.agent-os-wake.plist'),
+    localRunbookPath       = path.join(repoRoot, 'ai/scripts/lifecycle/local-agent-os/README.md'),
+    composePath            = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
+    parityOverlayPath      = path.join(repoRoot, 'ai/deploy/docker-compose.parity-ci.yml'),
+    testComposePath        = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml'),
+    parityConfigPath       = path.join(repoRoot, 'test/playwright/playwright.config.integration-parity.mjs'),
+    paritySpecPath         = path.join(repoRoot, 'test/playwright/integration-parity/ParityTopology.integration.spec.mjs'),
+    parityServerPath       = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityComposeWebServer.mjs'),
+    parityProbePath        = path.join(repoRoot, 'test/playwright/integration-parity/fixtures/parityProbe.mjs'),
+    baseCompose            = yamlLoad(fs.readFileSync(baseComposePath, 'utf8')),
+    compose                = yamlLoad(fs.readFileSync(composePath, 'utf8')),
+    parityOverlay          = yamlLoad(fs.readFileSync(parityOverlayPath, 'utf8')),
+    testCompose            = yamlLoad(fs.readFileSync(testComposePath, 'utf8'));
 
 /*
  * The service sets below are DERIVED from the compose file, never listed. A hardcoded roster
@@ -385,9 +386,10 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 });
 
 test.describe('data-plane profile election — base and integration-fixture dispositions', () => {
-    test('canonical local hard cut is durable, multi-resident, and wake-only on the host', () => {
+    test('canonical local hard cut keeps Docker data durable and the host edge graphless', () => {
         const
             overlaySource         = fs.readFileSync(localOverlayPath, 'utf8'),
+            hostEdgePlistSource   = fs.readFileSync(localHostEdgePlistPath, 'utf8'),
             plistSource           = fs.readFileSync(localWakePlistPath, 'utf8'),
             deploymentStateTarget = '/app/.neo-ai-data/deployment-state',
             deploymentStateVolume = 'shared-deployment-state-data';
@@ -444,46 +446,89 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(plistSource).toContain('<string>--port</string>');
         expect(plistSource).not.toContain('ai/daemons/wake/daemon.mjs');
         expect(plistSource).not.toContain('ai/daemons/orchestrator/daemon.mjs');
+        expect(plistSource).not.toContain('.neo-ai-data');
         expect(plistSource).toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
         expect(plistSource).toMatch(/<key>KeepAlive<\/key>\s*<true\/>/);
+
+        expect(hostEdgePlistSource)
+            .toContain('<string>ai/daemons/orchestrator/daemon.mjs</string>');
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE<\/key>\s*<string>host-edge<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_AI_ORCHESTRATOR_DIR<\/key>\s*<string>__HOST_EDGE_STATE_DIR__<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_ORCHESTRATOR_LMS_ENABLED<\/key>\s*<string>true<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_MODEL_PROVIDER<\/key>\s*<string>openAiCompatible<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_EMBEDDING_PROVIDER<\/key>\s*<string>openAiCompatible<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_OPENAI_COMPATIBLE_HOST<\/key>\s*<string>http:\/\/127\.0\.0\.1:1234<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_OPENAI_COMPATIBLE_MODEL<\/key>\s*<string>google\/gemma-4-26b-a4b<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL<\/key>\s*<string>text-embedding-qwen3-embedding-8b<\/string>/
+        );
+        expect(hostEdgePlistSource).toMatch(
+            /<key>NEO_ORCHESTRATOR_LMS_PORT<\/key>\s*<string>1234<\/string>/
+        );
+        for (const key of [
+            'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED',
+            'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED',
+            'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED',
+            'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED'
+        ]) {
+            expect(hostEdgePlistSource).toMatch(
+                new RegExp(`<key>${key}</key>\\s*<string>false</string>`)
+            );
+        }
+        expect(hostEdgePlistSource).not.toContain('.neo-ai-data');
+        expect(hostEdgePlistSource).not.toContain('ai/daemons/wake/daemon.mjs');
+        expect(hostEdgePlistSource).toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
+        expect(hostEdgePlistSource).toMatch(/<key>KeepAlive<\/key>\s*<true\/>/);
     });
 
-    test('one-shot runbook has one owner-stop and one forward-only boundary', () => {
+    test('steady-state runbook keeps checkout data outside the Docker and host-edge targets', () => {
         const source = fs.readFileSync(localRunbookPath, 'utf8');
 
-        expect(source.indexOf('## 2. Quiesce')).toBeLessThan(source.indexOf('npm run ai:backup'));
-        expect(source).toContain('verdict.code!=="RESTORABLE"');
-        expect(source.indexOf('npm run ai:backup')).toBeLessThan(source.lastIndexOf('[c]hroma run'));
-        expect(source).toContain('NEO_EXPECTED_CUTOVER_REVISION');
-        expect(source).toContain('git status --porcelain');
-        expect(source).toContain('NEO_CUTOVER_BACKUP_STARTED_MS');
-        expect(source).toContain('path.basename(verdict.bundleRoot||"")===receipt.bundleName');
-        expect(source).toContain('scripts/(lifecycle|maintenance)/.+');
-        expect(source).toContain("scripts/(lifecycle|maintenance)/.+)\\.mjs|[c]hroma run");
-        expect(source).toContain('lsof -nP -iTCP:8000 -sTCP:LISTEN');
-        expect(source).toContain('/Users/Shared/neo-agent-os-cutover-16167');
-        expect(source.match(/cutover-state\.json/g).length).toBeGreaterThanOrEqual(2);
-        expect(source.match(/bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"/g)).toHaveLength(2);
-        expect(source).toContain('/Users/Shared/codex/neomjs/neo/.codex/config.toml');
-        expect(source).toContain('/Users/Shared/agents/neo-gpt-emmy/neomjs/neo/.codex/config.toml');
-        expect(source).toContain('neo-gpt.codex-config.pre-cutover.toml');
-        expect(source).toContain('neo-gpt-emmy.codex-config.pre-cutover.toml');
-        expect(source).toContain('`klarso-mc`, `klarso-kb`, `neo-mjs-github-workflow`, and');
-        expect(source.match(/export NEO_MCP_REMOTE_TOKEN="\$\(node/g)).toHaveLength(2);
-        expect(source).toContain('--user-data-dir="${HOME}/.codex-app-instances/neo-gpt-emmy"');
-        expect(source).toContain('The repo `.env` files are token sources, not Codex application environments.');
-        expect(source).toContain('http://host.docker.internal:3199/wake');
-        expect(source).toContain('wake/receiver\\.mjs');
-        expect(source).not.toContain('The only persistent host edge is the standalone wake daemon');
-        expect(source).toContain('The first restarted resident is the irreversible release.');
+        expect(source).toContain('The pre-Docker checkout `.neo-ai-data`');
+        expect(source).toContain('is an import source, never a');
+        expect(source).toContain('live target');
+        expect(source).toContain('-f ai/deploy/docker-compose.yml');
+        expect(source).toContain('-f ai/deploy/docker-compose.local-agent-os.yml');
+        expect(source).toContain('--profile cloud --profile ingress up -d --wait');
+        expect(source).toContain('neo-local-agent-os');
+        expect(source).toContain('Application Support/Neo/AgentOS');
+        expect(source).toContain("action               : 'subscribe'");
+        expect(source).toContain('subscriptionId` and `signingKey` once');
+        expect(source).toContain('install -m 600 /dev/null "${NEO_WAKE_RECEIVER_MANIFEST}"');
+        expect(source).toContain('com.neomjs.agent-os-wake');
+        expect(source).toContain('com.neomjs.agent-os-host-edge');
+        expect(source).toContain('mcpHealthcheck.mjs');
+        expect(source).toContain('orchestrator-authority.json');
+        expect(source).toContain('launchctl bootout');
         expect(source.indexOf('launchctl bootout')).toBeLessThan(
-            source.indexOf('mv .neo-ai-data "${NEO_CUTOVER_STAGE}/failed-container-root"')
+            source.indexOf('cp ai/deploy/com.neomjs.agent-os-wake.plist')
         );
-        expect(source.indexOf('failed-wake-launchagent.plist')).toBeLessThan(
-            source.indexOf('mv .neo-ai-data "${NEO_CUTOVER_STAGE}/failed-container-root"')
-        );
-        expect(source).not.toContain('NEO_LOCAL_AGENT_OS_DATA_ROOT');
-        expect(source).not.toContain('NEO_DEPLOY_PROJECT_NAME');
+        expect(source).not.toContain('rsync -aL .neo-ai-data');
+        expect(source).not.toContain('mv .neo-ai-data');
+        expect(source).not.toContain('NEO_CUTOVER_OLD_ROOT');
+        expect(source).not.toContain('legacy-mixed`, then');
+        expect(source).not.toContain('.neo-ai-data/wake-receiver');
     });
 
     test('base/cloud inherits the canonical tenant-mirror root from AiConfig', () => {

@@ -217,17 +217,17 @@ test.describe('Neural Link action logging default', () => {
         expect(source).toContain('NEO_MEMORY_DB_PATH')
     });
 
-    test('the cutover writer census matches neural-link', () => {
-        // Structural tripwire ONLY: keeps `neural-link` in the runbook's census alternation. The
-        // original bug was a census reporting empty while two NL processes held write handles, so
-        // the AC's real witness is a LIVE census run asserted non-empty against a live NL --
-        // recorded as PR evidence and annotated on the gating ticket; a document grep cannot
-        // carry that claim.
+    test('the steady-state runbook retires the checkout-plane writer census (#16210)', () => {
+        // The old one-shot cutover moved checkout data after a process-name census. The Docker
+        // steady state never moves that plane, so retaining the census would imply the dangerous
+        // copy/move procedure still exists. Any future logical import needs its own reviewed,
+        // quiesced-writer workflow rather than reviving this partial proxy.
         const runbook = fs.readFileSync(
             path.join(rootDir, 'ai/scripts/lifecycle/local-agent-os/README.md'), 'utf8'
         );
 
-        expect(runbook).toContain('memory-core|knowledge-base|neural-link');
-        expect(runbook).not.toContain('(memory-core|knowledge-base)/mcp-server')
+        expect(runbook).not.toContain('memory-core|knowledge-base|neural-link');
+        expect(runbook).not.toContain('lsof .neo-ai-data');
+        expect(runbook).toContain('separately reviewed procedure and a quiesced writer plane')
     })
 });
