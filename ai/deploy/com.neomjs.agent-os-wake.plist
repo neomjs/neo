@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Per-user macOS LaunchAgent template for the final signed, graphless host wake
-  receiver (#16167 / #16180). The cutover runbook materializes the placeholders
+  receiver (#16167 / #16180). The local runbook materializes the placeholders
   outside the repository before launchctl bootstrap. It never starts a host
   Orchestrator or the legacy Shape-C GraphLog daemon.
 -->
@@ -44,10 +44,10 @@
     <integer>10</integer>
 
     <key>StandardOutPath</key>
-    <string>__NEO_REPO_ROOT__/.neo-ai-data/wake-receiver/launchd.out.log</string>
+    <string>__WAKE_RECEIVER_STATE_DIR__/launchd.out.log</string>
 
     <key>StandardErrorPath</key>
-    <string>__NEO_REPO_ROOT__/.neo-ai-data/wake-receiver/launchd.err.log</string>
+    <string>__WAKE_RECEIVER_STATE_DIR__/launchd.err.log</string>
 
     <key>ProcessType</key>
     <string>Background</string>

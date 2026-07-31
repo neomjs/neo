@@ -26,13 +26,14 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 
-import {fileURLToPath, pathToFileURL}        from 'url';
-import fs                                    from 'fs-extra';
-import path                                  from 'path';
-import {execSync}                            from 'child_process';
-import AiConfig                              from '../../config.mjs';
-import Orchestrator, {rotateLogFileIfNewDay} from './Orchestrator.mjs';
-import {assertConfigFresh}                   from '../../scripts/setup/initServerConfigs.mjs';
+import {fileURLToPath, pathToFileURL}                                    from 'url';
+import fs                                                                from 'fs-extra';
+import path                                                              from 'path';
+import {execSync}                                                        from 'child_process';
+import AiConfig                                                          from '../../config.mjs';
+import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
+import {isTaskOwnedByProfile}                                            from './taskAuthority.mjs';
+import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 import {
     assertPlaneCoherence,
@@ -274,6 +275,25 @@ export function assertOrchestratorPlane({aiConfig = AiConfig, rootDir = REPO_ROO
 }
 
 /**
+ * @summary Resolves whether an orchestrator role owns graph-backed plane work.
+ *
+ * The data-integrity sweep is a canonical container-plane lane, so its authority
+ * classification is the fail-closed proxy for whether this daemon may assert or
+ * open the Docker-owned plane. Host-edge roles must remain graphless.
+ *
+ * @param {String} [authorityProfile=AiConfig.orchestrator.authorityProfile] Runtime role.
+ * @returns {Boolean}
+ */
+export function requiresOrchestratorPlane(
+    authorityProfile = AiConfig.orchestrator.authorityProfile
+) {
+    return isTaskOwnedByProfile({
+        profile : authorityProfile,
+        taskName: 'data-integrity-sweep'
+    });
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  *
  * Thin process-boot wrapper: PID singleton enforcement, signal handlers, env-file
@@ -294,9 +314,13 @@ export async function startOrchestrator(options = {}) {
     setupCleanupHandlers();
     await loadLocalAiConfig();
 
-    // AFTER the config load, BEFORE anything is scheduled: a scheduler that has already started
-    // its lanes has already written. The assertion is only fail-closed if nothing ran first.
-    assertOrchestratorPlane();
+    // AFTER the config load, BEFORE anything is scheduled: a plane-owning scheduler that has
+    // already started its lanes has already written. Host-edge is intentionally graphless and
+    // owns no Docker plane path, so applying the Tier-1 assertion there would reconnect it to
+    // the retired checkout plane the split exists to leave behind.
+    if (requiresOrchestratorPlane()) {
+        assertOrchestratorPlane();
+    }
 
     return Orchestrator.start({
         dataDir,

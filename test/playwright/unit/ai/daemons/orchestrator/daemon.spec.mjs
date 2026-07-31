@@ -10,7 +10,8 @@ import {
     enforceSingleton,
     LOCAL_AI_CONFIG_FILE,
     isOrchestratorDaemonCommand,
-    loadLocalAiConfig
+    loadLocalAiConfig,
+    requiresOrchestratorPlane
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
     buildOllamaServeEnv,
@@ -328,6 +329,12 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/wake/daemon.mjs')).toBe(false);
         expect(isOrchestratorDaemonCommand(`node /repo/${legacyScriptsPath}`)).toBe(false);
         expect(isOrchestratorDaemonCommand('node daemon.mjs')).toBe(false);
+    });
+
+    test('asserts the Docker plane only for the plane-owning orchestrator role (#16210)', () => {
+        expect(requiresOrchestratorPlane('container-plane')).toBe(true);
+        expect(requiresOrchestratorPlane('legacy-mixed')).toBe(true);
+        expect(requiresOrchestratorPlane('host-edge')).toBe(false);
     });
 
     test('#15759: cloud Compose gives the AiConfig data dir one dedicated, sole-owner volume', () => {

@@ -973,6 +973,24 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Opens the graph database only for roles that own graph-backed plane work.
+     *
+     * `data-integrity-sweep` is a canonical container-plane lane. Using its authority
+     * classification keeps the storage gate coupled to the exhaustive task map instead
+     * of duplicating role-name conditionals. Host-edge therefore never opens the retired
+     * checkout graph or a Docker SQLite file.
+     *
+     * @returns {Promise<Object|null>} Database handle for plane roles; otherwise `null`.
+     */
+    async initializeGraphDatabaseIfOwned() {
+        if (!this.isTaskAuthorityOwned('data-integrity-sweep')) {
+            return null;
+        }
+
+        return this.initializeDatabaseFn(this.dbPath);
+    }
+
+    /**
      * @summary Returns the enabled continuous children owned by this role.
      *
      * Registry presence supplies identity/classification; the existing AiConfig getter
@@ -1150,7 +1168,7 @@ export class Orchestrator extends Base {
         this.dataIntegrityDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
 
-        this.db = await this.initializeDatabaseFn(this.dbPath);
+        this.db = await this.initializeGraphDatabaseIfOwned();
 
         if (this.isTaskAuthorityOwned('swarm-heartbeat') && this.swarmHeartbeatEnabled) {
             try {
