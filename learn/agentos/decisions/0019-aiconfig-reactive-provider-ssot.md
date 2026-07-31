@@ -188,9 +188,9 @@ The election is **per profile**, not one bind-versus-volume rule imposed on unli
 
 | Profile | Plane placement | Profile-pinned members | Wake-delivery disposition | Host publication |
 |---|---|---|---|---|
-| Base/cloud (`ai/deploy/docker-compose.yml`) | Canonical `/app/.neo-ai-data`; named volumes persist the service-owned subtrees. | `orchestrator.tenantRepoMirrorRoot` keeps its canonical `/app/.neo-ai-data` default. Repeated graph and handoff env entries use scalar YAML anchors so their rendered values cannot drift by service. | ADR 0014 disables local-only wake delivery in the cloud scheduler profile; no cloud wake-file freshness contract exists. | MCP services are internal and reached through ingress; the profile does not publish the local parity band. |
+| Base/cloud (`ai/deploy/docker-compose.yml`) | Canonical `/app/.neo-ai-data`; named volumes persist the service-owned subtrees. | `orchestrator.tenantRepoMirrorRoot` keeps its canonical `/app/.neo-ai-data` default. `backupPath` is pinned to `/app/.neo-ai-data/backups` via `NEO_BACKUP_PATH` and its host source bound from `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) — **two separately named contracts, never one value** (§10.9). Repeated graph and handoff env entries use scalar YAML anchors so their rendered values cannot drift by service. | ADR 0014 disables local-only wake delivery in the cloud scheduler profile; no cloud wake-file freshness contract exists. | MCP services are internal and reached through ingress; the profile does not publish the local parity band. |
 | Canonical local hard cut (`docker-compose.yml` + `docker-compose.local-agent-os.yml`) | Docker-owned named volumes persist the canonical `/app/.neo-ai-data` plane; the pre-Docker checkout plane is an import source, never a live bind target. Chroma owns its Docker volume. | Canonical provider/corpus state stays inside Docker. The container Orchestrator uses its plane state member; a graphless host-edge Orchestrator uses a distinct host-only state root and cannot open local graph storage. | The container uses `container-plane`; a launchd-supervised signed Shape-B receiver remains the final-mile security boundary. A separate `host-edge` scheduler invocation initially owns only LM Studio supervision. `legacy-mixed` and Shape C are absent. | IPv4 loopback `3102` path-routes authenticated `/kb/mcp` + `/mc/mcp`; Chroma publishes `8000` for host-local diagnostics. |
-| Dev parity (`ai/deploy/docker-compose.dev.yml`) | Relocated hybrid: source stays a repo bind at `/app`; the declared plane root `/app/.neo-ai-data-parity` rides a Compose-managed named volume, as does Chroma. Project name and `plane.id` share one YAML scalar. | The shared `x-plane-env` places every declared member and explicitly binds `NEO_TENANT_REPO_MIRROR_ROOT` to the relocated root. This explicit binding is mandatory because the leaf is `planeMember:false` and therefore outside the boot member walk. | Its container orchestrator uses the cloud-safe lane profile, so wake delivery remains with the separate host-local Agent OS edge on the canonical local plane; the parity containers neither read nor deliver those wake files. | The default plane uses IPv4 loopback `3100` (KB), `3101` (MC), and `8100` (Chroma): 31xx for MCP, 81xx for engine primitives. Additional concurrent planes declare distinct publications; ports are never hash-derived from opaque identity. `probePortClaims` observes host claims, while MCP healthchecks prove served `{plane.id, plane.dataRoot}`. |
+| Dev parity (`ai/deploy/docker-compose.dev.yml`) | Relocated hybrid: source stays a repo bind at `/app`; the declared plane root `/app/.neo-ai-data-parity` rides a Compose-managed named volume, as does Chroma. Project name and `plane.id` share one YAML scalar. | The shared `x-plane-env` places every declared member and explicitly binds `NEO_TENANT_REPO_MIRROR_ROOT` and `NEO_BACKUP_PATH` to the relocated root. These explicit bindings are mandatory because both leaves are `planeMember:false` and therefore outside the boot member walk. Parity keeps its bundles inside the parity root deliberately: they are disposable fixture artifacts on a named volume, so neither §10.9 hazard applies. | Its container orchestrator uses the cloud-safe lane profile, so wake delivery remains with the separate host-local Agent OS edge on the canonical local plane; the parity containers neither read nor deliver those wake files. | The default plane uses IPv4 loopback `3100` (KB), `3101` (MC), and `8100` (Chroma): 31xx for MCP, 81xx for engine primitives. Additional concurrent planes declare distinct publications; ports are never hash-derived from opaque identity. `probePortClaims` observes host claims, while MCP healthchecks prove served `{plane.id, plane.dataRoot}`. |
 | Parity CI overlay (`ai/deploy/docker-compose.parity-ci.yml`) | Inherits the dev placement and project scoping, but replaces provider auth and removes host publication behind an internal network. | Inherits `x-plane-env`; no second placement map. | No host wake-delivery lane. | No host ports; topology probes run inside the Compose network. |
 | Integration fixture (`ai/deploy/docker-compose.test.yml`) | Explicit ephemeral test topology: service-specific tmpfs paths under `/tmp/neo-integration`; it is not a durable Agent OS parity profile. | No durable profile-pinned plane contract is claimed. | No wake-delivery lane. | Fixed 13xxx/18080 fixture ports belong to the isolated integration harness, not the local parity band. |
 
@@ -261,6 +261,55 @@ and cannot transfer authority.
 series removes `legacy-mixed`. Before resident release, rollback restores the pre-cut root under
 the tracked preparation revision. The first resident release is forward-only. Receipt acceptance
 triggers immediate cleanup; the post-cleanup tree does not retain a second runtime product.
+
+### 10.9 A plane's escape hatch is not a plane member (#16201)
+
+**An artifact whose purpose is surviving the plane must not resolve beneath it.** `backupPath` was
+`planeMember: true` with a plane-anchored default, which resolved the backup root inside the git
+working tree. `.neo-ai-data` is gitignored, correctly and non-negotiably at these sizes; `git clean
+-x` is *defined* as reaching ignored files. Two individually-correct facts, jointly destructive —
+observed as a dry-run listing 36 bundles, ~133 GB, one reflexive command away.
+
+The remedy is classification, not a guard: `planeMember: false` with a `planeMemberReason`, and
+**every profile places it explicitly** — the `orchestrator.tenantRepoMirrorRoot` shape. A member that
+must escape the plane was never a member.
+
+**Scope of the guarantee, bounded deliberately.** The relocation changes how the DEFAULT is
+derived: it no longer derives from the Compose project/checkout path. It does **not** establish that
+bundles occupy a different physical filesystem from the graph or that repository operations can
+never reach them: an explicit override may still place them under a checkout, and a checkout may be
+placed under the default path. Whether backup and graph should share a failure domain at all is a
+**separate, latent** concern with its own owner; at the time of writing no capacity incident has
+occurred. This subsection is about *placement relative to the checkout*, and must not be cited as
+having settled the capacity question — the two are easy to conflate precisely because one
+relocation could in principle serve both.
+
+**The paired rule — host source and container target are separate contracts, separately named.**
+Before #16201 the canonical Compose bind source (`./.neo-ai-data/backups`, relative to the project
+directory) and the config default (`path.resolve(planeDataRootDefault, 'backups')`) agreed **only
+because both derived from the plane root.** Nothing asserted the agreement; it was a coincidence,
+and coincidences break silently when either side moves. The half-fix is the instructive part: giving
+the container an explicit target while leaving the host source in-tree leaves the deletion vector
+fully intact, and moving the config default without an explicit container target sends bundles to an
+unbound writable-layer path where they vanish on the next recreate. **Each half alone is worse than
+the coupled original.**
+
+So the two are declared separately and never collapsed into one value:
+
+| Contract | Binding | Requirement |
+|---|---|---|
+| Host source | `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) | the **default does not derive from the Compose project/checkout path**. That is the whole contract: an explicit override is unconstrained, and a checkout placed under the default path would still be reachable by repository operations |
+| Container target | `NEO_BACKUP_PATH` | explicit per-profile placement; mandatory once the leaf left the member walk |
+
+**Generalization for future leaves:** when a leaf crosses a namespace boundary — host filesystem vs
+container filesystem — one value cannot carry both contracts even when it happens to render the same
+string. Name them separately and assert each against its own invariant, or the next relocation
+re-derives this incident.
+
+**Revalidation trigger:** reclassifying any leaf's `planeMember` decision, or changing either backup
+contract, updates §10.7's matrix and re-runs plane-config coherence plus static Compose placement
+coverage. Parity profiles that keep disposable bundles inside their own relocated root are exempt
+from the host-source requirement and must say so where they bind it.
 
 ---
 

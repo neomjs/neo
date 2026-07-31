@@ -224,6 +224,12 @@ services:
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
       - *memory-db-env
+      # Explicit container-target placement for `backupPath` (#16201). Required, not decorative:
+      # the leaf is `planeMember: false`, so the boot member walk no longer places it, and its
+      # default now resolves under the user's home — which inside a container is an unbound path
+      # in the writable layer. Without this line bundles would be written and then destroyed on
+      # the next recreate. Paired with the host-source bind below; the two are separate contracts.
+      - NEO_BACKUP_PATH=/app/.neo-ai-data/backups
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED=true
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT=${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}
       # `orchestrator` is in this list deliberately, and it is the reason the list needed changing.
@@ -253,10 +259,27 @@ services:
       # The `golden-path` scheduler lane writes the handoff and its derived
       # route artifacts here; mc-server mounts the same directory read-side.
       - shared-handoff-data:/app/.neo-ai-data/handoff
-      # Redeploy-safe backup persistence (Sub C #11724): the cloud-safe `backup`
-      # scheduler lane writes bundles here. A host bind-mount keeps them across
-      # container rebuilds and host-accessible for off-site copy / inspection.
-      - ./.neo-ai-data/backups:/app/.neo-ai-data/backups
+      # Redeploy-safe backup persistence (Sub C #11724, relocated by #16201): the cloud-safe
+      # `backup` scheduler lane writes bundles here. A host bind keeps them across container
+      # rebuilds and host-accessible for off-site copy / inspection.
+      #
+      # TWO DISTINCT CONTRACTS, deliberately not one value:
+      #   host source      — `NEO_HOST_BACKUP_ROOT`, whose DEFAULT is checkout-independent. The
+      #                      previous `./.neo-ai-data/backups` resolved against the Compose
+      #                      project directory, so on a maintainer machine the bundles lived
+      #                      inside a git working tree and `git clean -x` deleted them —
+      #                      `.neo-ai-data` is gitignored, and `clean -x` is defined as reaching
+      #                      ignored files. The guarantee is that the DEFAULT no longer derives
+      #                      from the checkout; an explicit override can still place bundles
+      #                      anywhere, and this says nothing about which physical filesystem
+      #                      they share with the graph.
+      #   container target — `NEO_BACKUP_PATH` above, the explicit per-profile placement the
+      #                      boot walk requires now that the leaf is `planeMember: false`.
+      #
+      # Collapsing them into one value is what let the old default and bind agree only by
+      # coincidence of both deriving from the plane root; that coincidence is what broke when
+      # either side moved. Keep them separately named even when they point at the same bytes.
+      - ${NEO_HOST_BACKUP_ROOT:-${HOME}/.neo-ai/backups}:/app/.neo-ai-data/backups
       # kb-config.yaml bootstrap tier (#12145): deployments that provide a kb-config.yaml
       # (per-tenant Source/Parser registration + pull-mode `tenantRepos`) MUST mount it
       # read-only here AND on kb-server. The pull-mode sync's tiered resolver

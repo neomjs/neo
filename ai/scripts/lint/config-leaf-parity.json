@@ -44,8 +44,9 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 28,
+            "remainingUniqueKeys": 29,
             "requiredDeploymentInputs": [
+                "NEO_BACKUP_PATH",
                 "NEO_CHROMA_HOST",
                 "NEO_DEPLOY_HOSTNAME",
                 "NEO_HANDOFF_FILE_PATH",

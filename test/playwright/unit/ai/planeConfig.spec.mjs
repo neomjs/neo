@@ -138,13 +138,41 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
     test('root config members derive from the anchor', () => {
         const {data} = ConfigBase.config;
 
-        expect(data.backupPath.default).toBe(path.resolve(anchor, 'backups'));
         expect(data.wakeDaemonHeartbeatAlivePath.default).toBe(path.resolve(anchor, 'wake-daemon/heartbeat.alive'));
         expect(data.fleet.instanceRoot.default).toBe(path.resolve(anchor, 'fleet/instances'));
         expect(data.engines.chroma.dataDirProd.default).toBe(path.resolve(anchor, 'chroma/unified'));
         expect(data.orchestrator.deploymentStateBridge.snapshotPath.default).toBe(path.resolve(anchor, 'deployment-state/snapshot.json'));
         expect(data.orchestrator.recoveryActuator.healAttemptsPath.default).toBe(path.resolve(anchor, 'orchestrator-daemon/heal-attempts.json'));
         expect(data.orchestrator.recoveryActuator.recoveryRunStateDir.default).toBe(path.resolve(anchor, 'orchestrator-daemon/recovery-runs'))
+    });
+
+    // The inverse witness of the test above, and deliberately an INVARIANT rather than a pinned
+    // path: a backup that resolves beneath the plane it protects inherits that plane's deletion
+    // vectors and failure domain, so it is an explicit non-member rather than a placed member.
+    // Asserting "not under the anchor / not under the checkout" survives the default being retuned;
+    // asserting a specific replacement path would just re-pin what was wrong before.
+    test('backupPath is deliberately NOT anchored — the plane escape hatch', () => {
+        const
+            {data}        = ConfigBase.config,
+            neoRoot       = data.neoRootDir.default,
+            backupDefault = data.backupPath.default;
+
+        expect(path.isAbsolute(backupDefault)).toBe(true);
+
+        // The headline AC: no repository operation — `git clean -x`, a re-clone, a moved
+        // worktree — can reach the bundles, because they do not live in the tree.
+        expect(backupDefault).not.toBe(neoRoot);
+        expect(backupDefault.startsWith(neoRoot + path.sep)).toBe(false);
+
+        // …nor beneath the plane anchor, which is what put them in the tree to begin with.
+        expect(backupDefault).not.toBe(anchor);
+        expect(backupDefault.startsWith(anchor + path.sep)).toBe(false);
+
+        // Declaration and membership are one act: an explicit non-member must name why, or the
+        // exclusion is indistinguishable from someone forgetting the list.
+        expect(data.backupPath.planeMember).toBe(false);
+        expect(typeof data.backupPath.planeMemberReason).toBe('string');
+        expect(data.backupPath.planeMemberReason.length).toBeGreaterThan(0)
     });
 
     test('orchestrator dataDir + dbPath are anchored ABSOLUTE — ambient-cwd resolution retired', () => {

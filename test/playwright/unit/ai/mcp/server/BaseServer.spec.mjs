@@ -878,7 +878,10 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
                 const server = Neo.create(makeBoundaryServerClass({member: true, composed: true}));
                 server.aiConfig = isolated;
 
-                expect(() => server.assertPlaneIdentity()).toThrow('backupPath');
+                // The witness is any inherited Tier-1 member: `backupPath` is now an explicit
+                // non-member and therefore no longer a stray this walk can name. The point of
+                // the test is that the LOCAL list alone cannot satisfy the assertion.
+                expect(() => server.assertPlaneIdentity()).toThrow('wakeDaemonHeartbeatAlivePath');
             } finally {
                 isolated.destroy()
             }
