@@ -323,16 +323,29 @@ hundreds of MB, so fetching it is an explicit opt-in. Run
 `ask_knowledge_base`-class tools — an empty collection answers with exactly
 this pointer.
 
-Then start the existing local orchestrator command:
+Then start the machine-local orchestrator:
 
 ```sh
-npm run ai:orchestrator
+npm run ai:host-edge
 ```
 
-For one-off process-manager overrides, keep using the env var:
+This resolves the complete host-edge posture — the `host-edge` role, `deploymentMode=local`, a
+state root outside every checkout, and the lane closure — from `ai/deploy/hostEdgeProfile.mjs`. It
+needs no installer and runs anywhere Node runs; the macOS LaunchAgent is optional supervision over
+the same command, and the platform matrix lives in
+[`ai/scripts/lifecycle/local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md).
+
+> **`npm run ai:orchestrator` is a different thing and will refuse.** It starts the same daemon with
+> no role declared, and since #16229 a role is declared, never inherited. Before the Docker cutover
+> that command was correct; afterwards it resolved `container-plane` — the role the container
+> already owns — so the refusal is what makes a duplicate authority claim visible instead of silent.
+> Declare a role explicitly if you need that entrypoint directly.
+
+For one-off process-manager overrides, keep using the env var — every posture key yields to an
+explicit value, so this composes rather than conflicts:
 
 ```sh
-NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus-ada/neo"]' npm run ai:orchestrator
+NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus-ada/neo"]' npm run ai:host-edge
 ```
 
 Do not add real local clone paths to `package.json` or

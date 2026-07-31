@@ -3,6 +3,7 @@ import fs                 from 'node:fs';
 import path               from 'node:path';
 import process            from 'node:process';
 import {load as yamlLoad} from 'js-yaml';
+import {buildHostEdgeEnv} from '../../../../../ai/deploy/hostEdgeProfile.mjs';
 
 /**
  * Guards the parity profile's volume-scoping invariant.
@@ -363,9 +364,13 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
 
         expect(planeEnvironment.NEO_TENANT_REPO_MIRROR_ROOT).toBe(planeRoot);
         expect(orchestrator.environment['<<']).toBe(planeEnvironment);
-        expect(orchestrator.environment).not.toHaveProperty('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+
+        // Inverted: the parity orchestrator DECLARES its authority instead of inheriting
+        // it. The leaf carries no default — a role is declared, never inherited — so an omitted
+        // line here is a refused launch rather than a second silent claim on container authority.
+        expect(orchestrator.environment.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
         expect(configSource)
-            .toContain("authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
+            .toContain("authorityProfile: leaf('', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE'")
     });
 
     test('project identity and plane identity are ONE yaml scalar, not two expressions', () => {
@@ -450,17 +455,24 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(plistSource).toMatch(/<key>RunAtLoad<\/key>\s*<true\/>/);
         expect(plistSource).toMatch(/<key>KeepAlive<\/key>\s*<true\/>/);
 
+        // The host-edge POSTURE moved out of this macOS artifact and into
+        // `ai/deploy/hostEdgeProfile.mjs`, so the plist supervises the portable entrypoint instead
+        // of carrying the configuration. The hard-cut guarantee this test names — the host edge is
+        // graphless — is unchanged; it is asserted at the posture's new address. What stays below
+        // is what the plist still legitimately owns: THIS machine's state root and local provider
+        // pinning, plus its supervision keys.
         expect(hostEdgePlistSource)
-            .toContain('<string>ai/daemons/orchestrator/daemon.mjs</string>');
-        expect(hostEdgePlistSource).toMatch(
-            /<key>NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE<\/key>\s*<string>host-edge<\/string>/
-        );
+            .toContain('<string>ai/daemons/orchestrator/hostEdge.mjs</string>');
         expect(hostEdgePlistSource).toMatch(
             /<key>NEO_AI_ORCHESTRATOR_DIR<\/key>\s*<string>__HOST_EDGE_STATE_DIR__<\/string>/
         );
-        expect(hostEdgePlistSource).toMatch(
-            /<key>NEO_ORCHESTRATOR_LMS_ENABLED<\/key>\s*<string>true<\/string>/
-        );
+
+        const hostEdgePosture = buildHostEdgeEnv({stateDir: '/probe/host-edge'});
+
+        expect(hostEdgePosture.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('host-edge');
+        expect(hostEdgePosture.NEO_AI_DEPLOYMENT_MODE).toBe('local');
+        expect(hostEdgePosture.NEO_ORCHESTRATOR_LMS_ENABLED).toBe('true');
+
         expect(hostEdgePlistSource).toMatch(
             /<key>NEO_MODEL_PROVIDER<\/key>\s*<string>openAiCompatible<\/string>/
         );
@@ -479,6 +491,9 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(hostEdgePlistSource).toMatch(
             /<key>NEO_ORCHESTRATOR_LMS_PORT<\/key>\s*<string>1234<\/string>/
         );
+        // The graphless closure — the load-bearing half of "the host edge cannot open the Docker
+        // plane". Same key set as before, read from the posture module the entrypoint and
+        // the LaunchAgent now share.
         for (const key of [
             'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',
             'NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED',
@@ -492,9 +507,9 @@ test.describe('data-plane profile election — base and integration-fixture disp
             'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED',
             'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED'
         ]) {
-            expect(hostEdgePlistSource).toMatch(
-                new RegExp(`<key>${key}</key>\\s*<string>false</string>`)
-            );
+            expect(hostEdgePosture[key], `${key} must stay disabled for the host edge`).toBe('false');
+            // …and the plist must NOT restate it, or the two drift the first time one changes.
+            expect(hostEdgePlistSource).not.toContain(`<key>${key}</key>`);
         }
         expect(hostEdgePlistSource).not.toContain('.neo-ai-data');
         expect(hostEdgePlistSource).not.toContain('ai/daemons/wake/daemon.mjs');

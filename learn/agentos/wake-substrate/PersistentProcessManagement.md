@@ -1,6 +1,32 @@
 # Persistent-Process Management for the Wake Substrate
 
-This document covers operator-side persistent-process management for the swarm wake substrate. **Since #11766 the swarm heartbeat is no longer a standalone daemon** — it is a config-gated scheduled lane inside the **Orchestrator daemon** (`Neo.ai.daemons.Orchestrator`). The Orchestrator is the single persistent local Agent OS process; there is no separate `swarm-heartbeat` launchd plist to install. The heartbeat class definition lives at `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` and is driven by the Orchestrator's `poll()` loop (`initAsync()` once at start, `pulse()` once per cadence tick).
+> ## ⚠️ Superseded topology — read this first
+>
+> **This document describes the pre-Docker single-process world and is retained for its design
+> rationale, not as a runbook.** Its central premise — *"the Orchestrator is the single persistent
+> local Agent OS process"* — stopped being true at the #16167 cutover. There are now **two**
+> orchestrator roles, and the split is the point:
+>
+> | | Runs | Owns |
+> |---|---|---|
+> | `container-plane` | Docker Compose | every graph, corpus, and maintenance lane |
+> | `host-edge` | `npm run ai:host-edge` | host/session/desktop effects only; graphless |
+>
+> **Do not follow the launchd/systemd templates or the `.neo-ai-data` paths below.** The checkout
+> `.neo-ai-data` is an import source, never a live target, and the current install procedure —
+> including the platform matrix for non-macOS hosts — lives in
+> [`ai/scripts/lifecycle/local-agent-os/README.md`](../../../ai/scripts/lifecycle/local-agent-os/README.md).
+>
+> **The swarm-heartbeat lane is currently OFF.** It is `host-edge`-classed
+> (`ai/daemons/orchestrator/taskAuthority.mjs`), and the elected host-edge posture
+> (`ai/deploy/hostEdgeProfile.mjs`) disables it. So the "the heartbeat must run continuously"
+> premise below does not describe the running system either.
+>
+> What remains accurate and worth keeping is **§1's rationale for why the heartbeat is a scheduled
+> lane rather than a standalone daemon** — that argument survived the cutover intact and is why
+> there is still no `swarm-heartbeat` plist. Everything downstream of §1 is historical.
+
+This document covers operator-side persistent-process management for the swarm wake substrate. **Since #11766 the swarm heartbeat is no longer a standalone daemon** — it is a config-gated scheduled lane inside the **Orchestrator daemon** (`Neo.ai.daemons.Orchestrator`). The heartbeat class definition lives at `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` and is driven by the Orchestrator's `poll()` loop (`initAsync()` once at start, `pulse()` once per cadence tick).
 
 > **Verify-before-assert notice:** any launchd / systemd template you author for the Orchestrator is **author-side draft**. Correctness on a given operator's macOS install is operator-territory L3 verification. Do NOT install a template as-is without running the verification commands below.
 
@@ -26,6 +52,12 @@ The heartbeat must run continuously. Rather than a dedicated daemon, the heartbe
 - The heartbeat lane is config-gated (`swarmHeartbeatEnabled` / `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED`), so it can be disabled per deployment profile (e.g. the cloud `Orchestrator` profile — see ADR 0014).
 
 ## 2. Operator empirical-prerequisites
+
+> **Historical from here down.** These commands target the retired single-process topology: they
+> probe checkout-local `.neo-ai-data` paths that are no longer a live target, and they start the
+> daemon with no declared role — which since #16229 refuses rather than starting, because a role is
+> declared and never inherited. Use the current runbook instead; this section is kept so the
+> supersession is legible rather than silent.
 
 Before relying on the heartbeat lane, verify on your local environment:
 

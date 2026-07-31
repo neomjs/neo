@@ -359,9 +359,13 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         const orchestratorEnv = environmentMap(compose.services.orchestrator);
         const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
 
+        // `authorityProfile` is deliberately NOT in this list: it no longer has a default to
+        // duplicate. A role is declared, never inherited, so the canonical orchestrator states it
+        // and the assertion below is the positive half of the same contract.
+        expect(orchestratorEnv.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE).toBe('container-plane');
+
         for (const key of [
             'NEO_AI_DEPLOYMENT_MODE',
-            'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE',
             'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
             'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',

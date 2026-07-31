@@ -375,7 +375,19 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
         expect(Config.orchestrator.deploymentMode).toBe(process.env.NEO_AI_DEPLOYMENT_MODE || 'cloud');
-        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || 'container-plane');
+
+        // `authorityProfile` carries NO default — a role is declared, never inherited — and the
+        // emptiness is what ARMS its `requiredFor` guard, since requiredness is evaluated on the
+        // RESOLVED value.
+        //
+        // Asserted on the DECLARED descriptor, not only the resolved value, because the resolved
+        // half is maskable: `test/playwright/configTemplateResolver.mjs` sets
+        // `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE ??= 'legacy-mixed'`, so under Playwright the
+        // fallback branch of `process.env.X || …` never evaluates and this line would keep passing
+        // against any default at all. That is precisely how the predecessor PR shipped a green
+        // suite over a broken production launch. The descriptor read has no such escape.
+        expect(RootConfigBase.config.data.orchestrator.authorityProfile.default).toBe('');
+        expect(Config.orchestrator.authorityProfile).toBe(process.env.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE || '');
         expect(Config.orchestrator.intervals).toMatchObject({
             pollMs                           : 3000,
             summarySweepMs                   : 10 * 60 * 1000,

@@ -18,7 +18,6 @@
         },
         "forbiddenEnv": {
             "NEO_AI_DEPLOYMENT_MODE": "cloud is the canonical config posture",
-            "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE": "container-plane is the canonical config authority",
             "NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES": "derived from auth.mode unless a narrower deployment overlay opts out",
             "NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT": "derived from auth.mode unless a plural-resident deployment overlay opts out",
             "NEO_AUTO_DREAM": "retired MCP-server startup control; the orchestrator owns Dream",
@@ -44,8 +43,9 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 29,
+            "remainingUniqueKeys": 30,
             "requiredDeploymentInputs": [
+                "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_BACKUP_PATH",
                 "NEO_CHROMA_HOST",
                 "NEO_DEPLOY_HOSTNAME",
