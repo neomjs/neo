@@ -74,6 +74,15 @@ class RecorderService extends Base {
     }
 
     /**
+     * In-flight open from `ensureStore()` — the single-flight join point for concurrent first
+     * users. Transient: cleared on settle, so a failed open never pins later calls to a cached
+     * failure.
+     * @member {Promise<Object|null>|null} storeOpen=null
+     * @protected
+     */
+    storeOpen = null
+
+    /**
      * @summary Opens the Memory Core connection on demand and ensures both physical schemas exist.
      *
      * This service owns TWO independent contracts against one file: `nl_action_log` (action
@@ -86,7 +95,12 @@ class RecorderService extends Base {
      * does archive one gets a connection at that moment. Gating the connection instead of the
      * capability would silently retire the archive contract along with the telemetry.
      *
-     * Idempotent: returns the existing connection when already open, `null` when unavailable.
+     * Idempotent and SINGLE-FLIGHT: the open path awaits filesystem work, so a bare
+     * check-then-open races — N concurrent first users each observe a null `db` and open N
+     * connections against one shared file. The in-flight promise is assigned synchronously,
+     * before any await, so every concurrent caller joins one real open; it is cleared on settle,
+     * so a failed open resolves `null` for the current waiters while the NEXT call retries fresh
+     * instead of being pinned to a cached failure.
      * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
      * @protected
      */
@@ -95,6 +109,26 @@ class RecorderService extends Base {
             return this.db;
         }
 
+        if (!this.storeOpen) {
+            this.storeOpen = this.openStore().finally(() => {
+                this.storeOpen = null
+            });
+        }
+
+        return this.storeOpen;
+    }
+
+    /**
+     * @summary The real opener behind `ensureStore()` — never call directly.
+     *
+     * Emits exactly one connection marker per successful open. The enabled path keeps the
+     * boot-contract line naming `nl_action_log`; the on-demand path names the archive instead, so
+     * a disabled seat's log can never imply action telemetry was requested — the marker stays
+     * neutral for the contract that actually opened the store.
+     * @returns {Promise<Object|null>} The connection, or `null` if it could not be opened
+     * @protected
+     */
+    async openStore() {
         try {
             const dbPath = config.memoryCoreDbPath;
 
@@ -150,7 +184,9 @@ class RecorderService extends Base {
                     ON nl_transaction_archive(archived_at);
             `);
 
-            logger.info('[RecorderService] Connected to Memory Core nl_action_log.');
+            logger.info(config.actionLoggingEnabled
+                ? '[RecorderService] Connected to Memory Core nl_action_log.'
+                : '[RecorderService] Archive store opened on demand.');
 
             return this.db;
         } catch (err) {

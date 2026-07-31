@@ -29,9 +29,10 @@ test.describe('Neural Link action logging default', () => {
      * @param {Object}  [options={}]
      * @param {Object}  [options.extraEnv=null]        Additional env for the child
      * @param {Boolean} [options.exerciseArchive=false] Also drive a real save + read-back
+     * @param {Boolean} [options.exerciseParallelBurst=false] Drive 8 CONCURRENT first-use saves
      * @returns {Object} Observed child outcome
      */
-    function bootRecorder({extraEnv = null, exerciseArchive = false} = {}) {
+    function bootRecorder({extraEnv = null, exerciseArchive = false, exerciseParallelBurst = false} = {}) {
         const
             dir         = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-nl-gate-')),
             dbPath      = path.join(dir, 'graph.sqlite'),
@@ -57,6 +58,27 @@ test.describe('Neural Link action logging default', () => {
                 out.readBackOps   = readBack ? readBack.ops.length : null;
                 out.openedAfter   = Boolean(RecorderService.db);
             ` : '',
+            burstStep = exerciseParallelBurst ? `
+                let opens = 0;
+                const origOpen = RecorderService.openStore.bind(RecorderService);
+                RecorderService.openStore = (...args) => { opens++; return origOpen(...args); };
+                const mkSave = (i) => RecorderService.saveTransactionArchive({
+                    appSessionId: 'spec-session',
+                    name        : 'parallel-' + i,
+                    transaction : {
+                        txId        : 'spec-tx-' + i,
+                        status      : 'committed',
+                        committedAt : 1234,
+                        originWriter: {agentId: 'spec-agent', sessionId: 'spec-session'},
+                        ops         : [{kind: 'set', value: i}]
+                    }
+                });
+                const results = await Promise.all(Array.from({length: 8}, (_, i) => mkSave(i)));
+                out.parallelSaved   = results.filter(r => r.saved).length;
+                out.parallelReasons = [...new Set(results.map(r => r.reason ?? null))];
+                out.openCalls       = opens;
+                out.openedAfter     = Boolean(RecorderService.db);
+            ` : '',
             // Neo must be bootstrapped before any `src/core` module loads -- `Compare.mjs` calls
             // `Neo.gatekeep` at module scope, so importing RecorderService bare throws
             // "Neo is not defined". Same ordering the sibling specs get from `setup.mjs`.
@@ -74,7 +96,7 @@ test.describe('Neural Link action logging default', () => {
                     resolvedPath: config.memoryCoreDbPath,
                     gateValue   : config.actionLoggingEnabled
                 };
-                ${archiveStep}
+                ${archiveStep}${burstStep}
                 process.stdout.write(JSON.stringify(out));
             `,
             childEnv = {...process.env, NEO_MEMORY_DB_PATH: dbPath, ...(extraEnv || {})};
@@ -161,6 +183,23 @@ test.describe('Neural Link action logging default', () => {
         expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
         expect(outcome.archiveSaved).toBe(true);
         expect(outcome.readBackOps).toBe(1)
+    });
+
+    test('unset: 8 parallel first-use saves share exactly ONE store open (single-flight)', () => {
+        const outcome = bootRecorder({exerciseParallelBurst: true});
+
+        expect(outcome.error, `child failed instead of reporting:\n${outcome.error}`).toBeNull();
+        expect(outcome.gateValue).toBe(false);
+        expect(outcome.openedAtBoot).toBe(false);
+        // Every concurrent save lands, none refused -- reason asserted before saved so a
+        // rejection can never impersonate the race under test.
+        expect(outcome.parallelReasons).toEqual([null]);
+        expect(outcome.parallelSaved).toBe(8);
+        // The measured regression (review cycle 2): a bare check-then-open admitted one
+        // connection PER CALLER -- 32 parallel ensureStore calls returned 32 distinct
+        // connections against one shared file. Single-flight means exactly one real open.
+        expect(outcome.openCalls).toBe(1);
+        expect(outcome.openedAfter).toBe(true)
     });
 
     test('the genesis probe opts in, so its telemetry oracle keeps a source', () => {
