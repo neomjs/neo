@@ -397,6 +397,12 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(overlaySource).toContain(
             'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *local-project'
         );
+        expect(overlaySource).toMatch(
+            /NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES:\s*&local-runtime-services\s+chroma,kb-server,mc-server,orchestrator/
+        );
+        expect(overlaySource).toContain(
+            'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES: *local-runtime-services'
+        );
         expect(overlaySource).not.toContain('source: ../../.neo-ai-data');
         expect(overlaySource).not.toContain('source: ../../.neo-ai-data/chroma/unified');
         expect(overlaySource).not.toContain('NEO_AI_ORCHESTRATOR_DIR');
