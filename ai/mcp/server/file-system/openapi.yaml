@@ -101,6 +101,7 @@ paths:
         the permitted workspace is rejected by the file-system service rather than silently
         rewritten.
       tags: [IO]
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -129,6 +130,7 @@ paths:
       operationId: write_file
       description: Writes content to a specific file. Throws a 403 on directory escape attempts.
       tags: [IO]
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -153,6 +155,7 @@ paths:
       operationId: list_directory
       description: Returns an array of file/folder names inside the given directory path.
       tags: [IO]
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -174,6 +177,7 @@ paths:
       operationId: check_syntax
       description: Runs a native AST/syntax check against a file. Returns empty if valid, else returns the syntax error preventing execution.
       tags: [Execution]
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
@@ -195,6 +199,7 @@ paths:
       operationId: run_playwright_test
       description: Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
       tags: [Execution]
+      x-pass-as-object: true
       requestBody:
         required: true
         content:
