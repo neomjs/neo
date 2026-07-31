@@ -79,6 +79,8 @@ import {
     CONTINUOUS_TASK_REGISTRY,
     INTERNAL_TASK_REGISTRY,
     isTaskOwnedByProfile,
+    ORCHESTRATOR_AUTHORITY_CLASS,
+    ORCHESTRATOR_AUTHORITY_PROFILE,
     partitionRegistryByAuthority
 } from './taskAuthority.mjs';
 import {
@@ -1074,6 +1076,61 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Builds the one-line startup statement of which lanes this role is NOT running.
+     *
+     * A capability this process drops is currently invisible: the authority receipt records it and
+     * nothing reads the receipt, so a machine can run for hours with its scheduler correctly
+     * declining graph work while nothing elsewhere picks that work up. There is no signal at the
+     * moment the gap opens, which is when it is cheap to notice.
+     *
+     * **Deliberately bounded to what this process can honestly assert.** The line names the lanes
+     * and the role that owns each, and stops there — it does NOT claim the owning role is running.
+     * A graphless host edge cannot probe the container plane it is forbidden to open, so a
+     * "replacement is live" check from here would either be a guess or a boundary violation. The
+     * honest form is "I am not running X; container-plane owns it", which is enough for an operator
+     * to ask the next question, and is true regardless of what else is up.
+     *
+     * @returns {String|null} The message, or null when this role owns every lane (`legacy-mixed`).
+     */
+    buildDisabledLaneAnnouncement() {
+        const {disabled} = this.getAuthorityRegistryPartition();
+
+        if (disabled.length === 0) {
+            return null;
+        }
+
+        const byOwner = new Map();
+
+        for (const {authorityClass, taskName} of disabled) {
+            const owner = authorityClass === ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive
+                ? ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane
+                : authorityClass;
+
+            byOwner.set(owner, [...(byOwner.get(owner) || []), taskName]);
+        }
+
+        const groups = [...byOwner.entries()]
+            .map(([owner, tasks]) => `${owner} owns ${tasks.sort().join(', ')}`)
+            .join('; ');
+
+        return `[Orchestrator] Not running ${disabled.length} lane(s) this role does not own — ${groups}. ` +
+            'This process does not verify that the owning role is live.';
+    }
+
+    /**
+     * @summary Emits {@link buildDisabledLaneAnnouncement} once, at startup.
+     * WARN rather than INFO: a dropped capability with no confirmed owner is the condition an
+     * operator needs to see, and it is emitted exactly once per boot so it cannot become the next
+     * drumbeat this ticket exists to remove.
+     * @returns {void}
+     */
+    announceDisabledLanes() {
+        const message = this.buildDisabledLaneAnnouncement();
+
+        message && this.writeLog('WARN', message);
+    }
+
+    /**
      * @summary Projects persisted task state to this role's owned task set.
      *
      * A host-edge cutover reuses the former mixed supervisor's data directory. Filtering
@@ -1208,6 +1265,7 @@ export class Orchestrator extends Base {
 
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
+        this.announceDisabledLanes();
         this.poll();
     }
 

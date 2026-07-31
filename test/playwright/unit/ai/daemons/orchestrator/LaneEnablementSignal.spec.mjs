@@ -1,4 +1,8 @@
-import {test, expect}  from '@playwright/test';
+import {test, expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import '../../../../../../src/core/_export.mjs';
+import {Orchestrator}  from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {TASK_REGISTRY} from '../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import {
     AUTHORITY_CLASSES_BY_PROFILE,
@@ -129,5 +133,84 @@ test.describe('#16197 — the schedule is derived from authority, not scheduled-
         // as a healthy daemon that quietly runs no lanes at all.
         expect(() => partitionRegistryByAuthority({profile: 'typo-role', registry: TASK_REGISTRY}))
             .toThrow(/Unknown authority profile/);
+    });
+});
+
+test.describe('#16197 — the dropped capabilities are ANNOUNCED, not just written to a receipt', () => {
+    /**
+     * @summary A prototype-only Orchestrator with the resolved role injected and the log captured —
+     * the sibling pattern in `Orchestrator.spec.mjs`, which never constructs the singleton.
+     * The REAL methods run; only the two seams they read are supplied.
+     * @param {String} profile Resolved authority profile.
+     * @returns {Object} Orchestrator-shaped instance carrying a `logs` array.
+     */
+    function announcerFor(profile) {
+        const
+            orchestrator = Object.create(Orchestrator.prototype),
+            logs         = [];
+
+        orchestrator.authorityProfile = profile;
+        orchestrator.logs             = logs;
+        orchestrator.writeLog         = (level, message) => logs.push({level, message});
+
+        return orchestrator;
+    }
+
+    test('a host-edge boot names every lane it drops AND the role that owns it', () => {
+        const announcer = announcerFor(HOST_EDGE);
+        const message   = announcer.buildDisabledLaneAnnouncement();
+
+        expect(message).toContain('container-plane owns');
+
+        // Naming the lanes is the point — a count alone ("not running 14 lanes") tells an operator
+        // nothing they can act on.
+        const {disabled} = partitionRegistryByAuthority({profile: HOST_EDGE, registry: TASK_REGISTRY});
+
+        for (const {taskName} of disabled) {
+            expect(message, `${taskName} is dropped but unnamed in the announcement`).toContain(taskName);
+        }
+    });
+
+    test('the announcement makes NO claim that the owning role is live', () => {
+        // The bound is the honest part. A graphless host edge cannot probe the container plane it
+        // is forbidden to open, so any "replacement is running" wording here would be a guess
+        // dressed as a check. The line must say what it does not know.
+        const announcer = announcerFor(HOST_EDGE);
+        const message   = announcer.buildDisabledLaneAnnouncement();
+
+        expect(message).toContain('does not verify that the owning role is live');
+        expect(message).not.toMatch(/replacement is (running|live|healthy)/i);
+    });
+
+    test('it is emitted ONCE per boot, at WARN — it must not become the next drumbeat', () => {
+        const announcer = announcerFor(HOST_EDGE);
+
+        announcer.announceDisabledLanes();
+
+        expect(announcer.logs).toHaveLength(1);
+        expect(announcer.logs[0].level).toBe('WARN');
+    });
+
+    test('a role that owns everything says nothing at all', () => {
+        // `legacy-mixed` drops no lane, so there is no gap to announce. An unconditional line would
+        // train operators to skip it, which is how the real one stops being read.
+        const announcer = announcerFor(LEGACY);
+
+        expect(announcer.buildDisabledLaneAnnouncement()).toBeNull();
+
+        announcer.announceDisabledLanes();
+        expect(announcer.logs).toEqual([]);
+    });
+
+    test('the idleness drumbeat is no longer INFO', () => {
+        // The measured symptom: this line fires on the 60s sweep cadence forever wherever no tenant
+        // repos are configured, and it sat directly above the only genuine failure in the window.
+        const source = readFileSync(
+            new URL('../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs', import.meta.url),
+            'utf8'
+        );
+
+        expect(source).not.toContain("writeLog?.('INFO', `[TenantRepoSync] No tenantRepos configured");
+        expect(source).toContain("writeLog?.('DEBUG', `[TenantRepoSync] No tenantRepos configured");
     });
 });
