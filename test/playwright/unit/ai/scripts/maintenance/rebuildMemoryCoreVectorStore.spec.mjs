@@ -163,7 +163,25 @@ test.describe('Neo.ai.scripts.maintenance.rebuildMemoryCoreVectorStore', () => {
         const embedFn = createEmbedFn({url: 'http://x', model: 'm', batch: 2, fetchImpl});
         const vecs    = await embedFn(['a', 'b', 'c']);
 
-        expect(calls).toEqual([2, 1]);
+        // Chunks fire concurrently, so call order is not deterministic — the multiset is.
+        expect(calls.sort()).toEqual([1, 2]);
         expect(vecs).toEqual([[0], [1], [0]]);
+    });
+
+    test('createEmbedFn keeps chunk placement correct under concurrency with unequal latencies', async () => {
+        const fetchImpl = async (url, {body}) => {
+            const {input} = JSON.parse(body);
+            // First chunk (contains 'a0') resolves SLOWER than later chunks — placement must
+            // come from chunk offsets, never from completion order.
+            await new Promise(resolve => setTimeout(resolve, input[0] === 'a0' ? 30 : 1));
+            return {
+                ok  : true,
+                json: async () => ({data: input.map((doc, i) => ({index: i, embedding: [Number(doc.slice(1))]}))})
+            };
+        };
+        const embedFn = createEmbedFn({url: 'http://x', model: 'm', batch: 2, concurrency: 3, fetchImpl});
+        const vecs    = await embedFn(['a0', 'a1', 'a2', 'a3', 'a4']);
+
+        expect(vecs).toEqual([[0], [1], [2], [3], [4]]);
     });
 });

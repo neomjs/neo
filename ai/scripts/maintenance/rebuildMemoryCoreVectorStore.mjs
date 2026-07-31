@@ -45,29 +45,46 @@ export async function readAllIds(collection, pageSize = 2000) {
 /**
  * @summary Builds the embed function: token-budget truncation + batched calls to an
  * OpenAI-compatible /v1/embeddings endpoint using the canonical model identifier.
+ *
+ * Keeps `concurrency` requests in flight. A serial server just queues them at no cost, while
+ * any server-side parallelism added mid-run (more slots, a second instance) is exploited
+ * immediately — the resume-safe runner never needs a restart to pick up provider firepower.
  * @param {Object}  options
  * @param {String}  options.url        Embeddings endpoint
  * @param {String}  options.model      Model identifier (the one the servers use)
  * @param {Number}  [options.batch=8]  Inputs per request
+ * @param {Number}  [options.concurrency=6] Requests in flight
  * @param {Function} [options.fetchImpl=fetch]
  * @returns {Function} `(documents: String[]) => Promise<Number[][]>`
  */
-export function createEmbedFn({url, model, batch = 8, fetchImpl = fetch}) {
+export function createEmbedFn({url, model, batch = 8, concurrency = 6, fetchImpl = fetch}) {
     return async documents => {
-        const out = [];
+        const chunks = [];
         for (let i = 0; i < documents.length; i += batch) {
-            const input = documents.slice(i, i + batch).map(doc => truncateToEmbedTokenBudget(doc));
-            const res   = await fetchImpl(url, {
-                method : 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body   : JSON.stringify({model, input})
-            });
-            if (!res.ok) throw new Error(`embed HTTP ${res.status}`);
-            const json = await res.json();
-            // The API may return items out of order; index is authoritative.
-            const sorted = [...json.data].sort((a, b) => a.index - b.index);
-            out.push(...sorted.map(item => item.embedding));
+            chunks.push({at: i, docs: documents.slice(i, i + batch)});
         }
+
+        const out  = new Array(documents.length);
+        let   next = 0;
+
+        const worker = async () => {
+            while (next < chunks.length) {
+                const {at, docs} = chunks[next++];
+                const input      = docs.map(doc => truncateToEmbedTokenBudget(doc));
+                const res        = await fetchImpl(url, {
+                    method : 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body   : JSON.stringify({model, input})
+                });
+                if (!res.ok) throw new Error(`embed HTTP ${res.status}`);
+                const json = await res.json();
+                // The API may return items out of order; index is authoritative.
+                const sorted = [...json.data].sort((a, b) => a.index - b.index);
+                sorted.forEach((item, j) => { out[at + j] = item.embedding });
+            }
+        };
+
+        await Promise.all(Array.from({length: Math.min(concurrency, chunks.length) || 1}, worker));
         return out;
     };
 }
@@ -159,6 +176,7 @@ if (isDirectRun) {
         .option('--embed-url <url>', 'OpenAI-compatible embeddings endpoint', 'http://127.0.0.1:1234/v1/embeddings')
         .option('--embed-model <id>', 'embedding model identifier', 'text-embedding-qwen3-embedding-8b')
         .option('--embed-batch <n>', 'inputs per embed request', v => parseInt(v, 10), 8)
+        .option('--embed-concurrency <n>', 'embed requests in flight', v => parseInt(v, 10), 6)
         .option('--get-batch <n>', 'source read chunk size', v => parseInt(v, 10), 500)
         .option('--limit <n>', 'pilot mode: first N ids per collection', v => parseInt(v, 10), 0)
         .option('--dry-run', 'count and plan only', false)
@@ -175,7 +193,7 @@ if (isDirectRun) {
         sourceClient: new ChromaClient({path: opts.sourceUrl}),
         targetClient: new ChromaClient({path: opts.targetUrl}),
         collections : opts.collections.split(',').map(s => s.trim()).filter(Boolean),
-        embedFn     : createEmbedFn({url: opts.embedUrl, model: opts.embedModel, batch: opts.embedBatch}),
+        embedFn     : createEmbedFn({url: opts.embedUrl, model: opts.embedModel, batch: opts.embedBatch, concurrency: opts.embedConcurrency}),
         getBatch    : opts.getBatch,
         limit       : opts.limit,
         dryRun      : Boolean(opts.dryRun)
