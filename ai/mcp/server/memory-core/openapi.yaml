@@ -147,14 +147,6 @@ paths:
             type: integer
             minimum: 1
             default: 1500
-        - name: embeddingWriteCanaryTimeoutMs
-          in: query
-          required: false
-          description: Max time to wait for the active embedding provider during the write canary.
-          schema:
-            type: integer
-            minimum: 1
-            default: 30000
       responses:
         '200':
           description: Server is healthy and database is accessible

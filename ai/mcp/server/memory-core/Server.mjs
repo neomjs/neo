@@ -403,6 +403,13 @@ class Server extends BaseServer {
             }
         }
 
+        // Start the lifecycle-owned embedding write-canary producer BEFORE the first healthcheck:
+        // liveness probes are pure readers, so the server boot owns scheduling.
+        // Process exit disarms the scheduler; an in-flight attempt drains and a later start joins
+        // it through the same gate — never an overlap.
+        HealthService.startEmbeddingWriteCanary();
+        process.on('exit', () => HealthService.stopEmbeddingWriteCanary());
+
         // Healthcheck (sees populated stdioIdentityState post-reorder).
         await this.runHealthcheckAndLogStatus();
         this.logSiblingConcurrency();

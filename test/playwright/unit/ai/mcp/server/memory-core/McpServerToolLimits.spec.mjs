@@ -142,8 +142,9 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.inputSchema.properties.freshObservability.type).toBe('boolean');
         expect(tool.inputSchema.properties.chromaProbeTimeoutMs.type).toBe('integer');
         expect(tool.inputSchema.properties.chromaProbeTimeoutMs.minimum).toBe(1);
-        expect(tool.inputSchema.properties.embeddingWriteCanaryTimeoutMs.type).toBe('integer');
-        expect(tool.inputSchema.properties.embeddingWriteCanaryTimeoutMs.minimum).toBe(1);
+        // The per-call canary timeout is retired — attempts are producer-owned and the
+        // timeout binds at producer start. The schema must not advertise a knob that does nothing.
+        expect(tool.inputSchema.properties.embeddingWriteCanaryTimeoutMs).toBeUndefined();
         expect(tool.inputSchema.properties.includeSqliteHolders).toBeUndefined();
     });
 
@@ -246,9 +247,8 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         });
 
         const args = {
-            freshObservability           : false,
-            chromaProbeTimeoutMs         : 1234,
-            embeddingWriteCanaryTimeoutMs: 5678
+            freshObservability  : false,
+            chromaProbeTimeoutMs: 1234
         };
 
         await expect(spyToolService.callTool('healthcheck', args)).resolves.toEqual({
