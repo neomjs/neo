@@ -992,6 +992,165 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details).toContain('All features are operational'); // observability does not strip the payload
     });
 
+    test('pending → healthy: a settled-healthy canary strips the projected pending detail (never mutating the cache)', async () => {
+        let resolveRun;
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : () => new Promise(resolve => { resolveRun = resolve; }), // never settles until told → pending
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'pending-to-healthy'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const pending = await HealthService.healthcheck(); // caches the healthy payload WITH the pending detail
+        expect(pending.status).toBe('healthy');
+        expect(pending.details).toContain('Embedding write canary pending: run in flight');
+
+        resolveRun({status: 'healthy'});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const fastPath = await HealthService.healthcheck({freshObservability: false});
+        expect(fastPath.status).toBe('healthy');
+        expect(fastPath.details.some(d => d.startsWith('Embedding write canary'))).toBe(false); // the stale detail is gone
+
+        expect(pending.details).toContain('Embedding write canary pending: run in flight'); // …stripped on a copy — the stored cache is unmutated
+    });
+
+    test('pending → failed → healthy over a cached-pending payload: no canary detail survives a healthy read', async () => {
+        const resolveRuns = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : () => new Promise(resolve => resolveRuns.push(resolve)),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'pending-failed-healthy'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const cached = await HealthService.healthcheck(); // healthy payload carrying the pending detail
+        expect(cached.details).toContain('Embedding write canary pending: run in flight');
+
+        resolveRuns[0]({status: 'failed', error: 'provider-failure:EMBEDDING_PROVIDER_ERROR'});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const degraded = await HealthService.healthcheck({freshObservability: false});
+        expect(degraded.status).toBe('degraded');
+        expect(degraded.details.some(d => d.startsWith('Embedding write canary failed: provider-failure:EMBEDDING_PROVIDER_ERROR'))).toBe(true);
+
+        const recovery = HealthService.runEmbeddingWriteCanaryNow(); // starts the recovery flight — do not await before feeding it
+        await new Promise(resolve => setTimeout(resolve, 0));        // let the flight invoke the attempt body
+        resolveRuns[1]({status: 'healthy'});
+        await recovery;
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const recovered = await HealthService.healthcheck({freshObservability: false});
+        expect(recovered.status).toBe('healthy');
+        expect(recovered.details.some(d => d.startsWith('Embedding write canary'))).toBe(false); // neither the pending nor the failed detail survives
+    });
+
+    test('a scheduled callback captured before stop stays inert after re-arm (epoch fence)', async () => {
+        let   runs      = 0;
+        const callbacks = [];
+
+        const arm = () => HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => { runs++; return {status: 'healthy'}; },
+            scheduler    : fn => { callbacks.push(fn); return callbacks.length; },
+            clearSchedule: () => {},
+            keyFor       : () => 'epoch-fence'
+        });
+
+        arm();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(runs).toBe(1); // the immediate demand
+
+        const stale = callbacks[0];
+
+        HealthService.stopEmbeddingWriteCanary();
+        arm();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(runs).toBe(2); // the re-arm's immediate demand
+
+        stale(); // the pre-stop callback fires — and must be a no-op
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(runs).toBe(2);
+    });
+
+    test('each scheduled handle is cleared by the clearer that paired it (scheduler A→B→stop)', async () => {
+        const cleared   = [];
+        const scheduleA = () => 'handle-A', clearA = h => cleared.push(['A', h]);
+        const scheduleB = () => 'handle-B', clearB = h => cleared.push(['B', h]);
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : scheduleA,
+            clearSchedule: clearA,
+            keyFor       : () => 'handle-pairing'
+        });
+
+        HealthService.startEmbeddingWriteCanary({ // re-arm with a new scheduler pair
+            scheduler    : scheduleB,
+            clearSchedule: clearB,
+            keyFor       : () => 'handle-pairing'
+        });
+
+        HealthService.stopEmbeddingWriteCanary();
+
+        expect(cleared).toEqual([['A', 'handle-A'], ['B', 'handle-B']]); // each handle met ITS OWN clearer
+    });
+
+    test('a non-positive cadence synchronously disarms and fences an existing schedule', async () => {
+        let   runs      = 0;
+        const callbacks = [];
+        const cleared   = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => { runs++; return {status: 'healthy'}; },
+            scheduler    : fn => { callbacks.push(fn); return fn; },
+            clearSchedule: () => cleared.push(1),
+            keyFor       : () => 'disable-fences'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(runs).toBe(1);
+
+        const result = HealthService.startEmbeddingWriteCanary({cadenceMs: 0});
+        expect(result).toBe(null);
+        expect(cleared.length).toBe(1); // the live schedule was disarmed synchronously
+
+        callbacks[0](); // the pre-disable callback must be fenced
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(runs).toBe(1);
+    });
+
+    test('re-arm preserves omitted collaborators and refreshes provided ones (the explicit contract)', async () => {
+        const bodies = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            runCanary    : async () => { bodies.push('X'); return {status: 'healthy'}; },
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'preserve-refresh'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.startEmbeddingWriteCanary({ // omitted runCanary → PRESERVED
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'preserve-refresh-2'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.startEmbeddingWriteCanary({ // provided runCanary → REFRESHED
+            runCanary    : async () => { bodies.push('Y'); return {status: 'healthy'}; },
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'preserve-refresh-3'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(bodies).toEqual(['X', 'X', 'Y']);
+    });
+
     test('#13458: collection count timeout makes healthcheck resolve unhealthy instead of hanging', async () => {
         StorageRouter.getMemoryCollection = async () => ({
             count: async () => new Promise(() => {}),

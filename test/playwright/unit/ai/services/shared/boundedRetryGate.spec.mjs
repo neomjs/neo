@@ -6,12 +6,17 @@ import {createBoundedRetryGate} from '../../../../../../ai/services/shared/bound
  * survive, encoded as executable tests.
  *
  * The decisive falsifiers map here and into the HealthService suite:
- * 1. A→B→A generation isolation            → 'A→B→A: an old generation's result never…' (this file)
- * 2. A→B→C latest-demand delivery          → 'A→B→C: the latest demand gets its own run…' (this file)
+ * 1. A→B→A generation isolation            → 'A→B→A: …' (this file)
+ * 2. A→B→C latest-demand delivery          → 'A→B→C: …' (this file)
  * 3. different-key runNow() resumption     → 'runNow for a different key…' (this file)
  * 4. stop-while-active restart maxActive=1 → HealthService.spec.mjs producer suite (same-gate restart)
  * 5. cached-pending projection             → HealthService.spec.mjs overlay suite
- * 6. exact-head closure/docs truth         → PR evidence + configBase leaf JSDoc
+ * 6. exact-head closure/docs truth         → PR evidence + config leaf JSDoc
+ *
+ * Waiter-truth contract (the folded-waiter semantics every rotation test asserts): a waiter
+ * always receives the LATEST generation's truth — including joiners already attached to an
+ * in-flight run when a rotation arrives — annotated by generation identity (`gate.genId` of the
+ * serving run vs `gate.demandedGenId` of the waiter's own demand; `gate.coalesced` marks the fold).
  */
 
 /**
@@ -38,7 +43,7 @@ const failed  = tag => ({status: 'failed', error: `boom-${tag}`});
 /**
  * @summary Builds a gate with a controllable run body and a manual clock.
  * @param {Object}   [options]
- * @param {Function} [options.runImpl] Custom attempt body; default resolves healthy immediately.
+ * @param {Function} [options.runImpl] Custom attempt body; default resolves via `deferrals` for manual control.
  * @param {Number}   [options.maxFailureStreak=Infinity]
  * @returns {{gate: Object, runs: String[], deferrals: Object[], errors: Error[], advance: Function, clock: Function}}
  */
@@ -118,9 +123,9 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         expect(runs.length).toBe(2);          // operator demand ignores the window
         expect(forced.gate.cached).toBe(false);
 
-        advance(500);                          // t=1000+: window for the second failure (2000ms) is open at t>=2000…
+        advance(500);                          // t=1000: the second failure's 2000ms window runs to t=3000…
         const stillCached = await gate.tick({key: 'A'});
-        expect(runs.length).toBe(2);          // second failure backs off 2000ms from t=1000 → t<3000 cached
+        expect(runs.length).toBe(2);
         expect(stillCached.gate.cached).toBe(true);
 
         advance(2000);                         // t=3000
@@ -198,50 +203,49 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
     test('A→B→A: an old generation\'s result never contaminates a later same-named generation', async () => {
         const {gate, runs, deferrals} = makeGate();
 
-        const tickA1 = gate.tick({key: 'A'}); // flight for generation A#1
+        const tickA1 = gate.tick({key: 'A'}); // flight for generation A#1, waiter genId 1
         await flush();
         expect(runs).toEqual(['A']);
 
-        const tickB  = gate.tick({key: 'B'}); // rotate to B, coalesced behind the A#1 flight
-        const tickA2 = gate.tick({key: 'A'}); // rotate to A#2 — a NEW generation object; B's waiter folds in
+        const tickB  = gate.tick({key: 'B'}); // rotate to B#2; A#1's joiner migrates to the latest demand
+        const tickA2 = gate.tick({key: 'A'}); // rotate to A#3 — a NEW generation object; everyone folds in
 
-        deferrals[0].resolve(healthy('OLD-A')); // the superseded A#1 flight settles
-
-        const resultA1 = await tickA1;
-        expect(resultA1.tag).toBe('OLD-A');       // old A's joiner receives old A's OWN result
-        expect(resultA1.gate.key).toBe('A');
-        expect(resultA1.gate.coalesced).toBe(false);
-
+        deferrals[0].resolve(healthy('OLD-A')); // the superseded A#1 flight settles with no attached waiters
         await flush();
-        expect(runs).toEqual(['A', 'A']);         // old A drained, then A#2's OWN run — B never runs
-        expect(gate.snapshot().cached).toBe(null); // the drained result did NOT land in A#2
+        expect(runs).toEqual(['A', 'A']);        // old A drained, then A#3's OWN run — B never runs
+        expect(gate.snapshot().cached).toBe(null); // the drained result did NOT land in A#3
 
         deferrals[1].resolve(healthy('NEW-A'));
 
         const resultA2 = await tickA2;
-        expect(resultA2.tag).toBe('NEW-A');       // A#2's waiter receives its own generation's run
+        expect(resultA2.tag).toBe('NEW-A');       // A#3's waiter receives its own generation's run
         expect(resultA2.gate.coalesced).toBe(false);
 
+        const resultA1 = await tickA1;
+        expect(resultA1.tag).toBe('NEW-A');        // A#1's folded waiter receives the LATEST generation's truth…
+        expect(resultA1.gate.key).toBe('A');       // …annotated with the generation that ACTUALLY served…
+        expect(resultA1.gate.coalesced).toBe(true);// …marked as folded by generation identity…
+        expect(resultA1.gate.demandedGenId).toBe(1);
+        expect(resultA1.gate.genId).toBe(3);
+
         const resultB = await tickB;
-        expect(resultB.tag).toBe('NEW-A');        // the folded waiter receives the serving run's truth…
-        expect(resultB.gate.key).toBe('A');       // …annotated with the generation that ACTUALLY ran…
-        expect(resultB.gate.coalesced).toBe(true);// …and marked as folded
+        expect(resultB.tag).toBe('NEW-A');
+        expect(resultB.gate.coalesced).toBe(true);
         expect(resultB.gate.demandedKey).toBe('B');
 
-        expect(gate.snapshot().cached.result.tag).toBe('NEW-A'); // only A#2's own result is cached
+        expect(gate.snapshot().cached.result.tag).toBe('NEW-A'); // only A#3's own result is cached
     });
 
-    test('A→B→C: the latest demand gets its own run; folded waiters get truthful annotations', async () => {
+    test('A→B→C: the latest demand gets its own run; every folded waiter gets truthful annotations', async () => {
         const {gate, runs, deferrals} = makeGate();
 
         const tickA = gate.tick({key: 'A'}); // flight A#1
         await flush();
 
-        const tickB = gate.tick({key: 'B'}); // pending B
-        const tickC = gate.tick({key: 'C'}); // pending re-points to C; B's waiter folds
+        const tickB = gate.tick({key: 'B'}); // pending B; A#1's joiner migrates
+        const tickC = gate.tick({key: 'C'}); // pending re-points to C; all waiters fold in
 
         deferrals[0].resolve(healthy('OLD-A'));
-        await tickA;
         await flush();
 
         expect(runs).toEqual(['A', 'C']); // C runs next — the coalesced LATEST demand, never B
@@ -253,10 +257,15 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         expect(resultC.gate.key).toBe('C');
         expect(resultC.gate.coalesced).toBe(false);
 
+        const resultA = await tickA;
+        expect(resultA.tag).toBe('C-OWN');          // A#1's joiner receives the LATEST generation's truth…
+        expect(resultA.gate.key).toBe('C');         // …annotated as C (not old-A presented as current)…
+        expect(resultA.gate.coalesced).toBe(true);  // …marked folded
+        expect(resultA.gate.demandedGenId).toBe(1);
+
         const resultB = await tickB;
-        expect(resultB.tag).toBe('C-OWN');          // truthful delivery: C's own result…
-        expect(resultB.gate.key).toBe('C');         // …annotated as C (not old-A wearing C's key)…
-        expect(resultB.gate.coalesced).toBe(true);  // …marked folded
+        expect(resultB.tag).toBe('C-OWN');
+        expect(resultB.gate.coalesced).toBe(true);
         expect(resultB.gate.demandedKey).toBe('B');
 
         expect(gate.snapshot().cached.result.tag).toBe('C-OWN');
@@ -271,7 +280,6 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         const forced = gate.runNow({key: 'C'}); // operator demand for a different generation
 
         deferrals[0].resolve(healthy('OLD-A'));
-        await tickA;
         await flush();
 
         expect(runs).toEqual(['A', 'C']);
@@ -282,6 +290,103 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         expect(resultC.tag).toBe('C-OWN');      // the caller gets C's OWN run, not the superseded flight
         expect(resultC.gate.key).toBe('C');
         expect(resultC.gate.coalesced).toBe(false);
+
+        const resultA = await tickA;            // the A joiner folded into the latest demand
+        expect(resultA.tag).toBe('C-OWN');
+        expect(resultA.gate.coalesced).toBe(true);
+    });
+
+    test('a tick during a forced same-key recovery joins the flight — never the stale terminal cache', async () => {
+        let attempt = 0;
+
+        const {gate, runs, advance, deferrals} = makeGate({
+            runImpl: ({deferrals}) => {
+                attempt++;
+
+                if (attempt <= 2) {
+                    return failed(`n${attempt}`);
+                }
+
+                const d = deferred();
+
+                deferrals.push(d);
+
+                return d.promise;
+            },
+            maxFailureStreak: 2
+        });
+
+        await gate.tick({key: 'A'});
+        advance(1000);
+        await gate.tick({key: 'A'});
+        expect(gate.snapshot().status).toBe('terminal');
+
+        const recovery = gate.runNow({key: 'A'}); // the forced recovery flight
+        await flush();
+        expect(gate.snapshot().inFlight).toBe(true);
+
+        const joined = gate.tick({key: 'A'}); // must JOIN the recovery flight, not serve the stale terminal cache
+
+        deferrals[0].resolve(healthy('recovered'));
+
+        const r = await joined;
+        expect(r.status).toBe('healthy');       // the recovery's truth, not the cached terminal failure
+        expect(r.gate.terminal).toBe(false);
+        expect(r.gate.coalesced).toBe(false);
+        expect((await recovery).status).toBe('healthy');
+        expect(runs.length).toBe(3);
+    });
+
+    test('every non-healthy outcome follows one failure predicate — inward and outward metadata agree', async () => {
+        const {gate, runs, advance} = makeGate({runImpl: () => ({status: 'degraded', error: 'weird-status'})});
+
+        const first = await gate.tick({key: 'A'});
+        expect(first.gate.backoffMs).toBe(1000);      // the outward annotation…
+        expect(first.gate.nextAttemptAt).toBe(1000);
+
+        const snap = gate.snapshot();
+        expect(snap.status).toBe('degraded');          // …matches the inward projection exactly
+        expect(snap.backoffMs).toBe(1000);
+        expect(snap.nextAttemptAt).toBe(1000);
+        expect(snap.failureStreak).toBe(1);
+
+        advance(500);
+        const cached = await gate.tick({key: 'A'});
+        expect(runs.length).toBe(1);                   // backoff suppresses retries for ANY non-healthy outcome
+        expect(cached.gate.cached).toBe(true);
+        expect(cached.gate.backoffMs).toBe(1000);
+    });
+
+    test('one captured settle timestamp: the response checkedAt equals the cache record', async () => {
+        const {gate, advance} = makeGate({runImpl: () => healthy('x')});
+
+        advance(1000); // t=1000
+
+        const r = await gate.tick({key: 'A'});
+        expect(r.gate.checkedAt).toBe(1000);
+        expect(gate.snapshot().cached.checkedAt).toBe(1000); // never a second, later stamp
+
+        advance(1000);
+
+        const cached = await gate.tick({key: 'A'}); // healthy tick runs again (cadence-accurate)…
+        expect(cached.gate.checkedAt).toBe(2000);   // …and the new settle is the new single timestamp
+        expect(gate.snapshot().cached.checkedAt).toBe(2000);
+    });
+
+    test('snapshot() hands out an isolated copy — mutating it cannot change live gate behavior', async () => {
+        const {gate, runs} = makeGate({runImpl: () => healthy('x')});
+
+        await gate.tick({key: 'A'});
+
+        const snap = gate.snapshot();
+        snap.cached.result.status = 'failed';
+        snap.cached.checkedAt     = -1;
+
+        const again = gate.snapshot();
+        expect(again.status).toBe('healthy');
+        expect(again.cached.result.status).toBe('healthy');
+        expect(again.cached.checkedAt).not.toBe(-1);
+        expect(runs.length).toBe(1);
     });
 
     test('global single-flight holds across rotations and runNow churn (maxActive === 1)', async () => {
@@ -309,8 +414,8 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
             gate.tick({key: 'A'}),   // flight A#1
             gate.tick({key: 'B'}),   // pending B
             gate.tick({key: 'C'}),   // pending → C
-            gate.runNow({key: 'A'}), // pending → A#2 (forced)
-            gate.runNow({key: 'B'})  // pending → B#2 (forced)
+            gate.runNow({key: 'A'}), // pending → A#4 (forced)
+            gate.runNow({key: 'B'})  // pending → B#5 (forced)
         ];
 
         await flush();

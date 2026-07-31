@@ -19,14 +19,20 @@
  *    later same-named generation.
  * 2. **One global flight, one coalesced latest demand.** At most one `run()` is active at any
  *    moment, across all keys and rotations. Demand arriving during a flight for a DIFFERENT
- *    generation is coalesced: only the newest generation's demand survives, and folded waiters
- *    receive the serving run's own result — truthfully annotated (`gate.key` = the generation
- *    that actually ran, `gate.coalesced` = the waiter was folded), never an old result wearing
- *    a new key.
+ *    generation is coalesced: only the newest generation's demand survives, and EVERY waiter of
+ *    a superseded generation — including joiners already attached to the in-flight run — migrates
+ *    to the latest demand. A waiter therefore always receives the LATEST generation's truth,
+ *    annotated by generation identity (`gate.genId` of the serving run vs `gate.demandedGenId`
+ *    of the waiter's own demand; `gate.coalesced` marks the fold), never a superseded result
+ *    presented as current.
  * 3. **Draining.** A superseded flight's result is dropped (never cached into any other
  *    generation); the coalesced latest demand starts immediately after the active flight
  *    settles. Callers never hang and the latest generation always gets its own run.
- * 4. **Bounded budget.** `maxFailureStreak` exhausts into a TERMINAL cached result with a
+ * 4. **One failure predicate.** An outcome is healthy iff `status === 'healthy'`; EVERY other
+ *    outcome — 'failed', 'degraded', a thrown attempt, a non-object — follows the identical
+ *    failure path (streak, capped exponential backoff, terminal budget) and reports identical
+ *    metadata inwardly (snapshot) and outwardly (annotated results).
+ * 5. **Bounded budget.** `maxFailureStreak` exhausts into a TERMINAL cached result with a
  *    retained `stopReason` and named resumption (`runNow()` / key rotation). `Infinity` keeps
  *    liveness semantics: probe forever at the capped backoff.
  *
@@ -63,9 +69,9 @@ export function createBoundedRetryGate({
         throw new Error('boundedRetryGate: `run` must be a function');
     }
 
-    /** The one global in-flight run, if any: `{genId, promise}`. */
+    /** The one global in-flight run: `{genId, promise, waiters: [{key, genId, resolve}]}`. */
     let active = null;
-    /** The coalesced latest demand during a flight: `{gen, force, waiters: [{key, resolve}]}`. */
+    /** The coalesced latest demand during a flight: `{gen, force, waiters: [{key, genId, resolve}]}`. */
     let pending = null;
     /** The current generation. Identity is the OBJECT (monotonically increasing id), never the key string. */
     let generation = null;
@@ -94,25 +100,41 @@ export function createBoundedRetryGate({
     }
 
     /**
-     * @summary Wraps a raw attempt result with the gate's truth annotation. `gate.key` always names
-     * the generation the underlying run actually served — substitution is impossible by construction.
+     * @summary THE failure predicate for the whole gate: an outcome is healthy iff
+     * `status === 'healthy'`. Every other outcome follows the identical failure path, so inward
+     * (snapshot) and outward (annotated result) metadata can never disagree about whether a
+     * backoff exists.
+     * @param {Object} result
+     * @returns {Boolean}
+     */
+    function isHealthyOutcome(result) {
+        return result?.status === 'healthy';
+    }
+
+    /**
+     * @summary Wraps a raw attempt result with the gate's truth annotation. `gate.genId`/`gate.key`
+     * always name the generation the underlying run (or cached settle) actually served, and
+     * `checkedAt` is the ONE captured settle timestamp — the same instant the cache records.
      * @param {Object} result Raw attempt result (`{status, …}`).
      * @param {Object} gen    The generation the result belongs to.
      * @param {Object} [options]
-     * @param {Boolean} [options.cached=false]    True when served from cache (no run happened).
-     * @param {Number}  [options.checkedAt=now()] Settle time of the underlying run.
+     * @param {Boolean} [options.cached=false] True when served from cache (no run happened).
+     * @param {Number}  options.checkedAt      The captured settle time of the underlying run.
      * @returns {Object}
      */
-    function annotate(result, gen, {cached = false, checkedAt = now()} = {}) {
-        const failed = result.status === 'failed';
+    function annotate(result, gen, {cached = false, checkedAt} = {}) {
+        const failed = !isHealthyOutcome(result);
 
         return {
             ...result,
             gate: {
                 key          : gen.key,
+                genId        : gen.id,
                 cached,
                 checkedAt,
-                coalesced    : false,
+                coalesced    : false,  // per-waiter adjustment in fanout
+                demandedKey  : gen.key,
+                demandedGenId: gen.id,
                 failureStreak: gen.failureStreak,
                 backoffMs    : failed ? (gen.cached?.backoffMs ?? 0) : 0,
                 nextAttemptAt: failed && !gen.terminal ? gen.nextAttemptAt : null,
@@ -124,44 +146,44 @@ export function createBoundedRetryGate({
     }
 
     /**
-     * @summary Per-waiter delivery wrapper: marks results served by a DIFFERENT generation than the
-     * one demanded (`coalesced: true` + `demandedKey`), so a folded waiter can always tell which
-     * generation's truth it received.
-     * @param {Promise<Object>} promise
-     * @param {String} demandedKey
-     * @returns {Promise<Object>}
+     * @summary Per-waiter delivery: marks results served by a DIFFERENT generation than the one
+     * demanded (`coalesced: true` + the demanded generation identity), so a folded waiter can
+     * always tell which generation's truth it received versus which it asked for.
+     * @param {Object} annotated The serving run's annotated result.
+     * @param {Object} waiter    `{key, genId, resolve}` — the demanded generation identity.
      */
-    function deliver(promise, demandedKey) {
-        return promise.then(annotated => ({
+    function fanout(annotated, waiter) {
+        waiter.resolve({
             ...annotated,
             gate: {
                 ...annotated.gate,
-                coalesced  : annotated.gate.key !== demandedKey,
-                demandedKey
+                coalesced    : annotated.gate.genId !== waiter.genId,
+                demandedKey  : waiter.key,
+                demandedGenId: waiter.genId
             }
-        }));
+        });
     }
 
     /**
-     * @summary Settles the one global flight: caches into the flight's OWN still-current generation
-     * (a superseded flight drains — its result is dropped), then immediately starts the coalesced
-     * latest demand if one accumulated. Resolves (never rejects) the flight's joiners with the
-     * flight's own annotated result.
+     * @summary Settles the one global flight with ONE captured settle timestamp: caches into the
+     * flight's OWN still-current generation (a superseded flight drains — its result is dropped),
+     * fans the annotated result out to any joiners still attached (un-migrated waiters of an
+     * un-rotated flight), then immediately starts the coalesced latest demand if one accumulated.
      * @param {Object} flight The flight record being settled.
      * @param {Object} gen    The flight's own generation.
      * @param {Object} result The raw attempt outcome (thrown attempts pre-converted by `startFlight`).
-     * @returns {Object} The annotated result for this flight's joiners.
+     * @returns {Object} The annotated result.
      */
     function settleFlight(flight, gen, result) {
         if (active === flight) {
             active = null;
         }
 
-        if (generation && generation.id === flight.genId) {
-            const checkedAt = now();
+        const settledAt = now(); // ONE settle timestamp for the cache record, the backoff window, and the response
 
-            if (result.status === 'healthy') {
-                gen.cached        = {result, checkedAt, backoffMs: 0};
+        if (generation && generation.id === flight.genId) {
+            if (isHealthyOutcome(result)) {
+                gen.cached        = {result, checkedAt: settledAt, backoffMs: 0};
                 gen.failureStreak = 0;
                 gen.nextAttemptAt = 0;
                 gen.terminal      = false;
@@ -171,17 +193,25 @@ export function createBoundedRetryGate({
 
                 const backoffMs = Math.min(failureTtlMaxMs, failureTtlMs * 2 ** (gen.failureStreak - 1));
 
-                gen.cached = {result, checkedAt, backoffMs};
+                gen.cached = {result, checkedAt: settledAt, backoffMs};
 
                 if (gen.failureStreak >= maxFailureStreak) {
                     gen.terminal      = true;
                     gen.stopReason    = `attempt budget exhausted (streak ${gen.failureStreak}, budget ${maxFailureStreak})`;
                     gen.nextAttemptAt = 0;
                 } else {
-                    gen.nextAttemptAt = checkedAt + backoffMs;
+                    gen.nextAttemptAt = settledAt + backoffMs;
                 }
             }
         }
+
+        const annotated = annotate(result, gen, {cached: false, checkedAt: settledAt});
+
+        for (const waiter of flight.waiters) {
+            fanout(annotated, waiter);
+        }
+
+        flight.waiters.length = 0;
 
         if (pending) {
             const {gen: nextGen, force, waiters} = pending;
@@ -190,25 +220,23 @@ export function createBoundedRetryGate({
 
             const nextFlight = startFlight(nextGen, force);
 
-            for (const waiter of waiters) {
-                waiter.resolve(deliver(nextFlight, waiter.key));
-            }
+            nextFlight.waiters.push(...waiters);
         }
 
-        return annotate(result, gen, {cached: false});
+        return annotated;
     }
 
     /**
      * @summary Launches the one global flight for `gen`. The flight record is assigned to `active`
      * SYNCHRONOUSLY, before any await, so concurrent demand joins rather than races (the
-     * `RecorderService.ensureStore()` single-flight precedent). A thrown `run` converts to a failure
-     * result — the gate never caches or delivers a rejection.
+     * `RecorderService.ensureStore()` single-flight precedent). A thrown `run` converts to a
+     * failure result — the gate never caches or delivers a rejection.
      * @param {Object}  gen
-     * @param {Boolean} force True bypasses the failure-backoff window (operator demand).
-     * @returns {Promise<Object>} The flight's annotated result promise.
+     * @param {Boolean} force True bypasses the failure-backoff window and the terminal state (operator demand).
+     * @returns {Object} The flight record `{genId, promise, waiters}`.
      */
     function startFlight(gen, force) {
-        const flight = {genId: gen.id, promise: null};
+        const flight = {genId: gen.id, promise: null, waiters: []};
 
         flight.promise = Promise.resolve()
             .then(() => run({key: gen.key, force}))
@@ -224,12 +252,14 @@ export function createBoundedRetryGate({
 
         active = flight;
 
-        return flight.promise;
+        return flight;
     }
 
     /**
-     * @summary The single demand path behind `tick()` and `runNow()`: rotate → terminal/backoff
-     * short-circuit → join the active flight or coalesce as the latest demand → else start a run.
+     * @summary The single demand path behind `tick()` and `runNow()`: rotate → a same-generation
+     * active flight ALWAYS wins (its settle carries fresher truth than any cached short-circuit)
+     * → terminal/backoff cache short-circuit → coalesce as (or join) the latest demand, migrating
+     * the superseded flight's own joiners → else start a run.
      * @param {String}  key
      * @param {Boolean} force
      * @returns {Promise<Object>}
@@ -237,28 +267,32 @@ export function createBoundedRetryGate({
     function demand(key, force) {
         const gen = rotateIfNeeded(key);
 
-        if (gen.terminal && !force) {
-            return deliver(Promise.resolve(annotate(gen.cached.result, gen, {
-                cached   : true,
-                checkedAt: gen.cached.checkedAt
-            })), key);
+        // A same-generation active flight wins over any cached short-circuit: its settle carries
+        // fresher truth than the cache (e.g. a forced recovery in flight behind a terminal or
+        // backoff state — joining it can never serve the stale cached failure it is recovering).
+        if (active && active.genId === gen.id) {
+            return new Promise(resolve => active.waiters.push({key, genId: gen.id, resolve}));
         }
 
-        if (!force && gen.cached?.result.status === 'failed' && now() < gen.nextAttemptAt) {
-            // Inside the failure-backoff window: serve the cached failure, do NOT run.
-            return deliver(Promise.resolve(annotate(gen.cached.result, gen, {
+        if (gen.terminal && !force) {
+            return Promise.resolve(annotate(gen.cached.result, gen, {
                 cached   : true,
                 checkedAt: gen.cached.checkedAt
-            })), key);
+            }));
+        }
+
+        if (!force && gen.cached && !isHealthyOutcome(gen.cached.result) && now() < gen.nextAttemptAt) {
+            // Inside the failure-backoff window: serve the cached failure, do NOT run.
+            return Promise.resolve(annotate(gen.cached.result, gen, {
+                cached   : true,
+                checkedAt: gen.cached.checkedAt
+            }));
         }
 
         if (active) {
-            if (active.genId === gen.id) {
-                return deliver(active.promise, key); // join the one global flight
-            }
-
-            // Coalesce: only the newest generation's demand survives; folded waiters migrate and
-            // receive the serving run's own truthfully-annotated result.
+            // A different generation: this demand becomes (or joins) the coalesced latest demand,
+            // and the superseded flight's own joiners migrate with it — every waiter of a
+            // superseded generation receives the LATEST generation's truth, marked as folded.
             if (!pending || pending.gen.id !== gen.id) {
                 pending = {gen, force, waiters: pending?.waiters ?? []};
             }
@@ -267,10 +301,14 @@ export function createBoundedRetryGate({
                 pending.force = true;
             }
 
-            return new Promise(resolve => pending.waiters.push({key, resolve}));
+            pending.waiters.push(...active.waiters.splice(0));
+
+            return new Promise(resolve => pending.waiters.push({key, genId: gen.id, resolve}));
         }
 
-        return deliver(startFlight(gen, force), key);
+        const flight = startFlight(gen, force);
+
+        return new Promise(resolve => flight.waiters.push({key, genId: gen.id, resolve}));
     }
 
     return {
@@ -296,14 +334,16 @@ export function createBoundedRetryGate({
         /**
          * @summary Read-only projection of the gate's current truth for health surfaces. Never
          * starts, joins, schedules, or mutates anything — liveness reads perform zero inference.
+         * The returned `cached` record is a deep copy: mutating it cannot change live gate behavior.
          * @returns {Object} `{status: 'never-started'|'pending'|'healthy'|'failed'|'terminal', key,
-         *     inFlight, pendingDemand, failureStreak, backoffMs, nextAttemptAt, terminal, stopReason, cached}`
+         *     genId, inFlight, pendingDemand, failureStreak, backoffMs, nextAttemptAt, terminal, stopReason, cached}`
          */
         snapshot() {
             if (!generation) {
                 return {
                     status       : 'never-started',
                     key          : null,
+                    genId        : null,
                     inFlight     : false,
                     pendingDemand: null,
                     failureStreak: 0,
@@ -318,6 +358,7 @@ export function createBoundedRetryGate({
             return {
                 status       : generation.terminal ? 'terminal' : generation.cached ? generation.cached.result.status : 'pending',
                 key          : generation.key,
+                genId        : generation.id,
                 inFlight     : Boolean(active && active.genId === generation.id),
                 pendingDemand: pending ? pending.gen.key : null,
                 failureStreak: generation.failureStreak,
@@ -325,7 +366,13 @@ export function createBoundedRetryGate({
                 nextAttemptAt: generation.nextAttemptAt || null,
                 terminal     : generation.terminal,
                 stopReason   : generation.stopReason,
-                cached       : generation.cached ? {...generation.cached} : null
+                cached       : generation.cached
+                    ? {
+                        result   : {...generation.cached.result},
+                        checkedAt: generation.cached.checkedAt,
+                        backoffMs: generation.cached.backoffMs
+                    }
+                    : null
             };
         }
     };

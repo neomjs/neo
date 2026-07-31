@@ -385,12 +385,13 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
-                 * The canary producer's attempt period. Liveness probes NEVER trigger canary runs
-                 * (probes are pure readers), so a container probe interval is free
-                 * to differ from this cadence — but a probe permitted a 30s deadline should still
-                 * sample in MINUTES, not seconds: a 10s probe interval against a 30s-bound probe
-                 * oversamples by construction and latches a transient provider slowdown into a
-                 * permanent saturation regime. `<= 0` disables the producer.
+                 * The canary producer's attempt period. A liveness probe NEVER triggers a canary
+                 * run — healthcheck is a cheap pure read of the gate's current truth, so a
+                 * container probe interval is free to differ from this cadence. Guidance: sample
+                 * in MINUTES, not seconds. A seconds-order probe buys nothing (the probe performs
+                 * no inference itself), while its consecutive failures can still restart the
+                 * container — oversampling only adds restart-loop risk against a struggling
+                 * dependency. `<= 0` disables the producer and disarms an existing schedule.
                  * @type {number}
                  */
                 embeddingWriteCanaryCadenceMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_CADENCE_MS', 'number'),

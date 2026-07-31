@@ -1526,6 +1526,16 @@ class HealthService extends Base {
         const canary = this.#getEmbeddingWriteCanary();
 
         if (canary.status === 'healthy') {
+            // A live healthy canary strips canary details projected onto an earlier copy of this
+            // payload (e.g. a pending note cached before the flight settled healthy) — on a COPY,
+            // never mutating the stored cache. Identity is preserved when there is nothing to strip.
+            if (payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
+                return {
+                    ...payload,
+                    details: payload.details.filter(detail => !detail.startsWith('Embedding write canary'))
+                };
+            }
+
             return payload;
         }
 
@@ -1597,10 +1607,13 @@ class HealthService extends Base {
             return {status: 'healthy'};
         }
 
-        if (snapshot.status === 'failed' || snapshot.status === 'terminal') {
+        if (snapshot.cached) {
+            // One failure predicate, mirrored from the gate: ANY non-healthy settled outcome —
+            // whatever status string the attempt body used — projects as a failure with its
+            // retry truth, so inward and outward metadata can never disagree.
             return {
-                status       : snapshot.status,
-                error        : snapshot.cached?.result?.error || 'unknown error',
+                status       : snapshot.terminal ? 'terminal' : 'failed',
+                error        : snapshot.cached.result?.error || 'unknown error',
                 failureStreak: snapshot.failureStreak,
                 backoffMs    : snapshot.backoffMs,
                 nextAttemptAt: snapshot.nextAttemptAt,
@@ -1622,55 +1635,89 @@ class HealthService extends Base {
      * healthcheck; liveness probes can never create, start, or run the producer. Start-after-stop
      * re-arms the scheduler on the SAME gate (single-flight continuity): a stop-while-active
      * restart joins the unresolved flight rather than launching beside it — `maxActive=1` across
-     * restarts by construction. One immediate demand fires
-     * on start so the first healthcheck has truth fast; single-flight makes that safe.
+     * restarts by construction. One immediate demand fires on start so the first healthcheck has
+     * truth fast; single-flight makes that safe.
+     *
+     * The re-arm contract, explicitly:
+     * - **Epoch fencing:** every arm and every stop bumps the producer epoch; a scheduled callback
+     *   closes over its own epoch, so a callback queued before a stop/re-arm is inert forever —
+     *   it can never be revived by a later arm resetting `stopped`.
+     * - **Handle pairing:** a scheduled handle is always cleared by the `clearSchedule` that was
+     *   armed alongside it, never by a different arm's clearer.
+     * - **Preserve-vs-refresh:** collaborators (`runCanary`, `keyFor`, `scheduler`,
+     *   `clearSchedule`, `clock`) are PRESERVED from the previous arm when omitted and REPLACED
+     *   when provided. Config-resolved numerics (`cadenceMs`, `timeoutMs`, `healthyTtlMs`,
+     *   `failureTtlMs`, `failureTtlMaxMs`) always re-resolve from config at arm time; the gate's
+     *   backoff windows bind at first gate creation.
+     * - **Disable:** a non-positive `cadenceMs` synchronously disarms AND epoch-fences an
+     *   existing schedule before returning `null`.
      *
      * All collaborators are injectable seams (defaults read aiConfig at the use site) so specs
      * inject scheduler/clock/runCanary instead of mutating shared config.
      *
      * @param {Object}   [options]
-     * @param {Number}   [options.cadenceMs=aiConfig.healthcheck.embeddingWriteCanaryCadenceMs] Producer attempt period; `<= 0` disables (returns null).
-     * @param {Number}   [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Per-attempt provider deadline, bound HERE at start — never per healthcheck call.
+     * @param {Number}   [options.cadenceMs=aiConfig.healthcheck.embeddingWriteCanaryCadenceMs] Producer attempt period; `<= 0` disables (disarms an existing schedule, returns null).
+     * @param {Number}   [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Per-attempt provider deadline, bound HERE at first creation — never per healthcheck call.
      * @param {Number}   [options.healthyTtlMs=aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs] Staleness floor for the last healthy result.
-     * @param {Number}   [options.failureTtlMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs] Base failure-backoff window.
-     * @param {Number}   [options.failureTtlMaxMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs] Backoff ceiling.
-     * @param {Function} [options.runCanary] Attempt body; default probes the live embedding write path.
-     * @param {Function} [options.keyFor] Generation-key resolver; default fingerprints the active embedding route.
-     * @param {Function} [options.scheduler] `(fn, ms) => handle`; default `setInterval`.
-     * @param {Function} [options.clearSchedule] `(handle) => void`; default `clearInterval`.
-     * @param {Function} [options.clock=Date.now] Time source.
+     * @param {Number}   [options.failureTtlMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs] Base failure-backoff window (binds at first gate creation).
+     * @param {Number}   [options.failureTtlMaxMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs] Backoff ceiling (binds at first gate creation).
+     * @param {Function} [options.runCanary] Attempt body; preserved when omitted on re-arm.
+     * @param {Function} [options.keyFor] Generation-key resolver; preserved when omitted on re-arm.
+     * @param {Function} [options.scheduler] `(fn, ms) => handle`; preserved when omitted on re-arm.
+     * @param {Function} [options.clearSchedule] `(handle) => void`; preserved when omitted on re-arm.
+     * @param {Function} [options.clock] Time source; preserved when omitted on re-arm.
      * @returns {Object|null} The producer record, or `null` when disabled by cadence.
      * @protected
      */
-    startEmbeddingWriteCanary({
-        cadenceMs       = aiConfig.healthcheck.embeddingWriteCanaryCadenceMs,
-        timeoutMs       = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs,
-        healthyTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs,
-        failureTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
-        failureTtlMaxMs = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
-        runCanary       = null,
-        keyFor          = null,
-        scheduler       = null,
-        clearSchedule   = null,
-        clock           = Date.now
-    } = {}) {
-        if (!(cadenceMs > 0)) {
-            return null; // Contract Ledger fallback: a non-positive cadence disables the producer.
-        }
-
-        const schedule   = scheduler     ?? ((fn, ms) => setInterval(fn, ms)),
-              unschedule = clearSchedule ?? (handle => clearInterval(handle));
+    startEmbeddingWriteCanary(options = {}) {
+        const {
+            cadenceMs       = aiConfig.healthcheck.embeddingWriteCanaryCadenceMs,
+            timeoutMs       = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs,
+            healthyTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs,
+            failureTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
+            failureTtlMaxMs = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
+            runCanary,
+            keyFor,
+            scheduler,
+            clearSchedule,
+            clock
+        } = options;
 
         let producer = this.#embeddingWriteCanaryProducer;
 
+        if (!(cadenceMs > 0)) {
+            // Disabled cadence: synchronously disarm AND fence an existing schedule (the epoch
+            // bump makes any queued callback inert), then report disabled.
+            if (producer) {
+                producer.epoch++;
+                producer.stopped = true;
+
+                if (producer.timer) {
+                    producer.clearSchedule(producer.timer);
+                    producer.timer = null;
+                }
+            }
+
+            return null; // Contract Ledger fallback: a non-positive cadence disables the producer.
+        }
+
+        // Collaborators are PRESERVED from the previous arm when omitted and REPLACED when
+        // provided — the explicit preserve-vs-refresh re-arm contract. Config-resolved numerics
+        // always re-resolve (config may have changed while stopped); the gate's backoff windows
+        // bind at first gate creation.
+        const schedule   = scheduler     ?? producer?.schedule      ?? ((fn, ms) => setInterval(fn, ms)),
+              unschedule = clearSchedule ?? producer?.clearSchedule ?? (handle => clearInterval(handle));
+
         if (producer?.timer) {
+            // The clearer that PAIRED the old handle clears it — never a different arm's clearer.
             producer.clearSchedule(producer.timer);
             producer.timer = null;
         }
 
         if (!producer) {
             producer = this.#embeddingWriteCanaryProducer = {
-                gate: createBoundedRetryGate({
+                epoch: 0,
+                gate : createBoundedRetryGate({
                     // Delegated through the record so a re-arm can refresh the attempt body
                     // without replacing the gate (single-flight continuity across restarts).
                     run: ctx => producer.runCanary(ctx),
@@ -1679,24 +1726,32 @@ class HealthService extends Base {
                     now: () => producer.clock()
                 }),
                 clearSchedule: unschedule,
-                clock,
+                schedule,
+                clock        : clock ?? Date.now,
                 keyFor       : keyFor ?? (() => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`),
                 runCanary    : runCanary ?? (() => buildEmbeddingWriteCanaryBlock({timeoutMs})),
                 stopped      : false,
                 timer        : null
             };
         } else {
-            producer.clock     = clock;
-            producer.keyFor    = keyFor ?? producer.keyFor;
-            producer.runCanary = runCanary ?? producer.runCanary;
+            if (clock)     producer.clock     = clock;
+            if (keyFor)    producer.keyFor    = keyFor;
+            if (runCanary) producer.runCanary = runCanary;
+
+            producer.schedule      = schedule;
+            producer.clearSchedule = unschedule;
         }
 
         producer.cadenceMs    = cadenceMs;
         producer.healthyTtlMs = healthyTtlMs;
         producer.stopped      = false;
-        producer.timer        = schedule(() => {
-            // Queued-tick fence: callbacks captured before stop() are no-ops.
-            if (!producer.stopped) {
+
+        const epoch = ++producer.epoch;
+
+        producer.timer = producer.schedule(() => {
+            // Epoch fence: a callback queued before stop()/re-arm stays inert forever — it reads
+            // an epoch that has moved on, never a reset `stopped` flag.
+            if (producer.epoch === epoch && !producer.stopped) {
                 producer.gate.tick({key: producer.keyFor()});
             }
         }, cadenceMs);
@@ -1708,17 +1763,20 @@ class HealthService extends Base {
     }
 
     /**
-     * @summary Disarms the canary scheduler; never touches the gate, its cache, or an in-flight run.
+     * @summary Disarms the canary scheduler and fences any queued callbacks; never touches the
+     * gate, its cache, or an in-flight run.
      *
-     * Wired to `process exit` in the MC server boot: queued/captured tick callbacks become no-ops
-     * (the tick closure checks `stopped`), while an in-flight attempt drains naturally — a later
-     * `startEmbeddingWriteCanary()` joins it through the same gate and never overlaps.
+     * Wired to `process exit` in the MC server boot: the epoch bump makes queued/captured tick
+     * callbacks inert (a later re-arm cannot revive them), while an in-flight attempt drains
+     * naturally — a later `startEmbeddingWriteCanary()` joins it through the same gate and never
+     * overlaps.
      * @protected
      */
     stopEmbeddingWriteCanary() {
         const producer = this.#embeddingWriteCanaryProducer;
 
         if (producer) {
+            producer.epoch++;
             producer.stopped = true;
 
             if (producer.timer) {
