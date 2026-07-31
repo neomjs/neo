@@ -9,6 +9,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import {
+    classifyEmbedFailure,
     embedRecoverableDocuments,
     extractMemoryCoreCollectionData,
     truncateToByteBudget,
@@ -125,8 +126,8 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([
-            {id: 'empty', reason: 'document-empty', message: 'document field was empty'},
-            {id: 'missing', reason: 'document-missing', message: 'document field was missing from the Chroma metadata read'}
+            {id: 'empty', reason: 'document-empty', retryable: false, message: 'document field was empty'},
+            {id: 'missing', reason: 'document-missing', retryable: false, message: 'document field was missing from the Chroma metadata read'}
         ]);
         expect(result.unrecoverableIds).toEqual(['empty', 'missing']);
         expect(result.counts).toEqual({total: 3, intact: 0, reEmbedded: 1, unrecoverable: 2});
@@ -172,9 +173,10 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([{
-            id     : 'gone',
-            reason : 'metadata-row-missing',
-            message: 'id was absent from the Chroma documents/metadatas read'
+            id       : 'gone',
+            reason   : 'metadata-row-missing',
+            retryable: false,
+            message  : 'id was absent from the Chroma documents/metadatas read'
         }]);
         expect(result.unrecoverableIds).toEqual(['gone']);
         expect(result.counts.reEmbedded).toBe(1);
@@ -213,10 +215,13 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
             ['too-large'],
             ['small-2']
         ]);
+        // A plain error with no HTTP status or network code is UNKNOWN — terminal, never
+        // optimistic (the v2 taxonomy; previously this collapsed into 'provider-error').
         expect(result.unrecoverable).toEqual([{
-            id     : 'overcap',
-            reason : 'embedding-provider-error',
-            message: 'context overflow'
+            id       : 'overcap',
+            reason   : 'embedding-unknown',
+            retryable: false,
+            message  : 'context overflow'
         }]);
         expect(result.unrecoverableIds).toEqual(['overcap']);
         expect(result.data.ids).toEqual(['ok', 'ok2']);
@@ -268,9 +273,10 @@ test.describe('extractMemoryCoreCollectionData — MC stored-embedding repair ex
         });
 
         expect(result.unrecoverable).toEqual([{
-            id     : 'm',
-            reason : 'embedding-result-malformed',
-            message: 'embedFn returned 0 embeddings for 1 documents'
+            id       : 'm',
+            reason   : 'embedding-result-malformed',
+            retryable: true,
+            message  : 'embedFn returned 0 embeddings for 1 documents'
         }]);
         expect(result.unrecoverableIds).toEqual(['m']);
         expect(result.counts).toEqual({total: 1, intact: 0, reEmbedded: 0, unrecoverable: 1});
@@ -325,6 +331,165 @@ test.describe('embedRecoverableDocuments — binary-split isolate-then-rebatch (
         expect([...failedIndexes]).toEqual([]);
         expect(embeddings).toEqual([[3], [3], [3]]);
         expect(calls).toBe(1);
+    });
+});
+
+test.describe('classifyEmbedFailure — cause → reason/fate/routing', () => {
+
+    const withStatus = status => { const e = new Error(`embed HTTP ${status}`); e.httpStatus = status; return e };
+    const withCode   = code => { const e = new Error('fetch failed'); e.code = code; return e };
+
+    test('the classification table holds for every named class', () => {
+        for (const status of [401, 403, 404]) {
+            expect(classifyEmbedFailure(withStatus(status))).toEqual({reason: 'embedding-config-terminal', retryable: false, routing: 'config'});
+        }
+        for (const status of [408, 429, 500, 502, 503]) {
+            expect(classifyEmbedFailure(withStatus(status))).toEqual({reason: 'embedding-provider-error', retryable: true, routing: 'transient'});
+        }
+        for (const status of [400, 413, 422]) {
+            expect(classifyEmbedFailure(withStatus(status))).toEqual({reason: 'embedding-input-rejected', retryable: false, routing: 'document'});
+        }
+        for (const code of ['ECONNREFUSED', 'ETIMEDOUT', 'UND_ERR_HEADERS_TIMEOUT']) {
+            expect(classifyEmbedFailure(withCode(code)).routing).toBe('transient');
+        }
+
+        // undici wraps the network cause: `fetch failed` TypeError with cause.code.
+        const wrapped = new Error('fetch failed');
+        wrapped.cause = {code: 'ECONNREFUSED'};
+        expect(classifyEmbedFailure(wrapped).routing).toBe('transient');
+
+        const aborted = new Error('aborted');
+        aborted.name  = 'AbortError';
+        expect(classifyEmbedFailure(aborted).routing).toBe('transient');
+
+        const malformed = new Error('bad shape');
+        malformed.unrecoverableReason = 'embedding-result-malformed';
+        expect(classifyEmbedFailure(malformed)).toEqual({reason: 'embedding-result-malformed', retryable: true, routing: 'transient'});
+    });
+
+    test('unknown is never optimistic: a plain error is terminal', () => {
+        expect(classifyEmbedFailure(new Error('something odd'))).toEqual({reason: 'embedding-unknown', retryable: false, routing: 'unknown'});
+    });
+});
+
+test.describe('embedRecoverableDocuments — bounded, cause-routed retry engine', () => {
+
+    const connRefused = () => { const e = new Error('fetch failed'); e.cause = {code: 'ECONNREFUSED'}; return e };
+    const withStatus  = status => { const e = new Error(`embed HTTP ${status}`); e.httpStatus = status; return e };
+
+    test('FALSIFIER bounded pressure: persistent transient outage retries WHOLE batches — exact call ceiling, no split', async () => {
+        const widths                                 = [];
+        const backoffs                               = [];
+        const {failures, stoppedEarly, attemptsUsed} = await embedRecoverableDocuments({
+            embedFn  : async docs => { widths.push(docs.length); throw connRefused() },
+            ids      : ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+            documents: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+            attempts : 3,
+            backoffMs: 500,
+            wait     : async ms => { backoffs.push(ms) }
+        });
+
+        // The predecessor spent 45 calls here (per-range budgets down the split tree). The
+        // contract is one call per round: 3 attempts, full width every time, then stop.
+        expect(widths).toEqual([8, 8, 8]);
+        expect(backoffs).toEqual([500, 1000]);
+        expect(stoppedEarly).toBe(true);
+        expect(attemptsUsed).toBe(3);
+        expect(failures).toHaveLength(8);
+        expect(failures.every(failure => failure.reason === 'embedding-provider-error' && failure.retryable === true)).toBe(true);
+    });
+
+    test('FALSIFIER config fate: 401 stops the whole operation on call ONE — no budget burned, terminal records', async () => {
+        let   calls                    = 0;
+        const {failures, stoppedEarly} = await embedRecoverableDocuments({
+            embedFn  : async () => { calls++; throw withStatus(401) },
+            ids      : ['a', 'b'],
+            documents: ['a', 'b'],
+            attempts : 5,
+            wait     : async () => {}
+        });
+
+        expect(calls).toBe(1);
+        expect(stoppedEarly).toBe(false);
+        expect(failures).toEqual([
+            {index: 0, reason: 'embedding-config-terminal', retryable: false, message: 'embed HTTP 401'},
+            {index: 1, reason: 'embedding-config-terminal', retryable: false, message: 'embed HTTP 401'}
+        ]);
+    });
+
+    test('transient recovery inside the budget completes clean', async () => {
+        let   calls                                              = 0;
+        const {embeddings, failures, stoppedEarly, attemptsUsed} = await embedRecoverableDocuments({
+            embedFn  : async docs => { if (++calls === 1) throw withStatus(503); return docs.map(() => [7]) },
+            ids      : ['a', 'b'],
+            documents: ['a', 'b'],
+            attempts : 3,
+            wait     : async () => {}
+        });
+
+        expect(failures).toEqual([]);
+        expect(stoppedEarly).toBe(false);
+        expect(attemptsUsed).toBe(2);
+        expect(embeddings).toEqual([[7], [7]]);
+    });
+
+    test('document-class failure (413) gets ONE bounded isolation pass: survivors recover, offender records terminal', async () => {
+        const widths  = [];
+        const embedFn = async docs => {
+            widths.push(docs.length);
+            if (docs.includes('POISON')) throw withStatus(413);
+            return docs.map(() => [1]);
+        };
+
+        const {embeddings, failures} = await embedRecoverableDocuments({
+            embedFn,
+            ids      : ['a', 'b', 'c', 'd'],
+            documents: ['a', 'POISON', 'c', 'd'],
+            attempts : 3,
+            wait     : async () => {}
+        });
+
+        expect(failures).toEqual([
+            {index: 1, reason: 'embedding-input-rejected', retryable: false, message: 'embed HTTP 413'}
+        ]);
+        expect(embeddings[0]).toEqual([1]);
+        expect(embeddings[2]).toEqual([1]);
+        expect(embeddings[3]).toEqual([1]);
+        // One isolation pass from the KNOWN-failed set (depth-first halving): the failed full
+        // batch is never repeated, and no range inside the tree carries its own retry budget.
+        expect(widths).toEqual([4, 2, 1, 1, 2]);
+    });
+
+    test('expectedDimension: wrong-dimension elements retry as transient and record malformed at budget end — never delivered', async () => {
+        const {embeddings, failures, stoppedEarly} = await embedRecoverableDocuments({
+            embedFn          : async docs => docs.map(() => [1, 2]),
+            ids              : ['a'],
+            documents        : ['a'],
+            attempts         : 2,
+            expectedDimension: 4,
+            wait             : async () => {}
+        });
+
+        expect(embeddings[0]).toBeUndefined();
+        expect(stoppedEarly).toBe(true);
+        expect(failures).toEqual([
+            {index: 0, reason: 'embedding-result-malformed', retryable: true, message: 'element dimension 2, expected 4'}
+        ]);
+    });
+
+    test('a sparse element (undefined hole) is caught by validation, never returned as an embedding', async () => {
+        const {embeddings, failures} = await embedRecoverableDocuments({
+            embedFn  : async () => [[1], undefined],
+            ids      : ['a', 'b'],
+            documents: ['a', 'b'],
+            attempts : 1
+        });
+
+        expect(embeddings[0]).toEqual([1]);
+        expect(embeddings[1]).toBeUndefined();
+        expect(failures).toEqual([
+            {index: 1, reason: 'embedding-result-malformed', retryable: true, message: 'element is not a numeric vector'}
+        ]);
     });
 });
 
