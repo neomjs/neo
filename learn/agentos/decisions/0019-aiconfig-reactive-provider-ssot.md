@@ -297,7 +297,7 @@ So the two are declared separately and never collapsed into one value:
 
 | Contract | Binding | Requirement |
 |---|---|---|
-| Host source | `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) | the **default is checkout-independent**, so no repository operation reaches bundles left at it; an explicit override is unconstrained |
+| Host source | `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`) | the **default does not derive from the Compose project/checkout path**. That is the whole contract: an explicit override is unconstrained, and a checkout placed under the default path would still be reachable by repository operations |
 | Container target | `NEO_BACKUP_PATH` | explicit per-profile placement; mandatory once the leaf left the member walk |
 
 **Generalization for future leaves:** when a leaf crosses a namespace boundary — host filesystem vs

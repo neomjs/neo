@@ -4,10 +4,15 @@ This document provides consistent recovery procedures for all persistent subsyst
 
 ## Locating the bundle root
 
-Bundles are **no longer stored inside the checkout.** The root is the resolved `backupPath` leaf —
-`NEO_BACKUP_PATH` when set, otherwise `${HOME}/.neo-ai/backups`. It was relocated out of the plane
-because a checkout-relative root sits in the git working tree, where `git clean -x` removes it
-(`.neo-ai-data` is gitignored, and `clean -x` is defined as reaching ignored files).
+The root is the resolved `backupPath` leaf — `NEO_BACKUP_PATH` when set, otherwise
+`${HOME}/.neo-ai/backups`. **The default no longer derives from the checkout path.** It was
+relocated out of the plane because a checkout-relative root sits in the git working tree, where
+`git clean -x` removes it (`.neo-ai-data` is gitignored, and `clean -x` is defined as reaching
+ignored files).
+
+That is the bound worth knowing before you go looking: the *default* moved, not every possible
+location. A deployment may point `NEO_BACKUP_PATH` anywhere, including back under a checkout — so
+resolve the leaf rather than assuming where bundles are.
 
 Resolve it rather than assuming, then use `$BUNDLE_ROOT` throughout this runbook:
 

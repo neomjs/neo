@@ -49,8 +49,22 @@ const
     CONTAINER_TARGET = '/app/.neo-ai-data/backups',
     HOST_SOURCE_ENV  = 'NEO_HOST_BACKUP_ROOT',
     TARGET_ENV       = 'NEO_BACKUP_PATH',
+    // The default the deployment contract records. Asserted so the documented contract and the
+    // shipped Compose source cannot drift into two different values.
+    LEDGER_DEFAULT   = '${HOME}/.neo-ai/backups',
 
     readCompose = filePath => yamlLoad(fs.readFileSync(filePath, 'utf8')),
+
+    /**
+     * A Compose bind source is checkout-independent only if it is rooted absolutely. Anything else
+     * — `./x`, `../x`, `x`, `x/y` — resolves against the project directory.
+     *
+     * `${VAR}`-leading values are accepted because the value is not knowable statically; the guard
+     * this spec can honestly provide is that the source is not a LITERAL relative path. A `${VAR}`
+     * expanding to a relative value remains possible and is out of reach of source parsing — the
+     * bounded claim, not a universal one.
+     */
+    isAbsoluteRooted = value => typeof value === 'string' && (value.startsWith('/') || value.startsWith('${')),
 
     /**
      * Splits on the mount's TARGET suffix rather than on `:` — the source contains `${VAR:-default}`,
@@ -73,19 +87,25 @@ test.describe('canonical backup root — host source and container target are se
         // Half two: the host side is a declared deployment input, not a literal.
         expect(hostSource).toContain(HOST_SOURCE_ENV);
 
-        // The actual regression guard. `./x` and `../x` resolve against the Compose project
-        // directory, which is a checkout — that is the exact shape being retired, and it is
-        // what an innocent "simplify the path" edit reintroduces.
-        expect(hostSource.startsWith('./'), `host source "${hostSource}" is checkout-relative`).toBe(false);
-        expect(hostSource.startsWith('../'), `host source "${hostSource}" is checkout-relative`).toBe(false);
+        // The actual regression guard, stated as a CLASS rather than as spellings. Compose
+        // resolves EVERY relative source against the project directory — `./backups`,
+        // `../backups`, and bare `backups` or `nested/backups` are all equally checkout-relative.
+        // An earlier revision of this spec rejected only the dot-segment forms, which let the
+        // regression return through the spelling nobody pictures. Absoluteness is the property;
+        // dot-prefixes were only its most obvious violation.
+        expect(isAbsoluteRooted(hostSource), `host source "${hostSource}" is project-relative`).toBe(true);
 
-        // …including inside the `${VAR:-default}` fallback, which is where a nearby default
-        // would hide from the two checks above.
+        // …and the same class check inside the `${VAR:-default}` fallback, which is where a
+        // convenient default hides from a check on the outer string.
         const fallback = hostSource.match(/:-(.*)\}$/)?.[1];
 
         expect(fallback, `host source "${hostSource}" declares no default`).toBeTruthy();
-        expect(fallback.startsWith('./'), `default "${fallback}" is checkout-relative`).toBe(false);
-        expect(fallback.startsWith('../'), `default "${fallback}" is checkout-relative`).toBe(false);
+        expect(isAbsoluteRooted(fallback), `default "${fallback}" is project-relative`).toBe(true);
+
+        // Contract coherence: the deployment contract records this exact default and cites this
+        // test as its proof. Asserting the value keeps documentation and guard from drifting into
+        // two different contracts — which is the failure mode this whole placement exists to fix.
+        expect(fallback).toBe(LEDGER_DEFAULT);
     });
 
     test('the container target is pinned explicitly, because the leaf is no longer a plane member', () => {
