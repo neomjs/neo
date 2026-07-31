@@ -840,12 +840,27 @@ class ConfigBase extends ConfigProvider {
                  * `deploymentMode`: storage/deployment defaults cannot express which process owns
                  * host/session effects versus plane maintenance on the same machine.
                  *
-                 * `container-plane` is the canonical default. A machine-local Orchestrator
-                 * explicitly declares `host-edge`; `legacy-mixed` exists only for rollback to a
-                 * pre-cutover revision. Unknown values fail the preflight ownership audit.
-                 * @type {'legacy-mixed'|'host-edge'|'container-plane'}
+                 * **There is no default: a role is declared, never inherited.** A default
+                 * makes the ambiguous command the cheap one — a bare `npm run ai:orchestrator` on a
+                 * host resolved `container-plane` and claimed the authority Docker already owns,
+                 * with nothing in its name or output saying so. Every launcher now declares: Compose
+                 * for both container profiles, `ai:host-edge` (via `hostEdgeProfile.mjs`) for the
+                 * machine-local one, and the harness Brain profiles for the smoke and the packaged
+                 * product. `legacy-mixed` exists only for rollback to a pre-cutover revision.
+                 *
+                 * The empty default is what ARMS `requiredFor`: requiredness is evaluated on the
+                 * RESOLVED value, so any non-empty default would make the requirement permanently
+                 * unfireable. Membership in the frozen enum is a separate gate — requiredness proves
+                 * non-empty and typed, never that a value is a role — and `bootOrchestratorCli`
+                 * runs both before any plane state is written.
+                 * @type {''|'legacy-mixed'|'host-edge'|'container-plane'}
                  */
-                authorityProfile: leaf('container-plane', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string'),
+                authorityProfile: leaf('', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string', {
+                    requiredFor: [{
+                        entrypoints: ['orchestrator-daemon'],
+                        reason     : 'A role is declared, never inherited. Declare `container-plane` on the containerized Orchestrator (its Compose service sets it), or start the machine-local one with `npm run ai:host-edge`, which declares `host-edge` and its full posture.'
+                    }]
+                }),
                 /**
                  * Filesystem root under which tenant-repo mirrors are stored. The
                  * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,

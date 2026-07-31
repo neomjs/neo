@@ -32,7 +32,7 @@ import path                                                              from 'p
 import {execSync}                                                        from 'child_process';
 import AiConfig                                                          from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
-import {isTaskOwnedByProfile}                                            from './taskAuthority.mjs';
+import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
 import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 import {
@@ -329,14 +329,42 @@ export async function startOrchestrator(options = {}) {
     });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    // Boot guard: fail fast on a stale config overlay (missing a leaf its template added) with an
-    // actionable --migrate-config message, rather than letting the orchestrator crash cryptically.
+/**
+ * @summary THE orchestrator boot sequence — the single ordered gate every launcher passes through.
+ *
+ * Exported rather than inlined into the CLI guard because `hostEdge.mjs` is a second legitimate
+ * entrypoint for the same daemon: two `import.meta.url` guards would mean two copies of this
+ * order, and the order is the contract.
+ *
+ * **Ordering is the load-bearing property, not the checks themselves.** Everything here runs before
+ * `startOrchestrator`, which opens with `fs.ensureDirSync(dataDir)` and `enforceSingleton()` — and
+ * `enforceSingleton` SIGTERMs whatever live orchestrator holds the PID file. A role check placed
+ * after it would let a launch that is about to refuse first reap the correct daemon: the
+ * misconfigured process dies, and so does the one that was working. So a launch this function
+ * rejects must write NOTHING — no state directory, no PID file, no log.
+ *
+ * Two gates, in order:
+ * 1. **Config freshness** — a stale overlay missing a leaf its template added, named with the
+ *    actionable `--migrate-config` fix rather than a cryptic downstream crash. `authorityProfile`
+ *    carries no default, so an undeclared role surfaces here as a required-env finding.
+ * 2. **Role validity** — membership in the frozen profile enum. Requiredness proves non-empty and
+ *    typed; it cannot prove that `container-plain` is not a role.
+ *
+ * @returns {Promise<void>}
+ */
+export async function bootOrchestratorCli() {
     const {findings} = AiConfig.validateRequiredEnv({entrypoint: 'orchestrator-daemon'});
-    assertConfigFresh({requiredFindings: findings})
-        .then(() => startOrchestrator())
-        .catch(err => {
-            console.error(`[Orchestrator] Failed to start: ${err && err.stack ? err.stack : err}`);
-            process.exit(1);
-        });
+
+    await assertConfigFresh({requiredFindings: findings});
+
+    assertAuthorityProfile(AiConfig.orchestrator.authorityProfile);
+
+    return startOrchestrator();
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    bootOrchestratorCli().catch(err => {
+        console.error(`[Orchestrator] Failed to start: ${err && err.stack ? err.stack : err}`);
+        process.exit(1);
+    });
 }

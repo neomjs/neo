@@ -210,6 +210,13 @@ export function buildBrainProfile({isolationRoot, chromaPort, fleetPort}) {
         NEO_REM_RUN_STATE_DIR   : path.join(isolationRoot, 'rem-runs'),
         UNIT_TEST_MODE          : '1',
 
+        // The orchestrator role is DECLARED, never inherited — `authorityProfile` carries
+        // no leaf default, so an undeclared role is a refused launch. `container-plane` is the
+        // behaviour-preserving and honest answer: the smoke drives the plane-owning maintenance
+        // lanes (scheduled backup et al) inside `isolationRoot`, and every host-edge lane below is
+        // gated off precisely because this harness must not touch the machine.
+        NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane',
+
         // Listeners the smoke exercises → runtime-allocated ports
         NEO_CHROMA_PORT_TEST: String(chromaPort),
         NEO_FLEET_PORT      : String(fleetPort),
@@ -302,6 +309,13 @@ export function buildPackagedBrainEnv({dataRoot}) {
         NEO_MEMORY_WAL_DIR         : path.join(dataRoot, 'memory-wal'),
         NEO_MESSAGE_WAL_DAEMON_DIR : path.join(dataRoot, 'message-daemon'),
         NEO_REM_RUN_STATE_DIR      : path.join(dataRoot, 'rem-runs'),
+
+        // The orchestrator role is DECLARED, never inherited. `container-plane` names what
+        // the artifact's ON-by-omission set already is — Chroma, the embed + message daemons,
+        // backups, local graph maintenance — while every host-edge lane is gated off below, because
+        // an installed organism must not adopt the MACHINE's dev server, git checkouts, or model
+        // runtimes. The role is not a claim about running in a container; it is the authority class.
+        NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane',
 
         // The artifact's lane closure (reasons in the summary above)
         NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED                 : '0',
