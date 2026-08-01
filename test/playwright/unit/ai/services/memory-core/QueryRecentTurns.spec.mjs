@@ -217,7 +217,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'backfill', timestamp: newTs}
         });
 
-        const calls = [];
+        const calls  = [];
         const result = await MemoryService.backfillMiniSummaries({
             limit           : 1,
             buildMiniSummary: async ({prompt}) => {
@@ -226,7 +226,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             }
         });
         expect(calls).toEqual(['new prompt']);
-        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, runBudgetHit: false});
+        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-new');
         const data = JSON.parse(row.data);
@@ -255,11 +255,127 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
                 throw new Error('provider unavailable');
             }
         });
-        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, runBudgetHit: false});
+        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, exhausted: 0, runBudgetHit: false});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-failure');
         const data = JSON.parse(row.data);
         expect(data.properties.miniSummary).toBeUndefined();
+    });
+
+    test('backfillMiniSummaries archives a row once the attempt budget is spent, and tallies it (#16313)', async () => {
+        const ts = '2099-12-31T23:59:54.000Z';
+
+        memStore.set('budget-exhausted', {prompt: 'p', response: 'r'});
+        GraphService.upsertNode({
+            id              : 'budget-exhausted', type: 'AGENT_MEMORY', name: 'Memory: budget', description: 'budget',
+            semanticVectorId: 'budget-exhausted',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: ts}
+        });
+
+        const budget      = Neo.config.aiConfig?.memoryService?.miniSummaryMaxAttempts ?? 5;
+        const alwaysFails = async () => { throw new Error('provider unavailable'); };
+        let last;
+
+        // Sweep repeatedly, as the scheduler does. Each pass records ONE attempt; the row must leave
+        // the pending set at the budget instead of being retried forever — the defect is precisely
+        // that consecutive passes cannot see each other, so a single-pass assertion cannot catch it.
+        for (let pass = 0; pass < budget; pass++) {
+            last = await MemoryService.backfillMiniSummaries({limit: 1, buildMiniSummary: alwaysFails});
+        }
+
+        expect(last.exhausted).toBe(1);
+        expect(last.deferred).toBe(0);
+
+        const data = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('budget-exhausted').data);
+
+        expect(data.properties.archivedAt).toBeTruthy();
+        expect(data.properties.archivedReason).toBe('generation-timeout');
+        expect(data.properties.miniSummaryAttempts).toBe(budget);
+        // Reversible, and distinguishable from the no-content exit — a widened window must be able
+        // to restore exactly these rows.
+        expect(data.properties.archivedReason).not.toBe('no-content');
+    });
+
+    test('the THROWN timeout counts toward the budget, not only a falsy return (#16313)', async () => {
+        // The dominant real-world path throws; a budget on the falsy return alone would look
+        // complete and leave the case actually burning provider time unbounded.
+        const ts = '2099-12-31T23:59:55.000Z';
+
+        memStore.set('budget-throws', {prompt: 'p', response: 'r'});
+        GraphService.upsertNode({
+            id              : 'budget-throws', type: 'AGENT_MEMORY', name: 'Memory: throws', description: 'throws',
+            semanticVectorId: 'budget-throws',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: ts}
+        });
+
+        await MemoryService.backfillMiniSummaries({
+            limit           : 1,
+            buildMiniSummary: async () => { throw new Error('timed out'); }
+        });
+
+        const data = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('budget-throws').data);
+
+        expect(data.properties.miniSummaryAttempts).toBe(1);
+
+        // Leaves the pending set deliberately, so drop it: a still-pending row with a high timestamp
+        // out-sorts later fixtures and silently steals their limited batch.
+        GraphService.db.storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run('budget-throws');
+    });
+
+    test('a falsy return counts toward the budget too (#16313)', async () => {
+        const ts = '2099-12-31T23:59:56.000Z';
+
+        memStore.set('budget-falsy', {prompt: 'p', response: 'r'});
+        GraphService.upsertNode({
+            id              : 'budget-falsy', type: 'AGENT_MEMORY', name: 'Memory: falsy', description: 'falsy',
+            semanticVectorId: 'budget-falsy',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: ts}
+        });
+
+        await MemoryService.backfillMiniSummaries({limit: 1, buildMiniSummary: async () => null});
+
+        const data = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('budget-falsy').data);
+
+        expect(data.properties.miniSummaryAttempts).toBe(1);
+
+        GraphService.db.storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run('budget-falsy');
+    });
+
+    test('a successful pass leaves no attempt marker — only failures count (#16313)', async () => {
+        const ts = '2099-12-31T23:59:57.000Z';
+
+        memStore.set('budget-ok', {prompt: 'p', response: 'r'});
+        GraphService.upsertNode({
+            id              : 'budget-ok', type: 'AGENT_MEMORY', name: 'Memory: ok', description: 'ok',
+            semanticVectorId: 'budget-ok',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: ts}
+        });
+
+        await MemoryService.backfillMiniSummaries({limit: 1, buildMiniSummary: async () => 'summary'});
+
+        const data = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('budget-ok').data);
+
+        expect(data.properties.miniSummaryAttempts).toBeUndefined();
+        expect(data.properties.archivedAt).toBeFalsy();
+    });
+
+    test('the summary input carries thought when the row has one (#16313)', async () => {
+        const ts = '2099-12-31T23:59:58.000Z';
+        let seen;
+
+        memStore.set('budget-thought', {prompt: 'p', thought: 'the reasoning', response: 'r'});
+        GraphService.upsertNode({
+            id              : 'budget-thought', type: 'AGENT_MEMORY', name: 'Memory: thought', description: 'thought',
+            semanticVectorId: 'budget-thought',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'budget', timestamp: ts}
+        });
+
+        await MemoryService.backfillMiniSummaries({
+            limit           : 1,
+            buildMiniSummary: async options => { seen = options; return 'summary'; }
+        });
+
+        expect(seen.thought).toBe('the reasoning');
     });
 
     test('backfillMiniSummaries bounds a run by maxRunMs and defers the remainder to the next sweep', async () => {
@@ -276,7 +392,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         // Clock seam advanced by each summarize call: the first row runs while elapsed (0) is under the
         // 100ms budget; that one call pushes elapsed to 1000ms, so the next iteration exits the loop.
-        let fakeNow   = 0;
+        let   fakeNow = 0;
         const calls   = [];
         const result  = await MemoryService.backfillMiniSummaries({
             limit           : 3,
