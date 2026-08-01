@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {
     buildTenantRepoSyncTrigger,
     computeDeterministicJitter,
+    detectStarvedTenantSync,
     getDueTask,
     isRepoDue
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
@@ -30,7 +31,7 @@ test.describe('tenantRepoSync trigger (#11790)', () => {
     });
 
     test('getDueTask derives lastRunAt from state', () => {
-        const state = {['tenant-repo-sync']: {lastRunAt: 5000}};
+        const state   = {['tenant-repo-sync']: {lastRunAt: 5000}};
         const trigger = getDueTask({state, now: 70000, intervalMs: 60000, enabled: true});
         expect(trigger).not.toBeNull();
         expect(trigger.taskName).toBe('tenant-repo-sync');
@@ -71,10 +72,10 @@ test.describe('computeDeterministicJitter (#11942 AC1)', () => {
         // separately in service-level integration tests).
         for (const slug of ['neomjs/a', 'neomjs/b', 'neomjs/c', 'neomjs/d', 'neomjs/e']) {
             const jitter = computeDeterministicJitter({
-                tenantId      : 'tenant-a',
-                repoSlug      : slug,
-                baseCadenceMs : 60000,
-                jitterRatio   : 0.20
+                tenantId     : 'tenant-a',
+                repoSlug     : slug,
+                baseCadenceMs: 60000,
+                jitterRatio  : 0.20
             });
             expect(jitter).toBeGreaterThanOrEqual(0);
             expect(jitter).toBeLessThan(60000 * 0.20);
@@ -172,5 +173,195 @@ test.describe('isRepoDue (#11942 AC1)', () => {
         const a     = isRepoDue({repo, persistedRepoState: state, now: 200000, globalCadenceMs: 60000});
         const b     = isRepoDue({repo, persistedRepoState: state, now: 200000, globalCadenceMs: 60000});
         expect(a).toEqual(b);
+    });
+});
+
+test.describe('isRepoDue backoff cap (#16224 AC1)', () => {
+    const repo = {tenantId: 'tenant-a', repoSlug: 'neomjs/create-app'};
+
+    test('an unbounded streak is clamped to the cap — the retry is guaranteed inside the cap window', () => {
+        const baseCadence = 60000, cap = 120000;
+        // 8 failures → uncapped effective cadence of 2^8 × 60s = 256min. With the cap, the
+        // repo becomes due at lastRunAttemptAt + 120s instead — the incident's 25h+ starvation
+        // shape cannot form, no matter how long the streak grows.
+        const result = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 1000000, consecutiveFailures: 8},
+            now               : 1000000 + cap + 1,
+            globalCadenceMs   : baseCadence,
+            backoffCapMs      : cap
+        });
+
+        expect(result.backoffMultiplier).toBe(256); // the streak is still reported honestly
+        expect(result.backoffCapped).toBe(true);
+        expect(result.effectiveCadenceMs).toBe(cap);
+        expect(result.due).toBe(true); // past the cap → retry guaranteed
+    });
+
+    test('suppression cannot exceed the cap even across restarts — the bound is a pure function of the persisted streak', () => {
+        // "Across restarts" needs no daemon reboot to prove: the only state the backoff reads is
+        // the persisted streak, so a restart-sized streak (2^20 × 60s ≈ 2 years uncapped) must
+        // still clamp to the cap. A daemon that restarts daily can never inherit a suppression
+        // longer than the cap.
+        const result = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 1000000, consecutiveFailures: 20},
+            now               : 1000000 + 120001,
+            globalCadenceMs   : 60000,
+            backoffCapMs      : 120000
+        });
+
+        expect(result.backoffCapped).toBe(true);
+        expect(result.effectiveCadenceMs).toBe(120000);
+        expect(result.due).toBe(true);
+    });
+
+    test('the cap does not bind below the streak that exceeds it — ordinary backoff is unchanged', () => {
+        const baseCadence = 60000, cap = 120000;
+        const oneFailure  = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 1},
+            now               : 0,
+            globalCadenceMs   : baseCadence,
+            backoffCapMs      : cap
+        });
+        // 2 × 60s = 120s; with jitter ≥ 0 the uncapped value can exceed the cap by a hair — the
+        // clamp then just shaves the jitter tail, which is still honest backoff. Use failure 0
+        // for the strict-unchanged assertion and assert the streak-1 shape separately.
+        const zeroFailures = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0},
+            now               : 0,
+            globalCadenceMs   : baseCadence,
+            backoffCapMs      : cap
+        });
+        const zeroUncapped = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 0},
+            now               : 0,
+            globalCadenceMs   : baseCadence
+        });
+
+        expect(zeroFailures.backoffCapped).toBe(false);
+        expect(zeroFailures.effectiveCadenceMs).toBe(zeroUncapped.effectiveCadenceMs);
+        expect(oneFailure.backoffCapped).toBe(zeroFailures.jitterMs > 0);
+    });
+
+    test('default backoffCapMs=0 keeps the legacy unbounded behavior (pure-function back-compat)', () => {
+        const result = isRepoDue({
+            repo,
+            persistedRepoState: {lastRunAttemptAt: 0, consecutiveFailures: 8},
+            now               : 0,
+            globalCadenceMs   : 60000
+        });
+
+        expect(result.backoffCapped).toBe(false);
+        expect(result.effectiveCadenceMs).toBe((60000 + result.jitterMs) * 256);
+    });
+});
+
+test.describe('detectStarvedTenantSync (#16224 AC2/AC3)', () => {
+    const NOW        = Date.parse('2026-08-01T12:00:00.000Z'),
+          H          = 60 * 60 * 1000,
+          suppressed = lastSyncAt => ({status: 'backoff-suppressed', lastIngestedRev: null, lastSyncAt, consecutiveFailures: 7});
+
+    test('the starved shape is immediate truth; the event needs the duration floor', () => {
+        const detection = detectStarvedTenantSync({
+            repoStates    : [suppressed(new Date(NOW - 30 * 60 * 1000).toISOString())],
+            attemptedCount: 0,
+            now           : NOW,
+            starvedAfterMs: 6 * H
+        });
+
+        expect(detection.starved).toBe(true);
+        expect(detection.emit).toBe(false);           // 30min < 6h floor
+        expect(detection.starvedEventAt).toBeNull();  // no marker before any emission
+    });
+
+    test('duration-proven starvation emits once; the marker suppresses re-emission until a non-starved sweep clears it', () => {
+        const old = new Date(NOW - 25 * H).toISOString();
+
+        // Sweep 1: duration-proven, no marker yet → exactly one emission.
+        const s1 = detectStarvedTenantSync({repoStates: [suppressed(old)], attemptedCount: 0, now: NOW, starvedAfterMs: 6 * H, previousCompletion: null});
+        expect(s1.starved).toBe(true);
+        expect(s1.emit).toBe(true);
+        expect(s1.starvedEventAt).toBe(NOW);
+
+        // Sweep 2 (marker present): silent, marker carried forward.
+        const s2 = detectStarvedTenantSync({repoStates: [suppressed(old)], attemptedCount: 0, now: NOW + 60000, starvedAfterMs: 6 * H, previousCompletion: {starvedEventAt: s1.starvedEventAt}});
+        expect(s2.starved).toBe(true);
+        expect(s2.emit).toBe(false);
+        expect(s2.starvedEventAt).toBe(NOW);
+
+        // A non-starved sweep clears the marker…
+        const recovered = detectStarvedTenantSync({
+            repoStates        : [{status: 'completed', lastIngestedRev: 'abcdef12', lastSyncAt: null, consecutiveFailures: 0}],
+            attemptedCount    : 1,
+            now               : NOW + 120000,
+            starvedAfterMs    : 6 * H,
+            previousCompletion: {starvedEventAt: s2.starvedEventAt}
+        });
+        expect(recovered.starved).toBe(false);
+        expect(recovered.starvedEventAt).toBeNull();
+
+        // …so a LATER starved episode emits exactly one new record.
+        const s4 = detectStarvedTenantSync({repoStates: [suppressed(old)], attemptedCount: 0, now: NOW + 180000, starvedAfterMs: 6 * H, previousCompletion: {starvedEventAt: recovered.starvedEventAt}});
+        expect(s4.emit).toBe(true);
+    });
+
+    test('healthy backoff is not starvation — a repo that has succeeded before stays quiet', () => {
+        const detection = detectStarvedTenantSync({
+            repoStates: [
+                suppressed(new Date(NOW - 25 * H).toISOString()),
+                {status: 'backoff-suppressed', lastIngestedRev: 'abcdef12', lastSyncAt: new Date(NOW - 25 * H).toISOString(), consecutiveFailures: 2}
+            ],
+            attemptedCount: 0,
+            now           : NOW,
+            starvedAfterMs: 6 * H
+        });
+
+        expect(detection.starved).toBe(false);
+        expect(detection.emit).toBe(false);
+    });
+
+    test('any attempted work earns the ordinary tally instead of the starved reading', () => {
+        const detection = detectStarvedTenantSync({
+            repoStates    : [suppressed(new Date(NOW - 25 * H).toISOString())],
+            attemptedCount: 1,
+            now           : NOW,
+            starvedAfterMs: 6 * H
+        });
+
+        expect(detection.starved).toBe(false);
+    });
+
+    test('a never-attempted repo counts as fresh, not stale (just-configured repos do not alert)', () => {
+        const detection = detectStarvedTenantSync({
+            repoStates    : [suppressed(null), suppressed(new Date(NOW - 25 * H).toISOString())],
+            attemptedCount: 0,
+            now           : NOW,
+            starvedAfterMs: 6 * H
+        });
+
+        expect(detection.starved).toBe(true);
+        expect(detection.emit).toBe(false); // the null lastSyncAt maps to `now` — heldMs 0
+    });
+
+    test('starvedAfterMs 0 disables the event but never the status', () => {
+        const detection = detectStarvedTenantSync({
+            repoStates    : [suppressed(new Date(NOW - 25 * H).toISOString())],
+            attemptedCount: 0,
+            now           : NOW,
+            starvedAfterMs: 0
+        });
+
+        expect(detection.starved).toBe(true);
+        expect(detection.emit).toBe(false);
+    });
+
+    test('an empty sweep (no repos configured) is not starved', () => {
+        const detection = detectStarvedTenantSync({repoStates: [], attemptedCount: 0, now: NOW, starvedAfterMs: 6 * H});
+
+        expect(detection.starved).toBe(false);
     });
 });

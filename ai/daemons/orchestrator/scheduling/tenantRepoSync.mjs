@@ -72,7 +72,7 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
     if (!Number.isFinite(jitterRatio) || jitterRatio <= 0) return 0;
 
     const seed = `${tenantId}/${repoSlug}`;
-    let hash   = 0x811c9dc5; // FNV-1a 32-bit offset basis
+    let   hash = 0x811c9dc5; // FNV-1a 32-bit offset basis
     for (let i = 0; i < seed.length; i++) {
         hash ^= seed.charCodeAt(i);
         hash = Math.imul(hash, 0x01000193) >>> 0; // FNV-1a prime, force u32
@@ -96,6 +96,10 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
  * - `deterministicJitter`: stable hash-based offset (see `computeDeterministicJitter`).
  * - Backoff multiplier: `2^consecutiveFailures` (1× on fresh state, 2× after 1 fail, 4× after 2, ...).
  *   Reset to 0 on successful sync (no multiplier).
+ * - Backoff cap: `backoffCapMs` bounds the effective cadence, so a failing repo is GUARANTEED a
+ *   retry within the cap window regardless of streak length (an unbounded multiplier
+ *   suppresses a never-succeeded repo for days while every sweep reads green; the streak state
+ *   persists across restarts, so only a cap inside this pure computation can bound it).
  *
  * @param {Object} options
  * @param {Object} options.repo Repo config from `tenantRepos[]` (must have `tenantId` + `repoSlug`; optional `cadenceMs` override).
@@ -103,9 +107,10 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
  * @param {Number} options.now Current timestamp in ms.
  * @param {Number} options.globalCadenceMs Global cadence fallback when repo has no override.
  * @param {Number} [options.jitterRatio=0] Caller (typically `TenantRepoSyncService`) passes the value from `aiConfig.orchestrator.tenantRepoSync.jitterRatio`. Default `0` (no jitter) keeps the pure function config-free.
- * @returns {{due: Boolean, effectiveCadenceMs: Number, jitterMs: Number, backoffMultiplier: Number, lastRunAttemptAt: Number}}
+ * @param {Number} [options.backoffCapMs=0] Caller passes the value from `aiConfig.orchestrator.tenantRepoSync.backoffCapMs`. Default `0` (no cap) keeps pure-function behavior config-free. Must exceed the repo's base cadence to bind only on failure streaks.
+ * @returns {{due: Boolean, effectiveCadenceMs: Number, jitterMs: Number, backoffMultiplier: Number, backoffCapped: Boolean, lastRunAttemptAt: Number}}
  */
-export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = 0}) {
+export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = 0, backoffCapMs = 0}) {
     const baseCadenceMs       = Number.isFinite(repo?.cadenceMs) && repo.cadenceMs > 0 ? repo.cadenceMs : globalCadenceMs;
     const consecutiveFailures = persistedRepoState?.consecutiveFailures ?? 0;
     const lastRunAttemptAt    = persistedRepoState?.lastRunAttemptAt ?? 0;
@@ -115,9 +120,70 @@ export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitte
         baseCadenceMs,
         jitterRatio
     });
-    const backoffMultiplier   = Math.pow(2, Math.max(0, consecutiveFailures));
-    const effectiveCadenceMs  = (baseCadenceMs + jitterMs) * backoffMultiplier;
-    const due                 = (now - lastRunAttemptAt) >= effectiveCadenceMs;
+    const backoffMultiplier  = Math.pow(2, Math.max(0, consecutiveFailures));
+    const uncappedCadenceMs  = (baseCadenceMs + jitterMs) * backoffMultiplier;
+    const backoffCapped      = Number.isFinite(backoffCapMs) && backoffCapMs > 0 && uncappedCadenceMs > backoffCapMs;
+    const effectiveCadenceMs = backoffCapped ? backoffCapMs : uncappedCadenceMs;
+    const due                = (now - lastRunAttemptAt) >= effectiveCadenceMs;
 
-    return {due, effectiveCadenceMs, jitterMs, backoffMultiplier, lastRunAttemptAt};
+    return {due, effectiveCadenceMs, jitterMs, backoffMultiplier, backoffCapped, lastRunAttemptAt};
+}
+
+/**
+ * @summary Pure detector for the starved-lane shape: every configured repo is
+ * backoff-suppressed AND has never ingested (`lastIngestedRev` null), so the knowledge base
+ * this lane feeds cannot receive content while the sweep machinery itself reports healthy.
+ *
+ * Two deliberately separate readings:
+ *
+ * - **`starved` (the sweep status)** — the current shape, reported immediately. No duration
+ *   requirement: a sweep that attempted nothing because every repo is suppressed-without-
+ *   lifetime-success is not `completed`, and calling it one is what hid the incident class.
+ * - **`emit` (the self-heal ledger event — a record-with-diagnosis, never an action)** — the
+ *   same shape proven over time: the oldest suppression is at least `starvedAfterMs` old. With the
+ *   backoff cap in place, a continuously-failing repo is re-attempted inside the cap window
+ *   (its `lastSyncAt` stays fresh), so a stale suppression means something beyond ordinary
+ *   failure — a wedged lane, a disabled sweep, or a pre-cap persisted streak.
+ *
+ * Exactly-once per starved episode: the caller persists `starvedEventAt` into the lane's
+ * completion metadata; the marker flows forward while the shape holds, clears on any
+ * non-starved sweep, and suppresses re-emission. A repo with no `lastSyncAt` (never
+ * attempted, e.g. just configured) counts as fresh, not stale.
+ *
+ * @param {Object} options
+ * @param {Object[]} options.repoStates Per-repo sweep records (`{status, lastIngestedRev, lastSyncAt, consecutiveFailures}`).
+ * @param {Number} options.attemptedCount Repos the sweep actually ran (completed + failed). Any attempt means the sweep earned its ordinary tally instead of the starved reading.
+ * @param {Number} options.now Current timestamp in ms.
+ * @param {Number} options.starvedAfterMs Duration threshold for the ledger event; should exceed the backoff cap so ordinary capped retries stay quiet. `0` disables the event (never the status).
+ * @param {Object} [options.previousCompletion] The lane's previous completion record (carries `starvedEventAt` forward).
+ * @returns {{starved: Boolean, emit: Boolean, starvedEventAt: Number|null, evidence: Object}}
+ */
+export function detectStarvedTenantSync({repoStates = [], attemptedCount = 0, now, starvedAfterMs = 0, previousCompletion = null}) {
+    const suppressedNeverSucceeded = repoStates.filter(r => r.status === 'backoff-suppressed' && !r.lastIngestedRev);
+    const starved                  = repoStates.length > 0 && attemptedCount === 0 && suppressedNeverSucceeded.length === repoStates.length;
+
+    if (!starved) {
+        return {starved: false, emit: false, starvedEventAt: null, evidence: {suppressedCount: suppressedNeverSucceeded.length}};
+    }
+
+    const oldestSuppressedAtMs = Math.min(...suppressedNeverSucceeded.map(r => {
+        const parsed = r.lastSyncAt ? Date.parse(r.lastSyncAt) : NaN;
+        return Number.isFinite(parsed) ? parsed : now;
+    }));
+    const heldMs          = now - oldestSuppressedAtMs;
+    const durationProven  = Number.isFinite(starvedAfterMs) && starvedAfterMs > 0 && heldMs >= starvedAfterMs;
+    const alreadyReported = previousCompletion?.starvedEventAt != null;
+    const emit            = durationProven && !alreadyReported;
+
+    return {
+        starved       : true,
+        emit,
+        starvedEventAt: emit ? now : (previousCompletion?.starvedEventAt ?? null),
+        evidence      : {
+            suppressedCount   : suppressedNeverSucceeded.length,
+            oldestSuppressedAt: new Date(oldestSuppressedAtMs).toISOString(),
+            heldMs,
+            starvedAfterMs
+        }
+    };
 }

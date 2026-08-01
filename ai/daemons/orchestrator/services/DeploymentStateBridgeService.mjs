@@ -630,6 +630,7 @@ export class DeploymentStateBridgeService extends Base {
                 globalCadenceMs: AiConfig.orchestrator.intervals.tenantRepoSyncMs,
                 sweepCadenceMs : AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs,
                 jitterRatio    : AiConfig.orchestrator.tenantRepoSync.jitterRatio,
+                backoffCapMs   : AiConfig.orchestrator.tenantRepoSync.backoffCapMs,
                 due            : null
             },
             errors         = [];
@@ -715,6 +716,7 @@ export class DeploymentStateBridgeService extends Base {
             revisionStateAvailable,
             globalCadenceMs   : scheduler.globalCadenceMs,
             jitterRatio       : scheduler.jitterRatio,
+            backoffCapMs      : scheduler.backoffCapMs,
             accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt)
         }));
 
@@ -1243,6 +1245,7 @@ function summarizeTenantRepoAccessReadiness({repoStates, stateAvailable}) {
  * @param {Boolean} options.revisionStateAvailable Whether the manifest was readable.
  * @param {Number} options.globalCadenceMs Global per-repo cadence.
  * @param {Number} options.jitterRatio Deterministic jitter ratio.
+ * @param {Number} [options.backoffCapMs] Failure-backoff ceiling (the `tenantRepoSync.backoffCapMs` leaf); keeps the observed due-state identical to the lane's own computation.
  * @param {Object|null} options.accessReadiness Process-local access evidence.
  * @returns {Object}
  */
@@ -1254,6 +1257,7 @@ function summarizeTenantRepoState({
     revisionStateAvailable,
     globalCadenceMs,
     jitterRatio,
+    backoffCapMs,
     accessReadiness
 }) {
     const
@@ -1264,7 +1268,7 @@ function summarizeTenantRepoState({
         disabled              = isTenantRepoDisabled(repo),
         dueState              = disabled
             ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
-            : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio}),
+            : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio, backoffCapMs}),
         nextDueAtMs           = Number.isFinite(dueState.effectiveCadenceMs)
             ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
             : null,
