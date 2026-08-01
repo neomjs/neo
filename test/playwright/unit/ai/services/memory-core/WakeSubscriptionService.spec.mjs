@@ -742,7 +742,19 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'antigravity'}
-            })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex");
+            })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex, OpenCode");
+        });
+    });
+
+    test('subscribe accepts OpenCode as a canonical appName (#16279)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const result = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'OpenCode'}
+            });
+
+            expect(result.subscriptionId ?? result.id ?? result.subscription?.id).toBeTruthy();
         });
     });
 

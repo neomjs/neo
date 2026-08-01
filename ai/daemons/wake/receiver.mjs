@@ -104,7 +104,7 @@ export async function loadWakeReceiverManifest(manifestPath) {
             }
         }
         if (adapter === 'osascript' && (
-            !['Antigravity', 'Claude', 'Codex'].includes(metadata.appName) ||
+            !['Antigravity', 'Claude', 'Codex', 'OpenCode'].includes(metadata.appName) ||
             (metadata.appName === 'Codex' && !metadata.focusSeedKey)
         )) {
             throw new Error(`Wake receiver route '${subscriptionId}' has incomplete osascript target metadata`);
