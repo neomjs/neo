@@ -1,0 +1,17 @@
+# N=1 tenant bootstrap: registers neomjs/neo as its own pull-mode KB tenant, so the containerized
+# plane ingests the repo (docs, src, and the hourly datasync artifacts under resources/content/)
+# and `ask_knowledge_base` answers from the current head instead of the last restore snapshot.
+#
+# Read fail-soft from `<neoRootDir>/kb-config.yaml` — tier 2 of the tenant-config resolution
+# (KnowledgeBaseTenantConfig graph node → THIS file → aiConfig defaults). Both the orchestrator
+# (pull-mode sync) and kb-server (query-time resolution) must mount it read-only; the orchestrator
+# mount is load-bearing — without it the sync silently falls back to the aiConfig default tier.
+#
+# Whole-tree ingestion is the accepted contract for this entry (the graduated zero-code PMV);
+# a per-tenant include-manifest is a separate contract lane on the multi-tenant epic. Mirror root
+# and sync cadence deliberately ride their defaults (`tenantRepoMirrorRoot`, the 30-minute
+# cadence floor) — per-entry overrides exist (`mirrorRoot`, `cadenceMs`) but are not opted into.
+tenantRepos:
+  - tenantId: neo-shared
+    cloneUrl: https://github.com/neomjs/neo.git
+    branch: dev

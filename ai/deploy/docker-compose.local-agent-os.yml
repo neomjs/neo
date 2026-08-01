@@ -33,6 +33,11 @@ services:
       <<: [*local-auth, *local-provider]
     secrets:
       - mcp-auth-token
+    # N=1 tenant bootstrap: query-time tenant-config resolution reads
+    # <neoRootDir>/kb-config.yaml (tier 2, fail-soft). Compose appends override
+    # volume lists to the base service's, so this adds to the base mounts.
+    volumes:
+      - ./kb-config.yaml:/app/kb-config.yaml:ro
     healthcheck:
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--expected-plane-id", "neo-local-canonical", "--expected-plane-data-root", "/app/.neo-ai-data"]
 
@@ -55,6 +60,12 @@ services:
       # container. Monitor only the Compose services it actually starts.
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: &local-runtime-services chroma,kb-server,mc-server,orchestrator
       NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES: *local-runtime-services
+    # N=1 tenant bootstrap: the pull-mode sync's tiered resolver reads
+    # <neoRootDir>/kb-config.yaml. This mount is load-bearing — without it the
+    # orchestrator silently falls back to the aiConfig default tier (the trap the
+    # base compose comment names). Appends to the base service's volume list.
+    volumes:
+      - ./kb-config.yaml:/app/kb-config.yaml:ro
 
   ingress:
     restart: unless-stopped
