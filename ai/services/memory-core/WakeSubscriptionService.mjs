@@ -311,19 +311,60 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Ensures all active Shape A (`mcp-notifications`) and Shape B (`a2a-webhook`)
-     * subscriptions are in cache.
+     * @summary Warms Shape A/B routes from durable SQLite before the live GraphLog cursor advances.
+     *
+     * A Memory Core restart begins with an empty graph/cache even though wake subscriptions remain
+     * durable. The pump therefore treats SQLite as the source of truth, refreshes push routes whose
+     * status or target changed, and removes cached push routes that no longer have a valid durable
+     * row. Isolated harnesses without raw SQLite retain the graph-resident fallback.
+     *
      * @protected
      */
     _warmPushSubscriptions() {
         const db = GraphService.db;
         if (!db) return;
+
+        const pushTargets = ['mcp-notifications', 'a2a-webhook'];
+        const sqlite      = db.storage?.db;
+
+        if (sqlite) {
+            const durableIds = new Set();
+            const rows       = sqlite.prepare(`
+                SELECT id, data FROM Nodes
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+            `).all();
+
+            for (const row of rows) {
+                const parsed = this._parseDurableSubscriptionRow(row);
+                if (!parsed) continue;
+
+                const {id, node} = parsed;
+                const cached     = this.subscriptionCache.get(id);
+                const isPush     = pushTargets.includes(node.properties?.harnessTarget);
+                const wasPush    = pushTargets.includes(cached?.harnessTarget);
+
+                durableIds.add(id);
+
+                if (isPush || wasPush) {
+                    this._hydrateSubscriptionFromDurableNode(id, node);
+                }
+            }
+
+            for (const [id, cached] of this.subscriptionCache) {
+                if (pushTargets.includes(cached?.harnessTarget) && !durableIds.has(id)) {
+                    this.subscriptionCache.delete(id);
+                }
+            }
+
+            return;
+        }
+
         for (const node of db.nodes.items) {
             if (node.label !== 'WAKE_SUBSCRIPTION') continue;
             const props   = node.properties || {};
             const cached  = this.subscriptionCache.get(node.id);
-            const isPush  = ['mcp-notifications', 'a2a-webhook'].includes(props.harnessTarget);
-            const wasPush = ['mcp-notifications', 'a2a-webhook'].includes(cached?.harnessTarget);
+            const isPush  = pushTargets.includes(props.harnessTarget);
+            const wasPush = pushTargets.includes(cached?.harnessTarget);
 
             // Refresh active routes and invalidate a cached push route when webhook delivery
             // degraded or an operator changed/retired it since the previous pump.
