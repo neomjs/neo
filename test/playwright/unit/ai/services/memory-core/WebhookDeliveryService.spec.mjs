@@ -232,11 +232,38 @@ test.describe('WebhookDeliveryService', () => {
         test.expect(updatedNodes[0].properties.status).toBe('degraded');
     });
 
-    test('refuses unsigned Shape-B delivery without issuing a request', async () => {
+    test('refuses unsigned Shape-B delivery without issuing a request, and counts it toward the degrade', async () => {
         const subscription = GraphService.getNode({id: 'WAKE_SUB:123'});
         delete subscription.properties.harnessTargetMetadata.signingKey;
 
-        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXX'})).toBe('skipped');
+        // The refusal is a delivery FAILURE, not an inapplicable target. Returning 'skipped' without
+        // recording never reached `_recordConsecutiveFailure`, so no threshold was met and the degrade
+        // never ran — leaving the row `active` on every surface while the seat received nothing.
+        // Counted the same way as a 5xx above, so the two paths converge on one degrade mechanism.
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXX'})).toBe('failed');
+        expect(updatedNodes.length).toBe(0); // 1st
+
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXY'})).toBe('failed');
+        expect(updatedNodes.length).toBe(0); // 2nd
+
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXZ'})).toBe('failed');
+        expect(updatedNodes.length).toBe(1); // 3rd — the row stops reading active
+
+        expect(updatedNodes[0].properties.status).toBe('degraded');
+        // The original invariant, unchanged: refusing still issues no request.
+        expect(fetchCalls).toHaveLength(0);
+    });
+
+    test('a missing URL is counted the same way — the identical silent-forever shape', async () => {
+        const subscription = GraphService.getNode({id: 'WAKE_SUB:123'});
+        delete subscription.properties.harnessTargetMetadata.url;
+
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXX'})).toBe('failed');
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXY'})).toBe('failed');
+        expect(await WebhookDeliveryService.deliver(subscription, {eventId: '01HXXZ'})).toBe('failed');
+
+        expect(updatedNodes.length).toBe(1);
+        expect(updatedNodes[0].properties.status).toBe('degraded');
         expect(fetchCalls).toHaveLength(0);
     });
 });
