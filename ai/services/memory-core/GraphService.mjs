@@ -901,6 +901,57 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary The ONE sanctioned context-free node read, for background writers that run outside any request.
+     *
+     * Every RLS-scoped read ({@link GraphService#getNode}, {@link GraphService#getNodeRecord}) resolves its
+     * requester from the request-bound `RequestContextService`. A background timer — a coalescing flush, a
+     * delivery retry, a maintenance sweep — has no bound request, so `resolveRlsUserId` yields `null`, every
+     * branch of the visibility predicate evaluates false, and the read returns `null` for a node that plainly
+     * exists. The failure is silent and reads as absence: the caller concludes "no such node" and skips the
+     * work it was scheduled to do — a dead wake route that can never be marked degraded re-runs its failing
+     * delivery attempts on every subsequent message, forever.
+     *
+     * Consumers previously reached into `db.nodes.get` by hand to route around this, each with its own
+     * explanatory comment. This is that bypass, named once, so it is greppable and reviewable instead of
+     * arriving by copy-paste.
+     *
+     * **This is NOT an RLS bypass for request-scoped reads.** Calling it from a request path re-opens exactly
+     * the cross-requester cache leak the return-boundary re-check exists to prevent. That misuse is not
+     * mechanically preventable here, so it is made *visible*: a bound request context means the caller is on a
+     * request path and should be using `getNodeRecord`, and the accessor logs a warning naming the writer.
+     * @param {Object} data
+     * @param {String} data.id     Node id.
+     * @param {String} data.writer Name of the background writer, for the misuse warning and audit trails.
+     * @returns {Object|null} `{id, type, properties}`, or `null` only when the node genuinely does not exist.
+     */
+    getUnscopedNodeRecord({id, writer}) {
+        if (!writer) {
+            throw new Error('[GraphService] getUnscopedNodeRecord requires a `writer` name identifying the background writer.');
+        }
+
+        // Guarantee lazy-loading from SQLite triggers if not cached (mirrors the RLS-scoped reads).
+        this.db.getAdjacentNodes(id, 'both');
+
+        const node = this.db.nodes.get(id);
+        if (!node) {
+            return null;
+        }
+
+        // Misuse tripwire: a resolvable requester means a request IS bound, so this caller is on a request
+        // path and must use the RLS-scoped `getNodeRecord` instead. Warn rather than throw — a background
+        // task can legitimately be kicked off during a request — but never let the misuse be silent.
+        if (resolveRlsUserId(this.db.storage?.RequestContextService) !== null) {
+            logger.warn(`[GraphService] getUnscopedNodeRecord called by '${writer}' inside a bound request context; use getNodeRecord on request paths.`);
+        }
+
+        return {
+            id        : node.isRecord ? node.get('id') : node.id,
+            type      : node.isRecord ? node.get('label') : node.label,
+            properties: (node.isRecord ? node.get('properties') : node.properties) || {}
+        };
+    }
+
+    /**
      * @summary Lists full node records of one graph type through the same RLS boundary as single-node reads.
      *
      * This is the sanctioned enumeration companion to {@link GraphService#getNodeRecord}. It keeps

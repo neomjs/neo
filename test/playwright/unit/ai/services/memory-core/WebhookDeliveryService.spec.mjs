@@ -27,20 +27,22 @@ let GraphService;
 test.describe('WebhookDeliveryService', () => {
     let fetchCalls   = [];
     let updatedNodes = [];
-    let originalFetch, originalGetNode, originalUpsertNode;
+    let originalFetch, originalGetNode, originalUpsertNode, originalGetUnscopedNodeRecord;
 
     test.beforeAll(async () => {
-        WebhookDeliveryService = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
-        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        originalFetch          = global.fetch;
-        originalGetNode        = GraphService.getNode;
-        originalUpsertNode     = GraphService.upsertNode;
+        WebhookDeliveryService       = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
+        GraphService                 = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        originalFetch                = global.fetch;
+        originalGetNode              = GraphService.getNode;
+        originalUpsertNode           = GraphService.upsertNode;
+        originalGetUnscopedNodeRecord = GraphService.getUnscopedNodeRecord;
     });
 
     test.afterAll(() => {
-        global.fetch            = originalFetch;
-        GraphService.getNode    = originalGetNode;
-        GraphService.upsertNode = originalUpsertNode;
+        global.fetch                       = originalFetch;
+        GraphService.getNode               = originalGetNode;
+        GraphService.upsertNode            = originalUpsertNode;
+        GraphService.getUnscopedNodeRecord = originalGetUnscopedNodeRecord;
     });
 
     test.beforeEach(() => {
@@ -75,6 +77,12 @@ test.describe('WebhookDeliveryService', () => {
             return null;
         };
 
+        // The degrade path reads through the context-free accessor, because it runs from a background
+        // flush where the RLS-scoped reads resolve no requester and return null. These doubles
+        // keep this suite's fast in-memory shape; the real read/write path — with RLS actually engaged
+        // and the requester unbound — is covered by WebhookDeliveryService.degradeDeadRoute.spec.mjs.
+        GraphService.getUnscopedNodeRecord = ({id}) => GraphService.getNode({id});
+
         GraphService.upsertNode = (node) => {
             if (node.id === 'WAKE_SUB:123') {
                 updatedNodes.push(node);
@@ -83,6 +91,7 @@ test.describe('WebhookDeliveryService', () => {
 
         // Reset the service state
         WebhookDeliveryService.consecutiveFailures.clear();
+        WebhookDeliveryService.degradedSubscriptions.clear();
         WebhookDeliveryService.configure({attemptTimeoutSeconds: 30});
     });
 
@@ -194,7 +203,9 @@ test.describe('WebhookDeliveryService', () => {
         test.expect(outcome).toBe('skipped');
         test.expect(fetchCalls.length).toBe(1); // No retries for 4xx
         test.expect(updatedNodes.length).toBe(1);
-        test.expect(updatedNodes[0].properties.harnessTarget).toBe('degraded');
+        // `status`, not `harnessTarget`: degradation and routing are separate fields with separate value
+        // spaces, and both consumers of degradation read `status`.
+        test.expect(updatedNodes[0].properties.status).toBe('degraded');
     });
 
     test('retries on 5xx response and degrades after 3 failures', async () => {
@@ -218,7 +229,7 @@ test.describe('WebhookDeliveryService', () => {
         global.setTimeout = originalSetTimeout;
 
         test.expect(fetchCalls.length).toBe(12); // 3 events * 4 attempts
-        test.expect(updatedNodes[0].properties.harnessTarget).toBe('degraded');
+        test.expect(updatedNodes[0].properties.status).toBe('degraded');
     });
 
     test('refuses unsigned Shape-B delivery without issuing a request', async () => {
