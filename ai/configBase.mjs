@@ -1428,6 +1428,15 @@ class ConfigBase extends ConfigProvider {
                  * The cadence floor lives in `intervals.tenantRepoSyncMs` above (30min default).
                  * Per-repo cadence in `tenantRepos[].cadenceMs` (operator-set) overrides global.
                  *
+                 * - `backoffCapMs` bounds the per-repo failure backoff: the effective cadence
+                 *   (base + jitter, doubled per consecutive failure) can never exceed this cap,
+                 *   so a failing repo is guaranteed a retry inside the cap window regardless of
+                 *   streak length — including across restarts, since the streak is persisted
+                 *   state (an uncapped multiplier suppressed a never-ingested repo for 25+
+                 *   hours while sweeps read green). Must comfortably exceed the per-repo
+                 *   base cadence (floor `intervals.tenantRepoSyncMs`, 30min default) so it binds
+                 *   only on failure streaks; the 2-hour default mirrors the operator-visible
+                 *   recovery expectation for a transient mirror/credential outage.
                  * - `jitterRatio` caps the deterministic per-repo jitter offset as a fraction
                  *   of the base cadence. Default `0.20` keeps jitter within the operator-visible
                  *   cadence window.
@@ -1448,12 +1457,22 @@ class ConfigBase extends ConfigProvider {
                  *   heavy-maintenance lease authority. Ownership is additionally re-verified
                  *   at every manifest commit point, so an evicted writer aborts instead of
                  *   overlapping the new owner.
+                 * - `starvedAfterMs` is the duration floor for the starved-lane self-heal
+                 *   record: a sweep whose every repo is backoff-suppressed with zero
+                 *   lifetime successes reports `starved` immediately, but the heal-ledger
+                 *   event (a record-with-diagnosis, exactly once per episode) fires
+                 *   only once the oldest suppression is this old. Must exceed `backoffCapMs`
+                 *   so a lane whose capped retries keep failing (fresh attempts, visible
+                 *   `failed` sweeps) stays quiet — a stale suppression means a wedged lane,
+                 *   not an ordinary outage. Set `0` to disable the event (never the status).
                  *
                  * @type {Object}
                  */
                 tenantRepoSync: {
+                    backoffCapMs     : leaf(2 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_BACKOFF_CAP_MS', 'number'),
                     jitterRatio      : leaf(0.20, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO', 'number'),
                     leaseStaleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_LEASE_STALE_AFTER_MS', 'number'),
+                    starvedAfterMs   : leaf(6 * 60 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_STARVED_AFTER_MS', 'number'),
                     sweepCadenceMs   : leaf(60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS', 'number')
                 },
                 /**

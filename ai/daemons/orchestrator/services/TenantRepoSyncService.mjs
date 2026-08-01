@@ -15,7 +15,7 @@ import {
     TenantRepoAccessCode,
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
-import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
+import {detectStarvedTenantSync, isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -24,9 +24,14 @@ import {
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+    KB_TENANT_REPO_SYNC_STARVED,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
+import {
+    appendHealEvent,
+    validateHealLedgerRetention
+} from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
     acquireHeavyMaintenanceLease,
     inspectHeavyMaintenanceLease,
@@ -341,7 +346,11 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
  * outer task lifecycle reports `completed` when no repos failed OR at least one repo
  * succeeded (partial-success contract — per-repo isolation precludes all-or-nothing
  * semantics); `failed` only when every configured repo failed; `skipped` when no
- * repos were configured.
+ * repos were configured; `starved` when the sweep attempted nothing because EVERY
+ * configured repo is backoff-suppressed with zero lifetime successes (the lane
+ * machinery is healthy, but the knowledge base it feeds cannot receive content;
+ * the detector emits one heal-ledger record per episode once the oldest suppression
+ * exceeds `tenantRepoSync.starvedAfterMs`).
  *
  * @class Neo.ai.daemons.services.TenantRepoSyncService
  * @extends Neo.core.Base
@@ -714,7 +723,7 @@ class TenantRepoSyncService extends Base {
      * @param {Number} [options.leaseStaleAfterMs] Override the cross-process lease TTL (test seam). Defaults to the `orchestrator.tenantRepoSync.leaseStaleAfterMs` leaf. Crashed owners recover immediately via pid-liveness; the TTL only bounds a live-but-wedged owner.
      * @param {Number} [options.leaseRenewalIntervalMs] Override the lease renewal cadence (test seam). Defaults to `max(5000, floor(leaseStaleAfterMs / 3))` — a live, renewing run never reaches its TTL deadline, so a replacement owner cannot start repo work while this one is still making progress.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
-     * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
+     * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`, `starved`}.
      */
     async runTask({
         taskName = 'tenant-repo-sync',
@@ -732,6 +741,8 @@ class TenantRepoSyncService extends Base {
         globalCadenceMs   = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio       = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         leaseStaleAfterMs = AiConfig.data.orchestrator.tenantRepoSync.leaseStaleAfterMs,
+        backoffCapMs      = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
+        starvedAfterMs    = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
         leaseRenewalIntervalMs,
         seedBootstrap     = true
     } = {}) {
@@ -869,7 +880,7 @@ class TenantRepoSyncService extends Base {
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
                 revisionsFilePath: resolvedRevisionsPath,
-                globalCadenceMs, jitterRatio, seedBootstrap
+                globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap
             });
             const status         = result.status;
             const lastCompletion = {
@@ -878,7 +889,9 @@ class TenantRepoSyncService extends Base {
                 ...result.details
             };
 
-            if (status === 'completed') {
+            if (status === 'completed' || status === 'starved') {
+                // A starved reading is a CLEAN sweep reporting a starved lane — the machinery
+                // ran, so the run bookkeeping (lastSuccessAt) must still advance.
                 taskStateService.markCompleted(taskName, lastCompletion);
             } else if (status === 'failed') {
                 taskStateService.markFailed(taskName, null, lastCompletion);
@@ -927,10 +940,13 @@ class TenantRepoSyncService extends Base {
     async syncTenantRepos({
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
-        leaseGuard      = async () => {},
-        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
-        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
-        seedBootstrap   = true
+        leaseGuard         = async () => {},
+        globalCadenceMs    = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio        = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
+        starvedAfterMs     = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
+        healEventLedgerDir = revisionsFilePath ? path.join(path.dirname(revisionsFilePath), 'heal-events') : null,
+        seedBootstrap      = true
     }) {
         if (fullReplay && (!Array.isArray(onlyRepoSlugs) || onlyRepoSlugs.length === 0)) {
             throw new TenantRepoSyncError(
@@ -1109,7 +1125,8 @@ class TenantRepoSyncService extends Base {
                     persistedRepoState: priorState,
                     now               : startedMs,
                     globalCadenceMs,
-                    jitterRatio
+                    jitterRatio,
+                    backoffCapMs
                 });
 
                 if (!dueState.due) {
@@ -1449,14 +1466,49 @@ class TenantRepoSyncService extends Base {
 
         // Status logic: not-due repos don't change the success/failure tally — a cycle
         // where ALL repos were not-due is still 'completed' (the cycle ran successfully;
-        // each repo's decision was honored). 'failed' only when actual work failed and no
+        // each repo's decision was honored) UNLESS every repo is backoff-suppressed with
+        // zero lifetime successes, which reads `starved` (the lane machinery is
+        // healthy while the KB it feeds cannot receive content; calling that `completed`
+        // is what hid the incident class). 'failed' only when actual work failed and no
         // actual work succeeded.
         const attemptedCount = completedCount + failedCount;
-        const status         = attemptedCount === 0
-            ? 'completed' // all repos were not-due; cycle ran cleanly
-            : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'));
+        const detection      = detectStarvedTenantSync({
+            repoStates,
+            attemptedCount,
+            now               : Date.now(),
+            starvedAfterMs,
+            previousCompletion: taskStateService?.getTaskState?.(taskName)?.lastCompletion
+        });
+        const status = detection.starved
+            ? 'starved'
+            : (attemptedCount === 0
+                ? 'completed' // all repos were not-due; cycle ran cleanly
+                : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed')));
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred.`);
+        // Record-with-diagnosis: exactly one durable heal-ledger record per starved
+        // episode (the detector's marker flows through the lane's completion metadata), once
+        // the oldest suppression is duration-proven. A record, never an action — the sweep
+        // machinery is healthy; the lane it feeds is what starves.
+        if (detection.emit && healEventLedgerDir) {
+            await appendHealEvent({
+                type      : 'tenant-repo-sync-starved',
+                collection: taskName,
+                status    : 'recorded',
+                detail    : {
+                    reasonCode: KB_TENANT_REPO_SYNC_STARVED,
+                    ...detection.evidence
+                }
+            }, {
+                dir: healEventLedgerDir,
+                now: Date.now(),
+                ...validateHealLedgerRetention(
+                    AiConfig.data.orchestrator.recoveryActuator.healLedger.maxEvents,
+                    AiConfig.data.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+                )
+            });
+        }
+
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
 
         return {
             status,
@@ -1466,7 +1518,9 @@ class TenantRepoSyncService extends Base {
                 failedCount,
                 notDueCount,
                 revalidationDeferredCount,
-                repos    : repoStates
+                ...(detection.starved ? {starved: true, starvedEvidence: detection.evidence} : {}),
+                starvedEventAt: detection.starvedEventAt,
+                repos         : repoStates
             }
         };
     }
