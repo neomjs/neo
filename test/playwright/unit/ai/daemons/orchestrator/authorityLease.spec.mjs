@@ -233,9 +233,9 @@ test.describe('#16230 — orchestrator wiring: lease before receipt, refusal is 
         let exitCodeAfter;
 
         try {
-            expect(orchestrator.pulseAuthorityLease()).toBe(false);
+            expect(orchestrator.pulseAuthorityLease()).toBe('contended');
         } finally {
-            exitCodeAfter   = process.exitCode;
+            exitCodeAfter    = process.exitCode;
             process.exitCode = priorExitCode;
         }
 
@@ -245,10 +245,70 @@ test.describe('#16230 — orchestrator wiring: lease before receipt, refusal is 
         expect(logs.some(({level, message}) => level === 'INFO' && message.includes('contended'))).toBe(true);
     });
 
+    test('a contended poll defers every mutation but PRESERVES the cadence (exactly one next sweep armed)', () => {
+        const {orchestrator} = orchestratorFor();
+
+        orchestrator.authorityLease = {pulse: () => ({contended: true, held: false})};
+        orchestrator.isPolling      = true;
+
+        // poll()'s next statement after the lease tri-state binds the supervisor — reaching it
+        // proves the sweep continued past contention.
+        Object.defineProperty(orchestrator, 'processSupervisorService', {
+            get() { throw new Error('sweep continued past a contended lease'); }
+        });
+
+        orchestrator.poll();
+
+        try {
+            expect(orchestrator.pollHandle, 'one contended sweep must not disarm the cadence').not.toBeNull();
+        } finally {
+            clearTimeout(orchestrator.pollHandle);
+            orchestrator.pollHandle = null;
+        }
+
+        expect(orchestrator.isPolling).toBe(true);
+    });
+
+    test('the boot-identity write is fenced at WRITE time — a loss mid-production voids the write', async () => {
+        const dataDir        = tmpDir();
+        const {orchestrator} = orchestratorFor();
+
+        // Held: the write lands.
+        const written = await orchestrator.writeBootIdentityFactIfHeld({bootId: 'test-boot'}, {dir: dataDir});
+        expect(written).toBeTruthy();
+
+        // The paused-continuation case: the latch flips AFTER the invocation (while a producer
+        // would still be gathering) — the write must not land.
+        const secondDir = tmpDir();
+        orchestrator.authorityLeaseLost = true;
+
+        const fenced = await orchestrator.writeBootIdentityFactIfHeld({bootId: 'displaced-boot'}, {dir: secondDir});
+
+        expect(fenced).toBeNull();
+        expect(fs.readdirSync(secondDir)).toEqual([]);
+    });
+
+    test('the deployment snapshot honors shouldWrite at its effect boundary (fenced, never written)', async () => {
+        const {DeploymentStateBridgeService} = await import('../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs');
+
+        const service = Object.create(DeploymentStateBridgeService.prototype);
+
+        service.now             = () => Date.now();
+        service.writeInFlight   = false;
+        service.lastWriteAt     = 0;
+        service.writeLog        = () => {};
+        service.collectSnapshot = async () => ({services: []});
+
+        const result = await service.writeSnapshotIfDue({force: true, shouldWrite: () => false});
+
+        expect(result.status).toBe('fenced');
+        expect(service.lastWriteAt).toBe(0);
+    });
+
     test('poll() itself aborts before any mutating action when the lease is lost (fencing, not just stopping)', () => {
         const {orchestrator} = orchestratorFor();
 
-        orchestrator.pulseAuthorityLease = () => false; // a lost lease, already routed
+        orchestrator.pulseAuthorityLease = () => 'lost'; // a lost lease, already routed
 
         // poll()'s very next statement binds processSupervisorService.runTask — reaching it
         // proves the sweep continued past a lost lease.

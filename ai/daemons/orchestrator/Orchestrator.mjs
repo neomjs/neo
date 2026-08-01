@@ -83,6 +83,7 @@ import {
     resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
 import {acquireAuthorityLease} from './authorityLease.mjs';
+import {writeBootIdentityFact} from './services/bootIdentityFactStore.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
@@ -764,7 +765,15 @@ export class Orchestrator extends Base {
             probe              : collectionName => this.probeFrozenCollectionHealth(collectionName),
             // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
             // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
-            unfence            : this.getStoreFenceOperations().unfence
+            // Effect-boundary lease fence: an unfence mutates the served plane, so a loss detected
+            // while the re-probe was in flight must void it at the boundary.
+            unfence            : async (...args) => {
+                if (this.authorityLeaseLost) {
+                    return;
+                }
+
+                return this.getStoreFenceOperations().unfence(...args);
+            }
         });
     }
 
@@ -1352,7 +1361,7 @@ export class Orchestrator extends Base {
      */
     pulseAuthorityLease() {
         if (!this.authorityLease) {
-            return true; // no lease wired (prototype/test seams) — nothing to fence
+            return 'held'; // no lease wired (prototype/test seams) — nothing to fence
         }
 
         let result;
@@ -1365,20 +1374,37 @@ export class Orchestrator extends Base {
                 this.authorityLeaseLost = true;
                 this.stop();
                 process.exitCode = 1;
-                return false;
+                return 'lost';
             }
             throw err;
         }
 
         if (result?.contended) {
             // Unverified is not held: someone else is mid-transition on the lease. Defer THIS
-            // sweep and revalidate next cadence — no lost-path, no continuation: contention is
-            // transient by construction, and treating it as proof of authority is the defect.
-            this.writeLog('INFO', '[Orchestrator] Authority lease contended (another transition in flight); deferring this sweep.');
-            return false;
+            // sweep's mutations — but never the cadence: contention is transient by
+            // construction, and the next pulse IS the revalidation.
+            this.writeLog('INFO', '[Orchestrator] Authority lease contended (another transition in flight); deferring this sweep, cadence preserved.');
+            return 'contended';
         }
 
-        return true;
+        return 'held';
+    }
+
+    /**
+     * @summary Effect-boundary lease fence for deferred plane writes: the latch is re-checked at
+     * WRITE time, not at invocation — a loss detected while an effect was still being produced
+     * must void the write, or a displaced orchestrator keeps mutating the plane another holder
+     * now owns.
+     * @param {Object} fact The produced boot-identity fact.
+     * @param {Object} opts Writer options (dir).
+     * @returns {Promise<Object|null>}
+     */
+    async writeBootIdentityFactIfHeld(fact, opts) {
+        if (this.authorityLeaseLost) {
+            return null;
+        }
+
+        return writeBootIdentityFact(fact, opts);
     }
 
     /**
@@ -1443,9 +1469,18 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
-        // The lease heartbeat fences the ENTIRE sweep: a lost lease aborts this poll before any
-        // mutating action, not just future polls.
-        if (!this.pulseAuthorityLease()) {
+        const leaseState = this.pulseAuthorityLease();
+
+        if (leaseState === 'lost') {
+            return; // stop() owns the shutdown — no sweep, no cadence
+        }
+
+        if (leaseState === 'contended') {
+            // Defer every mutating action in THIS sweep — but arm the next cadence, or one
+            // contended poll silently disables every future sweep.
+            if (this.isPolling) {
+                this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);
+            }
             return;
         }
 
@@ -1517,12 +1552,15 @@ export class Orchestrator extends Base {
             this.recordBootIdentityFactFn({
                 source : this.bootIdentitySource,
                 dir    : this.dataDir,
+                // The write-time fence: the fact is produced async, so a loss detected mid-flight
+                // must void the write at its effect boundary — not only gate the invocation.
+                writeImpl: (fact, opts) => this.writeBootIdentityFactIfHeld(fact, opts),
                 onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
             }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
         }
 
-        if (this.isTaskAuthorityOwned('deployment-state-bridge')) {
-            this.deploymentStateBridgeService?.writeSnapshotIfDue()
+        if (this.isTaskAuthorityOwned('deployment-state-bridge') && !this.authorityLeaseLost) {
+            this.deploymentStateBridgeService?.writeSnapshotIfDue({shouldWrite: () => !this.authorityLeaseLost})
                 .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
         }
 
