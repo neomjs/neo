@@ -27,15 +27,15 @@
 // at module-load. `InstanceManager` binds `Neo.find` / `Neo.findFirst` / `Neo.get`
 // aliases + sets `Base.instanceManagerAvailable=true` + consumes pre-singleton
 // `Neo.idMap`. All 3 MUST run before consumed class imports.
-import Neo                   from '../../../src/Neo.mjs';
-import * as core             from '../../../src/core/_export.mjs';
-import InstanceManager       from '../../../src/manager/Instance.mjs';
-import AiConfig              from '../../config.mjs';
-import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
-import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
-import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
-import {withOutboxLock}      from './outboxLock.mjs';
-import nodeCrypto            from 'node:crypto';
+import Neo                                       from '../../../src/Neo.mjs';
+import * as core                                 from '../../../src/core/_export.mjs';
+import InstanceManager                           from '../../../src/manager/Instance.mjs';
+import AiConfig                                  from '../../config.mjs';
+import memoryCoreConfig                          from '../../mcp/server/memory-core/config.mjs';
+import {assertConfigFresh}                       from '../../scripts/setup/initServerConfigs.mjs';
+import {buildWakeDigest, getHighestWakePriority} from './wakeDigestBuilder.mjs';
+import {withOutboxLock}                          from './outboxLock.mjs';
+import nodeCrypto                                from 'node:crypto';
 
 import fs                               from 'fs-extra';
 import os                               from 'os';
@@ -111,11 +111,6 @@ const CODEX_TURN_START_PROOF_TIMEOUT_MS  = Number(process.env.WAKE_CODEX_TURN_ST
 const CODEX_TURN_START_PROOF_POLL_MS     = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX     = 'NEO_WAKE_SUBMIT_NONCE:';
 const WOKEN_MESSAGE_IDS_STATE_KEY        = '__messageIdsByIdentity';
-const WAKE_PRIORITY_RANKS                = {
-    low   : 0,
-    normal: 1,
-    high  : 2
-};
 
 const identityParticipationById = new Map(
     IDENTITIES
@@ -733,20 +728,6 @@ function decodeHeartbeatPulseSummary(pulseId = '') {
 }
 
 /**
- * @summary Formats an optional live PR-state echo embedded in a heartbeat pulse summary.
- * @param {Object} summary Decoded heartbeat summary.
- * @returns {String}
- */
-function formatPullRequestStateEcho(summary = {}) {
-    const pullRequest = summary.latest?.pullRequest;
-    if (!pullRequest?.state || !pullRequest?.number) return '';
-
-    const mergedAt  = pullRequest.mergedAt  ? `, mergedAt ${pullRequest.mergedAt}`   : '',
-          checkedAt = pullRequest.checkedAt ? `, checkedAt ${pullRequest.checkedAt}` : '';
-    return ` [PR #${pullRequest.number}: ${pullRequest.state}${mergedAt}${checkedAt}]`
-}
-
-/**
  * Does a MESSAGE carry any `DELIVERED_TO` receipt edges? Drives the shared evaluator's
  * `SENT_TO -> AGENT:*` receipt-dedup gate (receipt-backed broadcasts wake via `DELIVERED_TO`
  * instead). Checks the in-delta edges first, then falls back to the persisted graph.
@@ -844,42 +825,6 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
             capMs        : AiConfig.orchestrator.wakeDispatch.flushHardCapSeconds * 1000
         }));
     }
-}
-
-/**
- * @summary Normalizes wake digest priority values to the supported A2A priority vocabulary.
- *
- * The wake-priority digest surface intentionally reuses the existing A2A mailbox priority
- * values (`low`, `normal`, `high`) instead of introducing a transport-only urgency enum.
- * Unknown or missing priorities collapse to `normal` so malformed mailbox data cannot
- * produce ambiguous wake headers.
- *
- * @param {String} priority The raw message priority from the mailbox payload.
- * @returns {String} The normalized wake digest priority.
- * @private
- */
-function normalizeWakePriority(priority) {
-    return Object.hasOwn(WAKE_PRIORITY_RANKS, priority) ? priority : 'normal';
-}
-
-/**
- * @summary Projects coalesced message events into one wake digest priority.
- *
- * The wake daemon may coalesce several message events into one digest. This helper
- * preserves the strongest interruption signal by choosing the highest message priority
- * for the `[WAKE][priority:<level>]` header while keeping normal/low wakes deferrable
- * by agent policy.
- *
- * @param {Object[]} messages Coalesced message wake events.
- * @returns {String} The highest normalized wake digest priority.
- * @private
- */
-function getHighestWakePriority(messages) {
-    return messages.reduce((highest, message) => {
-        const priority = normalizeWakePriority(message.priority);
-
-        return WAKE_PRIORITY_RANKS[priority] > WAKE_PRIORITY_RANKS[highest] ? priority : highest;
-    }, 'normal');
 }
 
 /**
@@ -2634,58 +2579,6 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
     });
 
     return deliveryPromise;
-}
-
-/**
- * @summary Builds the `[WAKE]` digest string for a set of wake events. Extracted so the retry path
- * can rebuild a SINGLE digest over the UNION of events accumulated across same-subscription failures
- * (correct total count + max priority), rather than replaying one stale per-failure string.
- * @param {String} identity Recipient agent identity.
- * @param {Object} events `{messages, tasks, permissions, heartbeats}` arrays.
- * @returns {String}
- */
-function buildWakeDigest(identity, {messages = [], tasks = [], permissions = [], heartbeats = []} = {}) {
-    const N              = messages.length + tasks.length + permissions.length + heartbeats.length,
-          digestPriority = getHighestWakePriority(messages);
-
-    let breakdown = '';
-
-    if (messages.length > 0) {
-        const latest         = messages[messages.length - 1],
-              latestPriority = normalizeWakePriority(latest.priority),
-              prioritySuffix = latestPriority === digestPriority ? '' : `, latest priority: ${latestPriority}`;
-        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
-    }
-    if (tasks.length > 0) {
-        const latest = tasks[tasks.length - 1];
-        breakdown += `\n- ${tasks.length} task transitions (latest: ${latest.newState} on task ${latest.taskId})`;
-    }
-    if (permissions.length > 0) {
-        const latest = permissions[permissions.length - 1];
-        breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
-    }
-    if (heartbeats.length > 0) {
-        const latest  = heartbeats[heartbeats.length - 1],
-              summary = latest.summary;
-
-        let extra = '';
-        if (summary?.source === 'github-notification') {
-            extra = `; latest GitHub ${summary.latest?.reason || 'notification'}: "${summary.latest?.title || summary.latest?.id || 'untitled'}"${formatPullRequestStateEcho(summary)}${summary.latest?.url ? ` (${summary.latest.url})` : ''}`;
-        } else if (summary?.source === 'idle-out-nudge') {
-            extra = `; idle-out nudge — ${summary.reason || 'idle'}; next: ${summary.nextAction || 'claim a lane'}`;
-        }
-
-        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId}${extra})`;
-    }
-
-    // The lifecycle-first lane directive is an IDLE-watchdog nudge — append it ONLY to pure-heartbeat
-    // digests (the watchdog pulse with no actionable A2A content). A digest carrying messages / tasks /
-    // permissions already has a specific event to act on, so the generic directive is noise + token waste
-    // there; and message wakes vastly outnumber the heartbeat, so this gate is the dominant token saving.
-    const isPureHeartbeat = heartbeats.length > 0 && messages.length === 0 && tasks.length === 0 && permissions.length === 0,
-          laneDirective   = isPureHeartbeat ? `\n\n${WAKE_LANE_DIRECTIVE}` : '';
-
-    return `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}${laneDirective}`;
 }
 
 /**
