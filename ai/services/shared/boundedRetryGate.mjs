@@ -24,7 +24,8 @@
  *    to the latest demand. A waiter therefore always receives the LATEST generation's truth,
  *    annotated by generation identity (`gate.genId` of the serving run vs `gate.demandedGenId`
  *    of the waiter's own demand; `gate.coalesced` marks the fold), never a superseded result
- *    presented as current.
+ *    presented as current. Every delivered result is an independent per-waiter deep copy —
+ *    joined callers cannot observe each other's mutations.
  * 3. **Draining.** A superseded flight's result is dropped (never cached into any other
  *    generation); the coalesced latest demand starts immediately after the active flight
  *    settles. Callers never hang and the latest generation always gets its own run.
@@ -148,22 +149,25 @@ export function createBoundedRetryGate({
     }
 
     /**
-     * @summary Per-waiter delivery: marks results served by a DIFFERENT generation than the one
-     * demanded (`coalesced: true` + the demanded generation identity), so a folded waiter can
-     * always tell which generation's truth it received versus which it asked for.
+     * @summary Per-waiter delivery: every waiter receives an INDEPENDENT deep copy of the serving
+     * run's result — one joined caller's mutation can never reach another joined caller's
+     * delivery. Marks results served by a DIFFERENT generation than the one demanded
+     * (`coalesced: true` + the demanded generation identity), so a folded waiter can always tell
+     * which generation's truth it received versus which it asked for.
      * @param {Object} annotated The serving run's annotated result.
      * @param {Object} waiter    `{key, genId, resolve}` — the demanded generation identity.
      */
     function fanout(annotated, waiter) {
-        waiter.resolve({
-            ...annotated,
-            gate: {
-                ...annotated.gate,
-                coalesced    : annotated.gate.genId !== waiter.genId,
-                demandedKey  : waiter.key,
-                demandedGenId: waiter.genId
-            }
-        });
+        const body = structuredClone(annotated); // per-waiter isolation; gate fields are scalars
+
+        body.gate = {
+            ...annotated.gate,
+            coalesced    : annotated.gate.genId !== waiter.genId,
+            demandedKey  : waiter.key,
+            demandedGenId: waiter.genId
+        };
+
+        waiter.resolve(body);
     }
 
     /**
