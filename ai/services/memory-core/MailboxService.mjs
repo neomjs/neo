@@ -287,7 +287,7 @@ function getRecordProperties(record) {
 
 function setRecordProperties(record, properties) {
     if (record?.isRecord) {
-        record.set('properties', properties);
+        record.set({properties});
     } else if (record) {
         record.properties = properties;
     }
