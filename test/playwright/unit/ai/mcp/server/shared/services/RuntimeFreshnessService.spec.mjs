@@ -197,8 +197,12 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
                 errorLabel: 'OpenAPI digest'
             }],
             serviceName       : 'Cloud MCP server',
-            identityLabel     : 'source/schema identity',
-            assertionFacts    : 'tool-schema/source facts',
+            // Narrowed: this fixture claimed source identity while configuring no rootDir — the
+            // same overclaim the shipped call sites carried, and the construction guard now
+            // refuses it. The assertion below is about gitHead omission, so the label is
+            // incidental to what this test proves.
+            identityLabel     : 'schema identity',
+            assertionFacts    : 'tool-schema facts',
             restartScope      : 'cached tool definitions',
             statusFields      : ['openApiDigest'],
             unavailableSummary: 'config digest and OpenAPI digest'
@@ -218,4 +222,97 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
         expect(result.status).toBe('current');
         expect(result.stale).not.toHaveProperty('gitHead');
     });
+
+    /**
+     * A freshness verdict is what an operator reads to decide whether to investigate, so a label
+     * claiming an unmeasured dimension is a false assurance rather than a cosmetic slip. Witness:
+     * every MCP HealthService asserted "source identity matches the current checkout" while
+     * comparing only file digests, and a container running source 2h22m behind `dev` said
+     * `current` — which stopped three peers investigating fixes that were merged but not deployed.
+     */
+    describeLabelBacking();
 });
+
+function describeLabelBacking() {
+    const
+        CONFIG_AND_SCHEMA = [{key: 'configDigest'}, {key: 'openApiDigest'}],
+        SCHEMA_ONLY       = [{key: 'openApiDigest'}];
+
+    test('rejects a source claim when no rootDir is configured — the shipped defect', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'source/config identity',
+            files        : CONFIG_AND_SCHEMA
+        })).toThrow(/claims source identity/);
+    });
+
+    test('rejects an unbacked claim even when the label\'s other dimension IS backed', () => {
+        // The shipped shape exactly: 'source/…' alongside a dimension that genuinely is measured.
+        // A guard asking "is ANY claimed dimension backed" would have passed this.
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'source/schema identity',
+            files        : SCHEMA_ONLY
+        })).toThrow(/claims source identity/);
+    });
+
+    test('rejects a config claim when only a schema digest is configured', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'config identity',
+            files        : SCHEMA_ONLY
+        })).toThrow(/claims config identity/);
+    });
+
+    test('the refusal names the unbacked dimension AND what is configured', () => {
+        let message = '';
+
+        try {
+            RuntimeFreshnessService.createTracker({identityLabel: 'source identity', files: CONFIG_AND_SCHEMA});
+        } catch (error) {
+            message = error.message;
+        }
+
+        expect(message).toContain('source');
+        expect(message).toContain('configDigest');
+        expect(message).toContain('rootDir: unset');
+    });
+
+    // POSITIVE CONTROLS — without these, a guard that rejected every label would satisfy the
+    // assertions above and read as correct.
+    test('an honest config/schema label constructs', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'config/schema identity',
+            files        : CONFIG_AND_SCHEMA
+        })).not.toThrow();
+    });
+
+    test('source IS admissible once rootDir supplies it — the guard blocks the claim, not the dimension', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'source identity',
+            rootDir      : repoRoot,
+            files        : []
+        })).not.toThrow();
+    });
+
+    test('the default label constructs with nothing configured — the safe case stays free', () => {
+        // The previous default named source/config/schema, so an unconfigured tracker asserted all
+        // three. A default that cannot overclaim is what makes the guard non-punitive.
+        expect(() => RuntimeFreshnessService.createTracker({})).not.toThrow();
+    });
+
+    test('a word outside the dimension vocabulary is ignored, never invented into a violation', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'provider identity',
+            files        : CONFIG_AND_SCHEMA
+        })).not.toThrow();
+    });
+
+    for (const [service, identityLabel, files] of [
+        ['memory-core',     'config/schema identity', CONFIG_AND_SCHEMA],
+        ['knowledge-base',  'config/schema identity', CONFIG_AND_SCHEMA],
+        ['neural-link',     'config/schema identity', CONFIG_AND_SCHEMA],
+        ['github-workflow', 'schema identity',        SCHEMA_ONLY]
+    ]) {
+        test(`the shipped ${service} label is backed by its own configured inputs`, () => {
+            expect(() => RuntimeFreshnessService.createTracker({identityLabel, files})).not.toThrow();
+        });
+    }
+}

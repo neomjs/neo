@@ -269,7 +269,7 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
             },
             hint: null
         });
-        expect(result.details).toContain('Runtime source/config identity matches the current checkout.');
+        expect(result.details).toContain('Runtime config/schema identity matches the current checkout.');
         expect(result.boot).toBeUndefined();
         expect(result.current).toBeUndefined();
     });
