@@ -1,4 +1,4 @@
-import {readPendingWalRecords} from '../../../services/memory-core/helpers/memoryWalStore.mjs';
+import {classifyMemoryWalDrain, readPendingWalRecords} from '../../../services/memory-core/helpers/memoryWalStore.mjs';
 
 /**
  * @summary Read-only liveness watchdog for the embed-drain WAL backlog.
@@ -103,7 +103,12 @@ export async function getEmbedDrainPendingAge({walDir, now, readPending = readPe
  */
 export function evaluateStallAlarm({oldestAgeMs, pendingCount, thresholdMs, alarmState} = {}) {
     const alreadyAlarmed = !!alarmState?.alarmed;
-    const stalled        = thresholdMs > 0 && pendingCount > 0 && oldestAgeMs > thresholdMs;
+    const stalled        = classifyMemoryWalDrain({
+        observable        : true,
+        pendingDrainDepth : pendingCount,
+        oldestPendingAgeMs: oldestAgeMs,
+        stallThresholdMs  : thresholdMs
+    }) === 'stalled';
 
     if (!stalled) {
         // Healthy check: clear the latch so a future stall re-alarms.

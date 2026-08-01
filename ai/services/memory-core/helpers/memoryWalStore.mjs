@@ -37,6 +37,46 @@ import {withAppendLock}                    from './walAppendLock.mjs';
 const SEGMENT_RE = /^wal-(\d{4}-\d{2}-\d{2})\.jsonl$/;
 
 /**
+ * @summary Classifies the observable embed-drain backlog using the shared stall threshold.
+ *
+ * This is the single state definition consumed by both the orchestrator watchdog and the Memory
+ * Core health envelope. Keeping the threshold comparison here prevents a green MCP healthcheck and
+ * a failed watchdog from describing the same backlog differently. A read failure is explicit
+ * `unobservable`, never a reassuring `caught-up`; a non-empty backlog only becomes `stalled` after
+ * its oldest measurable record strictly exceeds the configured threshold.
+ *
+ * @param {Object} options
+ * @param {Boolean} options.observable Whether the WAL backlog was measured successfully.
+ * @param {Number|null} options.pendingDrainDepth Count of records awaiting an embed marker.
+ * @param {Number|null} options.oldestPendingAgeMs Age of the oldest pending record.
+ * @param {Number} options.stallThresholdMs Configured stall threshold; `<= 0` disables stall classification.
+ * @returns {'caught-up'|'pending'|'stalled'|'unobservable'}
+ */
+export function classifyMemoryWalDrain({
+    observable,
+    pendingDrainDepth,
+    oldestPendingAgeMs,
+    stallThresholdMs
+} = {}) {
+    if (observable !== true || !Number.isInteger(pendingDrainDepth) || pendingDrainDepth < 0) {
+        return 'unobservable'
+    }
+
+    if (pendingDrainDepth === 0) {
+        return 'caught-up'
+    }
+
+    if (
+        Number.isFinite(stallThresholdMs) && stallThresholdMs > 0 &&
+        Number.isFinite(oldestPendingAgeMs) && oldestPendingAgeMs > stallThresholdMs
+    ) {
+        return 'stalled'
+    }
+
+    return 'pending'
+}
+
+/**
  * @summary Names the `memoryWal` config leaves missing from a config slice.
  *
  * The stale-overlay guard: gitignored `config.mjs` files are MATERIALIZED copies of

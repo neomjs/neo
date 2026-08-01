@@ -1,19 +1,29 @@
-import Base                                                                                                                                              from '../../../src/core/Base.mjs';
-import StorageRouter                                                                                                                                     from './managers/StorageRouter.mjs';
-import crypto                                                                                                                                            from 'crypto';
-import GraphService                                                                                                                                      from './GraphService.mjs';
-import logger                                                                                                                                            from '../../mcp/server/memory-core/logger.mjs';
-import SessionService                                                                                                                                    from './SessionService.mjs';
-import TurnPresenceService                                                                                                                               from './TurnPresenceService.mjs';
-import {withTimeout}                                                                                                                                     from './helpers/withTimeout.mjs';
-import {appendWalGraphProjectionMarker, appendWalMemory, getMissingMemoryWalLeaves, pruneReconciledWalSegments, readPendingWalRecords, readWalMarkedIds} from './helpers/memoryWalStore.mjs';
-import {composeTurnDocumentText, resolveTurnDocumentForRead}                                                                                             from './helpers/turnDocumentText.mjs';
-import {isCollectionQuarantined}                                                                                                                         from './helpers/quarantineStore.mjs';
-import {buildChatModel}                                                                                                                                  from '../../provider/buildChatModel.mjs';
-import aiConfig                                                                                                                                          from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                                          from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                                       from '../../graph/identityRoots.mjs';
-import {normalizeAgentIdentityNodeId}                                                                                                                    from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import Base                from '../../../src/core/Base.mjs';
+import StorageRouter       from './managers/StorageRouter.mjs';
+import crypto              from 'crypto';
+import GraphService        from './GraphService.mjs';
+import logger              from '../../mcp/server/memory-core/logger.mjs';
+import SessionService      from './SessionService.mjs';
+import TurnPresenceService from './TurnPresenceService.mjs';
+import {withTimeout}       from './helpers/withTimeout.mjs';
+
+import {
+    appendWalGraphProjectionMarker,
+    appendWalMemory,
+    classifyMemoryWalDrain,
+    getMissingMemoryWalLeaves,
+    pruneReconciledWalSegments,
+    readPendingWalRecords,
+    readWalMarkedIds
+} from './helpers/memoryWalStore.mjs';
+
+import {composeTurnDocumentText, resolveTurnDocumentForRead}    from './helpers/turnDocumentText.mjs';
+import {isCollectionQuarantined}                                from './helpers/quarantineStore.mjs';
+import {buildChatModel}                                         from '../../provider/buildChatModel.mjs';
+import aiConfig                                                 from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}              from '../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId}                           from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
@@ -591,7 +601,9 @@ class MemoryService extends Base {
      * @returns {Promise<Object>}
      */
     async describeDrainState() {
-        const walDir = aiConfig.memoryWal.dir;
+        const
+            stallThresholdMs = aiConfig.memoryWal.embedDrainStallThresholdMs,
+            walDir           = aiConfig.memoryWal.dir;
 
         try {
             const pending = await readPendingWalRecords({dir: walDir}),
@@ -602,12 +614,20 @@ class MemoryService extends Base {
                           return at !== null && (min === null || at < min) ? at : min
                       },
                       null
-                  );
+                  ),
+                  oldestPendingAgeMs = oldest === null ? null : Math.max(0, Date.now() - oldest);
 
             return {
-                observable        : true,
+                observable: true,
+                state     : classifyMemoryWalDrain({
+                    observable       : true,
+                    pendingDrainDepth: pending.length,
+                    oldestPendingAgeMs,
+                    stallThresholdMs
+                }),
+                stallThresholdMs,
                 pendingDrainDepth : pending.length,
-                oldestPendingAgeMs: oldest === null ? null : Math.max(0, Date.now() - oldest),
+                oldestPendingAgeMs,
                 // Zero pending is the ONLY state that means every accepted write is SEMANTICALLY
                 // queryable, and it is stated positively so a caller does not have to infer it from an
                 // absent field. Named for the axis: recency recall never waits on this backlog, so an
@@ -622,6 +642,8 @@ class MemoryService extends Base {
             // one layer up: a caller trusting a number that means "unknown".
             return {
                 observable                    : false,
+                state                         : classifyMemoryWalDrain({observable: false}),
+                stallThresholdMs,
                 pendingDrainDepth             : null,
                 oldestPendingAgeMs            : null,
                 allWritesSemanticallyQueryable: null
