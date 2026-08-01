@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}          from '@playwright/test';
-import path                    from 'path';
-import {fileURLToPath}         from 'url';
-import Neo                     from '../../../../../../../../src/Neo.mjs';
-import * as core               from '../../../../../../../../src/core/_export.mjs';
-import RuntimeFreshnessService from '../../../../../../../../ai/mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import {test, expect}                                 from '@playwright/test';
+import path                                           from 'path';
+import {fileURLToPath}                                from 'url';
+import Neo                                            from '../../../../../../../../src/Neo.mjs';
+import * as core                                      from '../../../../../../../../src/core/_export.mjs';
+import RuntimeFreshnessService, {resolveStatusFields} from '../../../../../../../../ai/mcp/server/shared/services/RuntimeFreshnessService.mjs';
 
 const
     testDir  = path.dirname(fileURLToPath(import.meta.url)),
@@ -314,6 +314,58 @@ function describeLabelBacking() {
             files        : [],
             statusFields : ['gitHead']
         })).not.toThrow();
+    });
+
+    // Table-driven mixed authority: every dimension keys on the SAME effective status set, so a
+    // field that is observed-but-excluded can never authorize a positive claim. Isolating each
+    // dimension matters — the first cut fixed `source` and left `config`/`schema` on `files`,
+    // which is the identical defect one dimension over.
+    for (const [dimension, label, observedFiles, statusFields] of [
+        ['source', 'source identity', CONFIG_AND_SCHEMA,               ['configDigest', 'openApiDigest']],
+        ['config', 'config identity', CONFIG_AND_SCHEMA,               ['openApiDigest']],
+        ['schema', 'schema identity', CONFIG_AND_SCHEMA,               ['configDigest']]
+    ]) {
+        test(`rejects a ${dimension} claim when its field is observed but excluded from statusFields`, () => {
+            expect(() => RuntimeFreshnessService.createTracker({
+                identityLabel: label,
+                rootDir      : repoRoot,
+                files        : observedFiles,
+                statusFields
+            })).toThrow(new RegExp(`claims ${dimension} identity`));
+        });
+    }
+
+    for (const [dimension, label, statusFields] of [
+        ['source', 'source identity', ['gitHead']],
+        ['config', 'config identity', ['configDigest']],
+        ['schema', 'schema identity', ['openApiDigest']]
+    ]) {
+        test(`admits a ${dimension} claim once its field IS status-driving`, () => {
+            expect(() => RuntimeFreshnessService.createTracker({
+                identityLabel: label,
+                rootDir      : repoRoot,
+                files        : CONFIG_AND_SCHEMA,
+                statusFields
+            })).not.toThrow();
+        });
+    }
+
+    test('with statusFields defaulted, file digests ARE status-driving — the guard must not over-reject', () => {
+        // The default set is every fieldKey except gitHead, so config/schema are backed without an
+        // explicit statusFields. Over-rejecting here would make the honest common case unusable.
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'config/schema identity',
+            files        : CONFIG_AND_SCHEMA
+        })).not.toThrow();
+    });
+
+    test('the guard and the tracker resolve the SAME status set — one definition, not two', () => {
+        // The defect this whole ticket is about, one layer up: if the guard derived the set
+        // independently it could authorize a claim the verdict cannot support.
+        expect(resolveStatusFields({files: CONFIG_AND_SCHEMA, rootDir: repoRoot}))
+            .toEqual(['configDigest', 'openApiDigest']);
+        expect(resolveStatusFields({statusFields: ['gitHead'], files: CONFIG_AND_SCHEMA}))
+            .toEqual(['gitHead']);
     });
 
     test('the refusal names statusFields, not just files — the reader must know which set was short', () => {

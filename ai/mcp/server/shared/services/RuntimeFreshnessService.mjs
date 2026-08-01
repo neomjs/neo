@@ -52,6 +52,35 @@ function compareIdentityField(field, boot, current) {
 const DEFAULT_IDENTITY_LABEL = 'runtime identity';
 
 /**
+ * @summary The status-driving field set a tracker configuration resolves to.
+ *
+ * **One definition, two consumers.** The tracker derives this in its constructor to decide which
+ * fields can produce `status: 'stale'`; the label guard needs the identical set to decide which
+ * dimensions a label may claim. Deriving it twice is how the two drift — the guard would then
+ * authorize a claim the verdict cannot support, which is the defect it exists to prevent, one layer
+ * up. Both call this.
+ *
+ * `gitHead` is excluded from the default because a repo-wide revision is contextual: it moves for
+ * reasons unrelated to a given service's own inputs. A caller wanting it verdict-driving must name
+ * it in `statusFields` explicitly.
+ *
+ * @param {Object} options `createTracker` / `RuntimeFreshnessTracker` options.
+ * @returns {String[]} Field keys that may drive the status verdict.
+ */
+export function resolveStatusFields(options = {}) {
+    if (Array.isArray(options.statusFields)) {
+        return options.statusFields
+    }
+
+    const fieldKeys = [
+        ...(options.rootDir ? ['gitHead'] : []),
+        ...(options.files || []).map(file => file?.key).filter(Boolean)
+    ];
+
+    return fieldKeys.filter(key => key !== 'gitHead')
+}
+
+/**
  * @summary Which tracker input backs each dimension an `identityLabel` may claim.
  *
  * A freshness verdict is read by an operator deciding whether to investigate, so its prose is
@@ -75,9 +104,9 @@ const DEFAULT_IDENTITY_LABEL = 'runtime identity';
  * @member {Object}
  */
 const FRESHNESS_DIMENSIONS = Object.freeze({
-    source: options => (options.statusFields || []).includes('gitHead'),
-    config: options => (options.files || []).some(file => /config/i.test(file?.key || '')),
-    schema: options => (options.files || []).some(file => /openapi|schema/i.test(file?.key || ''))
+    source: statusFields => statusFields.includes('gitHead'),
+    config: statusFields => statusFields.some(key => /config/i.test(key)),
+    schema: statusFields => statusFields.some(key => /openapi|schema/i.test(key))
 });
 
 /**
@@ -92,20 +121,20 @@ const FRESHNESS_DIMENSIONS = Object.freeze({
  * @throws {Error} When the label names a dimension with no configured input.
  */
 function assertLabelIsBacked(options, label) {
-    const unbacked = Object.entries(FRESHNESS_DIMENSIONS)
-        .filter(([dimension, isBacked]) => new RegExp(`\\b${dimension}\\b`, 'i').test(label) && !isBacked(options))
-        .map(([dimension]) => dimension);
+    const
+        statusFields = resolveStatusFields(options),
+        unbacked     = Object.entries(FRESHNESS_DIMENSIONS)
+            .filter(([dimension, isBacked]) => new RegExp(`\\b${dimension}\\b`, 'i').test(label) && !isBacked(statusFields))
+            .map(([dimension]) => dimension);
 
     if (unbacked.length) {
-        const
-            configured    = (options.files || []).map(file => file?.key).filter(Boolean),
-            statusDriving = options.statusFields || [];
+        const configured = (options.files || []).map(file => file?.key).filter(Boolean);
 
         throw new Error(
             `RuntimeFreshnessService: identityLabel '${label}' claims ${unbacked.join(', ')} ` +
             `identity, but no STATUS-DRIVING input supports it (files: [${configured.join(', ') || 'none'}], ` +
-            `statusFields: [${statusDriving.join(', ') || 'default — gitHead excluded'}], ` +
-            `rootDir: ${options.rootDir ? 'set' : 'unset'}). A contextual read is not verdict authority: ` +
+            `effective statusFields: [${statusFields.join(', ') || 'none'}], ` +
+            `rootDir: ${options.rootDir ? 'set' : 'unset'}). Observation is not verdict authority: ` +
             `narrow the label, or add the field to statusFields.`
         );
     }
@@ -176,8 +205,10 @@ export class RuntimeFreshnessTracker {
             'git metadata, config digest, and OpenAPI digest';
         this.startedAt          = options.startedAt || new Date().toISOString();
 
-        this.#fieldKeys      = [...(this.rootDir ? ['gitHead'] : []), ...this.#files.map(file => file.key)];
-        this.#statusFieldSet = new Set(options.statusFields || this.#fieldKeys.filter(key => key !== 'gitHead'));
+        this.#fieldKeys = [...(this.rootDir ? ['gitHead'] : []), ...this.#files.map(file => file.key)];
+        // Same derivation the label guard uses — see resolveStatusFields. Deriving it twice is how
+        // the guard and the verdict drift apart, which is the defect the guard exists to prevent.
+        this.#statusFieldSet = new Set(resolveStatusFields(options));
 
         const boot = this.#runtimeService.readRuntimeIdentitySync({
             files  : this.#files,
