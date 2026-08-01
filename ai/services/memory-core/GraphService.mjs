@@ -607,7 +607,7 @@ class GraphService extends Base {
                 if (ramEdge) {
                     if (ramEdge.isRecord) {
                         const newProps = { ...(ramEdge.get('properties') || {}), ...edgeProperties, weight: newWeight };
-                        ramEdge.set('properties', newProps);
+                        ramEdge.set({properties: newProps});
                     } else {
                         ramEdge.properties.weight = newWeight;
                         Object.assign(ramEdge.properties, edgeProperties);
