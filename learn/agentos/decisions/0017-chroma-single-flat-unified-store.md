@@ -1,6 +1,6 @@
 # ADR 0017: Chroma — Single Flat Unified Store + Dev/Prod Parity
 
-> Architectural Decision Record for Epic #12153. Amends ADR 0003 (Chroma Topology — Unified Only): preserves its one-daemon core decision and records the store's concrete shape — a single FLAT persist store named `unified`, identical local and cloud, with Knowledge Base / Memory Core / tenant separation enforced by collection + metadata + export + backup, never by directory or daemon split. Retires the federated-era two-folder local layout (`knowledge-base/` + the stale `memory-core/`).
+> Architectural Decision Record for Epic #12153. Amends ADR 0003 (Chroma Topology — Unified Only): preserves its one-daemon core decision and records the store's concrete shape — a single FLAT persist store per deployment, logical name `unified`, topologically identical local and cloud (local host path `.neo-ai-data/chroma/unified`; container leaf = the image-pinned `/data`, §2.2), with Knowledge Base / Memory Core / tenant separation enforced by collection + metadata + export + backup, never by directory or daemon split. Retires the federated-era two-folder local layout (`knowledge-base/` + the stale `memory-core/`).
 
 | Attribute | Value |
 |---|---|
@@ -25,10 +25,10 @@ Critically, the KB ships a release artifact (`uploadKnowledgeBase.mjs`) that eve
 
 ## 2. Decision
 
-**One flat Chroma store named `unified`, identical in shape local and cloud.**
+**One flat Chroma store per deployment — logical name `unified`, topologically identical local and cloud.**
 
 - **One daemon / container** (unchanged from ADR 0003). No per-realm persist folders.
-- **Local:** the orchestrator launches the daemon against `.neo-ai-data/chroma/unified`. **Cloud:** the `chroma` container persists to `/chroma/unified` (set via `PERSIST_DIRECTORY` — see §2.2). The leaf name `unified` is identical both sides.
+- **Local:** the orchestrator launches the daemon against `.neo-ai-data/chroma/unified`. **Cloud/container:** the `chroma` container persists to the **image-pinned `/data`** leaf, with the named volume mounted exactly there (§2.2). Parity is **topological** — one flat store, the same collection set, the logical identity `unified` — not literal-path: the container-side leaf is owned by the image, not by this ADR.
 - **Realm / tenant separation is enforced at the layers that exist in every deployment, never by directory or daemon split:**
   - **Isolation** — collection names + per-chunk metadata (tenant isolation via the existing identity-tuple + write-stamping + read-filter model; ADR 0014 + cloud-deployment Overview). Per-collection HNSW indices mean coexistence does not degrade per-collection search (§2.1).
   - **Shipping** — the KB release artifact is a **collection-scoped export** of only the `neo-knowledge-base` collection (reusing the existing `backup.mjs` / `restore.mjs` JSONL SDK), never a directory copy. The privacy boundary becomes a collection boundary the export tooling enforces: it is structurally impossible to ship a Memory Core collection the export does not name.
@@ -38,8 +38,18 @@ Critically, the KB ships a release artifact (`uploadKnowledgeBase.mjs`) that eve
 ### 2.1 Why one store does not degrade search
 ChromaDB HNSW indices are per-collection / per-segment (each segment-UUID dir is an independent `hnswlib` index). A query against `neo-agent-memory` traverses only that collection's graph regardless of how many other collections share the persist dir. The real shared-store costs are metadata-sqlite size (dominated by the #12143 test pollution, not realm coexistence) and write contention — neither requires physical separation.
 
-### 2.2 Cloud persist-path mechanism (verified against chroma 1.5.9 source)
-The `chromadb/chroma:1.5.9` image resolves its persist path from `IS_PERSISTENT=1` + a WORKDIR-relative default `persist_directory=./chroma` = `/chroma/chroma`. It does **not** read the volume *mount* path. Persisting to `/chroma/unified` therefore requires setting `PERSIST_DIRECTORY=/chroma/unified` in the compose environment **alongside** the mount — a mount-path change alone silently writes to an ephemeral container layer. Greenfield: no cloud deployment exists yet, so choosing the path now carries no data-migration cost.
+### 2.2 Container persist-path mechanism (corrected 2026-08-01; verified against the running image)
+The published `chromadb/chroma:1.5.9` container's entrypoint executes `chroma run /config.yaml`, and that shipped config pins `persist_path: "/data"`. The persist path is therefore **image-owned**: the compose contract is to mount the named volume (or tmpfs, in the test stack) at **`/data`**, keeping `PERSIST_DIRECTORY` declared on the same leaf — it is **not read** by the config-driven entrypoint, and aligning it means an image variant that does read it cannot re-split the store from the mount. A storage mount anywhere else leaves the live store in the container's ephemeral writable layer while the mounted volume sits empty. Guarded by `test/playwright/unit/ai/deploy/ChromaPersistPathContract.spec.mjs`, which pins the exact image tag so a version bump forces re-verification of the shipped config before the pin moves.
+
+> **Falsification record (2026-08-01, #16208 / #16254).** This section originally asserted —
+> "verified against chroma 1.5.9 source" — that the image resolved its persist path from
+> `IS_PERSISTENT=1` + a WORKDIR-relative default (`/chroma/chroma`), and that setting
+> `PERSIST_DIRECTORY=/chroma/unified` alongside a matching mount was required and sufficient.
+> The running image falsified this: with exactly that configuration live, the store grew at
+> `/data` (1.1 GB) while the mounted `/chroma/unified` held 4 KB — the ephemeral-layer failure
+> the original text believed the env prevented. The source-reading audited the wrong entrypoint
+> path; the shipped container is config-driven. The **decision** this ADR records — one flat
+> unified store, collection-scoped shipping, KB-as-cache / MC-as-store — is unaffected.
 
 ## 3. Rejected Alternatives
 
@@ -49,7 +59,7 @@ The `chromadb/chroma:1.5.9` image resolves its persist path from `IS_PERSISTENT=
 | **Two persist folders under one daemon** | ChromaDB serves one `--path` per daemon; "one daemon, two live folders" is not a supported shape. |
 | **Keep `knowledge-base` as the store/persist-dir name** | Misleading — it holds every realm; config reads as MC-stores-into-KB. |
 | **Folder-level KB release artifact** | Post-unification the dir holds Memory Core collections → a directory copy leaks private data. Collection-scoped export is the only safe shipping mechanism (and the only one that works in cloud, where no KB folder exists). |
-| **Drop the cloud rename (logical-only parity)** | Considered while assuming existing cloud data; with no deployment yet the rename is risk-free, so literal parity (`unified` both sides) is chosen over leaving the cloud path at the confusing image default. |
+| **Drop the cloud rename (logical-only parity)** | Originally rejected in favor of literal path parity (`unified` both sides). **Superseded 2026-08-01 (§2.2):** the published image owns its container leaf (`/data`), so literal-path parity is not available; the operative parity IS the logical/topological one this row originally argued against — one flat store, logical identity `unified`, same collection set. |
 
 ## 4. Consequences
 
@@ -60,7 +70,7 @@ The `chromadb/chroma:1.5.9` image resolves its persist path from `IS_PERSISTENT=
 
 ### Negative / handoffs
 - A one-time **local** data migration (the operator's machine holds the only live store, with the irreplaceable MC physically inside `knowledge-base/`): daemon-quiesce (`withHeavyMaintenanceLease`) → backup → atomic same-FS rename → verify → delete stale `memory-core/`. Owned by #12155. This is data-preservation of the one live store, not backwards-compat (no deployments exist; v13 permits breaking changes).
-- The cloud compose MUST set `PERSIST_DIRECTORY` (not just the mount). Owned by #12155.
+- The container compose MUST mount its storage surface at the image-pinned `/data` (§2.2); `PERSIST_DIRECTORY` declared on the same leaf is compatibility, not the mechanism. Contract guarded by `ChromaPersistPathContract.spec.mjs`.
 - The KB release pipeline must become collection-scoped. Owned by #12157.
 
 ## 5. Boundary — what this ADR does NOT decide
