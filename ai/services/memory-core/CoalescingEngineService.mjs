@@ -47,21 +47,29 @@ const WAKE_PRIORITY_RANKS = Object.freeze({
 /**
  * @summary Resolves an event's recency timestamp for digest `latest` selection.
  *
- * The payload's `sentAt` wins first (mailbox events carry the message's own send time, which is
- * the recency an agent reads the pointer by); the envelope's `emittedAt` is the fallback (numeric
- * epoch or ISO string). Returns `null` when nothing is resolvable — the caller then keeps the
- * previous last-write-wins behavior, so timestamp-less events are never re-ordered by guesswork.
+ * Payload-level event times win first, one wire-contract field per event type: `sentAt`
+ * (mailbox events carry the message's own send time — the recency an agent reads the
+ * pointer by), `grantedAt` (permission grants carry the delivery-time stamp minted in
+ * WakeSubscriptionService), `lastModifiedAt` (Task transitions carry the canonical
+ * transition clock). The envelope's `emittedAt` is the fallback (numeric
+ * epoch or ISO string). Returns `null` when nothing is resolvable — the caller then keeps
+ * the previous last-write-wins behavior, so timestamp-less events are never re-ordered
+ * by guesswork.
  * @param {Object} event Wake event envelope.
  * @returns {Number|null} Epoch ms, or null when no timestamp is resolvable.
  */
 function resolveEventTimestamp(event) {
-    const sentAt = event?.payload?.sentAt;
+    const payload = event?.payload;
 
-    if (typeof sentAt === 'string') {
-        const ts = Date.parse(sentAt);
+    for (const field of ['sentAt', 'grantedAt', 'lastModifiedAt']) {
+        const value = payload?.[field];
 
-        if (Number.isFinite(ts)) {
-            return ts
+        if (typeof value === 'string') {
+            const ts = Date.parse(value);
+
+            if (Number.isFinite(ts)) {
+                return ts
+            }
         }
     }
 
@@ -406,12 +414,16 @@ class CoalescingEngineService extends Base {
      * so Shape A and Shape B consumers can dispatch with the same shape they expect for
      * single events.
      *
-     * Each bucket's `latest` is chosen by RECENCY (max timestamp), never by iteration
-     * position: enqueue order is only arrival order when every event arrives live in
-     * sequence, and an out-of-order queue (replay batch, restart re-walk, multi-source
-     * evaluation) would otherwise point `latest` at a stale event while a newer one is
-     * present — the pointer agents use to decide whether a wake is worth acting on.
-     * Timestamp-less payloads fall back to last-write-wins, the previous behavior.
+     * Each bucket's `latest` resolves by the truest clock its payload carries:
+     * `sent_to_me` by the message's `sentAt`, `permission_granted` by the delivery-time
+     * `grantedAt`, `task_state_changed` by the transition clock `lastModifiedAt` — true
+     * event times, so an out-of-order queue (replay batch, restart re-walk, multi-source
+     * evaluation) cannot point `latest` at a stale event while a newer one is present.
+     * `heartbeat_pulse` carries no payload clock and resolves by the envelope's
+     * `emittedAt` (wrap/arrival time, which tracks position under in-order arrival);
+     * timestamp-less payloads keep last-write-wins. The pointer is what agents use to
+     * decide whether a wake is worth acting on, so each bucket claims only the recency
+     * its own wire contract can prove.
      *
      * @protected
      * @param {Object} subscription
