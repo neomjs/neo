@@ -136,7 +136,23 @@ npm run ai:wake-manifest -- \
   --identity "@your-seat-handle" \
   --instance userDataDir \
   --instance-address /absolute/validated/seat-profile
+
+# Publishing writes the file; it does NOT make the route live. A running receiver
+# holds the manifest it validated, so signal it to re-read:
+kill -HUP "$(pgrep -f 'wake/receiver.mjs')"
 ```
+
+**Publishing is not provisioning.** Until the running receiver re-reads, a newly
+published route answers `404`, and the sender treats a 4xx as a client error and
+degrades the subscription immediately with no retry — so the route goes deaf on
+its *first* wake rather than failing gradually. Signal after publishing, or start
+the receiver afterwards.
+
+A reload that fails validation is refused and logged, leaving the routes already
+serving untouched; an unreadable or half-written manifest cannot empty a working
+route table. To confirm a route is live without sending a real wake, POST with a
+deliberately wrong signature: `401` means the receiver holds the route, `404`
+means it does not.
 
 The generator reads the server-issued key from the record (it never mints one
 and fails closed on disagreement), skips undeliverable targets with a named
