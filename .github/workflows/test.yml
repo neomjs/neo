@@ -138,8 +138,18 @@ jobs:
 
                 const depKindKeys = ['dependencies', 'devDependencies', 'overrides'];
 
-                const readDepKind = async ref => {
-                  const res     = await github.rest.repos.getContent({owner: context.repo.owner, repo: context.repo.repo, path: 'package.json', ref});
+                // Fork PRs: the head SHA exists only in the fork repo, so the head content read
+                // must follow the fork's coordinates — the base half stays on the PR target repo.
+                // Same-repo PRs and push events keep the single-repo path; an unreadable fork
+                // (deleted / private) throws below and keeps the fail-open stance.
+                const headRepo = eventName === 'pull_request' && context.payload.pull_request.head.repo?.fork === true
+                  ? {owner: context.payload.pull_request.head.repo.owner.login, repo: context.payload.pull_request.head.repo.name}
+                  : {owner: context.repo.owner, repo: context.repo.repo};
+
+                core.info(`package.json head content resolves from ${headRepo.owner}/${headRepo.repo}.`);
+
+                const readDepKind = async (ref, {owner, repo}) => {
+                  const res     = await github.rest.repos.getContent({owner, repo, path: 'package.json', ref});
                   const pkg     = JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
                   const depKind = {};
 
@@ -154,7 +164,7 @@ jobs:
                   return depKind;
                 };
 
-                const [baseDepKind, headDepKind] = await Promise.all([readDepKind(baseRef), readDepKind(headRef)]),
+                const [baseDepKind, headDepKind] = await Promise.all([readDepKind(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), readDepKind(headRef, headRepo)]),
                       relevant = JSON.stringify(baseDepKind) !== JSON.stringify(headDepKind);
 
                 core.info(`package.json dependency-kind change: ${relevant}`);
