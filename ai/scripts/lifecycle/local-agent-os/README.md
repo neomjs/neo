@@ -175,8 +175,9 @@ probe() {   # $1 = port, $2 = subscription id
         --data '{}'
 }
 
+probe 3199 WAKE_SUB:<a-route-you-KNOW-is-held>            # REQUIRED positive control
+probe 3199 WAKE_SUB:00000000-0000-0000-0000-000000000000  # REQUIRED negative control
 probe 3199 WAKE_SUB:<the-id-you-are-asking-about>
-probe 3199 WAKE_SUB:00000000-0000-0000-0000-000000000000   # REQUIRED control
 ```
 
 **The subscription id is a header, not a body field.** The receiver reads
@@ -185,11 +186,25 @@ probe 3199 WAKE_SUB:00000000-0000-0000-0000-000000000000   # REQUIRED control
 `undefined` and the receiver answers `404 unknown-subscription` — byte-identical
 to a genuinely absent route.
 
-**Always run the bogus-id control**, and read it first. A probe that answers `404`
-for every id is indistinguishable from a receiver holding nothing, so without the
-control a malformed probe reads as a broken receiver. If the control returns
-anything other than `404`, or if a route you know is present also returns `404`,
-the probe is wrong — not the receiver.
+**Run the positive control first, and treat an absence reading as void without
+it.** Measured against a live receiver:
+
+| request | result |
+|---|---|
+| subscription-id header omitted entirely | `404` |
+| bogus id | `404` |
+| a route the receiver genuinely holds | `401` |
+
+The first two are indistinguishable, so **the negative control alone cannot tell a
+malformed probe from an absent route** — it produces the identical observation
+under the exact failure this procedure exists to catch. Only a `401` from a route
+you already know is held proves the instrument can reach the other branch at all.
+
+Read them in this order. If the positive control does not return `401`, stop: the
+probe is wrong and every `404` below it is meaningless. If the negative control
+does not return `404`, stop too — an instrument answering `401` indiscriminately
+is equally useless, in the opposite direction. Only with both controls passing in
+the **same run** does a `404` on your target mean the route is absent.
 
 A reload that fails validation is refused and logged, leaving the routes already
 serving untouched; an unreadable or half-written manifest cannot empty a working
