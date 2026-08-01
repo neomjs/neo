@@ -1,7 +1,8 @@
-import {execSync}     from 'node:child_process';
-import {readFileSync} from 'node:fs';
-import path           from 'node:path';
-import process        from 'node:process';
+import {execSync}             from 'node:child_process';
+import {readFileSync}         from 'node:fs';
+import {findUnknownCoAuthors} from './agentCoAuthorEmails.mjs';
+import path                   from 'node:path';
+import process                from 'node:process';
 
 /**
  * Pre-push authorship check. ticket-ref-ok: implementing tickets #15337 and #16143
@@ -156,13 +157,9 @@ function commitsAuthoredBy(email, ranges) {
 
 const operator = operatorEmail();
 
-// No global identity, or the operator's own checkout: nothing this check can or should say.
-if (!operator || !isAgentCheckout()) {
-    process.exit(0)
-}
-
 // stdin is the hook's payload; readFileSync(0) is the only way to take it synchronously, and a
-// missing/closed stdin must degrade to the branch range rather than to an empty scan.
+// missing/closed stdin must degrade to the branch range rather than to an empty scan. Read BEFORE
+// the ownership gate below: the co-author check needs the same ranges and must not be gated by it.
 let payload = '';
 
 try {
@@ -171,7 +168,48 @@ try {
     payload = ''
 }
 
-const offenders = commitsAuthoredBy(operator, pendingRanges(payload));
+const ranges = pendingRanges(payload);
+
+// Co-author trailer check: warn on a project-domain address that credits no known agent account.
+// Deliberately runs BEFORE the ownership gate below — who owns the checkout has no bearing on
+// whether an address exists, and that gate answers a different question (operator identity leak).
+// Advisory in both directions: an unrecognized address warns, an unreadable map stays silent, and
+// neither can block. See ./agentCoAuthorEmails.mjs for why the addresses are a map and not derived.
+try {
+    const commits = ranges.flatMap(range => {
+        // \x1f between fields, \x1e between records: a commit body carries newlines and tabs, so
+        // line-splitting the log would truncate the very trailer block this needs to read.
+        const log = tryExec(`git log ${range} --format=%H%x1f%s%x1f%B%x1e`);
+
+        return log ? log.split('\x1e').map(entry => {
+            const [sha, subject, body] = entry.replace(/^\n+/, '').split('\x1f');
+            return sha ? {sha, subject, body} : null
+        }).filter(Boolean) : []
+    });
+
+    const unknownCoAuthors = findUnknownCoAuthors({commits});
+
+    if (unknownCoAuthors.length > 0) {
+        console.warn(`\x1b[33mWarning: ${unknownCoAuthors.length} Co-Authored-By trailer(s) credit an address that belongs to no known agent account.\x1b[0m`);
+        unknownCoAuthors.forEach(({sha, subject, email}) => console.warn(`  ${sha.slice(0, 10)}  <${email}>  ${subject}`));
+        console.warn('');
+        console.warn('GitHub resolves trailers by email, so an unknown address credits nobody — the co-author');
+        console.warn('is silently dropped from the contribution record with nothing failing.');
+        console.warn('Addresses cannot be derived from a handle: three logins do not match their local part.');
+        console.warn('Look the address up in buildScripts/util/agentCoAuthorEmails.mjs, or add the seat there.');
+        console.warn('This is advisory — the push proceeds.')
+    }
+} catch {
+    // Fail open: a missing registry, an unreadable map, or a malformed log must never block a push.
+}
+
+// From here on: the operator-identity leak guard, which IS scoped to agent checkouts.
+// No global identity, or the operator's own checkout: nothing that check can or should say.
+if (!operator || !isAgentCheckout()) {
+    process.exit(0)
+}
+
+const offenders = commitsAuthoredBy(operator, ranges);
 
 if (offenders.length === 0) {
     process.exit(0)
