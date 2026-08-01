@@ -2827,6 +2827,15 @@ components:
               type: boolean
               description: "Whether the backlog could be measured. False means the WAL read failed; the sibling fields are then null rather than a reassuring zero."
               example: true
+            state:
+              type: string
+              enum: [caught-up, pending, stalled, unobservable]
+              description: "Shared embed-drain classification. A pending backlog becomes stalled only when its oldest measurable record strictly exceeds stallThresholdMs; an unreadable backlog is unobservable, never caught-up."
+              example: pending
+            stallThresholdMs:
+              type: number
+              description: "Configured oldest-pending-age threshold used by both this classification and the orchestrator watchdog. Values <= 0 disable stall classification."
+              example: 21600000
             pendingDrainDepth:
               type: integer
               nullable: true
@@ -2842,7 +2851,7 @@ components:
               nullable: true
               description: "True only when the backlog is empty. Null when not observable — never inferred from an unreadable WAL."
               example: true
-          required: [observable, pendingDrainDepth, oldestPendingAgeMs, allWritesSemanticallyQueryable]
+          required: [observable, state, stallThresholdMs, pendingDrainDepth, oldestPendingAgeMs, allWritesSemanticallyQueryable]
         plane:
           type: object
           description: "OBSERVED plane identity — the id/dataRoot THIS process resolved, read from the same per-server config the boot assertion verified (the deployment manifest's observed column). Always present."

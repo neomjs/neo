@@ -34,8 +34,9 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
-            listTools              : ToolServiceModule.listTools,
-            readLaneLandscapeConfig: ToolServiceModule.readLaneLandscapeConfig
+            composeMemoryCoreHealthcheck: ToolServiceModule.composeMemoryCoreHealthcheck,
+            listTools                   : ToolServiceModule.listTools,
+            readLaneLandscapeConfig     : ToolServiceModule.readLaneLandscapeConfig
         };
     });
 
@@ -207,6 +208,8 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         expect(declared).toBeTruthy();
         expect(declared.properties.observable.type).toBe('boolean');
+        expect(declared.properties.state.enum).toEqual(['caught-up', 'pending', 'stalled', 'unobservable']);
+        expect(declared.properties.stallThresholdMs.type).toBe('number');
         expect(declared.properties.pendingDrainDepth.type).toBe('integer');
         expect(declared.properties.allWritesSemanticallyQueryable.type).toBe('boolean');
 
@@ -232,6 +235,65 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         const unproduced = Object.keys(declared.properties).filter(key => !(key in produced));
 
         expect(unproduced).toEqual([]);
+    });
+
+    test('healthcheck composition degrades only a stalled drain and preserves stronger verdicts (#16305)', () => {
+        const plane        = {id: 'test-plane', dataRoot: '/test-data'};
+        const pendingDrain = {
+            observable                    : true,
+            state                         : 'pending',
+            stallThresholdMs              : 6 * 60 * 60 * 1000,
+            pendingDrainDepth             : 2,
+            oldestPendingAgeMs            : 60 * 1000,
+            allWritesSemanticallyQueryable: false
+        };
+        const baseHealth = {
+            status : 'healthy',
+            details: ['Connected to ChromaDB', 'All features are operational']
+        };
+
+        const pending = toolService.composeMemoryCoreHealthcheck({health: baseHealth, memoryWalDrain: pendingDrain, plane});
+
+        expect(pending.status).toBe('healthy');
+        expect(pending.details).toContain('All features are operational');
+
+        const stalledDrain = {
+            ...pendingDrain,
+            state             : 'stalled',
+            pendingDrainDepth : 29,
+            oldestPendingAgeMs: pendingDrain.stallThresholdMs + 1
+        };
+        const stalled = toolService.composeMemoryCoreHealthcheck({health: baseHealth, memoryWalDrain: stalledDrain, plane});
+
+        expect(stalled.status).toBe('degraded');
+        expect(stalled.details).toContain('Connected to ChromaDB');
+        expect(stalled.details).not.toContain('All features are operational');
+        expect(stalled.details.at(-1)).toContain('29 pending records');
+        expect(stalled.details.at(-1)).toContain(`${stalledDrain.oldestPendingAgeMs} ms`);
+
+        const unhealthy = toolService.composeMemoryCoreHealthcheck({
+            health        : {...baseHealth, status: 'unhealthy'},
+            memoryWalDrain: stalledDrain,
+            plane
+        });
+
+        expect(unhealthy.status).toBe('unhealthy');
+
+        const unobservable = toolService.composeMemoryCoreHealthcheck({
+            health        : {...baseHealth, status: 'unhealthy'},
+            memoryWalDrain: {
+                ...pendingDrain,
+                observable                    : false,
+                state                         : 'unobservable',
+                pendingDrainDepth             : null,
+                oldestPendingAgeMs            : null,
+                allWritesSemanticallyQueryable: null
+            },
+            plane
+        });
+
+        expect(unobservable.status).toBe('unhealthy');
+        expect(unobservable.memoryWalDrain.state).toBe('unobservable');
     });
 
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {
