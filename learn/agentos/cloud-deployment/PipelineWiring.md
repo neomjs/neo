@@ -104,7 +104,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 | State | Mechanism | Lost when... |
 |---|---|---|
 | Memory Core graph + sessions — the **primary store** | `shared-sqlite-data` named volume → `/app/.neo-ai-data/sqlite` | `down -v`, or the Compose project name changes |
-| Chroma vectors | `chroma-data` named volume → `/chroma/unified` (set via `PERSIST_DIRECTORY`) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
+| Chroma vectors | `chroma-data` named volume → `/data` (the image-pinned `persist_path` from the container's `/config.yaml`; `PERSIST_DIRECTORY` is not read — ADR 0017 §2.2 amendment) | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
 | Sandman handoff + derived route artifacts | `shared-handoff-data` named volume → `/app/.neo-ai-data/handoff` (writer and reader share `NEO_HANDOFF_FILE_PATH`) | `down -v`, or the Compose project name changes |
 | Orchestrator task, tenant-repo revision/backoff, recovery, and diagnostic state | `orchestrator-state` named volume → `/app/.neo-ai-data/orchestrator-daemon` (bound through `NEO_AI_ORCHESTRATOR_DIR`) | `down -v`, or the Compose project name changes. **The incident ledgers within it — `heal-attempts.json`, `heal-events.jsonl`, `recovery-runs/` — are now captured in the backup bundle's `ledgers/` folder and restorable (`--only-substrate ledgers`). Task state and tenant-repo revisions are not.** |
 | Backup bundles | host bind-mount on the `cloud`-profile `orchestrator`, host source `NEO_HOST_BACKUP_ROOT` (default `${HOME}/.neo-ai/backups`), container target `NEO_BACKUP_PATH` → `/app/.neo-ai-data/backups` | `NEO_HOST_BACKUP_ROOT` changes between runs, or the deploying user's `$HOME` differs between runs |
