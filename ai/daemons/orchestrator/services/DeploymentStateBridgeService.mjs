@@ -161,7 +161,7 @@ export class DeploymentStateBridgeService extends Base {
      * @param {Boolean} [options.force=false] Bypass interval gate.
      * @returns {Promise<Object>}
      */
-    async writeSnapshotIfDue({force = false} = {}) {
+    async writeSnapshotIfDue({force = false, shouldWrite} = {}) {
         const now = this.now();
 
         if (!AiConfig.orchestrator.deploymentStateBridge.enabled) {
@@ -179,12 +179,20 @@ export class DeploymentStateBridgeService extends Base {
         this.writeInFlight = true;
 
         try {
-            const snapshot = await this.collectSnapshot({generatedAt: now}),
-                  result   = await writeDeploymentStateSnapshot({
-                      filePath: AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                      snapshot,
-                      maxBytes: AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
-                  });
+            const snapshot = await this.collectSnapshot({generatedAt: now});
+
+            // Effect-boundary fence: the caller's predicate is evaluated AFTER the async collect,
+            // at the write boundary — a caller-side condition (e.g. an authority-lease loss) that
+            // flips mid-flight must void the write, not just gate the invocation.
+            if (typeof shouldWrite === 'function' && !shouldWrite()) {
+                return {ok: true, status: 'fenced'};
+            }
+
+            const result = await writeDeploymentStateSnapshot({
+                filePath: AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+                snapshot,
+                maxBytes: AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
+            });
 
             this.lastWriteAt = now;
 
