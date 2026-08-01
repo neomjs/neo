@@ -1835,6 +1835,126 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents.length).toBe(1);
         });
 
+        test('dispatches the first event to a cache-cold durable mcp-notifications route after restart (#16258)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            const {subscriptionId} = insertDurableSubscription({
+                harnessTarget        : 'mcp-notifications',
+                harnessTargetMetadata: {}
+            });
+
+            expect(GraphService.db.nodes.get(subscriptionId) || null).toBeNull();
+            WakeSubscriptionService.subscriptionCache.clear();
+
+            GraphService.upsertNode({
+                id        : 'MSG:COLD-MCP-ROUTE',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', subject: 'first post-restart event'}
+            });
+            GraphService.linkNodes('MSG:COLD-MCP-ROUTE', '@alice', 'SENT_TO', 1.0);
+            const expectedCursor = GraphService.db.storage.db
+                .prepare('SELECT MAX(log_id) as maxId FROM GraphLog')
+                .get().maxId;
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
+            expect(WakeSubscriptionService.liveCursor).toBe(expectedCursor);
+            expect(emittedEvents).toHaveLength(1);
+            expect(emittedEvents[0].params.payload.messageId).toBe('MSG:COLD-MCP-ROUTE');
+        });
+
+        test('dispatches the first event to a cache-cold durable a2a-webhook route after restart (#16258)', async () => {
+            const {subscriptionId} = insertDurableSubscription({
+                harnessTarget        : 'a2a-webhook',
+                harnessTargetMetadata: {
+                    url       : 'http://127.0.0.1:3199/wake',
+                    signingKey: 'test-signing-key'
+                }
+            });
+
+            expect(GraphService.db.nodes.get(subscriptionId) || null).toBeNull();
+            WakeSubscriptionService.subscriptionCache.clear();
+
+            GraphService.upsertNode({
+                id        : 'MSG:COLD-WEBHOOK-ROUTE',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', subject: 'first post-restart webhook'}
+            });
+            GraphService.linkNodes('MSG:COLD-WEBHOOK-ROUTE', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
+            expect(webhookEvents).toHaveLength(1);
+            expect(webhookEvents[0].eventData.payload.sourceEventIds).toContain('MSG:COLD-WEBHOOK-ROUTE');
+        });
+
+        test('refreshes non-deliverable durable routes and removes deleted cached routes (#16258)', async () => {
+            const retired = insertDurableSubscription({
+                subscriptionId: 'WAKE_SUB:durable-retired',
+                harnessTarget : 'a2a-webhook',
+                status        : 'retired'
+            });
+            const disabled = insertDurableSubscription({
+                subscriptionId: 'WAKE_SUB:durable-disabled',
+                harnessTarget : 'disabled'
+            });
+            const degraded = insertDurableSubscription({
+                subscriptionId: 'WAKE_SUB:durable-degraded',
+                harnessTarget : 'a2a-webhook',
+                status        : 'degraded'
+            });
+            const deletedId = 'WAKE_SUB:deleted-route';
+
+            for (const id of [retired.subscriptionId, disabled.subscriptionId, degraded.subscriptionId, deletedId]) {
+                WakeSubscriptionService.subscriptionCache.set(id, {
+                    id,
+                    agentIdentity: '@alice',
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'a2a-webhook',
+                    status       : 'active'
+                });
+            }
+
+            GraphService.upsertNode({id: 'MSG:NON-DELIVERABLE-ROUTES', type: 'MESSAGE', properties: {from: '@bob'}});
+            GraphService.linkNodes('MSG:NON-DELIVERABLE-ROUTES', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(WakeSubscriptionService.subscriptionCache.get(retired.subscriptionId).status).toBe('retired');
+            expect(WakeSubscriptionService.subscriptionCache.get(disabled.subscriptionId).harnessTarget).toBe('disabled');
+            expect(WakeSubscriptionService.subscriptionCache.get(degraded.subscriptionId).status).toBe('degraded');
+            expect(WakeSubscriptionService.subscriptionCache.has(deletedId)).toBe(false);
+            expect(webhookEvents).toEqual([]);
+        });
+
+        test('retains graph-resident warmup when raw SQLite is unavailable (#16258)', async () => {
+            let subscriptionId;
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                ({subscriptionId} = await WakeSubscriptionService.subscribe({
+                    trigger      : 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                }));
+            });
+
+            WakeSubscriptionService.subscriptionCache.clear();
+
+            const storage = GraphService.db.storage;
+            const sqlite  = storage.db;
+            storage.db    = null;
+            try {
+                WakeSubscriptionService._warmPushSubscriptions();
+            } finally {
+                storage.db = sqlite;
+            }
+
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
+        });
+
         test('dispatches a2a-webhook while skipping bridge-daemon and disabled targets', async () => {
             CoalescingEngineService.addMcpServer(mockMcpServer);
 
@@ -1878,7 +1998,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 type      : 'WAKE_SUBSCRIPTION',
                 properties: {
                     ...subscription.properties,
-                    harnessTarget: 'degraded'
+                    status: 'degraded'
                 }
             });
             GraphService.upsertNode({id: 'MSG:DEGRADED-WEBHOOK', type: 'MESSAGE', properties: {from: '@bob'}});
@@ -1887,7 +2007,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             await WakeSubscriptionService.pump();
             await CoalescingEngineService.flushAll();
 
-            expect(WakeSubscriptionService.subscriptionCache.get(subscriptionId).harnessTarget).toBe('degraded');
+            expect(WakeSubscriptionService.subscriptionCache.get(subscriptionId).status).toBe('degraded');
             expect(webhookEvents).toEqual([]);
         });
 
