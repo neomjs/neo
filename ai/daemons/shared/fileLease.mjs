@@ -102,9 +102,11 @@ function defaultIsHeldFresh({holder}) {
 }
 
 /**
- * Reads + parses the holder descriptor, or `null` when the file is absent (raced away) or
- * corrupt (unparseable / missing a numeric pid / missing an owner token). A `null` here is only
- * ever judged by the caller's corrupt policy — never silently reclaimed outside the guard.
+ * Reads + parses the holder descriptor, or `null` when the file is absent (raced away), corrupt
+ * (unparseable), or INVALID (missing a numeric pid, missing an owner token, or carrying
+ * unparseable `startedAt` / `lastPulse` dates). Date fields are validated because liveness
+ * strategies compute on them: a descriptor whose dates do not parse is unjudgeable, not stale —
+ * and under a refuse policy unjudgeable must fail closed, never silently reclaim.
  * @param {String} lockPath
  * @param {Object} fsImpl
  * @returns {Object|null}
@@ -112,7 +114,12 @@ function defaultIsHeldFresh({holder}) {
 function readHolder(lockPath, fsImpl) {
     try {
         const parsed = JSON.parse(fsImpl.readFileSync(lockPath, 'utf8'));
-        return (parsed && Number.isInteger(parsed.pid) && typeof parsed.ownerToken === 'string')
+
+        return (parsed
+            && Number.isInteger(parsed.pid)
+            && typeof parsed.ownerToken === 'string'
+            && Number.isFinite(Date.parse(parsed.startedAt))
+            && Number.isFinite(Date.parse(parsed.lastPulse)))
             ? parsed
             : null;
     } catch (err) {
@@ -196,9 +203,11 @@ export function acquireFileLease({
                 const guard = enterLifecycleGuardSync({leasePath: lockPath, fsModule: fsImpl});
 
                 if (!guard) {
-                    // Contention exhausted: someone else is mid-transition. Deferring is safe —
-                    // our lastPulse ages one cadence; the next pulse retries.
-                    return {held: true, contended: true};
+                    // Contention exhausted: someone else is mid-transition. That is UNVERIFIED,
+                    // not held — the caller must defer this sweep and revalidate next cadence;
+                    // reporting held here would treat someone else's live transition as proof
+                    // of our authority.
+                    return {contended: true, held: false};
                 }
 
                 try {

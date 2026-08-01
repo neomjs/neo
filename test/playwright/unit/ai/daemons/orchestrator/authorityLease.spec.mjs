@@ -223,6 +223,28 @@ test.describe('#16230 — orchestrator wiring: lease before receipt, refusal is 
         expect(logs.filter(({level}) => level === 'ERROR')).toEqual([]);
     });
 
+    test('a contended pulse DEFERS the sweep — unverified is not held: no stop, no exit code, no lost-path', () => {
+        const {orchestrator, logs} = orchestratorFor();
+
+        orchestrator.authorityLease = {pulse: () => ({contended: true, held: false})};
+        orchestrator.isPolling      = true;
+
+        const priorExitCode = process.exitCode;
+        let exitCodeAfter;
+
+        try {
+            expect(orchestrator.pulseAuthorityLease()).toBe(false);
+        } finally {
+            exitCodeAfter   = process.exitCode;
+            process.exitCode = priorExitCode;
+        }
+
+        expect(orchestrator.isPolling).toBe(true);       // deferred, not stopped
+        expect(exitCodeAfter).toBe(priorExitCode);        // no fail-stop
+        expect(logs.filter(({level}) => level === 'ERROR')).toEqual([]); // no lost-path
+        expect(logs.some(({level, message}) => level === 'INFO' && message.includes('contended'))).toBe(true);
+    });
+
     test('poll() itself aborts before any mutating action when the lease is lost (fencing, not just stopping)', () => {
         const {orchestrator} = orchestratorFor();
 

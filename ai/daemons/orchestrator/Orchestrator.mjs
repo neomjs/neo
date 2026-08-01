@@ -1355,9 +1355,10 @@ export class Orchestrator extends Base {
             return true; // no lease wired (prototype/test seams) — nothing to fence
         }
 
+        let result;
+
         try {
-            this.authorityLease.pulse();
-            return true;
+            result = this.authorityLease.pulse();
         } catch (err) {
             if (err.code === 'FILE_LEASE_LOST') {
                 this.writeLog('ERROR', `[Orchestrator] Authority lease lost: ${err.message} Stopping — a displaced orchestrator must not keep running lanes.`);
@@ -1368,6 +1369,16 @@ export class Orchestrator extends Base {
             }
             throw err;
         }
+
+        if (result?.contended) {
+            // Unverified is not held: someone else is mid-transition on the lease. Defer THIS
+            // sweep and revalidate next cadence — no lost-path, no continuation: contention is
+            // transient by construction, and treating it as proof of authority is the defect.
+            this.writeLog('INFO', '[Orchestrator] Authority lease contended (another transition in flight); deferring this sweep.');
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -1502,7 +1513,7 @@ export class Orchestrator extends Base {
         // (never gates a cycle) and self-observing: a genuine produce/write failure is surfaced through
         // onError (the LIVE log path); the trailing .catch is only a belt-and-suspenders guard for an
         // unexpected rejection, matching the sibling writes below.
-        if (this.isTaskAuthorityOwned('boot-identity-fact')) {
+        if (this.isTaskAuthorityOwned('boot-identity-fact') && !this.authorityLeaseLost) {
             this.recordBootIdentityFactFn({
                 source : this.bootIdentitySource,
                 dir    : this.dataDir,

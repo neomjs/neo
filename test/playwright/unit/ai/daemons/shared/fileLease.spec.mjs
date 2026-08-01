@@ -280,4 +280,45 @@ test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liven
         expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now, onCorrupt: 'refuse'}))
             .toThrow(FileLeaseHeldError);
     });
+
+    test('corrupt DATES are unjudgeable, not stale: a descriptor with garbage startedAt/lastPulse fails closed under refuse-policy', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        // Parseable JSON, valid pid + token, garbage TTL fields: an unguarded reader would compute
+        // NaN < TTL as false and call it STALE — reclaiming a holder it cannot actually judge.
+        fs.writeJsonSync(path.join(dir, '.authority-lease-container-plane'), {
+            pid      : 7, owner: 'plane-daemon', ownerToken: 'token-a', profile: 'container-plane',
+            startedAt: 'not-a-date', lastPulse: 'not-a-date'
+        });
+
+        // Refuse-policy (the authority lease): unjudgeable must fail closed.
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now, onCorrupt: 'refuse'}))
+            .toThrow(FileLeaseHeldError);
+
+        // Reclaim-policy (the drain's non-wedging contract): corrupt state reclaims.
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now});
+        handle.release();
+    });
+
+    test('a contended pulse reports UNVERIFIED, never held — someone else mid-transition is not proof of authority', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, token: 'token-a', now});
+
+        // Stage a LIVE lifecycle guard held by someone else (fresh owner-token mtime): every entry
+        // attempt observes a live guard and exhausts.
+        const guardDir = `${path.join(dir, '.authority-lease-container-plane')}.lifecycle-guard`;
+        fs.mkdirSync(guardDir);
+        fs.writeFileSync(path.join(guardDir, 'owner-someone-else'), '');
+
+        const result = handle.pulse();
+
+        expect(result.held).toBe(false);
+        expect(result.contended).toBe(true);
+
+        fs.removeSync(guardDir);
+        handle.release();
+    });
 });
