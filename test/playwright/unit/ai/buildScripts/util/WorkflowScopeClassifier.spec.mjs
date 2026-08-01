@@ -16,18 +16,21 @@ const scopeScript = () =>
 
 // Runtime harness mirroring WorkflowConcurrency.spec.mjs: the scope step's inline script is
 // evaluated with mocked `github` / `context` / `core`, here additionally serving package.json
-// content at the base and head refs via repos.getContent.
+// content at the base and head refs via repos.getContent — keyed by repo for fork PRs, where the
+// head SHA exists only in the fork (a base-repo fetch of it correctly throws).
 const createRuntime = ({
     files           = ['package.json'],
     basePkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
     headPkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a', 'ai:new-script': 'b'}},
     headPkgRaw      = null,
     baseSha         = 'base-sha',
-    getContentError = null
+    getContentError = null,
+    forkOwner       = null,
+    forkUnreadable  = false
 } = {}) => {
     const outputs = new Map(),
           info    = [],
-          calls   = {getContent: 0, listFiles: 0, pullsGet: 0},
+          calls   = {getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
           core    = {
               info     : value => info.push(value),
               notice   : () => {},
@@ -51,10 +54,19 @@ const createRuntime = ({
                       }
                   },
                   repos: {
-                      getContent: async({ ref }) => {
+                      getContent: async({ owner, repo, ref }) => {
                           calls.getContent++;
+                          calls.contentCalls.push(`${owner}/${repo}@${ref}`);
                           if (getContentError) throw new Error(getContentError);
-                          const raw = ref === 'base-sha' ? JSON.stringify(basePkg) : (headPkgRaw ?? JSON.stringify(headPkg));
+                          if (ref === baseSha) {
+                              const raw = JSON.stringify(basePkg);
+                              return { data: { content: Buffer.from(raw).toString('base64') } };
+                          }
+                          // A fork head SHA is absent from the base repo; a deleted or private
+                          // fork refuses the read even at its own coordinates.
+                          if (forkOwner && owner !== forkOwner) throw new Error(`Not Found: ${ref}`);
+                          if (forkUnreadable) throw new Error(`Not Found: ${owner}/${repo}`);
+                          const raw = headPkgRaw ?? JSON.stringify(headPkg);
                           return { data: { content: Buffer.from(raw).toString('base64') } };
                       }
                   }
@@ -64,8 +76,10 @@ const createRuntime = ({
               eventName: 'pull_request',
               payload  : {
                   pull_request: {
-                      base  : { sha: baseSha },
-                      head  : { sha: 'head-sha' },
+                      base: { sha: baseSha },
+                      head: forkOwner
+                          ? { sha: 'head-sha', repo: { fork: true, name: 'neo', owner: { login: forkOwner } } }
+                          : { sha: 'head-sha' },
                       number: 16248
                   }
               },
@@ -185,6 +199,39 @@ test.describe('Tests scope classifier — package.json change-kind split', () =>
             run_integration: 'true',
             run_parity     : 'true',
             run_unit       : 'true'
+        });
+    });
+
+    test('a fork PR with a metadata-only package.json edit skips the suites — head content resolves from the fork', async () => {
+        // Fork heads exist only in the fork repo: the head-content read must follow
+        // `pull_request.head.repo`, or every fork PR fails open into full suites forever
+        // (the mock throws for a base-repo fetch of the fork SHA, exactly like the API).
+        const runtime = createRuntime({ forkOwner: 'contributor' });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.getContent).toBe(2);
+        expect(runtime.calls.contentCalls).toEqual(['neomjs/neo@base-sha', 'contributor/neo@head-sha']);
+        expect(outputsOf(runtime)).toMatchObject({
+            run_components : 'false',
+            run_integration: 'false',
+            run_parity     : 'false',
+            run_unit       : 'true'
+        });
+        expect(runtime.info.join(' ')).toContain('contributor/neo'); // the resolved head repo stays legible in the log
+    });
+
+    test('a fork PR whose head repo is unreadable fails TOWARD running (deleted or private fork)', async () => {
+        // Same completeness rule as the same-repo fallbacks above: a skipped suite is a false
+        // negative; a wasted run costs minutes. Deleted forks also arrive as head.repo === null,
+        // which takes the same-repo path and fails open on the unknown-SHA fetch identically.
+        const runtime = createRuntime({ forkOwner: 'contributor', forkUnreadable: true });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({
+            run_components : 'true',
+            run_integration: 'true'
         });
     });
 });
