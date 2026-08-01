@@ -140,6 +140,36 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(task2.weight).toBe(0.8);
     });
 
+    test('linkNodes keeps a hydrated existing-edge record coherent with SQLite on relink (#16273)', async () => {
+        await GraphService.upsertNode({id: 'RelinkSource', type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'RelinkTarget', type: 'TEST_NODE'});
+        GraphService.linkNodes('RelinkSource', 'RelinkTarget', 'RELATES_TO', 1, {phase: 'initial'});
+
+        const selectEdge = GraphService.db.storage.db.prepare(`
+            SELECT id, data
+            FROM Edges
+            WHERE source = ?
+              AND target = ?
+              AND type = ?
+        `);
+        const initialRow = selectEdge.get('RelinkSource', 'RelinkTarget', 'RELATES_TO');
+        const cachedEdge = GraphService.db.edges.get(initialRow.id);
+
+        expect(cachedEdge.isRecord).toBe(true);
+        expect(cachedEdge.get('properties')).toMatchObject({phase: 'initial', weight: 1});
+
+        GraphService.linkNodes('RelinkSource', 'RelinkTarget', 'RELATES_TO', 2, {phase: 'updated'});
+
+        const storedProperties = JSON.parse(
+            selectEdge.get('RelinkSource', 'RelinkTarget', 'RELATES_TO').data
+        ).properties;
+
+        expect(storedProperties).toMatchObject({phase: 'updated'});
+        expect(storedProperties.weight).toBeCloseTo(1.2);
+        expect(GraphService.db.edges.get(initialRow.id)).toBe(cachedEdge);
+        expect(cachedEdge.get('properties')).toEqual(storedProperties);
+    });
+
     test('removeNodes rejects invalid node ids before Database.removeNode null path (#11698)', async () => {
         expect(() => GraphService.removeNodes([null])).toThrow(/invalid node id/);
         expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
