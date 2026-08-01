@@ -160,15 +160,40 @@ the receiver afterwards.
 > authority has to come from the **running process**, and until it can be asked
 > directly there is no mechanical check that authorizes a signal.
 
-To confirm a route is live after a restart, POST with a deliberately wrong
-signature: `401` means the receiver holds the route, `404` means it does not. That
-question is answered by the process itself, which is why it is trustworthy.
+To confirm a route is live — after a restart, or at any time, without sending a
+real wake — POST with a deliberately wrong signature. `401 invalid-signature`
+means the receiver holds the route; `404 unknown-subscription` means it does not.
+That question is answered by the running process, which is why it is trustworthy.
+
+```bash
+probe() {   # $1 = port, $2 = subscription id
+    curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://127.0.0.1:$1/wake" \
+        -H "x-neo-wake-subscription-id: $2" \
+        -H 'x-neo-wake-event-id: probe' \
+        -H 'x-neo-wake-schema-version: 1.0' \
+        -H 'x-neo-wake-signature: sha256=deadbeef' \
+        --data '{}'
+}
+
+probe 3199 WAKE_SUB:<the-id-you-are-asking-about>
+probe 3199 WAKE_SUB:00000000-0000-0000-0000-000000000000   # REQUIRED control
+```
+
+**The subscription id is a header, not a body field.** The receiver reads
+`x-neo-wake-subscription-id` and looks the route up by it; a body-only
+`{"subscriptionId": …}` never reaches the lookup, so the route resolves as
+`undefined` and the receiver answers `404 unknown-subscription` — byte-identical
+to a genuinely absent route.
+
+**Always run the bogus-id control**, and read it first. A probe that answers `404`
+for every id is indistinguishable from a receiver holding nothing, so without the
+control a malformed probe reads as a broken receiver. If the control returns
+anything other than `404`, or if a route you know is present also returns `404`,
+the probe is wrong — not the receiver.
 
 A reload that fails validation is refused and logged, leaving the routes already
 serving untouched; an unreadable or half-written manifest cannot empty a working
-route table. To confirm a route is live without sending a real wake, POST with a
-deliberately wrong signature: `401` means the receiver holds the route, `404`
-means it does not.
+route table.
 
 The generator reads the server-issued key from the record (it never mints one
 and fails closed on disagreement), skips undeliverable targets with a named
