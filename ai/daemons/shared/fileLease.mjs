@@ -7,9 +7,10 @@
  *
  * One implementation serving two liveness domains:
  *
- *   - **Same-namespace** contenders (embed drain daemon vs in-process server loop): pid-liveness
- *     probe (`process.kill(pid, 0)`; ESRCH → dead/reclaimable, EPERM → alive/must not displace).
- *     See `ai/daemons/embed/drainLock.mjs`.
+ *   - **Same-namespace** contenders (embed drain daemon vs in-process server loop): boot identity
+ *     rejects persisted locks from a previous container epoch, then the pid-liveness probe
+ *     (`process.kill(pid, 0)`; ESRCH → dead/reclaimable, EPERM → alive/must not displace) governs
+ *     contenders within the current boot. See `ai/daemons/embed/drainLock.mjs`.
  *   - **Cross-namespace** contenders (host bare process vs Docker container): pid probes are
  *     BLIND — Docker Desktop runs containers in a VM, so a container's pid has no host-namespace
  *     existence and `kill(pid, 0)` reads a LIVE holder as dead, reclaiming its lease and starting
