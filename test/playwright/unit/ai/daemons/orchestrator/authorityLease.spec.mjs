@@ -288,6 +288,44 @@ test.describe('#16230 — orchestrator wiring: lease before receipt, refusal is 
         expect(fs.readdirSync(secondDir)).toEqual([]);
     });
 
+    test('a lease lost mid-reprobe ABORTS the unfreeze success pipeline: no ledger event, no tombstone, no "unfrozen" report', async () => {
+        const {getFreezeRecord, upsertFreezeRecord}  = await import('../../../../../../ai/services/memory-core/helpers/freezeRecordStore.mjs');
+        const {HEAL_LEDGER_DIR_NAME, readHealLedger} = await import('../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs');
+
+        const dataDir        = tmpDir();
+        const {orchestrator} = orchestratorFor();
+
+        // A frozen collection due for unfreeze: old freeze, healthy probe.
+        await upsertFreezeRecord({dir: path.join(dataDir, 'data-freeze-records'), collectionName: 'c1', faultFingerprint: 'embedder', frozenAt: 1000});
+
+        let unfenceCalls = 0;
+
+        // `dataDir` is a reactive config: an own data property shadows the accessor, which a
+        // prototype-only instance has no `#configs` to reach (plain assignment would throw).
+        Object.defineProperty(orchestrator, 'dataDir', {value: dataDir});
+
+        orchestrator.authorityProfile            = 'host-edge';
+        orchestrator.authorityLeaseLost          = true;
+        orchestrator.probeFrozenCollectionHealth = async () => ({dimensionConsistent: true, embedderHealthy: true});
+        orchestrator.getStoreFenceOperations     = () => ({unfence: async () => { unfenceCalls++; }});
+
+        const outcomes = await orchestrator.runFreezeReprobeCycleIfActive(2_000_000);
+
+        expect(unfenceCalls).toBe(0);                     // the fence never fired…
+        expect(outcomes[0].status).toBe('failed');        // …reported as failed, never as unfrozen
+        expect(outcomes[0].unfroze).toBe(false);
+
+        const record = await getFreezeRecord({dir: path.join(dataDir, 'data-freeze-records'), collectionName: 'c1'});
+        expect(record.unfrozenAt ?? null).toBeNull();     // no success tombstone
+
+        let events = [];
+        try {
+            events = (await readHealLedger({dir: path.join(dataDir, HEAL_LEDGER_DIR_NAME)})).events ?? [];
+        } catch (err) { /* a missing ledger file is the empty case */ }
+
+        expect(events.filter(event => event.type === 'unfreeze')).toEqual([]); // no false-success event
+    });
+
     test('the deployment snapshot honors shouldWrite at its effect boundary (fenced, never written)', async () => {
         const {DeploymentStateBridgeService} = await import('../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs');
 

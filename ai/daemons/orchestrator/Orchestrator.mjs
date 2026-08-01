@@ -82,8 +82,9 @@ import {
     partitionRegistryByAuthority,
     resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
-import {acquireAuthorityLease} from './authorityLease.mjs';
-import {writeBootIdentityFact} from './services/bootIdentityFactStore.mjs';
+import {acquireAuthorityLease, authorityLeaseFilename} from './authorityLease.mjs';
+import {FileLeaseLostError}                            from '../shared/fileLease.mjs';
+import {writeBootIdentityFact}                         from './services/bootIdentityFactStore.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
@@ -766,10 +767,17 @@ export class Orchestrator extends Base {
             // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
             // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
             // Effect-boundary lease fence: an unfence mutates the served plane, so a loss detected
-            // while the re-probe was in flight must void it at the boundary.
+            // while the re-probe was in flight must ABORT the success pipeline — a silent skip would
+            // still ledger the unfreeze, tombstone the record, and report `unfrozen` over a store
+            // that was never unfenced. The throw routes to the cycle's `failed` outcome: stays
+            // frozen, no success bookkeeping, re-probed by the rightful holder next cycle.
             unfence            : async (...args) => {
                 if (this.authorityLeaseLost) {
-                    return;
+                    throw new FileLeaseLostError({
+                        lockPath: authorityLeaseFilename(this.authorityProfile),
+                        pid     : process.pid,
+                        reason  : 'unfence fenced — the authority lease was lost mid-reprobe'
+                    });
                 }
 
                 return this.getStoreFenceOperations().unfence(...args);
@@ -1550,12 +1558,12 @@ export class Orchestrator extends Base {
         // unexpected rejection, matching the sibling writes below.
         if (this.isTaskAuthorityOwned('boot-identity-fact') && !this.authorityLeaseLost) {
             this.recordBootIdentityFactFn({
-                source : this.bootIdentitySource,
-                dir    : this.dataDir,
+                source: this.bootIdentitySource,
+                dir   : this.dataDir,
                 // The write-time fence: the fact is produced async, so a loss detected mid-flight
                 // must void the write at its effect boundary — not only gate the invocation.
                 writeImpl: (fact, opts) => this.writeBootIdentityFactIfHeld(fact, opts),
-                onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
+                onError  : error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
             }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
         }
 
