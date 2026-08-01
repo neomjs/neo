@@ -88,13 +88,26 @@ class WebhookDeliveryService extends Base {
             return 'skipped';
         }
 
+        // A missing coordinate is a delivery FAILURE, not an inapplicable target, and it must be counted.
+        // Returning early without recording left `_recordConsecutiveFailure` unreached, so no threshold was
+        // ever met and the degrade never ran — not because the degrade is broken, but because it is downstream
+        // of an attempt that does not happen. The row then read `active` on every surface (`list`,
+        // `checkSunsetted`, heartbeat inclusion) while the seat received nothing: the most silent failure in
+        // the subsystem, because every health check agreed it was fine.
+        //
+        // Counted through the same threshold rather than degraded on first sight, deliberately: the existing
+        // machinery already owns persistence, restart survival, and the resume path, and a second degrade
+        // trigger with its own semantics would be a second thing to keep correct. The cost is up to two more
+        // silent wakes before the state becomes visible — bounded and self-clearing, unlike forever.
         if (!url) {
             logger.error(`WebhookDeliveryService: Subscription ${subscription.id} is missing URL.`);
-            return 'skipped';
+            await this._recordConsecutiveFailure(subscription.id);
+            return 'failed';
         }
         if (!signingKey) {
             logger.error(`WebhookDeliveryService: Subscription ${subscription.id} is missing signing key; refusing unsigned Shape-B delivery.`);
-            return 'skipped';
+            await this._recordConsecutiveFailure(subscription.id);
+            return 'failed';
         }
         if (!Number.isFinite(this.attemptTimeoutMs)) {
             throw new Error('WebhookDeliveryService is not configured by the Memory Core entrypoint');
