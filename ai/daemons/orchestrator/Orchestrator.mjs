@@ -82,6 +82,9 @@ import {
     partitionRegistryByAuthority,
     resolveAuthorityClassOwner
 } from './taskAuthority.mjs';
+import {acquireAuthorityLease, authorityLeaseFilename} from './authorityLease.mjs';
+import {FileLeaseLostError}                            from '../shared/fileLease.mjs';
+import {writeBootIdentityFact}                         from './services/bootIdentityFactStore.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
@@ -763,7 +766,22 @@ export class Orchestrator extends Base {
             probe              : collectionName => this.probeFrozenCollectionHealth(collectionName),
             // The store-level unfence — paired with the `freeze` op's fence via createStoreFenceOperations, so a
             // store-level freeze and its auto-unfreeze lift exactly the same served set (no asymmetry).
-            unfence            : this.getStoreFenceOperations().unfence
+            // Effect-boundary lease fence: an unfence mutates the served plane, so a loss detected
+            // while the re-probe was in flight must ABORT the success pipeline — a silent skip would
+            // still ledger the unfreeze, tombstone the record, and report `unfrozen` over a store
+            // that was never unfenced. The throw routes to the cycle's `failed` outcome: stays
+            // frozen, no success bookkeeping, re-probed by the rightful holder next cycle.
+            unfence            : async (...args) => {
+                if (this.authorityLeaseLost) {
+                    throw new FileLeaseLostError({
+                        lockPath: authorityLeaseFilename(this.authorityProfile),
+                        pid     : process.pid,
+                        reason  : 'unfence fenced — the authority lease was lost mid-reprobe'
+                    });
+                }
+
+                return this.getStoreFenceOperations().unfence(...args);
+            }
         });
     }
 
@@ -1227,6 +1245,14 @@ export class Orchestrator extends Base {
         this._chromaDefragInFlight = false;
 
         fs.ensureDirSync(this.dataDir);
+
+        // The CLI boot claims the lease ahead of the legacy PID singleton and passes it in; the
+        // standalone seam acquires here. Either way the lease precedes the receipt write: a
+        // refused boot leaves the plane exactly as it found it.
+        this.authorityLease = options.authorityLease
+            ?? this.acquireRoleLease({dataDir: this.dataDir, factory: options.authorityLeaseFactory});
+        process.once('exit', () => this.authorityLease?.release());
+
         this.writeAuthorityReceipt();
 
         // Prune stale daily-rotated archives so the data dir doesn't accrue them unboundedly.
@@ -1292,6 +1318,31 @@ export class Orchestrator extends Base {
      * Stops the polling loop.
      * @returns {void}
      */
+    /**
+     * @summary Claims the single-owner authority lease for this role — BEFORE the receipt write.
+     * The receipt is a last-writer-wins artifact, so writing it is itself the
+     * collision the lease closes: a refused boot (a fresh same-role holder, in ANY pid
+     * namespace) must leave the plane exactly as it found it — no receipt, no PID file, no state.
+     *
+     * Extracted from `start()` so the seam is exercisable on a prototype-only instance: the
+     * class's reactive configs (`this.set`) make a full `start()` un-runnable without
+     * constructing the singleton.
+     *
+     * @param {Object} options
+     * @param {String} options.dataDir Orchestrator data dir — the lease lives beside the receipt.
+     * @param {Function} [options.factory] Lease factory (test seam). Defaults to {@link acquireAuthorityLease}.
+     * @returns {Object} The lease handle.
+     */
+    acquireRoleLease({dataDir, factory}) {
+        this.authorityLease = (factory ?? acquireAuthorityLease)({
+            dir    : dataDir,
+            profile: this.authorityProfile,
+            log    : this.writeLog.bind(this)
+        });
+
+        return this.authorityLease;
+    }
+
     stop() {
         if (this.pollHandle) {
             clearTimeout(this.pollHandle);
@@ -1299,6 +1350,69 @@ export class Orchestrator extends Base {
         }
 
         this.isPolling = false;
+
+        if (this.authorityLease) {
+            this.authorityLease.release();
+            this.authorityLease = null;
+        }
+    }
+
+    /**
+     * @summary The authority-lease heartbeat: refreshes `lastPulse` and re-verifies ownership
+     * before this poll's mutating actions.
+     *
+     * A lost lease — reclaimed by a successor while this process was paused, or deleted
+     * externally — routes to the refusal path: ERROR, stop, non-zero exit code. Never silent
+     * continuation: an orchestrator that lost its role lease must not keep running lanes
+     * against the plane another holder now owns.
+     * @returns {Boolean} `false` when the lease is lost and the current poll must abort.
+     */
+    pulseAuthorityLease() {
+        if (!this.authorityLease) {
+            return 'held'; // no lease wired (prototype/test seams) — nothing to fence
+        }
+
+        let result;
+
+        try {
+            result = this.authorityLease.pulse();
+        } catch (err) {
+            if (err.code === 'FILE_LEASE_LOST') {
+                this.writeLog('ERROR', `[Orchestrator] Authority lease lost: ${err.message} Stopping — a displaced orchestrator must not keep running lanes.`);
+                this.authorityLeaseLost = true;
+                this.stop();
+                process.exitCode = 1;
+                return 'lost';
+            }
+            throw err;
+        }
+
+        if (result?.contended) {
+            // Unverified is not held: someone else is mid-transition on the lease. Defer THIS
+            // sweep's mutations — but never the cadence: contention is transient by
+            // construction, and the next pulse IS the revalidation.
+            this.writeLog('INFO', '[Orchestrator] Authority lease contended (another transition in flight); deferring this sweep, cadence preserved.');
+            return 'contended';
+        }
+
+        return 'held';
+    }
+
+    /**
+     * @summary Effect-boundary lease fence for deferred plane writes: the latch is re-checked at
+     * WRITE time, not at invocation — a loss detected while an effect was still being produced
+     * must void the write, or a displaced orchestrator keeps mutating the plane another holder
+     * now owns.
+     * @param {Object} fact The produced boot-identity fact.
+     * @param {Object} opts Writer options (dir).
+     * @returns {Promise<Object|null>}
+     */
+    async writeBootIdentityFactIfHeld(fact, opts) {
+        if (this.authorityLeaseLost) {
+            return null;
+        }
+
+        return writeBootIdentityFact(fact, opts);
     }
 
     /**
@@ -1363,6 +1477,21 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
+        const leaseState = this.pulseAuthorityLease();
+
+        if (leaseState === 'lost') {
+            return; // stop() owns the shutdown — no sweep, no cadence
+        }
+
+        if (leaseState === 'contended') {
+            // Defer every mutating action in THIS sweep — but arm the next cadence, or one
+            // contended poll silently disables every future sweep.
+            if (this.isPolling) {
+                this.pollHandle = setTimeout(() => this.poll(), AiConfig.orchestrator.intervals.pollMs);
+            }
+            return;
+        }
+
         const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
 
@@ -1396,6 +1525,13 @@ export class Orchestrator extends Base {
                 this._chromaDefragInFlight = true;
                 this.probeChromaReady()
                     .then(ready => {
+                        // Deferred continuations re-fence on arrival: a lease lost after this
+                        // poll scheduled us must not produce a mutating effect. Latched flag —
+                        // prototypes without a lease wired are unaffected.
+                        if (this.authorityLeaseLost) {
+                            return;
+                        }
+
                         if (ready && this._chromaDefragPending) {
                             this._chromaDefragPending = false;
                             executeTask('chromaDefrag', 'chroma-recycle-defrag');
@@ -1420,16 +1556,19 @@ export class Orchestrator extends Base {
         // (never gates a cycle) and self-observing: a genuine produce/write failure is surfaced through
         // onError (the LIVE log path); the trailing .catch is only a belt-and-suspenders guard for an
         // unexpected rejection, matching the sibling writes below.
-        if (this.isTaskAuthorityOwned('boot-identity-fact')) {
+        if (this.isTaskAuthorityOwned('boot-identity-fact') && !this.authorityLeaseLost) {
             this.recordBootIdentityFactFn({
-                source : this.bootIdentitySource,
-                dir    : this.dataDir,
-                onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
+                source: this.bootIdentitySource,
+                dir   : this.dataDir,
+                // The write-time fence: the fact is produced async, so a loss detected mid-flight
+                // must void the write at its effect boundary — not only gate the invocation.
+                writeImpl: (fact, opts) => this.writeBootIdentityFactIfHeld(fact, opts),
+                onError  : error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
             }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
         }
 
-        if (this.isTaskAuthorityOwned('deployment-state-bridge')) {
-            this.deploymentStateBridgeService?.writeSnapshotIfDue()
+        if (this.isTaskAuthorityOwned('deployment-state-bridge') && !this.authorityLeaseLost) {
+            this.deploymentStateBridgeService?.writeSnapshotIfDue({shouldWrite: () => !this.authorityLeaseLost})
                 .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
         }
 
