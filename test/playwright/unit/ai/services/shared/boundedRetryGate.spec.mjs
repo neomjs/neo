@@ -414,6 +414,26 @@ test.describe('ai/services/shared/boundedRetryGate', () => {
         expect(snap2.cached.result.tags).toEqual(['a']);
     });
 
+    test('joined waiters receive independent delivery copies — one waiter\'s mutation cannot reach another', async () => {
+        const {gate} = makeGate({
+            runImpl: () => ({status: 'healthy', detail: {marker: 'pristine'}, tags: ['a']})
+        });
+
+        // Both waiters join the SAME flight — the exact joined-waiter probe shape.
+        const [a, b] = await Promise.all([gate.tick({key: 'A'}), gate.tick({key: 'A'})]);
+
+        a.detail.marker = 'mutated-by-A';
+        a.tags.push('b');
+
+        expect(b.detail.marker).toBe('pristine');
+        expect(b.tags).toEqual(['a']);
+
+        // …and the gate cache stays pristine too.
+        const snap = gate.snapshot();
+        expect(snap.cached.result.detail.marker).toBe('pristine');
+        expect(snap.cached.result.tags).toEqual(['a']);
+    });
+
     test('global single-flight holds across rotations and runNow churn (maxActive === 1)', async () => {
         let activeRuns = 0, maxActive = 0;
 
