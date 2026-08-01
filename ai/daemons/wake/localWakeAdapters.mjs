@@ -534,7 +534,7 @@ async function deliverOsascript({digest, effects, meta, record}) {
 
     const resolvedMeta = applyHarnessMetadataDefaults(meta);
     const appName      = resolvedMeta.appName;
-    if (!['Antigravity', 'Claude', 'Codex'].includes(appName)) return 'skipped';
+    if (!['Antigravity', 'Claude', 'Codex', 'OpenCode'].includes(appName)) return 'skipped';
     if (appName === 'Codex' && !resolvedMeta.focusSeedKey) return 'skipped';
 
     let   instancePid     = null;
