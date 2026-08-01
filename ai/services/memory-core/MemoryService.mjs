@@ -1630,7 +1630,7 @@ class MemoryService extends Base {
      * @param {String} options.response
      * @returns {Promise<String|null>} A one-line summary capped at `aiConfig.memoryService.miniSummaryMaxChars` (default 280), or `null`.
      */
-    async buildMiniSummary({prompt, response}) {
+    async buildMiniSummary({prompt, thought, response}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
         // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
@@ -1647,12 +1647,19 @@ class MemoryService extends Base {
             });
             if (!model) return null;
 
-            const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
-            const result     = await withTimeout(
+            // `thought` is included because the reasoning is frequently the turn's real substance: a
+            // summary built from prompt+response alone records what was asked and answered, not what was
+            // decided. Deliberately NOT truncated — cutting the input to fit the window loses exactly the
+            // content worth keeping, which is why the window adapts to the input rather than the reverse.
+            const thoughtLine = thought ? `\nReasoning: ${thought}` : '';
+            const promptText  = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}${thoughtLine}\nAgent: ${response ?? ''}`;
+            const result      = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
                     operationLabel: 'miniSummary generation',
-                    priority      : 'interactive'
+                    // Batch, not interactive: the only runtime caller is the backfill sweep, so this
+                    // queue-jumped real interactive traffic on behalf of a background job.
+                    priority      : 'batch'
                 }),
                 TIMEOUT_MS,
                 'miniSummary generation'
@@ -1723,6 +1730,76 @@ class MemoryService extends Base {
      * @param {String} [options.reason='']  Provenance, stored as `archivedReason`.
      * @returns {Boolean} `true` if a live (not-already-archived) row was archived.
      */
+    /**
+     * @summary Counts one failed miniSummary generation for a row and returns the running total.
+     *
+     * The backfill's timeout is per-attempt, and nothing counted attempts across passes — so a row the
+     * provider could never summarize was retried on every sweep forever. A CPU-only deployment burned
+     * roughly 2.3 cores for days reporting `0 updated, 30 deferred` per pass, because each pass looked
+     * identical to the first.
+     *
+     * Persisted on the node rather than held in memory: the loop's whole failure mode is that
+     * consecutive passes cannot see each other, and a process-local counter reproduces that exactly.
+     *
+     * @param {Object} opts
+     * @param {String} opts.id Memory node id.
+     * @returns {Number} Attempts recorded so far, or `0` when the row is unreachable.
+     */
+    /**
+     * @summary Records a failed attempt and reversibly archives the row once the budget is spent.
+     *
+     * The exit mirrors the loop's existing `no-content` archive, deliberately: that path already
+     * established that a row which cannot be summarized should *leave the pending set and count as
+     * progress*, rather than sit in it forever and also misfire the scheduler's no-progress backoff.
+     * A row the provider repeatedly fails on needs the same exit for the same reason.
+     *
+     * Reversible — `archivedAt` / `archivedReason` are markers, and `generation-timeout` names the
+     * cause, so a later pass (or a widened generation window) can restore the row deliberately.
+     *
+     * @param {String} id Memory node id.
+     * @returns {Boolean} `true` when the budget was reached and the row was archived.
+     * @protected
+     */
+    _exhaustMiniSummaryAttempt(id) {
+        const
+            attempts = this.recordMiniSummaryAttempt({id}),
+            budget   = aiConfig.memoryService.miniSummaryMaxAttempts;
+
+        if (!Number.isFinite(budget) || budget <= 0 || attempts < budget) {
+            return false
+        }
+
+        logger.warn(`[MemoryService] miniSummary generation failed ${attempts}x for ${id}; archiving with reason 'generation-timeout'`);
+        this.archiveMemoryNode({id, reason: 'generation-timeout'});
+
+        return true
+    }
+
+    recordMiniSummaryAttempt({id} = {}) {
+        const sqlite = GraphService.db?.storage?.db;
+
+        if (!sqlite || !id) {
+            return 0;
+        }
+
+        sqlite.prepare(`
+            UPDATE Nodes
+            SET data = json_set(
+                data,
+                '$.properties.miniSummaryAttempts',
+                COALESCE(json_extract(data, '$.properties.miniSummaryAttempts'), 0) + 1
+            )
+            WHERE id = ?
+              AND json_extract(data, '$.label') = 'AGENT_MEMORY'
+        `).run(id);
+
+        const row = sqlite
+            .prepare(`SELECT json_extract(data, '$.properties.miniSummaryAttempts') AS attempts FROM Nodes WHERE id = ? LIMIT 1`)
+            .get(id);
+
+        return row?.attempts || 0;
+    }
+
     archiveMemoryNode({id, reason = ''} = {}) {
         const sqlite = GraphService.db?.storage?.db;
 
@@ -1832,10 +1909,10 @@ class MemoryService extends Base {
             byId             = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary backfill deferred the whole batch (content store unreachable, fail-soft): ${error.message}`);
-            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, runBudgetHit: false};
+            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, exhausted: 0, runBudgetHit: false};
         }
 
-        let updated = 0, deferred = 0, missingContent = 0, processed = 0, runBudgetHit = false;
+        let updated = 0, deferred = 0, missingContent = 0, processed = 0, exhausted = 0, runBudgetHit = false;
 
         for (const row of rows) {
             // Bound the run safely under the ProcessSupervisor watchdog: stop starting new rows once
@@ -1870,13 +1947,17 @@ class MemoryService extends Base {
 
             try {
                 const miniSummary = await withTimeout(
-                    summarize({prompt: metadata.prompt, response: metadata.response}),
+                    summarize({prompt: metadata.prompt, thought: metadata.thought, response: metadata.response}),
                     aiConfig.memoryService.miniSummaryTimeoutMs,
                     'miniSummary backfill summarize'
                 );
 
                 if (!miniSummary) {
-                    deferred++;
+                    if (this._exhaustMiniSummaryAttempt(row.id)) {
+                        exhausted++;
+                    } else {
+                        deferred++;
+                    }
                     continue;
                 }
 
@@ -1887,7 +1968,15 @@ class MemoryService extends Base {
                 }
             } catch (error) {
                 logger.warn(`[MemoryService] miniSummary backfill deferred for ${row.id} (fail-soft): ${error.message}`);
-                deferred++;
+
+                // A thrown attempt is a failed attempt: the timeout path arrives here, and it is the one
+                // that loops forever. Counting only the falsy-return path would leave the dominant case
+                // unbounded.
+                if (this._exhaustMiniSummaryAttempt(row.id)) {
+                    exhausted++;
+                } else {
+                    deferred++;
+                }
             }
         }
 
@@ -1896,9 +1985,9 @@ class MemoryService extends Base {
         }
 
         // Completion line so the run ends with a visible tally, not silence (stderr → captured by the supervisor).
-        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content)`);
+        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content, ${exhausted} exhausted)`);
 
-        return {processed, updated, deferred, missingContent, runBudgetHit};
+        return {processed, updated, deferred, missingContent, exhausted, runBudgetHit};
     }
 
     /**
