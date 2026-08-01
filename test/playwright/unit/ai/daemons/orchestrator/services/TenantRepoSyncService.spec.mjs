@@ -41,6 +41,7 @@ import {
     parseArgs,
     resolveExitCode
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
+import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -57,10 +58,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         return {
             taskState,
             getTaskState : taskName => taskState[taskName],
-            markStarted  : (taskName, reason) => { taskState[taskName] = {running: true, reason, startedAt: Date.now()}; },
-            markCompleted: taskName => { taskState[taskName] = {...taskState[taskName], running: false, completedAt: Date.now()}; },
-            markSkipped  : taskName => { taskState[taskName] = {...taskState[taskName], running: false, skippedAt: Date.now()}; },
-            markFailed   : taskName => { taskState[taskName] = {...taskState[taskName], running: false, failedAt: Date.now()}; }
+            markStarted  : (taskName, reason) => { taskState[taskName] = {...taskState[taskName], running: true, reason, startedAt: Date.now()}; },
+            markCompleted: (taskName, lastCompletion = null) => { taskState[taskName] = {...taskState[taskName], running: false, completedAt: Date.now(), lastCompletion}; },
+            markSkipped  : (taskName, lastCompletion = null) => { taskState[taskName] = {...taskState[taskName], running: false, skippedAt: Date.now(), lastCompletion}; },
+            markFailed   : (taskName, code, lastCompletion = null) => { taskState[taskName] = {...taskState[taskName], running: false, failedAt: Date.now(), lastCompletion}; }
         };
     }
 
@@ -3258,6 +3259,109 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             expect(persisted.lastErrorAt).toBeNull()
         })
     })
+
+    test.describe('starved lane (#16224)', () => {
+        // mirrorRoot is assigned in beforeEach, so the repo must be built inside the tests.
+        const buildStarvedRepo = () => ({
+            tenantId     : 'tenant-a',
+            repoSlug     : 'private/repo',
+            mirrorRoot,
+            cloneUrl     : 'https://git.example/private/repo.git',
+            credentialRef: 'env:TENANT_REPO_TOKEN',
+            branchRef    : 'dev'
+        });
+
+        // The incident shape: a repo that NEVER ingested (lastIngestedRev: null), seven failures
+        // deep on the CURRENT ingest contract (no legacy revalidation path), its cause retained.
+        const seedStarvedState = async lastRunAttemptAt => TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                'tenant-a/private/repo': {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt,
+                    consecutiveFailures               : 7,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                    lastSourceErrorCode               : 'KB_GITMIRROR_CLONE_FAILED',
+                    lastErrorAt                       : lastRunAttemptAt
+                }
+            }
+        });
+
+        const buildStarvedOptions = (taskStateService, gitMirror, extra = {}) => ({
+            reason                       : 'periodic',
+            taskStateService,
+            tenantReposConfig            : {tenantRepos: [buildStarvedRepo()]},
+            gitMirror,
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60_000,
+            jitterRatio                  : 0,
+            backoffCapMs                 : 2 * 60 * 60 * 1000,
+            seedBootstrap                : false,
+            ...extra
+        });
+
+        test('an all-suppressed never-succeeded sweep reports starved, retains per-repo error codes, and stays silent before the duration floor (AC2)', async () => {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                captureCalls     = [],
+                gitMirror        = makeFakeGitMirror({captureCalls});
+
+            // 30min inside the capped window (min(2h cap, 60s × 2^7)) → suppressed, not due.
+            await seedStarvedState(Date.now() - 30 * 60 * 1000);
+
+            const result = await TenantRepoSyncService.runTask(buildStarvedOptions(taskStateService, gitMirror));
+
+            expect(result.status).toBe('starved');
+            expect(result.details.starved).toBe(true);
+            expect(result.details.starvedEvidence.suppressedCount).toBe(1);
+
+            const [repoState] = result.details.repos;
+            expect(repoState.status).toBe('backoff-suppressed');
+            // The retained cause survives onto the one surface an operator reads.
+            expect(repoState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+            expect(repoState.lastSourceErrorCode).toBe('KB_GITMIRROR_CLONE_FAILED');
+
+            // The suppression skips the work path entirely.
+            expect(captureCalls.filter(c => c.op === 'cloneIfMissing' || c.op === 'fetch')).toHaveLength(0);
+
+            // 30min < the 6h default duration floor → no heal-ledger record yet.
+            expect(await fs.pathExists(path.join(tmpDir, 'heal-events'))).toBe(false);
+        });
+
+        test('the detector emits exactly one heal-ledger record per starved episode once duration-proven (AC3)', async () => {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                gitMirror        = makeFakeGitMirror(),
+                ledgerDir        = path.join(tmpDir, 'heal-events');
+
+            await seedStarvedState(Date.now() - 30 * 60 * 1000);
+
+            // starvedAfterMs: 1 makes the 30-minute suppression duration-proven on sweep one.
+            const options = buildStarvedOptions(taskStateService, gitMirror, {starvedAfterMs: 1}),
+                  first   = await TenantRepoSyncService.runTask(options);
+
+            expect(first.status).toBe('starved');
+            expect(first.details.starvedEventAt).not.toBeNull();
+
+            let events = await readHealLedger({dir: ledgerDir});
+            expect(events).toHaveLength(1);
+            expect(events[0].type).toBe('tenant-repo-sync-starved');
+            expect(events[0].status).toBe('recorded');
+            expect(events[0].detail.reasonCode).toBe('KB_TENANT_REPO_SYNC_STARVED');
+            expect(events[0].detail.suppressedCount).toBe(1);
+
+            // A second starved sweep carries the episode marker forward — no second record.
+            const second = await TenantRepoSyncService.runTask(options);
+            expect(second.status).toBe('starved');
+            expect(second.details.starvedEventAt).toBe(first.details.starvedEventAt);
+
+            events = await readHealLedger({dir: ledgerDir});
+            expect(events).toHaveLength(1);
+        });
+    });
 });
 
 test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {

@@ -27,6 +27,11 @@ export const KB_TENANT_REPO_SYNC_LEASE_HELD = 'KB_TENANT_REPO_SYNC_LEASE_HELD';
 // acquisition and a manifest write. The sweep aborts WITHOUT writing, so an evicted
 // writer can never overlap the new owner's manifest commits.
 export const KB_TENANT_REPO_SYNC_LEASE_LOST = 'KB_TENANT_REPO_SYNC_LEASE_LOST';
+// Starved-lane detector finding: every configured repo is backoff-suppressed with zero
+// lifetime successes and the oldest suppression exceeds the configured duration floor.
+// Surfaced as a `starved` sweep reading + exactly one heal-ledger record per episode
+// (a record-with-diagnosis, never an action) — never thrown; the sweep machinery itself is healthy.
+export const KB_TENANT_REPO_SYNC_STARVED = 'KB_TENANT_REPO_SYNC_STARVED';
 
 /**
  * @summary Frozen enumeration of all valid tenant-repo-sync error codes.
@@ -48,7 +53,8 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
-    KB_TENANT_REPO_SYNC_LEASE_LOST
+    KB_TENANT_REPO_SYNC_LEASE_LOST,
+    KB_TENANT_REPO_SYNC_STARVED
 ]);
 
 const TENANT_REPO_SYNC_ERROR_CODE_SET = new Set(TENANT_REPO_SYNC_ERROR_CODES);
