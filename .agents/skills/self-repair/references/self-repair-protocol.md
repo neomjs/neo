@@ -4,19 +4,19 @@ When tasked with executing a system healthcheck, diagnosing a corrupted state, o
 
 ## Phase 1: Infrastructure Verification & Playwright Testing
 
-0. **Identify the surface FIRST.** The four MCP servers do not live in the same place, so one symptom has two remedies — restarting the wrong one wastes the outage.
+0. **Identify the surface FIRST** — one symptom, two remedies; the wrong restart wastes the outage. Authority: the service list in `ai/deploy/docker-compose.yml`.
 
     | Server | Runs as | Harness restart fixes it? |
     |---|---|---|
     | `neural-link` · `github-workflow` | host, harness-spawned | **yes** — plus `npm run ai:server-neural-link`, host ports/zombies |
     | `knowledge-base` · `memory-core` | **container** (`kb-server` / `mc-server`) | **no** — `docker`, see 2 |
 
-    Authority: the service list in `ai/deploy/docker-compose.yml`. Never run a host stack to repair a container — it cannot reach it and can contend for the same published port (Chroma's `127.0.0.1:8000:8000`), turning diagnosis into a second fault.
+    Never run a host stack to repair a container: it cannot reach it, and it can contend for the same published port (Chroma's `8000`), turning diagnosis into a second fault.
 
-1. **Invoke the `unit-test` skill**: execute `test/playwright/unit/ai/mcp/client/McpServersHealth.spec.mjs`. Use these tests as the absolute source of truth for JSON-RPC sequence validity.
-2. **Containerized servers (`kb-server`, `mc-server`, `chroma`, `orchestrator`)**: inspect before acting — `docker ps`, then the container's own log (its stdout carries only boot lines; the real log is a file inside it). **Announce over A2A before any container-affecting action**: recreating `mc-server` severs every agent's MCP session, including the A2A spine you would coordinate over.
-    - **Is it running the code you think?** `docker exec <c> cat /app/.neo-revision`, compared against `origin/dev`. Three distinct actions, and only the last changes code: **restart** delivers nothing, **recreate** applies compose-level change only, **rebuild** (`up -d --build`) delivers merged code. Uptime and image timestamps are proxies that undercount; `/app/.neo-revision` is the measured truth.
-3. **Deep introspection (`ai/services.mjs`)**: aggregates dependencies so you can bypass the MCP HTTP boundary and invoke internal tooling natively — use it (or `ai/examples/`) when servers crash on boot.
+1. **Invoke the `unit-test` skill**: execute `test/playwright/unit/ai/mcp/client/McpServersHealth.spec.mjs` as the source of truth for JSON-RPC sequence validity.
+2. **Containers (`kb-server`, `mc-server`, `chroma`, `orchestrator`)**: inspect before acting — `docker ps`, then the container's own log (stdout carries only boot lines; the real log is a file inside it). **Announce over A2A first**: recreating `mc-server` severs every agent's MCP session, including the spine you would coordinate over.
+    - **Running the code you think?** `docker exec <c> cat /app/.neo-revision` vs `origin/dev`. Only the last of three actions changes code: **restart** delivers nothing, **recreate** applies compose-level change only, **rebuild** (`up -d --build`) delivers merged code. Uptime and image timestamps undercount; `.neo-revision` is measured truth.
+3. **Deep introspection (`ai/services.mjs`)**: bypass the MCP HTTP boundary and invoke internal tooling natively when servers crash on boot (or use `ai/examples/`).
     - *The YAML Cascade:* `services.mjs` eagerly parses every `openapi.yaml` via `ToolService`, so one syntax error (e.g. an unquoted `: `) aborts initialization and prevents **subsequent** MCP servers from booting.
 4. **Never guess at a crash.** Boot a host server directly to witness it; for a container, read its in-container log. You have native control; use it.
 
