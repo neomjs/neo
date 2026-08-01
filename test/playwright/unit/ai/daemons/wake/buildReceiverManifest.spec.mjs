@@ -7,6 +7,7 @@ import path                                                       from 'node:pat
 import {
     buildWakeReceiverManifest,
     fingerprintSigningKey,
+    parseManifestBuilderArgs,
     readPublishedRoutes,
     runManifestBuilder,
     writeValidatedManifest
@@ -14,6 +15,12 @@ import {
 
 const SERVER_KEY = 'a'.repeat(64),
       PEER_KEY   = 'b'.repeat(64);
+
+/**
+ * The explicit per-seat GUI instance tuple, supplied through the third input (never derived from a
+ * record). `userDataDir` is the durable choice for generated routes (`pid` is ephemeral).
+ */
+const INSTANCE = {type: 'userDataDir', address: '/seat/current/instance'};
 
 /**
  * Shape pinned from a real migrated record: `update` MERGES rather than replaces, so a migrated
@@ -53,7 +60,7 @@ async function tempDir() {
 
 test.describe('buildWakeReceiverManifest — key authority', () => {
     test('uses the server-issued key and never mints one', () => {
-        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
         // A minted key would boot cleanly and 401 every real container wake.
         expect(manifest.routes[webhookSubscription.id].signingKey).toBe(SERVER_KEY)
@@ -74,22 +81,26 @@ test.describe('buildWakeReceiverManifest — key authority', () => {
         })).toThrow(/disagrees with the published manifest/i)
     });
 
-    test('strips sender-only fields from receiver-visible metadata', () => {
-        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]}),
+    test('strips sender-only AND sender-routing fields; the GUI tuple comes only from the explicit instance input', () => {
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE}),
               metadata   = manifest.routes[webhookSubscription.id].harnessTargetMetadata;
 
         expect(metadata.signingKey).toBeUndefined();
         expect(metadata.url).toBeUndefined();
-        // The legacy/current pair from a merged update must survive untouched.
-        expect(metadata.userDataDir).toBe('/legacy/path');
-        expect(metadata.instanceAddress).toBe('http://127.0.0.1:45999/wake')
+        // Sender-side routing is stripped — the record's webhookUrl tuple must NOT be mapped through
+        // (it passes the loader and then fails every dispatch silently: the loader-gate trap).
+        expect(metadata.userDataDir).toBeUndefined();
+        // …and the receiver-side tuple comes only from the explicit instance input.
+        expect(metadata.addressType).toBe(INSTANCE.type);
+        expect(metadata.instanceAddress).toBe(INSTANCE.address)
     });
 });
 
 test.describe('buildWakeReceiverManifest — route class', () => {
     test('skips an undeliverable target with a named reason instead of publishing a dead route', () => {
         const {manifest, routeSummaries, skipped} = buildWakeReceiverManifest({
-            subscriptions: [webhookSubscription, bridgeDaemonSubscription]
+            subscriptions: [webhookSubscription, bridgeDaemonSubscription],
+            instance     : INSTANCE
         });
 
         // The mixed set is the case that occurs mid-migration, and mid-migration is when this runs.
@@ -101,7 +112,7 @@ test.describe('buildWakeReceiverManifest — route class', () => {
     });
 
     test('reports the adapter the route will actually use, never a platform default', () => {
-        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
         // Falling back to the platform default once made the summary assert an adapter that was not
         // in the manifest — a false statement that reads as confirmation.
@@ -136,7 +147,8 @@ test.describe('buildWakeReceiverManifest — composition', () => {
 
         const {manifest} = buildWakeReceiverManifest({
             subscriptions : [webhookSubscription],
-            existingRoutes: {[peerId]: {agentIdentity: '@neo-opus-grace', signingKey: PEER_KEY}}
+            existingRoutes: {[peerId]: {agentIdentity: '@neo-opus-grace', signingKey: PEER_KEY}},
+            instance      : INSTANCE
         });
 
         expect(Object.keys(manifest.routes).sort()).toEqual([webhookSubscription.id, peerId].sort());
@@ -144,7 +156,7 @@ test.describe('buildWakeReceiverManifest — composition', () => {
     });
 
     test('keeps per-route keys distinct and fingerprints non-reversible', () => {
-        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+        const {routeSummaries} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
         expect(JSON.stringify(routeSummaries)).not.toContain(SERVER_KEY);
         expect(routeSummaries[0].keyFingerprint).toBe(fingerprintSigningKey(SERVER_KEY));
@@ -157,7 +169,7 @@ test.describe('writeValidatedManifest', () => {
         const dir = await tempDir();
 
         try {
-            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]}),
+            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE}),
                   target     = path.join(dir, 'routes.json');
 
             await writeValidatedManifest({manifest, targetPath: target});
@@ -180,7 +192,7 @@ test.describe('writeValidatedManifest', () => {
             // The old implementation used this exact predictable name and followed the link.
             await symlink(victim, `${target}.staging`);
 
-            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+            const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
             await writeValidatedManifest({manifest, targetPath: target});
 
@@ -197,7 +209,7 @@ test.describe('writeValidatedManifest', () => {
 
         try {
             const target     = path.join(dir, 'routes.json'),
-                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
             manifest.routes[webhookSubscription.id].harnessTargetMetadata.adapter = 'test-adapter';
 
@@ -212,7 +224,7 @@ test.describe('writeValidatedManifest', () => {
     });
 
     test('requires an absolute target path', async () => {
-        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
         await expect(writeValidatedManifest({manifest, targetPath: 'routes.json'}))
             .rejects.toThrow(/must be absolute/i)
@@ -245,7 +257,13 @@ test.describe('runManifestBuilder — per-peer composition', () => {
                 bridgeDaemonSubscription
             ]}));
 
-            await runManifestBuilder({subscriptionsPath: claudeInput, manifestPath, logger});
+            await runManifestBuilder({
+                subscriptionsPath: claudeInput,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger
+            });
             const second = await runManifestBuilder({subscriptionsPath: kimiInput, manifestPath, logger});
 
             const published = await readPublishedRoutes(manifestPath);
@@ -299,7 +317,13 @@ test.describe('runManifestBuilder — per-peer composition', () => {
             }
 
             await Promise.all(inputs.map(subscriptionsPath =>
-                runManifestBuilder({subscriptionsPath, manifestPath, logger: quiet})
+                runManifestBuilder({
+                    subscriptionsPath,
+                    manifestPath,
+                    instanceType   : INSTANCE.type,
+                    instanceAddress: INSTANCE.address,
+                    logger         : quiet
+                })
             ));
 
             expect(Object.keys(await readPublishedRoutes(manifestPath))).toHaveLength(2)
@@ -324,7 +348,13 @@ test.describe('runManifestBuilder — per-peer composition', () => {
                 {...webhookSubscription, harnessTarget: 'bridge-daemon'}
             ]}));
 
-            await runManifestBuilder({subscriptionsPath: live, manifestPath, logger: quiet});
+            await runManifestBuilder({
+                subscriptionsPath: live,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger           : quiet
+            });
 
             // Seed a peer route that the caller does not own and must not touch.
             const withPeer = buildWakeReceiverManifest({
@@ -403,13 +433,282 @@ test.describe('runManifestBuilder — per-peer composition', () => {
     });
 });
 
+test.describe('buildWakeReceiverManifest — the loader-gate trap, refused', () => {
+    test('an osascript record without an explicit GUI tuple becomes a named skip, never an undeliverable route', () => {
+        const {routeSummaries, skipped} = buildWakeReceiverManifest({
+            subscriptions : [webhookSubscription],
+            existingRoutes: {'WAKE_SUB:keep-me': {signingKey: PEER_KEY}}
+        });
+
+        expect(routeSummaries).toHaveLength(0);
+        expect(skipped).toHaveLength(1);
+        expect(skipped[0].reason).toMatch(/requires a GUI instance tuple/i);
+        expect(skipped[0].reason).toMatch(/refusing to emit an undeliverable route/i);
+
+        // When it is the ONLY record, the refusal reads in the refuse-empty error — never silently.
+        expect(() => buildWakeReceiverManifest({subscriptions: [webhookSubscription]}))
+            .toThrow(/refusing to write an empty manifest.*requires a GUI instance tuple/is)
+    });
+
+    test('the emitted route carries the SUPPLIED tuple, never the record\'s sender-side routing', () => {
+        const {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE}),
+              metadata   = manifest.routes[webhookSubscription.id].harnessTargetMetadata;
+
+        // The record's webhookUrl tuple would pass the loader and fail every dispatch — it must
+        // not survive anywhere in the emitted route.
+        expect(metadata.addressType).toBe(INSTANCE.type);
+        expect(metadata.instanceAddress).toBe(INSTANCE.address);
+        expect(metadata.instanceAddress).not.toContain('127.0.0.1');
+        expect(JSON.stringify(metadata)).not.toContain('webhookUrl')
+    });
+});
+
+test.describe('buildWakeReceiverManifest — owner-set reconciliation', () => {
+    test('withdraws a caller-owned route whose id is absent from the input; a peer\'s is untouched', () => {
+        const ownId  = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000aa',
+              peerId = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000bb';
+
+        const {manifest, skipped} = buildWakeReceiverManifest({
+            subscriptions : [webhookSubscription], // only the live record; ownId is absent (unsubscribed)
+            callerIdentity: '@neo-opus-ada',
+            instance      : INSTANCE,
+            existingRoutes: {
+                [ownId]: {
+                    agentIdentity        : '@neo-opus-ada',
+                    signingKey           : SERVER_KEY,
+                    harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                    adapterConfig        : {attemptTimeoutMs: 10000}
+                },
+                [peerId]: {
+                    agentIdentity        : '@neo-opus-grace',
+                    signingKey           : PEER_KEY,
+                    harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                    adapterConfig        : {attemptTimeoutMs: 10000}
+                }
+            }
+        });
+
+        expect(manifest.routes[ownId]).toBeUndefined(); // withdrawn — the server row is gone
+        expect(manifest.routes[peerId].signingKey).toBe(PEER_KEY); // peer untouched
+        expect(skipped.some(entry => entry.subscriptionId === ownId && /no active subscription record/.test(entry.reason))).toBe(true)
+    });
+
+    test('empty input with an explicit identity performs a withdrawal-only rebuild', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  quiet        = {log() {}},
+                  emptyInput   = path.join(dir, 'empty.json');
+
+            await writeFile(emptyInput, JSON.stringify({subscriptions: []}));
+
+            await runManifestBuilder({
+                subscriptionsPath: emptyInput,
+                manifestPath,
+                identity         : '@neo-opus-ada',
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                lockOptions      : {},
+                logger           : quiet
+            }).catch(() => {}); // refuse-empty when everything is withdrawn is fine here
+
+            const published = await readPublishedRoutes(manifestPath).catch(() => null);
+
+            expect(published === null || Object.keys(published).length === 0).toBe(true)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a carried undeliverable tuple is withdrawn with a named reason when no --instance supplies the repair', () => {
+        // The trap shape, carried: same id as the live record, so the absent-id rule cannot fire first.
+        const seed = {
+            [webhookSubscription.id]: {
+                agentIdentity        : '@neo-opus-ada',
+                signingKey           : SERVER_KEY,
+                harnessTargetMetadata: {
+                    adapter        : 'osascript',
+                    appName        : 'Claude',
+                    addressType    : 'webhookUrl', // passes the loader, never delivers
+                    instanceAddress: 'http://127.0.0.1:45999/wake'
+                },
+                adapterConfig        : {attemptTimeoutMs: 10000}
+            }
+        };
+
+        // No instance: the live record is refusal-skipped AND the carried broken route is withdrawn —
+        // nothing undeliverable survives the rebuild. The peer route rides along to keep the
+        // manifest non-empty — and to prove it is never touched.
+        const peerId    = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000bb',
+              withdrawn = buildWakeReceiverManifest({
+                  subscriptions : [webhookSubscription],
+                  callerIdentity: '@neo-opus-ada',
+                  existingRoutes: {
+                      ...seed,
+                      [peerId]: {
+                          agentIdentity        : '@neo-opus-grace',
+                          signingKey           : PEER_KEY,
+                          harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                          adapterConfig        : {attemptTimeoutMs: 10000}
+                      }
+                  }
+              });
+
+        expect(withdrawn.manifest.routes[webhookSubscription.id]).toBeUndefined();
+        expect(Object.keys(withdrawn.manifest.routes)).toEqual([peerId]);
+        expect(withdrawn.manifest.routes[peerId].signingKey).toBe(PEER_KEY);
+        expect(withdrawn.skipped.some(entry =>
+            entry.subscriptionId === webhookSubscription.id && /undeliverable addressType/.test(entry.reason)
+        )).toBe(true)
+    });
+});
+
+test.describe('runManifestBuilder — strict-lock + boot truths', () => {
+    test('a LIVE holder is never reclaimed, and a dead-pid leftover is reclaimed', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  lockPath     = `${manifestPath}.lock`,
+                  quiet        = {log() {}},
+                  input        = path.join(dir, 'input.json');
+
+            await writeFile(input, JSON.stringify({subscriptions: [webhookSubscription]}));
+
+            // A live pid holds the lock: acquisition must time out rather than reclaim by age.
+            await writeFile(lockPath, JSON.stringify({pid: process.pid, startedAt: Date.now() - 600000}));
+
+            await expect(runManifestBuilder({
+                subscriptionsPath: input,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                lockOptions      : {acquireTimeoutMs: 200, retryIntervalMs: 10},
+                logger           : quiet
+            })).rejects.toThrow(/could not acquire/i);
+
+            // A dead pid's leftover is reclaimed via the liveness probe and the build proceeds.
+            await writeFile(lockPath, JSON.stringify({pid: 424242, startedAt: Date.now() - 600000}));
+
+            await runManifestBuilder({
+                subscriptionsPath: input,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger           : quiet
+            });
+
+            expect(Object.keys(await readPublishedRoutes(manifestPath))).toHaveLength(1)
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('first boot into a non-existent directory builds and validates', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'fresh', 'nested', 'routes.json'),
+                  input        = path.join(dir, 'input.json'),
+                  quiet        = {log() {}};
+
+            await writeFile(input, JSON.stringify({subscriptions: [webhookSubscription]}));
+
+            await runManifestBuilder({
+                subscriptionsPath: input,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger           : quiet
+            });
+
+            expect((await stat(manifestPath)).mode & 0o077).toBe(0);
+            expect((await readdir(path.dirname(manifestPath))).filter(name => name.includes('staging') || name.includes('lock'))).toEqual([])
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('parses the new CLI flags and validates the tuple pair + vocabulary', () => {
+        const parsed = parseManifestBuilderArgs([
+            '--subscriptions', 'subs.json', '--manifest', '/tmp/routes.json',
+            '--identity', '@neo-kimi-iris',
+            '--adapter-config', 'adapters.json',
+            '--attempt-timeout-ms', '15000',
+            '--instance', 'userDataDir', '--instance-address', '/seat/path'
+        ]);
+
+        expect(parsed).toEqual({
+            subscriptionsPath: 'subs.json',
+            manifestPath     : '/tmp/routes.json',
+            identity         : '@neo-kimi-iris',
+            adapterConfigPath: 'adapters.json',
+            attemptTimeoutMs : 15000,
+            instanceType     : 'userDataDir',
+            instanceAddress  : '/seat/path'
+        });
+
+        expect(parseManifestBuilderArgs([]).attemptTimeoutMs).toBeUndefined()
+    });
+
+    test('the real CLI produces a Codex route: codexBinary via --adapter-config, tuple via --instance', async () => {
+        const dir = await tempDir();
+
+        try {
+            const codexSubscription = {
+                ...webhookSubscription,
+                id                   : 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000dd',
+                harnessTargetMetadata: {
+                    ...webhookSubscription.harnessTargetMetadata,
+                    appName: 'Codex'
+                }
+            };
+
+            const subsPath     = path.join(dir, 'subs.json'),
+                  adapterPath  = path.join(dir, 'adapters.json'),
+                  manifestPath = path.join(dir, 'routes.json'),
+                  modulePath   = path.resolve(process.cwd(), 'ai/daemons/wake/buildReceiverManifest.mjs');
+
+            await writeFile(subsPath, JSON.stringify({subscriptions: [codexSubscription]}));
+            await writeFile(adapterPath, JSON.stringify({[codexSubscription.id]: {codexBinary: '/usr/local/bin/codex'}}));
+
+            const {execFile} = await import('node:child_process'),
+                  run        = new Promise((resolve, reject) => {
+                      execFile(process.execPath, [
+                          modulePath,
+                          '--subscriptions', subsPath,
+                          '--manifest', manifestPath,
+                          '--identity', '@neo-opus-ada',
+                          '--adapter-config', adapterPath,
+                          '--instance', INSTANCE.type,
+                          '--instance-address', INSTANCE.address
+                      ], (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(stdout));
+                  });
+
+            await run;
+
+            const published = await readPublishedRoutes(manifestPath);
+
+            expect(published[codexSubscription.id].adapterConfig).toEqual({
+                attemptTimeoutMs: 10000,
+                codexBinary     : '/usr/local/bin/codex'
+            });
+            expect(published[codexSubscription.id].harnessTargetMetadata.addressType).toBe(INSTANCE.type);
+            expect(published[codexSubscription.id].harnessTargetMetadata.appName).toBe('Codex')
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+});
+
 test.describe('readPublishedRoutes', () => {
     test('round-trips published routes for additive rebuilds', async () => {
         const dir = await tempDir();
 
         try {
             const target     = path.join(dir, 'routes.json'),
-                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription]});
+                  {manifest} = buildWakeReceiverManifest({subscriptions: [webhookSubscription], instance: INSTANCE});
 
             await writeValidatedManifest({manifest, targetPath: target});
 

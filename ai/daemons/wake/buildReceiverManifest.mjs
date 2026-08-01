@@ -25,13 +25,28 @@
  * route set rather than replacing it, so generating a manifest for one seat cannot delete another
  * peer's routes on a shared host.
  *
+ * **Reconciliation is owner-scoped.** When the caller's identity is known (`--identity` or a
+ * unanimous input), caller-owned routes are withdrawn in two cases: their id is ABSENT from the
+ * input (unsubscribe deletes the server row, so the id can never appear) — and their carried GUI
+ * tuple is undeliverable-by-shape, refreshed when `--instance` supplies one. Peer routes are never
+ * touched, even when absent from the input.
+ *
+ * **The GUI tuple is never derived.** A subscription record's `addressType`/`instanceAddress` are
+ * sender-side webhook routing; mapping them through verbatim passes the receiver's loader and then
+ * fails every dispatch silently (`normalizeGuiInstanceAddressTuple` accepts only `pid`/`userDataDir`).
+ * `osascript` routes therefore REQUIRE the explicit `--instance`/`--instance-address` tuple, and a
+ * build without one skips the route with a named reason rather than emit an undeliverable route
+ * that reads healthy. Inferring the tuple is worse: on a multi-instance host it wakes the wrong seat.
+ *
  * **It imports nothing from the graph, Memory Core, or a database path**, mirroring the receiver's
  * own boundary: subscription records arrive as plain data from whoever queried them, so host-edge
  * tooling stays runnable without the container plane it is being wired to.
  *
  * **The generator validates its output through the receiver's loader before publishing**, and the
  * publish itself is exclusive and symlink-safe. A manifest the receiver would reject never reaches
- * the target path.
+ * the target path. The whole read/merge/publish runs inside `withOutboxLock` — no TTL and no
+ * unlocked fall-through: a live holder is never reclaimed, a dead one is reclaimed via liveness
+ * probe, and a late release can never delete a successor's lock.
  */
 import crypto          from 'node:crypto';
 import fs              from 'node:fs/promises';
@@ -39,6 +54,7 @@ import path            from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 import {loadWakeReceiverManifest} from './receiver.mjs';
+import {withOutboxLock}           from './outboxLock.mjs';
 
 /**
  * Default per-attempt dispatch budget, in milliseconds.
@@ -67,19 +83,51 @@ export const DELIVERABLE_HARNESS_TARGET = 'a2a-webhook';
 const SENDER_ONLY_METADATA_KEYS = ['signingKey', 'url'];
 
 /**
+ * Sender-side routing keys inside a subscription record's `harnessTargetMetadata`. The record's
+ * `addressType`/`instanceAddress` describe how the CONTAINER reaches the host webhook — not the
+ * GUI tuple the receiver needs to wake a desktop app. Mapping them through verbatim passes the
+ * receiver's loader (its `webhookUrl` branch accepts the shape) and then fails every dispatch:
+ * `normalizeGuiInstanceAddressTuple` accepts only `pid`/`userDataDir`. The legacy `userDataDir`
+ * key rides along too — the receiver would DERIVE a tuple from it, and a derived-but-wrong tuple
+ * fails silently on multi-instance hosts, so the receiver-side tuple comes from the explicit
+ * `instance` input, never from the record — a subscription record cannot tell you which desktop
+ * instance to wake, and guessing wrong on a multi-instance host wakes the wrong seat.
+ * @type {String[]}
+ */
+const RECORD_ROUTING_METADATA_KEYS = ['addressType', 'instanceAddress', 'userDataDir'];
+
+/**
+ * The only `addressType` values the receiver can dispatch to (`normalizeGuiInstanceAddressTuple`).
+ * `pid` is ephemeral and fine for a one-shot proof; `userDataDir` is the durable choice for
+ * anything launchd-managed.
+ * @type {String[]}
+ */
+const GUI_INSTANCE_ADDRESS_TYPES = ['pid', 'userDataDir'];
+
+/**
  * Builds the manifest object for a set of subscription records.
  *
  * @summary Maps deliverable WAKE_SUB records onto receiver routes using the server-issued key.
  * @param {Object}   config
  * @param {Object[]} config.subscriptions Records as returned by `manage_wake_subscription list`.
  * @param {Object}   [config.existingRoutes={}] Routes already published, merged rather than replaced.
+ * @param {String}   [config.callerIdentity=null] The seat running the build (`@handle`). Enables owner-set
+ *     reconciliation: caller-owned routes whose ids are ABSENT from `subscriptions` (unsubscribed — the
+ *     server deletes the row) are withdrawn. Without it, no absence-based withdrawal happens.
+ * @param {Object}   [config.adapterConfigById={}]
+ * @param {Object}   [config.instance=null] The caller's GUI instance tuple `{type: 'pid'|'userDataDir',
+ *     address: String}` — REQUIRED to emit any `osascript` route (the tuple is not derivable from a
+ *     subscription record, and inferring it wakes the wrong seat on multi-instance hosts). An osascript
+ *     record without a supplied tuple becomes a named skip, never an undeliverable route.
  * @param {Number}   [config.attemptTimeoutMs=DEFAULT_ATTEMPT_TIMEOUT_MS]
  * @returns {{manifest: Object, routeSummaries: Object[], skipped: Object[]}}
  */
 export function buildWakeReceiverManifest({
     subscriptions,
     existingRoutes    = {},
+    callerIdentity    = null,
     adapterConfigById = {},
+    instance          = null,
     attemptTimeoutMs  = DEFAULT_ATTEMPT_TIMEOUT_MS
 }) {
     if (!Array.isArray(subscriptions)) {
@@ -158,8 +206,29 @@ export function buildWakeReceiverManifest({
         }
 
         const receiverMetadata = Object.fromEntries(
-            Object.entries(harnessTargetMetadata).filter(([key]) => !SENDER_ONLY_METADATA_KEYS.includes(key))
+            Object.entries(harnessTargetMetadata).filter(([key]) =>
+                !SENDER_ONLY_METADATA_KEYS.includes(key) && !RECORD_ROUTING_METADATA_KEYS.includes(key))
         );
+
+        // The loader-gate trap, refused: an osascript route needs the receiver-side GUI tuple, and
+        // the record cannot supply it (its addressType/instanceAddress are sender-side webhook
+        // routing — mapping them through passes the loader and then fails every dispatch silently).
+        // Without an explicit tuple this becomes a NAMED skip, never an undeliverable route.
+        if (receiverMetadata.adapter === 'osascript') {
+            if (!instance || typeof instance.address !== 'string' || !instance.address) {
+                skipped.push({
+                    subscriptionId: id,
+                    reason        : `adapter 'osascript' requires a GUI instance tuple (--instance pid|userDataDir + --instance-address); ` +
+                        'not derivable from the subscription record, and inferring it can wake the wrong seat on a multi-instance host — ' +
+                        'refusing to emit an undeliverable route that reads healthy',
+                    withdrewPublishedRoute: false
+                });
+                continue
+            }
+
+            receiverMetadata.addressType     = instance.type;
+            receiverMetadata.instanceAddress = instance.address;
+        }
 
         // Per-route adapter config comes from the caller, keyed by subscription id. The subscription
         // record carries none, so without this a Codex seat could never satisfy the receiver's
@@ -181,6 +250,43 @@ export function buildWakeReceiverManifest({
             adapter       : receiverMetadata.adapter || null,
             keyFingerprint: fingerprintSigningKey(signingKey)
         })
+    }
+
+    // Owner-set reconciliation, scoped to the caller (never a peer's route). Two cases beyond the
+    // input-driven skips above:
+    // (a) caller-owned route whose id is ABSENT from the input — unsubscribe deletes the server row,
+    //     so the id can never appear; without this pass the dead route stays published forever.
+    // (b) caller-owned osascript route whose carried tuple is undeliverable-by-shape (the trap) —
+    //     withdrawn with a named reason when no `--instance` supplies the repair. (A supplied tuple
+    //     repairs through the main-loop rebuild; the withdraw arm is the fail-closed path.)
+    if (callerIdentity) {
+        const inputIds = new Set(subscriptions.map(record => record?.id));
+
+        for (const [id, route] of Object.entries(routes)) {
+            if (route?.agentIdentity !== callerIdentity) {
+                continue
+            }
+
+            if (!inputIds.has(id)) {
+                withdrawOwnedRoute(routes, id, skipped, 'no active subscription record (unsubscribed or row deleted)');
+                continue
+            }
+
+            const metadata = route.harnessTargetMetadata;
+
+            if (metadata?.adapter === 'osascript' && !instance) {
+                const tupleOk = GUI_INSTANCE_ADDRESS_TYPES.includes(metadata.addressType) &&
+                    typeof metadata.instanceAddress === 'string' && metadata.instanceAddress.length > 0;
+
+                if (!tupleOk) {
+                    withdrawOwnedRoute(
+                        routes, id, skipped,
+                        `carried route has undeliverable addressType '${metadata.addressType ?? 'absent'}' ` +
+                        `(receiver dispatches only ${GUI_INSTANCE_ADDRESS_TYPES.join('/')}); no --instance supplied to repair it`
+                    );
+                }
+            }
+        }
     }
 
     if (!Object.keys(routes).length) {
@@ -341,77 +447,11 @@ export async function readPublishedRoutes(manifestPath) {
 }
 
 /**
- * Runs a read-modify-write against the shared manifest under a cross-process lock.
- *
- * **The unique staging file protects each writer; it does not make the transaction atomic.** Two
- * peers provisioning at the same moment both read the same predecessor, each merges only its own
- * route, and the later rename wins — silently unprovisioning the other. Measured before this existed:
- * 20 of 20 concurrent two-peer builds lost a route. Serialising the whole read/merge/publish is the
- * fix; serialising only the write is not, because the stale read has already happened by then.
- *
- * The lock is a sibling file opened `wx`, so acquisition is atomic and cross-process. A holder that
- * dies leaves it behind, so an entry older than `staleAfterMs` is reclaimed — bounded rather than
- * permanent, since a wedged lock would block every seat on the host.
- *
- * @summary Serialises shared-manifest mutation so concurrent peers cannot unprovision each other.
- * @param {Object}   config
- * @param {String}   config.manifestPath
- * @param {Function} config.task
- * @param {Number}   [config.timeoutMs=10000]
- * @param {Number}   [config.staleAfterMs=60000]
- * @returns {Promise<*>}
- */
-export async function withManifestLock({manifestPath, task, timeoutMs = 10000, staleAfterMs = 60000}) {
-    const lockPath = `${manifestPath}.lock`,
-          deadline = Date.now() + timeoutMs;
-
-    let handle;
-
-    while (!handle) {
-        try {
-            handle = await fs.open(lockPath, 'wx', 0o600);
-        } catch (error) {
-            if (error.code !== 'EEXIST') {
-                throw error
-            }
-
-            const age = await fs.stat(lockPath).then(
-                info  => Date.now() - info.mtimeMs,
-                ()    => Infinity  // vanished between open and stat: retry immediately
-            );
-
-            if (age > staleAfterMs) {
-                await fs.rm(lockPath, {force: true});
-                continue
-            }
-
-            if (Date.now() > deadline) {
-                throw new Error(
-                    `Timed out after ${timeoutMs}ms waiting for the manifest lock at ${lockPath}; ` +
-                    'another seat is publishing, or a stale lock needs removing'
-                );
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 25 + Math.floor(Math.random() * 50)))
-        }
-    }
-
-    try {
-        await handle.writeFile(JSON.stringify({pid: process.pid, acquiredAt: new Date().toISOString()}));
-        await handle.close();
-        handle = null;
-
-        return await task()
-    } finally {
-        await handle?.close().catch(() => {});
-        await fs.rm(lockPath, {force: true}).catch(() => {})
-    }
-}
-
-/**
  * @summary Parses CLI flags without hidden deployment-path defaults, mirroring the receiver's parser.
  * @param {String[]} argv
- * @returns {{subscriptionsPath: String, manifestPath: String}}
+ * @returns {{subscriptionsPath: String, manifestPath: String, identity: String|undefined,
+ *     adapterConfigPath: String|undefined, attemptTimeoutMs: Number|undefined,
+ *     instanceType: String|undefined, instanceAddress: String|undefined}}
  */
 export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
     const read = name => {
@@ -419,9 +459,16 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
         return index >= 0 ? argv[index + 1] : undefined
     };
 
+    const attemptTimeoutRaw = read('--attempt-timeout-ms');
+
     return {
         subscriptionsPath: read('--subscriptions'),
-        manifestPath     : read('--manifest')
+        manifestPath     : read('--manifest'),
+        identity         : read('--identity'),
+        adapterConfigPath: read('--adapter-config'),
+        attemptTimeoutMs : attemptTimeoutRaw ? Number(attemptTimeoutRaw) : undefined,
+        instanceType     : read('--instance'),
+        instanceAddress  : read('--instance-address')
     }
 }
 
@@ -445,10 +492,58 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
  * @param {Object} [config.logger=console]
  * @returns {Promise<{published: String, routeSummaries: Object[], skipped: Object[]}>}
  */
-export async function runManifestBuilder({subscriptionsPath, manifestPath, adapterConfigById = {}, logger = console}) {
+/**
+ * Runs one build-and-publish pass for whichever seat is calling.
+ *
+ * **This is a per-peer call, not a provisioning batch.** Every family runs it for its own identity
+ * and the result composes: the published manifest is read first and merged into, so three peers on
+ * one host each add their own route without coordinating and without any of them holding authority
+ * over the others' entries. That is why composition is additive rather than replacing — a peer
+ * provisioning itself must not be able to unprovision anyone else.
+ *
+ * Subscriptions arrive as JSON on a path or stdin — the output of `manage_wake_subscription list` —
+ * rather than being fetched here. That keeps the module graphless: the caller already holds an
+ * authenticated session, and this stays runnable on a host that cannot reach the container plane.
+ *
+ * @summary Builds and publishes the caller's routes, reporting skips and fingerprints but never keys.
+ * @param {Object} config
+ * @param {String} config.subscriptionsPath JSON file, or `-` for stdin.
+ * @param {String} config.manifestPath      Absolute manifest destination.
+ * @param {String} [config.identity]        The caller's `@handle`; derived from unanimous input records when omitted. Required for absence-based route withdrawal.
+ * @param {String} [config.adapterConfigPath] JSON file mapping `{subscriptionId: {…}}` — per-route adapter config (e.g. `codexBinary`).
+ * @param {Number} [config.attemptTimeoutMs] Per-route dispatch budget override (default 10000).
+ * @param {String} [config.instanceType]     `pid` | `userDataDir` — the caller's GUI instance tuple type (required to emit osascript routes; `userDataDir` is the durable choice).
+ * @param {String} [config.instanceAddress]  The tuple's address (pid value or userDataDir path).
+ * @param {Object} [config.lockOptions]      Spec seam: forwarded to `withOutboxLock` (`pid`, `isAlive`, `sleep`, `now`, `fs`, `acquireTimeoutMs`, `retryIntervalMs`).
+ * @param {Object} [config.logger=console]
+ * @returns {Promise<{published: String, routeSummaries: Object[], skipped: Object[]}>}
+ */
+export async function runManifestBuilder({
+    subscriptionsPath,
+    manifestPath,
+    identity,
+    adapterConfigPath,
+    attemptTimeoutMs,
+    instanceType,
+    instanceAddress,
+    lockOptions = {},
+    logger      = console
+}) {
     if (!subscriptionsPath || !manifestPath) {
-        throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path>');
+        throw new Error('Usage: --subscriptions <file|-> --manifest <absolute path> [--identity <@handle>] [--adapter-config <file.json>] [--attempt-timeout-ms <n>] [--instance pid|userDataDir --instance-address <value>]');
     }
+
+    if ((instanceType && !instanceAddress) || (!instanceType && instanceAddress)) {
+        throw new Error('--instance and --instance-address must be given together');
+    }
+
+    if (instanceType && !GUI_INSTANCE_ADDRESS_TYPES.includes(instanceType)) {
+        throw new Error(`--instance must be one of ${GUI_INSTANCE_ADDRESS_TYPES.join('|')} (the only addressTypes the receiver can dispatch to)`);
+    }
+
+    const adapterConfigById = adapterConfigPath
+        ? JSON.parse(await fs.readFile(adapterConfigPath, 'utf8'))
+        : {};
 
     const raw = subscriptionsPath === '-'
         ? await readStream(process.stdin)
@@ -458,22 +553,36 @@ export async function runManifestBuilder({subscriptionsPath, manifestPath, adapt
           // Accept either the raw tool response or a bare array, since the tool wraps its result.
           subscriptions = Array.isArray(parsed) ? parsed : parsed?.subscriptions;
 
-    // The whole read/merge/publish runs inside the lock. Holding it only across the write would
-    // leave the stale-read window open, which is the window that loses peer routes.
-    const {manifest, routeSummaries, skipped} = await withManifestLock({
-        manifestPath,
-        task: async () => {
-            const built = buildWakeReceiverManifest({
-                adapterConfigById,
-                subscriptions,
-                existingRoutes: await readPublishedRoutes(manifestPath)
-            });
+    // Identity resolution: explicit flag wins; otherwise a unanimous input (one distinct identity
+    // across the caller's own records) names the caller. Mixed or empty input leaves it null —
+    // absence-based withdrawal then stays off rather than guessing whose routes to reap.
+    const distinctIdentities = new Set(subscriptions.map(record => record?.agentIdentity).filter(Boolean)),
+          callerIdentity     = identity ?? (distinctIdentities.size === 1 ? [...distinctIdentities][0] : null);
 
-            await writeValidatedManifest({manifest: built.manifest, targetPath: manifestPath});
+    const instance = instanceType ? {type: instanceType, address: instanceAddress} : null;
 
-            return built
-        }
-    });
+    // First boot into a non-existent directory: the parent must exist BEFORE the lock is taken —
+    // the lock file lives beside the manifest, so acquiring it first would ENOENT on a fresh host.
+    await fs.mkdir(path.dirname(manifestPath), {recursive: true});
+
+    // The whole read/merge/publish runs inside the strict pid-owned lock — no TTL and no unlocked
+    // fall-through: a live holder is never reclaimed, a dead one is reclaimed via liveness probe,
+    // and a late release can never delete a successor's lock (the dropped age-reclaim mutex's exact
+    // failure: A held past the bound, B reclaimed, A's late release deleted B's lock, C entered).
+    const {manifest, routeSummaries, skipped} = await withOutboxLock(manifestPath, async () => {
+        const built = buildWakeReceiverManifest({
+            adapterConfigById,
+            attemptTimeoutMs,
+            callerIdentity,
+            existingRoutes: await readPublishedRoutes(manifestPath),
+            instance,
+            subscriptions
+        });
+
+        await writeValidatedManifest({manifest: built.manifest, targetPath: manifestPath});
+
+        return built
+    }, {pid: process.pid, ...lockOptions});
 
     logger.log(`[Wake Manifest] published ${Object.keys(manifest.routes).length} route(s) to ${manifestPath}`);
 
