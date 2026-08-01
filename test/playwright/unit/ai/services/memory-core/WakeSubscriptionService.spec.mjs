@@ -2410,4 +2410,101 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(res.idle).not.toContain('@neo-dispatch');
         });
     });
+
+    test.describe('rotateKey — the repair door for a row that lost its signing key', () => {
+        const shapeB = (overrides = {}) => insertDurableSubscription({
+            harnessTarget        : 'a2a-webhook',
+            harnessTargetMetadata: {url: 'http://127.0.0.1:3199/wake', adapter: 'osascript', appName: 'Claude'},
+            ...overrides
+        }).subscriptionId;
+
+        test('re-issues a key IN PLACE — the subscription id survives, which is the whole point', async () => {
+            // Recovery by unsubscribe+subscribe allocates a NEW id, and that id is what the manifest,
+            // the receiver route table, delivery receipts and the degrade all index on. Re-identification
+            // is not repair.
+            const id = shapeB();
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const result = await WakeSubscriptionService.rotateKey({subscriptionId: id});
+
+                expect(result.subscriptionId).toBe(id);
+                expect(result.status).toBe('rotated');
+                expect(result.hadKey).toBe(false);
+                expect(result.signingKey).toMatch(/^[0-9a-f]{64}$/);
+            });
+        });
+
+        test('preserves the rest of the metadata — a wholesale replace would drop the url', async () => {
+            const id = shapeB();
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.rotateKey({subscriptionId: id});
+            });
+
+            const stored = GraphService.db.nodes.get(id).properties.harnessTargetMetadata;
+
+            expect(stored.url).toBe('http://127.0.0.1:3199/wake');
+            expect(stored.adapter).toBe('osascript');
+            expect(stored.appName).toBe('Claude');
+            expect(stored.signingKey).toMatch(/^[0-9a-f]{64}$/);
+        });
+
+        test('REFUSES a foreign owner — re-issuing another seat lets the caller sign that seat wakes', async () => {
+            const id = shapeB({owner: '@alice'});
+
+            await RequestContextService.run({agentIdentityNodeId: '@mallory'}, async () => {
+                await expect(WakeSubscriptionService.rotateKey({subscriptionId: id}))
+                    .rejects.toThrow(/Permission denied/);
+            });
+        });
+
+        test('the foreign attempt leaves no key behind — the refusal is before the mint', async () => {
+            const id = shapeB({owner: '@alice'});
+
+            await RequestContextService.run({agentIdentityNodeId: '@mallory'}, async () => {
+                await WakeSubscriptionService.rotateKey({subscriptionId: id}).catch(() => {});
+            });
+
+            expect(GraphService.db.nodes.get(id).properties.harnessTargetMetadata.signingKey).toBeUndefined();
+        });
+
+        test('rotates an EXISTING key too, and says which it did', async () => {
+            const id = shapeB({
+                harnessTargetMetadata: {url: 'http://127.0.0.1:3199/wake', signingKey: 'b'.repeat(64)}
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const result = await WakeSubscriptionService.rotateKey({subscriptionId: id});
+
+                expect(result.hadKey).toBe(true);
+                expect(result.signingKey).not.toBe('b'.repeat(64));
+            });
+        });
+
+        test('refuses a target that carries no key at all', async () => {
+            const id = insertDurableSubscription({harnessTarget: 'bridge-daemon'}).subscriptionId;
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await expect(WakeSubscriptionService.rotateKey({subscriptionId: id}))
+                    .rejects.toThrow(/carries no signing key/);
+            });
+        });
+
+        test('refuses an unbound identity rather than defaulting to an owner', async () => {
+            const id = shapeB();
+
+            await expect(WakeSubscriptionService.rotateKey({subscriptionId: id})).rejects.toThrow();
+        });
+
+        test('reaches the service through the MCP action name', async () => {
+            // A method with no tool-surface route is unreachable; the dispatch string is the contract.
+            const id = shapeB();
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const result = await WakeSubscriptionService.manage({action: 'rotate-key', subscriptionId: id});
+
+                expect(result.status).toBe('rotated');
+            });
+        });
+    });
 });
