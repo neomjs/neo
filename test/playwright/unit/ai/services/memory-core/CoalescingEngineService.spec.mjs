@@ -416,6 +416,53 @@ test.describe('CoalescingEngineService', () => {
         expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('newer-payload')
     });
 
+    // -----------------------------------------------------------------------------
+    // Digest `latest` — wire-faithful per-bucket payload clocks
+    // -----------------------------------------------------------------------------
+
+    test('permission_granted resolves latest by payload.grantedAt, not position', () => {
+        // Wire shape per WakeSubscriptionService.mjs:1431-1433: {scope, grantedBy, grantedAt} — no sentAt.
+        const fresh = buildEnvelope('wake/permission_granted', {scope: 'CAN_REVIEW', grantedBy: '@bob', grantedAt: '2026-08-01T11:21:47.000Z'});
+        const stale = buildEnvelope('wake/permission_granted', {scope: 'CAN_MERGE',  grantedBy: '@bob', grantedAt: '2026-07-31T23:04:46.000Z'});
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [fresh, stale], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.permission_granted.latest.scope).toBe('CAN_REVIEW')
+    });
+
+    test('task_state_changed resolves latest by payload.lastModifiedAt, not position', () => {
+        // Wire shape: the immutable typed-row payload carries the canonical transition clock.
+        const fresh = buildEnvelope('wake/task_state_changed', {taskId: 'T1', newState: 'Working',   lastModifiedAt: '2026-08-01T11:21:47.000Z'});
+        const stale = buildEnvelope('wake/task_state_changed', {taskId: 'T1', newState: 'Submitted', lastModifiedAt: '2026-07-31T23:04:46.000Z'});
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [fresh, stale], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.task_state_changed.latest.newState).toBe('Working')
+    });
+
+    test('a payload clock beats a newer-position envelope emittedAt', () => {
+        // A replayed grant with a true delivery-time stamp must not lose to a fresh wrap of
+        // an older logical event: grantedAt (11:21) wins over the later emittedAt.
+        const stamped = buildEnvelope('wake/permission_granted', {scope: 'CAN_REVIEW', grantedBy: '@bob', grantedAt: '2026-08-01T11:21:47.000Z'});
+        stamped.emittedAt = '2026-07-31T23:04:46.000Z';
+        const wrappedFresh = buildEnvelope('wake/permission_granted', {scope: 'CAN_MERGE', grantedBy: '@bob', grantedAt: '2026-07-31T23:04:46.000Z'});
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [stamped, wrappedFresh], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.permission_granted.latest.scope).toBe('CAN_REVIEW')
+    });
+
+    test('heartbeat_pulse carries no payload clock and resolves by envelope emittedAt', () => {
+        const newerWrapOlderPosition = buildEnvelope('wake/heartbeat_pulse', {targetIdentity: '@alice', pulseId: 'P-new'});
+        newerWrapOlderPosition.emittedAt = '2026-08-01T11:21:47.000Z';
+        const olderWrapNewerPosition = buildEnvelope('wake/heartbeat_pulse', {targetIdentity: '@alice', pulseId: 'P-old'});
+        olderWrapNewerPosition.emittedAt = '2026-07-31T23:04:46.000Z';
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [newerWrapOlderPosition, olderWrapNewerPosition], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.heartbeat_pulse.latest.pulseId).toBe('P-new')
+    });
+
     test('all four breakdown buckets track recency, not position', () => {
         const events = [
             buildEnvelope('wake/sent_to_me',        {subject: 'fresh-stm',  sentAt: '2026-08-01T11:21:47.000Z'}),
