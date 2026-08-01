@@ -296,9 +296,10 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         expect(data.properties.archivedReason).not.toBe('no-content');
     });
 
-    test('the THROWN timeout counts toward the budget, not only a falsy return (#16313)', async () => {
-        // The dominant real-world path throws; a budget on the falsy return alone would look
-        // complete and leave the case actually burning provider time unbounded.
+    test('a THROWN failure counts toward the budget as well (#16313)', async () => {
+        // NOT the dominant path — buildMiniSummary catches its own 20s timeout and returns null, so
+        // the observed production timeout lands on the falsy branch. This covers what escapes that
+        // catch, so neither path can loop; both are pinned rather than assumed equivalent.
         const ts = '2099-12-31T23:59:55.000Z';
 
         memStore.set('budget-throws', {prompt: 'p', response: 'r'});

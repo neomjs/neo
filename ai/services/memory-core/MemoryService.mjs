@@ -1761,20 +1761,23 @@ class MemoryService extends Base {
      * @protected
      */
     _exhaustMiniSummaryAttempt(id) {
-        const
-            attempts = this.recordMiniSummaryAttempt({id}),
-            budget   = aiConfig.memoryService.miniSummaryMaxAttempts;
+        const budget = aiConfig.memoryService.miniSummaryMaxAttempts;
 
-        // `<= 0` is the leaf's declared disable switch and stays silent. A NON-FINITE budget is a
-        // different thing: it means the leaf resolved `undefined`, which only happens on a stale
-        // operator overlay — and silently disabling there would restore the unbounded loop this
-        // exists to stop, with no signal. That is the failure class, not a safe default.
-        if (!Number.isFinite(budget)) {
-            logger.warn('[MemoryService] memoryService.miniSummaryMaxAttempts is unresolved; the backfill attempt budget is INACTIVE. Re-materialize the config overlay (ai/scripts/setup/initServerConfigs.mjs --migrate-config).');
+        // Budget checked BEFORE the write, deliberately. Recording first made `<= 0` mean "disabled
+        // but still counting", so a deployment that ran with the budget off accumulated attempts
+        // invisibly — and re-enabling it later would archive rows on the first pass, from a tally
+        // nobody knew was being kept. Disabled must mean no mutation, not silent bookkeeping.
+        //
+        // A non-finite budget cannot reach here: the sweep validates the leaf once at entry and
+        // refuses to run, so this trusts the SSOT rather than carrying a consumer-local fallback for
+        // a value the config provider owns.
+        if (budget <= 0) {
             return false
         }
 
-        if (budget <= 0 || attempts < budget) {
+        const attempts = this.recordMiniSummaryAttempt({id});
+
+        if (attempts < budget) {
             return false
         }
 
@@ -1872,6 +1875,18 @@ class MemoryService extends Base {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
             return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
+        }
+
+        // Fail loud on an unresolved leaf, before touching a single row. A stale operator overlay
+        // resolves this to `undefined`, and a consumer-local fallback there would silently restore the
+        // unbounded loop this sweep exists to bound — the config provider owns defaults, via the
+        // template. Mirrors the `memoryWalConfigLeafGaps` stance: name what is missing and the remedy,
+        // rather than run in a state whose whole point is that it cannot be observed from inside.
+        if (!Number.isFinite(aiConfig.memoryService.miniSummaryMaxAttempts)) {
+            throw new Error(
+                'MemoryService.backfillMiniSummaries: memoryService.miniSummaryMaxAttempts is unresolved. ' +
+                'Re-materialize the config overlay: node ai/scripts/setup/initServerConfigs.mjs --migrate-config'
+            );
         }
 
         const defaultLimit = Number(aiConfig.summarizationBatchLimit) || 50;
@@ -1978,9 +1993,10 @@ class MemoryService extends Base {
             } catch (error) {
                 logger.warn(`[MemoryService] miniSummary backfill deferred for ${row.id} (fail-soft): ${error.message}`);
 
-                // A thrown attempt is a failed attempt: the timeout path arrives here, and it is the one
-                // that loops forever. Counting only the falsy-return path would leave the dominant case
-                // unbounded.
+                // A thrown attempt is a failed attempt too. NOT the dominant path: `buildMiniSummary`
+                // catches its own inner timeout and returns null, so the observed 20s timeout reaches
+                // the falsy branch above. This covers what escapes that catch — a provider throwing
+                // outside the timeout guard, or an injected summarizer — so neither path can loop.
                 if (this._exhaustMiniSummaryAttempt(row.id)) {
                     exhausted++;
                 } else {
