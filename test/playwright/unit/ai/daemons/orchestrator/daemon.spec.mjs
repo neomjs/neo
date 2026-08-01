@@ -14,6 +14,10 @@ import {
     requiresOrchestratorPlane
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
+    AUTHORITY_LEASE_TTL_MS,
+    authorityLeaseFilename
+} from '../../../../../../ai/daemons/orchestrator/authorityLease.mjs';
+import {
     buildOllamaServeEnv,
     getMaxOllamaContextLength,
     resolveOllamaHostPort,
@@ -355,34 +359,10 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(orchestrator.healthcheck.test.slice(0, 4)).toEqual(['CMD', 'node', '--input-type=module', '-e']);
         expect(healthcheckCmd).toContain("await import('./ai/config.mjs')");
         expect(healthcheckCmd).toContain('AiConfig.orchestrator.dataDir');
+        expect(healthcheckCmd).toContain('AiConfig.orchestrator.authorityProfile');
+        expect(healthcheckCmd).toContain('inspectAuthorityLease');
         expect(healthcheckCmd).not.toContain('process.env.NEO_AI_ORCHESTRATOR_DIR');
-
-        const probeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-orchestrator-health-'));
-        const stateFile    = path.join(probeDataDir, 'orchestrator-state.json');
-        const probeEnv     = {...process.env, NEO_AI_ORCHESTRATOR_DIR: probeDataDir};
-        const probeArgs    = orchestrator.healthcheck.test.slice(2);
-
-        try {
-            fs.writeFileSync(stateFile, '{}');
-
-            expect(spawnSync('node', probeArgs, {
-                cwd     : process.cwd(),
-                encoding: 'utf8',
-                env     : probeEnv
-            }).status).toBe(0);
-
-            const staleAt = new Date(Date.now() - 11 * 60 * 1000);
-
-            fs.utimesSync(stateFile, staleAt, staleAt);
-
-            expect(spawnSync('node', probeArgs, {
-                cwd     : process.cwd(),
-                encoding: 'utf8',
-                env     : probeEnv
-            }).status).toBe(1);
-        } finally {
-            fs.rmSync(probeDataDir, {force: true, recursive: true});
-        }
+        expect(healthcheckCmd).not.toContain('orchestrator-state.json');
 
         for (const [serviceName, service] of Object.entries(compose.services)) {
             if (serviceName === 'orchestrator') continue;
@@ -398,6 +378,61 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
                 ),
                 `${serviceName} must not alias the orchestrator-owned source or target`
             ).toBe(false);
+        }
+    });
+
+    test('#16283: cloud health follows the authority lease, not task completion', () => {
+        const compose      = yaml.load(fs.readFileSync(path.resolve(process.cwd(), 'ai/deploy/docker-compose.yml'), 'utf8'));
+        const orchestrator = compose.services.orchestrator;
+        const probeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-orchestrator-health-'));
+        const stateFile    = path.join(probeDataDir, 'orchestrator-state.json');
+        const leaseFile    = path.join(probeDataDir, authorityLeaseFilename('container-plane'));
+        const probeEnv     = {
+            ...process.env,
+            NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane',
+            NEO_AI_ORCHESTRATOR_DIR              : probeDataDir
+        };
+        const probeArgs = orchestrator.healthcheck.test.slice(2);
+        const runProbe  = env => spawnSync('node', probeArgs, {
+            cwd     : process.cwd(),
+            encoding: 'utf8',
+            env     : {...probeEnv, ...env}
+        }).status;
+
+        try {
+            fs.writeFileSync(stateFile, JSON.stringify({summary: {running: true}}));
+
+            const staleTaskAt = new Date(Date.now() - 11 * 60 * 1000);
+            fs.utimesSync(stateFile, staleTaskAt, staleTaskAt);
+            fs.writeFileSync(leaseFile, JSON.stringify({
+                pid       : 7,
+                owner     : 'plane-daemon',
+                ownerToken: 'plane-token',
+                profile   : 'container-plane',
+                startedAt : new Date().toISOString(),
+                lastPulse : new Date().toISOString()
+            }));
+
+            expect(runProbe()).toBe(0);
+
+            const lease = JSON.parse(fs.readFileSync(leaseFile, 'utf8'));
+
+            fs.writeFileSync(leaseFile, JSON.stringify({
+                ...lease,
+                lastPulse: new Date(Date.now() - AUTHORITY_LEASE_TTL_MS - 1000).toISOString()
+            }));
+            expect(runProbe()).toBe(1);
+
+            fs.writeFileSync(leaseFile, '{corrupt');
+            expect(runProbe()).toBe(1);
+
+            fs.writeFileSync(leaseFile, JSON.stringify({...lease, profile: 'host-edge'}));
+            expect(runProbe()).toBe(1);
+
+            fs.rmSync(leaseFile);
+            expect(runProbe()).toBe(1);
+        } finally {
+            fs.rmSync(probeDataDir, {force: true, recursive: true});
         }
     });
 

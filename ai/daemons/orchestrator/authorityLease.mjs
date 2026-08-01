@@ -26,8 +26,10 @@
  * `container-plane` never contend for the same file.
  */
 
-import os                 from 'node:os';
-import {acquireFileLease} from '../shared/fileLease.mjs';
+import fs                                      from 'fs-extra';
+import os                                      from 'node:os';
+import path                                    from 'node:path';
+import {acquireFileLease, readFileLeaseHolder} from '../shared/fileLease.mjs';
 
 /**
  * Lease freshness window. The orchestrator polls every 3s, so 60s is 20 missed beats of margin —
@@ -43,6 +45,66 @@ export const AUTHORITY_LEASE_TTL_MS = 60_000;
  */
 export function authorityLeaseFilename(profile) {
     return `.authority-lease-${profile}`;
+}
+
+/**
+ * @summary Classifies one validated per-role authority-lease descriptor. The three states keep
+ * consumer semantics explicit: health accepts only `fresh`, while acquisition may reclaim only
+ * `stale`; `invalid` is unhealthy and unreclaimable.
+ *
+ * @param {Object} options
+ * @param {Object|null} options.holder Parsed file-lease descriptor.
+ * @param {String} options.profile Expected authority role.
+ * @param {Number} [options.ttlMs] Freshness window.
+ * @param {Number} [options.now] Current epoch milliseconds.
+ * @returns {'fresh'|'stale'|'invalid'}
+ */
+function classifyAuthorityLease({
+    holder,
+    profile,
+    ttlMs = AUTHORITY_LEASE_TTL_MS,
+    now   = Date.now()
+}) {
+    const age = now - Date.parse(holder?.lastPulse ?? holder?.startedAt);
+
+    if (holder?.profile !== profile || !Number.isFinite(age) || age < 0) return 'invalid';
+
+    return age < ttlMs ? 'fresh' : 'stale';
+}
+
+/**
+ * @summary Inspects the expected per-role authority lease without mutating it. Descriptor
+ * validation is delegated to the shared file-lease reader and freshness uses the same predicate
+ * as acquisition, so health probes cannot drift from ownership semantics.
+ *
+ * Missing, corrupt, invalid, wrong-role, future-dated, and stale leases all return `fresh: false`.
+ * Read failures are likewise fail-closed through the shared reader.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Lease directory.
+ * @param {String} options.profile Expected authority role.
+ * @param {Number} [options.ttlMs] Freshness window.
+ * @param {Number} [options.now] Current epoch milliseconds.
+ * @param {Object} [options.fs] Filesystem implementation (injected for specs).
+ * @returns {{fresh: Boolean, holder: Object|null, lockPath: String, status: 'fresh'|'stale'|'invalid'}}
+ */
+export function inspectAuthorityLease({
+    dir,
+    profile,
+    ttlMs     = AUTHORITY_LEASE_TTL_MS,
+    now       = Date.now(),
+    fs: fsImpl = fs
+} = {}) {
+    const lockPath = path.join(dir, authorityLeaseFilename(profile));
+    const holder   = readFileLeaseHolder(lockPath, fsImpl);
+    const status   = classifyAuthorityLease({holder, profile, ttlMs, now});
+
+    return {
+        fresh: status === 'fresh',
+        holder,
+        lockPath,
+        status
+    };
 }
 
 const REMEDIATION =
@@ -93,7 +155,9 @@ export function acquireAuthorityLease({
         // Authority state that cannot be judged is a REFUSAL, never a reclaim: a corrupt lease
         // might be a live cross-namespace holder mid-rotation, and guessing starts the duplicate.
         onCorrupt  : 'refuse',
+        // Only a canonically stale descriptor is reclaimable. Invalid/future/wrong-role state is
+        // unjudgeable authority and therefore stays held under the refuse-no-takeover contract.
         isHeldFresh: ({holder, now: at}) =>
-            (at - Date.parse(holder.lastPulse ?? holder.startedAt)) < ttlMs
+            classifyAuthorityLease({holder, profile, ttlMs, now: at}) !== 'stale'
     });
 }

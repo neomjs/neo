@@ -8,7 +8,8 @@ import {Orchestrator}           from '../../../../../../ai/daemons/orchestrator/
 import {
     acquireAuthorityLease,
     AUTHORITY_LEASE_TTL_MS,
-    authorityLeaseFilename
+    authorityLeaseFilename,
+    inspectAuthorityLease
 } from '../../../../../../ai/daemons/orchestrator/authorityLease.mjs';
 import {FileLeaseHeldError} from '../../../../../../ai/daemons/shared/fileLease.mjs';
 
@@ -69,6 +70,41 @@ test.describe('#16230 — authorityLease specialization', () => {
         expect(written.lastPulse).toBe('2026-07-31T23:00:00.000Z');
 
         handle.release();
+    });
+
+    test('#16283: inspection shares validation, role, and TTL semantics with acquisition', () => {
+        const dir       = tmpDir();
+        const profile   = 'container-plane';
+        const leaseFile = path.join(dir, authorityLeaseFilename(profile));
+        const holder    = {
+            pid       : 7,
+            owner     : 'plane-daemon',
+            ownerToken: 'plane-token',
+            profile,
+            startedAt : new Date(T0).toISOString(),
+            lastPulse : new Date(T0).toISOString()
+        };
+
+        fs.writeJsonSync(leaseFile, holder);
+        expect(inspectAuthorityLease({dir, profile, now: T0 + TTL - 1})).toMatchObject({fresh: true, holder, status: 'fresh'});
+        expect(inspectAuthorityLease({dir, profile, now: T0 + TTL})).toMatchObject({fresh: false, holder, status: 'stale'});
+
+        fs.writeJsonSync(leaseFile, {...holder, profile: 'host-edge'});
+        expect(inspectAuthorityLease({dir, profile, now: T0})).toMatchObject({fresh: false, status: 'invalid'});
+        expect(() => acquireAuthorityLease({dir, profile, pid: 8, now: () => T0 + TTL})).toThrow(FileLeaseHeldError);
+
+        fs.writeJsonSync(leaseFile, {...holder, lastPulse: 'not-a-date'});
+        expect(inspectAuthorityLease({dir, profile, now: T0})).toMatchObject({fresh: false, holder: null, status: 'invalid'});
+
+        fs.writeJsonSync(leaseFile, {...holder, lastPulse: new Date(T0 + 1).toISOString()});
+        expect(inspectAuthorityLease({dir, profile, now: T0})).toMatchObject({fresh: false, status: 'invalid'});
+        expect(() => acquireAuthorityLease({dir, profile, pid: 8, now: () => T0})).toThrow(FileLeaseHeldError);
+
+        fs.writeFileSync(leaseFile, '{corrupt', 'utf8');
+        expect(inspectAuthorityLease({dir, profile, now: T0})).toMatchObject({fresh: false, holder: null, status: 'invalid'});
+
+        fs.rmSync(leaseFile);
+        expect(inspectAuthorityLease({dir, profile, now: T0})).toMatchObject({fresh: false, holder: null, status: 'invalid'});
     });
 
     test('the default holder identity is host-qualified, not a bare generic', () => {
