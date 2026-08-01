@@ -105,6 +105,11 @@ function latestByEventTime(events, field) {
  * is the pointer the woken agent reads first, so each bucket claims only the recency its own
  * shape can prove.
  *
+ * @see CoalescingEngineService.resolveEventTimestamp (ai/services/memory-core/CoalescingEngineService.mjs) —
+ *      the engine-side sibling seam for per-bucket "latest" recency; structured digest envelope vs
+ *      this module's string digest. Deliberately separate implementations (Neo singleton vs spawn-only
+ *      daemon entrypoint) — repair one, check the other.
+ *
  * @param {String} identity Recipient agent identity.
  * @param {Object} events `{messages, tasks, permissions, heartbeats}` arrays.
  * @returns {String}
