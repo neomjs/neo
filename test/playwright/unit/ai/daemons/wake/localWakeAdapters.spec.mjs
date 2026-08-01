@@ -252,7 +252,13 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
                 error.code  = 'ECONNREFUSED';
                 throw error;
             }
-        })).toBe('failed');
+        })).toEqual({
+            outcome      : 'failed',
+            // The sibling boundary carries its cause too. Before this, every non-osascript adapter —
+            // opencode-server, tmux, codex-app-server, webhook — lost the reason at the shared catch,
+            // so a seat saw `failed` with nothing to act on.
+            outcomeReason: 'opencode-server authority tuple changed during coordinate rebind; refusing session retarget'
+        });
         expect(fetchCount).toBe(1);
     });
 

@@ -147,7 +147,9 @@ function formatPullRequestStateEcho(summary = {}) {
  *
  * @param {Object} record Durable receiver record.
  * @param {Object} [dependencies] Injectable host effects for tests.
- * @returns {Promise<'delivered'|'skipped'|'failed'|'unknown'>}
+ * @returns {Promise<'delivered'|'skipped'|'failed'|'unknown'|{outcome:'failed',outcomeReason:String}>}
+ *   A bare outcome string, or `{outcome, outcomeReason}` when a cause was captured. The receiver
+ *   accepts either, so the reason channel is additive and no caller needs updating to keep working.
  */
 export async function dispatchLocalWake(record, dependencies = {}) {
     const meta           = record?.route?.harnessTargetMetadata || {};
@@ -184,8 +186,11 @@ export async function dispatchLocalWake(record, dependencies = {}) {
 
     try {
         return await Promise.race([attempt, timeout]);
-    } catch {
-        return 'failed';
+    } catch (error) {
+        // The SHARED boundary — every adapter's errors arrive here, not only osascript's. Discarding
+        // the cause at this catch loses it for opencode-server, tmux, codex-app-server and the webhook
+        // path alike, which is the same defect the osascript branch fixes one level down.
+        return {outcome: 'failed', outcomeReason: String(error?.message || error?.code || 'adapter-error')}
     } finally {
         clearTimeout(timer);
     }
