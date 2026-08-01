@@ -36,6 +36,17 @@ class WebhookDeliveryService extends Base {
     consecutiveFailures = new Map();
 
     /**
+     * Subscription ids degraded during this process lifetime. This is what BOUNDS the attempt count: a
+     * degraded route is never attempted again, so a permanently dead endpoint costs the threshold's attempts
+     * once, not a full retry cycle on every message forever. The persisted
+     * `properties.status` is the durable half and survives restarts; this covers the window before the
+     * caller re-reads the node. {@link WebhookDeliveryService#clearDegraded} is the named resumption path.
+     * @member {Set} degradedSubscriptions
+     * @protected
+     */
+    degradedSubscriptions = new Set();
+
+    /**
      * Per-request timeout injected by the Memory Core entrypoint from
      * `AiConfig.orchestrator.wakeDispatch.attemptTimeoutSeconds`.
      * @member {Number|null}
@@ -66,6 +77,16 @@ class WebhookDeliveryService extends Base {
         const properties = subscription.properties || {};
         const url        = properties.harnessTargetMetadata?.url;
         const signingKey = properties.harnessTargetMetadata?.signingKey;
+
+        // A degraded route is dead until explicitly repaired, so it is not attempted at all. Without this the
+        // failure threshold only decides when to START logging: `_recordConsecutiveFailure` kept counting past
+        // it and re-fired the degrade on every subsequent message, each preceded by a full 4-attempt backoff
+        // cycle. The persisted status is authoritative across restarts; the in-memory set covers
+        // the window before the caller re-reads the node.
+        if (properties.status === 'degraded' || this.degradedSubscriptions.has(subscription.id)) {
+            logger.warn(`WebhookDeliveryService: Subscription ${subscription.id} is degraded; skipping delivery without an attempt.`);
+            return 'skipped';
+        }
 
         if (!url) {
             logger.error(`WebhookDeliveryService: Subscription ${subscription.id} is missing URL.`);
@@ -154,25 +175,54 @@ class WebhookDeliveryService extends Base {
 
     async _markDegraded(subscriptionId) {
         try {
-            // Updating the subscription's harnessTarget to 'degraded'
-            const subscriptionNode = GraphService.getNode({id: subscriptionId});
-            if (subscriptionNode) {
-                const properties = {
-                    ...(subscriptionNode.properties || {}),
-                    harnessTarget: 'degraded'
-                };
+            // Context-free read. This runs from a background delivery flush with no bound request, where an
+            // RLS-scoped read (`GraphService.getNode`) resolves a null requester, fails every visibility
+            // branch, and returns null for a node that plainly exists — the degrade was then skipped and the
+            // route stayed live forever.
+            const record = GraphService.getUnscopedNodeRecord({
+                id    : subscriptionId,
+                writer: 'WebhookDeliveryService._markDegraded'
+            });
 
-                GraphService.upsertNode({
-                    ...subscriptionNode,
-                    properties
-                });
-                logger.info(`WebhookDeliveryService: Subscription ${subscriptionId} marked as degraded.`);
-            } else {
-                logger.warn(`WebhookDeliveryService: Cannot degrade ${subscriptionId}, node not found in Graph.`);
+            if (!record) {
+                // ERROR, not WARN: a route that silently fails to change state is the condition that kept
+                // this invisible. The only signal was a WARN in a file nobody tails.
+                logger.error(`WebhookDeliveryService: Cannot degrade ${subscriptionId}, node not found in Graph.`);
+                return;
             }
+
+            // Degradation is a `status` value, never a `harnessTarget` value. `harnessTarget` is the ROUTING
+            // field, and its documented value space (`mcp-notifications | a2a-webhook | bridge-daemon |
+            // disabled | none`) has no `degraded` member. Both consumers of degradation read
+            // `properties.status`: the sunset check (`ai/scripts/lifecycle/checkSunsetted.mjs`) and the
+            // heartbeat push exclusion (`SwarmHeartbeatService`). Writing 'degraded' into `harnessTarget` left
+            // BOTH blind — the sunset check still classified the dead route as active and heartbeats kept
+            // being pushed at it — while corrupting routing into CoalescingEngineService's unknown-target
+            // drop branch. `upsertNode` merges onto the stored properties, so this touches `status` only.
+            GraphService.upsertNode({
+                id        : subscriptionId,
+                properties: {status: 'degraded'}
+            });
+
+            this.degradedSubscriptions.add(subscriptionId);
+            logger.info(`WebhookDeliveryService: Subscription ${subscriptionId} marked as degraded.`);
         } catch (error) {
             logger.error(`WebhookDeliveryService: Failed to mark subscription ${subscriptionId} degraded: ${error.message}`);
         }
+    }
+
+    /**
+     * @summary The named resumption path out of the degraded state.
+     *
+     * Degradation is terminal by design — a degraded route is never probed again, which is what bounds the
+     * attempt count. Repair is therefore explicit: whoever restores the endpoint clears the marker, and the
+     * persisted `status` must be moved off `'degraded'` in the same operation for the route to survive a
+     * process restart.
+     * @param {String} subscriptionId
+     */
+    clearDegraded(subscriptionId) {
+        this.degradedSubscriptions.delete(subscriptionId);
+        this.consecutiveFailures.delete(subscriptionId);
     }
 }
 
