@@ -1765,7 +1765,16 @@ class MemoryService extends Base {
             attempts = this.recordMiniSummaryAttempt({id}),
             budget   = aiConfig.memoryService.miniSummaryMaxAttempts;
 
-        if (!Number.isFinite(budget) || budget <= 0 || attempts < budget) {
+        // `<= 0` is the leaf's declared disable switch and stays silent. A NON-FINITE budget is a
+        // different thing: it means the leaf resolved `undefined`, which only happens on a stale
+        // operator overlay — and silently disabling there would restore the unbounded loop this
+        // exists to stop, with no signal. That is the failure class, not a safe default.
+        if (!Number.isFinite(budget)) {
+            logger.warn('[MemoryService] memoryService.miniSummaryMaxAttempts is unresolved; the backfill attempt budget is INACTIVE. Re-materialize the config overlay (ai/scripts/setup/initServerConfigs.mjs --migrate-config).');
+            return false
+        }
+
+        if (budget <= 0 || attempts < budget) {
             return false
         }
 
