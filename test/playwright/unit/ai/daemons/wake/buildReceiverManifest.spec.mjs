@@ -461,6 +461,15 @@ test.describe('buildWakeReceiverManifest — the loader-gate trap, refused', () 
         expect(metadata.instanceAddress).not.toContain('127.0.0.1');
         expect(JSON.stringify(metadata)).not.toContain('webhookUrl')
     });
+
+    test('an emitted pid tuple carries the ephemerality warning — recorded, never silent', () => {
+        const {routeSummaries} = buildWakeReceiverManifest({
+            subscriptions: [webhookSubscription],
+            instance     : {type: 'pid', address: '4242'}
+        });
+
+        expect(routeSummaries[0].warn).toMatch(/ephemeral/i)
+    });
 });
 
 test.describe('buildWakeReceiverManifest — owner-set reconciliation', () => {
@@ -493,29 +502,92 @@ test.describe('buildWakeReceiverManifest — owner-set reconciliation', () => {
         expect(skipped.some(entry => entry.subscriptionId === ownId && /no active subscription record/.test(entry.reason))).toBe(true)
     });
 
-    test('empty input with an explicit identity performs a withdrawal-only rebuild', async () => {
+    test('a withdrawal that empties the manifest PUBLISHES — the last stale route must not survive', async () => {
         const dir = await tempDir();
 
         try {
             const manifestPath = path.join(dir, 'routes.json'),
                   quiet        = {log() {}},
+                  live         = path.join(dir, 'live.json'),
                   emptyInput   = path.join(dir, 'empty.json');
 
+            await writeFile(live, JSON.stringify({subscriptions: [webhookSubscription]}));
             await writeFile(emptyInput, JSON.stringify({subscriptions: []}));
+
+            // Seed the caller-owned route.
+            await runManifestBuilder({
+                subscriptionsPath: live,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger           : quiet
+            });
+
+            expect(Object.keys(await readPublishedRoutes(manifestPath))).toEqual([webhookSubscription.id]);
+
+            // The seat unsubscribes everything: the withdrawal must PUBLISH the emptied manifest —
+            // a guard that throws here leaves the stale route on disk forever.
+            await runManifestBuilder({
+                subscriptionsPath: emptyInput,
+                manifestPath,
+                identity         : '@neo-opus-ada',
+                logger           : quiet
+            });
+
+            expect(Object.keys(await readPublishedRoutes(manifestPath))).toEqual([])
+        } finally {
+            await rm(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('withdrawal-only control: the peer\'s route survives when the caller\'s last route is withdrawn', async () => {
+        const dir = await tempDir();
+
+        try {
+            const manifestPath = path.join(dir, 'routes.json'),
+                  quiet        = {log() {}},
+                  live         = path.join(dir, 'live.json'),
+                  emptyInput   = path.join(dir, 'empty.json'),
+                  peerId       = 'WAKE_SUB:84dfc4da-0000-4000-8000-0000000000fe';
+
+            await writeFile(live, JSON.stringify({subscriptions: [webhookSubscription]}));
+            await writeFile(emptyInput, JSON.stringify({subscriptions: []}));
+
+            await runManifestBuilder({
+                subscriptionsPath: live,
+                manifestPath,
+                instanceType     : INSTANCE.type,
+                instanceAddress  : INSTANCE.address,
+                logger           : quiet
+            });
+
+            // Seed a peer route the caller does not own, through the validated publish path.
+            const withPeer = buildWakeReceiverManifest({
+                subscriptions : [],
+                existingRoutes: {
+                    ...await readPublishedRoutes(manifestPath),
+                    [peerId]: {
+                        agentIdentity        : '@neo-opus-grace',
+                        signingKey           : PEER_KEY,
+                        harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                        adapterConfig        : {attemptTimeoutMs: 10000}
+                    }
+                }
+            });
+
+            await writeValidatedManifest({manifest: withPeer.manifest, targetPath: manifestPath});
 
             await runManifestBuilder({
                 subscriptionsPath: emptyInput,
                 manifestPath,
                 identity         : '@neo-opus-ada',
-                instanceType     : INSTANCE.type,
-                instanceAddress  : INSTANCE.address,
-                lockOptions      : {},
                 logger           : quiet
-            }).catch(() => {}); // refuse-empty when everything is withdrawn is fine here
+            });
 
-            const published = await readPublishedRoutes(manifestPath).catch(() => null);
+            const published = await readPublishedRoutes(manifestPath);
 
-            expect(published === null || Object.keys(published).length === 0).toBe(true)
+            expect(Object.keys(published)).toEqual([peerId]); // caller's route withdrawn, peer preserved
+            expect(published[peerId].agentIdentity).toBe('@neo-opus-grace')
         } finally {
             await rm(dir, {force: true, recursive: true})
         }

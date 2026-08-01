@@ -248,7 +248,12 @@ export function buildWakeReceiverManifest({
             // made the summary assert an adapter that was not in the manifest, which reads as
             // confirmation and sends the operator looking somewhere else.
             adapter       : receiverMetadata.adapter || null,
-            keyFingerprint: fingerprintSigningKey(signingKey)
+            keyFingerprint: fingerprintSigningKey(signingKey),
+            // A pid tuple passes every gate while the pid itself is ephemeral — say so where the
+            // operator can see it, rather than re-publishing it silently (durable = userDataDir).
+            ...(receiverMetadata.addressType === 'pid' ? {
+                warn: 'pid tuples are ephemeral — the harness pid is gone on restart; prefer userDataDir for generated routes'
+            } : {})
         })
     }
 
@@ -290,10 +295,19 @@ export function buildWakeReceiverManifest({
     }
 
     if (!Object.keys(routes).length) {
-        throw new Error(
-            'No deliverable subscriptions produced a route; refusing to write an empty manifest. ' +
-            `Skipped ${skipped.length}: ${skipped.map(entry => entry.reason).join('; ') || 'none'}`
-        );
+        // Two different emptinesses: input that PRODUCED nothing (refuse — the operator must hear
+        // it, this is the AC5 case the guard was written for) versus everything the caller owned
+        // being DELIBERATELY withdrawn (publish — an empty manifest is the correct end state for a
+        // fully-unsubscribed seat: the receiver answers `404 unknown-subscription`, and the stale
+        // route must not survive on disk just because the guard refused to write).
+        const withdrewSomething = skipped.some(entry => entry.withdrewPublishedRoute);
+
+        if (!withdrewSomething) {
+            throw new Error(
+                'No deliverable subscriptions produced a route; refusing to write an empty manifest. ' +
+                `Skipped ${skipped.length}: ${skipped.map(entry => entry.reason).join('; ') || 'none'}`
+            );
+        }
     }
 
     return {manifest: {schemaVersion: 1, routes}, routeSummaries, skipped}
@@ -589,6 +603,18 @@ export async function runManifestBuilder({
     for (const summary of routeSummaries) {
         logger.log(`  route ${summary.subscriptionId} → ${summary.agentIdentity} ` +
                    `adapter=${summary.adapter ?? '(none)'} key=${summary.keyFingerprint}`);
+
+        if (summary.warn) {
+            logger.log(`  WARN ${summary.subscriptionId}: ${summary.warn}`);
+        }
+    }
+
+    // Ephemeral-tuple visibility for CARRIED routes too: a carried pid tuple passes every gate
+    // while the pid itself is ephemeral — surface it rather than re-publishing it silently.
+    for (const [id, route] of Object.entries(manifest.routes)) {
+        if (route?.harnessTargetMetadata?.addressType === 'pid') {
+            logger.log(`  WARN ${id}: carried pid tuple is ephemeral — re-run with --instance userDataDir to make it durable`);
+        }
     }
 
     // Skips are printed, never swallowed: a seat that silently produces no route is indistinguishable
