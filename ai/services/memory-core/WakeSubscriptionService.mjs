@@ -379,7 +379,7 @@ class WakeSubscriptionService extends Base {
      * action-specific handlers per ADR 0002 §6.6. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
-     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume'
+     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume' | 'rotate-key'
      * @param {Object} [opts.rest] Action-specific parameters (see individual methods)
      * @returns {Promise<Object>}
      */
@@ -395,9 +395,10 @@ class WakeSubscriptionService extends Base {
             case 'list'       : return this.list       (rest);
             case 'resync'     : return this.resync     (rest);
             case 'resume'     : return this.resume     (rest);
+            case 'rotate-key' : return this.rotateKey  (rest);
             default:
                 throw new Error(
-                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync, resume.`
+                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync, resume, rotate-key.`
                 );
         }
     }
@@ -1139,6 +1140,74 @@ class WakeSubscriptionService extends Base {
         logger.info(`[WakeSubscription] resumed ${subscriptionId} for ${caller} (wasDegraded: ${wasDegraded})`);
 
         return {subscriptionId, status: 'active', wasDegraded};
+    }
+
+    /**
+     * @summary Re-issues the Shape-B signing key for a route that has lost one, in place.
+     *
+     * **Why this exists as its own action rather than inside `subscribe()`.** A row can hold an
+     * `a2a-webhook` target with no `signingKey`, and every prior repair door was closed: the mint runs
+     * only on `subscribe()`'s new-row branch, `subscribe()` on an existing route returns
+     * `{status: 'existing'}` before reaching it, and `update()` has no key surface. The only escape was
+     * unsubscribe + subscribe, which allocates a **new subscription id** — and that id is what the
+     * manifest, the receiver route table, delivery receipts, and the degrade all index on. Recovery by
+     * re-identification is not repair.
+     *
+     * **Why not mint inside `subscribe()`'s existing-row branch instead.** That call's contract is
+     * "ensure a row exists", and it is idempotent. Minting there would make every defensive
+     * re-subscribe a silent key rotation, and a *wrong* rotation is worse than the bug it fixes: it
+     * invalidates a `routes.json` a live receiver already validated, turning a deaf seat into a deaf
+     * seat plus a stale manifest. A caller survey settled it — every path into `subscribe()` is the
+     * `manage_wake_subscription` MCP tool, so a distinct action costs no existing caller anything.
+     *
+     * Server-issued only: the key is minted here and returned once, never accepted from the caller.
+     * The manifest generator fails closed on key disagreement, so an operator-supplied key would put
+     * two authorities on one secret.
+     *
+     * @param {Object} opts
+     * @param {String} opts.subscriptionId
+     * @returns {Promise<Object>} `{subscriptionId, signingKey, status: 'rotated', hadKey}`
+     */
+    async rotateKey({subscriptionId} = {}) {
+        const caller = RequestContextService.getAgentIdentityNodeId();
+        if (!caller) throw RequestContextService.unboundIdentityError('rotate signing key');
+        if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
+
+        const subscription = this._loadSubscription(subscriptionId);
+        if (!subscription) throw new Error(`Subscription not found: ${subscriptionId}`);
+
+        // Owner-scoped, and this is the security boundary rather than a convenience: re-issuing a key
+        // for another seat's route hands the caller the ability to sign that seat's wakes.
+        if (subscription.agentIdentity !== caller) {
+            throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
+        }
+
+        if (subscription.harnessTarget !== 'a2a-webhook') {
+            throw new Error(
+                `Subscription ${subscriptionId} targets '${subscription.harnessTarget}', which carries no signing key. ` +
+                `Only a2a-webhook (Shape B) routes are signed.`
+            );
+        }
+
+        const
+            existingMetadata = subscription.harnessTargetMetadata || {},
+            hadKey           = Boolean(existingMetadata.signingKey),
+            signingKey       = crypto.randomBytes(32).toString('hex');
+
+        // Spread the stored metadata: `upsertNode` merges top-level properties, so replacing
+        // `harnessTargetMetadata` wholesale without the spread would drop `url` and the adapter tuple.
+        GraphService.upsertNode({
+            id        : subscriptionId,
+            properties: {harnessTargetMetadata: {...existingMetadata, signingKey}}
+        });
+
+        // The cache holds the pre-rotation record; a stale read would keep serving the old key.
+        this.subscriptionCache.delete(subscriptionId);
+
+        logger.info(`[WakeSubscription] rotated signing key for ${subscriptionId} (owner ${caller}, hadKey: ${hadKey})`);
+
+        // `hadKey` distinguishes repair from rotation for the caller, without logging either key.
+        return {subscriptionId, signingKey, status: 'rotated', hadKey};
     }
 
     /**
