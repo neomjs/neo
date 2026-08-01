@@ -276,4 +276,83 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         })).toBe('delivered');
         expect(attempts).toBe(1);
     });
+
+    test('a terminal osascript failure reports the captured stderr, in the log and on the outcome (#16259)', async () => {
+        const logged   = [];
+        const uiRecord = record('osascript', {
+            route: {
+                agentIdentity,
+                harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                adapterConfig        : {attemptTimeoutMs: 1000}
+            }
+        });
+
+        const outcome = await dispatchLocalWake(uiRecord, {
+            platform        : 'darwin',
+            getDefaultTarget: async () => ({status: 'resolved', pid: 4321, instanceCount: 1, bundleName: 'Claude'}),
+            log             : {error: line => logged.push(line)},
+            // The real spawnAsync rejects with the child's captured stderr; this is that value.
+            spawnAsync      : async () => { throw new Error('kTCCServicePostEvent denied (-1743)') }
+        });
+
+        // Both surfaces, because they fail independently: the log is what a foreground operator sees,
+        // the outcome is what reaches the durable record under launchd.
+        expect(outcome).toEqual({outcome: 'failed', outcomeReason: 'kTCCServicePostEvent denied (-1743)'});
+        expect(logged.join('\n')).toContain('kTCCServicePostEvent denied (-1743)');
+
+        // Positive control: the assertion above can only pass on the INJECTED text, so a fixed
+        // string like the one this ticket removed would fail it.
+        expect(logged.join('\n')).not.toBe(`[Wake Receiver] osascript failed for ${uiRecord.subscriptionId}`);
+    });
+
+    test('an osascript failure with empty stderr still names a cause (#16259)', async () => {
+        const logged   = [];
+        const uiRecord = record('osascript', {
+            route: {
+                agentIdentity,
+                harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                adapterConfig        : {attemptTimeoutMs: 1000}
+            }
+        });
+
+        const outcome = await dispatchLocalWake(uiRecord, {
+            platform        : 'darwin',
+            getDefaultTarget: async () => ({status: 'resolved', pid: 4321, instanceCount: 1, bundleName: 'Claude'}),
+            log             : {error: line => logged.push(line)},
+            // spawnAsync's own fallback when the child wrote nothing to stderr.
+            spawnAsync      : async () => { throw new Error('osascript exited with code 1') }
+        });
+
+        // The fix must not regress into an empty reason when there is no stderr to carry.
+        expect(outcome.outcomeReason).toBe('osascript exited with code 1');
+        expect(outcome.outcomeReason.length).toBeGreaterThan(0);
+        expect(logged.join('\n')).toContain('exited with code 1');
+    });
+
+    test('a reported failure reason never carries the route signing key (#16259)', async () => {
+        const logged   = [];
+        const key      = 'b'.repeat(64);
+        const uiRecord = record('osascript', {
+            route: {
+                agentIdentity,
+                signingKey           : key,
+                harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude'},
+                adapterConfig        : {attemptTimeoutMs: 1000}
+            }
+        });
+
+        const outcome = await dispatchLocalWake(uiRecord, {
+            platform        : 'darwin',
+            getDefaultTarget: async () => ({status: 'resolved', pid: 4321, instanceCount: 1, bundleName: 'Claude'}),
+            log             : {error: line => logged.push(line)},
+            spawnAsync      : async () => { throw new Error('script error at line 3') }
+        });
+
+        expect(outcome.outcomeReason).not.toContain(key);
+        expect(logged.join('\n')).not.toContain(key);
+
+        // Positive control: a key present in the reason WOULD be caught. Without this, the two
+        // assertions above pass equally well against a route that never carried a key at all.
+        expect(`leaked ${key}`).toContain(key);
+    });
 });
