@@ -23,15 +23,16 @@ name: "${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}"
 services:
   chroma:
     image: chromadb/chroma:1.5.9
-    # One flat unified persist dir, identical local + cloud (ADR 0003 / Epic #12153).
-    # PERSIST_DIRECTORY is REQUIRED, not optional: the chromadb/chroma:1.5.9 image persists
-    # to its WORKDIR-relative default (/chroma/chroma) and IGNORES a volume mounted elsewhere.
-    # Without this env the daemon would write to an ephemeral container layer while the named
-    # volume sat empty. The mount and the env MUST stay in lockstep on the same leaf.
+    # One flat unified store, identical local + cloud (ADR 0003 / ADR 0017 §2.2 as amended).
+    # The volume MUST target /data: the 1.5.9 image's entrypoint runs `chroma run /config.yaml`,
+    # and that shipped config pins `persist_path: /data`. PERSIST_DIRECTORY is NOT read on that
+    # path — a mount anywhere else leaves the live store in the ephemeral container layer while
+    # the named volume sits empty. The env stays declared on the same leaf so any image variant
+    # that does read it cannot re-split the store from the mount.
     environment:
-      - PERSIST_DIRECTORY=/chroma/unified
+      - PERSIST_DIRECTORY=/data
     volumes:
-      - chroma-data:/chroma/unified
+      - chroma-data:/data
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s

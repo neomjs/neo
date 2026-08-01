@@ -113,10 +113,12 @@ x-provider-auth-env: &provider-auth-env
 services:
   chroma:
     image: chromadb/chroma:1.5.9
-    # One flat unified persist dir, identical local + cloud (ADR 0003 / Epic #12153).
-    # PERSIST_DIRECTORY is REQUIRED: the image persists to its WORKDIR-relative default
-    # (/chroma/chroma) and IGNORES a mount elsewhere, so the env must point at the same
-    # leaf as the mount or the daemon writes outside the persisted dir.
+    # One flat unified store, identical local + cloud (ADR 0003 / ADR 0017 §2.2 as amended).
+    # The volume MUST target /data: the 1.5.9 image's entrypoint runs `chroma run /config.yaml`,
+    # and that shipped config pins `persist_path: /data`. PERSIST_DIRECTORY is NOT read on that
+    # path — a mount anywhere else leaves the live store in the ephemeral container layer while
+    # the volume sits empty. The env stays declared on the same leaf so any image variant that
+    # does read it cannot re-split the store from the mount.
     #
     # PERSISTENT on the declared plane (was: tmpfs — which silently forked the vector
     # plane from the durable one). `engines.chroma.dataDirProd` is a declared Tier-1
@@ -142,9 +144,9 @@ services:
     # Asserted, not merely stated: see the parity-profile volume-scoping spec. A decision whose
     # correctness rests on a property nothing checks is the `toBe(10)` shape #15932 just retired.
     environment:
-      - PERSIST_DIRECTORY=/chroma/unified
+      - PERSIST_DIRECTORY=/data
     volumes:
-      - parity-chroma:/chroma/unified
+      - parity-chroma:/data
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
