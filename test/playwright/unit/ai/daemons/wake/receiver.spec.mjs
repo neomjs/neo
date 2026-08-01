@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import crypto         from 'node:crypto';
 import fs             from 'node:fs/promises';
+import net            from 'node:net';
 import os             from 'node:os';
 import path           from 'node:path';
 
@@ -8,6 +9,7 @@ import {
     createWakeReceiver,
     loadWakeReceiverManifest,
     parseWakeReceiverArgs,
+    startWakeReceiver,
     verifyWakeSignature
 } from '../../../../../../ai/daemons/wake/receiver.mjs';
 import {WakeReceiverState} from '../../../../../../ai/daemons/wake/receiverState.mjs';
@@ -211,5 +213,111 @@ test.describe('ai/daemons/wake/receiver', () => {
             host        : '0.0.0.0',
             port        : 3199
         });
+    });
+});
+
+test.describe('ai/daemons/wake/receiver — manifest reload', () => {
+    const signingKey = 'a'.repeat(64);
+    const mine       = 'WAKE_SUB:mine';
+    const peer       = 'WAKE_SUB:peer';
+
+    const route = agentIdentity => ({
+        signingKey,
+        agentIdentity,
+        harnessTargetMetadata: {adapter: 'tmux', tmuxSession: 'test'},
+        adapterConfig        : {attemptTimeoutMs: 100}
+    });
+
+    const write = async (routes, mode = 0o600) => {
+        await fs.writeFile(manifestPath, JSON.stringify({schemaVersion: 1, routes}), {mode});
+        await fs.chmod(manifestPath, mode);
+    };
+
+    // `startWakeReceiver` requires an explicit integer port in 1..65535 — deliberately, so a real
+    // deployment cannot bind an arbitrary one. Borrow a free port rather than weakening that guard.
+    const freePort = async () => {
+        const probe = net.createServer();
+
+        await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
+
+        const {port} = probe.address();
+
+        await new Promise(resolve => probe.close(resolve));
+
+        return port
+    };
+
+    let dir, manifestPath, receiver;
+
+    test.beforeEach(async () => {
+        dir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-wake-reload-'));
+        manifestPath = path.join(dir, 'routes.json');
+
+        await write({[mine]: route('@neo-opus-ada')});
+
+        receiver = await startWakeReceiver({
+            manifestPath,
+            stateDir: path.join(dir, 'state'),
+            host    : '127.0.0.1',
+            port    : await freePort(),
+            logger  : {error() {}, warn() {}, log() {}}
+        });
+    });
+
+    test.afterEach(async () => {
+        await new Promise(resolve => receiver.server.close(resolve));
+        await fs.rm(dir, {recursive: true, force: true});
+    });
+
+    // A forged signature separates the two states and needs no key: a route the process holds reaches
+    // the signature gate (401); one it does not know is rejected earlier (404).
+    const probe = async subscriptionId => (await fetch(
+        `http://127.0.0.1:${receiver.server.address().port}/wake`,
+        {
+            method : 'POST',
+            headers: {
+                'content-type'              : 'application/json',
+                'x-neo-wake-subscription-id': subscriptionId,
+                'x-neo-wake-schema-version' : '1.0',
+                'x-neo-wake-signature'      : 'deadbeef'
+            },
+            body: '{}'
+        }
+    )).status;
+
+    test('a route published while the process is running serves without a restart', async () => {
+        expect(await probe(mine)).toBe(401);
+        expect(await probe(peer)).toBe(404);
+
+        // What a peer's generator run does: compose additively onto the published file.
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-gpt-emmy')});
+
+        expect(await receiver.reload()).toBe(2);
+        expect(await probe(peer)).toBe(401);
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('a manifest the loader would reject leaves the serving routes untouched', async () => {
+        await fs.writeFile(manifestPath, '{ this is not json', {mode: 0o600});
+
+        // Refused rather than adopted, and reported rather than silent.
+        expect(await receiver.reload()).toBe(null);
+
+        // The live route must survive a bad reload. A stale receiver is recoverable; an emptied one is
+        // a second incident stacked on the first.
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('the reload path cannot serve routes the boot path would have refused', async () => {
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-gpt-emmy')}, 0o644);
+
+        expect(await receiver.reload()).toBe(null);
+
+        // Positive control: the same content at 0600 IS adopted, so the refusal above is the mode and
+        // not an unrelated rejection.
+        expect(await probe(peer)).toBe(404);
+        await fs.chmod(manifestPath, 0o600);
+        expect(await receiver.reload()).toBe(2);
+        expect(await probe(peer)).toBe(401);
     });
 });
