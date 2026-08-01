@@ -8,6 +8,7 @@ import RequestContextService, {normalizeUserId}                                 
 import logger                                                                                   from '../../mcp/server/memory-core/logger.mjs';
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
+import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
 
@@ -337,7 +338,7 @@ class WakeSubscriptionService extends Base {
      * action-specific handlers per ADR 0002 §6.6. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
-     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync'
+     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume'
      * @param {Object} [opts.rest] Action-specific parameters (see individual methods)
      * @returns {Promise<Object>}
      */
@@ -352,9 +353,10 @@ class WakeSubscriptionService extends Base {
             case 'update'     : return this.update     (rest);
             case 'list'       : return this.list       (rest);
             case 'resync'     : return this.resync     (rest);
+            case 'resume'     : return this.resume     (rest);
             default:
                 throw new Error(
-                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync.`
+                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync, resume.`
                 );
         }
     }
@@ -1049,6 +1051,53 @@ class WakeSubscriptionService extends Base {
         logger.info(`[WakeSubscription] unsubscribed ${subscriptionId} for ${caller}`);
 
         return {subscriptionId, status: 'removed'};
+    }
+
+    /**
+     * @summary Restores a degraded route to active — the operator-reachable resumption path.
+     *
+     * Degradation is deliberately terminal: a route whose endpoint refuses connections is marked
+     * `status: 'degraded'` and then never attempted again, which is what bounds the attempt count.
+     * Coming back is therefore an explicit operator act, never something the delivery path does on
+     * its own — a service that silently re-activates routes would restore the unbounded retry the
+     * bound exists to prevent.
+     *
+     * Resuming requires clearing BOTH truths the delivery skip reads: the durable
+     * `properties.status` on the node, and the in-flight process markers. Splitting them across two
+     * calls is a footgun — clearing only the in-memory half resumes nothing, because the next flush
+     * re-reads a `status` that still says `degraded`. This action performs both as one step so an
+     * operator never has to know that.
+     *
+     * @param {Object} opts
+     * @param {String} opts.subscriptionId
+     * @returns {Promise<Object>} `{subscriptionId, status: 'active', wasDegraded}`
+     */
+    async resume({subscriptionId} = {}) {
+        const caller = RequestContextService.getAgentIdentityNodeId();
+        if (!caller) throw RequestContextService.unboundIdentityError('resume');
+        if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
+
+        const subscription = this._loadSubscription(subscriptionId);
+        if (!subscription) throw new Error(`Subscription not found: ${subscriptionId}`);
+        if (subscription.agentIdentity !== caller) {
+            throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
+        }
+
+        const wasDegraded = subscription.status === 'degraded';
+
+        // Durable half. `upsertNode` merges onto the stored properties, so this moves `status` only.
+        GraphService.upsertNode({id: subscriptionId, properties: {status: 'active'}});
+
+        // In-flight half: the process-local degraded marker plus the failure streak, so the route
+        // does not re-degrade on the very next failure from a stale count.
+        WebhookDeliveryService.clearDegraded(subscriptionId);
+
+        // The cache holds the pre-resume record; a stale read here would re-skip the route.
+        this.subscriptionCache.delete(subscriptionId);
+
+        logger.info(`[WakeSubscription] resumed ${subscriptionId} for ${caller} (wasDegraded: ${wasDegraded})`);
+
+        return {subscriptionId, status: 'active', wasDegraded};
     }
 
     /**
