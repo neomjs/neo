@@ -37,6 +37,11 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
             path.resolve(__dirname, '../../../../../../buildScripts/util/branchFreshness.mjs'),
             path.join(tempDir, 'buildScripts/util/branchFreshness.mjs')
         );
+        // …and ./mergedPullRequestPush.mjs, the merged-pull-request sibling predicate.
+        fs.copyFileSync(
+            path.resolve(__dirname, '../../../../../../buildScripts/util/mergedPullRequestPush.mjs'),
+            path.join(tempDir, 'buildScripts/util/mergedPullRequestPush.mjs')
+        );
     });
 
     test.afterEach(() => {
@@ -44,17 +49,40 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
         fs.rmSync(remoteDir, { recursive: true, force: true });
     });
 
-    const runScript = (cwd = tempDir) => {
+    const runScript = (cwd = tempDir, env = null) => {
         const result = spawnSync(process.execPath, [testScriptPath], {
             cwd,
             encoding: 'utf-8',
-            stdio   : 'pipe'
+            stdio   : 'pipe',
+            ...(env ? {env: {...process.env, ...env}} : {})
         });
 
         return {
             status: result.status,
             output: `${result.stdout || ''}${result.stderr || ''}`
         }
+    };
+
+    /**
+     * Puts a fake `gh` first on PATH so the merged-pull-request check is driven by a fixed
+     * payload instead of the live GitHub API. Returns the env overlay for `runScript`.
+     * @param {String|null} stdout JSON the stub prints; `null` makes the stub exit non-zero,
+     *     standing in for offline / unauthenticated / rate-limited.
+     */
+    const stubGh = (stdout) => {
+        const binDir = path.join(tempDir, 'stub-bin');
+        fs.mkdirSync(binDir, {recursive: true});
+
+        const ghPath = path.join(binDir, 'gh');
+        fs.writeFileSync(
+            ghPath,
+            stdout === null
+                ? '#!/bin/sh\nexit 1\n'
+                : `#!/bin/sh\ncat <<'NEO_STUB_EOF'\n${stdout}\nNEO_STUB_EOF\n`,
+            {mode: 0o755}
+        );
+
+        return {PATH: `${binDir}${path.delimiter}${process.env.PATH}`}
     };
 
     const blockFetchHeadWrites = () => {
@@ -256,5 +284,78 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
         expect(result.status).toBe(1);
         expect(result.output).toContain('remote refs/heads/dev coordinate is unavailable');
         expect(result.output).not.toContain('local ref is stale')
+    });
+
+    test.describe('pushes that reach no pull request (#16256)', () => {
+        const MERGED_HEAD = 'ddf522a6feb4abf9faf4ad49af110d2a3a5c96b7';
+
+        const mergedPrPayload = JSON.stringify([{
+            number    : 16255,
+            state     : 'MERGED',
+            mergedAt  : '2026-08-01T11:27:27Z',
+            headRefOid: MERGED_HEAD
+        }]);
+
+        test('warns — and still exits 0 — when the branch PR merged and the head carries unreached commits', () => {
+            execFileSync('git', ['checkout', '-b', 'agent/0000-merged-pr'], {cwd: tempDir, stdio: 'ignore'});
+            featureCommit('feat(test): a commit that will reach no PR');
+
+            const result = runScript(tempDir, stubGh(mergedPrPayload));
+
+            // Advisory: the whole point is that the push proceeds.
+            expect(result.status).toBe(0);
+            expect(result.output).toContain('PR #16255');
+            expect(result.output).toContain('2026-08-01T11:27:27Z');
+            expect(result.output).toContain('reaches no PR and no CI');
+            // The author's next question — answered in the same breath.
+            expect(result.output).toContain('Your work is not lost');
+            expect(result.output).toContain('origin/dev');
+            expect(result.output).toContain('advisory')
+        });
+
+        test('stays silent on an open pull request — no new noise on the common path', () => {
+            execFileSync('git', ['checkout', '-b', 'agent/0000-open-pr'], {cwd: tempDir, stdio: 'ignore'});
+            featureCommit();
+
+            const result = runScript(tempDir, stubGh(JSON.stringify([{
+                number    : 16264,
+                state     : 'OPEN',
+                mergedAt  : null,
+                headRefOid: MERGED_HEAD
+            }])));
+
+            expect(result.status).toBe(0);
+            expect(result.output).not.toContain('reaches no PR')
+        });
+
+        test('stays silent when the branch never had a pull request', () => {
+            execFileSync('git', ['checkout', '-b', 'agent/0000-no-pr'], {cwd: tempDir, stdio: 'ignore'});
+            featureCommit();
+
+            const result = runScript(tempDir, stubGh('[]'));
+
+            expect(result.status).toBe(0);
+            expect(result.output).not.toContain('reaches no PR')
+        });
+
+        test('fails toward pushing when gh cannot answer (offline / unauthenticated / rate-limited)', () => {
+            execFileSync('git', ['checkout', '-b', 'agent/0000-gh-down'], {cwd: tempDir, stdio: 'ignore'});
+            featureCommit();
+
+            const result = runScript(tempDir, stubGh(null));
+
+            expect(result.status).toBe(0);
+            expect(result.output).not.toContain('reaches no PR')
+        });
+
+        test('fails toward pushing when gh returns unparseable output', () => {
+            execFileSync('git', ['checkout', '-b', 'agent/0000-gh-garbage'], {cwd: tempDir, stdio: 'ignore'});
+            featureCommit();
+
+            const result = runScript(tempDir, stubGh('not json at all'));
+
+            expect(result.status).toBe(0);
+            expect(result.output).not.toContain('reaches no PR')
+        })
     })
 });

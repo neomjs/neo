@@ -3,6 +3,7 @@ import process                                          from 'node:process';
 import path                                             from 'node:path';
 import { fileURLToPath }                                from 'node:url';
 import {assessDevReferenceAuthority, detectStaleBranch} from './branchFreshness.mjs';
+import {assessMergedPullRequestPush}                    from './mergedPullRequestPush.mjs';
 
 /**
  * Pre-push branch-discipline check (#11133). ticket-ref-ok: implementing ticket
@@ -23,6 +24,16 @@ import {assessDevReferenceAuthority, detectStaleBranch} from './branchFreshness.
  * commits whose subject matches `^chore\(data\):.*(sync|pipeline)` (case-insensitive),
  * block push with remediation guidance. Designated sync branches (`chore/sync-*` /
  * `agent/sync-*`) are exempt. Bypass: `git push --no-verify`.
+ *
+ * **Branch freshness (advisory).** Warns on the revert-trap when the two-dot diff carries
+ * files that are not this branch's changes. Predicate: `branchFreshness.detectStaleBranch`.
+ *
+ * **Pushes that reach no pull request (advisory).** Warns when the branch's most
+ * recent pull request has already merged and the local head carries commits that pull request
+ * never contained. Such a push succeeds — the ref advances — while no pull request adopts the
+ * commit and no CI runs on it, so every check the author performs reports success. Resolving
+ * the pull-request state needs the network, so this check fails toward pushing at every
+ * unresolvable step. Predicate: `mergedPullRequestPush.assessMergedPullRequestPush`.
  *
  * **NOT implemented in this initial cut** (per ticket Out of Scope; deferred as
  * follow-ups if the simpler regex doesn't converge the empirical pattern):
@@ -238,6 +249,62 @@ if (freshness.stale) {
     console.warn(`\x1b[33mWarning: Branch '${branch}' looks stale against origin/dev — ${freshness.extraFiles} files in the two-dot diff are not your changes (origin/dev has advanced).\x1b[0m`);
     console.warn('A PR from this branch may show a misleading diff or revert merged peer work (the revert-trap).');
     console.warn('Recommended: git rebase origin/dev   (or cherry-pick your commits onto a fresh branch off origin/dev)');
+    console.warn('This is advisory — the push proceeds.');
+}
+
+// Merged-pull-request check: warn when this push carries commits no pull request will adopt —
+// the branch's latest PR already merged, so the ref advances while nothing listens and no CI
+// runs. Advisory (warn, exit 0). Predicate: ./mergedPullRequestPush.mjs.
+//
+// Every resolution step below yields null on failure so the predicate stays silent: this needs
+// the network, and an author who is offline, unauthenticated, or rate-limited must still push.
+const readGitStatus = (args) => {
+    try {
+        execFileSync('git', args, {cwd: gitRoot, encoding: 'utf-8', stdio: 'pipe'});
+        return 0
+    } catch (e) {
+        // Exit 1 is a real "no"; anything else (128 = missing object, spawn failure) is "unknown".
+        return e?.status === 1 ? 1 : null
+    }
+};
+
+const headSha = (() => {
+    try {
+        return execFileSync('git', ['rev-parse', 'HEAD'], {cwd: gitRoot, encoding: 'utf-8', stdio: 'pipe'}).trim()
+    } catch (e) {
+        return null
+    }
+})();
+
+const latestPullRequest = (() => {
+    try {
+        const output = execFileSync('gh', [
+            'pr', 'list',
+            '--head'  , branch,
+            '--state' , 'all',
+            '--limit' , '1',
+            '--json'  , 'number,state,mergedAt,headRefOid'
+        ], {cwd: gitRoot, encoding: 'utf-8', stdio: 'pipe', timeout: 10000});
+
+        const parsed = JSON.parse(output);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : null
+    } catch (e) {
+        return null
+    }
+})();
+
+const containmentStatus   = headSha ? readGitStatus(['merge-base', '--is-ancestor', headSha, 'origin/dev']) : null;
+const headContainedInBase = containmentStatus === null ? null : containmentStatus === 0;
+
+const unreached = assessMergedPullRequestPush({pullRequest: latestPullRequest, headSha, headContainedInBase});
+
+if (unreached.warn) {
+    console.warn(`\x1b[33mWarning: PR #${latestPullRequest.number} for branch '${branch}' merged at ${latestPullRequest.mergedAt}.\x1b[0m`);
+    console.warn(`A merged pull request accepts no further commits, so ${headSha.slice(0, 9)} reaches no PR and no CI — the ref advances and nothing listens.`);
+    console.warn(`Your work is not lost: it is on '${branch}', it is simply in no pull request.`);
+    console.warn('Remediation: open a follow-up ticket, then carry the commits onto a fresh branch.');
+    console.warn('  git checkout -b <agent>/<ticket-id>-<slug> origin/dev');
+    console.warn(`  git cherry-pick ${headSha.slice(0, 9)}          # your commits beyond the merged PR`);
     console.warn('This is advisory — the push proceeds.');
 }
 
