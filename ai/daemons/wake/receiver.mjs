@@ -154,7 +154,30 @@ export function createWakeReceiver({
         throw new Error('createWakeReceiver requires a loaded manifest and WakeReceiverState');
     }
 
-    let drainPromise = Promise.resolve();
+    // The route table is read per request rather than captured once, so a seat that publishes a route
+    // while this process is running becomes deliverable without a restart. Previously the manifest was
+    // a boot-time snapshot: a route added afterwards answered 404, and a 404 is a 4xx that the sender
+    // degrades immediately with no retry — so a correctly-published route went permanently deaf on its
+    // first wake, and the only remedy was the restart an incident is most likely to forbid.
+    let activeManifest = manifest;
+    let drainPromise   = Promise.resolve();
+
+    /**
+     * @summary Swaps in an already-validated manifest. Callers load and validate first, so a manifest
+     * this process would reject can never displace a working route table — a stale receiver must not
+     * be convertible into a dead one.
+     * @param {Object} next A manifest returned by {@link loadWakeReceiverManifest}.
+     * @returns {Number} Route count now serving.
+     */
+    const setManifest = next => {
+        if (!next?.routes || typeof next.routes !== 'object') {
+            throw new Error('createWakeReceiver.setManifest requires a loaded manifest');
+        }
+
+        activeManifest = next;
+
+        return Object.keys(next.routes).length
+    };
 
     const drain = () => {
         drainPromise = drainPromise.then(async () => {
@@ -203,7 +226,7 @@ export function createWakeReceiver({
             const eventId        = getHeader(request, 'x-neo-wake-event-id');
             const schemaVersion  = getHeader(request, 'x-neo-wake-schema-version');
             const signature      = getHeader(request, 'x-neo-wake-signature');
-            const route          = manifest.routes[subscriptionId];
+            const route          = activeManifest.routes[subscriptionId];
 
             if (!route) return writeJson(response, 404, {error: 'unknown-subscription'});
 
@@ -257,7 +280,7 @@ export function createWakeReceiver({
         }
     });
 
-    return {server, drain};
+    return {server, drain, setManifest};
 }
 
 /**
@@ -287,15 +310,39 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
         logger.warn?.(`[Wake Receiver] terminalized ${unknownCount} interrupted dispatch(es) as unknown; mailbox remains authoritative.`);
     }
 
-    const {server, drain} = createWakeReceiver({manifest, state, logger});
+    const {server, drain, setManifest} = createWakeReceiver({manifest, state, logger});
     await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(port, host, resolve);
     });
     await drain();
 
-    logger.log?.(`[Wake Receiver] listening on http://${host}:${port}/wake`);
-    return {server, state, drain};
+    /**
+     * @summary Re-reads and revalidates the manifest, then swaps it in. Load failures leave the
+     * serving routes untouched and are reported, because an unreadable or malformed file must never
+     * empty a working route table — that turns a stale receiver into a dead one, mid-incident.
+     * @returns {Promise<Number|null>} Route count now serving, or `null` when the reload was refused.
+     */
+    const reload = async () => {
+        try {
+            const count = setManifest(await loadWakeReceiverManifest(manifestPath));
+
+            logger.log?.(`[Wake Receiver] manifest reloaded; serving ${count} route(s).`);
+
+            return count
+        } catch (error) {
+            logger.error?.(`[Wake Receiver] manifest reload REFUSED, keeping current routes: ${error.message}`);
+
+            return null
+        }
+    };
+
+    // SIGHUP is the documented way a published route goes live. A seat runs the generator, signals,
+    // and its route serves — without the restart that an incident is most likely to have forbidden.
+    process.on('SIGHUP', () => { void reload() });
+
+    logger.log?.(`[Wake Receiver] listening on http://${host}:${port}/wake — SIGHUP reloads the manifest`);
+    return {server, state, drain, reload};
 }
 
 /**
