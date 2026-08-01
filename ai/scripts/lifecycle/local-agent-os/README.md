@@ -136,7 +136,39 @@ npm run ai:wake-manifest -- \
   --identity "@your-seat-handle" \
   --instance userDataDir \
   --instance-address /absolute/validated/seat-profile
+
+# Publishing writes the file; it does NOT make the route live — a running receiver
+# serves the manifest it validated. To adopt a newly published route, RESTART the
+# receiver. Stop the existing process, then start it again as above.
 ```
+
+**Publishing is not provisioning.** Until the running receiver re-reads, a newly
+published route answers `404`, and the sender treats a 4xx as a client error and
+degrades the subscription immediately with no retry — so the route goes deaf on
+its *first* wake rather than failing gradually. Restart after publishing, or start
+the receiver afterwards.
+
+> **Do not signal a receiver to reload it.** A process started before the reload
+> handler existed has no SIGHUP handler, and node's default for an unhandled SIGHUP
+> is to **terminate** — so signalling such a process kills wake delivery for every
+> seat on the host. **A restart is the only safe adoption step**, and it is correct
+> whether or not the running process supports reloading.
+>
+> Checking the source tree does not make signalling safe: a checkout can hold the
+> handler while the running process was started before it — pull the newer tree,
+> read a reassuring result, signal, and terminate the receiver anyway. Reload
+> authority has to come from the **running process**, and until it can be asked
+> directly there is no mechanical check that authorizes a signal.
+
+To confirm a route is live after a restart, POST with a deliberately wrong
+signature: `401` means the receiver holds the route, `404` means it does not. That
+question is answered by the process itself, which is why it is trustworthy.
+
+A reload that fails validation is refused and logged, leaving the routes already
+serving untouched; an unreadable or half-written manifest cannot empty a working
+route table. To confirm a route is live without sending a real wake, POST with a
+deliberately wrong signature: `401` means the receiver holds the route, `404`
+means it does not.
 
 The generator reads the server-issued key from the record (it never mints one
 and fails closed on disagreement), skips undeliverable targets with a named
