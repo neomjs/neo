@@ -194,6 +194,8 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         const drain = await MemoryService.describeDrainState();
 
         expect(drain.observable).toBe(true);
+        expect(drain.state).toBe('pending');
+        expect(drain.stallThresholdMs).toBeGreaterThan(0);
         expect(drain.pendingDrainDepth).toBeGreaterThan(0);
         expect(drain.allWritesSemanticallyQueryable).toBe(false);
     });

@@ -3,7 +3,11 @@ import {mkdtemp, rm}  from 'fs/promises';
 import os             from 'os';
 import path           from 'path';
 
-import {appendWalEmbedMarker, appendWalMemory} from '../../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
+import {
+    appendWalEmbedMarker,
+    appendWalMemory,
+    classifyMemoryWalDrain
+} from '../../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
 import {
     evaluateStallAlarm,
     getDueTask,
@@ -37,6 +41,34 @@ const record = (id, timestampMs) => ({
     timestamp: timestampMs,
     metadata : {prompt: `p-${id}`, response: `r-${id}`, thought: `t-${id}`},
     document : `doc-${id}`
+});
+
+test.describe('memoryWalStore — classifyMemoryWalDrain shared state (#16305)', () => {
+    const thresholdMs = 6 * HOUR_MS;
+
+    test('distinguishes caught-up, expected pending, and threshold-exceeding stalled states', () => {
+        expect(classifyMemoryWalDrain({
+            observable: true, pendingDrainDepth: 0, oldestPendingAgeMs: null, stallThresholdMs: thresholdMs
+        })).toBe('caught-up');
+
+        expect(classifyMemoryWalDrain({
+            observable: true, pendingDrainDepth: 3, oldestPendingAgeMs: thresholdMs, stallThresholdMs: thresholdMs
+        })).toBe('pending');
+
+        expect(classifyMemoryWalDrain({
+            observable: true, pendingDrainDepth: 3, oldestPendingAgeMs: thresholdMs + 1, stallThresholdMs: thresholdMs
+        })).toBe('stalled');
+    });
+
+    test('keeps an unreadable backlog unobservable and a disabled threshold pending', () => {
+        expect(classifyMemoryWalDrain({
+            observable: false, pendingDrainDepth: 0, oldestPendingAgeMs: null, stallThresholdMs: thresholdMs
+        })).toBe('unobservable');
+
+        expect(classifyMemoryWalDrain({
+            observable: true, pendingDrainDepth: 1, oldestPendingAgeMs: 99 * HOUR_MS, stallThresholdMs: 0
+        })).toBe('pending');
+    });
 });
 
 test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — getEmbedDrainPendingAge (#13551)', () => {
@@ -92,13 +124,13 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — getEmbedDr
 
     test('(f) a thrown error in the WAL read degrades to a zero-backlog reading (never throws)', async () => {
         const throwingReader = async () => { throw new Error('simulated WAL read fault'); };
-        const result = await getEmbedDrainPendingAge({walDir, now: Date.now(), readPending: throwingReader});
+        const result         = await getEmbedDrainPendingAge({walDir, now: Date.now(), readPending: throwingReader});
         // Fails SOFT: a read fault must look like "no backlog" (→ no alarm), never a stall or a throw.
         expect(result).toEqual({oldestAgeMs: 0, pendingCount: 0, oldestTimestamp: null});
     });
 
     test('a malformed record (no finite timestamp) is still counted but never anchors the age', async () => {
-        const now = Date.UTC(2026, 5, 3, 12);
+        const now    = Date.UTC(2026, 5, 3, 12);
         const reader = async () => [
             {id: 'good', timestamp: now - 2 * HOUR_MS},
             {id: 'bad',  timestamp: 'not-a-number'}
@@ -160,6 +192,13 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — evaluateSt
         expect(r.stalled).toBe(true);
         expect(r.shouldAlarm).toBe(true);
         expect(r.nextAlarmState.alarmed).toBe(true);
+    });
+
+    test('exactly at the shared threshold is pending, not stalled', () => {
+        const r = evaluateStallAlarm({oldestAgeMs: THRESHOLD, pendingCount: 5, thresholdMs: THRESHOLD, alarmState: null});
+
+        expect(r.stalled).toBe(false);
+        expect(r.shouldAlarm).toBe(false);
     });
 
     test('above threshold while already latched → stalled but NO re-alarm', () => {
@@ -277,9 +316,9 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
             {dir: walDir, planeId: 'test-memory-plane'}
         ); // 8h > 6h threshold
 
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
 
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime: makeRuntime()});
@@ -305,9 +344,9 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
             {dir: walDir, planeId: 'test-memory-plane'}
         ); // 1h < 6h threshold
 
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
 
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime: makeRuntime()});
@@ -325,11 +364,11 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
             {dir: walDir, planeId: 'test-memory-plane'}
         );
 
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
-        const runtime = makeRuntime();
+        const runtime          = makeRuntime();
 
         // Two consecutive stalled checks → ONE alarm (one-shot latch).
         await runWatchdogOnce({taskStateService, outcomes, dispatcher, runtime});
@@ -360,9 +399,9 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
             {dir: walDir, planeId: 'test-memory-plane'}
         );
 
-        const outcomes = [];
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const outcomes         = [];
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
 
         await runWatchdogOnce({
@@ -382,8 +421,8 @@ test.describe('orchestrator/scheduling/embedDrainLivenessWatchdog — pipeline i
             {dir: walDir, planeId: 'test-memory-plane'}
         );
 
-        const alarmCalls = [];
-        const dispatcher = async payload => { alarmCalls.push(payload); };
+        const alarmCalls       = [];
+        const dispatcher       = async payload => { alarmCalls.push(payload); };
         const taskStateService = makeTaskStateService();
 
         const services = {

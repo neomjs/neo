@@ -177,6 +177,47 @@ const explorePullRequestHistoryOp = args => PullRequestHistoryService.explorePul
     now: new Date()
 });
 
+const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
+
+/**
+ * @summary Reconciles the base Memory Core health verdict with its measured WAL-drain state.
+ *
+ * A fresh asynchronous backlog is expected and leaves the base verdict unchanged. Once the shared
+ * drain classifier reports `stalled`, the composed response cannot still claim every feature is
+ * operational: healthy/degraded becomes degraded, an existing unhealthy verdict wins, and the
+ * reason names the measured depth and age. This projection is diagnostic-only and never repairs or
+ * mutates the WAL.
+ *
+ * @param {Object} options
+ * @param {Object} options.health Base HealthService response.
+ * @param {Object} options.memoryWalDrain Measured MemoryService drain response.
+ * @param {Object} options.plane Observed Memory Core plane identity.
+ * @returns {Object}
+ */
+export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane}) {
+    const response = {...health, memoryWalDrain, plane};
+
+    if (memoryWalDrain.state !== 'stalled') {
+        return response
+    }
+
+    const details = Array.isArray(health.details)
+        ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
+        : [];
+
+    details.push(
+        `Memory WAL embed drain is stalled: ${memoryWalDrain.pendingDrainDepth} pending records; ` +
+        `oldest pending age ${memoryWalDrain.oldestPendingAgeMs} ms exceeds the ` +
+        `${memoryWalDrain.stallThresholdMs} ms threshold.`
+    );
+
+    return {
+        ...response,
+        status: health.status === 'unhealthy' ? 'unhealthy' : 'degraded',
+        details
+    }
+}
+
 const serviceMapping = {
     add_memory           : MemoryService          .addMemory               .bind(MemoryService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
@@ -202,8 +243,8 @@ const serviceMapping = {
     // slot on something an existing read already answers. Without it the `add_memory` disclosure
     // would only relocate the uncertainty: a caller told "queryability is deferred" needs somewhere
     // to CONFIRM visibility rather than a caveat and no instrument.
-    healthcheck                 : async args => ({
-        ...await HealthService.healthcheck(args),
+    healthcheck                 : async args => composeMemoryCoreHealthcheck({
+        health        : await HealthService.healthcheck(args),
         memoryWalDrain: await MemoryService.describeDrainState(),
         plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot}
     }),
