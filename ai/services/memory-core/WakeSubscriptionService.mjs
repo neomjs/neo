@@ -104,7 +104,7 @@ class WakeSubscriptionService extends Base {
      *
      * @protected
      */
-    validAppNames = ['Antigravity', 'Claude', 'Codex']
+    validAppNames = ['Antigravity', 'Claude', 'Codex', 'OpenCode']
 
     /**
      * @member {String[]} validAdapters

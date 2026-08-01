@@ -219,6 +219,22 @@ test.describe('ai/daemons/wake/receiver', () => {
         await expect(loadWakeReceiverManifest(manifestPath)).rejects.toThrow('must be mode 0600');
     });
 
+    test('an OpenCode osascript route passes manifest validation (#16279)', async () => {
+        const manifestPath = path.join(stateDir, 'opencode-routes.json');
+        const valid        = structuredClone(manifest);
+
+        valid.routes[subscriptionId].harnessTargetMetadata = {
+            adapter        : 'osascript',
+            appName        : 'OpenCode',
+            addressType    : 'userDataDir',
+            instanceAddress: '/seat/ai.opencode.desktop'
+        };
+
+        await fs.writeFile(manifestPath, JSON.stringify(valid), {mode: 0o600});
+
+        expect(await loadWakeReceiverManifest(manifestPath)).toEqual(valid);
+    });
+
     test('rejects test adapters and incomplete production routes in a disk manifest', async () => {
         const manifestPath = path.join(stateDir, 'invalid-routes.json');
         const invalid      = structuredClone(manifest);
