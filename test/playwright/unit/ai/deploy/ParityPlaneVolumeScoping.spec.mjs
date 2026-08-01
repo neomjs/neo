@@ -530,7 +530,7 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(source).toContain('Application Support/Neo/AgentOS');
         expect(source).toContain("action               : 'subscribe'");
         expect(source).toContain('subscriptionId` and `signingKey` once');
-        expect(source).toContain('install -m 600 /dev/null "${NEO_WAKE_RECEIVER_MANIFEST}"');
+        expect(source).toContain('npm run ai:wake-manifest');
         expect(source).toContain('com.neomjs.agent-os-wake');
         expect(source).toContain('com.neomjs.agent-os-host-edge');
         expect(source).toContain('mcpHealthcheck.mjs');
