@@ -267,7 +267,7 @@ test.describe.serial('HealthService #12772 — runtimeFreshness', () => {
             },
             hint: null
         });
-        expect(result.details).toContain('Runtime source/config identity matches the current checkout.');
+        expect(result.details).toContain('Runtime config/schema identity matches the current checkout.');
         expect(result.boot).toBeUndefined();
         expect(result.current).toBeUndefined();
     });

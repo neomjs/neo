@@ -41,6 +41,106 @@ function compareIdentityField(field, boot, current) {
 }
 
 /**
+ * @summary Default identity label — deliberately claims no dimension.
+ *
+ * The previous default named all three (`source/config/schema identity`), so a tracker that
+ * configured none of them still asserted all of them. A default that cannot overclaim makes the
+ * safe case free and forces a specific claim to be opted into alongside its input.
+ *
+ * @member {String}
+ */
+const DEFAULT_IDENTITY_LABEL = 'runtime identity';
+
+/**
+ * @summary The status-driving field set a tracker configuration resolves to.
+ *
+ * **One definition, two consumers.** The tracker derives this in its constructor to decide which
+ * fields can produce `status: 'stale'`; the label guard needs the identical set to decide which
+ * dimensions a label may claim. Deriving it twice is how the two drift — the guard would then
+ * authorize a claim the verdict cannot support, which is the defect it exists to prevent, one layer
+ * up. Both call this.
+ *
+ * `gitHead` is excluded from the default because a repo-wide revision is contextual: it moves for
+ * reasons unrelated to a given service's own inputs. A caller wanting it verdict-driving must name
+ * it in `statusFields` explicitly.
+ *
+ * @param {Object} options `createTracker` / `RuntimeFreshnessTracker` options.
+ * @returns {String[]} Field keys that may drive the status verdict.
+ */
+export function resolveStatusFields(options = {}) {
+    if (Array.isArray(options.statusFields)) {
+        return options.statusFields
+    }
+
+    const fieldKeys = [
+        ...(options.rootDir ? ['gitHead'] : []),
+        ...(options.files || []).map(file => file?.key).filter(Boolean)
+    ];
+
+    return fieldKeys.filter(key => key !== 'gitHead')
+}
+
+/**
+ * @summary Which tracker input backs each dimension an `identityLabel` may claim.
+ *
+ * A freshness verdict is read by an operator deciding whether to investigate, so its prose is
+ * load-bearing: `status: 'current'` beside "source identity matches" is a positive assurance about
+ * something the tracker may never have looked at. Each entry answers "is this dimension actually
+ * measured?" from the tracker's own configuration.
+ *
+ * **The bar is verdict authority, not observation.** `fieldKeys` answer *what was observed*;
+ * `statusFields` answer *what may support the positive freshness verdict*. A label appears inside
+ * that verdict — "Runtime <label> matches the current checkout" is emitted only on `status:
+ * 'current'` — so it must be backed by the second set, never the first.
+ *
+ * `source` therefore requires `gitHead` to be **status-driving**, not merely readable. A `rootDir`
+ * alone only makes `gitHead` observed: `classifyRuntimeFreshness` defaults the status set to
+ * `fieldKeys.filter(key => key !== 'gitHead')`, so `gitHead` is contextual unless a caller names it
+ * explicitly. GitHub Workflow is exactly that shape — `rootDir` set, `statusFields:
+ * ['openApiDigest']` — and admitting it produced two adjacent contradictory sentences: *"Runtime
+ * source/schema identity matches the current checkout"* beside *"Contextual runtime identity differs
+ * (gitHead)"*, with `status: 'current'` and `stale.gitHead: true`.
+ *
+ * @member {Object}
+ */
+const FRESHNESS_DIMENSIONS = Object.freeze({
+    source: statusFields => statusFields.includes('gitHead'),
+    config: statusFields => statusFields.some(key => /config/i.test(key)),
+    schema: statusFields => statusFields.some(key => /openapi|schema/i.test(key))
+});
+
+/**
+ * @summary Refuses a tracker whose label claims a dimension it cannot measure.
+ *
+ * Throws at construction rather than warning at report time: a freshness surface that reports its
+ * own unreliability inside the payload it makes unreliable is the same defect one layer up. A label
+ * word outside {@link FRESHNESS_DIMENSIONS} is ignored, so the guard cannot invent violations.
+ *
+ * @param {Object} options The `createTracker` options.
+ * @param {String} label The effective identity label.
+ * @throws {Error} When the label names a dimension with no configured input.
+ */
+function assertLabelIsBacked(options, label) {
+    const
+        statusFields = resolveStatusFields(options),
+        unbacked     = Object.entries(FRESHNESS_DIMENSIONS)
+            .filter(([dimension, isBacked]) => new RegExp(`\\b${dimension}\\b`, 'i').test(label) && !isBacked(statusFields))
+            .map(([dimension]) => dimension);
+
+    if (unbacked.length) {
+        const configured = (options.files || []).map(file => file?.key).filter(Boolean);
+
+        throw new Error(
+            `RuntimeFreshnessService: identityLabel '${label}' claims ${unbacked.join(', ')} ` +
+            `identity, but no STATUS-DRIVING input supports it (files: [${configured.join(', ') || 'none'}], ` +
+            `effective statusFields: [${statusFields.join(', ') || 'none'}], ` +
+            `rootDir: ${options.rootDir ? 'set' : 'unset'}). Observation is not verdict authority: ` +
+            `narrow the label, or add the field to statusFields.`
+        );
+    }
+}
+
+/**
  * @summary Normalizes runtime identity file descriptors.
  *
  * Each file descriptor contributes one SHA-256 digest field to the runtime identity block.
@@ -96,15 +196,19 @@ export class RuntimeFreshnessTracker {
         this.rootDir         = options.rootDir;
         this.files           = options.files || [];
         this.serviceName     = options.serviceName || 'MCP server';
-        this.identityLabel   = options.identityLabel || 'source/config/schema identity';
+        // Must stay the SAME default `createTracker` validates against — a guard that checks one
+        // string while the runtime emits another is the defect this file now guards, one layer in.
+        this.identityLabel   = options.identityLabel || DEFAULT_IDENTITY_LABEL;
         this.assertionFacts  = options.assertionFacts || 'source, config, or tool-schema facts';
         this.restartScope    = options.restartScope || 'cached source, config, and tool definitions';
         this.unavailableSummary = options.unavailableSummary ||
             'git metadata, config digest, and OpenAPI digest';
         this.startedAt          = options.startedAt || new Date().toISOString();
 
-        this.#fieldKeys      = [...(this.rootDir ? ['gitHead'] : []), ...this.#files.map(file => file.key)];
-        this.#statusFieldSet = new Set(options.statusFields || this.#fieldKeys.filter(key => key !== 'gitHead'));
+        this.#fieldKeys = [...(this.rootDir ? ['gitHead'] : []), ...this.#files.map(file => file.key)];
+        // Same derivation the label guard uses — see resolveStatusFields. Deriving it twice is how
+        // the guard and the verdict drift apart, which is the defect the guard exists to prevent.
+        this.#statusFieldSet = new Set(resolveStatusFields(options));
 
         const boot = this.#runtimeService.readRuntimeIdentitySync({
             files  : this.#files,
@@ -184,36 +288,36 @@ export class RuntimeFreshnessTracker {
                 : [identity.errors].filter(Boolean);
 
             freshness = this.#runtimeService.classifyRuntimeFreshness({
-                assertionFacts  : this.assertionFacts,
-                boot            : identity.boot || this.bootRuntimeIdentity,
-                current         : identity.current || {},
-                errors          : [
+                assertionFacts: this.assertionFacts,
+                boot          : identity.boot || this.bootRuntimeIdentity,
+                current       : identity.current || {},
+                errors        : [
                     ...this.bootRuntimeFreshnessErrors,
                     ...runtimeErrors
                 ],
-                fieldKeys       : this.#fieldKeys,
-                identityLabel   : this.identityLabel,
-                restartScope    : this.restartScope,
-                serviceName     : this.serviceName,
-                startedAt       : this.startedAt,
-                statusFields    : [...this.#statusFieldSet],
+                fieldKeys         : this.#fieldKeys,
+                identityLabel     : this.identityLabel,
+                restartScope      : this.restartScope,
+                serviceName       : this.serviceName,
+                startedAt         : this.startedAt,
+                statusFields      : [...this.#statusFieldSet],
                 unavailableSummary: this.unavailableSummary
             });
         } catch (e) {
             freshness = this.#runtimeService.classifyRuntimeFreshness({
-                assertionFacts  : this.assertionFacts,
-                boot            : this.bootRuntimeIdentity,
-                current         : {},
-                errors          : [
+                assertionFacts: this.assertionFacts,
+                boot          : this.bootRuntimeIdentity,
+                current       : {},
+                errors        : [
                     ...this.bootRuntimeFreshnessErrors,
                     `runtime freshness reader failed: ${e.message}`
                 ],
-                fieldKeys       : this.#fieldKeys,
-                identityLabel   : this.identityLabel,
-                restartScope    : this.restartScope,
-                serviceName     : this.serviceName,
-                startedAt       : this.startedAt,
-                statusFields    : [...this.#statusFieldSet],
+                fieldKeys         : this.#fieldKeys,
+                identityLabel     : this.identityLabel,
+                restartScope      : this.restartScope,
+                serviceName       : this.serviceName,
+                startedAt         : this.startedAt,
+                statusFields      : [...this.#statusFieldSet],
                 unavailableSummary: this.unavailableSummary
             });
         }
@@ -282,7 +386,7 @@ class RuntimeFreshnessService extends Base {
         fieldKeys = [],
         statusFields = [],
         serviceName = 'MCP server',
-        identityLabel = 'source/config/schema identity',
+        identityLabel = DEFAULT_IDENTITY_LABEL,
         assertionFacts = 'source, config, or tool-schema facts',
         restartScope = 'cached source, config, and tool definitions',
         unavailableSummary = 'git metadata, config digest, and OpenAPI digest'
@@ -367,6 +471,8 @@ class RuntimeFreshnessService extends Base {
      * @returns {RuntimeFreshnessTracker}
      */
     createTracker(options = {}) {
+        assertLabelIsBacked(options, options.identityLabel || DEFAULT_IDENTITY_LABEL);
+
         return new RuntimeFreshnessTracker({
             ...options,
             runtimeService: this

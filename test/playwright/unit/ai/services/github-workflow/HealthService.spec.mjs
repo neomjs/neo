@@ -51,7 +51,7 @@ test.describe.serial('Neo.ai.services.github-workflow.HealthService - runtimeFre
             },
             hint: null
         });
-        expect(result.details).toContain('Runtime source/schema identity matches the current checkout.');
+        expect(result.details).toContain('Runtime schema identity matches the current checkout.');
         expect(result.boot).toBeUndefined();
         expect(result.current).toBeUndefined();
     });

@@ -22,7 +22,7 @@ const
             errorLabel: 'OpenAPI digest'
         }],
         serviceName       : 'Knowledge Base MCP server',
-        identityLabel     : 'source/config identity',
+        identityLabel     : 'config/schema identity',
         assertionFacts    : 'tool-schema/source facts',
         restartScope      : 'cached source, config, and tool definitions',
         statusFields      : ['configDigest', 'openApiDigest'],

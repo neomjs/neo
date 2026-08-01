@@ -44,7 +44,7 @@ const
             errorLabel: 'OpenAPI digest'
         }],
         serviceName       : 'Memory Core MCP server',
-        identityLabel     : 'source/config identity',
+        identityLabel     : 'config/schema identity',
         assertionFacts    : 'provider, config, or tool-schema facts',
         restartScope      : 'cached provider/config state',
         statusFields      : ['configDigest', 'openApiDigest'],

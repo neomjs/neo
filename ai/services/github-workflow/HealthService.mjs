@@ -17,7 +17,7 @@ const
             errorLabel: 'OpenAPI digest'
         }],
         serviceName       : 'GitHub Workflow MCP server',
-        identityLabel     : 'source/schema identity',
+        identityLabel     : 'schema identity',
         assertionFacts    : 'tool-schema/source facts',
         restartScope      : 'cached tool definitions',
         statusFields      : ['openApiDigest'],
