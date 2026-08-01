@@ -159,6 +159,32 @@ test.describe('WebhookDeliveryService — degrading a dead route from a backgrou
         expect(subscriptionNode.properties.userId).toBe('@neo-opus-grace');
     });
 
+    test('the degrade lands regardless of whether a requester is bound — the race is removed, not half-pinned', async () => {
+        // @neo-opus-ada observed the pre-fix path succeeding at 10:19 and failing at 00:07 on the SAME
+        // subscription, and named the likely trigger: an MCP write shortly before a flush can leave an
+        // identity bound that the flush inherits, so the RLS-scoped read sometimes succeeds. Her warning
+        // is the right one — a spec that only ever observes the failing branch would pass against an
+        // unfixed race, pinning the unlucky half rather than the defect.
+        //
+        // The fix is not a better-behaved race: the degrade read no longer consults RLS at all, so the
+        // outcome is identical across every identity state. Asserting that directly is cheaper than
+        // arguing it, and it fails if anyone reintroduces an RLS-scoped read on this path.
+        for (const boundRequester of [null, '@neo-opus-grace', '@a-different-tenant']) {
+            const subscriptionNode = makeSubscriptionNode();
+
+            GraphService.db = makeFakeDb(subscriptionNode);
+            requester.value = boundRequester;
+
+            WebhookDeliveryService.consecutiveFailures.clear();
+            WebhookDeliveryService.degradedSubscriptions.clear();
+
+            await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'});
+
+            expect(subscriptionNode.properties.status, `bound requester: ${String(boundRequester)}`).toBe('degraded');
+            expect(subscriptionNode.properties.harnessTarget, `bound requester: ${String(boundRequester)}`).toBe('a2a-webhook');
+        }
+    });
+
     test('delivery attempts against a permanently dead route are bounded across repeated messages', async () => {
         const subscriptionNode = makeSubscriptionNode();
         GraphService.db        = makeFakeDb(subscriptionNode);
