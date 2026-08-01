@@ -303,8 +303,9 @@ if (unreached.warn) {
     console.warn(`A merged pull request accepts no further commits, so ${headSha.slice(0, 9)} reaches no PR and no CI — the ref advances and nothing listens.`);
     console.warn(`Your work is not lost: it is on '${branch}', it is simply in no pull request.`);
     console.warn('Remediation: open a follow-up ticket, then carry the commits onto a fresh branch.');
+    console.warn('  git log --oneline origin/dev..HEAD    # inspect first — there may be more than one');
     console.warn('  git checkout -b <agent>/<ticket-id>-<slug> origin/dev');
-    console.warn(`  git cherry-pick ${headSha.slice(0, 9)}          # your commits beyond the merged PR`);
+    console.warn('  git cherry-pick <each commit the merged PR did not carry>');
     console.warn('This is advisory — the push proceeds.');
 }
 
