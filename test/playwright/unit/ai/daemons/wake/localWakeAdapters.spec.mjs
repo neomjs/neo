@@ -361,4 +361,40 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         // assertions above pass equally well against a route that never carried a key at all.
         expect(`leaked ${key}`).toContain(key);
     });
+
+    test('an OpenCode-named route dispatches through the generic osascript choreography', async () => {
+        let osascriptArgs;
+        const openCodeRecord = record('osascript', {
+            route: {
+                agentIdentity,
+                harnessTargetMetadata: {
+                    adapter        : 'osascript',
+                    appName        : 'OpenCode',
+                    addressType    : 'userDataDir',
+                    instanceAddress: '/seat/ai.opencode.desktop'
+                },
+                adapterConfig: {attemptTimeoutMs: 1000}
+            }
+        });
+
+        expect(await dispatchLocalWake(openCodeRecord, {
+            platform             : 'darwin',
+            resolveGuiInstancePid: async () => 5719,
+            spawnAsync           : async (command, args) => {
+                expect(command).toBe('osascript');
+                osascriptArgs = args;
+            }
+        })).toBe('delivered');
+
+        const script = osascriptArgs.join('\n');
+
+        // The generic Electron-safe path: activate, frontmost assert on the RESOLVED pid, clear and
+        // preserve the prompt, paste the payload, submit with Return, restore the user's draft.
+        expect(script).toContain('tell application "OpenCode" to activate');
+        expect(script).toContain('first process whose unix id is 5719');
+        expect(script).toContain('set the clipboard to wakePayload');
+        expect(script).toContain('key code 36');
+        // …and no Codex-only Esc prelude: the OpenCode route gets the generic submit, not a quirk.
+        expect(script).not.toContain('key code 53');
+    });
 });
