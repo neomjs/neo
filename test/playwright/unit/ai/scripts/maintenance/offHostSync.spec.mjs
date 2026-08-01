@@ -842,3 +842,72 @@ test.describe('adversarial IO + encoding edges', () => {
         expect(JSON.parse(raw.toString('utf8')).bundleName).toBe('short-read')
     });
 });
+
+/**
+ * @summary The receipt cannot assert `success` while hiding that the bundle exported nothing.
+ *
+ * Observed live: a receipt reading `"backup": {"status": "success"}` beside a `bundle-meta.json`
+ * whose own integrity block read `empty` for every subsystem. Both statements were true —
+ * the run DID complete — but a consumer reading only the receipt had no way to learn the bundle
+ * was not a recovery source, and the receipt is the artifact operators and health surfaces reach
+ * for first.
+ *
+ * `status` keeps its meaning deliberately: it reports whether the local bundle completed, which is
+ * a real and useful fact. The fix is that it stops being the ONLY fact a receipt-only consumer sees.
+ *
+ * The disqualification rule lives in exactly one module so this and the health surface cannot drift
+ * into disagreeing about what "restorable" means — two copies of one rule is how the two halves of
+ * a contract end up one edit apart.
+ */
+test.describe('backup receipt — the integrity verdict travels with the status', () => {
+    const EMPTY = [
+        {subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0},
+        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0}
+    ];
+    const CLEAN = [{subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206}];
+
+    test('a zero-row bundle is marked NOT restorable, and names which subsystems were empty', () => {
+        const receipt = buildBackupReceipt({
+            backup    : {durationMs: 24, error: null, status: 'success'},
+            bundleName: 'backup-2026-07-31T04-57-18.233Z',
+            integrity : EMPTY
+        });
+
+        // The run completed — that stays true and stays reported.
+        expect(receipt.backup.status).toBe('success');
+        // …and the receipt now also says it is not a recovery source, with the reason named.
+        expect(receipt.integrity.restorable).toBe(false);
+        expect(receipt.integrity.emptySubsystems).toEqual(['kb', 'mc']);
+    });
+
+    test('POSITIVE CONTROL: a clean bundle is restorable and names nothing', () => {
+        const receipt = buildBackupReceipt({
+            backup    : {durationMs: 900, error: null, status: 'success'},
+            bundleName: 'backup-2026-07-30T19-28-57.348Z',
+            integrity : CLEAN
+        });
+
+        expect(receipt.integrity.restorable).toBe(true);
+        expect(receipt.integrity.emptySubsystems).toEqual([]);
+    });
+
+    test('an ABSENT verdict is unknown, never false — old receipts must not read as unusable', () => {
+        // Receipts predate this field. Treating absence as "not restorable" would retroactively
+        // condemn every historical bundle, which is a worse outage than the bug being fixed.
+        const receipt = buildBackupReceipt({
+            backup    : {durationMs: 900, error: null, status: 'success'},
+            bundleName: 'backup-2026-07-01T13-23-24.995Z'
+        });
+
+        expect(receipt.integrity.restorable).toBeNull();
+        expect(receipt.integrity.emptySubsystems).toEqual([]);
+    });
+
+    test('the schema version is UNCHANGED — the field is additive or existing receipts are rejected', () => {
+        // `readBackupReceipt` refuses any receipt whose `schemaVersion` differs. Bumping it here
+        // would make every receipt already on disk unreadable — the field has to be additive.
+        const receipt = buildBackupReceipt({backup: {durationMs: 1, error: null, status: 'success'}, bundleName: 'b'});
+
+        expect(receipt.schemaVersion).toBe(1);
+    });
+});

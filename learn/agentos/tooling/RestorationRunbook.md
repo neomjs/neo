@@ -93,6 +93,38 @@ When `--mode replace` targets canonical `.neo-ai-data/` paths, the destructive-o
 
 The orchestrator is also exported as `runRestore({ bundleRoot, mode, force, forceTopologyMismatch, preserveReadState })` from `ai/scripts/maintenance/restore.mjs`, for embedding in higher-level recovery substrate (e.g. the daily snapshot pipeline or cold-restore harnesses). It returns per-subsystem result blocks, the parsed `bundle-meta.json` (or `null` for legacy bundles), and the topology-check verdict. Companion exports `validateBundle(...)` and `checkTopology(...)` expose the pre-flight checks for callers that want to gate before restoring.
 
+## Before you restore: is this bundle actually usable?
+
+**A backup that completed is not necessarily a backup you can restore from.** A bundle can finish
+cleanly, write a receipt reading `"status": "success"`, and contain zero rows — that status reports
+that the local bundle completed, which is a different fact from whether it holds your data.
+
+```bash
+npm run ai:check-backup-integrity
+```
+
+This is the artifact-verified timeline: it classifies every retained bundle by comparing each
+subsystem's manifest claim against the actual exported artifact bytes, so a manifest claiming 31,173
+memories beside a zero-byte artifact is reported as `manifest-false-green` rather than trusted. Pass
+`--backups /path/to/backups` to point it at a non-default root, or `--json` for machine output.
+
+**Run it when any of these hold:**
+
+- **Before any restore.** The bundle you are about to restore from is the one claim you cannot
+  afford to take on trust.
+- **The health surface reports `lastSuccessful: null` while `count` is non-zero.** That means
+  backups are running and none of them is usable — the opposite diagnosis from "backups are not
+  running", and the opposite remedy.
+- **`unusableCount` in the health block is non-zero.** It names how many completed bundles were
+  disqualified; this tool names *which* ones and *why*.
+- **After any change to storage placement, volumes, or the persist path.** A backup reads from
+  wherever the topology says the data lives; if that moved and the backup did not, exports go quiet
+  rather than loud.
+
+Reading the output: `clean` is artifact-verified and restorable. `manifest-false-green` claims rows
+it does not have — do not restore from it. `export-failed` is the fail-loud path working correctly.
+`no-mc-claim` / `empty-claim` mean the subsystem exported nothing at all.
+
 ## Restoration Procedures
 
 ### 1. Knowledge Base (KB)

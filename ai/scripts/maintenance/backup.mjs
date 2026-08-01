@@ -865,9 +865,9 @@ export async function runBackupWithOffHostSync({
         }
 
         const
-            {bundleRoot, completedAt} = result,
-            bundleName                = path.basename(bundleRoot),
-            backupDurationMs          = Date.now() - backupStartedAt;
+            {bundleRoot, completedAt, meta} = result,
+            bundleName                      = path.basename(bundleRoot),
+            backupDurationMs                = Date.now() - backupStartedAt;
 
         let syncOutcome = null,
             syncStatus  = 'disabled';
@@ -913,7 +913,11 @@ export async function runBackupWithOffHostSync({
                     },
                     bundleCompletedAt: completedAt,
                     bundleName,
-                    offHostSync      : syncOutcome,
+                    // The verdict travels with the receipt: `status: success` reports that the bundle
+                    // completed, which stays true; without this a receipt-only consumer had no way
+                    // to learn it exported nothing.
+                    integrity  : meta?.integrity,
+                    offHostSync: syncOutcome,
                     syncStatus
                 })
             });

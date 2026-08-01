@@ -4,6 +4,7 @@ import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
 import Base                     from '../../../src/core/Base.mjs';
+import {isBundleRestorable}     from './helpers/bundleIntegrity.mjs';
 import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 import ChromaManager            from './managers/ChromaManager.mjs';
 import StorageRouter            from './managers/StorageRouter.mjs';
@@ -596,19 +597,42 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 /**
  * @summary Projects the backup directory state into the observability block for the healthcheck.
  *
- * Checks the backup directory for the most recent successful backup bundle by iterating
- * over backup directories (sorted newest first) and looking for `bundle-meta.json` containing
- * a `completedAt` marker. If none is found, it returns `null` for `lastSuccessful`.
+ * **"A backup completed" and "a backup is restorable" are different facts, and this block reports
+ * both separately.** Collapsing them is what let a deployment believe it had a recovery source when
+ * it had none: a bundle exported zero rows for every subsystem, its receipt read `status: success`,
+ * and this block — which stopped at the first `completedAt` it found — named it the last successful
+ * backup. The bundle's own metadata had already recorded the truth; nothing read it.
+ *
+ * `backup.mjs` classifies each subsystem and persists the verdict into `bundle-meta.integrity`
+ * expressly so a downstream consumer can act on it. This is that consumer.
+ *
+ * - `lastSuccessful` — newest completed bundle with **no** `empty` subsystem. The restorable one.
+ * - `lastCompleted` — newest completed bundle regardless of verdict. Preserves the non-fatal
+ *   semantics: a genuinely fresh environment backs up empty and legitimately succeeded, and making
+ *   `empty` fatal would break first boot for every new deployment.
+ * - `unusableCount` — completed bundles disqualified by an `empty` verdict, so
+ *   `lastSuccessful: null` with a non-zero `count` cannot be misread as "runs that never finished".
+ * - `unverifiedCount` — completed bundles carrying **no** integrity block, so "eligible" is never
+ *   silently reported as "verified".
+ *
+ * A bundle with no integrity block stays **eligible**: absent evidence is not evidence of
+ * emptiness, and disqualifying it would condemn any series predating the block — worse than the
+ * defect. But eligible is not verified, and the receipt already records that difference as
+ * `restorable: null`. Dropping it here would leave a computed verdict reaching one surface and not
+ * the other, which is the exact failure this whole change exists to end. `unverifiedCount: 0` is a
+ * positive assertion that everything reported was checked.
  *
  * @param {String} backupPath The path to the root backup directory.
  * @param {Object} fs The fs-extra module (dependency injected for testing).
  * @param {Object} path The path module (dependency injected for testing).
- * @returns {Promise<{lastSuccessful: String|null, count: Number, error: String|undefined}>}
+ * @returns {Promise<{lastSuccessful: String|null, lastCompleted: String|null, count: Number, unusableCount: Number, error: String|undefined}>}
  */
 export async function buildBackupStateBlock(backupPath, fs, path) {
+    const empty = {lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0};
+
     try {
         if (!await fs.pathExists(backupPath)) {
-            return { lastSuccessful: null, count: 0 };
+            return {...empty};
         }
 
         const entries = await fs.readdir(backupPath, { withFileTypes: true });
@@ -618,35 +642,74 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
             .map(e => e.name);
 
         if (backupDirs.length === 0) {
-            return { lastSuccessful: null, count: 0 };
+            return {...empty};
         }
 
         backupDirs.sort((a, b) => b.localeCompare(a));
 
-        let timestamp = null;
+        let
+            lastSuccessful  = null,
+            lastCompleted   = null,
+            unusableCount   = 0,
+            unverifiedCount = 0,
+            sawSuccessful   = false,
+            sawCompleted    = false;
 
+        // Full scan rather than break-on-first: `unusableCount` is a property of the SERIES, and an
+        // operator reading `lastSuccessful: null` needs to know whether that means "nothing finished"
+        // or "everything finished empty" — opposite diagnoses with opposite remedies.
         for (const dir of backupDirs) {
             const metaPath = path.join(backupPath, dir, 'bundle-meta.json');
-            if (await fs.pathExists(metaPath)) {
-                try {
-                    const meta = await fs.readJson(metaPath);
-                    if (meta.completedAt) {
-                        timestamp = meta.timestamp || null;
-                        break;
-                    }
-                } catch (e) {}
+            if (!await fs.pathExists(metaPath)) continue;
+
+            let meta;
+
+            try {
+                meta = await fs.readJson(metaPath);
+            } catch (e) {
+                continue;
+            }
+
+            if (!meta?.completedAt) continue;
+
+            if (!sawCompleted) {
+                lastCompleted = meta.timestamp || null;
+                sawCompleted  = true;
+            }
+
+            // Same rule as the backup receipt, imported rather than restated — two copies of one
+            // predicate is how the halves of a contract end up disagreeing.
+            const restorable = isBundleRestorable(meta.integrity);
+
+            if (restorable === false) {
+                unusableCount++;
+                continue;
+            }
+
+            // Eligible but never checked. Counted rather than dropped: the receipt records this as
+            // `restorable: null`, and a verdict that reaches one surface and not the other is the
+            // defect this change exists to end.
+            if (restorable === null) {
+                unverifiedCount++;
+            }
+
+            if (!sawSuccessful) {
+                lastSuccessful = meta.timestamp || null;
+                sawSuccessful  = true;
             }
         }
 
         return {
-            lastSuccessful: timestamp,
-            count         : backupDirs.length
+            lastSuccessful,
+            lastCompleted,
+            count        : backupDirs.length,
+            unusableCount,
+            unverifiedCount
         };
     } catch (e) {
         return {
-            lastSuccessful: null,
-            count         : 0,
-            error         : e.message
+            ...empty,
+            error: e.message
         };
     }
 }
