@@ -57,14 +57,25 @@ const DEFAULT_IDENTITY_LABEL = 'runtime identity';
  * A freshness verdict is read by an operator deciding whether to investigate, so its prose is
  * load-bearing: `status: 'current'` beside "source identity matches" is a positive assurance about
  * something the tracker may never have looked at. Each entry answers "is this dimension actually
- * measured?" from the tracker's own configuration — `source` needs a `rootDir` (without one,
- * `readRuntimeIdentity` never spawns git and `gitHead` is never read), `config` and `schema` need a
- * file digest of the matching kind.
+ * measured?" from the tracker's own configuration.
+ *
+ * **The bar is verdict authority, not observation.** `fieldKeys` answer *what was observed*;
+ * `statusFields` answer *what may support the positive freshness verdict*. A label appears inside
+ * that verdict — "Runtime <label> matches the current checkout" is emitted only on `status:
+ * 'current'` — so it must be backed by the second set, never the first.
+ *
+ * `source` therefore requires `gitHead` to be **status-driving**, not merely readable. A `rootDir`
+ * alone only makes `gitHead` observed: `classifyRuntimeFreshness` defaults the status set to
+ * `fieldKeys.filter(key => key !== 'gitHead')`, so `gitHead` is contextual unless a caller names it
+ * explicitly. GitHub Workflow is exactly that shape — `rootDir` set, `statusFields:
+ * ['openApiDigest']` — and admitting it produced two adjacent contradictory sentences: *"Runtime
+ * source/schema identity matches the current checkout"* beside *"Contextual runtime identity differs
+ * (gitHead)"*, with `status: 'current'` and `stale.gitHead: true`.
  *
  * @member {Object}
  */
 const FRESHNESS_DIMENSIONS = Object.freeze({
-    source: options => Boolean(options.rootDir),
+    source: options => (options.statusFields || []).includes('gitHead'),
     config: options => (options.files || []).some(file => /config/i.test(file?.key || '')),
     schema: options => (options.files || []).some(file => /openapi|schema/i.test(file?.key || ''))
 });
@@ -86,12 +97,16 @@ function assertLabelIsBacked(options, label) {
         .map(([dimension]) => dimension);
 
     if (unbacked.length) {
-        const configured = (options.files || []).map(file => file?.key).filter(Boolean);
+        const
+            configured    = (options.files || []).map(file => file?.key).filter(Boolean),
+            statusDriving = options.statusFields || [];
 
         throw new Error(
             `RuntimeFreshnessService: identityLabel '${label}' claims ${unbacked.join(', ')} ` +
-            `identity, but no tracker input measures it (files: [${configured.join(', ') || 'none'}], ` +
-            `rootDir: ${options.rootDir ? 'set' : 'unset'}). Narrow the label, or configure the input.`
+            `identity, but no STATUS-DRIVING input supports it (files: [${configured.join(', ') || 'none'}], ` +
+            `statusFields: [${statusDriving.join(', ') || 'default — gitHead excluded'}], ` +
+            `rootDir: ${options.rootDir ? 'set' : 'unset'}). A contextual read is not verdict authority: ` +
+            `narrow the label, or add the field to statusFields.`
         );
     }
 }

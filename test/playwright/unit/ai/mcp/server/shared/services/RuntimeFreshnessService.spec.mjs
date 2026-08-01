@@ -34,8 +34,8 @@ const
 test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776)', () => {
     test('keeps gitHead drift contextual when status-driving fields match', () => {
         const result = RuntimeFreshnessService.classifyRuntimeFreshness({
-            startedAt       : '2026-06-08T00:00:00.000Z',
-            boot            : {
+            startedAt: '2026-06-08T00:00:00.000Z',
+            boot     : {
                 gitHead      : 'old-head',
                 openApiDigest: 'sha256:same-openapi'
             },
@@ -43,12 +43,12 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
                 gitHead      : 'new-head',
                 openApiDigest: 'sha256:same-openapi'
             },
-            fieldKeys       : ['gitHead', 'openApiDigest'],
-            statusFields    : ['openApiDigest'],
-            serviceName     : 'Test MCP server',
-            identityLabel   : 'source/schema identity',
-            assertionFacts  : 'tool-schema/source facts',
-            restartScope    : 'cached tool definitions',
+            fieldKeys         : ['gitHead', 'openApiDigest'],
+            statusFields      : ['openApiDigest'],
+            serviceName       : 'Test MCP server',
+            identityLabel     : 'schema identity',
+            assertionFacts    : 'tool-schema/source facts',
+            restartScope      : 'cached tool definitions',
             unavailableSummary: 'git metadata and OpenAPI digest'
         });
 
@@ -61,7 +61,7 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
             },
             hint: null
         });
-        expect(result.details[0]).toBe('Runtime source/schema identity matches the current checkout.');
+        expect(result.details[0]).toBe('Runtime schema identity matches the current checkout.');
         expect(result.details[1]).toContain('Contextual runtime identity differs (gitHead)');
         expect(result.boot).toBeUndefined();
         expect(result.current).toBeUndefined();
@@ -69,8 +69,8 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
 
     test('marks stale when a status-driving digest differs', () => {
         const result = RuntimeFreshnessService.classifyRuntimeFreshness({
-            startedAt       : '2026-06-08T00:00:00.000Z',
-            boot            : {
+            startedAt: '2026-06-08T00:00:00.000Z',
+            boot     : {
                 gitHead      : 'same-head',
                 configDigest : 'sha256:old-config',
                 openApiDigest: 'sha256:same-openapi'
@@ -80,12 +80,12 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
                 configDigest : 'sha256:new-config',
                 openApiDigest: 'sha256:same-openapi'
             },
-            fieldKeys       : ['gitHead', 'configDigest', 'openApiDigest'],
-            statusFields    : ['configDigest', 'openApiDigest'],
-            serviceName     : 'Test MCP server',
-            identityLabel   : 'source/config identity',
-            assertionFacts  : 'provider/config facts',
-            restartScope    : 'cached provider/config state',
+            fieldKeys         : ['gitHead', 'configDigest', 'openApiDigest'],
+            statusFields      : ['configDigest', 'openApiDigest'],
+            serviceName       : 'Test MCP server',
+            identityLabel     : 'config/schema identity',
+            assertionFacts    : 'provider/config facts',
+            restartScope      : 'cached provider/config state',
             unavailableSummary: 'git metadata, config digest, and OpenAPI digest'
         });
 
@@ -103,20 +103,20 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
 
     test('reports unknown when only contextual gitHead can be compared', () => {
         const result = RuntimeFreshnessService.classifyRuntimeFreshness({
-            startedAt       : '2026-06-08T00:00:00.000Z',
-            boot            : {
+            startedAt: '2026-06-08T00:00:00.000Z',
+            boot     : {
                 gitHead: 'same-head'
             },
             current         : {
                 gitHead: 'same-head'
             },
-            errors          : ['current OpenAPI digest unavailable: fixture'],
-            fieldKeys       : ['gitHead', 'openApiDigest'],
-            statusFields    : ['openApiDigest'],
-            serviceName     : 'Test MCP server',
-            identityLabel   : 'source/schema identity',
-            assertionFacts  : 'tool-schema/source facts',
-            restartScope    : 'cached tool definitions',
+            errors            : ['current OpenAPI digest unavailable: fixture'],
+            fieldKeys         : ['gitHead', 'openApiDigest'],
+            statusFields      : ['openApiDigest'],
+            serviceName       : 'Test MCP server',
+            identityLabel     : 'schema identity',
+            assertionFacts    : 'tool-schema/source facts',
+            restartScope      : 'cached tool definitions',
             unavailableSummary: 'git metadata and OpenAPI digest'
         });
 
@@ -141,14 +141,14 @@ test.describe('Neo.ai.mcp.server.shared.services.RuntimeFreshnessService (#12776
                 errorLabel: 'OpenAPI digest'
             }],
             serviceName       : 'Test MCP server',
-            identityLabel     : 'source/schema identity',
+            identityLabel     : 'schema identity',
             assertionFacts    : 'tool-schema/source facts',
             restartScope      : 'cached tool definitions',
             statusFields      : ['openApiDigest'],
             unavailableSummary: 'git metadata and OpenAPI digest'
         });
 
-        let readCount = 0,
+        let readCount     = 0,
             openApiDigest = 'sha256:same-openapi';
 
         const reader = async () => {
@@ -284,12 +284,55 @@ function describeLabelBacking() {
         })).not.toThrow();
     });
 
-    test('source IS admissible once rootDir supplies it — the guard blocks the claim, not the dimension', () => {
+    test('rejects the pre-fix GitHub Workflow shape — rootDir observes gitHead but does not make it authoritative', () => {
+        // The configuration that shipped: gitHead readable via rootDir, but statusFields names only
+        // openApiDigest, so `classifyRuntimeFreshness` can return status:'current' with
+        // stale.gitHead:true — emitting "Runtime source/schema identity matches the current checkout"
+        // beside "Contextual runtime identity differs (gitHead)". A guard keyed on rootDir admits it.
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'source/schema identity',
+            rootDir      : repoRoot,
+            files        : SCHEMA_ONLY,
+            statusFields : ['openApiDigest']
+        })).toThrow(/claims source identity/);
+    });
+
+    test('rejects source when statusFields is defaulted — the default excludes gitHead by construction', () => {
+        // `statusFields || fieldKeys.filter(key => key !== 'gitHead')`: omitting it can never make
+        // gitHead status-driving, so a rootDir plus silence is still not verdict authority.
         expect(() => RuntimeFreshnessService.createTracker({
             identityLabel: 'source identity',
             rootDir      : repoRoot,
-            files        : []
+            files        : CONFIG_AND_SCHEMA
+        })).toThrow(/claims source identity/);
+    });
+
+    test('source IS admissible when gitHead is named status-driving — the guard blocks the claim, not the dimension', () => {
+        expect(() => RuntimeFreshnessService.createTracker({
+            identityLabel: 'source identity',
+            rootDir      : repoRoot,
+            files        : [],
+            statusFields : ['gitHead']
         })).not.toThrow();
+    });
+
+    test('the refusal names statusFields, not just files — the reader must know which set was short', () => {
+        let message = '';
+
+        try {
+            RuntimeFreshnessService.createTracker({
+                identityLabel: 'source/schema identity',
+                rootDir      : repoRoot,
+                files        : SCHEMA_ONLY,
+                statusFields : ['openApiDigest']
+            });
+        } catch (error) {
+            message = error.message;
+        }
+
+        expect(message).toContain('STATUS-DRIVING');
+        expect(message).toContain('statusFields: [openApiDigest]');
+        expect(message).toContain('rootDir: set');
     });
 
     test('the default label constructs with nothing configured — the safe case stays free', () => {
