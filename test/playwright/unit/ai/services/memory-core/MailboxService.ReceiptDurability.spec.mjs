@@ -189,6 +189,23 @@ test.describe('MailboxService — receipt durability cannot outrun the durable w
         expect(propertiesOf(readReceiptFromStorage(messageId, RECIPIENT)).readAt).toBe(receipt.readAt);
     });
 
+    test('a hydrated broadcast carrier persists its read state to storage', async () => {
+        // Wake-subscription evaluation resolves delivery edges through Store#get(), which turns
+        // their raw graph rows into Neo records before mark_read sees them. Exercise that live
+        // representation explicitly: the raw-object setter path alone cannot prove this branch.
+        const messageId = await sendBroadcast('durability: hydrated broadcast carrier');
+        const stored    = readReceiptFromStorage(messageId, RECIPIENT);
+        const edgeId    = stored?.id ?? stored?.data?.id;
+        const hydrated  = GraphService.db.edges.get(edgeId);
+
+        expect(hydrated?.isRecord).toBe(true);
+
+        const receipt = await asRecipient(() => MailboxService.markRead({messageId}));
+
+        expect(receipt.status).toBe('read');
+        expect(propertiesOf(readReceiptFromStorage(messageId, RECIPIENT)).readAt).toBe(receipt.readAt);
+    });
+
     test('with NO storage the receipt degrades honestly instead of asserting persistence', async () => {
         // The one state where the write genuinely cannot run. Previously indistinguishable from
         // success; now the caller is told, so a false ack is impossible rather than merely unlikely.
