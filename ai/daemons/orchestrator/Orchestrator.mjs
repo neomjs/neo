@@ -1229,7 +1229,12 @@ export class Orchestrator extends Base {
 
         fs.ensureDirSync(this.dataDir);
 
-        this.acquireRoleLease({dataDir: this.dataDir, factory: options.authorityLeaseFactory});
+        // The CLI boot claims the lease ahead of the legacy PID singleton and passes it in; the
+        // standalone seam acquires here. Either way the lease precedes the receipt write: a
+        // refused boot leaves the plane exactly as it found it.
+        this.authorityLease = options.authorityLease
+            ?? this.acquireRoleLease({dataDir: this.dataDir, factory: options.authorityLeaseFactory});
+        process.once('exit', () => this.authorityLease?.release());
 
         this.writeAuthorityReceipt();
 
@@ -1317,7 +1322,6 @@ export class Orchestrator extends Base {
             profile: this.authorityProfile,
             log    : this.writeLog.bind(this)
         });
-        process.once('exit', () => this.authorityLease?.release());
 
         return this.authorityLease;
     }
@@ -1344,23 +1348,25 @@ export class Orchestrator extends Base {
      * externally — routes to the refusal path: ERROR, stop, non-zero exit code. Never silent
      * continuation: an orchestrator that lost its role lease must not keep running lanes
      * against the plane another holder now owns.
-     * @returns {void}
+     * @returns {Boolean} `false` when the lease is lost and the current poll must abort.
      */
     pulseAuthorityLease() {
         if (!this.authorityLease) {
-            return;
+            return true; // no lease wired (prototype/test seams) — nothing to fence
         }
 
         try {
             this.authorityLease.pulse();
+            return true;
         } catch (err) {
             if (err.code === 'FILE_LEASE_LOST') {
                 this.writeLog('ERROR', `[Orchestrator] Authority lease lost: ${err.message} Stopping — a displaced orchestrator must not keep running lanes.`);
+                this.authorityLeaseLost = true;
                 this.stop();
                 process.exitCode = 1;
-            } else {
-                throw err;
+                return false;
             }
+            throw err;
         }
     }
 
@@ -1426,7 +1432,11 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     poll() {
-        this.pulseAuthorityLease();
+        // The lease heartbeat fences the ENTIRE sweep: a lost lease aborts this poll before any
+        // mutating action, not just future polls.
+        if (!this.pulseAuthorityLease()) {
+            return;
+        }
 
         const now         = Date.now();
         const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
@@ -1461,6 +1471,13 @@ export class Orchestrator extends Base {
                 this._chromaDefragInFlight = true;
                 this.probeChromaReady()
                     .then(ready => {
+                        // Deferred continuations re-fence on arrival: a lease lost after this
+                        // poll scheduled us must not produce a mutating effect. Latched flag —
+                        // prototypes without a lease wired are unaffected.
+                        if (this.authorityLeaseLost) {
+                            return;
+                        }
+
                         if (ready && this._chromaDefragPending) {
                             this._chromaDefragPending = false;
                             executeTask('chromaDefrag', 'chroma-recycle-defrag');

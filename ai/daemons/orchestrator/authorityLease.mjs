@@ -26,6 +26,7 @@
  * `container-plane` never contend for the same file.
  */
 
+import os                 from 'node:os';
 import {acquireFileLease} from '../shared/fileLease.mjs';
 
 /**
@@ -71,7 +72,7 @@ const REMEDIATION =
 export function acquireAuthorityLease({
     dir,
     profile,
-    agentIdentity = 'orchestrator',
+    agentIdentity = `orchestrator@${os.hostname()}`,
     ttlMs      = AUTHORITY_LEASE_TTL_MS,
     pid        = process.pid,
     now        = Date.now,
@@ -89,6 +90,9 @@ export function acquireAuthorityLease({
         log,
         lockLabel  : 'authority',
         remediation: REMEDIATION,
+        // Authority state that cannot be judged is a REFUSAL, never a reclaim: a corrupt lease
+        // might be a live cross-namespace holder mid-rotation, and guessing starts the duplicate.
+        onCorrupt  : 'refuse',
         isHeldFresh: ({holder, now: at}) =>
             (at - Date.parse(holder.lastPulse ?? holder.startedAt)) < ttlMs
     });

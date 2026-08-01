@@ -32,6 +32,7 @@ import path                                                              from 'p
 import {execSync}                                                        from 'child_process';
 import AiConfig                                                          from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
+import {acquireAuthorityLease}                                           from './authorityLease.mjs';
 import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
 import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
@@ -310,9 +311,18 @@ export async function startOrchestrator(options = {}) {
     const dataDir = daemonDataDir();
 
     fs.ensureDirSync(dataDir);
+    await loadLocalAiConfig();
+
+    // The role authority lease is claimed AHEAD of the legacy PID singleton: a refused boot must
+    // leave the incumbent unsignaled and the plane untouched — enforceSingleton() can SIGTERM
+    // whatever holds the PID file, so nothing that might refuse may run after it.
+    const authorityLease = acquireAuthorityLease({
+        dir    : dataDir,
+        profile: AiConfig.orchestrator.authorityProfile
+    });
+
     await enforceSingleton();
     setupCleanupHandlers();
-    await loadLocalAiConfig();
 
     // AFTER the config load, BEFORE anything is scheduled: a plane-owning scheduler that has
     // already started its lanes has already written. Host-edge is intentionally graphless and
@@ -325,6 +335,7 @@ export async function startOrchestrator(options = {}) {
     return Orchestrator.start({
         dataDir,
         primaryDevSyncRootsConfig: AiConfig.orchestrator.devSyncRoots,
+        authorityLease,
         ...options
     });
 }

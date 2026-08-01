@@ -63,6 +63,7 @@ test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liven
         const written = fs.readJsonSync(path.join(dir, '.authority-lease-container-plane'));
         expect(written.pid).toBe(4242);
         expect(written.owner).toBe('@neo-kimi-phoebe');
+        expect(typeof written.ownerToken).toBe('string');
         expect(written.profile).toBe('container-plane');
         expect(written.startedAt).toBe('2026-07-31T23:00:00.000Z');
         expect(written.lastPulse).toBe('2026-07-31T23:00:00.000Z');
@@ -227,12 +228,56 @@ test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liven
         expect(fs.existsSync(path.join(dir, '.authority-lease-container-plane'))).toBe(false);
     });
 
-    test('our own still-fresh lease re-claimed by the same pid is idempotent-friendly (reclaim own leftover)', () => {
+    test('TOKEN IDENTITY: an equal numeric pid with a different token is NOT ours — fresh refuses, stale reclaims', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        // The "container": pid 7, token A. A "host" boot reusing numeric pid 7 collides across
+        // namespaces — token identity must not mistake it for our own leftover.
+        acquireFileLease({...LEASE_OPTS(dir), pid: 7, token: 'token-a', now});
+
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 7, token: 'token-b', now}))
+            .toThrow(FileLeaseHeldError);
+
+        advance(TTL + 1); // stale is stale, regardless of pid equality
+
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 7, token: 'token-b', now});
+        handle.release();
+    });
+
+    test('a same-token re-claim reclaims (restart continuity for the injected-token path)', () => {
         const dir   = tmpDir();
         const {now} = clock();
 
-        acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
-        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, now});
+        acquireFileLease({...LEASE_OPTS(dir), pid: 4242, token: 'token-a', now});
+        const handle = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, token: 'token-a', now});
         handle.release();
+    });
+
+    test('GUARDED RENEWAL: a holder that pulses in time is never reclaimed — the successor re-inspects inside the guard', () => {
+        const dir            = tmpDir();
+        const {now, advance} = clock();
+
+        const holder = acquireFileLease({...LEASE_OPTS(dir), pid: 4242, token: 'token-a', now});
+
+        advance(TTL + 1); // externally stale…
+        expect(holder.pulse().held).toBe(true); // …but the holder renews first…
+
+        // …and the successor's guarded reclaim re-inspects INSIDE the critical section: fresh now.
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, token: 'token-b', now}))
+            .toThrow(FileLeaseHeldError);
+
+        expect(fs.readJsonSync(path.join(dir, '.authority-lease-container-plane')).ownerToken).toBe('token-a');
+        holder.release();
+    });
+
+    test('corrupt + refuse-policy fails CLOSED — unjudgeable authority state is a refusal, never a guess', () => {
+        const dir   = tmpDir();
+        const {now} = clock();
+
+        fs.writeFileSync(path.join(dir, '.authority-lease-container-plane'), '{not json', 'utf8');
+
+        expect(() => acquireFileLease({...LEASE_OPTS(dir), pid: 9999, now, onCorrupt: 'refuse'}))
+            .toThrow(FileLeaseHeldError);
     });
 });

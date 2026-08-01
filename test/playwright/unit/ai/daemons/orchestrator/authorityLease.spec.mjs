@@ -64,10 +64,42 @@ test.describe('#16230 — authorityLease specialization', () => {
 
         const written = fs.readJsonSync(path.join(dir, '.authority-lease-container-plane'));
         expect(written).toMatchObject({pid: 4242, owner: '@neo-kimi-phoebe', profile: 'container-plane'});
+        expect(typeof written.ownerToken).toBe('string');
         expect(written.startedAt).toBe('2026-07-31T23:00:00.000Z');
         expect(written.lastPulse).toBe('2026-07-31T23:00:00.000Z');
 
         handle.release();
+    });
+
+    test('the default holder identity is host-qualified, not a bare generic', () => {
+        const dir = tmpDir();
+
+        const handle = acquireAuthorityLease({dir, profile: 'host-edge', pid: 4242, now: () => T0, isAlive: () => false});
+
+        const written = fs.readJsonSync(path.join(dir, '.authority-lease-host-edge'));
+        expect(written.owner).toMatch(/^orchestrator@.+/);
+
+        handle.release();
+    });
+
+    test('corrupt authority state fails CLOSED (unjudgeable is a refusal, never a reclaim)', () => {
+        const dir = tmpDir();
+
+        fs.writeFileSync(path.join(dir, '.authority-lease-container-plane'), '{corrupt', 'utf8');
+
+        expect(() => acquireAuthorityLease({dir, profile: 'container-plane', pid: 9999, now: () => T0, isAlive: () => false}))
+            .toThrow(FileLeaseHeldError);
+    });
+
+    test('an equal numeric pid with a different token still refuses while fresh (cross-namespace collision)', () => {
+        const dir = tmpDir();
+
+        const holder = acquireAuthorityLease({dir, profile: 'container-plane', agentIdentity: 'plane-daemon', pid: 7, now: () => T0, isAlive: () => false});
+
+        expect(() => acquireAuthorityLease({dir, profile: 'container-plane', agentIdentity: 'bare-host', pid: 7, now: () => T0, isAlive: () => false}))
+            .toThrow(FileLeaseHeldError);
+
+        holder.release();
     });
 
     test('a fresh same-role holder refuses, naming the holder, the role, and BOTH entrypoints', () => {
@@ -189,5 +221,35 @@ test.describe('#16230 — orchestrator wiring: lease before receipt, refusal is 
 
         expect(pulsed).toBe(1);
         expect(logs.filter(({level}) => level === 'ERROR')).toEqual([]);
+    });
+
+    test('poll() itself aborts before any mutating action when the lease is lost (fencing, not just stopping)', () => {
+        const {orchestrator} = orchestratorFor();
+
+        orchestrator.pulseAuthorityLease = () => false; // a lost lease, already routed
+
+        // poll()'s very next statement binds processSupervisorService.runTask — reaching it
+        // proves the sweep continued past a lost lease.
+        Object.defineProperty(orchestrator, 'processSupervisorService', {
+            get() { throw new Error('poll continued past a lost lease'); }
+        });
+
+        expect(() => orchestrator.poll()).not.toThrow();
+    });
+
+    test('the daemon boot claims the lease BEFORE enforceSingleton (source-order pin)', () => {
+        // enforceSingleton() can SIGTERM whatever holds the PID file, so the lease must bind
+        // first — pinned where it lives, since the full boot is a subprocess concern (see the
+        // boot falsifier spec).
+        const source = fs.readFileSync(
+            new URL('../../../../../../ai/daemons/orchestrator/daemon.mjs', import.meta.url),
+            'utf8'
+        );
+
+        const leaseIndex     = source.indexOf('acquireAuthorityLease({');
+        const singletonIndex = source.indexOf('await enforceSingleton();');
+
+        expect(leaseIndex, 'the lease claim is missing from startOrchestrator').toBeGreaterThan(-1);
+        expect(singletonIndex, 'enforceSingleton must follow the lease claim').toBeGreaterThan(leaseIndex);
     });
 });

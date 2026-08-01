@@ -94,13 +94,21 @@ test.describe('Neo.ai.daemons.embed.drainLock', () => {
         expect((await holderNow()).pid).toBe(5555);
     });
 
-    test('AC2: our own leftover lock is reclaimed (no self-deadlock on restart / pid reuse)', async () => {
+    test('AC2: equal numeric pids never self-deadlock — token identity governs, a dead probe still reclaims', async () => {
         acquireDrainLock({dir, owner: 'in-process', pid: 4242, isAlive: alive});
 
-        // Same pid acquiring again must reclaim its own leftover rather than refuse itself.
-        const handle = acquireDrainLock({dir, owner: 'in-process', pid: 4242, isAlive: alive});
+        // Equal numeric pid with the probe ALIVE: identity is the opaque owner token, never the
+        // pid — cross-namespace holders collide numerically (a host and a container can both be
+        // pid 4242), so this claimant is NOT "ours" and must refuse rather than "reclaim itself".
+        expect(() => acquireDrainLock({dir, owner: 'in-process', pid: 4242, isAlive: alive}))
+            .toThrow(DrainLockHeldError);
+
+        // The genuine restart case: the old process is GONE (probe dead), so its leftover
+        // reclaims regardless of the numeric pid.
+        const handle = acquireDrainLock({dir, owner: 'in-process', pid: 4242, isAlive: dead});
 
         expect(handle.pid).toBe(4242);
+        handle.release();
     });
 
     test('AC3: release removes the lock only when still ours, and is idempotent', async () => {
