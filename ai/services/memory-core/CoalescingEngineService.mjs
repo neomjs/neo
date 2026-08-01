@@ -55,6 +55,12 @@ const WAKE_PRIORITY_RANKS = Object.freeze({
  * epoch or ISO string). Returns `null` when nothing is resolvable — the caller then keeps
  * the previous last-write-wins behavior, so timestamp-less events are never re-ordered
  * by guesswork.
+ *
+ * @see buildWakeDigest (ai/daemons/wake/wakeDigestBuilder.mjs) — the daemon-side sibling seam for
+ *      per-bucket "latest" recency; string digest vs this service's structured digest envelope.
+ *      Deliberately separate implementations (spawn-only daemon entrypoint vs Neo singleton) —
+ *      repair one, check the other.
+ *
  * @param {Object} event Wake event envelope.
  * @returns {Number|null} Epoch ms, or null when no timestamp is resolvable.
  */
