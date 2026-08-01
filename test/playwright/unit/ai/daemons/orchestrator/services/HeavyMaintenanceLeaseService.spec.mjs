@@ -1645,3 +1645,72 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(atBoundary).toMatchObject({acquired: true, status: 'acquired-after-stale'});
     });
 });
+
+/**
+ * The cross-boot discriminator: a lease written by a DIFFERENT boot is stale regardless
+ * of pid liveness — inside a container, pid 1 is vacuously alive on every boot (the init), so a
+ * dead epoch's pid-1 lease would otherwise read live forever across a recreate. The gap-0 window
+ * specimen is the generalized form: pre-stop wedged lease surviving the post-restart reclaim and
+ * blocking the post-restoration backup until a manual rm.
+ *
+ * The discriminator is the payload's `bootId` — the container's hostname is its container ID,
+ * which changes on recreate. Pre-`bootId` payloads skip the clause unchanged: absent evidence is
+ * not a stale verdict, and no historical lease is condemned.
+ */
+test.describe('#16262 — bootId: cross-boot staleness regardless of pid liveness', () => {
+    const baseOptions = {
+        currentPid             : 7,
+        currentProcessStartedAt: new Date('2026-08-01T12:03:00.000Z'),
+        isPidAlive             : () => true, // the vacuous case: pid 1 is alive on every container boot
+        now                    : new Date('2026-08-01T12:13:00.000Z'),
+        currentBootId          : 'container-epoch-b'
+    };
+
+    test('a pid-1 lease from a DIFFERENT boot is stale even when the pid probe reports alive (the recreate specimen)', () => {
+        const lease = {
+            acquiredAt  : '2026-08-01T11:48:35.000Z',
+            expiresAt   : '2026-08-01T18:00:00.000Z',
+            pid         : 1,
+            bootId      : 'container-epoch-a',
+            staleAfterMs: 6 * 60 * 60 * 1000
+        };
+
+        expect(isLeaseStale(lease, baseOptions)).toBe(true);
+    });
+
+    test('a same-boot lease with a live holder is NOT staled by the clause (positive control)', () => {
+        const lease = {
+            acquiredAt  : '2026-08-01T12:10:00.000Z',
+            expiresAt   : '2026-08-01T18:00:00.000Z',
+            pid         : 1,
+            bootId      : 'container-epoch-b',
+            staleAfterMs: 6 * 60 * 60 * 1000
+        };
+
+        expect(isLeaseStale(lease, baseOptions)).toBe(false);
+    });
+
+    test('a pre-bootId payload classifies exactly as before — absent evidence is not a stale verdict', () => {
+        const leaseWithoutBootId = {
+            acquiredAt  : '2026-08-01T12:10:00.000Z',
+            expiresAt   : '2026-08-01T18:00:00.000Z',
+            pid         : 1,
+            staleAfterMs: 6 * 60 * 60 * 1000
+        };
+
+        // Live holder, no bootId: the clause must not fire; the liveness path answers.
+        expect(isLeaseStale(leaseWithoutBootId, baseOptions)).toBe(false);
+        // …and a dead pid on the same shape still stales via the liveness probe.
+        expect(isLeaseStale(leaseWithoutBootId, {...baseOptions, isPidAlive: () => false})).toBe(true);
+    });
+
+    test('buildLeasePayload emits bootId from os.hostname() by default and honors injection', async () => {
+        const os = await import('node:os');
+
+        const defaulted = buildLeasePayload({owner: 'kbSync', staleAfterMs: 1000});
+        expect(defaulted.bootId).toBe(os.hostname());
+
+        const injected = buildLeasePayload({owner: 'kbSync', staleAfterMs: 1000, bootId: 'injected-boot'});
+        expect(injected.bootId).toBe('injected-boot');
+    });
+});

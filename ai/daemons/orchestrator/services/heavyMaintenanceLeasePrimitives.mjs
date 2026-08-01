@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
+import os     from 'node:os';
 import path   from 'path';
 import {
     enterLifecycleGuard,
@@ -99,21 +100,38 @@ export function isPidAlive(pid) {
  * copied or restored state keeps the owning task's declared deadline. This is the
  * shared recovery contract for daemon-owned and CLI-owned maintenance work.
  *
+ * Discrimination is layered, most-external first: a lease from a DIFFERENT boot
+ * (`bootId` mismatch — a container recreate changes the hostname, which is the
+ * container ID) is stale regardless of pid liveness, because pid 1 is vacuously
+ * alive inside every container boot and a dead epoch's lease would otherwise read
+ * live forever. Within one boot, the process-epoch and pid-liveness checks below
+ * discriminate. Pre-`bootId` payloads skip the boot clause unchanged — absent
+ * evidence is not a stale verdict.
+ *
  * @param {Object|null} lease Persisted lease payload.
  * @param {Object} [options]
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {Function} [options.isPidAlive=isPidAlive] Process liveness probe seam.
  * @param {Number|String} [options.currentPid=process.pid] Current process id seam.
  * @param {Date|Number|String} [options.currentProcessStartedAt] Current process start seam.
+ * @param {String} [options.currentBootId=os.hostname()] Current boot discriminator seam.
  * @returns {Boolean}
  */
 export function isLeaseStale(lease, {
     now                     = new Date(),
     isPidAlive: isPidAliveFn = isPidAlive,
     currentPid              = process.pid,
-    currentProcessStartedAt = CURRENT_PROCESS_STARTED_AT
+    currentProcessStartedAt = CURRENT_PROCESS_STARTED_AT,
+    currentBootId           = os.hostname()
 } = {}) {
     if (!lease || !lease.acquiredAt) {
+        return true;
+    }
+
+    // Cross-boot discrimination FIRST: a lease written by a different boot (container recreate,
+    // machine restart) belongs to a dead epoch no matter what the pid probe says — inside a
+    // container, pid 1 is alive on every boot, so liveness alone is vacuous there.
+    if (typeof lease.bootId === 'string' && lease.bootId.length > 0 && lease.bootId !== currentBootId) {
         return true;
     }
 
@@ -214,6 +232,9 @@ export function shouldYieldHeavyMaintenanceLease(lease, {now = new Date(), maxAc
  * @param {Number} options.staleAfterMs Stale TTL in ms — REQUIRED; resolved from AiConfig at the boundary (no primitive default).
  * @param {Date|Number|String} [options.now=new Date()] Current time.
  * @param {String} [options.token] Owner release token.
+ * @param {String} [options.bootId=os.hostname()] Boot discriminator — the container's hostname is
+ *     its container ID, which changes on recreate, so a dead epoch's lease can never read as
+ *     belonging to the new boot. Additive: pre-field payloads are unaffected (see isLeaseStale).
  * @returns {Object}
  */
 export function buildLeasePayload({
@@ -223,7 +244,8 @@ export function buildLeasePayload({
     pid          = process.pid,
     staleAfterMs,
     now          = new Date(),
-    token        = crypto.randomUUID()
+    token        = crypto.randomUUID(),
+    bootId       = os.hostname()
 }) {
     if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
         throw new TypeError('buildLeasePayload: staleAfterMs (positive ms) is required — resolve it from AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs at the AiConfig-aware boundary; this Neo/Base-free primitive carries no TTL default by design.');
@@ -237,6 +259,7 @@ export function buildLeasePayload({
         reason,
         pid,
         token,
+        bootId,
         acquiredAt: acquiredAt.toISOString(),
         staleAfterMs,
         expiresAt : expiresAt.toISOString(),
