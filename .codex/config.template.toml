@@ -24,9 +24,10 @@ model_context_window = 1000000
 model_auto_compact_token_limit = 850000
 model_max_output_tokens = 128000
 
-# Neo's Memory Core and Knowledge Base MCP servers talk to local Chroma and
-# embedding services over loopback. Keep those services bound to localhost; this
-# flag only lets Codex sandboxed commands reach them from trusted checkouts.
+# Memory Core and Knowledge Base are reached over the container-plane ingress on
+# loopback, and Chroma plus the embedding services sit behind it. Keep every one of
+# them bound to localhost; this flag only lets Codex sandboxed commands reach them
+# from trusted checkouts.
 [sandbox_workspace_write]
 network_access = true
 
@@ -38,45 +39,36 @@ startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
-# Remote Gemini credentials are intentionally opt-in for local Codex MCP
-# servers. Add GEMINI_API_KEY only to the specific ignored .codex/config.toml
-# server env_vars that is explicitly testing remote Gemini, then restart the
-# harness so already-running MCP children drop any old environment.
+# Memory Core and Knowledge Base run inside the container plane and are reached
+# through its loopback ingress. Codex speaks remote MCP natively, so these two
+# tables carry `url` + `bearer_token_env_var` and no command, args, or env_vars.
+# Server-side configuration (embedding provider, Chroma, inference host) belongs
+# to the containers now, not to this file.
+#
+# THE BEARER IS RESOLVED IN THE HARNESS PROCESS ENVIRONMENT.
+# `bearer_token_env_var` names a slot Codex reads from its OWN environment at MCP
+# startup; the value never appears here. The retired stdio shape did not need this
+# — each server loaded the repo `.env` itself — so a seat that provisions cleanly
+# can still fail to authenticate if NEO_MCP_REMOTE_TOKEN is absent from the shell
+# that launched Codex. Export it from your shell profile before starting the
+# harness, and verify with `printenv NEO_MCP_REMOTE_TOKEN` in that same shell.
+# A GUI-launched harness inherits its environment from launchd rather than from a
+# shell, so this mechanism does not carry there; see
+# .claude/claude_desktop_config.example.json for the form that does.
+#
+# NEO_MCP_REMOTE_TOKEN is the one slot for this plane, shared with the Fleet seat
+# generators (src/ai/fleet/mcpServers.mjs). A repository credential is a different
+# authority and may never be substituted for it.
 [mcp_servers."neo-mjs-knowledge-base"]
-command = "npm"
-args = ["run", "--silent", "ai:mcp-server-knowledge-base"]
-env_vars = [
-    "NEO_AGENT_IDENTITY",
-    "NEO_CHROMA_EMBEDDING_PROVIDER",
-    "NEO_CHROMA_UNIFIED",
-    "NEO_EMBEDDING_PROVIDER",
-    "NEO_KB_ASK_API_KEY",
-    "NEO_KB_AUTO_START_DATABASE",
-    "NEO_OPENAI_COMPATIBLE_API_KEY",
-    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
-    "NEO_OPENAI_COMPATIBLE_HOST",
-    "NEO_OPENAI_COMPATIBLE_MODEL"
-]
+url = "http://127.0.0.1:3102/kb/mcp"
+bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 
 [mcp_servers."neo-mjs-memory-core"]
-command = "npm"
-args = ["run", "--silent", "ai:mcp-server-memory-core"]
-env_vars = [
-    "NEO_AGENT_IDENTITY",
-    "NEO_CHROMA_EMBEDDING_PROVIDER",
-    "NEO_CHROMA_UNIFIED",
-    "NEO_EMBEDDING_PROVIDER",
-    "NEO_MEM_AUTO_START_DATABASE",
-    "NEO_MEM_AUTO_START_INFERENCE",
-    "NEO_MODEL_PROVIDER",
-    "NEO_OPENAI_COMPATIBLE_API_KEY",
-    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
-    "NEO_OPENAI_COMPATIBLE_HOST",
-    "NEO_OPENAI_COMPATIBLE_MODEL"
-]
+url = "http://127.0.0.1:3102/mc/mcp"
+bearer_token_env_var = "NEO_MCP_REMOTE_TOKEN"
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
