@@ -336,15 +336,19 @@ test.describe('detectStarvedTenantSync (#16224 AC2/AC3)', () => {
     });
 
     test('a never-attempted repo counts as fresh, not stale (just-configured repos do not alert)', () => {
+        // The null `lastSyncAt` maps to `now`, so a lane whose every repo is newly configured
+        // holds heldMs = 0 — the starved status is honest about the shape, but no episode
+        // record can fire until something is genuinely old.
         const detection = detectStarvedTenantSync({
-            repoStates    : [suppressed(null), suppressed(new Date(NOW - 25 * H).toISOString())],
+            repoStates    : [suppressed(null), suppressed(null)],
             attemptedCount: 0,
             now           : NOW,
             starvedAfterMs: 6 * H
         });
 
         expect(detection.starved).toBe(true);
-        expect(detection.emit).toBe(false); // the null lastSyncAt maps to `now` — heldMs 0
+        expect(detection.emit).toBe(false);
+        expect(detection.evidence.heldMs).toBe(0);
     });
 
     test('starvedAfterMs 0 disables the event but never the status', () => {
