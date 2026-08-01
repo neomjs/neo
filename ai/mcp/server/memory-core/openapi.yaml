@@ -2447,7 +2447,7 @@ paths:
       operationId: manage_wake_subscription
       x-neo-tool-tier: extended
       x-pass-as-object: true
-      description: Subscribe / unsubscribe / update / list / resync agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
+      description: Subscribe / unsubscribe / update / list / resync / resume agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
       tags: [WakeSubscriptions]
       requestBody:
         required: true
@@ -2460,11 +2460,11 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [bootstrap, subscribe, unsubscribe, update, list, resync]
-                  description: Lifecycle action to perform on the subscription.
+                  enum: [bootstrap, subscribe, unsubscribe, update, list, resync, resume]
+                  description: "Lifecycle action to perform on the subscription. `resume` restores a route that was marked `status: degraded` after repeated delivery failures: it moves the persisted status back to `active` AND clears the in-flight markers in one step, which is what a restore requires - clearing only one half leaves the route skipped."
                 subscriptionId:
                   type: string
-                  description: Required for unsubscribe / update / resync; optional for list (single).
+                  description: Required for unsubscribe / update / resync / resume; optional for list (single).
                 trigger:
                   type: string
                   enum: [SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED]

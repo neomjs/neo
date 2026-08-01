@@ -68,6 +68,7 @@ function makeSubscriptionNode() {
         label     : 'WAKE_SUBSCRIPTION',
         properties: {
             userId               : '@neo-opus-grace',
+            agentIdentity        : '@neo-opus-grace',
             status               : 'active',
             harnessTarget        : 'a2a-webhook',
             harnessTargetMetadata: {
@@ -195,6 +196,135 @@ test.describe('WebhookDeliveryService — degrading a dead route from a backgrou
 
         expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HYYY'})).toBe('delivered');
         expect(fetchCalls.length).toBe(1);
+    });
+});
+
+test.describe('WakeSubscriptionService.resume — the operator-reachable way back (#16253)', () => {
+    let GraphService, WakeSubscriptionService, WebhookDeliveryService, RequestContextService;
+    let originalDb, originalGetAgentIdentityNodeId, originalFetch;
+    let fetchCalls = [];
+
+    test.beforeAll(async () => {
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        WakeSubscriptionService = (await import('../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs')).default;
+        WebhookDeliveryService = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
+        RequestContextService  = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        originalFetch          = global.fetch;
+        originalGetAgentIdentityNodeId = RequestContextService.getAgentIdentityNodeId;
+    });
+
+    test.beforeEach(() => {
+        originalDb      = GraphService.db;
+        requester.value = null;
+        fetchCalls      = [];
+
+        // `resume` is an operator action, so it resolves its caller from the REQUEST context — unlike the
+        // background flush, which has none. That asymmetry is the point: degrading happens without a
+        // requester, restoring requires one.
+        RequestContextService.getAgentIdentityNodeId = () => '@neo-opus-grace';
+
+        WebhookDeliveryService.configure({attemptTimeoutSeconds: 1});
+        WebhookDeliveryService.consecutiveFailures.clear();
+        WebhookDeliveryService.degradedSubscriptions.clear();
+        WakeSubscriptionService.subscriptionCache.clear();
+
+        global.fetch = async (url, options) => {
+            fetchCalls.push({url, options});
+            return {ok: false, status: 400};
+        };
+    });
+
+    test.afterEach(() => {
+        GraphService.db = originalDb;
+        requester.value = null;
+        global.fetch    = originalFetch;
+        RequestContextService.getAgentIdentityNodeId = originalGetAgentIdentityNodeId;
+        WakeSubscriptionService.subscriptionCache.clear();
+    });
+
+    test('degrade then resume restores delivery end-to-end', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        // Degrade it for real, through the delivery path.
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'});
+        expect(subscriptionNode.properties.status).toBe('degraded');
+        expect(WebhookDeliveryService.degradedSubscriptions.has(subscriptionNode.id)).toBe(true);
+
+        const result = await WakeSubscriptionService.resume({subscriptionId: subscriptionNode.id});
+
+        expect(result).toEqual({subscriptionId: subscriptionNode.id, status: 'active', wasDegraded: true});
+
+        // BOTH truths clear — the durable one and the in-flight one.
+        expect(subscriptionNode.properties.status).toBe('active');
+        expect(WebhookDeliveryService.degradedSubscriptions.has(subscriptionNode.id)).toBe(false);
+
+        // And the route actually delivers again, which is the only claim that matters.
+        fetchCalls   = [];
+        global.fetch = async (url, options) => {
+            fetchCalls.push({url, options});
+            return {ok: true, status: 200};
+        };
+
+        expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HYYY'})).toBe('delivered');
+        expect(fetchCalls.length).toBe(1);
+    });
+
+    test('clearDegraded ALONE does not resume — the two-phase contract is mandatory, not tribal', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'});
+        expect(subscriptionNode.properties.status).toBe('degraded');
+
+        // The footgun, pinned: clearing only the in-memory half looks like a restore and is not one.
+        WebhookDeliveryService.clearDegraded(subscriptionNode.id);
+
+        fetchCalls = [];
+        expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HYYY'})).toBe('skipped');
+        expect(fetchCalls.length).toBe(0);
+        expect(subscriptionNode.properties.status).toBe('degraded');
+    });
+
+    test('resume reports wasDegraded false for a route that was never degraded', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        const result = await WakeSubscriptionService.resume({subscriptionId: subscriptionNode.id});
+
+        expect(result.wasDegraded).toBe(false);
+        expect(subscriptionNode.properties.status).toBe('active');
+    });
+
+    test('resume refuses a subscription owned by someone else', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        RequestContextService.getAgentIdentityNodeId = () => '@neo-opus-ada';
+
+        // Restoring is an owner-scoped act. Without this, one seat could re-activate another seat's route.
+        await expect(WakeSubscriptionService.resume({subscriptionId: subscriptionNode.id}))
+            .rejects.toThrow(/Permission denied/);
+
+        expect(subscriptionNode.properties.status).toBe('active');
+    });
+
+    test('resume is reachable through the manage() tool dispatch', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'});
+        expect(subscriptionNode.properties.status).toBe('degraded');
+
+        // The operator surface, not just the method — an action nothing can dispatch is not a path.
+        const result = await WakeSubscriptionService.manage({
+            action        : 'resume',
+            subscriptionId: subscriptionNode.id
+        });
+
+        expect(result.status).toBe('active');
+        expect(result.wasDegraded).toBe(true);
+        expect(subscriptionNode.properties.status).toBe('active');
     });
 });
 

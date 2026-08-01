@@ -212,12 +212,17 @@ class WebhookDeliveryService extends Base {
     }
 
     /**
-     * @summary The named resumption path out of the degraded state.
+     * @summary Clears the IN-MEMORY degraded markers only — the restorer must also move the node's
+     * persisted `properties.status` off `'degraded'`, or the route stays skipped.
      *
-     * Degradation is terminal by design — a degraded route is never probed again, which is what bounds the
-     * attempt count. Repair is therefore explicit: whoever restores the endpoint clears the marker, and the
-     * persisted `status` must be moved off `'degraded'` in the same operation for the route to survive a
-     * process restart.
+     * This is half of a two-phase contract, not a self-sufficient resumption. The delivery skip reads
+     * BOTH truths — the flush's fresh `properties.status` and this process-local set — so calling this
+     * alone resumes nothing: the next flush re-reads a status that still says degraded.
+     *
+     * Degradation is terminal by design (a degraded route is never probed again, which is what bounds the
+     * attempt count), so coming back is an explicit operator act rather than anything the delivery path
+     * does on its own. `WakeSubscriptionService.resume` is the operator-reachable action that performs
+     * both phases as one step; prefer it over calling this directly.
      * @param {String} subscriptionId
      */
     clearDegraded(subscriptionId) {
