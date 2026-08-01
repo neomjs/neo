@@ -336,4 +336,106 @@ test.describe('CoalescingEngineService', () => {
         expect(aDigest?.payload.totalEvents).toBe(2);
         expect(bDigest?.payload.totalEvents).toBe(1);
     });
+
+    // -----------------------------------------------------------------------------
+    // Digest `latest` — recency, never iteration position
+    // -----------------------------------------------------------------------------
+
+    test('an out-of-order queue names the NEWEST event as latest, not the last-iterated one', () => {
+        // The live enablement-day shape: the fresh message was enqueued FIRST, then a replay
+        // batch of stale backlog events — and last-write-wins pointed at the backlog.
+        const fresh = buildEnvelope('wake/sent_to_me', {
+            subject: 'the fresh 11:21 message',
+            sentAt : '2026-08-01T11:21:47.000Z'
+        });
+        const staleBatch = [1, 2, 3].map(n => buildEnvelope('wake/sent_to_me', {
+            subject: `stale backlog probe ${n}`,
+            sentAt : '2026-07-31T23:04:46.000Z'
+        }));
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(
+            buildSubscription(),
+            [fresh, ...staleBatch],
+            Date.now() - 150000
+        );
+
+        expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('the fresh 11:21 message');
+        expect(digest.payload.breakdown.sent_to_me.count).toBe(4)
+    });
+
+    test('arrival-ordered queues behave exactly as before (recency matches iteration)', () => {
+        const stale = buildEnvelope('wake/sent_to_me', {subject: 'older', sentAt: '2026-07-31T23:04:46.000Z'});
+        const fresh = buildEnvelope('wake/sent_to_me', {subject: 'newer', sentAt: '2026-08-01T11:21:47.000Z'});
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [stale, fresh], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('newer')
+    });
+
+    test('equal timestamps keep the last-enqueued one (no drift for same-instant events)', () => {
+        const ts  = '2026-08-01T11:21:47.000Z',
+              one = buildEnvelope('wake/sent_to_me', {subject: 'first', sentAt: ts}),
+              two = buildEnvelope('wake/sent_to_me', {subject: 'second', sentAt: ts});
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [one, two], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('second')
+    });
+
+    test('timestamp-less payloads fall back to last-write-wins, never re-ordered by guesswork', () => {
+        const noTs = subject => {
+            const env = buildEnvelope('wake/sent_to_me', {subject});
+            delete env.emittedAt;
+            return env;
+        };
+
+        const first  = noTs('first-no-ts'),
+              second = noTs('second-no-ts');
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), [first, second], Date.now() - 150000);
+
+        expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('second-no-ts')
+    });
+
+    test('the envelope emittedAt is the recency fallback when the payload carries no sentAt', () => {
+        const noSentAt = (subject, emittedAt) => {
+            const env = buildEnvelope('wake/sent_to_me', {subject});
+            env.emittedAt = emittedAt;
+            return env;
+        };
+
+        const newerPayloadOlderPosition = noSentAt('newer-payload', '2026-08-01T11:21:47.000Z');
+        const olderPayloadNewerPosition = noSentAt('older-payload', '2026-07-31T23:04:46.000Z');
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(
+            buildSubscription(),
+            [newerPayloadOlderPosition, olderPayloadNewerPosition],
+            Date.now() - 150000
+        );
+
+        expect(digest.payload.breakdown.sent_to_me.latest.subject).toBe('newer-payload')
+    });
+
+    test('all four breakdown buckets track recency, not position', () => {
+        const events = [
+            buildEnvelope('wake/sent_to_me',        {subject: 'fresh-stm',  sentAt: '2026-08-01T11:21:47.000Z'}),
+            buildEnvelope('wake/task_state_changed', {subject: 'fresh-tsc',  sentAt: '2026-08-01T11:21:47.000Z'}),
+            buildEnvelope('wake/permission_granted', {subject: 'fresh-pg',   sentAt: '2026-08-01T11:21:47.000Z'}),
+            buildEnvelope('wake/heartbeat_pulse',    {subject: 'fresh-hbp',  sentAt: '2026-08-01T11:21:47.000Z'}),
+            buildEnvelope('wake/sent_to_me',        {subject: 'stale-stm',  sentAt: '2026-07-31T23:04:46.000Z'}),
+            buildEnvelope('wake/task_state_changed', {subject: 'stale-tsc',  sentAt: '2026-07-31T23:04:46.000Z'}),
+            buildEnvelope('wake/permission_granted', {subject: 'stale-pg',   sentAt: '2026-07-31T23:04:46.000Z'}),
+            buildEnvelope('wake/heartbeat_pulse',    {subject: 'stale-hbp',  sentAt: '2026-07-31T23:04:46.000Z'})
+        ];
+
+        const digest = CoalescingEngineService._buildDigestEnvelope(buildSubscription(), events, Date.now() - 150000),
+              b      = digest.payload.breakdown;
+
+        expect(b.sent_to_me.latest.subject).toBe('fresh-stm');
+        expect(b.task_state_changed.latest.subject).toBe('fresh-tsc');
+        expect(b.permission_granted.latest.subject).toBe('fresh-pg');
+        expect(b.heartbeat_pulse.latest.subject).toBe('fresh-hbp');
+        expect(b.sent_to_me.count).toBe(2);
+        expect(b.sent_to_me.highestPriority).toBe('normal')
+    });
 });

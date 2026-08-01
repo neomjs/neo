@@ -43,6 +43,45 @@ const WAKE_PRIORITY_RANKS = Object.freeze({
  * @singleton
  * @see learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md §6.4
  */
+
+/**
+ * @summary Resolves an event's recency timestamp for digest `latest` selection.
+ *
+ * The payload's `sentAt` wins first (mailbox events carry the message's own send time, which is
+ * the recency an agent reads the pointer by); the envelope's `emittedAt` is the fallback (numeric
+ * epoch or ISO string). Returns `null` when nothing is resolvable — the caller then keeps the
+ * previous last-write-wins behavior, so timestamp-less events are never re-ordered by guesswork.
+ * @param {Object} event Wake event envelope.
+ * @returns {Number|null} Epoch ms, or null when no timestamp is resolvable.
+ */
+function resolveEventTimestamp(event) {
+    const sentAt = event?.payload?.sentAt;
+
+    if (typeof sentAt === 'string') {
+        const ts = Date.parse(sentAt);
+
+        if (Number.isFinite(ts)) {
+            return ts
+        }
+    }
+
+    const emitted = event?.emittedAt;
+
+    if (typeof emitted === 'number' && Number.isFinite(emitted)) {
+        return emitted
+    }
+
+    if (typeof emitted === 'string') {
+        const ts = Date.parse(emitted);
+
+        if (Number.isFinite(ts)) {
+            return ts
+        }
+    }
+
+    return null
+}
+
 class CoalescingEngineService extends Base {
     static config = {
         /**
@@ -367,6 +406,13 @@ class CoalescingEngineService extends Base {
      * so Shape A and Shape B consumers can dispatch with the same shape they expect for
      * single events.
      *
+     * Each bucket's `latest` is chosen by RECENCY (max timestamp), never by iteration
+     * position: enqueue order is only arrival order when every event arrives live in
+     * sequence, and an out-of-order queue (replay batch, restart re-walk, multi-source
+     * evaluation) would otherwise point `latest` at a stale event while a newer one is
+     * present — the pointer agents use to decide whether a wake is worth acting on.
+     * Timestamp-less payloads fall back to last-write-wins, the previous behavior.
+     *
      * @protected
      * @param {Object} subscription
      * @param {Object[]} events Queued event envelopes
@@ -375,41 +421,46 @@ class CoalescingEngineService extends Base {
      */
     _buildDigestEnvelope(subscription, events, firstQueuedAt) {
         const breakdown = {
-            sent_to_me        : {count: 0, latest: null, highestPriority: 'normal'},
-            task_state_changed: {count: 0, latest: null},
-            permission_granted: {count: 0, latest: null},
-            heartbeat_pulse   : {count: 0, latest: null}
+            sent_to_me        : {count: 0, latest: null, latestTs: null, highestPriority: 'normal'},
+            task_state_changed: {count: 0, latest: null, latestTs: null},
+            permission_granted: {count: 0, latest: null, latestTs: null},
+            heartbeat_pulse   : {count: 0, latest: null, latestTs: null}
+        };
+
+        const bucketOf = {
+            'wake/sent_to_me'        : 'sent_to_me',
+            'wake/task_state_changed': 'task_state_changed',
+            'wake/permission_granted': 'permission_granted',
+            'wake/heartbeat_pulse'   : 'heartbeat_pulse'
         };
 
         for (const evt of events) {
-            switch (evt.eventType) {
-                case 'wake/sent_to_me': {
-                    const priority = Object.hasOwn(WAKE_PRIORITY_RANKS, evt.payload?.priority)
-                        ? evt.payload.priority
-                        : 'normal';
+            const bucketKey = bucketOf[evt.eventType];
 
-                    breakdown.sent_to_me.count++;
-                    breakdown.sent_to_me.latest = evt.payload;
-                    if (
-                        WAKE_PRIORITY_RANKS[priority] >
-                        WAKE_PRIORITY_RANKS[breakdown.sent_to_me.highestPriority]
-                    ) {
-                        breakdown.sent_to_me.highestPriority = priority;
-                    }
-                    break;
+            if (!bucketKey) {
+                continue
+            }
+
+            const bucket = breakdown[bucketKey];
+
+            bucket.count++;
+
+            const ts = resolveEventTimestamp(evt);
+
+            // Recency wins over position; a timestamp-less candidate keeps last-write-wins.
+            if (bucket.latest === null || ts === null || ts >= bucket.latestTs) {
+                bucket.latest   = evt.payload;
+                bucket.latestTs = ts ?? bucket.latestTs;
+            }
+
+            if (bucketKey === 'sent_to_me') {
+                const priority = Object.hasOwn(WAKE_PRIORITY_RANKS, evt.payload?.priority)
+                    ? evt.payload.priority
+                    : 'normal';
+
+                if (WAKE_PRIORITY_RANKS[priority] > WAKE_PRIORITY_RANKS[bucket.highestPriority]) {
+                    bucket.highestPriority = priority;
                 }
-                case 'wake/task_state_changed':
-                    breakdown.task_state_changed.count++;
-                    breakdown.task_state_changed.latest = evt.payload;
-                    break;
-                case 'wake/permission_granted':
-                    breakdown.permission_granted.count++;
-                    breakdown.permission_granted.latest = evt.payload;
-                    break;
-                case 'wake/heartbeat_pulse':
-                    breakdown.heartbeat_pulse.count++;
-                    breakdown.heartbeat_pulse.latest = evt.payload;
-                    break;
             }
         }
 
