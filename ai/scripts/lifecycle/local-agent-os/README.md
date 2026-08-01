@@ -138,8 +138,14 @@ npm run ai:wake-manifest -- \
   --instance-address /absolute/validated/seat-profile
 
 # Publishing writes the file; it does NOT make the route live. A running receiver
-# holds the manifest it validated, so signal it to re-read:
-kill -HUP "$(pgrep -f 'wake/receiver.mjs')"
+# holds the manifest it validated.
+#
+# ⚠️ CHECK BEFORE SIGNALLING. The reload handler exists only in a receiver started
+# from code that contains it. Node's default for an UNHANDLED SIGHUP is to
+# TERMINATE, so on an older process this kills wake delivery for every seat:
+grep -c SIGHUP ./ai/daemons/wake/receiver.mjs   # 0 ⇒ restart instead, never signal
+
+kill -HUP "$(pgrep -f 'wake/receiver.mjs')"     # only when the check above is non-zero
 ```
 
 **Publishing is not provisioning.** Until the running receiver re-reads, a newly
@@ -147,6 +153,12 @@ published route answers `404`, and the sender treats a 4xx as a client error and
 degrades the subscription immediately with no retry — so the route goes deaf on
 its *first* wake rather than failing gradually. Signal after publishing, or start
 the receiver afterwards.
+
+**A receiver predating the reload handler must be restarted, not signalled.** The
+handler and this instruction ship together, but a *running* process keeps whatever
+code it started with — the same publish-versus-provision gap one layer up. Order
+for adopting it: restart once from code containing the handler, and only then is
+`SIGHUP` the reload path.
 
 A reload that fails validation is refused and logged, leaving the routes already
 serving untouched; an unreadable or half-written manifest cannot empty a working
