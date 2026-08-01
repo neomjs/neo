@@ -1,9 +1,9 @@
-import {test, expect}                  from '@playwright/test';
-import Neo                             from '../../../../../../src/Neo.mjs';
-import * as core                       from '../../../../../../src/core/_export.mjs';
+import {test, expect}                             from '@playwright/test';
+import Neo                                        from '../../../../../../src/Neo.mjs';
+import * as core                                  from '../../../../../../src/core/_export.mjs';
 import {mkdtemp, rm, readFile, writeFile, access} from 'fs/promises';
-import os                              from 'os';
-import path                            from 'path';
+import os                                         from 'os';
+import path                                       from 'path';
 
 import {
     acquireDrainLock,
@@ -19,7 +19,8 @@ import {
  *                     DrainLockHeldError and does NOT take over (holder descriptor unchanged).
  *   AC2 stale       — a dead holder's lock is reclaimed by the next host (daemon succession path).
  *   AC2 corrupt     — an unparseable lock never wedges the drain: it is reclaimed.
- *   AC2 same-pid    — our own leftover lock is reclaimed (no self-deadlock on pid reuse / restart).
+ *   AC2 boot epoch  — a previous container's PID-1 lock is reclaimed even though PID 1 is alive.
+ *   AC2 legacy pid  — a pre-bootId equal-PID lock predating this process is reclaimed.
  *   AC3 release     — release removes the lock iff it is still ours, is idempotent, and a displaced
  *                     host's late release never clobbers a successor's lock.
  *
@@ -49,7 +50,7 @@ test.describe('Neo.ai.daemons.embed.drainLock', () => {
         expect(handle.pid).toBe(4242);
 
         const holder = await holderNow();
-        expect(holder).toMatchObject({pid: 4242, owner: 'daemon'});
+        expect(holder).toMatchObject({pid: 4242, owner: 'daemon', bootId: os.hostname()});
         expect(holder.startedAt).toBe('1970-01-01T00:00:01.000Z');
     });
 
@@ -92,6 +93,75 @@ test.describe('Neo.ai.daemons.embed.drainLock', () => {
 
         expect(handle.pid).toBe(5555);
         expect((await holderNow()).pid).toBe(5555);
+    });
+
+    test('AC2: a previous container boot’s PID-1 lock is stale even though PID 1 is alive', async () => {
+        acquireDrainLock({
+            dir,
+            owner  : 'in-process',
+            pid    : 1,
+            bootId : 'container-epoch-a',
+            now    : () => 1000,
+            isAlive: alive
+        });
+
+        const handle = acquireDrainLock({
+            dir,
+            owner                  : 'in-process',
+            pid                    : 1,
+            bootId                 : 'container-epoch-b',
+            now                    : () => 3000,
+            currentProcessStartedAt: 2000,
+            isAlive                : alive
+        });
+
+        expect(handle.pid).toBe(1);
+        expect(await holderNow()).toMatchObject({pid: 1, bootId: 'container-epoch-b'});
+    });
+
+    test('AC2: a legacy equal-PID lock predating this process is reclaimed', async () => {
+        await writeFile(lockPath(), JSON.stringify({
+            pid       : 1,
+            owner     : 'in-process',
+            ownerToken: 'previous-process-token',
+            startedAt : '1970-01-01T00:00:01.000Z',
+            lastPulse : '1970-01-01T00:00:01.000Z'
+        }), 'utf8');
+
+        const handle = acquireDrainLock({
+            dir,
+            owner                  : 'in-process',
+            pid                    : 1,
+            bootId                 : 'container-epoch-b',
+            now                    : () => 3000,
+            currentProcessStartedAt: 2000,
+            isAlive                : alive
+        });
+
+        expect(handle.pid).toBe(1);
+        expect(await holderNow()).toMatchObject({pid: 1, bootId: 'container-epoch-b'});
+    });
+
+    test('AC2: a legacy different live PID remains held — absent boot identity is not stale evidence', async () => {
+        await writeFile(lockPath(), JSON.stringify({
+            pid       : 4242,
+            owner     : 'daemon',
+            ownerToken: 'live-holder-token',
+            startedAt : '1970-01-01T00:00:01.000Z',
+            lastPulse : '1970-01-01T00:00:01.000Z'
+        }), 'utf8');
+
+        expect(() => acquireDrainLock({
+            dir,
+            owner                  : 'in-process',
+            pid                    : 1,
+            bootId                 : 'container-epoch-b',
+            now                    : () => 3000,
+            currentProcessStartedAt: 2000,
+            isAlive                : alive
+        })).toThrow(DrainLockHeldError);
+
+        expect(await holderNow()).toMatchObject({pid: 4242, ownerToken: 'live-holder-token'});
     });
 
     test('AC2: equal numeric pids never self-deadlock — token identity governs, a dead probe still reclaims', async () => {

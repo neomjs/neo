@@ -59,4 +59,28 @@ test.describe('Neo.ai.daemons.message.drainLock', () => {
         expect(thrown.message).toContain('message daemon OR messageWal.inProcessDrain');
         expect((await holderNow()).pid).toBe(4242);
     });
+
+    test('reclaims the message WAL lock across container boot identity', async () => {
+        acquireMessageDrainLock({
+            dir,
+            owner  : 'in-process',
+            pid    : 1,
+            bootId : 'container-epoch-a',
+            now    : () => 1000,
+            isAlive: alive
+        });
+
+        const handle = acquireMessageDrainLock({
+            dir,
+            owner                  : 'in-process',
+            pid                    : 1,
+            bootId                 : 'container-epoch-b',
+            now                    : () => 3000,
+            currentProcessStartedAt: 2000,
+            isAlive                : alive
+        });
+
+        expect(handle.pid).toBe(1);
+        expect(await holderNow()).toMatchObject({pid: 1, bootId: 'container-epoch-b'});
+    });
 });
