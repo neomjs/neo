@@ -1779,7 +1779,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
     test('returns null if backupPath does not exist', async () => {
         const mockFs = { pathExists: async () => false };
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0 });
+        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0 });
     });
 
     test('returns null if no backup directories exist', async () => {
@@ -1791,7 +1791,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
             ]
         };
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0 });
+        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0 });
     });
 
     test('returns timestamp of most recent backup with completedAt marker', async () => {
@@ -1818,7 +1818,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         };
 
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: '2023-10-02T12:00:00Z', lastCompleted: '2023-10-02T12:00:00Z', count: 3, unusableCount: 0 });
+        expect(result).toEqual({ lastSuccessful: '2023-10-02T12:00:00Z', lastCompleted: '2023-10-02T12:00:00Z', count: 3, unusableCount: 0, unverifiedCount: 2 });
     });
 
     test('returns null if all backups lack completedAt marker', async () => {
@@ -1835,7 +1835,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         };
 
         const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
-        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 1, unusableCount: 0 });
+        expect(result).toEqual({ lastSuccessful: null, lastCompleted: null, count: 1, unusableCount: 0, unverifiedCount: 0 });
     });
 });
 
@@ -1947,15 +1947,53 @@ test.describe('HealthService #16240 — an empty-verdict bundle is not a recover
     });
 
     test('a bundle with NO integrity block is reported, not silently disqualified', async () => {
-        // Bundles predating the integrity block exist in retained series. Absent evidence is not
-        // evidence of emptiness — disqualifying them would erase every historical recovery source
-        // and turn this fix into a worse outage than the bug.
+        // Absent evidence is not evidence of emptiness. Disqualifying an unverified bundle would
+        // condemn any series predating the integrity block — a worse outage than the bug — so it
+        // stays eligible.
         const result = await buildBackupStateBlock('/fake/path', fsWith({
             'backup-2026-07-01T13-23-24': {timestamp: '2026-07-01T13:23:24Z', completedAt: '2026-07-01T13:24:00Z'}
         }), mockPath);
 
         expect(result.lastSuccessful).toBe('2026-07-01T13:23:24Z');
         expect(result.unusableCount).toBe(0);
+    });
+
+    test('…but it is COUNTED as unverified — eligible is not the same as verified', async () => {
+        // The distinction the receipt already carries as `restorable: null`. Reporting a bundle as
+        // `lastSuccessful` without saying whether its restorability was ever established is this
+        // ticket's own defect one layer in: a computed verdict reaching one surface and not the
+        // other. `unverifiedCount: 0` is a positive assertion that everything reported was checked
+        // — information, not noise, and load-bearing the moment it is non-zero.
+        const result = await buildBackupStateBlock('/fake/path', fsWith({
+            'backup-2026-07-01T13-23-24': {timestamp: '2026-07-01T13:23:24Z', completedAt: '2026-07-01T13:24:00Z'},
+            'backup-2026-07-30T19-28-57': {timestamp: '2026-07-30T19:28:57Z', completedAt: '2026-07-30T19:29:53Z', integrity: CLEAN_VERDICT}
+        }), mockPath);
+
+        // The verified bundle is newest so it wins `lastSuccessful`, and the older unverified one
+        // is declared rather than silently folded into the total.
+        expect(result.lastSuccessful).toBe('2026-07-30T19:28:57Z');
+        expect(result.unverifiedCount).toBe(1);
+        expect(result.unusableCount).toBe(0);
+    });
+
+    test('an all-verified series asserts ZERO unverified — the two surfaces agree', async () => {
+        const result = await buildBackupStateBlock('/fake/path', fsWith({
+            'backup-2026-07-30T19-28-57': {timestamp: '2026-07-30T19:28:57Z', completedAt: '2026-07-30T19:29:53Z', integrity: CLEAN_VERDICT}
+        }), mockPath);
+
+        expect(result.unverifiedCount).toBe(0);
+    });
+
+    test('an unverified bundle can BE the reported one, and the output says so', async () => {
+        // What makes the counter load-bearing rather than decorative: nothing in this series was
+        // ever verified, yet one is still reported. Without the count that output is
+        // indistinguishable from a fully-verified series.
+        const result = await buildBackupStateBlock('/fake/path', fsWith({
+            'backup-2026-07-01T13-23-24': {timestamp: '2026-07-01T13:23:24Z', completedAt: '2026-07-01T13:24:00Z'}
+        }), mockPath);
+
+        expect(result.lastSuccessful).toBe('2026-07-01T13:23:24Z');
+        expect(result.unverifiedCount).toBe(1);
     });
 });
 

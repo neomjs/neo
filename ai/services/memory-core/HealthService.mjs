@@ -612,10 +612,15 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  *   `empty` fatal would break first boot for every new deployment.
  * - `unusableCount` — completed bundles disqualified by an `empty` verdict, so
  *   `lastSuccessful: null` with a non-zero `count` cannot be misread as "runs that never finished".
+ * - `unverifiedCount` — completed bundles carrying **no** integrity block, so "eligible" is never
+ *   silently reported as "verified".
  *
- * A bundle with **no** integrity block counts as usable. Bundles predating the block exist in
- * retained series, and absent evidence is not evidence of emptiness — disqualifying them would
- * erase every historical recovery source and make this fix worse than the defect.
+ * A bundle with no integrity block stays **eligible**: absent evidence is not evidence of
+ * emptiness, and disqualifying it would condemn any series predating the block — worse than the
+ * defect. But eligible is not verified, and the receipt already records that difference as
+ * `restorable: null`. Dropping it here would leave a computed verdict reaching one surface and not
+ * the other, which is the exact failure this whole change exists to end. `unverifiedCount: 0` is a
+ * positive assertion that everything reported was checked.
  *
  * @param {String} backupPath The path to the root backup directory.
  * @param {Object} fs The fs-extra module (dependency injected for testing).
@@ -623,7 +628,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  * @returns {Promise<{lastSuccessful: String|null, lastCompleted: String|null, count: Number, unusableCount: Number, error: String|undefined}>}
  */
 export async function buildBackupStateBlock(backupPath, fs, path) {
-    const empty = {lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0};
+    const empty = {lastSuccessful: null, lastCompleted: null, count: 0, unusableCount: 0, unverifiedCount: 0};
 
     try {
         if (!await fs.pathExists(backupPath)) {
@@ -643,11 +648,12 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
         backupDirs.sort((a, b) => b.localeCompare(a));
 
         let
-            lastSuccessful = null,
-            lastCompleted  = null,
-            unusableCount  = 0,
-            sawSuccessful  = false,
-            sawCompleted   = false;
+            lastSuccessful  = null,
+            lastCompleted   = null,
+            unusableCount   = 0,
+            unverifiedCount = 0,
+            sawSuccessful   = false,
+            sawCompleted    = false;
 
         // Full scan rather than break-on-first: `unusableCount` is a property of the SERIES, and an
         // operator reading `lastSuccessful: null` needs to know whether that means "nothing finished"
@@ -673,9 +679,18 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 
             // Same rule as the backup receipt, imported rather than restated — two copies of one
             // predicate is how the halves of a contract end up disagreeing.
-            if (isBundleRestorable(meta.integrity) === false) {
+            const restorable = isBundleRestorable(meta.integrity);
+
+            if (restorable === false) {
                 unusableCount++;
                 continue;
+            }
+
+            // Eligible but never checked. Counted rather than dropped: the receipt records this as
+            // `restorable: null`, and a verdict that reaches one surface and not the other is the
+            // defect this change exists to end.
+            if (restorable === null) {
+                unverifiedCount++;
             }
 
             if (!sawSuccessful) {
@@ -688,7 +703,8 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
             lastSuccessful,
             lastCompleted,
             count        : backupDirs.length,
-            unusableCount
+            unusableCount,
+            unverifiedCount
         };
     } catch (e) {
         return {
