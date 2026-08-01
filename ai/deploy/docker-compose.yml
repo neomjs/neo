@@ -309,13 +309,13 @@ services:
       - neo-mcp-network
     profiles:
       - cloud
-    # Liveness verified via TaskStateService's persistent state file (#11937).
-    # TaskStateService writes JSON state on every task lifecycle transition;
-    # mtime within 10 minutes (≫ swarm-heartbeat + summary cadences with safety
-    # margin) = orchestrator is alive and polling. 90s start_period covers the
-    # first-poll latency on cold container boot.
+    # Liveness follows the per-role authority lease, which the Orchestrator
+    # refreshes on every poll independently of task lifecycle transitions. A legitimate
+    # long-running child can leave orchestrator-state.json unchanged for more than ten
+    # minutes; task progress stays observable there without making Docker report daemon
+    # death. 90s start_period covers the first-poll latency on cold container boot.
     healthcheck:
-      test: ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const fs=await import('node:fs');const f=AiConfig.orchestrator.dataDir+'/orchestrator-state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch{process.exit(1)}"]
+      test: ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const{inspectAuthorityLease}=await import('./ai/daemons/orchestrator/authorityLease.mjs');try{const{fresh}=inspectAuthorityLease({dir:AiConfig.orchestrator.dataDir,profile:AiConfig.orchestrator.authorityProfile});process.exit(fresh?0:1)}catch{process.exit(1)}"]
       interval: 60s
       timeout: 5s
       retries: 3

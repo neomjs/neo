@@ -111,7 +111,7 @@ function defaultIsHeldFresh({holder}) {
  * @param {Object} fsImpl
  * @returns {Object|null}
  */
-function readHolder(lockPath, fsImpl) {
+export function readFileLeaseHolder(lockPath, fsImpl = fs) {
     try {
         const parsed = JSON.parse(fsImpl.readFileSync(lockPath, 'utf8'));
 
@@ -211,7 +211,7 @@ export function acquireFileLease({
                 }
 
                 try {
-                    const holder = readHolder(lockPath, fsImpl);
+                    const holder = readFileLeaseHolder(lockPath, fsImpl);
 
                     if (!holder) {
                         throw new FileLeaseLostError({lockPath, pid, reason: 'lease file missing or corrupt'});
@@ -253,7 +253,7 @@ export function acquireFileLease({
                 if (!guard) return; // contended — a stale leftover reclaims via the liveness strategy
 
                 try {
-                    const holder = readHolder(lockPath, fsImpl);
+                    const holder = readFileLeaseHolder(lockPath, fsImpl);
                     if (holder && holder.ownerToken === token && verifyLifecycleGuardOwnershipSync({ownerFilePath: guard.ownerFilePath, fsModule: fsImpl})) {
                         fsImpl.unlinkSync(lockPath);
                         log('INFO', `[file-lease] released by ${owner} pid ${pid} (${lockPath})`);
@@ -284,11 +284,11 @@ export function acquireFileLease({
             const guard = enterLifecycleGuardSync({leasePath: lockPath, fsModule: fsImpl});
 
             if (!guard) {
-                throw heldError({lockPath, holder: readHolder(lockPath, fsImpl), requester: {owner, pid}});
+                throw heldError({lockPath, holder: readFileLeaseHolder(lockPath, fsImpl), requester: {owner, pid}});
             }
 
             try {
-                const holder = readHolder(lockPath, fsImpl);
+                const holder = readFileLeaseHolder(lockPath, fsImpl);
 
                 if (holder && holder.ownerToken !== token && isHeldFresh({holder, now: now()})) {
                     throw heldError({lockPath, holder, requester: {owner, pid}});
@@ -314,5 +314,5 @@ export function acquireFileLease({
 
     // Both passes lost the wx race: another claimant re-claimed between our guarded unlink and
     // the retry — refuse rather than a third pass.
-    throw heldError({lockPath, holder: readHolder(lockPath, fsImpl), requester: {owner, pid}});
+    throw heldError({lockPath, holder: readFileLeaseHolder(lockPath, fsImpl), requester: {owner, pid}});
 }
