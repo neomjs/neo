@@ -147,7 +147,9 @@ function formatPullRequestStateEcho(summary = {}) {
  *
  * @param {Object} record Durable receiver record.
  * @param {Object} [dependencies] Injectable host effects for tests.
- * @returns {Promise<'delivered'|'skipped'|'failed'|'unknown'>}
+ * @returns {Promise<'delivered'|'skipped'|'failed'|'unknown'|{outcome:'failed',outcomeReason:String}>}
+ *   A bare outcome string, or `{outcome, outcomeReason}` when a cause was captured. The receiver
+ *   accepts either, so the reason channel is additive and no caller needs updating to keep working.
  */
 export async function dispatchLocalWake(record, dependencies = {}) {
     const meta           = record?.route?.harnessTargetMetadata || {};
@@ -184,8 +186,11 @@ export async function dispatchLocalWake(record, dependencies = {}) {
 
     try {
         return await Promise.race([attempt, timeout]);
-    } catch {
-        return 'failed';
+    } catch (error) {
+        // The SHARED boundary — every adapter's errors arrive here, not only osascript's. Discarding
+        // the cause at this catch loses it for opencode-server, tmux, codex-app-server and the webhook
+        // path alike, which is the same defect the osascript branch fixes one level down.
+        return {outcome: 'failed', outcomeReason: String(error?.message || error?.code || 'adapter-error')}
     } finally {
         clearTimeout(timer);
     }
@@ -722,8 +727,12 @@ async function deliverOsascriptWithRetry(effects, args, subscriptionId) {
                 await new Promise(resolve => setTimeout(resolve, 800));
                 continue;
             }
-            effects.log.error?.(`[Wake Receiver] osascript failed for ${subscriptionId}`);
-            return 'failed';
+            // The captured stderr is the only in-band account of WHY this failed — a TCC denial, a
+            // missing target process, a script error. Reporting the id alone leaves an operator with
+            // a confident line and no cause, which is harder to notice than silence. Carried on the
+            // record too: a receiver under launchd writes stdout where nobody reads it.
+            effects.log.error?.(`[Wake Receiver] osascript failed for ${subscriptionId}: ${message}`);
+            return {outcome: 'failed', outcomeReason: message};
         }
     }
     return 'failed';

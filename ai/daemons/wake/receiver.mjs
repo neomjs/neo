@@ -193,7 +193,18 @@ export function createWakeReceiver({
                 let outcomeReason;
 
                 try {
-                    outcome = await dispatch(dispatching);
+                    // An adapter returns either a bare outcome string or `{outcome, outcomeReason}`.
+                    // The reason channel lets a terminal failure name its cause without throwing —
+                    // throwing would change the retry semantics, and the cause belongs on the record
+                    // regardless of how the adapter chose to end.
+                    const result = await dispatch(dispatching);
+
+                    outcome = typeof result === 'string' ? result : result?.outcome;
+
+                    if (result && typeof result === 'object' && result.outcomeReason) {
+                        outcomeReason = String(result.outcomeReason);
+                    }
+
                     if (!['delivered', 'skipped', 'failed', 'unknown'].includes(outcome)) {
                         outcomeReason = `invalid-adapter-outcome:${String(outcome)}`;
                         outcome       = 'failed';

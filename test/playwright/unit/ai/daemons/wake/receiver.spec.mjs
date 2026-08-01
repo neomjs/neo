@@ -30,19 +30,22 @@ test.describe('ai/daemons/wake/receiver', () => {
         }
     };
 
-    let baseUrl, dispatchCalls, receiver, server, state, stateDir;
+    let baseUrl, dispatchCalls, dispatchResult, receiver, server, state, stateDir;
 
     test.beforeEach(async () => {
         stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-wake-receiver-'));
         state    = new WakeReceiverState({stateDir});
         await state.init();
-        dispatchCalls = [];
+        dispatchCalls  = [];
+        // Adapters may end with a bare outcome string or `{outcome, outcomeReason}`; tests select
+        // the shape under test rather than each building a receiver of their own.
+        dispatchResult = 'delivered';
         receiver = createWakeReceiver({
             manifest,
             state,
             dispatch: async record => {
                 dispatchCalls.push(record);
-                return 'delivered';
+                return dispatchResult;
             },
             logger: {error() {}, warn() {}, log() {}}
         });
@@ -132,6 +135,42 @@ test.describe('ai/daemons/wake/receiver', () => {
         expect(await second.json()).toMatchObject({status: 'duplicate'});
         expect(dispatchCalls).toHaveLength(1);
         expect((await state.list())[0].route).not.toHaveProperty('signingKey');
+    });
+
+    test('a terminal adapter failure persists the reason it reported (#16259)', async () => {
+        dispatchResult = {outcome: 'failed', outcomeReason: 'kTCCServicePostEvent denied (-1743)'};
+
+        expect((await postWake()).status).toBe(202);
+
+        const [record] = await waitForState('failed');
+
+        // Read the DURABLE record, not the log. A receiver run under launchd writes stdout nowhere
+        // an operator reads, so a failure whose cause exists only in a log line has no cause at all.
+        expect(record.outcomeReason).toBe('kTCCServicePostEvent denied (-1743)');
+    });
+
+    test('a bare outcome string still terminalizes and carries no invented reason (#16259)', async () => {
+        dispatchResult = 'failed';
+
+        expect((await postWake()).status).toBe(202);
+
+        const [record] = await waitForState('failed');
+
+        // The reason channel is additive. A string-returning adapter must not acquire a fabricated
+        // reason, and must not be misread as an invalid outcome by the object-handling branch.
+        expect(record).not.toHaveProperty('outcomeReason');
+    });
+
+    test('an adapter returning a reason with an unknown outcome still fails closed (#16259)', async () => {
+        dispatchResult = {outcome: 'nonsense', outcomeReason: 'ignored'};
+
+        expect((await postWake()).status).toBe(202);
+
+        const [record] = await waitForState('failed');
+
+        // The invalid-outcome guard must win over the adapter-supplied reason, otherwise a typo'd
+        // outcome would land as a terminal state nobody validated.
+        expect(record.outcomeReason).toBe('invalid-adapter-outcome:nonsense');
     });
 
     test('signed header/body route mismatches fail before acceptance', async () => {
