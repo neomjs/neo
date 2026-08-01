@@ -26,6 +26,7 @@
         "ai:benchmark-gemma4"                  : "node ./ai/scripts/benchmark/gemma4-rem-benchmark.mjs",
         "ai:benchmark-setup-class"             : "node --expose-gc ./ai/scripts/benchmark/setupClass-cold-start.mjs",
         "ai:bootstrap-codex-sandbox"           : "node ./ai/scripts/diagnostics/bootstrapCodexSandbox.mjs",
+        "ai:check-backup-integrity"            : "node ./ai/scripts/maintenance/backupCorruptionTimeline.mjs",
         "ai:check-chroma-integrity"            : "node ./ai/scripts/maintenance/checkChromaIntegrity.mjs",
         "ai:check-identity-facts"              : "node ./ai/scripts/diagnostics/check-identity-facts.mjs",
         "ai:front-door-fingerprint"            : "node ./ai/scripts/lint/check-front-door-fingerprint.mjs",
