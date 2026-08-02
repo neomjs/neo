@@ -410,6 +410,12 @@ class DockService extends Service {
      * identity ⇒ no per-writer undo stack) or an unresolvable target, so {@link #recordUndo} no-ops.
      * The reverse is a re-dispatchable validated tool descriptor — data-not-code, per the Neural
      * Link capability boundary.
+     *
+     * Named bound: a whole-document reverse is **per-writer last-writer-wins**. A's undo re-commits
+     * A's pre-mutation document and silently discards any mutation B interleaved between A's capture
+     * and A's undo — `targetSubtreePath` is audit metadata, never an enforcement path, so nothing at
+     * undo time checks that the subtree still matches capture-time. Inherent to document-as-state,
+     * not a defect; single-writer surfaces never reveal it.
      * @param {Object} params
      * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
      * @param {String} params.componentId The dock workspace / holder component id
