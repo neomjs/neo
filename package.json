@@ -209,7 +209,6 @@
         "better-sqlite3"               : "^12.11.1",
         "chalk"                        : "^5.6.2",
         "chromadb"                     : "^3.5.0",
-        "clean-webpack-plugin"         : "^4.0.0",
         "commander"                    : "^15.0.0",
         "cssnano"                      : "^7.1.9",
         "dotenv"                       : "^17.4.2",
@@ -217,7 +216,6 @@
         "esbuild"                      : "^0.28.1",
         "fast-glob"                    : "^3.3.3",
         "fs-extra"                     : "^11.3.6",
-        "glob"                         : "^13.0.6",
         "gray-matter"                  : "^4.0.3",
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
@@ -239,9 +237,7 @@
         "webpack-cli"                  : "^7.1.0",
         "webpack-dev-server"           : "^6.0.0",
         "webpack-hook-plugin"          : "^1.0.7",
-        "webpack-node-externals"       : "^3.0.0",
         "ws"                           : "^8.21.0",
-        "yargs"                        : "^18.0.0",
         "zod"                          : "^4.4.3"
     },
     "funding": {
