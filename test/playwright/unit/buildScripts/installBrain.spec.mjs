@@ -1,0 +1,80 @@
+import {test, expect}  from '@playwright/test';
+import {execFileSync}  from 'node:child_process';
+import fs              from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+import {
+    buildNpmArgs,
+    resolveBrainInstallPlan
+} from '../../../../buildScripts/util/installBrain.mjs';
+
+const
+    __filename        = fileURLToPath(import.meta.url),
+    repoRoot          = path.resolve(path.dirname(__filename), '../../../..'),
+    brainManifestPath = path.join(repoRoot, 'package.brain.json'),
+    rootManifestPath  = path.join(repoRoot, 'package.json');
+
+/**
+ * @summary The two-path install tier: Body default, Brain opt-in. These guards run in
+ * the BODY project precisely so they execute on a base install — a guard living behind the
+ * brain seam could never fire where the boundary matters most.
+ */
+test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)', () => {
+    test('the base manifest declares NONE of the Brain set (absence, not a better value)', () => {
+        // The tier boundary IS the absence: re-adding a Brain package to root devDependencies
+        // re-imposes the native compile on every Body contributor. Asserting absence cannot rot
+        // the way asserting a "correct" location can — there is no correct value here.
+        const rootManifest = JSON.parse(fs.readFileSync(rootManifestPath, 'utf8')),
+              offenders    = ['better-sqlite3', 'chromadb', '@chroma-core/default-embed']
+                  .filter(name => rootManifest.devDependencies?.[name] !== undefined);
+
+        expect(offenders, `Brain-tier packages leaked back into the base manifest: ${offenders.join(', ')}`).toEqual([]);
+        expect(rootManifest.scripts['install-brain']).toBe('node ./buildScripts/util/installBrain.mjs');
+    });
+
+    test('package.brain.json pins the Brain set the installer overlays', () => {
+        const specifiers = resolveBrainInstallPlan(brainManifestPath);
+
+        // better-sqlite3 (the native compile this tier exists to spare Body contributors) and
+        // chromadb (the vector store + Chroma CLI) are the load-bearing pair; the manifest may
+        // grow, but never shrink below them.
+        expect(specifiers.some(s => s.startsWith('better-sqlite3@'))).toBe(true);
+        expect(specifiers.some(s => s.startsWith('chromadb@'))).toBe(true);
+        for (const specifier of specifiers) {
+            expect(specifier).toMatch(/^(@[\w.-]+\/)?[\w.-]+@[\d^~>=< ]/);
+        }
+    });
+
+    test('a malformed manifest fails with a named parse error, not npm’s opaque one', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-brain-spec-')),
+              bad = path.join(dir, 'package.brain.json');
+
+        fs.writeFileSync(bad, '{not json');
+        expect(() => resolveBrainInstallPlan(bad)).toThrow(/cannot parse .* as JSON/);
+
+        fs.writeFileSync(bad, '{"devDependencies": {}}');
+        expect(() => resolveBrainInstallPlan(bad)).toThrow(/empty Brain set/);
+
+        fs.rmSync(dir, {force: true, recursive: true});
+    });
+
+    test('buildNpmArgs overlays without mutating package.json or the lockfile', () => {
+        // --no-save is the whole mechanism: a merged manifest would be a permanently dirty tree
+        // for every Brain-side seat, and one careless commit would re-tier the repo.
+        expect(buildNpmArgs(['better-sqlite3@^12.11.1'])).toEqual([
+            'install', '--no-save', '--no-audit', '--no-fund', 'better-sqlite3@^12.11.1'
+        ]);
+    });
+
+    test('--dry-run prints the exact npm command without executing it', () => {
+        const output = execFileSync(process.execPath, [
+            path.join(repoRoot, 'buildScripts/util/installBrain.mjs'), '--dry-run'
+        ], {encoding: 'utf8'}).trim();
+
+        expect(output).toMatch(/^npm install --no-save --no-audit --no-fund /);
+        expect(output).toContain('better-sqlite3@');
+        expect(output).toContain('chromadb@');
+    });
+});
