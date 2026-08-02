@@ -9,6 +9,7 @@ import logger                                                                   
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
+import {DELIVERABLE_HARNESS_TARGET}                                                             from '../../daemons/wake/buildReceiverManifest.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
 
@@ -445,12 +446,24 @@ class WakeSubscriptionService extends Base {
             ...(overrideMetadata || {})
         };
 
+        // The transport is DERIVED, never read from the template — and this is the whole reason
+        // bootstrap could not arm anyone. A committed template cannot describe a deliverable route,
+        // because the two things that make one deliverable are both un-committable: the signing key
+        // is minted server-side at subscribe-time (`subscribe()` below, a2a-webhook branch only),
+        // and the address is per-machine and arrives via the boot envelope as `overrideMetadata`.
+        // The four shipped templates still declared `bridge-daemon`, which `buildReceiverManifest`
+        // withdraws by design — so bootstrap faithfully minted rows the builder was built to reject
+        // and reported success. Deriving from the same constant the builder enforces is what makes
+        // the two agree. A template's legitimate content is policy (`trigger`, `filters`) plus GUI
+        // dispatch hints; never the transport.
+        const harnessTarget = DELIVERABLE_HARNESS_TARGET;
+
         // Bootstrap and public subscribe must share the same durable route-idempotency contract.
         const existing = this._findActiveSubscriptionByRoute({
             owner,
             trigger              : template.trigger,
             filters              : template.filters || {},
-            harnessTarget        : template.harnessTarget,
+            harnessTarget,
             harnessTargetMetadata: mergedMetadata
         });
 
@@ -465,11 +478,12 @@ class WakeSubscriptionService extends Base {
             return {subscriptionId: refreshed.id, harnessTarget: refreshed.harnessTarget, status: 'existing'};
         }
 
-        // Create new subscription from template.
+        // Create new subscription from template. `subscribe()` mints the signing key on this
+        // target's branch — the step the template can never perform for itself.
         const result = await this.subscribe({
             trigger              : template.trigger,
             filters              : template.filters || {},
-            harnessTarget        : template.harnessTarget,
+            harnessTarget,
             harnessTargetMetadata: mergedMetadata
         });
 
