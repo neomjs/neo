@@ -115,10 +115,12 @@ test.describe('devDependency census', () => {
     });
 
     test.describe('the live census itself (smoke — shape, never a frozen population)', () => {
-        test('every devDependency classifies with a known verdict, native class, and side vocabulary', () => {
-            const root     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
-            const report   = census(root);
-            const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+        test('every devDependency classifies with a known verdict, native class, tier, and side vocabulary', () => {
+            const root          = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..'),
+                  report        = census(root),
+                  manifest      = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
+                  brainPath     = path.join(root, 'package.brain.json'),
+                  brainManifest = fs.existsSync(brainPath) ? JSON.parse(fs.readFileSync(brainPath, 'utf8')) : null;
 
             // Shape, not population. Exact importer counts are mutable repo state — sibling lanes
             // remove importers, and the census's own removal follow-ups shrink the package set —
@@ -126,13 +128,20 @@ test.describe('devDependency census', () => {
             // The exact-population reproduction is a SHA-stamped receipt carried by the census's
             // originating ticket comment, re-runnable on demand; this suite asserts the census
             // never crashes, never leaves a package unclassified, and uses only known vocabulary.
-            expect(report.totals.packages).toBe(Object.keys(manifest.devDependencies || {}).length);
+            // The census reads BOTH install-tier manifests: the root manifest alone is an
+            // incomplete dependency authority since the tier split.
+            expect(report.totals.packages).toBe(
+                Object.keys(manifest.devDependencies || {}).length
+                + Object.keys(brainManifest?.devDependencies || {}).length
+            );
 
             const NATIVE = new Set(['native-compile', 'prebuilt-fetch', 'none', 'unknown']);
             const SIDES  = new Set(['container-plane', 'host-edge', 'build', 'test', 'ad-hoc-script', 'body', 'contributor-tooling']);
             const KINDS  = new Set(['static', 'dynamic', 'require']);
+            const TIERS  = new Set(['base', 'brain']);
 
             for (const p of report.packages) {
+                expect(TIERS.has(p.tier), `${p.name}: tier '${p.tier}' outside the vocabulary`).toBe(true);
                 expect(NATIVE.has(p.native.nativeClass), `${p.name}: nativeClass '${p.native.nativeClass}' outside the vocabulary`).toBe(true);
                 for (const i of p.importers) {
                     expect(SIDES.has(i.side), `${p.name} @ ${i.path}: side '${i.side}' unclassified`).toBe(true);
@@ -143,8 +152,12 @@ test.describe('devDependency census', () => {
             }
 
             // The one durable content assertion: the package the originating work is about is
-            // seen at all. Its exact importer count is deliberately NOT asserted (see above).
-            expect(report.packages.find(p => p.name === 'better-sqlite3').importers.length).toBeGreaterThan(0);
+            // seen at all — in its Brain-tier row since the install-tier split. Its exact
+            // importer count is deliberately NOT asserted (see above).
+            const sqlite = report.packages.find(p => p.name === 'better-sqlite3');
+
+            expect(sqlite.tier).toBe('brain');
+            expect(sqlite.importers.length).toBeGreaterThan(0);
         });
     });
 });

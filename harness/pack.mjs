@@ -268,19 +268,23 @@ export function collectTreeBarePackages({rootDir}) {
 
 /**
  * @summary Builds the organism's dependency manifest: every scanned bare package pinned to the
- * version the repo's own package.json declares (dev- or prod-declared — this repo declares its
- * runtime set under devDependencies). An import with NO declared version is a hard error: the
- * checkout would have failed too, and silence here would ship a broken artifact.
+ * version the repo declares — under `devDependencies` of EITHER install-tier manifest. The root
+ * `package.json` is no longer the whole authority since the tier split: the Brain runtime the
+ * organism ships (Memory Core's `better-sqlite3`, the `chromadb` client) is declared in
+ * `package.brain.json`, and a scan that cannot see it hard-errors exactly where a broken
+ * artifact would otherwise ship. An import with NO declared version in either tier is a hard
+ * error: the checkout would have failed too, and silence here would ship a broken artifact.
  * @param {Object} options
  * @param {String[]} options.packages Scanned package names.
  * @param {Object} options.repoPackageJson Parsed repo package.json.
+ * @param {Object} [options.brainPackageJson] Parsed repo package.brain.json (Brain-tier authority).
  * @param {String[]} [options.supplemental=SUPPLEMENTAL_DEPENDENCIES]
  * @param {String[]} [options.optionalLazy=OPTIONAL_LAZY_PACKAGES]
  * @returns {Object} `{name, private, dependencies}` — the staged package.json.
  */
-export function buildOrganismManifest({packages, repoPackageJson, supplemental = SUPPLEMENTAL_DEPENDENCIES, optionalLazy = OPTIONAL_LAZY_PACKAGES}) {
+export function buildOrganismManifest({packages, repoPackageJson, brainPackageJson = null, supplemental = SUPPLEMENTAL_DEPENDENCIES, optionalLazy = OPTIONAL_LAZY_PACKAGES}) {
     const
-        declared     = {...repoPackageJson.dependencies, ...repoPackageJson.devDependencies},
+        declared     = {...repoPackageJson.dependencies, ...repoPackageJson.devDependencies, ...brainPackageJson?.devDependencies},
         dependencies = {},
         missing      = [];
 
@@ -387,9 +391,11 @@ export function stageOrganism({stageDir = STAGE_DIR, electronVersion} = {}) {
     assertNoInstanceOverlays(stageDir);
 
     const
-        repoPackageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
-        packages        = [...new Set(trees.flatMap(tree => collectTreeBarePackages({rootDir: path.join(stageDir, tree)})))].sort(),
-        manifest        = buildOrganismManifest({packages, repoPackageJson});
+        repoPackageJson  = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
+        brainPath        = path.join(repoRoot, 'package.brain.json'),
+        brainPackageJson = fs.existsSync(brainPath) ? JSON.parse(fs.readFileSync(brainPath, 'utf8')) : null,
+        packages         = [...new Set(trees.flatMap(tree => collectTreeBarePackages({rootDir: path.join(stageDir, tree)})))].sort(),
+        manifest         = buildOrganismManifest({packages, repoPackageJson, brainPackageJson});
 
     fs.writeFileSync(path.join(stageDir, 'package.json'), JSON.stringify(manifest, null, 4), 'utf8');
 

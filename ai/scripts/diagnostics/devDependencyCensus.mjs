@@ -315,22 +315,32 @@ export function findToolUsage(pkg, root) {
 }
 
 /**
- * Runs the census over every devDependency.
+ * Runs the census over every devDependency, across BOTH install-tier manifests: the base
+ * `package.json` and the Brain-tier `package.brain.json` (when present). The tier split makes the
+ * root manifest an incomplete dependency authority — a census that read only it would go blind to
+ * the very packages the tier exists to hold. Each row carries its `tier` so a future removal
+ * candidate is judged against the manifest it would actually leave.
  * @param {String} root
  * @returns {{packages: Object[], totals: Object}}
  */
 export function census(root) {
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-    const packages = [];
+    const manifest      = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')),
+          brainPath     = path.join(root, 'package.brain.json'),
+          brainManifest = fs.existsSync(brainPath) ? JSON.parse(fs.readFileSync(brainPath, 'utf8')) : null,
+          declared      = [
+              ...Object.entries(manifest.devDependencies || {}).map(([name, version]) => ({name, version, tier: 'base'})),
+              ...Object.entries(brainManifest?.devDependencies || {}).map(([name, version]) => ({name, version, tier: 'brain'}))
+          ],
+          packages      = [];
 
-    for (const [name, version] of Object.entries(manifest.devDependencies || {})) {
+    for (const {name, version, tier} of declared) {
         const {importers, mentionFiles} = findImporters(name, root);
         const native                    = detectNativeClass(name, root);
         const sides                     = [...new Set(importers.map(i => i.side))].sort();
         const toolUse                   = importers.length === 0 ? findToolUsage(name, root) : [];
 
         packages.push({
-            name, version, importers, sides, native,
+            name, version, tier, importers, sides, native,
             toolUse,
             mentionCount : mentionFiles.length,
             mentionSample: mentionFiles.slice(0, 5),
@@ -344,6 +354,8 @@ export function census(root) {
 
     const totals = {
         packages     : packages.length,
+        base         : packages.filter(p => p.tier === 'base').length,
+        brain        : packages.filter(p => p.tier === 'brain').length,
         withImporters: packages.filter(p => p.importers.length > 0).length,
         toolOnly     : packages.filter(p => p.importers.length === 0 && p.toolUse.length > 0).length,
         noImporters  : packages.filter(p => p.importers.length === 0 && p.toolUse.length === 0).length,
@@ -375,6 +387,10 @@ export function renderMarkdown(report, meta) {
     lines.push('| measure | count |');
     lines.push('|---|---|');
     lines.push(`| devDependencies | ${totals.packages} |`);
+    if (totals.brain > 0) {
+        lines.push(`| — base tier (package.json) | ${totals.base} |`);
+        lines.push(`| — brain tier (package.brain.json) | ${totals.brain} |`);
+    }
     lines.push(`| with AST-verified importers | ${totals.withImporters} |`);
     lines.push(`| tooling-only (bin/config invocation) | ${totals.toolOnly} |`);
     lines.push(`| no importers found (mention evidence below) | ${totals.noImporters} |`);
@@ -396,7 +412,7 @@ export function renderMarkdown(report, meta) {
     lines.push('|---|---|---|---|---|');
     for (const p of packages) {
         const imps = p.importers.map(i => `\`${i.path}\` · ${i.kinds.join('/')}`).join('<br>');
-        lines.push(`| \`${p.name}\` ${p.version} | ${p.native.nativeClass} | ${p.verdict} | ${p.sides.join(', ') || '—'} | ${imps || '—'} |`);
+        lines.push(`| \`${p.name}\` ${p.version}${p.tier === 'brain' ? ' **[brain-tier]**' : ''} | ${p.native.nativeClass} | ${p.verdict} | ${p.sides.join(', ') || '—'} | ${imps || '—'} |`);
     }
     lines.push('');
 

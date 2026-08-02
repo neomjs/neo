@@ -52,6 +52,13 @@ RUN npm ci --ignore-scripts
 
 COPY --from=source /neo ./
 
+# The Brain tier is opt-in since the two-path install tier landed: the pruned lock gives the
+# base set, and the plane is a Brain environment by definition (Memory Core's graph storage
+# dynamically imports better-sqlite3; the KB rides the chromadb client). Arm it from the
+# checkout's own installer — `--no-save`, so the image's manifests stay untouched; lifecycle
+# scripts stay off here, and the config materialization below keeps its explicit ownership.
+RUN node ./buildScripts/util/installBrain.mjs --ignore-scripts
+
 # Path A for #10964: generate gitignored per-server config.mjs files inside the
 # image so clean external checkouts do not need manual template copies.
 RUN npm rebuild better-sqlite3 && node ./ai/scripts/setup/initServerConfigs.mjs
