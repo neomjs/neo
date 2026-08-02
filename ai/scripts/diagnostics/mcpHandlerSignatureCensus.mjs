@@ -98,6 +98,24 @@ export const SERVERS = [
  */
 const GENERIC_BAG_NAMES = new Set(['args', 'input', 'options', 'params', 'payload', 'query']);
 
+/**
+ * The classes that fail the gate: 2 (destructure-under-positional), 2M (annotation-mismatch),
+ * 3 (truncation). Suspects deliberately do NOT fail — they stay human-judged; a gate that cries
+ * on ambiguity trains contributors to dismiss it. Exported so the unit-suite gate
+ * (`test/playwright/unit/ai/mcp/validation/McpHandlerSignatureGate.spec.mjs`) and this CLI's
+ * `--fail-on-defects` share one predicate — never two copies that can drift.
+ * @type {Set<Number|String>}
+ */
+export const DEFECT_KLASSES = new Set([2, '2M', 3]);
+
+/**
+ * @param {Object} row a census row
+ * @returns {Boolean} true when the row's class is a gate-failing defect class
+ */
+export function isDefectRow(row) {
+    return DEFECT_KLASSES.has(row.klass);
+}
+
 // ------------------------------------------------------------------ contract side (runtime mirror)
 
 /**
@@ -118,6 +136,12 @@ export function resolveRef(doc, ref) {
  * `passAsObject` = `operation['x-pass-as-object'] === true`. Each arg also carries its declared
  * schema `type` (and `properties` keys for single-object args) so the classifier can tell a
  * nested-object destructure from a class-2 degrade.
+ *
+ * DRIFT POINTER (named in review): this function necessarily re-derives the argNames union that
+ * `ai/mcp/ToolService.mjs#initializeToolMapping` owns — a static tool cannot import the runtime's
+ * intermediate. If the runtime's derivation changes (new arg source, different extension name),
+ * change this mirror in the same PR or the census silently measures a dispatch that no longer
+ * exists.
  * @param {Object} doc parsed openapi.yaml
  * @returns {Object[]} `{operationId, args: [{name, type, properties}], passAsObject}` rows
  */
@@ -586,7 +610,7 @@ export function census(root) {
     const rows = SERVERS.flatMap(server => censusServer(root, server));
 
     const startingSet = rows.filter(r => !r.passAsObject && r.args.length > 0);
-    const defectSet   = rows.filter(r => r.klass === 2 || r.klass === '2M' || r.klass === 3);
+    const defectSet   = rows.filter(isDefectRow);
     const suspects    = rows.filter(r => r.klass === 'suspect');
     const unresolved  = rows.filter(r => r.klass === 'unresolved');
     const classOne    = rows.filter(r => r.klass === 1);
@@ -619,7 +643,7 @@ export function renderMarkdown(report, meta) {
     const {rows, totals} = report;
     const lines          = [];
 
-    const defectRows  = rows.filter(r => r.klass === 2 || r.klass === '2M' || r.klass === 3);
+    const defectRows  = rows.filter(isDefectRow);
     const suspectRows = rows.filter(r => r.klass === 'suspect');
     const unresRows   = rows.filter(r => r.klass === 'unresolved');
 
