@@ -381,6 +381,30 @@ test.describe('harness pack stage', () => {
         })).toThrow(/no declared version.*ghost-package/)
     });
 
+    test('buildOrganismManifest reads the Brain-tier manifest as dependency authority (the tier split)', () => {
+        // The root package.json is no longer the whole authority: the Brain runtime the organism
+        // ships is declared in package.brain.json. A scan that cannot see it must hard-error —
+        // that was the review falsifier this witness pins.
+        const repoPackageJson  = {devDependencies: {webpack: '^5.0.0'}, version: '13.1.0'},
+              brainPackageJson = {devDependencies: {'better-sqlite3': '12.11.1', chromadb: '3.5.0'}};
+
+        const manifest = buildOrganismManifest({
+            packages    : ['better-sqlite3', 'chromadb', 'webpack'],
+            repoPackageJson,
+            brainPackageJson,
+            supplemental: []
+        });
+
+        expect(manifest.dependencies).toEqual({'better-sqlite3': '12.11.1', chromadb: '3.5.0', webpack: '^5.0.0'});
+
+        // Without the brain authority the same scan fails loud — never a silently broken artifact.
+        expect(() => buildOrganismManifest({
+            packages    : ['better-sqlite3'],
+            repoPackageJson,
+            supplemental: []
+        })).toThrow(/no declared version.*better-sqlite3/)
+    });
+
     test('the node shim fails loud without the runtime binary and execs it in node mode', () => {
         const shim = buildNodeShim();
 

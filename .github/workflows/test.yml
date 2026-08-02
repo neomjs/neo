@@ -346,6 +346,13 @@ jobs:
         if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm ci
 
+      # The Brain tier is opt-in for contributors (#16364), but CI is a Brain environment by
+      # contract (AC4): the unit suite's brain projects and the integration stack need the set.
+      # `npm ci` prunes it (extraneous under --no-save), so this runs after every ci.
+      - name: Install the Brain tier
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
+        run: npm run install-brain
+
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
       # Harmless for the other suites.
       - name: Bundle parse5

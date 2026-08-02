@@ -10,7 +10,11 @@ import {
     stopDetachedProcess
 } from '../../chromaProcess.mjs';
 import unitConfig, {
+    assertBrainTierForEnvironment,
+    brainHookTestMatch,
     brainTestMatch,
+    buildProjects,
+    hasBrainTier,
     knowledgeBaseConfigTemplateTestMatch,
     memoryCoreConfigTemplateTestMatch,
     orchestratorDaemonTestMatch,
@@ -19,11 +23,19 @@ import unitConfig, {
 
 test.describe('playwright.config.unit — Chroma capability admission', () => {
     test('Body files stay pure while Brain files depend on run-scoped Chroma', () => {
-        const projects = Object.fromEntries(unitConfig.projects.map(project => [project.name, project]));
+        // Structure assertions go through `buildProjects({brainPresent: true})`, never the
+        // default export: the install-tier gate makes the live export
+        // environment-dependent, and a spec must measure the gate, not the seat it runs on.
+        const projects = Object.fromEntries(buildProjects({brainPresent: true}).map(project => [project.name, project]));
 
         expect(unitConfig.webServer).toBeUndefined();
         expect(brainTestMatch.test('/repo/test/playwright/unit/util/Array.spec.mjs')).toBe(false);
         expect(brainTestMatch.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs')).toBe(true);
+        // The two graph-fixture hook specs are Brain-tier by function (static `better-sqlite3`
+        // import) while living outside the `ai/**` path seam.
+        expect(brainHookTestMatch.test('/repo/test/playwright/unit/hooks/kimiTurnPresenceHook.spec.mjs')).toBe(true);
+        expect(brainHookTestMatch.test('/repo/test/playwright/unit/hooks/codexContextHook.spec.mjs')).toBe(true);
+        expect(brainHookTestMatch.test('/repo/test/playwright/unit/hooks/someFutureHook.spec.mjs')).toBe(false);
 
         // The guarded contract is BODY PURITY — the bulk `unit` project must never admit a Brain
         // spec, because that would need a Chroma boot inside a pure-Node run. Assert that
@@ -33,11 +45,13 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         const unitIgnore = [projects.unit.testIgnore].flat();
 
         expect(unitIgnore).toContain(brainTestMatch);
+        expect(unitIgnore).toContain(brainHookTestMatch);
         // Behavioural, not structural: a Brain path IS excluded, an ordinary Body path is NOT.
         // This still catches the real regression an over-broad ignore would cause.
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/ai/ChromaRecovery.spec.mjs'))).toBe(true);
+        expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/hooks/kimiTurnPresenceHook.spec.mjs'))).toBe(true);
         expect(unitIgnore.some(match => match.test('/repo/test/playwright/unit/util/Array.spec.mjs'))).toBe(false);
-        expect(projects['unit-brain'].testMatch).toBe(brainTestMatch);
+        expect(projects['unit-brain'].testMatch).toEqual([brainTestMatch, brainHookTestMatch]);
         expect(projects['unit-brain'].testIgnore).toEqual([
             orchestratorDaemonTestMatch,
             tier1ConfigTemplateTestMatch,
@@ -54,6 +68,63 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(projects['unit-brain-memory-core-config'].testMatch).toBe(memoryCoreConfigTemplateTestMatch);
         expect(projects['unit-brain-memory-core-config'].dependencies).toEqual(['chroma-setup']);
         expect(projects['chroma-setup'].teardown).toBe('chroma-teardown');
+    });
+
+    test('the install-tier gate drops Brain-dependent projects without touching the body pair (#16364)', () => {
+        const gated = buildProjects({brainPresent: false}),
+              armed = buildProjects({brainPresent: true});
+
+        expect(gated.map(project => project.name)).toEqual(['unit', 'unit-profiling']);
+        // The gated pair carries the SAME definitions the armed list carries — the gate removes
+        // projects, it never rewrites the survivors.
+        const armedByName = Object.fromEntries(armed.map(project => [project.name, project]));
+
+        expect(gated[0]).toEqual(armedByName.unit);
+        expect(gated[1]).toEqual(armedByName['unit-profiling']);
+        expect(armed.map(project => project.name)).toEqual([
+            'chroma-setup',
+            'chroma-teardown',
+            'unit',
+            'unit-brain',
+            'unit-brain-orchestrator-daemon',
+            'unit-brain-tier1-config',
+            'unit-brain-knowledge-base-config',
+            'unit-brain-memory-core-config',
+            'unit-profiling'
+        ]);
+    });
+
+    test('CI admission fails closed on an absent or partial tier; a local base install only skips', () => {
+        // A skipped brain matrix on a green CI run is silent coverage loss — it must error
+        // before collection. Locally the same absence is the tier working as designed.
+        expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: true})).toThrow(/silent coverage loss/);
+        expect(() => assertBrainTierForEnvironment({brainPresent: true,  isCI: true})).not.toThrow();
+        expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: false})).not.toThrow();
+    });
+
+    test('hasBrainTier requires all three roots AND their consumable entrypoints — an empty husk is not armed', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-probe-')),
+              mk   = (pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
+
+        try {
+            expect(hasBrainTier(root)).toBe(false);
+            // Three bare directories — the false-green shape a pruned-but-husked install leaves.
+            mk('better-sqlite3'); mk('chromadb'); mk('@chroma-core/default-embed');
+            expect(hasBrainTier(root)).toBe(false);
+            // Entrypoints but no native artifact: the broken-build case the directory probe missed.
+            mk('better-sqlite3', 'lib/index.js');
+            mk('chromadb', 'dist/chromadb.mjs');
+            mk('@chroma-core/default-embed', 'dist/default-embed.mjs');
+            expect(hasBrainTier(root)).toBe(false);
+            mk('better-sqlite3', 'build/Release/better_sqlite3.node');
+            expect(hasBrainTier(root)).toBe(true);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
     });
 });
 
