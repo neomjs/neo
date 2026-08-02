@@ -95,9 +95,7 @@ Classify the delivered delta in order; the first match wins:
    behavior/path. This wins even when a bug motivated the work.
 2. **`restoration` → `fix`** — adds no capability; corrects defined behavior.
 3. **`zero-delta` → `chore` / `test` / `docs` / `ci` / `build`** — changes neither
-   behavior nor capability; the type set is the repo's live zero-delta vocabulary
-   (a `test(...)` subject for a test-only delta declares `zero-delta`, never
-   `capability`).
+   behavior nor capability.
 
 Ticket labels, filenames, and diff size do not decide the class. The author
 declares it; `agent-preflight` verifies the supplied subjects without inference.
