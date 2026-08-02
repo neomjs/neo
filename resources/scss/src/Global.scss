@@ -50,3 +50,13 @@ html, .neo-body-viewport {
 .neo-unselectable {
     user-select: none;
 }
+
+// Gesture-scoped selection guard: applied by the draggable Mouse sensor from mousedown on a
+// drag target until the physical gesture ends — ordinary mouseup, or the gesture's own move
+// stream observing the primary button gone (an off-document release never reaches mouseup) —
+// so a drag across card content can never become a text selection sweep (the native selection
+// machinery otherwise claims the pre-threshold window).
+.neo-drag-active,
+.neo-drag-active * {
+    user-select: none !important;
+}
