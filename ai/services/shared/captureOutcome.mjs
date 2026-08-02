@@ -98,3 +98,57 @@ export function worstCaptureOutcome(outcomes = []) {
 
     return present[0] ?? CAPTURE_OUTCOME_UNAVAILABLE
 }
+
+/**
+ * @summary Runs the pre-existence enumeration once, best-effort, and records why if it could not.
+ *
+ * **Best-effort by design, and the design only holds because of the classifier's asymmetry.** A probe
+ * failure can never downgrade a real capture — `rowCount > 0` short-circuits to `captured` — so the only
+ * reachable consequence is that a genuinely-empty source reports `unavailable`. That is the safe
+ * direction, and it is far cheaper than the alternative: propagating would let a `listCollections`
+ * hiccup abort a priority-zero backup lane that would otherwise have written a perfectly good bundle.
+ *
+ * The failure is recorded, never swallowed. It warns, and the returned `probeError` is meant to travel
+ * into the receipt — a carve-out that quiets a guard without leaving a trace is how a silent channel
+ * gets opened.
+ *
+ * One enumeration serves every collection a caller checks, so all their verdicts describe the same
+ * instant rather than a drifting sequence of instants.
+ *
+ * @param {Object}    options
+ * @param {Function}  options.listNames A zero-arg async returning existing source names.
+ * @param {Object}   [options.logger]   Warn sink; `console`-shaped.
+ * @param {String}   [options.label]    Subsystem name for the warning.
+ * @returns {Promise<{existing: Set<String>|null, probeError: String|null}>} `existing` is `null` exactly
+ *          when the probe could not answer.
+ */
+export async function probeExistingSources({listNames, logger, label = 'source'} = {}) {
+    try {
+        return {existing: new Set(await listNames()), probeError: null}
+    } catch (error) {
+        const probeError = error?.message ?? String(error);
+
+        logger?.warn?.(
+            `[CaptureOutcome] Could not establish pre-existence for ${label}: ${probeError}. Zero-row ` +
+            `exports will be reported as 'unavailable' rather than 'empty', because an unestablished ` +
+            `source is not a source known to be empty.`
+        );
+
+        return {existing: null, probeError}
+    }
+}
+
+/**
+ * @summary Reads one name out of a probe result, preserving "could not answer" as `null`.
+ *
+ * Deliberately NOT `probe?.existing?.has(name) ?? false`: collapsing an unanswerable probe to `false`
+ * would be indistinguishable from a positively-absent source, and the whole point of the tri-state is
+ * that "I did not establish this" is its own fact.
+ *
+ * @param {{existing: Set<String>|null}} probe
+ * @param {String}                       name
+ * @returns {Boolean|null}
+ */
+export function sourceExistedIn(probe, name) {
+    return probe?.existing ? probe.existing.has(name) : null
+}

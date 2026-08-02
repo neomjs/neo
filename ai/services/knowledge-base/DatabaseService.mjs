@@ -1,4 +1,7 @@
 import aiConfig                        from '../../mcp/server/knowledge-base/config.mjs';
+import {classifyCaptureOutcome,
+        probeExistingSources,
+        sourceExistedIn}               from '../shared/captureOutcome.mjs';
 import {partitionRowsByVectorValidity} from '../memory-core/helpers/vectorWriteInvariant.mjs';
 import {validateJsonlSourceFile}       from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
 import Base                            from '../../../src/core/Base.mjs';
@@ -114,16 +117,39 @@ class DatabaseService extends Base {
      *
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
-     * @returns {Promise<{message: String, count: Number}>} `count` is the numeric export row count,
-     *          consumed by the backup orchestrator's `verifyBundleIntegrity` for KB row-count parity
-     *          (without it the verifier reads a non-numeric source count and skips KB parity).
+     * @returns {Promise<{message: String, count: Number, captureOutcome: String, sourceExisted: Boolean|null}>}
+     *          `count` is the numeric export row count, consumed by the backup orchestrator's
+     *          `verifyBundleIntegrity` for KB row-count parity (without it the verifier reads a
+     *          non-numeric source count and skips KB parity). `captureOutcome` says what that count
+     *          MEANS — `captured` / `empty` / `unavailable` — because a count of zero alone cannot
+     *          distinguish a genuinely empty corpus from one this read replaced with an empty one.
      */
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting knowledge base export...');
+
+            // BEFORE resolution, and that ordering is the whole mechanism.
+            // `getKnowledgeBaseCollection` answers "does this exist?" by making it true: it catches a
+            // not-found and creates the canonical collection. After that call the question is
+            // unanswerable — the store reports zero rows, honestly, about a collection the backup
+            // itself brought into existence. This is the last moment the pre-read answer survives.
+            const probe = await probeExistingSources({
+                listNames: () => ChromaManager.listCollectionNames(),
+                logger,
+                label    : 'knowledge base'
+            });
+
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
-            return {message: `Export complete. Exported ${count} knowledge base chunks.`, count};
+            const existed    = sourceExistedIn(probe, aiConfig.collectionName);
+
+            return {
+                message       : `Export complete. Exported ${count} knowledge base chunks.`,
+                count,
+                captureOutcome: classifyCaptureOutcome({sourceExisted: existed, rowCount: count}),
+                sourceExisted : existed,
+                ...(probe.probeError ? {sourceProbeError: probe.probeError} : {})
+            };
         } catch (error) {
             logger.error('[DatabaseService] Error exporting knowledge base:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);

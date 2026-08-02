@@ -31,7 +31,15 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
     let SDK, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
     let originalKbCollection, originalMcGetMemory, originalMcGetSummary;
+    let originalKbListNames, originalMcGetActiveManagers;
     let workRoot, bundleRoot, conceptsSourceDir, trajectoriesSourceFile;
+
+    // What the non-mutating pre-existence probe reports, per subsystem. Stubbing the collection GETTER
+    // is not enough: the exporter asks whether a collection existed BEFORE it resolved anything, and a
+    // fixture that only conjures a handle answers "no" — truthfully — which classifies every zero-row
+    // export as `unavailable`. Populated fixtures are unaffected either way (rows prove pre-existence),
+    // so this exists for the zero-row cases, where `empty` and `unavailable` are the whole distinction.
+    let kbCollectionNames, mcCollectionNames;
 
     const fakeCollection = (rows, name) => ({
         name,
@@ -88,12 +96,35 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             [{id: 's-1', embedding: [0.4], metadata: {cat: 'feat'}, document: 'sum-doc'}],
             'fake-sum'
         );
+
+        const kbConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default,
+              mcConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+
+        // Default posture: every canonical collection pre-existed, which is what every populated test
+        // here means. The probe compares against the CONFIG names, not the fake handle's `.name`.
+        kbCollectionNames = [kbConfig.collectionName];
+        mcCollectionNames = [
+            mcConfig.collections.memory,
+            mcConfig.collections.session,
+            mcConfig.collections.temporalSummary,
+            mcConfig.collections.graph
+        ];
+
+        originalKbListNames         = KB_ChromaManager.listCollectionNames.bind(KB_ChromaManager);
+        originalMcGetActiveManagers = Memory_StorageRouter.getActiveManagers.bind(Memory_StorageRouter);
+
+        KB_ChromaManager.listCollectionNames   = async () => [...kbCollectionNames];
+        Memory_StorageRouter.getActiveManagers = async () => [
+            {listCollectionNames: async () => [...mcCollectionNames]}
+        ];
     });
 
     test.afterAll(() => {
         KB_ChromaManager.getKnowledgeBaseCollection = originalKbCollection;
+        KB_ChromaManager.listCollectionNames        = originalKbListNames;
         Memory_StorageRouter.getMemoryCollection    = originalMcGetMemory;
         Memory_StorageRouter.getSummaryCollection   = originalMcGetSummary;
+        Memory_StorageRouter.getActiveManagers      = originalMcGetActiveManagers;
 
         if (workRoot && fs.existsSync(workRoot)) {
             fs.rmSync(workRoot, {recursive: true, force: true});
@@ -326,10 +357,124 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             expect(mcIntegrity.sourceCount).toBe(0);
             expect(mcIntegrity.bundleCount).toBe(0);
             expect(warnings.some(w => /ZERO rows|empty backup/i.test(w))).toBe(true);  // runBackup warned, non-fatally
+
+            // The control that makes the assertion above mean something: this bundle reports `empty`
+            // BECAUSE the probe positively established both collections pre-existed. Without it, `empty`
+            // could be the default for any zero-row export and the next test would prove nothing.
+            expect(result.meta.subsystems.mc.memories.sourceExisted) .toBe(true);
+            expect(result.meta.subsystems.mc.summaries.sourceExisted).toBe(true);
+            expect(result.meta.subsystems.mc.captureOutcome).toBe('empty');
         } finally {
             Memory_StorageRouter.getMemoryCollection  = savedMem;
             Memory_StorageRouter.getSummaryCollection = savedSum;
         }
+    });
+
+    test('a collection that did NOT pre-exist reports `unavailable`, never `empty` (#16348)', async () => {
+        // The live specimen: a re-embed cutover left the canonical collection transiently absent, the
+        // resolver re-created it empty, `count()` returned 0 honestly, and the receipt said
+        // "Export complete." — byte-identical to a deployment that legitimately holds nothing. 4 of 36
+        // bundles in one store carry that signature across four separate dates.
+        const warnings      = [];
+        const captureLogger = {log: () => {}, error: () => {}, warn: msg => warnings.push(msg)};
+        const savedMem      = Memory_StorageRouter.getMemoryCollection;
+        const savedSum      = Memory_StorageRouter.getSummaryCollection;
+        const savedNames    = [...mcCollectionNames];
+
+        try {
+            // Zero rows AND no pre-existing collection — the resolver's create-on-missing is what the
+            // production path does here, and the fixture reproduces its observable result rather than
+            // hand-setting a flag: nothing below tells the exporter what verdict to reach.
+            Memory_StorageRouter.getMemoryCollection  = async () => fakeCollection([], 'conjured-mem');
+            Memory_StorageRouter.getSummaryCollection = async () => fakeCollection([], 'conjured-sum');
+            mcCollectionNames.length                  = 0;
+
+            const result = await runBackup({
+                bundleRoot: path.join(workRoot, 'bundle-unavailable'),
+                conceptsSourceDir,
+                trajectoriesSourceFile,
+                logger    : captureLogger
+            });
+
+            const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
+
+            expect(mcIntegrity.status).toBe('unavailable');
+            expect(mcIntegrity.status).not.toBe('empty');
+            expect(mcIntegrity.reason).toMatch(/did not pre-exist/);
+            expect(result.meta.subsystems.mc.memories.sourceExisted).toBe(false);
+            expect(result.meta.subsystems.mc.memories.captureOutcome).toBe('unavailable');
+            expect(warnings.some(w => /did NOT pre-exist/i.test(w))).toBe(true);
+
+            // Non-fatal by design. `fail` throws before bundle-meta.json is written, so routing this
+            // through it would leave a bundle-shaped directory with no receipt — manufacturing the very
+            // aborted-run specimen this work exists to eliminate. The receipt must survive to say so.
+            expect(fs.existsSync(path.join(workRoot, 'bundle-unavailable', 'bundle-meta.json'))).toBe(true);
+
+            // The other side of the ticket's falsifier, in the same bundle: KB is populated and its
+            // collection pre-existed, so it must still read `captured` / `pass`. Without this, a probe
+            // that simply reported `unavailable` for everything would satisfy the assertions above.
+            expect(result.meta.subsystems.kb.captureOutcome).toBe('captured');
+            expect(result.meta.integrity.find(check => check.subsystem === 'kb').status).toBe('pass');
+        } finally {
+            Memory_StorageRouter.getMemoryCollection  = savedMem;
+            Memory_StorageRouter.getSummaryCollection = savedSum;
+            mcCollectionNames.push(...savedNames);
+        }
+    });
+
+    test('a subsystem with rows AND an absent collection is `unavailable` despite positive parity (#16348)', async () => {
+        // The May-2026 recovery specimen: a bundle with memories and NO summaries file at all. The
+        // subsystem's row count is positive, parity holds, and half of what it claims to hold is
+        // missing — so the verdict cannot be gated on `sourceCount === 0`.
+        const silentLogger = {log: () => {}, error: () => {}, warn: () => {}};
+        const savedSum     = Memory_StorageRouter.getSummaryCollection;
+        const savedNames   = [...mcCollectionNames];
+
+        try {
+            Memory_StorageRouter.getSummaryCollection = async () => fakeCollection([], 'conjured-sum');
+            // Memories still pre-exist; only the summaries collection is gone.
+            mcCollectionNames.splice(mcCollectionNames.indexOf(savedNames[1]), 1);
+
+            const result = await runBackup({
+                bundleRoot: path.join(workRoot, 'bundle-partial'),
+                conceptsSourceDir,
+                trajectoriesSourceFile,
+                logger    : silentLogger
+            });
+
+            const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
+
+            expect(mcIntegrity.sourceCount).toBeGreaterThan(0);        // positive parity...
+            expect(mcIntegrity.bundleCount).toBe(mcIntegrity.sourceCount);
+            expect(mcIntegrity.status).toBe('unavailable');            // ...and still not trustworthy
+            expect(mcIntegrity.status).not.toBe('pass');
+
+            // Per-collection granularity is the point: a consumer must be able to tell WHICH half.
+            expect(result.meta.subsystems.mc.memories.captureOutcome) .toBe('captured');
+            expect(result.meta.subsystems.mc.summaries.captureOutcome).toBe('unavailable');
+        } finally {
+            Memory_StorageRouter.getSummaryCollection = savedSum;
+            mcCollectionNames.length                  = 0;
+            mcCollectionNames.push(...savedNames);
+        }
+    });
+
+    test('verifyBundleIntegrity is unchanged for a receipt carrying no capture verdict (#16348)', async () => {
+        // Backward compatibility, asserted rather than assumed: every bundle already on disk predates
+        // the verdict, and a reader that treated a missing `captureOutcome` as "unavailable" would
+        // retroactively condemn the entire archive. Absent verdict means the old two-way answer.
+        const tempRoot = path.join(workRoot, 'legacy-receipt');
+        const layout   = {kb: path.join(tempRoot, 'kb'), mc: path.join(tempRoot, 'mc'), graph: path.join(tempRoot, 'graph')};
+
+        Object.values(layout).forEach(dir => fs.mkdirSync(dir, {recursive: true}));
+        fs.writeFileSync(path.join(layout.kb, 'kb.jsonl'), '{"id":"a"}\n{"id":"b"}\n');
+
+        const checks = await verifyBundleIntegrity(layout, {kb: {count: 2}, mc: {count: 0}, graph: {count: 0}});
+
+        expect(checks.find(c => c.subsystem === 'kb').status).toBe('pass');
+        expect(checks.find(c => c.subsystem === 'mc').status).toBe('empty');
+        expect(checks.find(c => c.subsystem === 'graph').status).toBe('empty');
+        expect(checks.some(c => c.status === 'unavailable')).toBe(false);
     });
 
     test('countNonEmptyJsonlLines: streams a JSONL file, counting non-empty lines (#14082)', async () => {

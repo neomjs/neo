@@ -9,6 +9,8 @@ import DestructiveOperationGuard                                  from '../../mc
 import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
 import {validateJsonlSourceFile}                                  from './helpers/vectorJsonlSourceValidation.mjs';
 import {importGraphJsonl}                                         from './helpers/graphJsonlImport.mjs';
+import {classifyCaptureOutcome, probeExistingSources,
+        sourceExistedIn, worstCaptureOutcome}                     from '../shared/captureOutcome.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -163,10 +165,43 @@ class DatabaseService extends Base {
     }
 
     /**
+     * @summary Stamps one collection's export stats with what its row count MEANS.
+     *
+     * Mutates in place because the stats object is already the receipt fragment persisted into
+     * `bundle-meta.json`; returning a copy would leave the original — the one that travels — unstamped.
+     *
+     * @param {Object}  stats          The `#exportCollection` result to annotate.
+     * @param {Object}  probe          A `probeExistingSources` result.
+     * @param {String}  collectionName The name whose pre-existence was probed.
+     * @returns {Object} The same `stats`, annotated.
+     * @private
+     */
+    #stampCaptureOutcome(stats, probe, collectionName) {
+        const sourceExisted = sourceExistedIn(probe, collectionName);
+
+        stats.sourceExisted  = sourceExisted;
+        stats.captureOutcome = classifyCaptureOutcome({sourceExisted, rowCount: stats.exported});
+
+        if (probe.probeError) {
+            stats.sourceProbeError = probe.probeError
+        }
+
+        return stats
+    }
+
+    /**
      * Helper method to export the Native Graph (Nodes and Edges) as JSONL.
+     *
+     * **Returns a verdict, not just a number.** Two of the exits below produce zero rows for reasons
+     * that have nothing to do with an empty graph — an uninitialized database and a failed table query —
+     * and the previous bare `return 0` made both byte-identical to a deployment that genuinely holds no
+     * nodes. That is the same conflation as the Chroma resolvers', in a different store, feeding the
+     * same receipt, so it carries the same `sourceExisted` signal rather than a second vocabulary.
+     *
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<number>} The total number of graph elements exported.
+     * @returns {Promise<{count: Number, sourceExisted: Boolean, reason: String|null}>} `sourceExisted`
+     *          is false only when the graph store could not be read at all.
      * @private
      */
     async #exportGraph(backupPath, filePrefix) {
@@ -176,7 +211,7 @@ class DatabaseService extends Base {
         // Ensure graph is initialized
         if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
              logger.log(`Graph database not initialized. Skipping graph export.`);
-             return 0;
+             return {count: 0, sourceExisted: false, reason: 'native graph database is not initialized'};
         }
 
         const db = GraphService.db.storage.db;
@@ -189,14 +224,14 @@ class DatabaseService extends Base {
             edgesCount = db.prepare('SELECT count(*) as c FROM Edges').get().c || 0;
         } catch (e) {
             logger.error(`Error querying Native Graph tables: ${e.message}`);
-            return 0;
+            return {count: 0, sourceExisted: false, reason: `native graph tables could not be queried: ${e.message}`};
         }
 
         const totalCount = nodesCount + edgesCount;
 
         if (totalCount === 0) {
             logger.log(`No nodes or edges found in the native graph to export.`);
-            return 0;
+            return {count: 0, sourceExisted: true, reason: null};
         }
 
         logger.log(`Found ${nodesCount} nodes and ${edgesCount} edges to export.`);
@@ -239,7 +274,7 @@ class DatabaseService extends Base {
 
         await new Promise(resolve => writeStream.end(resolve));
         logger.log(`Successfully exported ${exported} graph elements to: ${backupFile}`);
-        return exported;
+        return {count: exported, sourceExisted: true, reason: null};
     }
 
     /**
@@ -302,24 +337,58 @@ class DatabaseService extends Base {
             logger.log('Starting agent memory export...');
             let memoryStats = null, summaryStats = null, temporalSummaryStats = null, graphStats = null;
 
+            // BEFORE any collection is resolved, and that ordering is the whole mechanism. All four
+            // collection getters are `getOrCreateCollection` — create-on-missing by construction — so
+            // after the first resolve the question "did this exist?" is permanently unanswerable: the
+            // store reports zero rows, honestly, about a collection this read brought into existence.
+            // One enumeration for every collection below, so their verdicts describe the same instant.
+            const probe = await probeExistingSources({
+                listNames: async () => {
+                    const managers = await StorageRouter.getActiveManagers();
+
+                    if (managers.length === 0) {
+                        // Not "no collections exist" — no engine could be asked. Throwing routes this to
+                        // `probeError` and an `unavailable` verdict, where returning `[]` would assert
+                        // positive absence the probe never established.
+                        throw new Error(`no active vector manager for engine '${aiConfig.engine}'`)
+                    }
+
+                    return (await Promise.all(managers.map(manager => manager.listCollectionNames()))).flat()
+                },
+                logger,
+                label    : 'memory core'
+            });
+
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
                 memoryStats      = await this.#exportCollection(collection, backupPath, 'memory-backup', aiConfig.collections.memory);
+                this.#stampCaptureOutcome(memoryStats, probe, aiConfig.collections.memory);
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
                 summaryStats     = await this.#exportCollection(collection, backupPath, 'summaries-backup', aiConfig.collections.session);
+                this.#stampCaptureOutcome(summaryStats, probe, aiConfig.collections.session);
             }
 
             if (include.includes('temporal-summaries')) {
                 const collection = await StorageRouter.getTemporalSummaryCollection();
                 temporalSummaryStats = await this.#exportCollection(collection, backupPath, 'temporal-summary-backup', aiConfig.collections.temporalSummary);
+                this.#stampCaptureOutcome(temporalSummaryStats, probe, aiConfig.collections.temporalSummary);
             }
 
             if (include.includes('graph')) {
-                const graphCount = await this.#exportGraph(backupPath, 'graph-backup');
-                graphStats       = {expected: graphCount, exported: graphCount};
+                // The graph lives in SQLite, not Chroma, so its pre-existence answer comes from the
+                // exporter itself rather than from the collection probe.
+                const graph = await this.#exportGraph(backupPath, 'graph-backup');
+
+                graphStats = {
+                    expected      : graph.count,
+                    exported      : graph.count,
+                    sourceExisted : graph.sourceExisted,
+                    captureOutcome: classifyCaptureOutcome({sourceExisted: graph.sourceExisted, rowCount: graph.count}),
+                    ...(graph.reason ? {sourceProbeError: graph.reason} : {})
+                };
             }
 
             const memoryCount          = memoryStats?.exported || 0,
@@ -335,6 +404,16 @@ class DatabaseService extends Base {
             if (summaryStats) result.summaries = summaryStats;
             if (temporalSummaryStats) result.temporalSummaries = temporalSummaryStats;
             if (graphStats) result.graph = graphStats;
+
+            // The subsystem is only as trustworthy as its least-trustworthy part. The May-2026 recovery
+            // specimen is exactly this shape — a bundle with memories and no summaries file at all — so
+            // the fold takes the worst member rather than the majority. Per-collection verdicts stay on
+            // their own stats; a consumer that needs to know WHICH part failed reads those.
+            result.captureOutcome = worstCaptureOutcome(
+                [memoryStats, summaryStats, temporalSummaryStats, graphStats]
+                    .filter(Boolean)
+                    .map(stats => stats.captureOutcome)
+            );
 
             return result
         } catch (error) {

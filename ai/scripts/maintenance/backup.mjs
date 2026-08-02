@@ -28,6 +28,7 @@ import {
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
+import {CAPTURE_OUTCOME_UNAVAILABLE}    from '../../services/shared/captureOutcome.mjs';
 import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
@@ -348,6 +349,21 @@ export async function runBackup({
         );
     }
 
+    const unavailableChecks = integrity.filter(check => check.status === 'unavailable');
+    if (unavailableChecks.length > 0) {
+        // Deliberately NOT routed through `fail`. `fail` throws above, and `bundle-meta.json` is written
+        // BELOW — so failing here would leave a bundle-shaped directory with no receipt, manufacturing
+        // the exact aborted-run specimen this work exists to eliminate. The verdict is recorded and the
+        // artifact stays self-describing; a restore-side consumer decides what to do with it.
+        logger.warn?.(
+            `[Backup] ${unavailableChecks.length} subsystem(s) captured a source that did NOT pre-exist ` +
+            `the read: ${unavailableChecks.map(c => c.subsystem).join(', ')}. The rows recorded for those ` +
+            `describe a store this backup created, not a corpus that was there — do not read them as a ` +
+            `recovery source. Legitimate on a genuine first run; on a populated deployment it means the ` +
+            `corpus was GONE at capture time, not empty.`
+        );
+    }
+
     const emptyChecks = integrity.filter(check => check.status === 'empty');
     if (emptyChecks.length > 0) {
         // Non-fatal (a fresh environment legitimately backs up empty subsystems), but loud: a zero-row
@@ -426,7 +442,7 @@ export async function countNonEmptyJsonlLines(filePath) {
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `unavailable` (the exporter established that a source did not pre-exist the read, so its rows describe a store the capture created) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -461,12 +477,25 @@ export async function verifyBundleIntegrity(layout, subsystems) {
             // populated deployment a zero-row export is the gutted-store signature (the corruption a
             // backup is supposed to survive) — surface it as 'empty' (visible, non-fatal) rather than
             // a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
-            const status = sourceCount === 0 ? 'empty' : 'pass';
-            const entry  = {subsystem, status, sourceCount, bundleCount};
+            //
+            // 'unavailable' outranks BOTH. The exporter established that a source did not pre-exist the
+            // read that measured it, so parity here proves only that two numbers agree about a corpus
+            // that was not there. Note this is deliberately NOT gated on `sourceCount === 0`: a
+            // subsystem can capture its memories and find its summaries collection absent, and that
+            // bundle has positive row parity while being useless for half of what it claims to hold.
+            const unavailable = raw?.captureOutcome === CAPTURE_OUTCOME_UNAVAILABLE;
+            const status      = unavailable ? 'unavailable' : sourceCount === 0 ? 'empty' : 'pass';
+            const entry       = {subsystem, status, sourceCount, bundleCount};
 
             if (status === 'empty') {
                 entry.reason = 'source and bundle both report zero rows — empty backup is not a usable ' +
                     'recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
+            }
+
+            if (status === 'unavailable') {
+                entry.reason = 'at least one source did not pre-exist the read that measured it — the ' +
+                    'rows this bundle reports for it describe a store the capture itself created, not a ' +
+                    'corpus that was there to capture';
             }
 
             checks.push(entry);
