@@ -1,6 +1,12 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import fs              from 'fs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import * as yaml       from 'js-yaml';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 /**
  * @summary Coverage for `PullRequestService.managePrReviewers` — verifies it builds the REST
@@ -142,9 +148,47 @@ test.describe('PullRequestService.managePrReviewers — REST requested_reviewers
             {execFn: async () => reviewerResponse(['neo-gpt'])}   // still there → removal did not happen
         );
 
-        expect(res.code).toBe('REVIEWER_NOT_SEATED');
+        expect(res.code).toBe('REVIEWER_STILL_REQUESTED');
         expect(res.unseated).toEqual(['neo-gpt']);
         expect(res.message).not.toContain('Successfully');
+    });
+
+    test('a failed remove describes the state GitHub returned, not the inverse', async () => {
+        // The two actions fail into opposite observed states. A shared add-shaped envelope told the
+        // caller of a failed REMOVE that the reviewer was "not seated" and sent them to check the
+        // roster for a nonexistent login — while GitHub had just reported that exact login holding
+        // the seat. Every assertion here is about the caller being routed at the real state.
+        const removeFailed = await PullRequestService.managePrReviewers(
+            {pr_number: 42, reviewers: ['neo-gpt'], action: 'remove'},
+            {execFn: async () => reviewerResponse(['neo-gpt'])}
+        );
+
+        expect(removeFailed.error).toBe('Reviewer still requested');
+        expect(removeFailed.message).toContain('remain requested reviewers');
+        // The inverted claim and the remediation it implies — the actual defect, pinned by name.
+        expect(removeFailed.error)  .not.toContain('not seated');
+        expect(removeFailed.message).not.toContain('not seated');
+        expect(removeFailed.message).not.toContain('identityRoots');
+        expect(removeFailed.message).not.toContain('does not exist');
+        // The seat is occupied; the caller must not read this as "free".
+        expect(removeFailed.verifiedReviewers).toEqual(['neo-gpt']);
+
+        // Positive control on the same axis: the add path must KEEP the roster remediation, or this
+        // could have been "fixed" by deleting the guidance from both branches.
+        const addFailed = await PullRequestService.managePrReviewers(
+            {pr_number: 42, reviewers: ['neo-gpt-euclid'], action: 'add'},
+            {execFn: async () => reviewerResponse([])}
+        );
+
+        expect(addFailed.code)   .toBe('REVIEWER_NOT_SEATED');
+        expect(addFailed.error)  .toBe('Reviewer not seated');
+        expect(addFailed.message).toContain('were not seated');
+        expect(addFailed.message).toContain('identityRoots');
+
+        // Neither envelope may state a status as the endpoint's general contract; the measured 200
+        // belongs to the unknown-login receipt, and GitHub documents add as 201 / remove as 200.
+        expect(removeFailed.message).not.toContain('HTTP 200');
+        expect(addFailed   .message).not.toContain('HTTP 200');
     });
 
     test('remove succeeds when the reviewer is gone from the returned state', async () => {
@@ -176,5 +220,51 @@ test.describe('PullRequestService.managePrReviewers — REST requested_reviewers
 
         expect(unparseable.code).toBe('REVIEWER_STATE_UNVERIFIABLE');
         expect(unparseable.message).not.toContain('Successfully');
+    });
+
+    test('the OpenAPI contract publishes what the runtime promises', async () => {
+        // A tool description that promises verification fields is prose; the generated MCP contract is
+        // what a client can actually discover. Before this, `ManagePrReviewersResponse` had no `required`
+        // list — so `{}` satisfied the declared success schema — and the 422 pointed at the generic
+        // `ErrorResponse`, which carries none of `pr_number` / `unseated` / the verified arrays.
+        const doc     = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/github-workflow/openapi.yaml'), 'utf8')),
+              schemas = doc.components.schemas,
+              op      = Object.values(doc.paths).flatMap(p => Object.values(p)).find(o => o?.operationId === 'manage_pr_reviewers');
+
+        expect(op, 'manage_pr_reviewers operation must exist').toBeTruthy();
+
+        const okRef  = op.responses['200'].content['application/json'].schema.$ref,
+              errRef = op.responses['422'].content['application/json'].schema.$ref;
+
+        expect(okRef) .toBe('#/components/schemas/ManagePrReviewersResponse');
+        expect(errRef).toBe('#/components/schemas/ManagePrReviewersErrorResponse');
+
+        // Success: every verification field is REQUIRED, so an empty object no longer validates.
+        expect(schemas.ManagePrReviewersResponse.required)
+            .toEqual(expect.arrayContaining(['message', 'pr_number', 'verifiedReviewers', 'verifiedTeamReviewers']));
+
+        // Failure: the structured fields are discoverable from the schema, not only from prose.
+        const errSchema = schemas.ManagePrReviewersErrorResponse;
+
+        expect(Object.keys(errSchema.properties))
+            .toEqual(expect.arrayContaining(['code', 'pr_number', 'unseated', 'verifiedReviewers', 'verifiedTeamReviewers']));
+        expect(errSchema.required).toEqual(expect.arrayContaining(['error', 'message', 'code', 'pr_number']));
+        // `unseated` and the verified arrays are deliberately NOT required: on
+        // REVIEWER_STATE_UNVERIFIABLE the response carried no reviewer arrays, and publishing empty
+        // ones would assert "GitHub reports nobody seated" — a definite claim about the unknown.
+        expect(errSchema.required).not.toContain('unseated');
+
+        // The lock that keeps this from rotting: every failure code the METHOD can return must appear
+        // in the enum. A fourth code added to the service without a schema update fails here.
+        const source  = fs.readFileSync(path.join(repoRoot, 'ai/services/github-workflow/PullRequestService.mjs'), 'utf8'),
+              start   = source.indexOf('async managePrReviewers('),
+              body    = source.slice(start, source.indexOf('\n    async ', start + 1) + 1 || undefined),
+              runtime = [...new Set(body.match(/'(REVIEWER_[A-Z_]+)'/g) || [])].map(m => m.slice(1, -1));
+
+        // Positive control: the slice must actually contain the method, or an empty `runtime` would
+        // make the arrayContaining below pass while checking nothing.
+        expect(start).toBeGreaterThan(-1);
+        expect(runtime.length).toBeGreaterThanOrEqual(3);
+        expect(errSchema.properties.code.enum).toEqual(expect.arrayContaining(runtime));
     });
 });

@@ -2707,10 +2707,11 @@ class PullRequestService extends Base {
     /**
      * @summary Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint.
      *
-     * Verifies the **effect**: the endpoint's own 200 body carries the resulting `requested_reviewers` /
-     * `requested_teams`, and the verdict is read from there. GitHub accepts a login that does not exist,
-     * returns 200, and seats nobody, so neither the exit code nor the absence of an exception proves a
-     * reviewer was assigned. Mirrors `IssueService.assignIssue`'s `verifiedAssignees` post-verify.
+     * Verifies the **effect**: the endpoint's own success body carries the resulting `requested_reviewers` /
+     * `requested_teams`, and the verdict is read from there. Measured against the live API, GitHub accepts
+     * a login that does not exist, answers 200, and seats nobody — so neither the exit code nor the absence
+     * of an exception proves a reviewer was assigned. Mirrors `IssueService.assignIssue`'s `verifiedAssignees`
+     * post-verify.
      *
      * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
      * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
@@ -2731,8 +2732,9 @@ class PullRequestService extends Base {
      * @param {string}    options.action             Either `'add'` or `'remove'`.
      * @returns {Promise<object>} On success, a message plus `verifiedReviewers` / `verifiedTeamReviewers`
      * read out of GitHub's response — never echoed from the arguments. A requested login that GitHub did
-     * not seat returns `REVIEWER_NOT_SEATED` (with `unseated`), and a response that cannot be verified
-     * returns `REVIEWER_STATE_UNVERIFIABLE`; both are failures, not partial successes.
+     * not seat returns `REVIEWER_NOT_SEATED`, a `remove` whose target is still listed returns
+     * `REVIEWER_STILL_REQUESTED` (both naming the targets under `unseated`), and a response that cannot be
+     * verified returns `REVIEWER_STATE_UNVERIFIABLE`. All three are failures, not partial successes.
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
@@ -2775,12 +2777,14 @@ class PullRequestService extends Base {
 
             const {stdout} = await execFn(command, {cwd: aiConfig.projectRoot}) || {};
 
-            // Report the EFFECT, not the request. GitHub answers this endpoint with 200 and the
-            // full PR object even when it seated nobody: an unknown login is accepted and silently dropped,
-            // so `gh` exits 0 and there is no error for the catch below to see. Echoing `reviewerList` back
-            // as success told callers a reviewer was assigned when none was, and the PR then sat unreviewed
-            // with no failure signal anywhere. The 200 body already carries the resulting state, so the
-            // verdict comes from what GitHub returned — never from what we asked for.
+            // Report the EFFECT, not the request. Measured directly against the live API: an unknown login
+            // is accepted and silently dropped, and that call answered 200 with the full PR object having
+            // seated nobody — so `gh` exits 0 and there is no error for the catch below to see. (200 there
+            // is the observed unknown-login receipt, not the endpoint's general contract; GitHub documents
+            // add as 201 and remove as 200. The verdict does not read the status either way.) Echoing
+            // `reviewerList` back as success told callers a reviewer was assigned when none was, and the PR
+            // then sat unreviewed with no failure signal anywhere. The success body already carries the
+            // resulting state, so the verdict comes from what GitHub returned — never from what we asked for.
             const seated = parseSeatedReviewerState(stdout);
 
             if (!seated) {
@@ -2800,13 +2804,37 @@ class PullRequestService extends Base {
             const unseated      = [...unseatedUsers, ...unseatedTeams];
 
             if (unseated.length > 0) {
-                const failedVerb = wanted ? 'were not seated as reviewers on' : 'remain requested reviewers on';
-                logger.error(`REVIEWER_NOT_SEATED on PR #${pr_number}: ${unseated.join(', ')}`);
+                // The two actions fail into OPPOSITE observed states, so they cannot share one envelope.
+                // A failed `remove` means the target is STILL a requested reviewer — telling that caller
+                // "reviewer not seated" and pointing them at the roster describes the inverse of what
+                // GitHub just returned, and sends them to look for a nonexistent login when the login
+                // demonstrably exists and holds the seat. Each action names its own postcondition.
+                const failure = wanted
+                    ? {
+                        error  : 'Reviewer not seated',
+                        code   : 'REVIEWER_NOT_SEATED',
+                        message: `${unseated.join(', ')} were not seated as reviewers on PR #${pr_number}. ` +
+                            `GitHub returned a successful mutation response, but the returned reviewer state ` +
+                            `does not include them — the usual cause is a login that does not exist or is not ` +
+                            `a collaborator. Verify the login against the roster in ai/graph/identityRoots.mjs.`
+                    }
+                    : {
+                        error  : 'Reviewer still requested',
+                        code   : 'REVIEWER_STILL_REQUESTED',
+                        message: `${unseated.join(', ')} remain requested reviewers on PR #${pr_number}: the ` +
+                            `removal was not applied. GitHub returned a successful mutation response, but the ` +
+                            `returned reviewer state still lists them, so the seat is NOT free. Re-read the ` +
+                            `PR's reviewer state before assigning it to anyone else.`
+                    };
+
+                logger.error(`${failure.code} on PR #${pr_number}: ${unseated.join(', ')}`);
+
                 return {
-                    error  : 'Reviewer not seated',
-                    message: `${unseated.join(', ')} ${failedVerb} PR #${pr_number}. GitHub accepted the request (HTTP 200) but the returned reviewer state does not include the change — the usual cause is a login that does not exist or is not a collaborator. Verify the login against the roster in ai/graph/identityRoots.mjs.`,
-                    code   : 'REVIEWER_NOT_SEATED',
+                    ...failure,
                     pr_number,
+                    // Targets whose requested change was not applied: absent after `add`, present after
+                    // `remove`. The name reads add-shaped; the meaning is action-relative, and `code` is
+                    // the field that says which direction failed.
                     unseated,
                     // Same meaning as on the success path: who GitHub reports as seated right now.
                     verifiedReviewers    : [...seated.users],
