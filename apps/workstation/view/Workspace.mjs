@@ -993,13 +993,31 @@ class Workspace extends Container {
         if (me.isDestroyed) return null;
 
         return Neo.create(Participation, {
-            clearPreview         : () => me.clearCrossWindowPreview(workspaceId),
-            commitLocal          : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
-            commitTransfer       : data => me.commitCrossWindowTransfer(data),
-            getDocument          : () => me.getWorkspaceDocument(workspaceId),
-            getForeignDocument   : sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
-            hitTest              : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
-            previewFor           : data => me.renderCrossWindowPreview(workspaceId, data),
+            clearPreview      : () => me.clearCrossWindowPreview(workspaceId),
+            commitLocal       : operation => me.commitLocalWorkspaceOperation(workspaceId, operation),
+            commitTransfer    : data => me.commitCrossWindowTransfer(data),
+            getDocument       : () => me.getWorkspaceDocument(workspaceId),
+            getForeignDocument: sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
+            hitTest           : (localX, localY) => me.hitTestCrossWindowTarget(workspaceId, localX, localY),
+            previewFor        : data => {
+                // Feed the local affordance tier from the remote hover frame: the indicator
+                // menu's only population path is this pipeline (its zone hit-test and the
+                // activeCandidate the gesture-ready contract reads), and the sort-zone event
+                // chain only fires for same-window drags. The promise is deliberately
+                // fire-and-forget (caught) — the readiness poll tolerates the async warm-up
+                // and a rejected measurement must never stall the gesture it annotates.
+                if (isMain) {
+                    Promise.resolve(me.dragAffordances?.onDragMove({
+                        clientX     : data?.localX,
+                        clientY     : data?.localY,
+                        groupNodeId : data?.draggedItem?.dockGroupNodeId ?? null,
+                        itemId      : data?.draggedItem?.dockItemId,
+                        sourceNodeId: data?.draggedItem?.dockSourceNodeId ?? data?.sourceNodeId
+                    })).catch(() => {});
+                }
+
+                return me.renderCrossWindowPreview(workspaceId, data)
+            },
             previewToOperation,
             promoteDragEmbodiment: data => me.vesselProxyEmbodiment.promote({
                 itemId        : data.draggedItem?.dockItemId,
@@ -1496,6 +1514,26 @@ class Workspace extends Container {
             sourceNodeId: data?.sourceNodeId,
             zones       : [zone]
         });
+
+        // Stored-home acquisition fallback: the window hit-test above already admitted the
+        // gesture, so a pointer that lands inside the window but outside every exact zone
+        // still acquires the stored-home semantic target — the preview (and its painting)
+        // binds the exact node rect, never the pointer's empty position. Real on-zone drags
+        // keep the full placement grammar (splits included); only the off-zone position
+        // resolves to the stored-home tab-into.
+        if (!preview && isMain) {
+            preview = producer.produce({
+                containerId: geometry.host.id,
+                groupNodeId,
+                itemId,
+                pointer    : {
+                    x: geometry.targetRect.x + geometry.targetRect.width  / 2,
+                    y: geometry.targetRect.y + geometry.targetRect.height / 2
+                },
+                sourceNodeId: data?.sourceNodeId,
+                zones       : [zone]
+            });
+        }
 
         if (geometry.renderer) {
             geometry.renderer.dockPreview = preview;
@@ -2028,7 +2066,7 @@ class Workspace extends Container {
             placeholders,
             preserveItemIds,
             retainTopology: operation === 'detachItem',
-            resolveItem: itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
+            resolveItem   : itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
             onProjectionStaged({plans}) {
                 const retainedTabBars = [...plans.values()]
                     .filter(plan => plan.tab)
@@ -4458,13 +4496,28 @@ class Workspace extends Container {
                 cursorDot = null
             }
 
+            // The film gesture aims at the semantic return target itself: the indicator
+            // menu's active candidate is selected geometrically, so the synthetic cursor
+            // hovers the stored-home tabs node (window center can lie outside it).
+            let storedHome   = me.tearOutPlacements[state.itemId]?.tabsNodeId,
+                returnNodeId = me.dockModel.nodes?.[storedHome]?.type === 'tabs'
+                    ? storedHome
+                    : Object.entries(me.dockModel.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+                returnHost   = me.dragAffordances?.host,
+                returnNode   = returnNodeId && returnHost?.down({dockNodeId: returnNodeId}),
+                [returnRect] = returnNode ? await returnHost.getDomRect([returnNode.id], me.windowId) : [];
+
             for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
                 targetWindow = WindowManager.get(me.windowId);
 
                 if (!targetWindow?.innerRect) break;
 
-                let targetClientX = Math.round(targetWindow.innerRect.width  / 2) + attempt % 2,
-                    targetClientY = Math.round(targetWindow.innerRect.height / 2),
+                let targetClientX = returnRect
+                        ? Math.round(returnRect.x + returnRect.width  / 2) + attempt % 2
+                        : Math.round(targetWindow.innerRect.width  / 2) + attempt % 2,
+                    targetClientY = returnRect
+                        ? Math.round(returnRect.y + returnRect.height / 2)
+                        : Math.round(targetWindow.innerRect.height / 2),
                     targetScreenX = Math.round(targetWindow.innerRect.x + targetClientX),
                     targetScreenY = Math.round(targetWindow.innerRect.y + targetClientY);
 

@@ -185,9 +185,12 @@ class DockDragAffordances extends Base {
      * GLIDE); the pointer selects an indicator geometrically; the selected candidate's
      * preview — or the pointer-inference FALLBACK tier when no indicator is hovered — feeds
      * the renderer with its exact target region.
-     * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
+     * @param {Object} data {clientX, clientY, itemId, groupNodeId, sourceNodeId} —
+     *     `groupNodeId` is optional; remote grouped (whole-stack) gestures pass it so the
+     *     indicator and fallback previews carry the SAME grouped previewId the cross-window
+     *     semantic path produces — the gesture-ready contract reads the trio's agreement.
      */
-    async onDragMove({clientX, clientY, itemId, sourceNodeId}) {
+    async onDragMove({clientX, clientY, itemId, groupNodeId = null, sourceNodeId}) {
         let me              = this,
             geometryPromise = me.ensureGeometry(),
             geometry        = await geometryPromise;
@@ -203,14 +206,14 @@ class DockDragAffordances extends Base {
         if (indicators) {
             if ((zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
                 indicators.candidateSet = zone
-                    ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, sourceNodeId, root: geometry.root})
+                    ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId, root: geometry.root})
                     : null
             }
         }
 
         let candidate   = indicators?.updatePointer(pointer) ?? null,
             dockPreview = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, itemId, sourceNodeId});
+                ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId});
 
         if (preview) {
             preview.dockPreview = dockPreview;
