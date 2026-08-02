@@ -71,6 +71,7 @@ class DomAccess extends Base {
                 'getBoundingClientRect',
                 'getChildNodeIds',
                 'getComputedStyle',
+                'getLayoutRect',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
@@ -452,6 +453,52 @@ class DomAccess extends Base {
                     returnData.minHeight = me.measure({value: minHeight, id: node})
                 }
             }
+        }
+
+        return returnData
+    }
+
+    /**
+     * @summary Returns transform-immune layout-box metrics for a given dom node id.
+     *
+     * `getBoundingClientRect()` reports VISUAL (post-transform) geometry: while a presentation
+     * layer animates an ancestor (e.g. the DockFlip inverse-transform window), rect widths and
+     * heights are scaled fiction. Layout consumers that persist sizes (grid column generation,
+     * buffered mounting math) must read the LAYOUT box instead, which transforms never affect.
+     *
+     * Width/height resolve from the computed used values (fractional, normalized to border-box
+     * when an element opts into content-box sizing); x/y are offset-parent-relative
+     * (`offsetLeft`/`offsetTop`). Use this for size and sibling-relative position semantics;
+     * use `getBoundingClientRect()` whenever viewport-space coordinates are required.
+     * @param {Object} data
+     * @param {Array|String} data.id either an id or an array of ids
+     * @returns {Object|Object[]} rect-shaped layout metrics ({x, y, left, top, right, bottom, width, height})
+     */
+    getLayoutRect(data) {
+        let me = this;
+
+        if (Array.isArray(data.id)) {
+            return data.id.map(id => me.getLayoutRect({id}))
+        }
+
+        let node       = me.getElementOrBody(data.nodeType ? data : data.id),
+            returnData = {};
+
+        if (node) {
+            let style  = node.ownerDocument.defaultView.getComputedStyle(node),
+                read   = property => parseFloat(style.getPropertyValue(property)) || 0,
+                width  = read('width'),
+                height = read('height'),
+                x      = node.offsetLeft,
+                y      = node.offsetTop;
+
+            // Used width/height track the box-sizing mode; normalize to border-box metrics
+            if (style.getPropertyValue('box-sizing') === 'content-box') {
+                width  += read('padding-left') + read('padding-right')  + read('border-left-width') + read('border-right-width');
+                height += read('padding-top')  + read('padding-bottom') + read('border-top-width')  + read('border-bottom-width')
+            }
+
+            returnData = {x, y, left: x, top: y, right: x + width, bottom: y + height, width, height}
         }
 
         return returnData

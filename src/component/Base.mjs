@@ -1306,6 +1306,27 @@ class Component extends Abstract {
     }
 
     /**
+     * @summary Convenience shortcut for transform-immune layout-box metrics.
+     *
+     * Mirrors {@link #getDomRect}, but resolves the LAYOUT box via `Neo.main.DomAccess.getLayoutRect()`:
+     * ancestor transforms (FLIP presentation windows, animated overlays) never distort the result,
+     * so the returned sizes are safe to persist into layout state. Coordinates are
+     * offset-parent-relative — use {@link #getDomRect} when viewport space is required.
+     * @param {String[]|String} id=this.id
+     * @param {String} windowId=this.windowId
+     * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
+     */
+    async getLayoutRect(id=this.id, windowId=this.windowId) {
+        let result = await this.trap(Neo.main.DomAccess.getLayoutRect({id, windowId}));
+
+        if (Array.isArray(result)) {
+            return result.map(rect => Rectangle.clone(rect))
+        }
+
+        return Rectangle.clone(result)
+    }
+
+    /**
      * Get the parent components as an array
      * @returns {Neo.component.Base[]}
      */
