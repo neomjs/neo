@@ -773,11 +773,19 @@ class ConfigBase extends ConfigProvider {
                 miniSummaryBackfillFreshReserve: leaf(10, 'NEO_MC_MINI_SUMMARY_BACKFILL_FRESH_RESERVE', 'number'),
                 miniSummaryMaxChars            : leaf(280, 'NEO_MC_MINI_SUMMARY_MAX_CHARS', 'number'),
                 generateMiniSummaryTimeoutMs   : leaf(20000, 'NEO_MC_GENERATE_MINI_SUMMARY_TIMEOUT_MS', 'number'),
-                chromaFetchTimeoutMs           : leaf(10000, 'NEO_MC_CHROMA_FETCH_TIMEOUT_MS', 'number'),
-                graphProjectionMaxAttempts     : leaf(5, 'NEO_MC_GRAPH_PROJECTION_MAX_ATTEMPTS', 'number'),
-                graphProjectionRetryBaseMs     : leaf(250, 'NEO_MC_GRAPH_PROJECTION_RETRY_BASE_MS', 'number'),
-                graphProjectionRetryMaxMs      : leaf(5000, 'NEO_MC_GRAPH_PROJECTION_RETRY_MAX_MS', 'number'),
-                graphProjectionDrainIntervalMs : leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
+                /**
+                 * Consecutive generation failures after which a row is reversibly archived instead of
+                 * deferred again. Without a budget the backfill retries the same rows forever: a CPU-only
+                 * deployment burned ~2.3 cores for days at `0 updated, 30 deferred` per pass, because the
+                 * timeout is per-attempt and nothing counted attempts across passes. Mirrors
+                 * `graphProjectionMaxAttempts`; the exit mirrors the loop's existing `no-content` archive.
+                 */
+                miniSummaryMaxAttempts        : leaf(5, 'NEO_MC_MINI_SUMMARY_MAX_ATTEMPTS', 'number'),
+                chromaFetchTimeoutMs          : leaf(10000, 'NEO_MC_CHROMA_FETCH_TIMEOUT_MS', 'number'),
+                graphProjectionMaxAttempts    : leaf(5, 'NEO_MC_GRAPH_PROJECTION_MAX_ATTEMPTS', 'number'),
+                graphProjectionRetryBaseMs    : leaf(250, 'NEO_MC_GRAPH_PROJECTION_RETRY_BASE_MS', 'number'),
+                graphProjectionRetryMaxMs     : leaf(5000, 'NEO_MC_GRAPH_PROJECTION_RETRY_MAX_MS', 'number'),
+                graphProjectionDrainIntervalMs: leaf(60000, 'NEO_MC_GRAPH_PROJECTION_DRAIN_INTERVAL_MS', 'number')
             },
             /**
              * Temporal-pyramid durable aggregation lane (L1 session / L2 daily tiers).
