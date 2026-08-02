@@ -72,6 +72,15 @@ class Mouse extends Base {
         let me = this;
 
         if (me.currentElement) {
+            // Lost-release recovery: the gesture's own move stream observes the primary button
+            // gone, so its mouseup happened off-document — terminate as the release never
+            // received. The delay-timeout re-entry passes a plain coords object with no
+            // `buttons` to inspect, so it skips this check by construction.
+            if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+                me.endGesture(event);
+                return
+            }
+
             const {pageX, pageY}    = event,
                   timeElapsed       = Date.now() - me.mouseDownTime,
                   distanceTravelled = DomEvents.getDistance(me.startEvent.pageX, me.startEvent.pageY, pageX, pageY) || 0;
@@ -108,6 +117,17 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
+                // Suppress text selection for the whole physical gesture from this point: the
+                // drag only officially starts past the delay+distance threshold, and the native
+                // selection machinery claims the pre-threshold window first — which is how a
+                // splitter drag comes to paint card text as a selection. The class brackets the
+                // PHYSICAL gesture, not the logical drag: Escape retires drag semantics, but the
+                // button is still down, so suppression must hold until release. Released in
+                // endGesture — on mouseup, or on the gesture's own move stream observing the
+                // primary button gone (an off-document release never reaches onMouseUp).
+                // Guarded: bare test harnesses may stub `document` without a body/classList.
+                document.body?.classList?.add('neo-drag-active');
+
                 document.addEventListener('dragstart', preventDefault);
                 document.addEventListener('mousemove', me.onDistanceChange);
                 document.addEventListener('mouseup',   me.onMouseUp);
@@ -124,6 +144,12 @@ class Mouse extends Base {
      */
     onMouseMove(event) {
         let me = this;
+
+        // Same lost-release recovery for an engaged drag (see onDistanceChange).
+        if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+            me.endGesture(event);
+            return
+        }
 
         if (me.dragging) {
             let element = me.currentElement,
@@ -142,43 +168,58 @@ class Mouse extends Base {
     }
 
     /**
+     * Tears the physical gesture bracket down: releases the document-level selection guard,
+     * detaches every gesture listener and, for an engaged drag, emits `drag:end` at the event's
+     * position. Called by `onMouseUp` for an ordinary release and by the move handlers when the
+     * primary button is observed gone — a release that happened off-document never reaches
+     * `onMouseUp`, so the gesture's own move stream is the independent terminal witness.
+     * @param {MouseEvent} event
+     * @protected
+     */
+    endGesture(event) {
+        let me = this;
+
+        clearTimeout(me.mouseDownTimeout);
+
+        document.body?.classList?.remove('neo-drag-active');
+
+        document.removeEventListener('dragstart', preventDefault);
+        document.removeEventListener('mousemove', me.onDistanceChange);
+        document.removeEventListener('mouseup',   me.onMouseUp);
+
+        if (me.dragging) {
+            let element = me.currentElement,
+                target  = document.elementFromPoint(event.clientX, event.clientY);
+
+            me.trigger(element, {
+                clientX      : event.clientX,
+                clientY      : event.clientY,
+                element,
+                originalEvent: event,
+                path         : me.startEvent.path || me.startEvent.composedPath(),
+                target,
+                type         : 'drag:end'
+            });
+
+            document.removeEventListener('contextmenu', preventDefault, true);
+            document.removeEventListener('mousemove',   me.onMouseMove);
+
+            Object.assign(me, {
+                currentElement: null,
+                dragging      : false,
+                startEvent    : null
+            })
+        }
+
+        me.dragging = false
+    }
+
+    /**
      * @param {MouseEvent} event
      */
     onMouseUp(event) {
         if (event.button === 0) {
-            let me = this;
-
-            clearTimeout(me.mouseDownTimeout);
-
-            document.removeEventListener('dragstart', preventDefault);
-            document.removeEventListener('mousemove', me.onDistanceChange);
-            document.removeEventListener('mouseup',   me.onMouseUp);
-
-            if (me.dragging) {
-                let element = me.currentElement,
-                    target  = document.elementFromPoint(event.clientX, event.clientY);
-
-                me.trigger(element, {
-                    clientX      : event.clientX,
-                    clientY      : event.clientY,
-                    element,
-                    originalEvent: event,
-                    path         : me.startEvent.path || me.startEvent.composedPath(),
-                    target,
-                    type         : 'drag:end'
-                });
-
-                document.removeEventListener('contextmenu', preventDefault, true);
-                document.removeEventListener('mousemove',   me.onMouseMove);
-
-                Object.assign(me, {
-                    currentElement: null,
-                    dragging      : false,
-                    startEvent    : null
-                })
-            }
-
-            me.dragging = false
+            this.endGesture(event)
         }
     }
 
