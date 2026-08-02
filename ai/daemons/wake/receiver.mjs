@@ -13,12 +13,26 @@ import fs              from 'node:fs/promises';
 import http            from 'node:http';
 import net             from 'node:net';
 import path            from 'node:path';
+import {watch}         from 'node:fs';
 import {pathToFileURL} from 'node:url';
 
 import {WakeReceiverState} from './receiverState.mjs';
 import {dispatchLocalWake} from './localWakeAdapters.mjs';
 
 const DEFAULT_MAX_BODY_BYTES = 256 * 1024;
+/**
+ * Coalesces the burst of filesystem events one atomic publish produces into a single reload.
+ * @type {Number}
+ */
+const MANIFEST_WATCH_DEBOUNCE_MS = 150;
+/**
+ * Backstop sweep. `fs.watch` is allowed to miss events — on network and virtualised filesystems it
+ * routinely does — so a watcher alone trades a known manual step for an unknown silent one. This is
+ * what makes a missed event self-healing rather than permanent: worst case the route goes live one
+ * interval late instead of never.
+ * @type {Number}
+ */
+const MANIFEST_RECONCILE_INTERVAL_MS = 30 * 1000;
 const LOOPBACK_HOSTS         = new Set(['127.0.0.1', 'localhost', '::1']);
 const PRODUCTION_ADAPTERS    = new Set([
     'osascript',
@@ -348,12 +362,97 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
         }
     };
 
-    // SIGHUP is the documented way a published route goes live. A seat runs the generator, signals,
-    // and its route serves — without the restart that an incident is most likely to have forbidden.
+    // The mtime the currently-served route table was loaded from. A reload that is REFUSED must not
+    // record it, so the next sweep retries rather than treating a rejected file as accepted.
+    let servingMtimeMs = await readManifestMtimeMs(manifestPath);
+
+    /**
+     * @summary Reloads only when the manifest on disk differs from the one being served.
+     *
+     * Both triggers below funnel through here, so a duplicated watch event costs a `stat` rather than
+     * a redundant parse-and-swap, and the periodic sweep stays free when nothing has changed.
+     * @returns {Promise<Number|null>} Route count now serving, or `null` when nothing was reloaded.
+     */
+    const reloadIfChanged = async () => {
+        const mtimeMs = await readManifestMtimeMs(manifestPath);
+
+        // Absent is what an atomic rename looks like from the outside, mid-publish. Keep serving and
+        // let the next event or sweep settle it — an unreadable moment must never empty a route table.
+        if (mtimeMs === null || mtimeMs === servingMtimeMs) return null;
+
+        const count = await reload();
+
+        if (count !== null) servingMtimeMs = mtimeMs;
+
+        return count
+    };
+
+    let debounceTimer = null;
+
+    const onManifestEvent = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { void reloadIfChanged() }, MANIFEST_WATCH_DEBOUNCE_MS);
+        debounceTimer.unref?.();
+    };
+
+    // Watch the DIRECTORY, not the file. The generator publishes by atomic rename, which replaces the
+    // inode — a watch bound to the old file goes quiet after the first publish, which is precisely the
+    // publish this exists to notice.
+    let watcher = null;
+
+    try {
+        watcher = watch(path.dirname(manifestPath), (eventType, filename) => {
+            if (!filename || filename === path.basename(manifestPath)) onManifestEvent();
+        });
+        watcher.on('error', error => {
+            logger.warn?.(`[Wake Receiver] manifest watch error, falling back to the periodic sweep: ${error.message}`);
+        });
+        watcher.unref?.();
+    } catch (error) {
+        // A platform that cannot watch still reloads on the sweep. Degraded, not deaf.
+        logger.warn?.(`[Wake Receiver] manifest watch unavailable, relying on the periodic sweep: ${error.message}`);
+    }
+
+    const reconcileTimer = setInterval(() => { void reloadIfChanged() }, MANIFEST_RECONCILE_INTERVAL_MS);
+
+    reconcileTimer.unref?.();
+
+    /**
+     * @summary Releases the watcher and the sweep. Callers that own the process lifetime (tests, a
+     * supervisor) need a way to stop them; the daemon itself never calls this.
+     * @returns {void}
+     */
+    const stopWatchingManifest = () => {
+        clearTimeout(debounceTimer);
+        clearInterval(reconcileTimer);
+        watcher?.close();
+    };
+
+    // SIGHUP stays. It is the documented escape hatch and the delivered contract of the predecessor
+    // that shipped it; what changes is that nobody has to remember it. A seat runs the generator and
+    // its route serves — without the restart that an incident is most likely to have forbidden.
     process.on('SIGHUP', () => { void reload() });
 
-    logger.log?.(`[Wake Receiver] listening on http://${host}:${port}/wake — SIGHUP reloads the manifest`);
-    return {server, state, drain, reload};
+    logger.log?.(
+        `[Wake Receiver] listening on http://${host}:${port}/wake — manifest changes reload automatically ` +
+        `(watch + ${MANIFEST_RECONCILE_INTERVAL_MS / 1000}s sweep); SIGHUP still forces one`
+    );
+
+    return {server, state, drain, reload, reloadIfChanged, stopWatchingManifest};
+}
+
+/**
+ * @summary Reads the manifest's modification time, or `null` when it cannot be stat'ed.
+ * @param {String} manifestPath
+ * @returns {Promise<Number|null>}
+ * @private
+ */
+async function readManifestMtimeMs(manifestPath) {
+    try {
+        return (await fs.stat(manifestPath)).mtimeMs
+    } catch {
+        return null
+    }
 }
 
 /**

@@ -320,9 +320,28 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
     });
 
     test.afterEach(async () => {
+        receiver.stopWatchingManifest?.();
         await new Promise(resolve => receiver.server.close(resolve));
         await fs.rm(dir, {recursive: true, force: true});
     });
+
+    /**
+     * Polls until the predicate holds. Watch latency is a property of the platform, not of the code
+     * under test, so a spec that asserts once after a fixed sleep measures the sleep.
+     * @param {Function} predicate
+     * @param {Number} [timeoutMs=4000]
+     * @returns {Promise<Boolean>}
+     */
+    const waitFor = async (predicate, timeoutMs = 4000) => {
+        const deadline = Date.now() + timeoutMs;
+
+        while (Date.now() < deadline) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+
+        return false
+    };
 
     // A forged signature separates the two states and needs no key: a route the process holds reaches
     // the signature gate (401); one it does not know is rejected earlier (404).
@@ -374,5 +393,61 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
         await fs.chmod(manifestPath, 0o600);
         expect(await receiver.reload()).toBe(2);
         expect(await probe(peer)).toBe(401);
+    });
+
+    test('a published route goes live with NO signal, restart, or reload() call', async () => {
+        // The headline: nothing external happens after the write. Previously the file said two routes
+        // and the process served one, with no surface reporting the discrepancy — a published route was
+        // silently undeliverable until someone remembered to signal.
+        expect(await probe(peer)).toBe(404);
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
+
+        // And the route it already served is untouched — a reload adds, it does not swap one for another.
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('a change that fires no watch event still converges — the sweep is the self-heal', async () => {
+        // `fs.watch` may legitimately miss events (network and virtualised filesystems routinely do).
+        // Killing the watcher first reproduces that exactly, rather than trusting it never happens: what
+        // is left is the periodic sweep, and it must reach the same state on its own.
+        receiver.stopWatchingManifest();
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        // Nothing observes the write now, so the stale table persists — the failure this AC guards.
+        expect(await probe(peer)).toBe(404);
+
+        // One sweep tick, invoked directly rather than by waiting out the interval.
+        expect(await receiver.reloadIfChanged()).toBe(2);
+        expect(await probe(peer)).toBe(401);
+    });
+
+    test('an unchanged manifest costs no reload, so a duplicate event is free', async () => {
+        // Watch events arrive doubled on some platforms. Funnelling both triggers through an mtime
+        // comparison makes a duplicate cost a stat instead of a redundant parse-and-swap.
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('a corrupt write leaves the serving table intact, and recovery needs no signal', async () => {
+        expect(await probe(mine)).toBe(401);
+
+        await fs.writeFile(manifestPath, '{ not json', {mode: 0o600});
+
+        // The fail-safe under the AUTOMATIC path: the existing spec proves reload() refuses, but the
+        // watcher is a new caller of it. A malformed file reaching an emptied route table would turn a
+        // stale receiver into a dead one — the exact inversion this daemon must never make.
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await probe(mine)).toBe(401);
+
+        // A refused reload must NOT record the file's mtime, or the sweep would treat a rejected write
+        // as accepted and never retry — the corrupt file would become permanently authoritative.
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
     });
 });
