@@ -111,6 +111,11 @@ async function boot() {
         console.log('[fleet] fleet.planeBase is empty — mailbox/compose/catch-up seams stay in-process (host plane; viewer verified against the host graph).')
     }
 
+    // From here on, EVERY exit — wiring throws included — closes the proven plane session awaited:
+    // the try below spans the whole post-admission life (wiring + serve + occupied-port handling),
+    // so the ALL-exits close guarantee is structural, not prose.
+    try {
+
     // Wire the cross-process boot-identity reader BEFORE serving: getBootIdentity() then serves the
     // orchestrator's advisory fact from the shared runtime-state dir (read at this use site), instead of
     // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
@@ -229,7 +234,6 @@ async function boot() {
         }
     };
 
-    try {
         const server = await startFleetBridgeServer({
             port,
             bearerToken,

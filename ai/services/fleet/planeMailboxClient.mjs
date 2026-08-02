@@ -90,18 +90,33 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
         closing      = null; // the shared terminal close barrier every closer awaits
 
     /**
+     * Every teardown in flight, OBSERVABLE to the close barrier: a failing caller's candidate-local
+     * teardown runs outside the barrier's own awaits, and an unobservable one would let `close()`
+     * resolve — and a signal handler exit — while a stale-session DELETE is still pending.
+     * @type {Set<Promise>}
+     */
+    const pendingTeardowns = new Set();
+
+    /**
      * @summary Tear one session down, awaited and tolerant: the plane-side session DELETE
      * (`terminateSession`) then the transport close, each best-effort so a refusal exit can never
-     * leak a half-open session or mask the refusal itself.
+     * leak a half-open session or mask the refusal itself. Enrolled in {@link pendingTeardowns} so
+     * the close barrier drains EVERY in-flight teardown before it resolves, whoever started it.
      * @param {Object|null} candidate `{client, transport}`
      * @returns {Promise<void>}
      * @private
      */
-    async function teardown(candidate) {
-        if (!candidate) return;
+    function teardown(candidate) {
+        if (!candidate) return Promise.resolve();
 
-        try { await candidate.transport?.terminateSession?.() } catch { /* reaped or unreachable */ }
-        try { await candidate.client?.close?.() }               catch { /* already closed */ }
+        const work = (async () => {
+            try { await candidate.transport?.terminateSession?.() } catch { /* reaped or unreachable */ }
+            try { await candidate.client?.close?.() }               catch { /* already closed */ }
+        })().finally(() => pendingTeardowns.delete(work));
+
+        pendingTeardowns.add(work);
+
+        return work
     }
 
     /**
@@ -370,8 +385,16 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
 
                 session = null;
 
-                await teardown(held);
-                await teardown(late)
+                teardown(held);
+                teardown(late);
+
+                // Drain EVERY in-flight teardown — the barrier's own two above AND any
+                // candidate-local teardown a concurrently failing caller started before or during
+                // this close. A signal handler awaiting close() therefore never exits while a
+                // stale-session DELETE is still pending.
+                while (pendingTeardowns.size) {
+                    await Promise.allSettled([...pendingTeardowns])
+                }
             })();
 
             return closing

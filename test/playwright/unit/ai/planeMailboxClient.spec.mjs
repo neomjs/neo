@@ -573,6 +573,54 @@ test.describe('planeMailboxClient: generation safety + the terminal close barrie
         await expect(client.callTool('list_messages')).rejects.toThrow('client not initialized')
     });
 
+    test('close during a FAILURE teardown waits for it: no exit while a stale-session DELETE pends', async () => {
+        // Reviewer-measured shape: a live call gets 404, clears the session, and enters a slow
+        // teardown; close() then saw session === null / establishing === null and resolved with the
+        // DELETE still pending ({closeResolvedBeforeInFlightDelete: true} on the broken build). The
+        // barrier must drain OBSERVABLE teardown ownership, whoever started the teardown.
+        const order = [];
+
+        let initializes = 0;
+
+        const plane = scriptedPlane({
+            deleteDelayMs: 40,
+            toolResponder: () => ({status: 404})
+        });
+
+        const fetchImpl = async (url, init = {}) => {
+            const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+
+            // The recovery initialize finds the plane down — the failing call ends in its slow
+            // candidate-local teardown with nothing else to observe it but the barrier.
+            if (body?.method === 'initialize' && ++initializes > 1) {
+                return planeResponse({status: 503, body: 'down'})
+            }
+
+            const response = await plane.fetchImpl(url, init);
+
+            if (init.method === 'DELETE') order.push('delete-done');
+
+            return response
+        };
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl});
+
+        expect((await client.init({expectedIdentity: IDENTITY})).ok).toBe(true);
+
+        const failing = client.listMessages().catch(error => error);
+
+        // Let the 404 land and the slow teardown begin before closing.
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        await client.close();
+        order.push('close-resolved');
+
+        expect(order.indexOf('delete-done')).toBeGreaterThanOrEqual(0);
+        expect(order.indexOf('delete-done')).toBeLessThan(order.indexOf('close-resolved'));
+
+        expect((await failing) instanceof Error).toBe(true)
+    });
+
     test('concurrent closers share ONE terminal barrier: a single teardown sequence', async () => {
         const {client, plane} = await initializedClient();
 
