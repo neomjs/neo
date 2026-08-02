@@ -252,6 +252,20 @@ class ConfigBase extends ConfigProvider {
                  * @type {string}
                  */
                 planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
+                /**
+                 * Patience for ONE tenant-plane probe request (initialize, the initialized
+                 * notification, the identity proof) — a single declared bound replacing per-site
+                 * literals, env-relocatable. Calibrated from MEASURED plane latency, both modes:
+                 * healthy establish+prove answers in well under a second (measured 41-397ms,
+                 * 2026-08-02, post-rebuild), while the loaded-window receipts put `initialize`
+                 * at ~17s under WAL/embed load — the prior 10s literals read exactly those
+                 * healthy-but-loaded windows as degraded, a fabrication class, not caution.
+                 * 30s covers the measured loaded tail with margin while keeping boot-path
+                 * failure detection bounded; a wedged plane failing this probe after 30s is the
+                 * honest outcome, not the defect. Milliseconds.
+                 * @type {number}
+                 */
+                tenantProbeTimeoutMs: leaf(30000, 'NEO_FLEET_TENANT_PROBE_TIMEOUT_MS', 'number'),
                 harnessBinaries: {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly

@@ -142,6 +142,7 @@
         "fleet.instanceRoot",
         "fleet.planeBase",
         "fleet.planeBearer",
+        "fleet.tenantProbeTimeoutMs",
         "geminiApiKey",
         "graphProvider",
         "knowledgeBase",
