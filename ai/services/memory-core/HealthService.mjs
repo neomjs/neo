@@ -625,10 +625,15 @@ async function buildSubscriptionArmingBlock() {
             return {armed: null, reason: 'unbound-identity'};
         }
 
+        // STRICT equality, deliberately, and against the local majority. Three readers treat an
+        // absent `status` as active — the durable lister's own SQL (`COALESCE(..., 'active')`),
+        // `checkSunsetted.mjs`, and `readActiveWakeSubscriptionIdentities.mjs`. The manifest builder
+        // does not: it compares `status !== 'active'` and withdraws the route. Since THIS verdict
+        // claims only "the manifest build would accept my rows", it must take the manifest's side;
+        // matching the majority would report `deliverable` for a row the build silently skips.
+        // That 3-vs-1 split is a real substrate disagreement, not a preference — tracked separately.
         const {subscriptions = []} = await WakeSubscriptionService.list(),
-              // Absent `status` predates the field and means active; `degraded` does NOT — delivery
-              // short-circuits a degraded row without an attempt, and the manifest withdraws its route.
-              active               = subscriptions.filter(entry => (entry.status ?? 'active') === 'active');
+              active               = subscriptions.filter(entry => entry.status === 'active');
 
         if (active.length === 0) {
             return {armed: false, reason: 'no-active-subscription'};
