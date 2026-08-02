@@ -698,27 +698,51 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
 }
 
 /**
- * @summary Verifies the latest backup bundle is structurally restorable WITHOUT performing a restore.
+ * @summary Verifies the newest RESTORABLE backup bundle WITHOUT performing a restore.
  *
  * Backups are the recovery source of last resort, yet assumed-restorable-but-never-checked. This runs
  * the same pre-flight `validateBundle` gate the restore path uses (required subdirs present, JSONL
- * parseable, `bundle-meta.json` parseable) against the newest `backup-<ISO-ts>/` under `backupRoot`,
- * returning a structured verdict. It performs NO writes and NO live-store import — a read-only
- * restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it shares the
- * AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check that produces
- * the verdict that piece consumes.
+ * parseable, `bundle-meta.json` parseable) against `backup-<ISO-ts>/` directories under `backupRoot`
+ * newest-first, returning a structured verdict. It performs NO writes and NO live-store import — a
+ * read-only restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it
+ * shares the AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check
+ * that produces the verdict that piece consumes.
+ *
+ * ## Why it does not stop at the newest bundle
+ *
+ * It used to inspect `bundleNames[0]` and nothing else, so ONE unusable newest bundle reported the
+ * whole root unrecoverable. A run that died mid-write left a 0-byte bundle-shaped directory, this
+ * probe read it, and a complete bundle carrying 94,325 recoverable rows sitting directly beside it
+ * was never looked at — the deploy guard refused, and the repair was `rm -rf` on a directory inside
+ * the backup root. Deleting evidence to unblock a guard is the operation this walk exists to stop
+ * being necessary.
+ *
+ * The fallback is deliberately NOT silent. Every bundle passed over travels in `skipped` with its own
+ * code and reason, and a warning names them, because a fallback that quietly succeeded would remove
+ * the pressure to notice that bundles are being produced broken at all — the underlying capture
+ * defect is a separate half of the same ticket.
  *
  * @param {Object}    options
  * @param {String}    options.backupRoot Absolute path to the `.neo-ai-data/backups` root.
  * @param {Object}   [options.logger=console] Log sink.
  * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
  * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
- * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * @param {Number}   [options.maxBundlesExamined=AiConfig.maintenance.backup.restorabilityScanLimit]
+ *     Cap on bundles validated. Read as a default parameter (evaluated per call, so an overlay change
+ *     is honoured without a reload). Exhausting it warns which candidates went unexamined rather than
+ *     reporting a clean "nothing restorable".
+ * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, rowTotal: Number|undefined, embeddingAdvisories: Object[], skipped: Object[], examined: Number}>}
  * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
- * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH structurally valid
- * and non-empty; `rowTotal` reports the row count it was decided on. That strength lives here rather
- * than in a caller so a shell gate consumes one authoritative verdict instead of re-reading metadata
- * and growing a second predicate able to disagree with this one.
+ * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH
+ * structurally valid and non-empty; `rowTotal` reports the row count it was decided on, and
+ * `bundleRoot` names WHICH bundle earned the verdict — no longer necessarily the newest one present.
+ * That strength lives here rather than in a caller so a shell gate consumes one authoritative verdict
+ * instead of re-reading metadata and growing a second predicate able to disagree with this one.
+ *
+ * On failure the reported `code`/`bundleRoot`/`reason` describe the NEWEST bundle rather than an
+ * invented aggregate, so a single-bundle root answers exactly as it did before this function learned
+ * to look further back, and `redeployPreflight`'s refusal still prints the most recent cause.
+ * `skipped` lists every rejected candidate newest-first; `examined` counts full validations spent.
  *
  * It exists so a caller gating on this probe branches on a value rather than
  * pattern-matching English out of `reason`, which would silently stop working the moment the prose
@@ -729,12 +753,21 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  */
 export async function verifyLatestBackupRestorable({
     backupRoot,
-    logger     = console,
-    fsModule   = fs,
-    validateFn = validateBundle
+    logger             = console,
+    fsModule           = fs,
+    validateFn         = validateBundle,
+    maxBundlesExamined = AiConfig.maintenance.backup.restorabilityScanLimit
 } = {}) {
     if (!backupRoot) {
         throw new Error('verifyLatestBackupRestorable requires a `backupRoot` argument.');
+    }
+
+    // Guarding the class, not the one malformed value. A bound below 1 examines nothing, so the walk
+    // would fall through to the no-candidate return with nothing recorded and raise an obscure
+    // TypeError inside a deploy guard. A probe whose job is to be believed must fail loud about its
+    // own arguments rather than crash describing something else.
+    if (!Number.isInteger(maxBundlesExamined) || maxBundlesExamined < 1) {
+        throw new Error(`verifyLatestBackupRestorable requires a positive integer \`maxBundlesExamined\`; received ${maxBundlesExamined}.`);
     }
 
     const checkedAt = new Date().toISOString();
@@ -744,7 +777,7 @@ export async function verifyLatestBackupRestorable({
         // path RELATIVE to the compose project directory, so a deployment run from a different host
         // checkout addresses a directory that never existed rather than an empty one. Reporting "no
         // bundle" for bundles sitting safely in a prior checkout would answer about the wrong subject.
-        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt, skipped: [], examined: 0};
     }
 
     // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
@@ -755,10 +788,76 @@ export async function verifyLatestBackupRestorable({
         .reverse();
 
     if (bundleNames.length === 0) {
-        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt, skipped: [], examined: 0};
     }
 
-    const bundleRoot = path.join(backupRoot, bundleNames[0]);
+    const skipped  = [];
+    let   examined = 0,
+          newest   = null;
+
+    for (const bundleName of bundleNames) {
+        if (examined >= maxBundlesExamined) {
+            // A bound that is silent reads exactly like an exhaustive search that found nothing, which
+            // is the same false-negative this function exists to stop being. Say what was not looked at.
+            logger.warn?.(
+                `[Restore] examined ${examined} candidate bundle(s) without finding a restorable one; ` +
+                `${bundleNames.length - examined} older candidate(s) were NOT examined ` +
+                '(maxBundlesExamined). Raise the bound to search further back.'
+            );
+            break
+        }
+
+        examined++;
+
+        const verdict = await probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt});
+
+        if (verdict.restorable) {
+            // Reporting rather than hiding. The operator's repair for the incident was `rm -rf` on the
+            // unusable newest directory; a fallback that silently succeeded would have removed the
+            // pressure to notice it at all, so every bundle passed over travels with the verdict.
+            if (skipped.length > 0) {
+                logger.warn?.(
+                    `[Restore] verified ${verdict.bundleRoot} after passing over ${skipped.length} ` +
+                    `unusable newer bundle(s): ${skipped.map(s => `${s.bundleName} (${s.code})`).join(', ')}`
+                );
+            }
+
+            return {...verdict, skipped, examined}
+        }
+
+        // The WHOLE verdict, not a projection of it. Rebuilding a reduced `{code, reason, bundleRoot}`
+        // silently dropped `rowTotal` and `embeddingAdvisories` from every refusal — fields a caller
+        // had before this function learned to walk. The failure shape must stay byte-identical to the
+        // single-bundle one it replaces.
+        newest ??= verdict;
+        skipped.push({bundleName, code: verdict.code, reason: verdict.reason});
+    }
+
+    // No candidate survived. The verdict keeps the NEWEST bundle's own result rather than inventing an
+    // aggregate one: consumers (`redeployPreflight.evaluateRedeployPreconditions`) branch on
+    // `RESTORABLE` vs everything-else and log the code as the refusal cause, so the most recent
+    // failure remains the most useful thing to print — and a single-bundle root reports exactly what
+    // it reported before this function learned to look further back.
+    return {...newest, skipped, examined}
+}
+
+/**
+ * @summary Runs the full structural + non-emptiness probe against ONE bundle.
+ *
+ * Extracted verbatim from {@link verifyLatestBackupRestorable}'s former single-bundle body so the
+ * walk gains a loop without the per-bundle contract changing. Every verdict this returns is one the
+ * function already returned before it could look past the newest bundle.
+ *
+ * @param {Object}    options
+ * @param {String}    options.backupRoot Absolute `.neo-ai-data/backups` root.
+ * @param {String}    options.bundleName `backup-<ISO-ts>` directory name.
+ * @param {Object}    options.logger Log sink.
+ * @param {Function}  options.validateFn Bundle validator seam.
+ * @param {String}    options.checkedAt Shared ISO timestamp for the whole walk.
+ * @returns {Promise<Object>} `RESTORABLE`, `BUNDLE_EMPTY`, or `BUNDLE_INVALID` for this bundle alone.
+ */
+async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt}) {
+    const bundleRoot = path.join(backupRoot, bundleName);
     // `ledgers` belongs in the probe's layout because the probe ATTESTS a restore that will write
     // them. Omitting it meant malformed ledger content passed unexamined while the verdict still said
     // `RESTORABLE` — the probe vouching for a member it never looked at.

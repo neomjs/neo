@@ -1603,6 +1603,20 @@ class ConfigBase extends ConfigProvider {
                         maxDays    : 30
                     },
                     /**
+                     * How many candidate bundles `verifyLatestBackupRestorable` may FULLY validate
+                     * before giving up and reporting the newest failure.
+                     *
+                     * The probe walks newest-first because a single unusable newest bundle must not
+                     * hide recoverable history behind it, but full validation streams and parses every
+                     * row of every JSONL in a bundle — on a multi-GB bundle that is not free, and an
+                     * unbounded walk would let a run of corrupt bundles turn a deploy preflight into an
+                     * arbitrarily long scan. Exhausting it logs which bundles went unexamined rather
+                     * than reporting a clean "nothing restorable" — a silent cap reads exactly like an
+                     * exhaustive search, which is the same false-negative the walk exists to end.
+                     * @type {Number}
+                     */
+                    restorabilityScanLimit: 5,
+                    /**
                      * Off-host durability hook (plain nested keys inside this object leaf — the owning
                      * ticket owns validation; see backup.mjs#validateOffHostSyncConfig). An empty
                      * `command` disables the hook entirely. Secrets never enter this tree: `envAllowlist`

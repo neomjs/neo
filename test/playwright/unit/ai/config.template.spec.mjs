@@ -537,7 +537,12 @@ test.describe('Tier 1 Config Immutability', () => {
                 keepMinimum: 3,
                 maxDays    : 30
             },
-            offHostSync: {
+            // Bounds how many bundles `verifyLatestBackupRestorable` validates while walking back past
+            // an unusable newest one. A policy value rather than a module constant: a primitive-local
+            // default is the forbidden config shape, and an operator on a host with a long run of
+            // broken bundles needs to raise it without a code change.
+            restorabilityScanLimit: 5,
+            offHostSync           : {
                 argv        : [],
                 command     : '',
                 envAllowlist: [],

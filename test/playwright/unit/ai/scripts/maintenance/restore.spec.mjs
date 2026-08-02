@@ -873,8 +873,12 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         expect(empty.reason).toMatch(/no backup-\* bundles/);
         expect(empty.checkedAt).toBeTruthy();
 
-        // (2) an older valid bundle + a NEWER torn bundle → the newest is selected → not restorable.
-        writeBundle('backup-2026-05-01T00-00-00');
+        // (2) a torn bundle ALONE is still refused, and still names itself. This assertion moved to a
+        // single-bundle root deliberately: it used to place an older VALID bundle beside the torn one
+        // and assert the refusal anyway, which pinned newest-only selection as the contract. That case
+        // is now inverted in the fallback describe below, asserting RESTORABLE against the older
+        // bundle. What survives here is what did not change: a torn bundle with nothing behind it is
+        // not restorable.
         writeBundle('backup-2026-06-01T00-00-00', {torn: true});
         const torn = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
         expect(torn.restorable).toBe(false);
@@ -990,5 +994,215 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         fs.writeFileSync(path.join(bundle, 'ledgers', 'recovery-runs', 'run-bad.jsonl'), `${JSON.stringify({recoveryRunId: 'ok'})}\n`);
 
         expect((await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent})).code).toBe('RESTORABLE');
+    });
+});
+
+/**
+ * @summary Pins that one unusable newest bundle must not hide recoverable history behind it.
+ *
+ * The incident: a run died mid-write and left a bundle-shaped directory. The probe read that
+ * directory, reported the whole root unrecoverable, and a complete bundle carrying 94,325 rows sitting
+ * directly beside it was never looked at. The deploy guard refused and the repair was `rm -rf` inside
+ * the backup root — deleting evidence to unblock a guard.
+ *
+ * Every fallback case here asserts BOTH halves: that a valid older bundle is found, AND that the
+ * bundle passed over is still named in `skipped`. A fallback that succeeded silently would trade a
+ * false refusal for an invisible one.
+ */
+test.describe('verifyLatestBackupRestorable — falls back past an unusable newest bundle (#16348 AC4)', () => {
+    let verifyLatestBackupRestorable;
+    let probeRoot;
+    const silent = {log: () => {}, warn: () => {}, error: () => {}};
+
+    /** Writes a structurally valid bundle carrying one full-dimension vector row. */
+    const writeValidBundle = name => {
+        const bundleRoot = path.join(probeRoot, name);
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+        fs.writeFileSync(path.join(bundleRoot, 'mc', 'memory-backup.jsonl'),
+            JSON.stringify({id: `m-${name}`, embedding: new Array(4096).fill(0.1), metadata: {t: 'prompt'}}) + '\n');
+        return bundleRoot;
+    };
+
+    /** Specimen 2 — the abort-mid-write shape: bundle-shaped directories, no rows, no receipt. */
+    const writeAbortedBundle = name => {
+        const bundleRoot = path.join(probeRoot, name);
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+        fs.writeFileSync(path.join(bundleRoot, 'kb', 'knowledge-base-backup.jsonl'), '');
+        return bundleRoot;
+    };
+
+    /** Specimen 1 — the zero-capture shape: a complete receipt attesting an empty corpus. */
+    const writeZeroCaptureBundle = name => {
+        const bundleRoot = path.join(probeRoot, name);
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+        fsExtra.writeJsonSync(path.join(bundleRoot, 'bundle-meta.json'), {
+            bundleVersion: 1,
+            integrity    : [{subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0}],
+            subsystems   : {kb: {count: 0, message: 'Export complete. Exported 0 knowledge base chunks.'}},
+            topology     : {chromaUnified: true, shared_topology: true}
+        });
+        return bundleRoot;
+    };
+
+    /** Writes a torn bundle whose JSONL cannot parse. */
+    const writeTornBundle = name => {
+        const bundleRoot = path.join(probeRoot, name);
+        for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+            fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
+        }
+        fs.writeFileSync(path.join(bundleRoot, 'mc', 'memory-backup.jsonl'), '{this is not valid json\n');
+        return bundleRoot;
+    };
+
+    test.beforeAll(async () => {
+        ({verifyLatestBackupRestorable} = await import('../../../../../../ai/scripts/maintenance/restore.mjs'));
+    });
+
+    test.beforeEach(() => {
+        probeRoot = path.join(os.tmpdir(), `neo-restorable-fallback-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(probeRoot, {recursive: true});
+    });
+
+    test.afterEach(() => {
+        fsExtra.removeSync(probeRoot);
+    });
+
+    test('the live incident: an aborted newest bundle no longer hides the good bundle beside it', async () => {
+        // Ordered exactly as the incident was on disk — the aborted run is NEWER than the complete one.
+        writeValidBundle('backup-2026-08-01T12-13-23.398Z');
+        writeAbortedBundle('backup-2026-08-02T05-12-55.917Z');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.code).toBe('RESTORABLE');
+        expect(verdict.bundleRoot).toContain('backup-2026-08-01T12-13-23.398Z');
+        expect(verdict.rowTotal).toBeGreaterThan(0);
+
+        // The half that keeps the fallback honest: the bad bundle is still reported, by name and code.
+        expect(verdict.skipped).toHaveLength(1);
+        expect(verdict.skipped[0].bundleName).toBe('backup-2026-08-02T05-12-55.917Z');
+        expect(verdict.skipped[0].code).toBe('BUNDLE_EMPTY');
+        expect(verdict.examined).toBe(2);
+    });
+
+    test('the fallback crosses every unusable class, not just the one that caused the incident', async () => {
+        // Three distinct failure shapes stacked ABOVE the only good bundle. If the walk only handled
+        // the shape it was written for, one of these would stop it.
+        writeValidBundle('backup-2026-07-01T00-00-00');
+        writeZeroCaptureBundle('backup-2026-07-02T00-00-00');
+        writeTornBundle('backup-2026-07-03T00-00-00');
+        writeAbortedBundle('backup-2026-07-04T00-00-00');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.bundleRoot).toContain('backup-2026-07-01T00-00-00');
+        expect(verdict.skipped.map(s => s.code)).toEqual(['BUNDLE_EMPTY', 'BUNDLE_INVALID', 'BUNDLE_EMPTY']);
+        // Newest-first ordering, so an operator reads the skip list in the order the bundles were made.
+        expect(verdict.skipped.map(s => s.bundleName)).toEqual([
+            'backup-2026-07-04T00-00-00',
+            'backup-2026-07-03T00-00-00',
+            'backup-2026-07-02T00-00-00'
+        ]);
+    });
+
+    test('REGRESSION GUARD: a legacy bundle carrying no bundle-meta.json but real rows stays restorable', async () => {
+        // `validateBundle` documents meta-absence as the LEGACY bundle contract, returning
+        // `{legacy: true}` rather than failing. An earlier draft of this change rejected meta-less
+        // bundles up front as the abort-mid-write specimen, which would have made every pre-meta bundle
+        // permanently unrecoverable — the two shapes are only distinguishable by whether rows exist,
+        // not by whether a receipt does. `writeValidBundle` writes no meta, so this is that case.
+        writeValidBundle('backup-2026-06-01T00-00-00');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.code).toBe('RESTORABLE');
+        expect(verdict.rowTotal).toBeGreaterThan(0);
+
+        // NEGATIVE CONTROL sharing the property under test: also meta-less, also no receipt — and
+        // refused. Proves the verdict turns on recoverable rows rather than on the file's absence,
+        // which is the discrimination the earlier draft got wrong.
+        fsExtra.removeSync(path.join(probeRoot, 'backup-2026-06-01T00-00-00'));
+        writeAbortedBundle('backup-2026-06-02T00-00-00');
+
+        const refused = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(refused.restorable).toBe(false);
+        expect(refused.code).toBe('BUNDLE_EMPTY');
+    });
+
+    test('when NOTHING is restorable the verdict still describes the NEWEST bundle', async () => {
+        // Contract preservation. `redeployPreflight` prints this code as the refusal cause and fails
+        // closed on anything but RESTORABLE, so the walk must not trade a precise newest-bundle reason
+        // for an aggregate that tells an operator less than the old single-bundle probe did.
+        writeAbortedBundle('backup-2026-05-01T00-00-00');
+        writeTornBundle('backup-2026-05-02T00-00-00');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.code).toBe('BUNDLE_INVALID');
+        expect(verdict.bundleRoot).toContain('backup-2026-05-02T00-00-00');
+        expect(verdict.reason).toMatch(/parse error/);
+        expect(verdict.skipped).toHaveLength(2);
+        // The refusal must carry the newest bundle's WHOLE verdict. A first draft rebuilt a reduced
+        // `{code, reason, bundleRoot}` here and silently dropped these two fields from every failure —
+        // a shape regression invisible to any assertion that only checks the code.
+        expect(verdict.embeddingAdvisories).toEqual([]);
+        expect(verdict.checkedAt).toBeTruthy();
+    });
+
+    test('an EMPTY newest bundle keeps reporting its rowTotal through the walk', async () => {
+        // Same shape-preservation point on the other refusal branch: `rowTotal` is how a caller tells
+        // "verified against zero rows" from "never got a count", and only the BUNDLE_EMPTY path sets it.
+        writeZeroCaptureBundle('backup-2026-02-01T00-00-00');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.code).toBe('BUNDLE_EMPTY');
+        expect(verdict.rowTotal).toBe(0);
+    });
+
+    test('the scan bound is enforced AND announced — a silent cap reads like an exhaustive search', async () => {
+        // A good bundle sits below more unusable ones than the bound allows. The probe must refuse
+        // rather than walk forever, and must SAY that it stopped early, because "examined everything
+        // and found nothing" and "gave up after two" are different facts to an operator deciding
+        // whether to deploy.
+        writeValidBundle('backup-2026-04-01T00-00-00');
+        writeTornBundle('backup-2026-04-02T00-00-00');
+        writeTornBundle('backup-2026-04-03T00-00-00');
+
+        const warnings = [];
+        const logger   = {log: () => {}, error: () => {}, warn: message => warnings.push(message)};
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger, maxBundlesExamined: 2});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.examined).toBe(2);
+        expect(warnings.join('\n')).toMatch(/1 older candidate\(s\) were NOT examined/);
+
+        // POSITIVE CONTROL: the same root with the bound raised DOES reach the good bundle, so the
+        // refusal above is the bound talking and not an inability to find it at all.
+        const raised = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, maxBundlesExamined: 3});
+
+        expect(raised.restorable).toBe(true);
+        expect(raised.bundleRoot).toContain('backup-2026-04-01T00-00-00');
+    });
+
+    test('a non-positive scan bound fails loud rather than crashing inside the walk', async () => {
+        writeValidBundle('backup-2026-03-01T00-00-00');
+
+        for (const bad of [0, -1, 1.5, 'three', null]) {
+            await expect(verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, maxBundlesExamined: bad}))
+                .rejects.toThrow(/positive integer `maxBundlesExamined`/);
+        }
     });
 });
