@@ -4,6 +4,15 @@ import GraphService from './GraphService.mjs';
 import logger       from '../../mcp/server/memory-core/logger.mjs';
 
 /**
+ * The receiver's error code for a route id that is absent from the manifest it currently serves
+ * (`ai/daemons/wake/receiver.mjs`). Declared here rather than imported: a Memory Core service must not take
+ * a dependency on a daemon's HTTP module. Agreement is asserted instead — a spec drives the real receiver
+ * and fails if this literal ever stops matching what it answers.
+ * @type {String}
+ */
+const UNKNOWN_SUBSCRIPTION_ERROR = 'unknown-subscription';
+
+/**
  * @summary Service for delivering wake events via A2A Webhook Push Notifications (Shape B).
  *
  * Implements Shape-B webhook delivery. It is responsible for POSTing the
@@ -144,7 +153,29 @@ class WebhookDeliveryService extends Base {
                 }
 
                 if (response.status >= 400 && response.status < 500) {
-                    // 4xx: client error, no retry, mark degraded immediately
+                    // A 4xx normally states that this route is invalid: no retry, terminal. `404
+                    // unknown-subscription` is the one exception, and it is ambiguous BY DESIGN — the receiver
+                    // answers it both for a route deliberately withdrawn (`buildReceiverManifest.mjs`: an empty
+                    // manifest is "the correct end state for a fully-unsubscribed seat") and for one it has
+                    // simply not reloaded yet (`receiver.mjs`, whose route table is per-request but only over
+                    // the manifest this process has LOADED). The receiver cannot tell them apart; it knows only
+                    // "not in my current manifest".
+                    //
+                    // Degrading on first sight resolves that ambiguity toward the terminal reading, and
+                    // degradation is terminal by design — so a publish→reload gap became a permanent outage
+                    // that outlived its own cause. Measured: a 19-minute gap produced a dead route that
+                    // restarting the receiver with the route present did not revive.
+                    //
+                    // Counted through the same threshold instead, exactly as the missing-coordinate case above
+                    // and for the same reason: one degrade trigger, not two. A genuinely withdrawn route still
+                    // degrades and stays bounded; a route that outlives the window has its counter reset by the
+                    // first delivery that lands.
+                    if (response.status === 404 && await this._isUnknownSubscriptionResponse(response)) {
+                        logger.warn(`WebhookDeliveryService: Receiver does not yet know ${subscription.id} (manifest may be stale). Counting toward the failure threshold rather than degrading.`);
+                        await this._recordConsecutiveFailure(subscription.id);
+                        return 'failed';
+                    }
+
                     logger.warn(`WebhookDeliveryService: Client error ${response.status} delivering to ${subscription.id}. Marking degraded.`);
                     await this._markDegraded(subscription.id);
                     return 'skipped';
@@ -167,6 +198,31 @@ class WebhookDeliveryService extends Base {
         // Exhausted retries
         await this._recordConsecutiveFailure(subscription.id);
         return 'failed';
+    }
+
+    /**
+     * @summary Whether a 404 is the receiver saying "not in the manifest I have loaded" rather than "this
+     * route does not exist".
+     *
+     * The wire discriminator is the receiver's own: `unknown-subscription` for a route id absent from the
+     * active manifest, `not-found` for a wrong path or method. Only the former can be a reload lag; a wrong
+     * URL is a persistent configuration error and must stay immediately terminal.
+     *
+     * Fails CLOSED. An absent, non-JSON, or unrecognised body returns false, so the caller degrades exactly
+     * as it did before this branch existed. The tolerance has to be earned by a signal we recognise — a
+     * parse failure must never be able to grant it, or any malformed 404 would silently become retryable.
+     * @param {Response} response
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async _isUnknownSubscriptionResponse(response) {
+        try {
+            const payload = await response.json();
+
+            return payload?.error === UNKNOWN_SUBSCRIPTION_ERROR;
+        } catch (error) {
+            return false;
+        }
     }
 
     _generateSignature(bodyString, signingKey) {
