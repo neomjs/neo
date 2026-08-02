@@ -396,6 +396,36 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toHaveLength(1);
     });
 
+    test('the envelope defers a repeated reconfigure — the action with the highest bounce cost is not exempt', async () => {
+        // AC3, and it has to be driven through `apply()` rather than the inner method: the anti-thrash
+        // envelope lives in `apply`, so every reconfigure spec that calls `reconfigureComposeService`
+        // directly proves the transaction and proves NOTHING about the rate limit. A new action reaching
+        // the privileged path without inheriting the envelope is precisely what §2.5 exists to prevent —
+        // and reconfigure restarts its target, so an unbounded loop here costs a bounce per iteration.
+        const {service, runtimeCalls} = createService({
+            actuatorConfig: {
+                baseBackoffMs: 30_000,
+                maxBackoffMs : 30_000
+            }
+        });
+
+        const knobValues = {
+                  'memoryService.generateMiniSummaryTimeoutMs': 40000,
+                  'memoryService.miniSummaryTimeoutMs'        : 60000
+              },
+              first  = await service.apply('mc-server', 'reconfigure', {knob: 'minisummary-generation-window', knobValues, now: 100_000}),
+              second = await service.apply('mc-server', 'reconfigure', {knob: 'minisummary-generation-window', knobValues, now: 101_000});
+
+        expect(first.status).toBe('actioned');
+        expect(second).toMatchObject({
+            status    : 'deferred',
+            reasonCode: 'backoff-active'
+        });
+
+        // One restart, not two: the deferred call must not reach the target at all.
+        expect(runtimeCalls).toHaveLength(1);
+    });
+
     test('attempt cap records as alarm-only and never loops the privileged action', async () => {
         const {service, runtimeCalls} = createService({
             actuatorConfig: {
