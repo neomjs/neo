@@ -354,6 +354,251 @@ test.describe('WakeSubscriptionService.resume — the operator-reachable way bac
     });
 });
 
+/**
+ * Builds a fake `fetch` response. Only the 404 branch reads a body, so `json` is present exactly where the
+ * real receiver would send one — a fake that always parses would hide the fail-closed path.
+ * @param {Number} status
+ * @param {*} [body] Omit for no body; a string to force a parse failure.
+ * @returns {Object}
+ */
+function makeResponse(status, body) {
+    const response = {ok: status >= 200 && status < 300, status};
+
+    if (body !== undefined) {
+        response.json = async () => {
+            if (typeof body === 'string') throw new SyntaxError(`Unexpected token in JSON: ${body}`);
+            return body;
+        };
+    }
+
+    return response;
+}
+
+test.describe('WebhookDeliveryService — a reload-lag 404 must not be terminal (#16366)', () => {
+    let GraphService, WebhookDeliveryService, originalDb, originalFetch;
+    let fetchCalls = [];
+    let nextResponse;
+
+    test.beforeAll(async () => {
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        WebhookDeliveryService = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
+        originalFetch          = global.fetch;
+    });
+
+    test.beforeEach(() => {
+        originalDb      = GraphService.db;
+        requester.value = null;
+        fetchCalls      = [];
+        nextResponse    = () => makeResponse(404, {error: 'unknown-subscription'});
+
+        WebhookDeliveryService.configure({attemptTimeoutSeconds: 1});
+        WebhookDeliveryService.consecutiveFailures.clear();
+        WebhookDeliveryService.degradedSubscriptions?.clear();
+
+        global.fetch = async (url, options) => {
+            fetchCalls.push({url, options});
+            return nextResponse();
+        };
+    });
+
+    test.afterEach(() => {
+        GraphService.db = originalDb;
+        requester.value = null;
+        global.fetch    = originalFetch;
+    });
+
+    test('does NOT degrade on first sight — the publish→reload window survives it', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        const outcome = await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'});
+
+        // The assertion that fails on the pre-fix tree: every 4xx degraded immediately, so a receiver that
+        // had merely not reloaded yet killed the route it was being armed with. @neo-opus-vega measured this
+        // end-to-end — 19 minutes of gap, then a route that restarting the receiver did not revive.
+        expect(subscriptionNode.properties.status).toBe('active');
+        expect(WebhookDeliveryService.degradedSubscriptions.has(subscriptionNode.id)).toBe(false);
+        expect(outcome).toBe('failed');
+    });
+
+    test('still degrades once the threshold is met — a withdrawn route stays terminal and bounded', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        // The other half of the contract, and the reason this is a threshold rather than an exemption:
+        // `404 unknown-subscription` is ALSO the correct answer for a route deliberately withdrawn
+        // (`buildReceiverManifest.mjs`). Tolerating it forever would leave a withdrawn route retrying with no
+        // end, which is the unbounded-attempt failure the degrade exists to stop.
+        for (let i = 0; i < 2; i++) {
+            await WebhookDeliveryService.deliver(subscriptionNode, {eventId: `01HXXX-${i}`});
+            expect(subscriptionNode.properties.status, `after ${i + 1} message(s)`).toBe('active');
+        }
+
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-2'});
+        expect(subscriptionNode.properties.status).toBe('degraded');
+
+        // Bounded: once degraded the route is skipped without an attempt, so the cost of a withdrawn route
+        // is the threshold's attempts ONCE, not a cycle per message forever.
+        const attemptsAtDegrade = fetchCalls.length;
+
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-3'});
+        expect(fetchCalls.length).toBe(attemptsAtDegrade);
+    });
+
+    test('a delivery that lands resets the counter, so a route that outlives the window is never degraded', async () => {
+        const subscriptionNode = makeSubscriptionNode();
+        GraphService.db        = makeFakeDb(subscriptionNode);
+
+        // The actual shape of a publish→reload gap: some dispatches miss, then the manifest arrives and the
+        // rest land. Without the reset, a long enough gap would still accumulate to the threshold and kill a
+        // route that had already recovered.
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-0'});
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-1'});
+
+        nextResponse = () => makeResponse(200);
+        expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-2'})).toBe('delivered');
+
+        nextResponse = () => makeResponse(404, {error: 'unknown-subscription'});
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-3'});
+        await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX-4'});
+
+        expect(subscriptionNode.properties.status).toBe('active');
+    });
+
+    test('every other client error still degrades immediately — the boundary, not just the new branch', async () => {
+        // A 404 at a wrong path or method is `not-found`, and a wrong URL is a persistent configuration
+        // error, not a timing gap. Asserting the boundary is what stops the new tolerance from widening
+        // into "4xx is advisory".
+        const cases = [
+            {label: '400 malformed',          response: () => makeResponse(400)},
+            {label: '401 invalid-signature',  response: () => makeResponse(401, {error: 'invalid-signature'})},
+            {label: '403 forbidden',          response: () => makeResponse(403, {error: 'forbidden'})},
+            {label: '404 not-found (path)',   response: () => makeResponse(404, {error: 'not-found'})}
+        ];
+
+        for (const {label, response} of cases) {
+            const subscriptionNode = makeSubscriptionNode();
+
+            GraphService.db = makeFakeDb(subscriptionNode);
+            nextResponse    = response;
+
+            WebhookDeliveryService.consecutiveFailures.clear();
+            WebhookDeliveryService.degradedSubscriptions.clear();
+
+            expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'}), label).toBe('skipped');
+            expect(subscriptionNode.properties.status, label).toBe('degraded');
+        }
+    });
+
+    test('an unreadable 404 body degrades — the tolerance is earned by a signal, never granted by a parse failure', async () => {
+        // Fail-closed. If a malformed body could reach the tolerant branch, any broken receiver would make
+        // every dead route look retryable, and the attempt bound on a dead endpoint would be gone by accident.
+        const cases = [
+            {label: 'no body at all',        response: () => makeResponse(404)},
+            {label: 'non-JSON body',         response: () => makeResponse(404, '<html>502</html>')},
+            {label: 'unrecognised error',    response: () => makeResponse(404, {error: 'something-else'})},
+            {label: 'JSON without an error', response: () => makeResponse(404, {message: 'nope'})}
+        ];
+
+        for (const {label, response} of cases) {
+            const subscriptionNode = makeSubscriptionNode();
+
+            GraphService.db = makeFakeDb(subscriptionNode);
+            nextResponse    = response;
+
+            WebhookDeliveryService.consecutiveFailures.clear();
+            WebhookDeliveryService.degradedSubscriptions.clear();
+
+            expect(await WebhookDeliveryService.deliver(subscriptionNode, {eventId: '01HXXX'}), label).toBe('skipped');
+            expect(subscriptionNode.properties.status, label).toBe('degraded');
+        }
+    });
+});
+
+test.describe('The sender\'s discriminator agrees with what the receiver actually answers (#16366)', () => {
+    let WebhookDeliveryService, createWakeReceiver, WakeReceiverState;
+    let server, state, stateDir;
+
+    test.beforeAll(async () => {
+        WebhookDeliveryService = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
+        createWakeReceiver     = (await import('../../../../../../ai/daemons/wake/receiver.mjs')).createWakeReceiver;
+        WakeReceiverState      = (await import('../../../../../../ai/daemons/wake/receiverState.mjs')).WakeReceiverState;
+    });
+
+    test.beforeEach(async () => {
+        const fs   = await import('node:fs/promises'),
+              os   = await import('node:os'),
+              path = await import('node:path');
+
+        stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-wake-16366-'));
+        state    = new WakeReceiverState({stateDir});
+
+        await state.init();
+
+        const receiver = createWakeReceiver({
+            manifest: {
+                schemaVersion: 1,
+                routes       : {
+                    'WAKE_SUB:known': {
+                        signingKey           : 'a'.repeat(64),
+                        agentIdentity        : '@neo-opus-grace',
+                        harnessTargetMetadata: {adapter: 'tmux', tmuxSession: 'test'},
+                        adapterConfig        : {attemptTimeoutMs: 100}
+                    }
+                }
+            },
+            state,
+            dispatch: async () => 'delivered',
+            logger  : {error() {}, warn() {}, log() {}}
+        });
+
+        server = receiver.server;
+
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve);
+        });
+    });
+
+    test.afterEach(async () => {
+        const fs = await import('node:fs/promises');
+
+        await new Promise(resolve => server.close(resolve));
+        await fs.rm(stateDir, {recursive: true, force: true});
+    });
+
+    test('a route the receiver has not loaded is recognised as reload lag', async () => {
+        // The wire contract is a bare string on one side and a literal on the other, so agreement is the
+        // thing that can silently rot. Driving the REAL receiver is what makes this a contract test rather
+        // than a restatement of the constant: rename the receiver's error code and this fails.
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/wake`, {
+            method : 'POST',
+            headers: {
+                'Content-Type'              : 'application/json',
+                'X-Neo-Wake-Subscription-Id': 'WAKE_SUB:not-in-this-manifest',
+                'X-Neo-Wake-Event-Id'       : 'wake-digest:event-1',
+                'X-Neo-Wake-Schema-Version' : '1.0'
+            },
+            body: JSON.stringify({schemaVersion: '1.0'})
+        });
+
+        expect(response.status).toBe(404);
+        expect(await WebhookDeliveryService._isUnknownSubscriptionResponse(response)).toBe(true);
+    });
+
+    test('a wrong path answers a 404 the sender must still treat as terminal', async () => {
+        // Both are 404s from the same server. If the sender keyed on the status code alone it could not tell
+        // a stale manifest from a misconfigured URL, and would grant tolerance to a permanent error.
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/not-the-wake-path`, {
+            method: 'POST',
+            body  : '{}'
+        });
+
+        expect(response.status).toBe(404);
+        expect(await WebhookDeliveryService._isUnknownSubscriptionResponse(response)).toBe(false);
+    });
+});
+
 test.describe('GraphService.getUnscopedNodeRecord — the one sanctioned context-free read (#16246)', () => {
     let GraphService, originalDb;
 
