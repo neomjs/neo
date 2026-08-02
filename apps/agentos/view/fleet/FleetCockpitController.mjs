@@ -279,7 +279,7 @@ class FleetCockpitController extends Controller {
 
     /**
      * @summary Relay a MemoriesPane read intent to the cockpit-owned authenticated bridge.
-     * @param {Object} data `{agentIdentity, before?}`
+     * @param {Object} data `{agentIdentity, offset?}`
      * @returns {Promise<Object>}
      */
     onMemoriesRequest(data) {

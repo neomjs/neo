@@ -2333,7 +2333,7 @@ class FleetCockpit extends Container {
      * and write the returned source envelope back as owner state. Fail-closed: absence/throw
      * becomes an explicit unavailable envelope, never an empty historical claim. Generation-fenced
      * so a slow older read never overwrites a newer target's rows.
-     * @param {Object} [params] `{agentIdentity, before?, limit?}`
+     * @param {Object} [params] `{agentIdentity, offset?, limit?}`
      * @returns {Promise<Object>}
      */
     async loadMemories(params = {}) {
@@ -2345,11 +2345,10 @@ class FleetCockpit extends Container {
                   capability: {state: 'unavailable', reason},
                   viewer    : null,
                   target    : params.agentIdentity || null,
-                  projection: null,
-                  page      : {before: params.before ?? null, limit: null},
-                  turns     : [],
+                  page      : {offset: params.offset ?? 0, limit: null},
+                  sessions  : [],
                   count     : 0,
-                  nextCursor: null
+                  total     : null
               });
 
         let snapshot;

@@ -242,11 +242,12 @@ async function boot() {
     });
 
     // The memories view rides the SAME operation boundary as the catch-up source: the single
-    // registered `query_recent_turns` op through the proven plane client (plane mode) or the lazy
-    // tool-service import (in-process mode). Zero new Memory Core surface — the plane's own
-    // admission (CAN_READ_MEMORIES_OF, tenant sharing policy) stays the only read authority.
+    // registered `get_all_summaries` op through the proven plane client (plane mode) or the lazy
+    // tool-service import (in-process mode). Zero new Memory Core surface — the session-summary
+    // corpus is the deployment's settled team-visible cross-author read, so no per-request
+    // authority is simulated here.
     wireFleetMemoriesSource({
-        queryRecentTurns     : args => callHistoryOperation('query_recent_turns', args),
+        getAllSummaries      : args => callHistoryOperation('get_all_summaries', args),
         resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
     });
 

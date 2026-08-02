@@ -1,11 +1,11 @@
 /**
  * @module ai/services/fleet/fleetMemoriesSource
  * @summary Brain-side, viewer-bound source for the Fleet cockpit's memories view. It invokes the
- * single injected `query_recent_turns` operation for one explicit target agent and passes the
- * result through as a typed, fail-honest envelope. There is no Fleet synthesis, ranking, cache,
- * durable state, or permission simulation on this path: the plane (or in-process Memory Core)
- * remains the only read authority, and a denial or failure surfaces as an honest capability state,
- * never a fabricated empty success.
+ * single injected `get_all_summaries` operation for one explicit target agent and passes the
+ * result through as a typed, fail-honest envelope of session summaries. There is no Fleet
+ * synthesis, ranking, cache, durable state, or permission simulation on this path: the summary
+ * corpus is the deployment's settled team-visible cross-author read, and a failure surfaces as an
+ * honest capability state, never a fabricated empty history.
  */
 
 const
@@ -31,30 +31,27 @@ function toMs(value, name) {
 }
 
 /**
- * @summary Validate the optional paging cursor. The cursor is the operation's own `nextCursor`
- * shape (`{timestamp, id}`) passed back verbatim; this guard only rejects shapes that could never
- * have come from a previous envelope.
- * @param {Object|undefined} before
- * @returns {Object|undefined}
+ * @summary Validate the paging offset. Absent resolves to 0; anything but a non-negative integer
+ * is rejected rather than coerced, so a caller bug stays visible.
+ * @param {Number|undefined} offset
+ * @returns {Number}
  * @private
  */
-function validateBefore(before) {
-    if (before === undefined || before === null) {
-        return undefined
+function validateOffset(offset) {
+    if (offset === undefined) {
+        return 0
     }
 
-    if (typeof before !== 'object' || Array.isArray(before) ||
-        (typeof before.timestamp !== 'string' && typeof before.id !== 'string')) {
-        throw new TypeError('fleet memories: before must be a cursor object carrying timestamp and/or id strings')
+    if (!Number.isInteger(offset) || offset < 0) {
+        throw new TypeError('fleet memories: offset must be a non-negative integer')
     }
 
-    return before
+    return offset
 }
 
 /**
  * @summary Validate the page size. Absent resolves to the default; anything outside the closed
- * integer range is rejected rather than clamped, so a caller bug is visible instead of silently
- * reshaped.
+ * integer range is rejected rather than clamped.
  * @param {Number|undefined} limit
  * @returns {Number}
  * @private
@@ -76,26 +73,25 @@ function validateLimit(limit) {
  *
  * The transport-stamped viewer is resolved at EACH call. The target agent is an explicit canonical
  * `@identity` (defaulting to the viewer); the `@me` alias is rejected because aliases have no place
- * at a trust boundary — the wire carries concrete identities only. The projection is DERIVED, never
- * caller-chosen: `private` exactly when the target IS the viewer, `public` otherwise. The plane
- * enforces its own admission (`CAN_READ_MEMORIES_OF`, tenant sharing policy) regardless; this
- * source never pre-filters or predicts that decision.
+ * at a trust boundary — the wire carries concrete identities only. The operation call carries the
+ * target, page, and nothing else: no viewer claim, no projection axis (session summaries have no
+ * private half — the corpus is the deployment's team-visible read per its own sharing policy).
  *
  * @param {Object} options
- * @param {Function} options.queryRecentTurns Injected `query_recent_turns` operation returning the
- *     parsed payload (`{count, turns, nextCursor}`).
+ * @param {Function} options.getAllSummaries Injected `get_all_summaries` operation returning the
+ *     parsed payload (`{count, total, summaries}`).
  * @param {Function} options.resolveViewerIdentity Returns the transport-stamped canonical @identity.
  * @param {Function} [options.now] Clock returning a Date/epoch/ISO value.
  * @returns {{readMemories: Function}}
  */
 export function createFleetMemoriesSource({
-    queryRecentTurns,
+    getAllSummaries,
     resolveViewerIdentity,
     now = () => new Date()
 } = {}) {
-    if (typeof queryRecentTurns !== 'function' || typeof resolveViewerIdentity !== 'function' ||
+    if (typeof getAllSummaries !== 'function' || typeof resolveViewerIdentity !== 'function' ||
         typeof now !== 'function') {
-        throw new TypeError('createFleetMemoriesSource: queryRecentTurns, resolveViewerIdentity, and now are required')
+        throw new TypeError('createFleetMemoriesSource: getAllSummaries, resolveViewerIdentity, and now are required')
     }
 
     const resolveViewer = async () => {
@@ -110,13 +106,14 @@ export function createFleetMemoriesSource({
 
     return {
         /**
-         * @summary Read one page of an agent's recent turn memories through the source-owned
+         * @summary Read one page of an agent's session summaries through the source-owned
          * operation. Success passes the operation's rows through untouched under a `wired`
-         * capability; an operation failure or unrecognized payload becomes an honest
-         * `unavailable` envelope carrying zero rows.
+         * capability with the honest corpus `total`; an operation failure or unrecognized payload
+         * becomes an `unavailable` envelope carrying zero rows — a wired empty page is claimed
+         * ONLY when the operation itself answered one.
          * @param {Object} [params]
          * @param {String} [params.agentIdentity] Canonical `@identity` target; defaults to the viewer.
-         * @param {Object} [params.before] The previous envelope's `nextCursor`, for paging back.
+         * @param {Number} [params.offset] Paging offset into the target's summaries, newest-first.
          * @param {Number} [params.limit] Page size, 1..50.
          * @returns {Promise<Object>}
          */
@@ -136,49 +133,46 @@ export function createFleetMemoriesSource({
             }
 
             const
-                before     = validateBefore(params?.before),
+                offset     = validateOffset(params?.offset),
                 limit      = validateLimit(params?.limit),
-                projection = target === viewer ? 'private' : 'public',
                 capturedAt = new Date(toMs(now(), 'now')).toISOString(),
-                page       = {before: before ?? null, limit},
-                shared     = {viewer, target, projection, page};
+                page       = {offset, limit},
+                shared     = {viewer, target, page};
 
             let result;
 
             try {
-                result = await queryRecentTurns({
+                result = await getAllSummaries({
                     agentIdentity: target,
-                    detail       : 'summary',
                     limit,
-                    projection,
-                    ...(before ? {before} : {})
+                    ...(offset > 0 ? {offset} : {})
                 })
             } catch (error) {
                 return {
                     capability: {state: 'unavailable', reason: 'memories-read-failed', capturedAt},
                     ...shared,
-                    turns     : [],
-                    count     : 0,
-                    nextCursor: null
+                    sessions: [],
+                    count   : 0,
+                    total   : null
                 }
             }
 
-            if (!result || typeof result !== 'object' || !Array.isArray(result.turns)) {
+            if (!result || typeof result !== 'object' || !Array.isArray(result.summaries)) {
                 return {
                     capability: {state: 'unavailable', reason: 'memories-payload-unrecognized', capturedAt},
                     ...shared,
-                    turns     : [],
-                    count     : 0,
-                    nextCursor: null
+                    sessions: [],
+                    count   : 0,
+                    total   : null
                 }
             }
 
             return {
                 capability: {state: 'wired', capturedAt},
                 ...shared,
-                turns     : result.turns,
-                count     : Number.isFinite(result.count) ? result.count : result.turns.length,
-                nextCursor: result.nextCursor ?? null
+                sessions: result.summaries,
+                count   : Number.isFinite(result.count) ? result.count : result.summaries.length,
+                total   : Number.isFinite(result.total) ? result.total : result.summaries.length
             }
         }
     }

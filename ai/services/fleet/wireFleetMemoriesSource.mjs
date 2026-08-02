@@ -11,7 +11,7 @@ import {createFleetMemoriesSource} from './fleetMemoriesSource.mjs';
 /**
  * @summary Wire one process-lifetime memories source.
  * @param {Object} options
- * @param {Function} options.queryRecentTurns
+ * @param {Function} options.getAllSummaries
  * @param {Function} options.resolveViewerIdentity
  * @param {Function} [options.now]
  * @param {Object} [options.bridge=FleetControlBridge]
@@ -19,18 +19,18 @@ import {createFleetMemoriesSource} from './fleetMemoriesSource.mjs';
  * @returns {Object|null}
  */
 export function wireFleetMemoriesSource({
-    queryRecentTurns,
+    getAllSummaries,
     resolveViewerIdentity,
     now,
     bridge       = FleetControlBridge,
     createSource = createFleetMemoriesSource
 } = {}) {
-    if (typeof queryRecentTurns !== 'function' || typeof resolveViewerIdentity !== 'function') {
+    if (typeof getAllSummaries !== 'function' || typeof resolveViewerIdentity !== 'function') {
         return null
     }
 
     bridge.memoriesSource = createSource({
-        queryRecentTurns,
+        getAllSummaries,
         resolveViewerIdentity,
         ...(now ? {now} : {})
     });

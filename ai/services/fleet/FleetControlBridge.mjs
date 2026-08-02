@@ -493,9 +493,9 @@ class FleetControlBridge extends Base {
     }
 
     /**
-     * @summary READ-OBSERVE: read one page of an agent's recent turn memories for the
-     * authenticated viewer. The source envelope passes through untouched; an unwired source is
-     * named as unavailable rather than fabricated empty history.
+     * @summary READ-OBSERVE: read one page of an agent's session summaries for the authenticated
+     * viewer. The source envelope passes through untouched; an unwired source is named as
+     * unavailable rather than fabricated empty history.
      * @param {Object} [params]
      * @returns {Promise<Object>|Object}
      */
@@ -506,11 +506,10 @@ class FleetControlBridge extends Base {
                 capability: {state: 'unavailable', reason: 'fleet memories source not wired'},
                 viewer    : null,
                 target    : params.agentIdentity || null,
-                projection: null,
-                page      : {before: params.before ?? null, limit: null},
-                turns     : [],
+                page      : {offset: params.offset ?? 0, limit: null},
+                sessions  : [],
                 count     : 0,
-                nextCursor: null
+                total     : null
             };
     }
 

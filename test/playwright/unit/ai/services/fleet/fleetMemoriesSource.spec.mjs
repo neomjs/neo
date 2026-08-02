@@ -2,20 +2,28 @@ import {expect, test}              from '@playwright/test';
 import {createFleetMemoriesSource} from '../../../../../../ai/services/fleet/fleetMemoriesSource.mjs';
 
 const HEALTHY_RESULT = {
-    count: 2,
-    turns: [
-        {id: 'turn-2', sessionId: 'session-b', timestamp: '2026-08-02T11:00:00.000Z', summary: 'Second turn', summaryFallback: false},
-        {id: 'turn-1', sessionId: 'session-a', timestamp: '2026-08-02T10:00:00.000Z', summary: 'First turn',  summaryFallback: true}
-    ],
-    nextCursor: {timestamp: '2026-08-02T10:00:00.000Z', id: 'turn-1'}
+    count    : 2,
+    total    : 253,
+    summaries: [
+        {
+            id         : 'summary-2', sessionId: 'session-b', timestamp: '2026-08-02T21:00:00.000Z',
+            title      : 'Wake transport contracts', summary: 'Resolved wake-state sync.', category: 'feature',
+            memoryCount: 61, quality: 95, impact: 85, sourceAgentIdentities: ['@neo-opus-ada', '@neo-gpt-emmy']
+        },
+        {
+            id         : 'summary-1', sessionId: 'session-a', timestamp: '2026-08-02T19:00:00.000Z',
+            title      : 'Terminal audit for PR review', summary: 'Verified five required actions.', category: 'analysis',
+            memoryCount: 1, quality: 100, impact: 40, sourceAgentIdentities: ['@neo-gpt-emmy']
+        }
+    ]
 };
 
-function harness({viewer='@neo-fable-clio', now='2026-08-02T12:00:00.000Z', result=HEALTHY_RESULT} = {}) {
+function harness({viewer='@neo-fable-clio', now='2026-08-03T08:00:00.000Z', result=HEALTHY_RESULT} = {}) {
     const calls = [],
           state = {viewer, now, result};
 
     const source = createFleetMemoriesSource({
-        queryRecentTurns: async args => {
+        getAllSummaries: async args => {
             calls.push(args);
 
             if (state.result instanceof Error) {
@@ -31,41 +39,37 @@ function harness({viewer='@neo-fable-clio', now='2026-08-02T12:00:00.000Z', resu
     return {calls, source, state}
 }
 
-test.describe('fleetMemoriesSource — viewer-bound turn recall with derived projection', () => {
+test.describe('fleetMemoriesSource — viewer-bound session-summary recall', () => {
     test('construction refuses missing collaborators', () => {
         expect(() => createFleetMemoriesSource()).toThrow(TypeError);
-        expect(() => createFleetMemoriesSource({queryRecentTurns: async () => ({})})).toThrow(TypeError);
+        expect(() => createFleetMemoriesSource({getAllSummaries: async () => ({})})).toThrow(TypeError);
         expect(() => createFleetMemoriesSource({resolveViewerIdentity: () => '@a'})).toThrow(TypeError)
     });
 
-    test('default read targets the viewer privately and passes rows through untouched', async () => {
+    test('default read targets the viewer and passes rows plus the corpus total through untouched', async () => {
         const {calls, source} = harness(),
               result          = await source.readMemories();
 
-        expect(calls).toEqual([{
-            agentIdentity: '@neo-fable-clio',
-            detail       : 'summary',
-            limit        : 20,
-            projection   : 'private'
-        }]);
-        expect(result.turns).toBe(HEALTHY_RESULT.turns);
+        expect(calls).toEqual([{agentIdentity: '@neo-fable-clio', limit: 20}]);
+        expect(result.sessions).toBe(HEALTHY_RESULT.summaries);
         expect(result).toMatchObject({
-            capability: {state: 'wired', capturedAt: '2026-08-02T12:00:00.000Z'},
+            capability: {state: 'wired', capturedAt: '2026-08-03T08:00:00.000Z'},
             viewer    : '@neo-fable-clio',
             target    : '@neo-fable-clio',
-            projection: 'private',
-            page      : {before: null, limit: 20},
+            page      : {offset: 0, limit: 20},
             count     : 2,
-            nextCursor: {timestamp: '2026-08-02T10:00:00.000Z', id: 'turn-1'}
+            total     : 253
         })
     });
 
-    test('a peer target derives the public projection — and a caller-supplied projection is discarded', async () => {
+    test('a peer target rides the wire as the ONLY identity — no viewer claim, no projection axis', async () => {
         const {calls, source} = harness(),
-              result          = await source.readMemories({agentIdentity: '@neo-opus-ada', projection: 'private'});
+              result          = await source.readMemories({agentIdentity: '@neo-opus-ada', projection: 'private', viewerIdentity: '@smuggled'});
 
-        expect(calls[0]).toMatchObject({agentIdentity: '@neo-opus-ada', projection: 'public'});
-        expect(result).toMatchObject({target: '@neo-opus-ada', projection: 'public'})
+        expect(Object.keys(calls[0]).sort()).toEqual(['agentIdentity', 'limit']);
+        expect(calls[0].agentIdentity).toBe('@neo-opus-ada');
+        expect(result).toMatchObject({target: '@neo-opus-ada', viewer: '@neo-fable-clio'});
+        expect(result).not.toHaveProperty('projection')
     });
 
     test('the @me alias and non-canonical identities are refused at the boundary', async () => {
@@ -77,30 +81,29 @@ test.describe('fleetMemoriesSource — viewer-bound turn recall with derived pro
         expect(calls).toEqual([])
     });
 
-    test('limit outside the closed range refuses instead of clamping', async () => {
+    test('offset and limit outside their closed ranges refuse instead of coercing', async () => {
         const {calls, source} = harness();
 
+        await expect(source.readMemories({offset: -1})).rejects.toThrow('non-negative');
+        await expect(source.readMemories({offset: 2.5})).rejects.toThrow('non-negative');
         await expect(source.readMemories({limit: 0})).rejects.toThrow('between 1 and 50');
         await expect(source.readMemories({limit: 51})).rejects.toThrow('between 1 and 50');
-        await expect(source.readMemories({limit: 2.5})).rejects.toThrow('between 1 and 50');
         expect(calls).toEqual([]);
 
-        await source.readMemories({limit: 50});
-        expect(calls[0].limit).toBe(50)
+        await source.readMemories({offset: 20, limit: 50});
+        expect(calls[0]).toEqual({agentIdentity: '@neo-fable-clio', limit: 50, offset: 20})
     });
 
-    test('a paging cursor rides through verbatim and echoes in the page slot', async () => {
-        const {calls, source} = harness(),
-              cursor          = {timestamp: '2026-08-01T00:00:00.000Z', id: 'turn-0'},
-              result          = await source.readMemories({agentIdentity: '@neo-opus-ada', before: cursor});
+    test('a zero offset is not sent — the operation default owns the first page', async () => {
+        const {calls, source} = harness();
 
-        expect(calls[0].before).toBe(cursor);
-        expect(result.page).toEqual({before: cursor, limit: 20});
+        const result = await source.readMemories({offset: 0});
 
-        await expect(source.readMemories({before: 'yesterday'})).rejects.toThrow('cursor')
+        expect(calls[0]).not.toHaveProperty('offset');
+        expect(result.page).toEqual({offset: 0, limit: 20})
     });
 
-    test('an operation failure is an honest unavailable envelope, never a fabricated empty success', async () => {
+    test('an operation failure is an honest unavailable envelope, never a fabricated empty corpus', async () => {
         const {source, state} = harness();
 
         state.result = new Error('plane down');
@@ -111,10 +114,9 @@ test.describe('fleetMemoriesSource — viewer-bound turn recall with derived pro
             capability: {state: 'unavailable', reason: 'memories-read-failed'},
             viewer    : '@neo-fable-clio',
             target    : '@neo-opus-ada',
-            projection: 'public',
-            turns     : [],
+            sessions  : [],
             count     : 0,
-            nextCursor: null
+            total     : null
         })
     });
 
@@ -125,7 +127,7 @@ test.describe('fleetMemoriesSource — viewer-bound turn recall with derived pro
 
         await expect(source.readMemories()).resolves.toMatchObject({
             capability: {state: 'unavailable', reason: 'memories-payload-unrecognized'},
-            turns     : []
+            sessions  : []
         });
 
         state.result = null;
@@ -135,15 +137,28 @@ test.describe('fleetMemoriesSource — viewer-bound turn recall with derived pro
         })
     });
 
-    test('a missing cursor and count fall back to honest local facts', async () => {
+    test('a genuinely empty corpus stays a WIRED empty page — distinguishable from failure', async () => {
         const {source, state} = harness();
 
-        state.result = {turns: [{id: 'only', timestamp: '2026-08-02T09:00:00.000Z'}]};
+        state.result = {count: 0, total: 0, summaries: []};
+
+        await expect(source.readMemories()).resolves.toMatchObject({
+            capability: {state: 'wired'},
+            sessions  : [],
+            count     : 0,
+            total     : 0
+        })
+    });
+
+    test('missing count and total fall back to honest local facts', async () => {
+        const {source, state} = harness();
+
+        state.result = {summaries: [{id: 'only', timestamp: '2026-08-02T09:00:00.000Z'}]};
 
         await expect(source.readMemories()).resolves.toMatchObject({
             capability: {state: 'wired'},
             count     : 1,
-            nextCursor: null
+            total     : 1
         })
     });
 

@@ -1,21 +1,22 @@
-import AgentMemories from '../../store/AgentMemories.mjs';
-import Button        from '../../../../src/button/Base.mjs';
-import Component     from '../../../../src/component/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
+import AgentSessionSummaries from '../../store/AgentSessionSummaries.mjs';
+import Button                from '../../../../src/button/Base.mjs';
+import Component             from '../../../../src/component/Base.mjs';
+import Container             from '../../../../src/container/Base.mjs';
 
 /**
- * The invoked Fleet memories surface: what one agent remembers, turn by turn.
+ * The invoked Fleet memories surface: what one agent has been doing, session by session.
  *
- * @summary Renders one viewer-bound `fleetMemories` source envelope without synthesizing, ranking,
- * merging, or caching it. The pane owns only a local projection Store of turn rows; it fires
- * intent events for reads and the owning FleetCockpit holds the authenticated bridge. Choosing
- * whose memories to read is an explicit act — the pane never auto-defaults to a roster agent, and
- * the projection (private only for self) is derived server-side, never chosen here.
+ * @summary Renders one viewer-bound `fleetMemories` source envelope of session summaries without
+ * synthesizing, ranking, merging, or caching it. The pane owns only a local projection Store of
+ * summary cards; it fires intent events for reads and the owning FleetCockpit holds the
+ * authenticated bridge. Choosing whose memories to read is an explicit act — the pane never
+ * auto-defaults to a roster agent.
  *
- * Honest states are first-class: no-selection, unavailable (with the source's reason), an empty
- * wired window, per-row fallback summaries, and the paging cursor all render explicitly. Appending
- * happens only when the envelope's own `page.before` echo proves a continuation of the same
- * target; any fresh read replaces the rows.
+ * Honest states are first-class: no-selection, unavailable (with the source's reason), a
+ * genuinely-empty corpus (`total: 0`), per-card guarded non-string titles/summaries, multi-agent
+ * session attribution, and offset paging against the corpus `total` all render explicitly.
+ * Appending happens only when the envelope's own `page.offset` echo proves a continuation of the
+ * same target; any fresh read replaces the cards.
  *
  * @class AgentOS.view.fleet.MemoriesPane
  * @extends Neo.container.Base
@@ -76,7 +77,7 @@ class MemoriesPane extends Container {
             }, {
                 ntype: 'component',
                 cls  : ['fm-memories-authority'],
-                text : 'query-time · not authority'
+                text : 'session summaries · query-time · not authority'
             }]
         }, {
             ntype    : 'container',
@@ -115,7 +116,7 @@ class MemoriesPane extends Container {
             }, {
                 module   : Button,
                 reference: 'memories-more',
-                text     : 'Older turns',
+                text     : 'Older sessions',
                 iconCls  : 'fa fa-angles-down',
                 ui       : 'ghost',
                 hidden   : true,
@@ -124,10 +125,10 @@ class MemoriesPane extends Container {
         }]
     }
 
-    /** @member {AgentOS.store.AgentMemories|null} turnStore=null */
-    turnStore = null
+    /** @member {AgentOS.store.AgentSessionSummaries|null} summaryStore=null */
+    summaryStore = null
     /**
-     * The target whose rows the Store currently holds — the append guard: a `page.before`
+     * The target whose cards the Store currently holds — the append guard: a `page.offset > 0`
      * continuation appends only when the envelope's target matches this.
      * @member {String|null} renderedTarget=null
      */
@@ -142,15 +143,15 @@ class MemoriesPane extends Container {
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        this.turnStore = Neo.create(AgentMemories);
+        this.summaryStore = Neo.create(AgentSessionSummaries);
         this.refreshAgents();
         this.applySnapshot()
     }
 
     /** @param {...*} args */
     destroy(...args) {
-        this.turnStore?.destroy();
-        this.turnStore = null;
+        this.summaryStore?.destroy();
+        this.summaryStore = null;
         super.destroy(...args)
     }
 
@@ -187,11 +188,14 @@ class MemoriesPane extends Container {
         this.activeAgent && this.fire('memoriesRequest', {agentIdentity: this.activeAgent})
     }
 
-    /** @summary Page back through the envelope's own cursor. */
+    /** @summary Page back through the corpus by the Store's own rendered depth. */
     onLoadMoreClick() {
-        const cursor = this.snapshot?.nextCursor;
+        const me = this;
 
-        this.activeAgent && cursor && this.fire('memoriesRequest', {agentIdentity: this.activeAgent, before: cursor})
+        me.activeAgent && me.summaryStore && me.fire('memoriesRequest', {
+            agentIdentity: me.activeAgent,
+            offset       : me.summaryStore.count
+        })
     }
 
     /**
@@ -216,8 +220,8 @@ class MemoriesPane extends Container {
     }
 
     /**
-     * @summary Project the latest envelope into Store rows and honest chrome. Replace is the
-     * default; append happens only for a same-target `page.before` continuation.
+     * @summary Project the latest envelope into Store cards and honest chrome. Replace is the
+     * default; append happens only for a same-target `page.offset > 0` continuation.
      */
     applySnapshot() {
         const
@@ -228,39 +232,39 @@ class MemoriesPane extends Container {
             refreshEl = me.getReference('memories-refresh'),
             wired     = snapshot?.capability?.state === 'wired';
 
-        if (metaEl) {
-            metaEl.text = !snapshot
-                ? (me.activeAgent ? 'Memories not observed yet' : 'Pick an agent to read their recent turns.')
-                : wired
-                    ? `${snapshot.target} · ${snapshot.projection} projection · captured ${me.formatStamp(snapshot.capability.capturedAt)}`
-                    : `Memories unavailable · ${snapshot.capability?.reason || 'unknown reason'}`
-        }
+        if (!me.summaryStore) return;
 
-        refreshEl && (refreshEl.hidden = !me.activeAgent);
-        moreEl    && (moreEl.hidden    = !(wired && snapshot.nextCursor));
-
-        if (!me.turnStore) return;
-
-        const append = wired && snapshot.page?.before && snapshot.target === me.renderedTarget;
+        const append = wired && snapshot.page?.offset > 0 && snapshot.target === me.renderedTarget;
 
         if (!append) {
-            me.turnStore.clear()
+            me.summaryStore.clear()
         }
 
         if (wired) {
-            const fresh = snapshot.turns.filter(turn => turn?.id && !me.turnStore.get(turn.id));
+            const fresh = snapshot.sessions.filter(session => session?.id && !me.summaryStore.get(session.id));
 
-            fresh.length > 0 && me.turnStore.add(fresh);
+            fresh.length > 0 && me.summaryStore.add(fresh);
             me.renderedTarget = snapshot.target
         } else {
             me.renderedTarget = null
         }
 
+        if (metaEl) {
+            metaEl.text = !snapshot
+                ? (me.activeAgent ? 'Memories not observed yet' : 'Pick an agent to read their recent sessions.')
+                : wired
+                    ? `${snapshot.target} · ${me.summaryStore.count} of ${snapshot.total ?? '?'} sessions · captured ${me.formatStamp(snapshot.capability.capturedAt)}`
+                    : `Memories unavailable · ${snapshot.capability?.reason || 'unknown reason'}`
+        }
+
+        refreshEl && (refreshEl.hidden = !me.activeAgent);
+        moreEl    && (moreEl.hidden    = !(wired && Number.isFinite(snapshot.total) && me.summaryStore.count < snapshot.total));
+
         me.renderRows(snapshot, wired)
     }
 
     /**
-     * @summary Render the Store's rows (or the honest empty/unavailable state) into the rows zone.
+     * @summary Render the Store's cards (or the honest empty/unavailable state) into the rows zone.
      * @param {Object|null} snapshot
      * @param {Boolean} wired
      */
@@ -275,7 +279,7 @@ class MemoriesPane extends Container {
             target.add({
                 module: Component,
                 cls   : ['fm-memories-empty'],
-                text  : this.activeAgent ? 'No read has been made yet.' : 'Memories render here once an agent is chosen.'
+                text  : this.activeAgent ? 'No read has been made yet.' : 'Session summaries render here once an agent is chosen.'
             });
             return
         }
@@ -289,37 +293,63 @@ class MemoriesPane extends Container {
             return
         }
 
-        if (this.turnStore.count === 0) {
-            target.add({module: Component, cls: ['fm-memories-empty'], text: 'No turn memories in this window.'});
+        if (this.summaryStore.count === 0) {
+            target.add({module: Component, cls: ['fm-memories-empty'], text: 'No sessions in this corpus.'});
             return
         }
 
-        target.add(this.turnStore.items.map(record => this.turnRowConfig(record)))
+        target.add(this.summaryStore.items.map(record => this.summaryCardConfig(record)))
     }
 
     /**
-     * @summary Build one turn row from a Store record. The summary text renders as returned; a
-     * guarded-null summary and a fallback summary are both named rather than silently coerced.
+     * @summary Build one session card from a Store record. Title and summary render as returned;
+     * guarded-null values are named rather than silently coerced, and sessions carrying co-author
+     * identities beyond the selected target show their attribution explicitly.
      * @param {Neo.data.Model} record
      * @returns {Object}
      */
-    turnRowConfig(record) {
-        const session = typeof record.sessionId === 'string' && record.sessionId ? record.sessionId.slice(0, 8) : 'unknown';
+    summaryCardConfig(record) {
+        const
+            me       = this,
+            session  = typeof record.sessionId === 'string' && record.sessionId ? record.sessionId.slice(0, 8) : 'unknown',
+            metaBits = [
+                me.formatStamp(record.timestamp),
+                `session ${session}`,
+                record.category || null,
+                Number.isFinite(record.memoryCount) ? `${record.memoryCount} memories` : null,
+                Number.isFinite(record.quality) ? `quality ${record.quality}` : null
+            ].filter(Boolean),
+            coAuthors = (record.sourceAgentIdentities || []).filter(identity => identity !== me.renderedTarget),
+            items     = [{
+                module: Component,
+                cls   : ['fm-memories-card-title'],
+                text  : record.title ?? 'Title unavailable for this session.'
+            }, {
+                module: Component,
+                cls   : ['fm-memories-card-meta'],
+                text  : metaBits.join(' · ')
+            }];
+
+        if (coAuthors.length > 0) {
+            items.push({
+                module: Component,
+                cls   : ['fm-memories-card-attribution'],
+                text  : `with ${coAuthors.join(', ')}`
+            })
+        }
+
+        items.push({
+            module: Component,
+            cls   : ['fm-memories-card-body'],
+            text  : record.summary ?? 'Summary unavailable for this session.'
+        });
 
         return {
             module: Container,
-            cls   : ['fm-memories-turn'],
+            cls   : ['fm-memories-card'],
             flex  : 'none',
             layout: {ntype: 'vbox', align: 'stretch'},
-            items : [{
-                module: Component,
-                cls   : ['fm-memories-turn-meta'],
-                text  : `${this.formatStamp(record.timestamp)} · session ${session}${record.summaryFallback ? ' · fallback summary' : ''}`
-            }, {
-                module: Component,
-                cls   : ['fm-memories-turn-body'],
-                text  : record.summary ?? 'Summary unavailable for this turn.'
-            }]
+            items
         }
     }
 
