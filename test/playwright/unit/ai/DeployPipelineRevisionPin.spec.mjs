@@ -355,7 +355,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         }
     });
 
-    test('the survivability preflight refuses BEFORE Docker, even with a perfectly resolvable revision', async () => {
+    test('an ordinary redeploy keeps the default project and refuses BEFORE Docker without a bundle', async () => {
         // My change to this script broke the six positive-path tests here, and the honest repair is not
         // just to hand the fixture a declaration — it is to assert at this seam what the gate does.
         //
@@ -369,6 +369,10 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(result.code).toBe(1);
         expect(result.output).toMatch(/REFUSING to proceed/);
         expect(result.output).toMatch(/REFUSE_NO_VERIFIED_BUNDLE/);
+        // An unset declaration is allowed on the non-destructive path and still resolves the
+        // reference deployment identity. Requiring the env var here would make the safety split
+        // costly enough to invite bypasses; sharing the initialize-path default would reopen it.
+        expect(result.output).toContain('[deploy] project:  neo-agent-os');
         // The resolvable revision is not what stopped it — the revision resolved fine.
         expect(result.output).toContain(FULL_SHA);
         // The load-bearing half: nothing touched containers.
