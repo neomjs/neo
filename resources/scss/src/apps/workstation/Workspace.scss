@@ -109,6 +109,8 @@
             color     : var(--workstation-ink-dim);
             font-family: var(--workstation-font-mono);
             min-width : 0;
+            transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                        color var(--dock-transition-duration-fast) var(--dock-transition-easing);
 
             &:hover {
                 background: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
