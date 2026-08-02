@@ -1,9 +1,15 @@
 /**
- * @module ai/services/fleet/readActiveWakeSubscriptionIdentities
- * @summary The trusted Brain-side observation source for the fleet's wake axis: one bulk scan of
+ * @module ai/services/memory-core/readActiveWakeSubscriptionIdentities
+ * @summary The trusted observation source for the fleet's wake axis: one bulk scan of
  * ACTIVE wake subscriptions, returning the holder identities — administrative READ-observation
- * under the fleet process's own authority, deliberately NOT the caller-owner management API (which
- * derives its owner from the request context and must never be impersonated).
+ * under the calling process's own authority, deliberately NOT the caller-owner management API
+ * (which derives its owner from the request context and must never be impersonated).
+ *
+ * It lives beside the graph it reads: the memory-core owns WAKE_SUBSCRIPTION truth, and BOTH
+ * consumers take the scan from here — the fleet dev-server's in-process mode (host plane, its own
+ * graph handle) and the wake-subscription service's fleet-identities telemetry action (the
+ * containerized plane, serving the same scan over MCP). One query, two processes, no second copy
+ * free to drift.
  *
  * The graph service loads lazily per call: the fleet server pays the memory-core import cost only
  * when a roster read actually needs wake truth, and a fresh scan per snapshot means no long-lived
@@ -22,7 +28,7 @@
 import {
     activeWakeSubscriptionStatusSql,
     isActiveWakeSubscriptionStatus
-} from '../memory-core/wakeSubscriptionStatusPolicy.mjs';
+} from './wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * The durable fleet-wide ACTIVE-subscription query. Mirrors the established WAKE_SUBSCRIPTION
@@ -47,7 +53,7 @@ const ACTIVE_IDENTITIES_SQL = `
  * @throws {Error} When no read surface is reachable — the adapter maps this to honest `unknown`.
  */
 export async function readActiveWakeSubscriptionIdentities({graphService = null} = {}) {
-    const service = graphService || (await import('../memory-core/GraphService.mjs')).default
+    const service = graphService || (await import('./GraphService.mjs')).default
 
     // `db` is populated by async init, not by module import: reading it straight off the fresh
     // import yields undefined. `ready()` is the ONLY architecture-compliant external wait —

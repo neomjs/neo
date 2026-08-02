@@ -17,7 +17,7 @@ import {test, expect} from '@playwright/test'
 import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
-import {readActiveWakeSubscriptionIdentities} from '../../../../../../ai/services/fleet/readActiveWakeSubscriptionIdentities.mjs'
+import {readActiveWakeSubscriptionIdentities} from '../../../../../../ai/services/memory-core/readActiveWakeSubscriptionIdentities.mjs'
 
 /**
  * Models the `core.Base` contract this reader depends on: `db` does NOT exist until async init has

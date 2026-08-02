@@ -56,7 +56,7 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {readMcpToolResultPayload}             from './mcpWireParsing.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
-import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
+import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';

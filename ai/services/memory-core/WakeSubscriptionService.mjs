@@ -11,6 +11,7 @@ import TurnPresenceService                                                      
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
+import {readActiveWakeSubscriptionIdentities}                                                   from './readActiveWakeSubscriptionIdentities.mjs';
 import {
     activeWakeSubscriptionStatusSql,
     isActiveWakeSubscriptionStatus
@@ -388,7 +389,7 @@ class WakeSubscriptionService extends Base {
      * action-specific handlers per ADR 0002 §6.6. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
-     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume' | 'rotate-key'
+     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume' | 'rotate-key' | 'fleet-identities'
      * @param {Object} [opts.rest] Action-specific parameters (see individual methods)
      * @returns {Promise<Object>}
      */
@@ -397,17 +398,18 @@ class WakeSubscriptionService extends Base {
 
         const {action, ...rest} = opts;
         switch (action) {
-            case 'bootstrap'  : return this.bootstrap  (rest);
-            case 'subscribe'  : return this.subscribe  (rest);
-            case 'unsubscribe': return this.unsubscribe(rest);
-            case 'update'     : return this.update     (rest);
-            case 'list'       : return this.list       (rest);
-            case 'resync'     : return this.resync     (rest);
-            case 'resume'     : return this.resume     (rest);
-            case 'rotate-key' : return this.rotateKey  (rest);
+            case 'bootstrap'       : return this.bootstrap  (rest);
+            case 'fleet-identities': return this.fleetIdentities();
+            case 'subscribe'       : return this.subscribe  (rest);
+            case 'unsubscribe'     : return this.unsubscribe(rest);
+            case 'update'          : return this.update     (rest);
+            case 'list'            : return this.list       (rest);
+            case 'resync'          : return this.resync     (rest);
+            case 'resume'          : return this.resume     (rest);
+            case 'rotate-key'      : return this.rotateKey  (rest);
             default:
                 throw new Error(
-                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync, resume, rotate-key.`
+                    `Invalid action '${action}'. Must be one of: bootstrap, fleet-identities, subscribe, unsubscribe, update, list, resync, resume, rotate-key.`
                 );
         }
     }
@@ -1376,6 +1378,27 @@ class WakeSubscriptionService extends Base {
             subscriptions.push(entry);
         }
         return {subscriptions};
+    }
+
+    /**
+     * Fleet-wide wake-observation telemetry: the deduplicated identities holding an ACTIVE
+     * subscription — and nothing else. The disclosure contract is deliberately the `whoIsOnline`
+     * class (any authenticated caller, fleet-scoped operational telemetry), NOT the caller-owner
+     * `list` class: owner rows carry endpoint/filter/key-adjacent material a roster read has no
+     * business seeing, so this action never returns row properties. The scan itself is the shared
+     * `readActiveWakeSubscriptionIdentities` — the same one query the fleet dev-server runs
+     * in-process against a host plane — with the absent-status meaning owned by
+     * `wakeSubscriptionStatusPolicy` in both.
+     *
+     * @returns {Promise<{identities: String[]}>} Sorted for deterministic wire output.
+     */
+    async fleetIdentities() {
+        const caller = RequestContextService.getAgentIdentityNodeId();
+        if (!caller) throw RequestContextService.unboundIdentityError('list fleet wake identities');
+
+        const identities = await readActiveWakeSubscriptionIdentities({graphService: GraphService});
+
+        return {identities: identities.sort()}
     }
 
     /**
