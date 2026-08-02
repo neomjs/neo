@@ -55,7 +55,8 @@ import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
-import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
+import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
+import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
@@ -121,19 +122,49 @@ async function boot() {
     // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
     wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
 
-    // Wire the wake-telltale producer sources (the S2 axis): the config-resolved daemon PID path +
-    // the trusted bulk subscription scan. This entrypoint is where config resolution belongs; the
-    // adapter itself never resolves it. Fail-soft by construction — a failing scan or an absent
-    // daemon degrades to honest per-row `unknown` inside the adapter, never a fabricated state.
+    // Wire the wake-telltale producer sources (the S2 axis). This entrypoint is where config
+    // resolution belongs; the adapter itself never resolves it. Fail-soft by construction — a
+    // failing scan or an absent source degrades to honest per-row `unknown` inside the adapter,
+    // never a fabricated state.
     //
-    // The `wakeDaemon` subtree is owned by the memory-core config, NOT Tier-1 `AiConfig` (which
-    // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
-    // (`ai/daemons/wake/daemon.mjs`) is the one to mirror here.
-    FleetManager.wakeStateOptions = {
-        pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
-        deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
-        listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
-    };
+    // The axes follow the mailbox-seam plane decision: truth that moved with the hard cut is read
+    // where it now lives. In-process mode keeps the host truths (local daemon PID file + host
+    // graph scan). Plane mode reads subscription intent from the containerized plane through the
+    // proven client — the host graph holds only pre-cut relic rows there, and the retired local
+    // daemon's absent PID file would read as OBSERVED not-running, fabricating `suppressed` for
+    // every genuinely subscribed seat. The delivery axes stay honestly `unknown` in plane mode
+    // until the plane exposes a vouching surface: delivery runs container-side and behind the
+    // signed host receiver, and neither is observable from this process today.
+    if (planeClient) {
+        FleetManager.wakeStateOptions = {
+            // The proven client returns PARSED payloads (its mapToolResult owns envelope handling)
+            // — the reader consumes them directly; a second parse here would reject every healthy
+            // answer and silently blind the whole axis.
+            listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
+            resolveDeliveryLiveness: () => ({
+                alive : 'unknown',
+                reason: 'delivery-lane liveness is not exposed by the containerized plane yet'
+            }),
+            resolveTerminalDeliveryFailures: () => ({
+                state     : 'unknown',
+                reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
+                byIdentity: new Map()
+            })
+        };
+
+        console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery axes honest-unknown pending a plane vouching surface)`)
+    } else {
+        // The `wakeDaemon` subtree is owned by the memory-core config, NOT Tier-1 `AiConfig` (which
+        // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
+        // (`ai/daemons/wake/daemon.mjs`) is the one to mirror here.
+        FleetManager.wakeStateOptions = {
+            pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
+            deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
+            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
+        };
+
+        console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
+    }
 
     // Wire the composed activitySource onto FleetControlBridge. The memory-core mailbox + graph
     // singletons are imported lazily at this boot use site (mirroring readActiveWakeSubscriptionIdentities's
