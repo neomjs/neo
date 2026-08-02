@@ -85,16 +85,29 @@ export function resolveBrainInstallPlan(file=manifestPath) {
 }
 
 /**
- * @summary Reads `package-lock.brain.json` and returns the EXACT Brain closure (roots + transitive
- * graph) as install specifiers — the determinism contract. The lock's root pins must agree with
- * `package.brain.json` exactly: a manifest edited without regenerating the lock is a named drift
- * error with the regeneration command, never a silent float back to live ranges.
+ * @summary Reads `package-lock.brain.json` and returns the Brain closure as install instructions
+ * — `{topLevel, nested}` — resolved from the frozen graph, never from live ranges.
+ * `topLevel` holds exact `name@version` specifiers for the overlay phase (including the ONE
+ * platform-variant binary matching the install host — its parent's optional range then resolves
+ * to the lock's version instead of tomorrow's); `nested` holds range-backed nested pins that must
+ * land inside their parent's tree via staged install + copy. The lock's root pins must agree
+ * with `package.brain.json` exactly: a manifest edited without regenerating the lock is a named
+ * drift error with the regeneration command, never a silent float.
  * @param {Object} [options]
  * @param {String} [options.manifestFile=manifestPath]
  * @param {String} [options.lockFile=lockPath]
- * @returns {String[]} exact `name@version` specifiers for the whole closure.
+ * @param {String} [options.platform=process.platform] Injected for tests.
+ * @param {String} [options.arch=process.arch] Injected for tests.
+ * @param {Boolean} [options.isMusl] Injected for tests; defaults to a linux-without-glibc probe.
+ * @returns {{topLevel: String[], nested: Array<{parent: String, name: String, version: String}>}}
  */
-export function resolveBrainInstallClosure({manifestFile=manifestPath, lockFile=lockPath}={}) {
+export function resolveBrainInstallClosure({
+    manifestFile = manifestPath,
+    lockFile     = lockPath,
+    platform     = process.platform,
+    arch         = process.arch,
+    isMusl       = process.platform === 'linux' && !process.report?.getReport?.().header?.glibcVersionRuntime
+}={}) {
     const pins = Object.fromEntries(
         resolveBrainInstallPlan(manifestFile).map(specifier => {
             const at = specifier.lastIndexOf('@');
@@ -135,12 +148,36 @@ export function resolveBrainInstallClosure({manifestFile=manifestPath, lockFile=
         // specifier out of the install args when a regeneration starts emitting them.
         if (entry.link === true || entry.version === undefined) continue;
 
-        // Platform-variant binaries (sharp/libvips/onnxruntime per-os-cpu builds, fsevents…) are
-        // never passed as direct install args: an exact pin of a darwin binary EBADPLATFORMs the
-        // linux runner, and vice versa. They arrive as optional deps of their parents instead —
-        // which ARE exact-pinned here, so the parent's exact optional spec pulls the exact
-        // matching variant on any platform. Determinism and portability in the same move.
-        if (entry.cpu || entry.os) continue;
+        // Platform-variant binaries (sharp/libvips/onnxruntime per-os-cpu builds, fsevents…) need
+        // care in BOTH directions: a darwin binary as a direct arg EBADPLATFORMs the linux runner,
+        // but skipping the matching variant leaves its parent to resolve the variant's RANGE live
+        // — chromadb declares chromadb-js-bindings-* as ^1.3.4, so tomorrow's 1.3.5 would rewrite
+        // the graph the lock froze at 1.3.4 (the re-review blocker). The matching variant is
+        // therefore passed EXACTLY (satisfying the parent's range with the lock's version);
+        // non-matching variants are skipped, and npm never sees an incompatible binary.
+        if (entry.cpu || entry.os) {
+            const name = entryPath.slice(entryPath.lastIndexOf('node_modules/') + 'node_modules/'.length);
+
+            let matchesPlatform =
+                (!entry.os  || entry.os.includes(platform)) &&
+                (!entry.cpu || entry.cpu.includes(arch));
+
+            if (matchesPlatform && name.includes('linux')) {
+                // libc split: a 'linuxmusl' spelling is musl-only; a plain 'linux'/'linux-*-gnu'
+                // spelling yields to its musl sibling on musl systems, and matches everywhere
+                // else (a package with no musl sibling pins its only linux variant anywhere).
+                const muslSibling = name.replace('linux', 'linuxmusl');
+
+                matchesPlatform = name.includes('linuxmusl')
+                    ? isMusl
+                    : !isMusl || lock.packages[`node_modules/${muslSibling}`] === undefined;
+            }
+
+            if (matchesPlatform) {
+                topLevel.push(`${name}@${entry.version}`);
+            }
+            continue
+        }
 
         const segments = entryPath.slice('node_modules/'.length).split('/node_modules/'),
               name     = segments[segments.length - 1];

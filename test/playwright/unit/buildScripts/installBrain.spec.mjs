@@ -77,11 +77,33 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         for (const specifier of topLevel) {
             expect(specifier, `non-exact specifier: ${specifier}`).toMatch(/^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
         }
+    });
 
-        // Portability IS the contract: platform-variant binaries (sharp/libvips per-os-cpu builds)
-        // are pulled by their exact-pinned parents as optional deps, never pinned directly — an
-        // explicit darwin binary EBADPLATFORMs the linux CI runner (this fired for real).
-        expect(topLevel.some(s => /darwin|win32|linux/.test(s)), `platform-variant leaked into the install list: ${topLevel.filter(s => /darwin|win32|linux/.test(s)).join(', ')}`).toBe(false);
+    test('the platform-matching variant installs at the LOCK version — the parent range cannot float', () => {
+        // chromadb declares its bindings as ^1.3.4 — a RANGE. Without the matched pin, tomorrow's
+        // 1.3.5 resolves live at the same SHA (the re-review blocker). The matching variant is
+        // passed exactly, satisfying the parent's range with the lock's version; incompatible
+        // variants never reach npm (an explicit darwin binary EBADPLATFORMs the linux runner —
+        // that also fired for real).
+        const lock     = JSON.parse(fs.readFileSync(brainLockPath, 'utf8')),
+              expected = lock.packages['node_modules/chromadb-js-bindings-darwin-arm64'].version;
+
+        const darwin = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath, platform: 'darwin', arch: 'arm64', isMusl: false});
+
+        expect(darwin.topLevel).toContain(`chromadb-js-bindings-darwin-arm64@${expected}`);
+        expect(darwin.topLevel.some(s => /chromadb-js-bindings-(linux|win32)/.test(s))).toBe(false);
+
+        const linux = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath, platform: 'linux', arch: 'x64', isMusl: false});
+
+        expect(linux.topLevel).toContain(`chromadb-js-bindings-linux-x64-gnu@${expected}`);
+        expect(linux.topLevel.some(s => /chromadb-js-bindings-(darwin|win32)/.test(s))).toBe(false);
+
+        // libc split on musl: the musl sibling wins, the glibc spelling is skipped.
+        const muslVersion = lock.packages['node_modules/@img/sharp-linuxmusl-x64'].version,
+              musl        = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath, platform: 'linux', arch: 'x64', isMusl: true});
+
+        expect(musl.topLevel).toContain(`@img/sharp-linuxmusl-x64@${muslVersion}`);
+        expect(musl.topLevel.some(s => s.startsWith('@img/sharp-linux-x64@'))).toBe(false);
     });
 
     test('the closure is consumed as a TREE: nested range-pins install into their parents (the terminal falsifier)', () => {
