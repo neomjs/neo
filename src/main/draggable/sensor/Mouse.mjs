@@ -125,8 +125,10 @@ class Mouse extends Base {
                 // button is still down, so suppression must hold until release. Released in
                 // endGesture — on mouseup, or on the gesture's own move stream observing the
                 // primary button gone (an off-document release never reaches onMouseUp).
-                // Guarded: bare test harnesses may stub `document` without a body/classList.
-                document.body?.classList?.add('neo-drag-active');
+                // Guarded at the globalThis root: bare test harnesses may stub `document`
+                // without a body/classList — or provide no `document` at all (a bare `document`
+                // reference would throw ReferenceError there before the chain can engage).
+                globalThis.document?.body?.classList?.add('neo-drag-active');
 
                 document.addEventListener('dragstart', preventDefault);
                 document.addEventListener('mousemove', me.onDistanceChange);
@@ -181,7 +183,8 @@ class Mouse extends Base {
 
         clearTimeout(me.mouseDownTimeout);
 
-        document.body?.classList?.remove('neo-drag-active');
+        // Same globalThis-root guard as the add site (see onMouseDown).
+        globalThis.document?.body?.classList?.remove('neo-drag-active');
 
         document.removeEventListener('dragstart', preventDefault);
         document.removeEventListener('mousemove', me.onDistanceChange);

@@ -358,8 +358,10 @@ class DragDrop extends Base {
         // sensor's own `drag:end`. The Mouse sensor owns the physical mousedown→release bracket,
         // including lost-release recovery on its own move stream; this line just keeps the two
         // layers from drifting should that bracket's semantics ever change.
-        // Guarded: bare test harnesses may stub `document` without a body/classList.
-        document.body?.classList?.remove('neo-drag-active');
+        // Guarded at the globalThis root: bare test harnesses may stub `document` without a
+        // body/classList — or provide no `document` at all (a bare `document` reference would
+        // throw ReferenceError there before the optional chain can engage).
+        globalThis.document?.body?.classList?.remove('neo-drag-active');
 
         DragDrop.prototype.promoteWindowDragParkRecovery.call(me);
 
