@@ -2385,11 +2385,11 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
     });
 
     test('a legacy row with no `status` is NOT armed — the manifest skips it, whatever other readers do', async () => {
-        // The verdict follows the manifest builder (strict `status !== 'active'`), not the local
-        // majority. Three other readers treat absent as active — the durable lister's own SQL
-        // `COALESCE(..., 'active')`, checkSunsetted.mjs, readActiveWakeSubscriptionIdentities.mjs —
-        // so `list()` hands this row over looking active. The build still refuses it. Reporting
-        // `deliverable` here would be the exact false positive this block exists to remove.
+        // The verdict follows the manifest builder (strict `status !== 'active'`). The durable list
+        // path preserves this historical row without inventing a status, while checkSunsetted.mjs
+        // and readActiveWakeSubscriptionIdentities.mjs treat that absence as active. The build still
+        // refuses it. Reporting `deliverable` here would be the exact false positive this block
+        // exists to remove.
         const record = deliverableRecord();
         delete record.status;
 
@@ -2517,10 +2517,10 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
     });
 
     test('AGREEMENT (legacy no-status): unarmed here AND skipped by the builder', async () => {
-        // Production-reachable, not a hand-built specimen: `_hydrateSubscriptionFromDurableNode`
-        // copies persisted properties verbatim, and the durable lister's SQL COALESCEs a missing
-        // status to 'active' — so `list()` yields this row looking active while the build skips it.
-        // Health must side with the build, because that is the only thing its verdict claims.
+        // Production-reachable, not a hand-built specimen: the durable lister returns caller-owned
+        // rows without a status filter and `_hydrateSubscriptionFromDurableNode` copies persisted
+        // properties verbatim, so `list()` yields this row with `status` still absent while the build
+        // skips it. Health must side with the build, because that is the only thing its verdict claims.
         const legacy = deliverableRecord({id: 'WAKE_SUB:legacy-no-status'});
         delete legacy.status;
 

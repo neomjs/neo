@@ -625,13 +625,13 @@ async function buildSubscriptionArmingBlock() {
             return {armed: null, reason: 'unbound-identity'};
         }
 
-        // STRICT equality, deliberately, and against the local majority. Three readers treat an
-        // absent `status` as active — the durable lister's own SQL (`COALESCE(..., 'active')`),
-        // `checkSunsetted.mjs`, and `readActiveWakeSubscriptionIdentities.mjs`. The manifest builder
-        // does not: it compares `status !== 'active'` and withdraws the route. Since THIS verdict
-        // claims only "the manifest build would accept my rows", it must take the manifest's side;
-        // matching the majority would report `deliverable` for a row the build silently skips.
-        // That 3-vs-1 split is a real substrate disagreement, not a preference — tracked separately.
+        // STRICT equality, deliberately. The durable list path preserves historical rows whose
+        // `status` is absent; `checkSunsetted.mjs` and `readActiveWakeSubscriptionIdentities.mjs`
+        // then treat that absence as active. The manifest builder does not: it compares
+        // `status !== 'active'` and withdraws the route. Since THIS verdict claims only "the
+        // manifest build would accept my rows", it must take the manifest's side; matching those
+        // coalescing consumers would report `deliverable` for a row the build silently skips.
+        // That reader split is a real substrate disagreement, not a preference — tracked separately.
         const {subscriptions = []} = await WakeSubscriptionService.list(),
               active               = subscriptions.filter(entry => entry.status === 'active');
 
