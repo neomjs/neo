@@ -234,6 +234,68 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         });
 
+        test('a seat carrying a legacy transport gets a SECOND row, and the legacy one is never retired', async () => {
+            // The migration end-state, pinned because the mechanism is counter-intuitive and my PR
+            // body first described it wrongly. `_reconcileDuplicateSubscriptions` groups by canonical
+            // route key, and `_buildSubscriptionRouteKey` includes `harnessTarget` verbatim — so a
+            // stored `bridge-daemon` row and a derived `a2a-webhook` row are two singleton groups and
+            // neither is ever N-1'd. There is no self-heal. What neutralizes the legacy row is the
+            // manifest builder, which withdraws that target with a named reason; nothing retires it.
+            //
+            // Asserted rather than narrated so nobody can "fix" this back into a self-heal claim: the
+            // reconciler's route-key grouping is what protects legitimate multi-route seats, and
+            // blanket-retiring non-deliverable targets would destroy Shape C setups.
+            GraphService.upsertNode({
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger              : 'SENT_TO_ME',
+                        filters              : {},
+                        harnessTargetMetadata: {appName: 'Antigravity'}
+                    }
+                }
+            });
+
+            const legacy = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:legacy-uuid',
+                owner                : '@alice',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Antigravity'}
+            });
+
+            const readStatus = id => JSON.parse(
+                GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id).data
+            ).properties.status;
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL, adapter: 'osascript'}
+                });
+
+                // A second row is minted: the derived route tuple cannot match the stored one.
+                expect(res.status).toBe('created');
+                expect(res.subscriptionId).not.toBe(legacy.subscriptionId);
+                expect(res.harnessTarget).toBe('a2a-webhook');
+
+                // And the legacy row is STILL ACTIVE — not retired, on this boot or any later one.
+                // It stays visible as `active` on lifecycle surfaces while being unpublishable.
+                expect(readStatus(legacy.subscriptionId)).toBe('active');
+
+                // A second bootstrap changes nothing: reconcile still sees two singleton groups.
+                const again = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL, adapter: 'osascript'}
+                });
+
+                expect(again.subscriptionId).toBe(res.subscriptionId);
+                expect(readStatus(legacy.subscriptionId)).toBe('active');
+            });
+        });
+
         test('without a receiver URL it REFUSES by name instead of minting a dark row', async () => {
             // The behaviour change that matters most on a live plane, and it is a refusal rather
             // than an arming. Before, bootstrap read `bridge-daemon` off the template, minted a row
@@ -565,8 +627,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // different creation times; only the newest route should remain active.
             // Seeded in the post-derivation shape so this test measures what it is named for —
             // duplicate reconciliation — rather than incidentally measuring route matching. A
-            // seat whose stored rows still carry the old transport is a different case, covered
-            // by the migration test below.
+            // seat whose stored rows still carry the old transport is a different case: those rows
+            // land in a different route group and are never reconciled, pinned by the legacy-transport
+            // bootstrap test above.
             const seededRoute = {harnessTarget: 'a2a-webhook', harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL}};
 
             const older = insertDurableSubscription({
