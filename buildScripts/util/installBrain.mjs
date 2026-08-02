@@ -116,16 +116,47 @@ export function resolveBrainInstallClosure({manifestFile=manifestPath, lockFile=
         )
     }
 
-    return Object.entries(lock.packages)
-        .filter(([entryPath]) => /^node_modules\/(?:@[^/]+\/)?[^/]+$/.test(entryPath))
+    const topLevel = [],
+          nested   = [];
+
+    for (const [entryPath, entry] of Object.entries(lock.packages)) {
+        if (!/^node_modules\/(?:@[^/]+\/)?[^/]+(?:\/node_modules\/(?:@[^/]+\/)?[^/]+)*$/.test(entryPath)) continue;
+
+        // Link entries (`.bin` shims) carry no version — their link target is the real record,
+        // already in this walk. Skipping them here is what keeps a bogus `name@undefined`
+        // specifier out of the install args when a regeneration starts emitting them.
+        if (entry.link === true || entry.version === undefined) continue;
+
         // Platform-variant binaries (sharp/libvips/onnxruntime per-os-cpu builds, fsevents…) are
         // never passed as direct install args: an exact pin of a darwin binary EBADPLATFORMs the
         // linux runner, and vice versa. They arrive as optional deps of their parents instead —
         // which ARE exact-pinned here, so the parent's exact optional spec pulls the exact
         // matching variant on any platform. Determinism and portability in the same move.
-        .filter(([, entry]) => !entry.cpu && !entry.os)
-        .map(([entryPath, entry]) => `${entryPath.slice('node_modules/'.length)}@${entry.version}`)
-        .sort();
+        if (entry.cpu || entry.os) continue;
+
+        const segments = entryPath.slice('node_modules/'.length).split('/node_modules/'),
+              name     = segments[segments.length - 1];
+
+        if (segments.length === 1) {
+            topLevel.push(`${name}@${entry.version}`);
+            continue
+        }
+
+        // The lock is consumed as the dependency TREE it freezes, not a flat version list. A
+        // nested pin matters exactly when the parent's declaration is a RANGE (tar-fs wants
+        // chownr ^1.1.1): left to live resolution, tomorrow's 1.1.5 silently rewrites the graph
+        // the lock froze at 1.1.4. A nested pin backed by an EXACT parent declaration
+        // (onnxruntime-web → onnxruntime-common@1.22.0-dev) is already frozen — no arg needed.
+        const parentPath = 'node_modules/' + segments.slice(0, -1).join('/node_modules/'),
+              parent     = lock.packages[parentPath],
+              parentDep  = parent?.dependencies?.[name] ?? parent?.optionalDependencies?.[name];
+
+        if (parentDep === entry.version) continue;
+
+        nested.push({parent: parentPath.slice('node_modules/'.length), name, version: entry.version});
+    }
+
+    return {nested, topLevel: topLevel.sort()};
 }
 
 /**
@@ -154,23 +185,37 @@ export function buildNpmArgs(specifiers, {ignoreScripts=false}={}) {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 
 if (isMain) {
-    const dryRun        = process.argv.includes('--dry-run'),
-          ignoreScripts = process.argv.includes('--ignore-scripts'),
-          specifiers    = resolveBrainInstallClosure(),
-          args          = buildNpmArgs(specifiers, {ignoreScripts});
+    const dryRun             = process.argv.includes('--dry-run'),
+          ignoreScripts      = process.argv.includes('--ignore-scripts'),
+          {nested, topLevel} = resolveBrainInstallClosure(),
+          args               = buildNpmArgs(topLevel, {ignoreScripts}),
+          isWindows          = process.platform.startsWith('win');
+
+    const runNpm = (npmArgs, cwd) => {
+        // The shell is load-bearing ONLY on win32 (npm.cmd cannot spawn without one); on POSIX
+        // it is a DEP0190 warning plus unescaped-args concatenation for zero benefit.
+        const result = spawnSync(resolveNpmCommand(), npmArgs, {cwd, env: process.env, shell: isWindows, stdio: 'inherit'});
+
+        if (result.status !== 0) {
+            throw new Error(`install-brain: npm exited with status ${result.status} (cwd: ${cwd})`);
+        }
+    };
 
     if (dryRun) {
         console.log(`${resolveNpmCommand()} ${args.join(' ')}`);
+        for (const pin of nested) {
+            console.log(`(cd node_modules/${pin.parent} && ${resolveNpmCommand()} ${buildNpmArgs([`${pin.name}@${pin.version}`], {ignoreScripts}).join(' ')})`);
+        }
     } else {
-        console.log(`[install-brain] Overlaying the Brain tier (${specifiers.length} exact specifiers from the committed closure) onto the base install…`);
+        console.log(`[install-brain] Overlaying the Brain tier (${topLevel.length} exact top-level specifiers from the committed closure) onto the base install…`);
 
-        // The shell is load-bearing ONLY on win32 (npm.cmd cannot spawn without one); on POSIX
-        // it is a DEP0190 warning plus unescaped-args concatenation for zero benefit.
-        const isWindows = process.platform.startsWith('win'),
-              result    = spawnSync(resolveNpmCommand(), args, {cwd: repoRoot, env: process.env, shell: isWindows, stdio: 'inherit'});
+        runNpm(args, repoRoot);
 
-        if (result.status !== 0) {
-            throw new Error(`install-brain: npm exited with status ${result.status}`);
+        // Nested range-pins install INTO their parent's tree — the only placement that satisfies
+        // the range without re-resolving it live. Runs after the overlay so the parents exist.
+        for (const pin of nested) {
+            console.log(`[install-brain] Freezing nested pin ${pin.name}@${pin.version} under ${pin.parent}…`);
+            runNpm(buildNpmArgs([`${pin.name}@${pin.version}`], {ignoreScripts}), path.join(repoRoot, 'node_modules', pin.parent));
         }
 
         console.log('[install-brain] Brain tier armed: `better-sqlite3`, `chromadb`, `@chroma-core/default-embed`.');

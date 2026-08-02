@@ -68,20 +68,33 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         // frozen graph), never from live range resolution — the same SHA installs the same Brain
         // tier on every machine. Shape, never a frozen population: the closure grows and shrinks
         // with registry state at regeneration time, so only exactness + root coverage is pinned.
-        const specifiers = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath});
+        const {topLevel} = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath});
 
-        expect(specifiers.length).toBeGreaterThan(3);
+        expect(topLevel.length).toBeGreaterThan(3);
         for (const root of ['better-sqlite3', 'chromadb', '@chroma-core/default-embed']) {
-            expect(specifiers.some(s => s.startsWith(`${root}@`)), `closure missing root ${root}`).toBe(true);
+            expect(topLevel.some(s => s.startsWith(`${root}@`)), `closure missing root ${root}`).toBe(true);
         }
-        for (const specifier of specifiers) {
-            expect(specifier, `non-exact specifier: ${specifier}`).toMatch(/^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(-[\w.]+)?$/);
+        for (const specifier of topLevel) {
+            expect(specifier, `non-exact specifier: ${specifier}`).toMatch(/^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
         }
 
         // Portability IS the contract: platform-variant binaries (sharp/libvips per-os-cpu builds)
         // are pulled by their exact-pinned parents as optional deps, never pinned directly — an
         // explicit darwin binary EBADPLATFORMs the linux CI runner (this fired for real).
-        expect(specifiers.some(s => /darwin|win32|linux/.test(s)), `platform-variant leaked into the install list: ${specifiers.filter(s => /darwin|win32|linux/.test(s)).join(', ')}`).toBe(false);
+        expect(topLevel.some(s => /darwin|win32|linux/.test(s)), `platform-variant leaked into the install list: ${topLevel.filter(s => /darwin|win32|linux/.test(s)).join(', ')}`).toBe(false);
+    });
+
+    test('the closure is consumed as a TREE: nested range-pins install into their parents (the terminal falsifier)', () => {
+        // tar-fs declares chownr ^1.1.1 — a RANGE. Left to live resolution, tomorrow's 1.1.5
+        // silently rewrites the graph the lock froze at 1.1.4: the exact-positive control for
+        // "the same SHA installs a different graph". Range-backed nested pins install INTO their
+        // parent's tree; exact-parent nested pins are already frozen and need no pass.
+        const {nested, topLevel} = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath});
+
+        expect(topLevel).toContain('chownr@3.0.0');
+        expect(nested).toContainEqual({parent: 'tar-fs', name: 'chownr', version: '1.1.4'});
+        // onnxruntime-common's nested pin is exact-parent-declared — frozen without an install pass.
+        expect(nested.some(pin => pin.name === 'onnxruntime-common')).toBe(false);
     });
 
     test('a manifest/lock disagreement is a named drift error — never a silent float to live ranges', () => {
