@@ -1,8 +1,22 @@
 import {expect, test} from '@playwright/test';
 
 import {buildMiniSummaryStarvationDiagnosis,
-        DEFAULT_MIN_SUSTAINED_PASSES,
-        TIMEOUT_CAUSES} from '../../../../../../../ai/daemons/orchestrator/services/miniSummaryStarvationDiagnosis.mjs';
+        DEFAULT_MIN_SUSTAINED_PASSES} from '../../../../../../../ai/daemons/orchestrator/services/miniSummaryStarvationDiagnosis.mjs';
+
+/**
+ * Cause vocabulary written as UPSTREAM LITERALS, deliberately not imported from the producer.
+ *
+ * @neo-gpt-emmy's mutation probe: with fixtures built from the producer's own exported `TIMEOUT_CAUSES`,
+ * renaming that constant to `timeout-inner-typo` moved implementation and tests together and the suite
+ * stayed green — while the real string `MemoryService` emits stopped resolving. A consumer's fixtures
+ * must speak the PRODUCER's vocabulary, or they test the consumer's agreement with itself.
+ */
+const UPSTREAM = Object.freeze({
+    timeoutInner : 'timeout-inner',
+    timeoutOuter : 'timeout-outer',
+    noModel      : 'no-model',
+    providerError: 'provider-error'
+});
 
 const SERVICE_ID  = 'mc-server',
       OBSERVED_AT = 1_785_700_000_000;
@@ -32,7 +46,7 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
 
     test('a sustained inner-timeout window diagnoses contention and names the inner window', () => {
         const event = buildMiniSummaryStarvationDiagnosis({
-            window: windowOf(starvedPass({[TIMEOUT_CAUSES.inner]: 4})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+            window: windowOf(starvedPass({[UPSTREAM.timeoutInner]: 4})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
         });
 
         expect(event).toBeTruthy();
@@ -45,7 +59,7 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
 
     test('an outer-dominant window names the outer window', () => {
         const event = buildMiniSummaryStarvationDiagnosis({
-            window: windowOf(starvedPass({[TIMEOUT_CAUSES.outer]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+            window: windowOf(starvedPass({[UPSTREAM.timeoutOuter]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
         });
 
         expect(event.details.bindingTimeout).toBe('outer');
@@ -56,7 +70,7 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
         // INFERRED from branch topology; with typed causes both timeouts are measured, so a tie means the
         // window genuinely hit both bounds. Choosing one asserts a fact the evidence does not contain.
         const event = buildMiniSummaryStarvationDiagnosis({
-            window    : windowOf(starvedPass({[TIMEOUT_CAUSES.inner]: 2, [TIMEOUT_CAUSES.outer]: 2})),
+            window    : windowOf(starvedPass({[UPSTREAM.timeoutInner]: 2, [UPSTREAM.timeoutOuter]: 2})),
             observedAt: OBSERVED_AT, serviceId: SERVICE_ID
         });
 
@@ -72,7 +86,8 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
 
         expect(event).toBeTruthy();
         expect(event.details.bindingTimeout).toBeUndefined();
-        expect(event.details.causeTotals).toEqual({inner: 0, outer: 0, other: 15});
+        expect(event.recoveryClass).toBe('ambiguous');
+        expect(event.details.causeTotals).toEqual({inner: 0, outer: 0, noModel: 0, other: 15});
     });
 
     test('an empty window with a zero threshold emits NOTHING (@neo-gpt-emmy)', () => {
@@ -91,16 +106,26 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
         })).toBeNull();
     });
 
-    test('a single-pass window does not satisfy a zero threshold (@neo-gpt-emmy)', () => {
-        const single = [starvedPass({[TIMEOUT_CAUSES.inner]: 3})];
+    test('a single-pass window emits NOTHING at any threshold (@neo-gpt-emmy)', () => {
+        const single = [starvedPass({[UPSTREAM.timeoutInner]: 3})];
 
-        // One pass is not a sustained window; a zero threshold must not make it one.
-        expect(buildMiniSummaryStarvationDiagnosis({
-            window: single, observedAt: OBSERVED_AT, serviceId: SERVICE_ID, minSustainedPasses: 0
-        })).toBeTruthy();
+        // My first version of this test asserted `toBeTruthy()` here while its own title and comment said
+        // one pass is not sustained — the assertion contradicted the name above it, and the PR body then
+        // repeated the title's claim. Sustained means REPEATED; no threshold can make one observation two.
+        for (const minSustainedPasses of [0, 1, -5]) {
+            expect(buildMiniSummaryStarvationDiagnosis({
+                window: single, observedAt: OBSERVED_AT, serviceId: SERVICE_ID, minSustainedPasses
+            }), `threshold ${minSustainedPasses} must not make one pass sustained`).toBeNull();
+        }
+
         expect(buildMiniSummaryStarvationDiagnosis({
             window: single, observedAt: OBSERVED_AT, serviceId: SERVICE_ID
         })).toBeNull();
+
+        // Two passes DO satisfy an explicit floor — the guard must not become a blanket refusal.
+        expect(buildMiniSummaryStarvationDiagnosis({
+            window: [single[0], single[0]], observedAt: OBSERVED_AT, serviceId: SERVICE_ID, minSustainedPasses: 2
+        })).toBeTruthy();
     });
 
     test('a mixed-cause pass draining un-summarizable rows does NOT diagnose starvation (@neo-gpt-emmy)', () => {
@@ -120,8 +145,69 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
         })).toBeNull();
     });
 
+    test('exhausted rows are GENERATION failures and still diagnose (@neo-gpt-emmy)', () => {
+        // The false negative: `exhausted` means the row spent its generation-attempt budget, and the
+        // upstream layer records the typed cause BEFORE incrementing it. Excluding it made a genuinely
+        // starved window return null — the inverse of the defect this producer exists to catch.
+        const exhaustedPass = {
+            processed     : 2,
+            updated       : 0,
+            missingContent: 0,
+            exhausted     : 2,
+            failureCauses : {[UPSTREAM.timeoutInner]: 2}
+        };
+
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window: windowOf(exhaustedPass), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        });
+
+        expect(event).toBeTruthy();
+        expect(event.details.bindingTimeout).toBe('inner');
+
+        // And the control that keeps the fix from swallowing the original guard: missingContent still
+        // exempts, because an un-summarizable row was never a generation attempt.
+        expect(buildMiniSummaryStarvationDiagnosis({
+            window    : windowOf({processed: 4, updated: 0, missingContent: 3, exhausted: 0,
+                                  failureCauses: {[UPSTREAM.providerError]: 1}}),
+            observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        })).toBeNull();
+    });
+
+    test('no-model is provider-role-residency, never contention against this service (@neo-gpt-emmy)', () => {
+        // A missing model is a provider-side fact. `ContainerHealthDiagnosisService` already classifies it
+        // as `provider-role-residency`; flattening it to contention would blame the Memory Core for a
+        // provider's absence purely because the failing operation happens to use a model.
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window: windowOf(starvedPass({[UPSTREAM.noModel]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        });
+
+        expect(event.recoveryClass).toBe('provider-role-residency');
+        expect(event.details.bindingTimeout).toBeUndefined();
+        expect(event.diagnosisId.startsWith('provider-role-residency:')).toBe(true);
+    });
+
+    test('a generic provider-error proves starvation but not contention — ambiguous (@neo-gpt-emmy)', () => {
+        // It proves the loop is starved and proves nothing about why. `ambiguous` exists for exactly this.
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window: windowOf(starvedPass({[UPSTREAM.providerError]: 4})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        });
+
+        expect(event.recoveryClass).toBe('ambiguous');
+        expect(event.details.bindingTimeout).toBeUndefined();
+    });
+
+    test('a timeout window is the ONLY shape that earns contention', () => {
+        // The positive control for the three classes above: without it, the mapping could collapse every
+        // window to ambiguous and each negative assertion would still pass.
+        for (const cause of [UPSTREAM.timeoutInner, UPSTREAM.timeoutOuter]) {
+            expect(buildMiniSummaryStarvationDiagnosis({
+                window: windowOf(starvedPass({[cause]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+            }).recoveryClass).toBe('contention');
+        }
+    });
+
     test('a window that completes any work is not starved', () => {
-        const partial = starvedPass({[TIMEOUT_CAUSES.inner]: 3}, {updated: 1});
+        const partial = starvedPass({[UPSTREAM.timeoutInner]: 3}, {updated: 1});
 
         expect(buildMiniSummaryStarvationDiagnosis({
             window: windowOf(partial), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
@@ -129,8 +215,8 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
     });
 
     test('one recovered pass inside an otherwise starved window suppresses the diagnosis', () => {
-        const window = windowOf(starvedPass({[TIMEOUT_CAUSES.inner]: 3}));
-        window[1] = starvedPass({[TIMEOUT_CAUSES.inner]: 3}, {updated: 2});
+        const window = windowOf(starvedPass({[UPSTREAM.timeoutInner]: 3}));
+        window[1] = starvedPass({[UPSTREAM.timeoutInner]: 3}, {updated: 2});
 
         expect(buildMiniSummaryStarvationDiagnosis({
             window, observedAt: OBSERVED_AT, serviceId: SERVICE_ID
@@ -141,7 +227,7 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
         // The deletion test, applied to the verdict: branch topology that DISAGREES with the causes must
         // not move `bindingTimeout`. If it can, the producer is reading branches again — which is exactly
         // how the predecessor failed.
-        const misleading = starvedPass({[TIMEOUT_CAUSES.outer]: 4}, {failedInner: 99, failedOuter: 0});
+        const misleading = starvedPass({[UPSTREAM.timeoutOuter]: 4}, {failedInner: 99, failedOuter: 0});
 
         const event = buildMiniSummaryStarvationDiagnosis({
             window: windowOf(misleading), observedAt: OBSERVED_AT, serviceId: SERVICE_ID

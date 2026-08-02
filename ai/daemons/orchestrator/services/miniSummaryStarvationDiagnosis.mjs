@@ -12,10 +12,25 @@ import {createRecoveryDiagnosisEvent} from '../../../services/memory-core/helper
 export const TIMEOUT_CAUSES = Object.freeze({inner: 'timeout-inner', outer: 'timeout-outer'});
 
 /**
+ * The upstream cause for "no chat model was resolvable", which the taxonomy treats as a provider-side
+ * residency fact rather than as contention against the service that reported it.
+ * @type {String}
+ */
+export const NO_MODEL_CAUSE = 'no-model';
+
+/**
  * Passes a window must span before a diagnosis is emitted at all.
  * @type {Number}
  */
 export const DEFAULT_MIN_SUSTAINED_PASSES = 3;
+
+/**
+ * Floor for any caller-supplied threshold. **Sustained means repeated**, so one observation can never
+ * satisfy it however low the threshold is set — a clamp to `1` still emitted on a single pass and
+ * reported `sustainedPasses: 1`, which is the very shape the ticket forbids.
+ * @type {Number}
+ */
+export const MIN_SUSTAINED_FLOOR = 2;
 
 /**
  * @summary Sums a pass's typed failure causes, ignoring any cause this module does not know.
@@ -26,30 +41,36 @@ function tallyCauses(pass) {
     const causes = pass?.failureCauses;
 
     if (!causes || typeof causes !== 'object') {
-        return {inner: 0, outer: 0, other: 0, total: 0};
+        return {inner: 0, outer: 0, noModel: 0, other: 0, total: 0};
     }
 
-    let inner = 0, outer = 0, other = 0;
+    let inner = 0, outer = 0, noModel = 0, other = 0;
 
     for (const [cause, rawCount] of Object.entries(causes)) {
         const count = Number.isFinite(rawCount) ? rawCount : 0;
 
-        if (cause === TIMEOUT_CAUSES.inner)      inner += count;
-        else if (cause === TIMEOUT_CAUSES.outer) outer += count;
-        else                                     other += count;
+        if (cause === TIMEOUT_CAUSES.inner)       inner   += count;
+        else if (cause === TIMEOUT_CAUSES.outer)  outer   += count;
+        else if (cause === NO_MODEL_CAUSE)        noModel += count;
+        else                                      other   += count;
     }
 
-    return {inner, outer, other, total: inner + outer + other};
+    return {inner, outer, noModel, other, total: inner + outer + noModel + other};
 }
 
 /**
  * @summary Decides whether one pass is starved: it processed rows and completed none of them, and the
  * failures were generation failures rather than rows that were never summarizable.
  *
- * `missingContent` and `exhausted` rows are deliberately NOT starvation. A sweep that correctly archives
- * three un-summarizable rows and hits one unrelated provider error is a working sweep with a bad row in
- * it; the predecessor emitted on exactly that shape because it required only *at least one* failure. The
- * guard is that every failure in the pass must be a generation failure, not merely that one is.
+ * `missingContent` rows are deliberately NOT starvation: a sweep that correctly archives un-summarizable
+ * rows and hits one unrelated provider error is a working sweep with a bad row in it, and the predecessor
+ * emitted on exactly that shape because it required only *at least one* failure.
+ *
+ * `exhausted` rows ARE starvation. The upstream contract archives a row only after it has spent its
+ * generation-attempt budget, and records the typed cause BEFORE incrementing `exhausted` — so an
+ * exhausted row is a generation failure that ran out of retries, not a row that was never summarizable.
+ * Excluding it inverted the guard: a genuinely starved window whose rows had exhausted their budget
+ * returned `null`, which is the false NEGATIVE of the defect this producer exists to catch.
  *
  * @param {Object} pass One `backfillMiniSummaries` result.
  * @returns {Boolean}
@@ -64,12 +85,38 @@ function isStarvedPass(pass) {
     }
 
     const {total} = tallyCauses(pass),
-          skipped = (Number.isFinite(pass?.missingContent) ? pass.missingContent : 0) +
-                    (Number.isFinite(pass?.exhausted)      ? pass.exhausted      : 0);
+          skipped = Number.isFinite(pass?.missingContent) ? pass.missingContent : 0;
 
     // Every processed row must be accounted for by a generation failure. If rows were skipped for
     // non-generation reasons, the loop is not starved — it is draining rows it cannot summarize.
     return total > 0 && skipped === 0 && total >= processed;
+}
+
+/**
+ * @summary Maps the window's dominant cause to a recovery class the existing taxonomy already means.
+ *
+ * `contention` is NOT the answer for every starved window. It is provable only from a timeout: a window
+ * that exhausted its generation budget is saturated, and that is what contention means. The other causes
+ * name different things the taxonomy already distinguishes:
+ *
+ * - `no-model` is a MISSING MODEL, not saturation. `ContainerHealthDiagnosisService` already classifies a
+ *   missing required model as `provider-role-residency` with a warm-provider action. Flattening it to
+ *   contention against the Memory Core would blame the wrong subject for a provider-side fact, purely
+ *   because the failing operation happens to use a model.
+ * - a generic `provider-error` or `empty-output` proves the loop is starved and proves nothing about WHY.
+ *   `ambiguous` is the honest class; it exists for this.
+ *
+ * The safe no-restart property is preserved throughout — none of these three classes invites a restart —
+ * but preserving it is not a licence to discard the cause the upstream layer measured.
+ *
+ * @param {Object} totals Summed cause counts across the window.
+ * @returns {String} A member of `RECOVERY_CLASSES`.
+ */
+function resolveRecoveryClass({inner, outer, noModel, other}) {
+    if (inner + outer > 0) return 'contention';
+    if (noModel > 0 && noModel >= other) return 'provider-role-residency';
+
+    return 'ambiguous'
 }
 
 /**
@@ -137,7 +184,7 @@ export function buildMiniSummaryStarvationDiagnosis({
     // `passes.length < minSustainedPasses`, which is `0 < 0 === false` for an empty window, and then
     // `[].every(...)` returned vacuously true — so it emitted a diagnosis from no evidence at all.
     // Requiring at least one pass AND at least the threshold is the fix; neither check alone is enough.
-    const required = Math.max(1, Number.isFinite(minSustainedPasses) ? minSustainedPasses : DEFAULT_MIN_SUSTAINED_PASSES);
+    const required = Math.max(MIN_SUSTAINED_FLOOR, Number.isFinite(minSustainedPasses) ? minSustainedPasses : DEFAULT_MIN_SUSTAINED_PASSES);
 
     if (passes.length < required) {
         return null;
@@ -148,16 +195,22 @@ export function buildMiniSummaryStarvationDiagnosis({
     }
 
     const totals = passes.reduce((sum, pass) => {
-        const {inner, outer, other} = tallyCauses(pass);
+        const {inner, outer, noModel, other} = tallyCauses(pass);
 
-        return {inner: sum.inner + inner, outer: sum.outer + outer, other: sum.other + other}
-    }, {inner: 0, outer: 0, other: 0});
+        return {
+            inner  : sum.inner   + inner,
+            outer  : sum.outer   + outer,
+            noModel: sum.noModel + noModel,
+            other  : sum.other   + other
+        }
+    }, {inner: 0, outer: 0, noModel: 0, other: 0});
 
-    const bindingTimeout = resolveBindingTimeout(totals);
+    const bindingTimeout = resolveBindingTimeout(totals),
+          recoveryClass  = resolveRecoveryClass(totals);
 
     return createRecoveryDiagnosisEvent({
-        diagnosisId   : `contention:${serviceId}:mini-summary-starvation:${observedAt}`,
-        recoveryClass : 'contention',
+        diagnosisId   : `${recoveryClass}:${serviceId}:mini-summary-starvation:${observedAt}`,
+        recoveryClass,
         confidence    : 1,
         targetIdentity: {kind: 'compose-service', id: serviceId},
         evidenceFacts : passes.map((pass, index) => ({
