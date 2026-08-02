@@ -1,4 +1,4 @@
-import {execFileSync}             from 'node:child_process';
+import {spawnSync}                from 'node:child_process';
 import {existsSync, readFileSync} from 'node:fs';
 import path                       from 'node:path';
 import process                    from 'node:process';
@@ -64,6 +64,16 @@ export function resolveBrainInstallPlan(file=manifestPath) {
 }
 
 /**
+ * @summary The platform's npm launcher, per the repo's established seam (`buildScripts/build/all.mjs`):
+ * native Windows has no `npm` binary — only `npm.cmd`, which additionally requires a shell to spawn.
+ * @param {String} [platform=process.platform]
+ * @returns {String}
+ */
+export function resolveNpmCommand(platform=process.platform) {
+    return platform.startsWith('win') ? 'npm.cmd' : 'npm';
+}
+
+/**
  * @summary Builds the npm argument list for the overlay install.
  * @param {String[]} specifiers
  * @param {Object} [options]
@@ -85,11 +95,17 @@ if (isMain) {
           args          = buildNpmArgs(specifiers, {ignoreScripts});
 
     if (dryRun) {
-        console.log(`npm ${args.join(' ')}`);
+        console.log(`${resolveNpmCommand()} ${args.join(' ')}`);
     } else {
         console.log(`[install-brain] Overlaying the Brain tier (${specifiers.join(', ')}) onto the base install…`);
 
-        execFileSync('npm', args, {cwd: repoRoot, stdio: 'inherit'});
+        // `shell: true` is load-bearing on win32 (npm.cmd cannot spawn without one) and inert on
+        // POSIX — the same shape `build/all.mjs` uses for its npm invocations.
+        const result = spawnSync(resolveNpmCommand(), args, {cwd: repoRoot, env: process.env, shell: true, stdio: 'inherit'});
+
+        if (result.status !== 0) {
+            throw new Error(`install-brain: npm exited with status ${result.status}`);
+        }
 
         console.log('[install-brain] Brain tier armed: `better-sqlite3`, `chromadb`, `@chroma-core/default-embed`.');
         console.log('[install-brain] Note: any plain `npm install` / `npm ci` prunes the Brain set — re-run `npm run install-brain` afterwards.');

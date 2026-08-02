@@ -10,9 +10,11 @@ import {
     stopDetachedProcess
 } from '../../chromaProcess.mjs';
 import unitConfig, {
+    assertBrainTierForEnvironment,
     brainHookTestMatch,
     brainTestMatch,
     buildProjects,
+    hasBrainTier,
     knowledgeBaseConfigTemplateTestMatch,
     memoryCoreConfigTemplateTestMatch,
     orchestratorDaemonTestMatch,
@@ -90,6 +92,30 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
             'unit-brain-memory-core-config',
             'unit-profiling'
         ]);
+    });
+
+    test('CI admission fails closed on an absent or partial tier; a local base install only skips', () => {
+        // A skipped brain matrix on a green CI run is silent coverage loss — it must error
+        // before collection. Locally the same absence is the tier working as designed.
+        expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: true})).toThrow(/silent coverage loss/);
+        expect(() => assertBrainTierForEnvironment({brainPresent: true,  isCI: true})).not.toThrow();
+        expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: false})).not.toThrow();
+    });
+
+    test('hasBrainTier requires all three roots — a partial install is not armed', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-probe-')),
+              mk   = pkg => fs.mkdirSync(path.join(root, 'node_modules', pkg), {recursive: true});
+
+        try {
+            expect(hasBrainTier(root)).toBe(false);
+            mk('better-sqlite3');
+            mk('chromadb');
+            expect(hasBrainTier(root)).toBe(false);
+            mk('@chroma-core/default-embed');
+            expect(hasBrainTier(root)).toBe(true);
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true})
+        }
     });
 });
 

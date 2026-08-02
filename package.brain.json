@@ -1,8 +1,8 @@
 {
-    "$comment"    : "Brain-tier devDependencies — installed ONLY via `npm run install-brain` (buildScripts/util/installBrain.mjs), never by a base `npm install`. The boundary: Body contributors get build + Body tests + shared tooling without the native compile; the swarm, CI, and Brain workers opt in with one command. #16364",
+    "$comment"       : "Brain-tier devDependencies — installed ONLY via `npm run install-brain` (buildScripts/util/installBrain.mjs), never by a base `npm install`. The boundary: Body contributors get build + Body tests + shared tooling without the native compile; the swarm, CI, and Brain workers opt in with one command. #16364. Versions are EXACT (no ranges): the pruned root lock cannot pin the Brain graph, so the roots at least resolve deterministically — the transitive closure still floats until the brain-lockfile follow-up lands.",
     "devDependencies": {
-        "@chroma-core/default-embed": "^0.1.9",
-        "better-sqlite3"            : "^12.11.1",
-        "chromadb"                  : "^3.5.0"
+        "@chroma-core/default-embed": "0.1.9",
+        "better-sqlite3"            : "12.11.1",
+        "chromadb"                  : "3.5.0"
     }
 }

@@ -58,15 +58,35 @@ export const profilingTestMatch = /[\\/]devindex[\\/](StoreFilter|GridScroll)Pro
 export const brainHookTestMatch = /[\\/]hooks[\\/](codexContextHook|kimiTurnPresenceHook)\.spec\.mjs$/;
 
 /**
- * @summary Probes whether the Brain-tier set is installed under `rootDir/node_modules`.
- * Both conditions are load-bearing: brain specs statically import `better-sqlite3`, and the
- * `chroma-setup` project boots a Chroma server from the `chromadb` package's CLI.
+ * @summary Probes whether the Brain-tier set is installed under `rootDir/node_modules`. All three
+ * roots are load-bearing: brain specs statically import `better-sqlite3`, the `chroma-setup`
+ * project boots a Chroma server from the `chromadb` package's CLI, and the KB's default embedder
+ * resolves `@chroma-core/default-embed` by name at runtime.
  * @param {String} rootDir Repository root containing `node_modules`.
  * @returns {Boolean}
  */
 export function hasBrainTier(rootDir) {
-    return existsSync(path.join(rootDir, 'node_modules', 'better-sqlite3'))
-        && existsSync(path.join(rootDir, 'node_modules', 'chromadb'))
+    return ['better-sqlite3', 'chromadb', '@chroma-core/default-embed']
+        .every(pkg => existsSync(path.join(rootDir, 'node_modules', pkg)))
+}
+
+/**
+ * @summary The CI admission rule for the Brain tier. A local base install SKIPS its brain
+ * projects loudly (the gate's whole point); a CI environment with an absent or partial tier is
+ * not a skip — it is silent coverage loss on a green run, so it must fail before collection.
+ * @param {Object} options
+ * @param {Boolean} options.brainPresent
+ * @param {Boolean} options.isCI
+ * @throws {Error} when CI runs without a complete Brain tier.
+ */
+export function assertBrainTierForEnvironment({brainPresent, isCI}) {
+    if (isCI && !brainPresent) {
+        throw new Error(
+            '[playwright.config.unit] CI requires the complete Brain tier (better-sqlite3, chromadb, ' +
+            '@chroma-core/default-embed) but it is absent or partial — a skipped brain matrix on a ' +
+            'green CI run is silent coverage loss. Run `npm run install-brain` before this suite.'
+        )
+    }
 }
 
 /**
@@ -146,6 +166,8 @@ export function buildProjects({brainPresent}) {
 }
 
 const brainPresent = hasBrainTier(repoRoot);
+
+assertBrainTierForEnvironment({brainPresent, isCI: !!process.env.CI});
 
 if (!brainPresent) {
     console.info('[playwright.config.unit] Brain-tier set not installed (see package.brain.json) — skipping chroma-setup + unit-brain* projects. Run `npm run install-brain` to arm them.');
