@@ -187,3 +187,25 @@ export function detectStarvedTenantSync({repoStates = [], attemptedCount = 0, no
         }
     };
 }
+
+/**
+ * @summary Pure relationship check for the two tenant-repo-sync tuning leaves: the starved
+ * duration floor must EXCEED the backoff cap, or a lane in ordinary capped backoff crosses
+ * the floor and emits heal records for what is merely a transient outage — the false-positive
+ * shape the floor exists to prevent. `starvedAfterMs: 0` is the documented disable and is
+ * never inverted; a non-positive or unresolvable value cannot be judged and is not inverted.
+ *
+ * Deliberately independent of both predicates (`isRepoDue`, `detectStarvedTenantSync`): the
+ * relationship binds how the values are CONFIGURED, not how either computation uses them,
+ * so it belongs where the leaves resolve, never inside a pure computation.
+ *
+ * @param {Object} options
+ * @param {Number} options.backoffCapMs Failure-backoff ceiling (`tenantRepoSync.backoffCapMs`).
+ * @param {Number} options.starvedAfterMs Starved-lane duration floor (`tenantRepoSync.starvedAfterMs`).
+ * @returns {Boolean}
+ */
+export function isStarvedOrderInverted({backoffCapMs, starvedAfterMs}) {
+    return Number.isFinite(starvedAfterMs) && starvedAfterMs > 0
+        && Number.isFinite(backoffCapMs) && backoffCapMs > 0
+        && starvedAfterMs <= backoffCapMs
+}

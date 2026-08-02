@@ -4,7 +4,8 @@ import {
     computeDeterministicJitter,
     detectStarvedTenantSync,
     getDueTask,
-    isRepoDue
+    isRepoDue,
+    isStarvedOrderInverted
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 
 test.describe('tenantRepoSync trigger (#11790)', () => {
@@ -367,5 +368,28 @@ test.describe('detectStarvedTenantSync (#16224 AC2/AC3)', () => {
         const detection = detectStarvedTenantSync({repoStates: [], attemptedCount: 0, now: NOW, starvedAfterMs: 6 * H});
 
         expect(detection.starved).toBe(false);
+    });
+});
+
+test.describe('isStarvedOrderInverted (#16312)', () => {
+    test('the documented defaults are not inverted (6h floor > 2h cap)', () => {
+        expect(isStarvedOrderInverted({backoffCapMs: 2 * 60 * 60 * 1000, starvedAfterMs: 6 * 60 * 60 * 1000})).toBe(false);
+    });
+
+    test('a floor at or below the cap is inverted — the transient-outage false-positive shape', () => {
+        expect(isStarvedOrderInverted({backoffCapMs: 2 * 60 * 60 * 1000, starvedAfterMs: 60 * 60 * 1000})).toBe(true);
+        // Equality is inverted too: the floor must EXCEED the cap, or a repo at its very
+        // first capped retry already crosses it.
+        expect(isStarvedOrderInverted({backoffCapMs: 2 * 60 * 60 * 1000, starvedAfterMs: 2 * 60 * 60 * 1000})).toBe(true);
+    });
+
+    test('starvedAfterMs 0 (the documented disable) is never inverted', () => {
+        expect(isStarvedOrderInverted({backoffCapMs: 2 * 60 * 60 * 1000, starvedAfterMs: 0})).toBe(false);
+    });
+
+    test('unresolvable values cannot be judged and are not inverted', () => {
+        expect(isStarvedOrderInverted({backoffCapMs: 0,   starvedAfterMs: 1000})).toBe(false);
+        expect(isStarvedOrderInverted({backoffCapMs: NaN, starvedAfterMs: 1000})).toBe(false);
+        expect(isStarvedOrderInverted({backoffCapMs: 1000, starvedAfterMs: NaN})).toBe(false);
     });
 });
