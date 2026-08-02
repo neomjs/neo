@@ -22,6 +22,10 @@ import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {IDENTITIES}    from '../../graph/identityRoots.mjs';
 
+import {
+    isActiveWakeSubscriptionStatus,
+    WAKE_SUBSCRIPTION_DEFAULT_STATUS
+} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRoot    = path.resolve(__dirname, '../..');
@@ -237,7 +241,7 @@ function readBridgeSubscriptionRecords(db) {
 }
 
 function isActiveSubscription(props = {}) {
-    return (props.status || 'active') === 'active';
+    return isActiveWakeSubscriptionStatus(props.status);
 }
 
 function isDefaultInstanceRoute(meta = {}) {
@@ -303,7 +307,7 @@ function markDefaultInstance(record, {apply, db, now}) {
 function retireDuplicateGenericRoute(record, {apply, db, now}) {
     const props = record.data.properties || {};
 
-    console.log(`  [RETIRE-GENERIC] Subscription ${record.id} (Owner: ${props.agentIdentity}) | status: ${props.status || 'active'} → inactive duplicate generic default-instance route`);
+    console.log(`  [RETIRE-GENERIC] Subscription ${record.id} (Owner: ${props.agentIdentity}) | status: ${props.status ?? WAKE_SUBSCRIPTION_DEFAULT_STATUS} → inactive duplicate generic default-instance route`);
 
     if (!apply) return;
 

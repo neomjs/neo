@@ -19,17 +19,23 @@
  * injected-double seam for tests.
  */
 
+import {
+    activeWakeSubscriptionStatusSql,
+    isActiveWakeSubscriptionStatus
+} from '../memory-core/wakeSubscriptionStatusPolicy.mjs';
+
 /**
  * The durable fleet-wide ACTIVE-subscription query. Mirrors the established WAKE_SUBSCRIPTION
  * durable read (`WakeSubscriptionService#_reconcileDuplicateSubscriptions`) minus its owner
- * predicate — this reader is fleet-wide by design. `COALESCE(status, 'active')` matches that
- * established shape: `status` is optional on the node, and a missing one means active.
+ * predicate — this reader is fleet-wide by design. The status predicate is derived from the shared
+ * policy rather than hand-written, so this SQL reader and the JS scan below cannot express
+ * different meanings for a missing `status`.
  */
 const ACTIVE_IDENTITIES_SQL = `
     SELECT DISTINCT json_extract(data, '$.properties.agentIdentity') AS agentIdentity
     FROM Nodes
     WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
-      AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+      AND ${activeWakeSubscriptionStatusSql()}
 `
 
 /**
@@ -73,7 +79,7 @@ export async function readActiveWakeSubscriptionIdentities({graphService = null}
 
         const props = node.properties || {}
 
-        if ((props.status ?? 'active') === 'active' && typeof props.agentIdentity === 'string' && props.agentIdentity !== '') {
+        if (isActiveWakeSubscriptionStatus(props.status) && typeof props.agentIdentity === 'string' && props.agentIdentity !== '') {
             identities.add(props.agentIdentity)
         }
     }

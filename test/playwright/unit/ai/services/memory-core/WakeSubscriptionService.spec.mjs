@@ -1904,6 +1904,78 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(webhookEvents[0].eventData.payload.sourceEventIds).toContain('MSG:COLD-WEBHOOK-ROUTE');
         });
 
+        test('pumps a cache-cold durable route whose `status` was never written (#16331)', async () => {
+            // The hot push path used to compare `sub.status === 'active'` directly. Hydration
+            // preserves an absent `status` as absent rather than synthesizing one, so a legacy row
+            // was published into the manifest by the builder and then never dispatched here — a
+            // route that reads armed on every surface and delivers nothing. This is the delivery-
+            // critical half of the convergence; the manifest/health pair alone cannot witness it.
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            const {subscriptionId} = insertDurableSubscription({
+                harnessTarget        : 'mcp-notifications',
+                harnessTargetMetadata: {}
+            });
+
+            // Strip the property from the PERSISTED row. Passing `status: undefined` to the helper
+            // does not work — its `status = 'active'` default parameter fires on undefined, so the
+            // row comes back fully active and the spec would silently test the ordinary case.
+            GraphService.db.storage.db
+                .prepare(`UPDATE Nodes SET data = json_remove(data, '$.properties.status') WHERE id = ?`)
+                .run(subscriptionId);
+
+            // POSITIVE CONTROL on the fixture: the persisted row must really lack the property, not
+            // carry an empty or null one. This assertion is what caught the default-parameter trap
+            // above; without it the test below passes against a row that was never the specimen.
+            const persisted = JSON.parse(
+                GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(subscriptionId).data
+            );
+            expect(Object.hasOwn(persisted.properties, 'status')).toBe(false);
+
+            WakeSubscriptionService.subscriptionCache.clear();
+
+            GraphService.upsertNode({
+                id        : 'MSG:COLD-NO-STATUS',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', subject: 'event for a row with no status'}
+            });
+            GraphService.linkNodes('MSG:COLD-NO-STATUS', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
+            expect(emittedEvents).toHaveLength(1);
+            expect(emittedEvents[0].params.payload.messageId).toBe('MSG:COLD-NO-STATUS');
+        });
+
+        test('a durable route explicitly marked `retired` is still NOT pumped (#16331)', async () => {
+            // The negative half. Absence is the ONLY defaulted case; an explicitly written terminal
+            // status must stay inert. Without this, the spec above would also pass against a policy
+            // that simply admitted everything.
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            insertDurableSubscription({
+                harnessTarget        : 'mcp-notifications',
+                harnessTargetMetadata: {},
+                status               : 'retired'
+            });
+
+            WakeSubscriptionService.subscriptionCache.clear();
+
+            GraphService.upsertNode({
+                id        : 'MSG:COLD-RETIRED',
+                type      : 'MESSAGE',
+                properties: {from: '@bob', subject: 'event for a retired row'}
+            });
+            GraphService.linkNodes('MSG:COLD-RETIRED', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toHaveLength(0);
+        });
+
         test('refreshes non-deliverable durable routes and removes deleted cached routes (#16258)', async () => {
             const retired = insertDurableSubscription({
                 subscriptionId: 'WAKE_SUB:durable-retired',
