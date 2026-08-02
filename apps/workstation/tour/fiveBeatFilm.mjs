@@ -11,8 +11,11 @@
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. Core scenes total ≈ 104s; the conditional
- * scene adds ≈ 16s; both land inside the 90–150s film envelope.
+ * real duration and the cut re-paces around them. The non-conditional scenes sum to exactly 90s —
+ * the envelope's `minSeconds` floor with ZERO slack, so a future core-scene budget cut must either
+ * trade seconds between scenes or move the floor. The conditional scene lifts the total to 106s,
+ * and captured gesture durations plus the edit-layer cut-in re-pace upward from there, inside the
+ * 90–150s envelope.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
  * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 6, 8)
