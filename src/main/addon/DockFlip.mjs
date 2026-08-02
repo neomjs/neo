@@ -1,6 +1,13 @@
 import Base from './Base.mjs';
 
 /**
+ * Motion thresholds shared by the landed-in-place discriminator (`hasLandedInPlace`) and the
+ * invert loop inside `play()`: position deltas in CSS px, scale deltas as unitless ratios.
+ */
+const MOTION_EPSILON_POSITION = 0.5,
+      MOTION_EPSILON_SCALE    = 0.005;
+
+/**
  * @summary FLIP-animates dock re-layouts: committed dock operations glide instead of snapping.
  *
  * Two-phase contract, driven by the owning workspace around its re-projection:
@@ -142,6 +149,58 @@ class DockFlip extends Base {
         return exactSet && [...markers].some(([key, el]) =>
             this.hasAncestorLineageChanged(el, firstLineages.get(key), hostEl)
         )
+    }
+
+    /**
+     * @summary Returns whether an exact, lineage-unchanged marker set has already landed in place.
+     *
+     * A committed same-node resize keeps every marker node AND its ancestor lineage, so the
+     * lineage-based `hasPreservedMarkerSet()` can never classify it: the replacement-tree
+     * branch would burn its whole detach poll on nodes that never detach, exposing the
+     * committed layout unanimated before the inverse installs (the double-take). The
+     * discriminator for that case is geometry, not identity — once a marker's current rect
+     * differs from its First rect beyond the motion epsilons, the swap has landed in place
+     * and the detach poll is pure exposed delay. Node-identical sets with UNCHANGED geometry
+     * keep polling: that is the outgoing-tree case the stage-A comment guards.
+     * @param {Map<String, HTMLElement>} firstMarkers
+     * @param {Map<String, DOMRect>} firstRects
+     * @param {Map<String, HTMLElement[]>} firstLineages
+     * @param {Map<String, HTMLElement>} markers
+     * @param {HTMLElement} hostEl
+     * @returns {Boolean}
+     * @protected
+     */
+    hasLandedInPlace(firstMarkers, firstRects, firstLineages, markers, hostEl) {
+        const exactSet = firstMarkers?.size === markers.size
+            && [...markers].every(([key, el]) => el.isConnected && firstMarkers.get(key) === el);
+
+        if (!exactSet) {
+            return false
+        }
+
+        // Any lineage change is a structural move — the lineage-based branch owns it.
+        if ([...markers].some(([key, el]) => this.hasAncestorLineageChanged(el, firstLineages.get(key), hostEl))) {
+            return false
+        }
+
+        return [...markers].some(([key, el]) => {
+            const
+                firstRect = firstRects.get(key),
+                last      = el.getBoundingClientRect();
+
+            if (!firstRect) {
+                return false
+            }
+
+            const
+                sx = last.width  > 0 ? firstRect.width  / last.width  : 1,
+                sy = last.height > 0 ? firstRect.height / last.height : 1;
+
+            return Math.abs(firstRect.left - last.left) > MOTION_EPSILON_POSITION
+                || Math.abs(firstRect.top  - last.top)  > MOTION_EPSILON_POSITION
+                || Math.abs(sx - 1) > MOTION_EPSILON_SCALE
+                || Math.abs(sy - 1) > MOTION_EPSILON_SCALE
+        })
     }
 
     /**
@@ -352,9 +411,14 @@ class DockFlip extends Base {
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
      * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
+     * @param {Boolean} [opts.geometryOnly=false] Consumer-declared geometry-only projection:
+     * no topology swap can be pending, so an exact, lineage-unchanged marker set whose rects
+     * already moved may be classified as landed-in-place (`hasLandedInPlace`). Without this
+     * declaration a geometry-moved same-parent set stays ambiguous by contract — an independent
+     * geometry change can race a pending structural swap — and keeps the bounded wait.
      * @returns {Promise<Boolean>} true if an animation played (resolves AFTER the motion completes), false on any instant-landing path
      */
-    async play({hostId, markerPrefix, maxFrames = 15}) {
+    async play({hostId, markerPrefix, maxFrames = 15, geometryOnly = false}) {
         const first = this.#firstSnapshots[hostId];
 
         let cancel,
@@ -434,13 +498,18 @@ class DockFlip extends Base {
             let
                 frame              = 0,
                 markers            = this.collectMarkers(hostId, markerPrefix),
-                preservedMarkerSet = this.hasPreservedMarkerSet(firstMarkers, markers, firstLineages, hostEl);
+                preservedMarkerSet = this.hasPreservedMarkerSet(firstMarkers, markers, firstLineages, hostEl),
+                landedInPlace      = geometryOnly && !preservedMarkerSet
+                    && this.hasLandedInPlace(firstMarkers, firstRects, firstLineages, markers, hostEl);
 
             // stage A: the swap lands asynchronously through the delta pipeline — the OLD
             // tree's markers would satisfy a naive presence-poll instantly and measure
             // identical geometry. An exact preserved marker set is the native atomic-move path:
-            // those nodes MUST remain connected, so it bypasses the outgoing-detach poll.
-            if (!preservedMarkerSet) {
+            // those nodes MUST remain connected, so it bypasses the outgoing-detach poll. A
+            // consumer-declared geometry-only projection (a committed resize) bypasses it too:
+            // those nodes never detach either, and the landed geometry (landedInPlace) is the
+            // proof the swap already happened.
+            if (!preservedMarkerSet && !landedInPlace) {
                 while (frame < maxFrames && first.els.length > 0 && first.els.every(el => el.isConnected)) {
                     await new Promise(resolve => requestAnimationFrame(resolve));
                     frame++
@@ -462,10 +531,11 @@ class DockFlip extends Base {
 
             if (this.isDestroyed) return false;
 
-            // Replacement trees retain their settle frame. Preserved identities are already in
-            // their committed Last geometry, so delaying here would expose the clipped final tree
-            // for one paint before the inverse transform is installed.
-            if (!preservedMarkerSet) {
+            // Replacement trees retain their settle frame. Preserved identities — and
+            // landed-in-place resizes — are already in their committed Last geometry, so
+            // delaying here would expose the clipped final tree for one paint before the
+            // inverse transform is installed.
+            if (!preservedMarkerSet && !landedInPlace) {
                 await new Promise(resolve => requestAnimationFrame(resolve))
             }
 
@@ -497,7 +567,7 @@ class DockFlip extends Base {
                 // blank frame; unrelated safe moves may still play.
                 if (needsFixedStage && !fixedStage) return;
 
-                if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(sx - 1) > 0.005 || Math.abs(sy - 1) > 0.005) {
+                if (Math.abs(dx) > MOTION_EPSILON_POSITION || Math.abs(dy) > MOTION_EPSILON_POSITION || Math.abs(sx - 1) > MOTION_EPSILON_SCALE || Math.abs(sy - 1) > MOTION_EPSILON_SCALE) {
                     moves.push({
                         el,
                         firstZIndex: firstZIndexes.get(key),

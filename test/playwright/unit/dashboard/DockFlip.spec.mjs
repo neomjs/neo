@@ -315,6 +315,106 @@ test.describe('Neo.main.addon.DockFlip', () => {
         expect(frame, 'two detach polls, one replacement settle, and one post-invert frame').toBe(4)
     });
 
+    test('bypasses the bounded wait for a landed-in-place set when the consumer declares a geometry-only projection', async () => {
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+        // The committed resize: same node, same lineage, moved geometry — landed-in-place.
+        marker.setRect({height: 100, left: 80, top: 40, width: 140});
+
+        let frame = 0;
+
+        globalThis.requestAnimationFrame = callback => {
+            frame++;
+            callback()
+        };
+
+        await expect(dockFlip.play({
+            geometryOnly: true,
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-',
+            maxFrames   : 2
+        })).resolves.toBe(true);
+
+        expect(frame, 'no detach poll and no replacement settle: only the post-invert frame remains').toBe(1)
+    });
+
+    test('keeps the bounded wait under a geometry-only declaration while the projection geometry is unchanged', async () => {
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+
+        let frame = 0;
+
+        globalThis.requestAnimationFrame = callback => {
+            frame++;
+            callback()
+        };
+
+        // Unchanged geometry is the outgoing-tree case even under the hint: the swap has not
+        // observably landed, so the poll and the settle frame stay — and with zero geometry
+        // delta there is nothing to animate.
+        await expect(dockFlip.play({
+            geometryOnly: true,
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-',
+            maxFrames   : 2
+        })).resolves.toBe(false);
+
+        expect(frame, 'two detach polls and one replacement settle; nothing to animate').toBe(3)
+    });
+
     test('retains the bounded detach wait when replacement markers take over', async () => {
         const
             markerClass = 'dock-flip-item-alpha',

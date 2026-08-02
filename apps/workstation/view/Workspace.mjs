@@ -2132,7 +2132,7 @@ class Workspace extends Container {
             DockMotionSignal.enter(me);
 
             try {
-                await flip.play({hostId: host.id, markerPrefix: 'workstation-pane-'})
+                await flip.play({geometryOnly, hostId: host.id, markerPrefix: 'workstation-pane-'})
             } catch (error) {/* instant landing */}
             finally {
                 DockMotionSignal.leave(me)
