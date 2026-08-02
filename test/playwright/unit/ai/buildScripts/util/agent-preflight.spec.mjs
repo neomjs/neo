@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import path           from 'node:path';
 import {
+    CHANGE_CLASS_TO_TYPES,
     COMMIT_TICKET_PATTERN,
     createProgram,
     DECLARED_TICKET_PATTERN,
@@ -473,10 +474,10 @@ test.describe('agent-preflight utility', () => {
 test.describe('agent-preflight — ordered change classes (#16111)', () => {
     test('remains backward compatible when no semantic inputs are supplied', () => {
         expect(validateChangeClass()).toEqual({
-            errors      : [],
-            expectedType: null,
-            skipped     : true,
-            valid       : true
+            errors       : [],
+            expectedTypes: null,
+            skipped      : true,
+            valid        : true
         })
     });
 
@@ -504,11 +505,75 @@ test.describe('agent-preflight — ordered change classes (#16111)', () => {
         });
 
         expect(result.valid).toBe(false);
-        expect(result.expectedType).toBe('feat');
+        expect(result.expectedTypes).toEqual(['feat']);
         expect(result.errors).toEqual([
             'commit subject declares `chore`, but change class `capability` requires `feat`.',
             'PR title declares `fix`, but change class `capability` requires `feat`.'
         ])
+    });
+
+    test('accepts the live zero-delta vocabulary (test, docs, ci, build) while capability and restoration stay strict', () => {
+        ['test', 'docs', 'ci', 'build', 'chore'].forEach(type => {
+            expect(validateChangeClass({
+                changeClass  : 'zero-delta',
+                commitSubject: `${type}(e2e): a delta with no runtime behavior (#16333)`
+            }).valid, `zero-delta must accept ${type}(...)`).toBe(true)
+        });
+
+        const mislabeled = validateChangeClass({
+            changeClass  : 'capability',
+            commitSubject: 'test(e2e): a delta that is really a capability (#16333)'
+        });
+
+        expect(mislabeled.valid).toBe(false);
+        expect(mislabeled.errors[0]).toContain('change class `capability` requires `feat`');
+
+        const strictRestore = validateChangeClass({
+            changeClass  : 'restoration',
+            commitSubject: 'test(e2e): a delta that is really a restoration (#16333)'
+        });
+
+        expect(strictRestore.valid).toBe(false);
+        expect(strictRestore.errors[0]).toContain('change class `restoration` requires `fix`');
+
+        const overclaimed = validateChangeClass({
+            changeClass  : 'zero-delta',
+            commitSubject: 'feat(e2e): a capability mislabeled as zero-delta (#16333)'
+        });
+
+        expect(overclaimed.valid).toBe(false);
+        expect(overclaimed.errors[0]).toContain(
+            'change class `zero-delta` requires one of `chore`, `test`, `docs`, `ci`, `build`.'
+        )
+    });
+
+    test('the policy is not mutable through the exported map or a returned observation', () => {
+        // Every nested policy array is frozen — the shallow outer freeze is not the whole guard.
+        Object.values(CHANGE_CLASS_TO_TYPES).forEach(types => {
+            expect(Object.isFrozen(types)).toBe(true)
+        });
+        expect(() => { CHANGE_CLASS_TO_TYPES['zero-delta'].push('feat') }).toThrow(TypeError);
+
+        // Mutating one returned observation must not change a later validation's policy.
+        const first = validateChangeClass({
+            changeClass  : 'zero-delta',
+            commitSubject: 'feat(e2e): a capability mislabeled as zero-delta (#16333)'
+        });
+
+        expect(first.valid).toBe(false);
+
+        first.expectedTypes.push('feat');
+
+        const second = validateChangeClass({
+            changeClass  : 'zero-delta',
+            commitSubject: 'feat(e2e): a capability mislabeled as zero-delta (#16333)'
+        });
+
+        expect(
+            second.valid,
+            'mutating a prior result must never make a later zero-delta + feat validation pass'
+        ).toBe(false);
+        expect(second.expectedTypes).toEqual(['chore', 'test', 'docs', 'ci', 'build'])
     });
 
     test('rejects chore for a restoration delta', () => {

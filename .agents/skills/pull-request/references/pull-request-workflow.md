@@ -94,7 +94,9 @@ Classify the delivered delta in order; the first match wins:
 1. **`capability` → `feat`** — adds reusable, operable, or separately testable
    behavior/path. This wins even when a bug motivated the work.
 2. **`restoration` → `fix`** — adds no capability; corrects defined behavior.
-3. **`zero-delta` → `chore`** — changes neither behavior nor capability.
+3. **`zero-delta` → `chore` / `test` / `docs` / `ci` / `build`** — changes neither
+   behavior nor capability. The types are labels, not proof: the author's truthful
+   declaration stays the class authority.
 
 Ticket labels, filenames, and diff size do not decide the class. The author
 declares it; `agent-preflight` verifies the supplied subjects without inference.
