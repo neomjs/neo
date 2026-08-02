@@ -1630,7 +1630,7 @@ class MemoryService extends Base {
      * @param {String} options.response
      * @returns {Promise<String|null>} A one-line summary capped at `aiConfig.memoryService.miniSummaryMaxChars` (default 280), or `null`.
      */
-    async buildMiniSummary({prompt, thought, response}) {
+    async buildMiniSummary({prompt, response}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
         // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
@@ -1647,12 +1647,16 @@ class MemoryService extends Base {
             });
             if (!model) return null;
 
-            // `thought` is included because the reasoning is frequently the turn's real substance: a
-            // summary built from prompt+response alone records what was asked and answered, not what was
-            // decided. Deliberately NOT truncated — cutting the input to fit the window loses exactly the
-            // content worth keeping, which is why the window adapts to the input rather than the reverse.
-            const thoughtLine = thought ? `\nReasoning: ${thought}` : '';
-            const promptText  = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}${thoughtLine}\nAgent: ${response ?? ''}`;
+            // `thought` is deliberately NOT summarized here, and adding it would be a privacy change
+            // rather than an input-quality one. `thought` is private: `queryRecentTurns` forces
+            // `projection: 'public'` for any peer read precisely so it never crosses the MCP boundary.
+            // The resulting `miniSummary`, however, is returned by BOTH public shapes ungated — the
+            // full projection emits it before the private-projection gate, and the summary projection
+            // takes no projection argument at all. Feeding `thought` to the summarizer would therefore
+            // launder private reasoning into a public field as derived text, defeating that gate
+            // instead of passing through it. Widening this input requires a private summary tier that
+            // the public shapes can withhold; until that exists, prompt + response only.
+            const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
             const result      = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
@@ -1718,34 +1722,6 @@ class MemoryService extends Base {
     }
 
     /**
-     * @summary Reversibly archives a single `AGENT_MEMORY` graph node via the `archivedAt` marker —
-     * used by the miniSummary backfill for structurally-un-summarizable rows (no Chroma content, so
-     * the embedding never landed). Graph-only: a no-content row has no Chroma metadata row to stamp.
-     * Idempotent via the `archivedAt IS NULL` guard; reversible by clearing `archivedAt`. The recall
-     * and backfill pending queries already exclude `archivedAt`, so an archived node leaves both
-     * surfaces. Mirrors {@link MemoryService#archiveMemoriesByAgentIdentity} (the by-identity
-     * dual-store primitive), narrowed to one id and the graph store.
-     * @param {Object} options
-     * @param {String} options.id           The AGENT_MEMORY node id.
-     * @param {String} [options.reason='']  Provenance, stored as `archivedReason`.
-     * @returns {Boolean} `true` if a live (not-already-archived) row was archived.
-     */
-    /**
-     * @summary Counts one failed miniSummary generation for a row and returns the running total.
-     *
-     * The backfill's timeout is per-attempt, and nothing counted attempts across passes — so a row the
-     * provider could never summarize was retried on every sweep forever. A CPU-only deployment burned
-     * roughly 2.3 cores for days reporting `0 updated, 30 deferred` per pass, because each pass looked
-     * identical to the first.
-     *
-     * Persisted on the node rather than held in memory: the loop's whole failure mode is that
-     * consecutive passes cannot see each other, and a process-local counter reproduces that exactly.
-     *
-     * @param {Object} opts
-     * @param {String} opts.id Memory node id.
-     * @returns {Number} Attempts recorded so far, or `0` when the row is unreachable.
-     */
-    /**
      * @summary Records a failed attempt and reversibly archives the row once the budget is spent.
      *
      * The exit mirrors the loop's existing `no-content` archive, deliberately: that path already
@@ -1787,6 +1763,27 @@ class MemoryService extends Base {
         return true
     }
 
+    /**
+     * @summary Counts one failed miniSummary generation for a row and returns the running total.
+     *
+     * The backfill's timeout is per-attempt, and nothing counted attempts across passes — so a row the
+     * provider could never summarize was retried on every sweep forever. A CPU-only deployment burned
+     * roughly 2.3 cores for days reporting `0 updated, 30 deferred` per pass, because each pass looked
+     * identical to the first.
+     *
+     * Persisted on the node rather than held in memory: the loop's whole failure mode is that
+     * consecutive passes cannot see each other, and a process-local counter reproduces that exactly.
+     *
+     * **Monotonic by design — there is no reset path, and one must not be added while the generation
+     * window is fixed.** Clearing the tally under a fixed window re-arms the unbounded loop this budget
+     * closes. Once a controller can widen that window, restoring an archived row MUST also clear this
+     * counter, or the row re-archives on its first failure at the widened window — silently turning
+     * "N consecutive failures" into "one". Load-bearing then, not an internal counter.
+     *
+     * @param {Object} opts
+     * @param {String} opts.id Memory node id.
+     * @returns {Number} Attempts recorded so far, or `0` when the row is unreachable.
+     */
     recordMiniSummaryAttempt({id} = {}) {
         const sqlite = GraphService.db?.storage?.db;
 
@@ -1812,6 +1809,19 @@ class MemoryService extends Base {
         return row?.attempts || 0;
     }
 
+    /**
+     * @summary Reversibly archives a single `AGENT_MEMORY` graph node via the `archivedAt` marker —
+     * used by the miniSummary backfill for structurally-un-summarizable rows (no Chroma content, so
+     * the embedding never landed). Graph-only: a no-content row has no Chroma metadata row to stamp.
+     * Idempotent via the `archivedAt IS NULL` guard; reversible by clearing `archivedAt`. The recall
+     * and backfill pending queries already exclude `archivedAt`, so an archived node leaves both
+     * surfaces. Mirrors {@link MemoryService#archiveMemoriesByAgentIdentity} (the by-identity
+     * dual-store primitive), narrowed to one id and the graph store.
+     * @param {Object} options
+     * @param {String} options.id           The AGENT_MEMORY node id.
+     * @param {String} [options.reason='']  Provenance, stored as `archivedReason`.
+     * @returns {Boolean} `true` if a live (not-already-archived) row was archived.
+     */
     archiveMemoryNode({id, reason = ''} = {}) {
         const sqlite = GraphService.db?.storage?.db;
 
@@ -1869,12 +1879,15 @@ class MemoryService extends Base {
      *     `aiConfig.memoryService.miniSummaryBackfillMaxRunMs`. The loop stops starting new rows once reached and defers
      *     the remainder to the next sweep, keeping the supervised child under its watchdog.
      * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
-     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, runBudgetHit: Boolean}>}
+     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, exhausted: Number, runBudgetHit: Boolean}>}
+     *          `exhausted` counts rows that spent their attempt budget and were reversibly archived.
+     *          Present on **every** exit — including the no-SQLite and zero-row early returns — so a
+     *          caller never sees a shape that sometimes lacks it.
      */
     async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false};
         }
 
         // Fail loud on an unresolved leaf, before touching a single row. A stale operator overlay
@@ -1923,7 +1936,7 @@ class MemoryService extends Base {
         const rows = [...new Set([...scanIds('DESC', reserve), ...scanIds('ASC', drainLimit)])].map(id => ({id}));
 
         if (rows.length === 0) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, runBudgetHit: false};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false};
         }
 
         let byId;
@@ -1971,7 +1984,7 @@ class MemoryService extends Base {
 
             try {
                 const miniSummary = await withTimeout(
-                    summarize({prompt: metadata.prompt, thought: metadata.thought, response: metadata.response}),
+                    summarize({prompt: metadata.prompt, response: metadata.response}),
                     aiConfig.memoryService.miniSummaryTimeoutMs,
                     'miniSummary backfill summarize'
                 );

@@ -360,11 +360,67 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         expect(data.properties.archivedAt).toBeFalsy();
     });
 
-    test('the summary input carries thought when the row has one (#16313)', async () => {
-        const ts = '2099-12-31T23:59:58.000Z';
+    test('every exit carries exhausted — including the zero-row and no-SQLite early returns (#16313)', async () => {
+        // The Contract Ledger claims `exhausted` is on EVERY exit so no caller sees a shape that
+        // sometimes lacks it. Both early returns bypass the tally entirely, so they are the two places
+        // that claim could be false — and it WAS false when first published. Pinned as exact objects:
+        // `toMatchObject` would pass on a missing key and re-open exactly this gap.
+        // Drain first: the pending set is shared fixture state, so an empty one must be CONSTRUCTED,
+        // not assumed. Asserting straight away picked up a leftover row from an earlier spec and
+        // measured the normal path while claiming to measure the zero-row exit.
+        const drain = await MemoryService.backfillMiniSummaries({
+            limit           : 500,
+            buildMiniSummary: async () => 'drained'
+        });
+
+        const zeroRow = await MemoryService.backfillMiniSummaries({
+            limit           : 1,
+            buildMiniSummary: async () => 'unused'
+        });
+
+        // Positive control: the drain did real work, so the zero below is an emptied set rather than a
+        // sweep that never ran.
+        expect(drain.processed).toBeGreaterThan(0);
+        expect(zeroRow).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
+
+        // No-SQLite: the sweep reads `GraphService.db?.storage?.db` once at entry. Swapped rather than
+        // mocked so the real guard runs, and restored in a finally so a failure here cannot cascade
+        // into every later spec in the file.
+        const realDb = GraphService.db;
+
+        try {
+            GraphService.db = null;
+
+            const noSqlite = await MemoryService.backfillMiniSummaries({
+                limit           : 1,
+                buildMiniSummary: async () => 'unused'
+            });
+
+            expect(noSqlite).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
+        } finally {
+            GraphService.db = realDb;
+        }
+
+        // Positive control: the restore worked and the suite is not silently running against a dead
+        // handle for every subsequent test.
+        expect(GraphService.db?.storage?.db).toBeTruthy();
+    });
+
+    test('#12671 AC5: private thought never reaches the summarizer, and no public read echoes it (#16313)', async () => {
+        // Deterministic echo falsifier. The summarizer returns its ENTIRE input verbatim, so any field
+        // the sweep hands it becomes the stored `miniSummary` — which both public shapes return ungated
+        // (`_hydrateRecentTurnSummaries` takes no projection, and the full projection emits miniSummary
+        // before the `projection === 'private'` gate). If `thought` is ever re-added to the summarizer
+        // input, the secret lands in a default/public read and these assertions go red.
+        //
+        // Asserted at BOTH ends deliberately: the input assertion names the cause, the read assertions
+        // name the consequence. Only checking the input would pass if a future path fed `thought` in by
+        // another route; only checking the read would not say which field leaked.
+        const ts     = '2099-12-31T23:59:58.000Z',
+              secret = 'CANARY-THOUGHT-b7f3e1';
         let seen;
 
-        memStore.set('budget-thought', {prompt: 'p', thought: 'the reasoning', response: 'r'});
+        memStore.set('budget-thought', {prompt: 'p', thought: secret, response: 'r'});
         GraphService.upsertNode({
             id              : 'budget-thought', type: 'AGENT_MEMORY', name: 'Memory: thought', description: 'thought',
             semanticVectorId: 'budget-thought',
@@ -373,10 +429,23 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         await MemoryService.backfillMiniSummaries({
             limit           : 1,
-            buildMiniSummary: async options => { seen = options; return 'summary'; }
+            buildMiniSummary: async options => { seen = options; return JSON.stringify(options); }
         });
 
-        expect(seen.thought).toBe('the reasoning');
+        // Cause: the private field never crosses into the summarizer's input at all.
+        expect(seen.thought).toBeUndefined();
+        expect(JSON.stringify(seen)).not.toContain(secret);
+
+        // Consequence: the stored summary, and every default/public read of it, are secret-free.
+        const summaryRead = await MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'summary', limit: 5}),
+              fullRead    = await MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'full',    limit: 5});
+
+        expect(JSON.stringify(summaryRead)).not.toContain(secret);
+        expect(JSON.stringify(fullRead)).not.toContain(secret);
+
+        // Positive control: the canary IS present in the stored row, so a green result above means the
+        // boundary held — not that the fixture never carried a secret in the first place.
+        expect(memStore.get('budget-thought').thought).toBe(secret);
     });
 
     test('backfillMiniSummaries bounds a run by maxRunMs and defers the remainder to the next sweep', async () => {
