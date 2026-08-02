@@ -1,279 +1,259 @@
-import {
-    InitializeResultSchema,
-    SUPPORTED_PROTOCOL_VERSIONS
-} from '@modelcontextprotocol/sdk/types.js';
+import {Client}                        from '@modelcontextprotocol/sdk/client/index.js';
+import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
     normalizeAgentIdentity,
-    parseMcpEnvelope,
-    readMcpToolPayload
+    normalizeSecureMcpEndpoint,
+    readMcpToolResultPayload
 } from './mcpWireParsing.mjs';
 
 /**
  * @module ai/services/fleet/planeMailboxClient
- * @summary Streamable-HTTP MCP client for the containerized Agent OS plane — the seam that lets the
- * Fleet server's mailbox, compose, and catch-up bindings ride `<base>/mc/mcp` instead of in-process
- * memory-core singletons (the post-hard-cut split-brain fix).
+ * @summary The containerized-plane MCP client the Fleet server binds its mailbox, compose, and
+ * catch-up seams to — the post-hard-cut split-brain fix, riding the OFFICIAL MCP SDK client and
+ * Streamable-HTTP transport rather than a hand-rolled protocol state machine: the SDK owns request
+ * ids (unique across in-flight calls), response correlation, protocol negotiation, and the
+ * initialized handshake, so concurrent consumers (the catch-up source issues two tool calls via
+ * `Promise.allSettled`) correlate safely by construction.
  *
- * **One living session, verified once.** Unlike the tenant readiness probe
- * (`FleetTenantService.initializeMcpResource`, which deliberately closes its session), this client
- * exists to SERVE: `init({expectedIdentity})` performs the authenticated handshake (`initialize` →
- * negotiated `protocolVersion` → `notifications/initialized`), proves the bearer's plane-side
- * subject via `list_permissions` (the same oracle `probeMcpIdentity` rides — "returns the canonical
- * identity it actually used"), and keeps the session open for the process lifetime. A session the
- * plane expires mid-life is re-established ONCE per call, transparently.
+ * **Endpoint boundary before any request.** Construction validates through the shared
+ * `normalizeSecureMcpEndpoint` policy (http/https only, no URL-embedded credentials, TLS required
+ * off-loopback) — the same single definition the tenant connect flow enforces. A rejected endpoint
+ * never emits a request.
  *
- * **The single-viewer invariant is init's job, not the caller's.** The Fleet server is
- * single-viewer by design (viewer resolved at boot, stamped per request).
- * Via a plane bearer, every call runs as the bearer's server-resolved subject, so plane mode is
- * only honest when that subject IS the boot-resolved viewer. `init` therefore REQUIRES
- * `expectedIdentity` and reports `{ok: false, reason: 'plane identity mismatch'}` on any other
- * subject — the entry refuses plane mode rather than silently re-attributing every admission
- * decision.
+ * **One living session, proven every time it is (re)established.** `init({expectedIdentity})`
+ * connects and proves the bearer's plane-side subject via `list_permissions` ("returns the
+ * canonical identity it actually used"). The Fleet server is single-viewer by design (viewer
+ * resolved at boot, stamped per request), so plane mode is only honest when that subject IS the
+ * boot viewer — any other subject refuses fail-closed. The SAME proof gates every recovery: a
+ * transport-level failure mid-call triggers exactly one reconnect, which must re-prove the SAME
+ * identity before the original call is replayed; a changed or unprovable identity throws WITHOUT
+ * replaying (a session replacement is a new trust decision, not a retry detail).
  *
- * **Error shape mirrors the in-process services.** The wire modules and adapters
- * (`fleetA2AActivityAdapter`, `fleetMailboxMirrorAdapter`, `wireFleetCatchUpSource`) already map a
- * THROWN read into their honest degraded/denied snapshots — so `callTool` throws on failure exactly
- * like the singletons do. Two bounded flavors, per the tenant service's no-remote-prose rule:
- * transport/protocol failures throw with status-only diagnostics; a tool-level `isError` result
- * throws the tool's own text — that text is OUR plane's service message (e.g. the
- * `CAN_READ_INBOX_OF` denial the mirror adapter classifies by contract), not arbitrary remote
- * prose, and suppressing it would break the admission-classification contract.
+ * **Error shape mirrors the in-process services.** The wire modules and adapters map a THROWN read
+ * into their honest degraded/denied snapshots — so `callTool` throws on failure exactly like the
+ * singletons do. Transport failures throw with bounded diagnostics; a tool-level `isError` result
+ * throws the tool's own text — that text is OUR plane's service message (e.g. the admission denial
+ * the mirror adapter classifies by contract), not arbitrary remote prose. Request timeout is the
+ * SDK protocol default (60s), which matches the measured local plane under embed/WAL load
+ * (initialize ~17s, list_messages ~25s observed 2026-08-02) while still bounding every call —
+ * an unbounded hang is the sender-eating failure mode the wake fabric taught the same night.
  *
  * Zero config reads: `baseUrl` + `credential` are injected by the boot entry, which resolves the
- * `AiConfig.fleet.planeBase` / `planeBearer` leaves at its use site per the AiConfig SSOT discipline.
+ * `AiConfig.fleet.planeBase` / `planeBearer` leaves at its use site per the AiConfig SSOT
+ * discipline.
  *
  * @see ai/services/fleet/devFleetServer.mjs — the consuming entry (binding decision + fallback)
- * @see ai/services/fleet/mcpWireParsing.mjs — the shared MCP-wire parsing authority
- * @see ai/services/fleet/FleetTenantService.mjs — the readiness-probe precedent this lifecycle mirrors
+ * @see ai/services/fleet/mcpWireParsing.mjs — the shared wire-parsing + endpoint-boundary authority
+ * @see test/playwright/integration/fixtures/mcpClient.mjs — the SDK client/transport precedent
  */
 
-const REQUESTED_PROTOCOL_VERSION = '2024-11-05';
-
 /**
- * Per-request abort bound. Generous by design: the local plane legitimately answers in the
- * 15-25s range under embed/WAL load (measured 2026-08-02), and the in-process bindings this
- * client replaces had no bound at all — but a bound must exist, because an unbounded hang is
- * the sender-eating failure mode the wake fabric just taught us about. 60s matches the MCP
- * client norm this seat itself runs under.
- * @type {Number}
- */
-const CALL_TIMEOUT_MS = 60_000;
-
-/**
- * @summary Build the fixed header set for one plane request.
- * @param {Object} options
- * @param {String} options.credential
- * @param {String|null} [options.sessionId]
- * @param {String|null} [options.protocolVersion]
- * @returns {Object}
- * @private
- */
-function planeHeaders({credential, sessionId = null, protocolVersion = null}) {
-    const headers = {
-        Accept        : 'application/json, text/event-stream',
-        'Content-Type': 'application/json'
-    };
-
-    if (credential)      headers.Authorization          = `Bearer ${credential}`;
-    if (protocolVersion) headers['mcp-protocol-version'] = protocolVersion;
-    if (sessionId)       headers['mcp-session-id']       = sessionId;
-
-    return headers
-}
-
-/**
- * @summary Create one plane mailbox client. Construction is passive — no request leaves before
- * `init()`.
+ * @summary Create one plane mailbox client. Construction validates the endpoint and is otherwise
+ * passive — no request leaves before `init()`.
  * @param {Object} options
  * @param {String} options.baseUrl Full MCP resource URL (`<planeBase>/mc/mcp`), derived by the
  *     entry per the connected-tenant resource contract.
- * @param {String} [options.credential] Plane bearer; empty is forwarded as-is (tokenless planes
- *     decide admission themselves, fail-closed).
- * @param {Function} [options.fetchImpl] Injection seam for tests; defaults to global `fetch`.
+ * @param {String} [options.credential] Plane bearer; empty omits the Authorization header
+ *     (tokenless planes decide admission themselves, fail-closed).
+ * @param {Function} [options.fetchImpl] Injection seam for tests — forwarded to the SDK transport's
+ *     custom-fetch option; defaults to global `fetch`.
+ * @param {Function} [options.createSession] Full session-factory override for tests:
+ *     `() => {client, transport}` with SDK-compatible shapes. Defaults to the real SDK pair.
  * @returns {Object} `{init, callTool, listMessages, addMessage, close}`
+ * @throws {Error} When the endpoint fails the shared secure-endpoint policy.
  */
-export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = fetch}) {
-    if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
-        throw new Error('planeMailboxClient requires a non-empty baseUrl')
+export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = null, createSession = null}) {
+    const endpoint = normalizeSecureMcpEndpoint(baseUrl);
+
+    if (!endpoint) {
+        throw new Error(
+            'planeMailboxClient refused the endpoint: http/https only, no URL-embedded ' +
+            'credentials, and TLS is required for non-loopback hosts.'
+        )
     }
 
-    const url = baseUrl.trim();
+    const buildSession = createSession || (() => {
+        const headers = credential ? {Authorization: `Bearer ${credential}`} : {};
 
-    let session = null; // {sessionId, protocolVersion} once initialized
+        return {
+            transport: new StreamableHTTPClientTransport(new URL(endpoint), {
+                requestInit: {headers},
+                ...(fetchImpl ? {fetch: fetchImpl} : {})
+            }),
+            client: new Client({name: 'neo-fleet-plane-mailbox', version: '1'}, {capabilities: {}})
+        }
+    });
+
+    let session = null, // {client, transport, identity} once proven
+        expected = null;
 
     /**
-     * @summary Run the full handshake and hold the resulting session.
-     * @returns {Promise<Object>} Bounded `{ok, status, reason?}` — never remote prose.
+     * @summary Tear one session down, awaited and tolerant: the plane-side session DELETE
+     * (`terminateSession`) then the transport close, each best-effort so a refusal exit can never
+     * leak a half-open session or mask the refusal itself.
+     * @param {Object|null} candidate `{client, transport}`
+     * @returns {Promise<void>}
      * @private
      */
-    async function establishSession() {
-        const response = await fetchImpl(url, {
-            method : 'POST',
-            headers: planeHeaders({credential}),
-            body   : JSON.stringify({
-                jsonrpc: '2.0',
-                id     : 1,
-                method : 'initialize',
-                params : {
-                    protocolVersion: REQUESTED_PROTOCOL_VERSION,
-                    capabilities   : {},
-                    clientInfo     : {name: 'neo-fleet-plane-mailbox', version: '1'}
-                }
-            }),
-            signal: AbortSignal.timeout(CALL_TIMEOUT_MS)
-        });
+    async function teardown(candidate) {
+        if (!candidate) return;
 
-        const
-            sessionId       = response.headers.get('mcp-session-id'),
-            envelope        = parseMcpEnvelope(await response.text()),
-            parsedResult    = InitializeResultSchema.safeParse(envelope?.result),
-            result          = parsedResult.success ? parsedResult.data : null,
-            protocolVersion = result?.protocolVersion;
-
-        const initialized = response.ok &&
-            envelope?.jsonrpc === '2.0' &&
-            envelope?.id === 1 &&
-            result &&
-            SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion);
-
-        if (!initialized) {
-            return {ok: false, status: response.status, reason: `plane MCP initialize failed (${response.status})`}
-        }
-
-        const notifyResponse = await fetchImpl(url, {
-            method : 'POST',
-            headers: planeHeaders({credential, sessionId, protocolVersion}),
-            body   : JSON.stringify({jsonrpc: '2.0', method: 'notifications/initialized'}),
-            signal : AbortSignal.timeout(CALL_TIMEOUT_MS)
-        });
-
-        await notifyResponse.text();
-
-        if (!notifyResponse.ok) {
-            return {ok: false, status: notifyResponse.status, reason: `plane MCP initialized-notification failed (${notifyResponse.status})`}
-        }
-
-        session = {sessionId, protocolVersion};
-
-        return {ok: true, status: response.status}
+        try { await candidate.transport?.terminateSession?.() } catch { /* reaped or unreachable */ }
+        try { await candidate.client?.close?.() }               catch { /* already closed */ }
     }
 
     /**
-     * @summary One raw `tools/call` round-trip on the held session. No re-establishment here —
-     * `callTool` owns the one-retry policy.
+     * @summary Establish + PROVE one session: SDK connect (initialize handshake included), then the
+     * `list_permissions` identity oracle against the held expectation. Any failure tears the
+     * candidate down and reports a bounded refusal — a session is only ever stored proven.
+     * @returns {Promise<Object>} Bounded `{ok, identity?, reason?}`.
+     * @private
+     */
+    async function connectProven() {
+        const candidate = buildSession();
+
+        try {
+            await candidate.client.connect(candidate.transport)
+        } catch (error) {
+            await teardown(candidate);
+
+            return {ok: false, reason: `plane unreachable (${error?.name ?? 'connect failure'})`}
+        }
+
+        let result;
+
+        try {
+            result = await candidate.client.callTool({name: 'list_permissions', arguments: {}})
+        } catch (error) {
+            await teardown(candidate);
+
+            return {ok: false, reason: `plane identity probe unreachable (${error?.name ?? 'call failure'})`}
+        }
+
+        const identity = normalizeAgentIdentity(readMcpToolResultPayload(result)?.identity);
+
+        if (!identity) {
+            await teardown(candidate);
+
+            return {ok: false, reason: 'plane identity probe returned no canonical identity'}
+        }
+
+        if (identity !== expected) {
+            // The one refusal that protects every admission decision downstream: a bearer resolving
+            // to a different subject would silently re-attribute the whole surface.
+            await teardown(candidate);
+
+            return {ok: false, reason: 'plane identity mismatch'}
+        }
+
+        session = {...candidate, identity};
+
+        return {ok: true, identity}
+    }
+
+    /**
+     * @summary Map one SDK CallToolResult into the in-process contract: tool errors throw their own
+     * text, malformed payloads throw bounded, valid payloads return parsed.
      * @param {String} name
-     * @param {Object} args
-     * @returns {Promise<Object>} `{response, envelope}`
+     * @param {Object} result
+     * @returns {Object}
      * @private
      */
-    async function rawToolCall(name, args) {
-        const response = await fetchImpl(url, {
-            method : 'POST',
-            headers: planeHeaders({credential, ...session}),
-            body   : JSON.stringify({
-                jsonrpc: '2.0',
-                id     : 2,
-                method : 'tools/call',
-                params : {name, arguments: args ?? {}}
-            }),
-            signal: AbortSignal.timeout(CALL_TIMEOUT_MS)
-        });
+    function mapToolResult(name, result) {
+        if (result?.isError) {
+            const text = result.content?.find?.(item => item?.type === 'text')?.text;
 
-        return {response, envelope: parseMcpEnvelope(await response.text())}
+            throw new Error(typeof text === 'string' && text ? text : `plane ${name} failed: tool error`)
+        }
+
+        const payload = readMcpToolResultPayload(result);
+
+        if (payload === null) {
+            throw new Error(`plane ${name} failed: malformed tool payload`)
+        }
+
+        return payload
     }
 
     return {
         /**
-         * @summary Handshake + single-viewer verification. REQUIRED before any tool call.
+         * @summary Connect + prove the single-viewer invariant. REQUIRED before any tool call.
          * @param {Object} options
          * @param {String} options.expectedIdentity Boot-resolved viewer the bearer's plane-side
          *     subject must equal (canonical `@login` form).
-         * @returns {Promise<Object>} Bounded `{ok, status, identity?, reason?}`.
+         * @returns {Promise<Object>} Bounded `{ok, identity?, reason?}`.
          */
         async init({expectedIdentity}) {
-            const expected = normalizeAgentIdentity(expectedIdentity);
+            const next = normalizeAgentIdentity(expectedIdentity);
 
-            if (!expected) {
-                return {ok: false, status: 0, reason: 'plane init requires a canonical expectedIdentity'}
+            if (!next) {
+                return {ok: false, reason: 'plane init requires a canonical expectedIdentity'}
             }
 
-            let handshake;
+            // Terminal-close any prior life FIRST — close() clears the expectation, so the new one
+            // is installed after it, never nulled by it.
+            await this.close();
 
-            try {
-                handshake = await establishSession()
-            } catch (error) {
-                return {ok: false, status: 0, reason: `plane unreachable (${error?.name ?? 'fetch failure'})`}
-            }
+            expected = next;
 
-            if (!handshake.ok) return handshake;
-
-            try {
-                const {response, envelope} = await rawToolCall('list_permissions', {});
-                const payload              = readMcpToolPayload(envelope);
-                const identity             = normalizeAgentIdentity(payload?.identity);
-
-                if (!response.ok || !identity) {
-                    return {ok: false, status: response.status, reason: `plane identity probe failed (${response.status})`}
-                }
-
-                if (identity !== expected) {
-                    // The one refusal that protects every admission decision downstream: a bearer
-                    // resolving to a different subject would silently re-attribute the whole surface.
-                    return {ok: false, status: response.status, reason: 'plane identity mismatch'}
-                }
-
-                return {ok: true, status: response.status, identity}
-            } catch (error) {
-                return {ok: false, status: 0, reason: `plane identity probe unreachable (${error?.name ?? 'fetch failure'})`}
-            }
+            return connectProven()
         },
 
         /**
          * @summary Call one plane tool and return its parsed JSON payload. Throws like the
          * in-process services so the adapters' degraded/denied mapping applies unchanged.
+         *
+         * Recovery contract: at most ONE proven reconnect per invocation. A transport-level failure
+         * mid-call triggers it with a single replay; a call arriving while no session is held (a
+         * previous recovery failed — the plane was down at that moment) SPENDS it up front on lazy
+         * re-establishment instead of staying bricked until re-init. Every reconnect must RE-PROVE
+         * the same identity before any request rides it; an unprovable or changed identity throws
+         * without replaying.
          * @param {String} name Registered MC tool name (e.g. `list_messages`).
          * @param {Object} [args]
          * @returns {Promise<Object>}
          */
         async callTool(name, args = {}) {
-            if (!session) throw new Error(`plane ${name} failed: client not initialized`);
+            if (!expected) throw new Error(`plane ${name} failed: client not initialized`);
 
-            let {response, envelope} = await rawToolCall(name, args);
+            let recovered = false;
 
-            // A plane restart invalidates the held session (404 per streamable-HTTP). One
-            // transparent re-handshake per call keeps a long-lived Fleet process honest without
-            // masking a genuinely down plane (the retry itself throws through on failure).
-            if (response.status === 404) {
-                const reestablished = await establishSession();
+            if (!session) {
+                const readmission = await connectProven();
 
-                if (!reestablished.ok) {
-                    throw new Error(`plane ${name} failed: session lost and ${reestablished.reason}`)
+                if (!readmission.ok) {
+                    throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
                 }
 
-                ({response, envelope} = await rawToolCall(name, args))
+                recovered = true
             }
 
-            if (!response.ok) {
-                throw new Error(`plane ${name} failed: HTTP ${response.status}`)
+            let result;
+
+            try {
+                result = await session.client.callTool({name, arguments: args})
+            } catch (error) {
+                const lost = session;
+
+                session = null;
+                await teardown(lost);
+
+                if (recovered) {
+                    // This invocation already spent its one reconnect — a second failure on a
+                    // freshly proven session is the plane failing NOW, not a stale-session artifact.
+                    throw new Error(`plane ${name} failed: ${error?.name ?? 'call failure'} on a freshly established session`)
+                }
+
+                const readmission = await connectProven();
+
+                if (!readmission.ok) {
+                    throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
+                }
+
+                result = await session.client.callTool({name, arguments: args})
             }
 
-            const result = envelope?.result;
-
-            if (result?.isError) {
-                // The tool's own text is OUR plane service's message (admission denials included) —
-                // the mirror adapter's ADMISSION_SCOPE classification contract depends on it.
-                const text = result.content?.find?.(item => item?.type === 'text')?.text;
-
-                throw new Error(typeof text === 'string' && text ? text : `plane ${name} failed: tool error`)
-            }
-
-            const payload = readMcpToolPayload(envelope);
-
-            if (payload === null) {
-                throw new Error(`plane ${name} failed: malformed tool payload`)
-            }
-
-            return payload
+            return mapToolResult(name, result)
         },
 
         /**
@@ -295,27 +275,20 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
         },
 
         /**
-         * @summary Best-effort session teardown for clean shutdown paths.
+         * @summary Awaited, idempotent teardown for normal and refusal exits alike. Explicit close
+         * is TERMINAL: it clears the held identity expectation, so later calls answer
+         * "client not initialized" instead of lazily resurrecting a deliberately shut-down client
+         * (lazy re-establishment is reserved for failed recoveries, where the intent to serve
+         * still stands).
          * @returns {Promise<void>}
          */
         async close() {
-            if (!session) return;
-
             const held = session;
 
-            session = null;
+            session  = null;
+            expected = null;
 
-            try {
-                const response = await fetchImpl(url, {
-                    method : 'DELETE',
-                    headers: planeHeaders({credential, ...held}),
-                    signal : AbortSignal.timeout(2_000)
-                });
-
-                await response.text()
-            } catch {
-                // Shutdown cleanup stays bounded best effort — the plane reaps expired sessions.
-            }
+            await teardown(held)
         }
     }
 }

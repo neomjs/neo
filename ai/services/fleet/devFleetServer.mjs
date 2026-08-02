@@ -12,9 +12,13 @@
  *    mode: the launcher holds the value in memory and hands the browser its half in-process; env is
  *    the in-memory channel, and a malformed value REFUSES startup rather than silently regenerating),
  *    else generates a fresh one. The bearer is never logged, persisted, or echoed by this process.
- * 2. resolves and BINDS the viewer — the stdio identity chain (`NEO_AGENT_IDENTITY` → gh CLI) must
- *    land on a seeded `AgentIdentity` graph node, or startup fails closed with a named remediation:
- *    every admitted request is stamped with this viewer, so serving without one is unattributable.
+ * 2. resolves and BINDS the viewer — the stdio identity chain (`NEO_AGENT_IDENTITY` → gh CLI)
+ *    produces the claim; its VERIFICATION authority depends on the mailbox-seam plane (step 5):
+ *    in-process mode verifies against a seeded host `AgentIdentity` graph node, while plane mode
+ *    verifies plane-side (the client's `list_permissions` proof binds the bearer's server-resolved
+ *    subject to the claim) and deliberately never opens host Memory Core — a missing or stale host
+ *    graph cannot veto a healthy configured plane. Either way startup fails closed with a named
+ *    remediation: every admitted request is stamped with this viewer.
  * 3. on an occupied port, probes the incumbent through its authenticated `/fleet/probe`: reuse only
  *    on "same token, same viewer"; anything else exits with the probe's named refusal — an unknown,
  *    stale, or wrong-viewer process is never silently adopted.
@@ -48,7 +52,8 @@ import RequestContextService                                              from '
 import FleetControlBridge                                                 from './FleetControlBridge.mjs';
 import FleetManager                                                       from './FleetManager.mjs';
 import {startFleetBridgeServer}                                           from './fleetBridgeServer.mjs';
-import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer} from './fleetLaunchContract.mjs';
+import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
+        resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {createPlaneMailboxClient}                                         from './planeMailboxClient.mjs';
 import {readActiveWakeSubscriptionIdentities}                             from './readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}                                       from './wireBootIdentityReadSource.mjs';
@@ -67,37 +72,49 @@ const port = Number(process.env.NEO_FLEET_PORT) || 8083;
  */
 async function boot() {
     const bearerToken = resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
-          viewer      = await resolveFleetViewer(),
           origins     = (process.env.NEO_FLEET_COCKPIT_ORIGIN || 'http://localhost:8080,http://127.0.0.1:8080')
               .split(',').map(origin => origin.trim()).filter(Boolean);
 
-    // Wire the cross-process boot-identity reader BEFORE serving: getBootIdentity() then serves the
-    // orchestrator's advisory fact from the shared runtime-state dir (read at this use site), instead of
-    // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
-    wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
-
-    // The mailbox-seam plane decision: resolved ONCE at boot, all-or-nothing, logged. The
-    // leaves resolve here at the use site (the AiConfig SSOT contract); the client itself reads no config. Fail-closed:
-    // a configured plane whose bearer resolves to any OTHER subject than the boot viewer would
-    // silently re-attribute every admission decision — refusal is the only honest outcome.
+    // The mailbox-seam plane decision: resolved ONCE at boot, BEFORE viewer binding, all-or-nothing,
+    // logged. The leaves resolve here at the use site (the AiConfig SSOT contract); the client itself
+    // reads no config. The decision also selects the viewer's VERIFICATION AUTHORITY:
+    //  - plane mode: the graphless identity claim (env/gh chain only) is verified by the PLANE —
+    //    the client's init proves the bearer's server-resolved subject IS the claim. Host Memory
+    //    Core is never opened, so a missing/stale host graph cannot veto a healthy plane. Fail-closed:
+    //    a bearer resolving to any OTHER subject would silently re-attribute every admission
+    //    decision — refusal is the only honest outcome.
+    //  - in-process mode: the existing host-graph verification (seeded AgentIdentity node).
     const planeBase   = AiConfig.fleet.planeBase.trim(),
           planeClient = planeBase ? createPlaneMailboxClient({
               baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
               credential: AiConfig.fleet.planeBearer
           }) : null;
 
+    let viewer;
+
     if (planeClient) {
+        viewer = await resolveFleetViewerClaim();
+
         const admission = await planeClient.init({expectedIdentity: viewer.agentIdentityNodeId});
 
         if (!admission.ok) {
-            console.error(`[fleet] plane mode refused (${planeBase}): ${admission.reason ?? `status ${admission.status}`} — fix fleet.planeBase / fleet.planeBearer, or empty the base for in-process mode.`);
+            console.error(`[fleet] plane mode refused (${planeBase}): ${admission.reason} — fix fleet.planeBase / fleet.planeBearer, or empty the base for in-process mode.`);
             process.exit(1)
         }
 
-        console.log(`[fleet] mailbox/compose/catch-up seams bound to the containerized plane at ${planeBase} (viewer-verified: ${admission.identity})`)
+        // The boot witness: name the verification authority explicitly so a capture/log always
+        // shows WHICH plane verified this viewer (and that the host graph was not consulted).
+        console.log(`[fleet] mailbox/compose/catch-up seams bound to the containerized plane at ${planeBase} (viewer ${admission.identity} verified plane-side; host graph not consulted)`)
     } else {
-        console.log('[fleet] fleet.planeBase is empty — mailbox/compose/catch-up seams stay in-process (host plane).')
+        viewer = await resolveFleetViewer();
+
+        console.log('[fleet] fleet.planeBase is empty — mailbox/compose/catch-up seams stay in-process (host plane; viewer verified against the host graph).')
     }
+
+    // Wire the cross-process boot-identity reader BEFORE serving: getBootIdentity() then serves the
+    // orchestrator's advisory fact from the shared runtime-state dir (read at this use site), instead of
+    // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
+    wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
 
     // Wire the wake-telltale producer sources (the S2 axis): the config-resolved daemon PID path +
     // the trusted bulk subscription scan. This entrypoint is where config resolution belongs; the

@@ -3,224 +3,442 @@ import {test, expect} from '@playwright/test';
 import {createPlaneMailboxClient} from '../../../../ai/services/fleet/planeMailboxClient.mjs';
 
 /**
- * @summary Unit coverage for the plane mailbox client — the streamable-HTTP MCP client the
- * Fleet server binds its mailbox/compose/catch-up seams to in plane mode.
+ * @summary Unit coverage for the plane mailbox client — the SDK-backed streamable-HTTP MCP client
+ * the Fleet server binds its mailbox/compose/catch-up seams to in plane mode.
  *
- * Hermetic by construction: the module chain (client + mcpWireParsing + SDK type schemas) is pure,
- * so no Neo namespace, no setup(), and no network — every wire interaction rides the injected
- * `fetchImpl` seam with scripted responses.
+ * Hermetic by construction, but NOT mock-shallow: every case drives the REAL MCP SDK client and
+ * Streamable-HTTP transport through the transport's custom-fetch seam, so protocol negotiation,
+ * request-id allocation, and response correlation are the production code paths under scripted
+ * HTTP. The concurrent case pins the exact production call shape (the catch-up source's
+ * `Promise.allSettled` pair) that a serial script cannot see.
  */
 
-const BASE_URL = 'http://127.0.0.1:3102/mc/mcp';
-const IDENTITY = '@neo-fable-clio';
+const LOOPBACK_URL = 'http://127.0.0.1:3102/mc/mcp';
+const IDENTITY     = '@neo-fable-clio';
 
 /**
- * @summary One scripted Response-shaped object (the subset the client reads).
+ * @summary One Response-shaped object covering the subset the SDK transport reads.
  * @param {Object} options
  * @returns {Object}
  */
-function scriptedResponse({status = 200, sessionId = null, body = {}}) {
+function planeResponse({status = 200, contentType = 'application/json', sessionId = null, body = null}) {
+    const text = body === null ? '' : (typeof body === 'string' ? body : JSON.stringify(body));
+
     return {
-        ok     : status >= 200 && status < 300,
+        ok        : status >= 200 && status < 300,
         status,
-        headers: {get: name => (name === 'mcp-session-id' ? sessionId : null)},
-        text   : async () => (typeof body === 'string' ? body : JSON.stringify(body))
+        statusText: String(status),
+        headers   : {
+            get: name => {
+                const key = String(name).toLowerCase();
+
+                if (key === 'mcp-session-id') return sessionId;
+                if (key === 'content-type')   return body === null ? null : contentType;
+
+                return null
+            }
+        },
+        text: async () => text,
+        json: async () => JSON.parse(text)
     }
 }
 
 /**
- * @summary Scripted fetch: consumes one queued response per call and records every request for
- * sequence assertions. A queue underrun throws — an unexpected extra request is a test failure,
- * never a hang.
- * @param {Object[]} queue
- * @returns {Function} fetchImpl with a `.calls` recorder.
+ * @summary A scripted plane: a handler-based fetch implementation speaking the MCP streamable-HTTP
+ * dialect (initialize echo, session headers, tools/call correlation by echoed request id). Handlers
+ * make failure injection per-call precise; `calls` records every request for sequence assertions.
+ *
+ * @param {Object}   [options]
+ * @param {String[]} [options.identityBySession] `list_permissions` identity per session ordinal —
+ *     index 0 answers the first established session, index 1 the session after one reconnect, etc.
+ *     The last entry repeats for later sessions.
+ * @param {Function} [options.toolResponder] `({name, args, call, sessionOrdinal}) =>` one of
+ *     `{payload}`, `{textPayload}`, `{toolError}`, `{status}`, optionally `{delayMs}` — scripted
+ *     behavior for non-`list_permissions` tools.
+ * @param {Number}   [options.failInitializeTimes] Reject that many initialize attempts with 503
+ *     before succeeding.
+ * @returns {Object} `{fetchImpl, calls}`
  */
-function scriptedFetch(queue) {
+function scriptedPlane({identityBySession = [IDENTITY], toolResponder = null, failInitializeTimes = 0} = {}) {
     const calls = [];
 
-    const impl = async (url, options) => {
-        const parsedBody = options?.body ? JSON.parse(options.body) : null;
+    let sessions           = 0,
+        initializeFailures = failInitializeTimes;
 
-        calls.push({url, method: options?.method, headers: options?.headers ?? {}, body: parsedBody});
+    const fetchImpl = async (url, init = {}) => {
+        const method  = init.method || 'GET',
+              headers = new Headers(init.headers || {}),
+              rawBody = typeof init.body === 'string' ? init.body : null,
+              body    = rawBody ? JSON.parse(rawBody) : null;
 
-        const next = queue.shift();
+        const call = {
+            method,
+            url          : String(url),
+            authorization: headers.get('authorization'),
+            sessionHeader: headers.get('mcp-session-id'),
+            rpcMethod    : body?.method ?? null,
+            rpcId        : body?.id ?? null,
+            toolName     : body?.method === 'tools/call' ? body?.params?.name : null,
+            toolArgs     : body?.method === 'tools/call' ? body?.params?.arguments : null
+        };
 
-        if (!next)               throw new Error(`scriptedFetch queue underrun (call ${calls.length})`);
-        if (next.reject)         throw Object.assign(new Error('scripted network failure'), {name: next.reject});
+        calls.push(call);
 
-        return scriptedResponse(next)
+        if (method === 'GET')    return planeResponse({status: 405});
+        if (method === 'DELETE') return planeResponse({status: 200, body: {}});
+
+        if (body?.method === 'initialize') {
+            if (initializeFailures > 0) {
+                initializeFailures--;
+
+                return planeResponse({status: 503, body: 'unavailable'})
+            }
+
+            sessions++;
+
+            return planeResponse({
+                sessionId: `sess-${sessions}`,
+                body     : {jsonrpc: '2.0', id: body.id, result: {
+                    protocolVersion: body.params.protocolVersion,
+                    capabilities   : {tools: {}},
+                    serverInfo     : {name: 'scripted-plane', version: '1'}
+                }}
+            })
+        }
+
+        if (body?.method === 'notifications/initialized') {
+            return planeResponse({status: 202})
+        }
+
+        if (body?.method === 'tools/call') {
+            const sessionOrdinal = Math.max(0, sessions - 1);
+
+            if (call.toolName === 'list_permissions') {
+                const identity = identityBySession[Math.min(sessionOrdinal, identityBySession.length - 1)];
+
+                return planeResponse({body: {jsonrpc: '2.0', id: body.id, result: {
+                    content: [{type: 'text', text: JSON.stringify({identity})}]
+                }}})
+            }
+
+            const scripted = toolResponder
+                ? await toolResponder({name: call.toolName, args: call.toolArgs, call, sessionOrdinal})
+                : {payload: {}};
+
+            if (scripted.delayMs) await new Promise(resolve => setTimeout(resolve, scripted.delayMs));
+
+            if (scripted.status) return planeResponse({status: scripted.status, body: 'scripted failure'});
+
+            if (scripted.toolError) {
+                return planeResponse({body: {jsonrpc: '2.0', id: body.id, result: {
+                    isError: true,
+                    content: [{type: 'text', text: scripted.toolError}]
+                }}})
+            }
+
+            if (scripted.textPayload !== undefined) {
+                return planeResponse({body: {jsonrpc: '2.0', id: body.id, result: {
+                    content: [{type: 'text', text: scripted.textPayload}]
+                }}})
+            }
+
+            return planeResponse({body: {jsonrpc: '2.0', id: body.id, result: {
+                structuredContent: scripted.payload,
+                content          : [{type: 'text', text: JSON.stringify(scripted.payload)}]
+            }}})
+        }
+
+        return planeResponse({status: 400, body: 'unscripted request'})
     };
 
-    impl.calls = calls;
-
-    return impl
+    return {fetchImpl, calls}
 }
 
-/** @summary The standard happy-path handshake pair: initialize + initialized-notification. */
-function handshakeResponses({sessionId = 'sess-1'} = {}) {
-    return [
-        {status: 200, sessionId, body: {jsonrpc: '2.0', id: 1, result: {
-            protocolVersion: '2024-11-05',
-            capabilities   : {},
-            serverInfo     : {name: 'mc', version: '1'}
-        }}},
-        {status: 200}
-    ]
-}
-
-/** @summary One successful tools/call response carrying a JSON text payload. */
-function toolResponse(payload) {
-    return {status: 200, body: {jsonrpc: '2.0', id: 2, result: {
-        content: [{type: 'text', text: JSON.stringify(payload)}]
-    }}}
-}
-
-/** @summary Init a client through the scripted happy-path handshake + identity probe. */
-async function initializedClient({extraResponses = [], identity = IDENTITY} = {}) {
-    const fetchImpl = scriptedFetch([
-        ...handshakeResponses(),
-        toolResponse({identity}),
-        ...extraResponses
-    ]);
-
-    const client    = createPlaneMailboxClient({baseUrl: BASE_URL, credential: 'token-1', fetchImpl}),
+/** @summary Create + init one client against a scripted plane. */
+async function initializedClient(planeOptions = {}, clientOptions = {}) {
+    const plane  = scriptedPlane(planeOptions),
+          client = createPlaneMailboxClient({
+              baseUrl   : LOOPBACK_URL,
+              credential: 'token-1',
+              fetchImpl : plane.fetchImpl,
+              ...clientOptions
+          }),
           admission = await client.init({expectedIdentity: IDENTITY});
 
-    return {client, fetchImpl, admission}
+    return {client, plane, admission}
 }
 
-test.describe('planeMailboxClient: construction', () => {
-    test('refuses an empty baseUrl', () => {
-        expect(() => createPlaneMailboxClient({baseUrl: '  '})).toThrow('non-empty baseUrl')
+test.describe('planeMailboxClient: endpoint boundary (before any request)', () => {
+    test('rejects a non-loopback http endpoint — TLS required off-loopback', () => {
+        expect(() => createPlaneMailboxClient({baseUrl: 'http://fleet.example.com/mc/mcp'}))
+            .toThrow('TLS is required')
     });
 
-    test('callTool before init throws the uninitialized error, no request leaves', async () => {
-        const fetchImpl = scriptedFetch([]),
-              client    = createPlaneMailboxClient({baseUrl: BASE_URL, fetchImpl});
+    test('rejects URL-embedded credentials outright', () => {
+        expect(() => createPlaneMailboxClient({baseUrl: 'https://user:secret@fleet.example.com/mc/mcp'}))
+            .toThrow('URL-embedded')
+    });
 
-        await expect(client.callTool('list_messages')).rejects.toThrow('client not initialized');
-        expect(fetchImpl.calls).toHaveLength(0)
+    test('rejects a malformed endpoint', () => {
+        expect(() => createPlaneMailboxClient({baseUrl: 'not a url'})).toThrow('refused the endpoint')
+    });
+
+    test('accepts loopback http and any https, emitting no request at construction', () => {
+        const plane = scriptedPlane();
+
+        createPlaneMailboxClient({baseUrl: LOOPBACK_URL, fetchImpl: plane.fetchImpl});
+        createPlaneMailboxClient({baseUrl: 'https://fleet.example.com/mc/mcp', fetchImpl: plane.fetchImpl});
+
+        expect(plane.calls).toHaveLength(0)
     })
 });
 
-test.describe('planeMailboxClient: init (handshake + single-viewer invariant)', () => {
-    test('happy path: initialize → initialized → identity probe, session held', async () => {
-        const {admission, fetchImpl} = await initializedClient();
+test.describe('planeMailboxClient: init (SDK handshake + single-viewer proof)', () => {
+    test('happy path: SDK connect handshake, then list_permissions proves the viewer', async () => {
+        const {admission, plane} = await initializedClient();
 
-        expect(admission).toEqual({ok: true, status: 200, identity: IDENTITY});
+        expect(admission).toEqual({ok: true, identity: IDENTITY});
 
-        const [initCall, notifyCall, probeCall] = fetchImpl.calls;
+        const rpcMethods = plane.calls.filter(call => call.rpcMethod).map(call => call.rpcMethod);
 
-        expect(initCall.body.method).toBe('initialize');
-        expect(initCall.headers.Authorization).toBe('Bearer token-1');
-        expect(notifyCall.body.method).toBe('notifications/initialized');
-        expect(notifyCall.headers['mcp-session-id']).toBe('sess-1');
-        expect(probeCall.body.params.name).toBe('list_permissions')
+        expect(rpcMethods[0]).toBe('initialize');
+        expect(rpcMethods).toContain('notifications/initialized');
+        expect(plane.calls.at(-1).toolName).toBe('list_permissions');
+        expect(plane.calls[0].authorization).toBe('Bearer token-1')
     });
 
-    test('identity mismatch refuses plane mode with the bounded reason', async () => {
-        const {admission} = await initializedClient({identity: '@someone-else'});
+    test('identity mismatch refuses fail-closed AND tears the session down (awaited DELETE)', async () => {
+        const {admission, plane} = await initializedClient({identityBySession: ['@someone-else']});
 
-        expect(admission.ok).toBe(false);
-        expect(admission.reason).toBe('plane identity mismatch')
-    });
-
-    test('rejected initialize yields a bounded status reason, never remote prose', async () => {
-        const fetchImpl = scriptedFetch([{status: 401, body: 'go away, secret prose'}]),
-              client    = createPlaneMailboxClient({baseUrl: BASE_URL, fetchImpl}),
-              admission = await client.init({expectedIdentity: IDENTITY});
-
-        expect(admission).toEqual({ok: false, status: 401, reason: 'plane MCP initialize failed (401)'})
+        expect(admission).toEqual({ok: false, reason: 'plane identity mismatch'});
+        expect(plane.calls.some(call => call.method === 'DELETE')).toBe(true)
     });
 
     test('unreachable plane yields a bounded transport reason', async () => {
-        const fetchImpl = scriptedFetch([{reject: 'TimeoutError'}]),
-              client    = createPlaneMailboxClient({baseUrl: BASE_URL, fetchImpl}),
-              admission = await client.init({expectedIdentity: IDENTITY});
+        const client = createPlaneMailboxClient({
+            baseUrl  : LOOPBACK_URL,
+            fetchImpl: async () => { throw Object.assign(new Error('boom'), {name: 'TypeError'}) }
+        });
+
+        const admission = await client.init({expectedIdentity: IDENTITY});
 
         expect(admission.ok).toBe(false);
-        expect(admission.reason).toBe('plane unreachable (TimeoutError)')
+        expect(admission.reason).toMatch(/^plane unreachable \(/)
     });
 
     test('non-canonical expectedIdentity is refused before any request leaves', async () => {
-        const fetchImpl = scriptedFetch([]),
-              client    = createPlaneMailboxClient({baseUrl: BASE_URL, fetchImpl}),
-              admission = await client.init({expectedIdentity: '   '});
+        const plane  = scriptedPlane(),
+              client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, fetchImpl: plane.fetchImpl});
+
+        const admission = await client.init({expectedIdentity: '   '});
 
         expect(admission.ok).toBe(false);
-        expect(fetchImpl.calls).toHaveLength(0)
+        expect(plane.calls).toHaveLength(0)
     })
 });
 
 test.describe('planeMailboxClient: tool calls (error shape mirrors the in-process services)', () => {
+    test('callTool before init throws the uninitialized error, no request leaves', async () => {
+        const plane  = scriptedPlane(),
+              client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, fetchImpl: plane.fetchImpl});
+
+        await expect(client.callTool('list_messages')).rejects.toThrow('client not initialized');
+        expect(plane.calls).toHaveLength(0)
+    });
+
     test('listMessages maps to the list_messages tool and resolves the parsed payload', async () => {
-        const payload             = {messages: [{messageId: 'MESSAGE:1', subject: 'hi'}]},
-              {client, fetchImpl} = await initializedClient({extraResponses: [toolResponse(payload)]});
+        const payload = {messages: [{messageId: 'MESSAGE:1', subject: 'hi'}]};
+
+        const {client, plane} = await initializedClient({
+            toolResponder: ({name}) => (name === 'list_messages' ? {payload} : {payload: {}})
+        });
 
         await expect(client.listMessages({limit: 5})).resolves.toEqual(payload);
 
-        const call = fetchImpl.calls.at(-1);
+        const call = plane.calls.at(-1);
 
-        expect(call.body.params).toEqual({name: 'list_messages', arguments: {limit: 5}})
+        expect(call.toolName).toBe('list_messages');
+        expect(call.toolArgs).toEqual({limit: 5})
     });
 
-    test('addMessage maps to the add_message tool', async () => {
-        const {client, fetchImpl} = await initializedClient({extraResponses: [toolResponse({status: 'sent'})]});
+    test('addMessage maps to the add_message tool; text-only payloads parse too', async () => {
+        const {client, plane} = await initializedClient({
+            toolResponder: () => ({textPayload: JSON.stringify({status: 'sent'})})
+        });
 
         await expect(client.addMessage({to: '@peer', subject: 's', body: 'b'})).resolves.toEqual({status: 'sent'});
-        expect(fetchImpl.calls.at(-1).body.params.name).toBe('add_message')
+        expect(plane.calls.at(-1).toolName).toBe('add_message')
     });
 
     test('a tool-level isError result throws the tool text (the admission-classification contract)', async () => {
         const denial = 'Unauthorized: CAN_READ_INBOX_OF denied for @neo-fable-clio -> @peer';
 
-        const {client} = await initializedClient({extraResponses: [
-            {status: 200, body: {jsonrpc: '2.0', id: 2, result: {isError: true, content: [{type: 'text', text: denial}]}}}
-        ]});
+        const {client} = await initializedClient({toolResponder: () => ({toolError: denial})});
 
         await expect(client.callTool('list_messages', {to: '@peer'})).rejects.toThrow(denial)
     });
 
-    test('a transport failure throws a bounded status-only diagnostic', async () => {
-        const {client} = await initializedClient({extraResponses: [
-            {status: 500, body: 'stack trace prose the caller must never see'}
-        ]});
-
-        await expect(client.listMessages()).rejects.toThrow('plane list_messages failed: HTTP 500')
-    });
-
     test('a malformed tool payload throws bounded, never resolves null', async () => {
-        const {client} = await initializedClient({extraResponses: [
-            {status: 200, body: {jsonrpc: '2.0', id: 2, result: {content: [{type: 'text', text: 'not json'}]}}}
-        ]});
+        const {client} = await initializedClient({toolResponder: () => ({textPayload: 'not json'})});
 
         await expect(client.listMessages()).rejects.toThrow('plane list_messages failed: malformed tool payload')
+    })
+});
+
+test.describe('planeMailboxClient: concurrency (the production catch-up call shape)', () => {
+    test('two in-flight tool calls carry UNIQUE request ids and correlate to their own payloads', async () => {
+        const {client, plane} = await initializedClient({
+            toolResponder: ({name}) => ({
+                // Answer the FIRST tool slower than the second: correct correlation must survive
+                // out-of-order completion, which is exactly what a shared static id cannot do.
+                delayMs: name === 'explore_memory_history' ? 40 : 5,
+                payload: {tool: name}
+            })
+        });
+
+        const [memory, pulls] = await Promise.allSettled([
+            client.callTool('explore_memory_history',       {limit: 1}),
+            client.callTool('explore_pull_request_history', {limit: 1})
+        ]);
+
+        expect(memory.status).toBe('fulfilled');
+        expect(pulls.status).toBe('fulfilled');
+        expect(memory.value).toEqual({tool: 'explore_memory_history'});
+        expect(pulls.value).toEqual({tool: 'explore_pull_request_history'});
+
+        const inFlightIds = plane.calls
+            .filter(call => ['explore_memory_history', 'explore_pull_request_history'].includes(call.toolName))
+            .map(call => call.rpcId);
+
+        expect(inFlightIds).toHaveLength(2);
+        expect(new Set(inFlightIds).size).toBe(2)
+    })
+});
+
+test.describe('planeMailboxClient: session loss (one bounded recovery, identity re-proven)', () => {
+    test('a transport-level failure reconnects ONCE, re-proves the SAME identity, then replays', async () => {
+        let failed = false;
+
+        const {client, plane} = await initializedClient({
+            identityBySession: [IDENTITY, IDENTITY],
+            toolResponder    : ({name}) => {
+                if (name === 'list_messages' && !failed) {
+                    failed = true;
+
+                    return {status: 404}
+                }
+
+                return {payload: {recovered: true}}
+            }
+        });
+
+        await expect(client.listMessages()).resolves.toEqual({recovered: true});
+
+        // Sequence proof: failed call → teardown DELETE → fresh initialize → re-proof → replay.
+        const tail        = plane.calls.map(call => call.rpcMethod ?? call.method);
+        const failedIndex = plane.calls.findIndex(call => call.toolName === 'list_messages');
+
+        expect(tail.slice(failedIndex + 1)).toEqual(
+            expect.arrayContaining(['DELETE', 'initialize', 'notifications/initialized', 'tools/call'])
+        );
+        expect(plane.calls.filter(call => call.toolName === 'list_permissions')).toHaveLength(2);
+        expect(plane.calls.filter(call => call.toolName === 'list_messages')).toHaveLength(2)
     });
 
-    test('a lost session (404) re-establishes ONCE and retries the call transparently', async () => {
-        const payload = {messages: []};
+    test('a reconnect that proves a CHANGED identity rejects WITHOUT replaying the original tool', async () => {
+        const {client, plane} = await initializedClient({
+            identityBySession: [IDENTITY, '@rotated-subject'],
+            toolResponder    : () => ({status: 404})
+        });
 
-        const {client, fetchImpl} = await initializedClient({extraResponses: [
-            {status: 404},               // held session rejected → re-handshake expected
-            ...handshakeResponses({sessionId: 'sess-2'}),
-            toolResponse(payload)
-        ]});
+        await expect(client.listMessages())
+            .rejects.toThrow('plane list_messages failed: session lost and plane identity mismatch');
 
-        await expect(client.listMessages()).resolves.toEqual(payload);
-
-        // Sequence proof: probe(3) → failed call → initialize → initialized → retried call.
-        const methods = fetchImpl.calls.slice(3).map(call => call.body?.method ?? null);
-
-        expect(methods).toEqual(['tools/call', 'initialize', 'notifications/initialized', 'tools/call']);
-        expect(fetchImpl.calls.at(-1).headers['mcp-session-id']).toBe('sess-2')
+        expect(plane.calls.filter(call => call.toolName === 'list_messages')).toHaveLength(1);
+        expect(plane.calls.filter(call => call.toolName === 'list_permissions')).toHaveLength(2)
     });
 
-    test('a lost session with an unreachable plane throws through, not into a retry loop', async () => {
-        const {client} = await initializedClient({extraResponses: [
-            {status: 404},
-            {status: 503}
-        ]});
+    test('a reconnect against a dead plane throws through, not into a retry loop', async () => {
+        // The plane dies mid-life: the first initialize succeeds (healthy boot), every later
+        // initialize 503s, and tool calls 404 — so the single recovery attempt must fail loudly.
+        const plane = scriptedPlane({toolResponder: () => ({status: 404})});
 
-        await expect(client.listMessages()).rejects.toThrow('session lost and plane MCP initialize failed (503)')
+        let initializes = 0;
+
+        const fetchImpl = async (url, init = {}) => {
+            const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+
+            if (body?.method === 'initialize' && ++initializes > 1) {
+                return planeResponse({status: 503, body: 'gone'})
+            }
+
+            return plane.fetchImpl(url, init)
+        };
+
+        const client    = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl}),
+              admission = await client.init({expectedIdentity: IDENTITY});
+
+        expect(admission.ok).toBe(true);
+
+        await expect(client.listMessages())
+            .rejects.toThrow(/^plane list_messages failed: session lost and plane unreachable/);
+
+        expect(initializes).toBe(2)
+    })
+});
+
+test.describe('planeMailboxClient: post-failure liveness (the bricked-client regression)', () => {
+    test('a FAILED recovery does not brick the client — the next call lazily re-establishes with proof', async () => {
+        // Reproduces the live-receipt defect: call 1 loses its session AND its recovery fails
+        // (plane down); call 2 arrives later when the plane is back. The broken shape answered
+        // "client not initialized" forever; the contract is lazy proven re-establishment.
+        let initializes = 0,
+            planeDown   = false;
+
+        const plane = scriptedPlane({
+            identityBySession: [IDENTITY, IDENTITY, IDENTITY],
+            toolResponder    : ({name, sessionOrdinal}) =>
+                (name === 'list_messages' && sessionOrdinal === 0 ? {status: 404} : {payload: {alive: true}})
+        });
+
+        const fetchImpl = async (url, init = {}) => {
+            const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+
+            if (body?.method === 'initialize') {
+                initializes++;
+
+                if (planeDown) return planeResponse({status: 503, body: 'down'})
+            }
+
+            return plane.fetchImpl(url, init)
+        };
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl});
+
+        expect((await client.init({expectedIdentity: IDENTITY})).ok).toBe(true);
+
+        // Call 1: session lost (404) and the recovery initialize finds the plane DOWN.
+        planeDown = true;
+        await expect(client.listMessages()).rejects.toThrow(/session lost and plane unreachable/);
+
+        // Call 2: the plane is back — the client must re-establish WITH identity proof and serve.
+        planeDown = false;
+        await expect(client.listMessages()).resolves.toEqual({alive: true});
+
+        expect(initializes).toBeGreaterThanOrEqual(3);
+        expect(plane.calls.filter(call => call.toolName === 'list_permissions').length).toBeGreaterThanOrEqual(2)
+    })
+});
+
+test.describe('planeMailboxClient: teardown', () => {
+    test('close() is awaited and idempotent — one DELETE, then no-ops', async () => {
+        const {client, plane} = await initializedClient();
+
+        await client.close();
+        await client.close();
+
+        expect(plane.calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
+
+        await expect(client.callTool('list_messages')).rejects.toThrow('client not initialized')
     })
 });

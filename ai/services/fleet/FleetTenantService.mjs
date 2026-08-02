@@ -10,28 +10,14 @@ import Base                        from '../../../src/core/Base.mjs';
 import {resolveFleetCredentialKey} from './FleetRegistryService.mjs';
 import {
     normalizeAgentIdentity,
+    normalizeSecureMcpEndpoint,
     parseMcpEnvelope,
     readMcpToolPayload
 } from './mcpWireParsing.mjs';
 
-/**
- * Hosts for which plain `http:` is accepted. Deliberately an exact set rather than a range or a
- * pattern: this is the one exception to the TLS rule that protects the bearer, so it stays small
- * enough to audit at a glance. A developer running a tenant on a non-loopback address uses TLS.
- *
- * `[::1]` keeps its brackets: these are compared against `URL#hostname`, which returns the IPv6
- * literal bracketed. Un-bracketing it here would silently stop matching.
- */
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-/**
- * @summary Canonical origin+path form (no trailing slash) so one endpoint maps to one tenant id.
- * @param {URL} url
- * @returns {String}
- */
-function canonicalize(url) {
-    return (url.origin + url.pathname).replace(/\/+$/, '');
-}
+// The loopback-http exception, URL-credential rejection, and canonical endpoint form live in
+// ./mcpWireParsing.mjs (`normalizeSecureMcpEndpoint`) — one endpoint-boundary policy shared with
+// the plane mailbox client.
 
 /**
  * @summary The CLOSED public vocabulary for a failed connect.
@@ -338,28 +324,10 @@ class FleetTenantService extends Base {
      * @protected
      */
     normalizeEndpoint(tenantUrl) {
-        if (typeof tenantUrl !== 'string' || tenantUrl.trim() === '') return null;
-
-        let url;
-
-        try {
-            url = new URL(tenantUrl.trim());
-        } catch {
-            return null;
-        }
-
-        // A URL-embedded secret would bypass the encrypted store — reject the shape outright.
-        if (url.username || url.password) return null;
-
         // The provider bearer rides to this endpoint as a header (see `probeTenantEndpoint`), so the
-        // endpoint's scheme decides whether the credential crosses the wire in cleartext. TLS is
-        // required for anything remote; `http:` survives only for loopback, where there is no
-        // network hop to intercept and a developer can run a tenant without a certificate.
-        if (url.protocol === 'https:') return canonicalize(url);
-
-        if (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)) return canonicalize(url);
-
-        return null;
+        // endpoint's scheme decides whether the credential crosses the wire in cleartext — the shared
+        // boundary policy enforces TLS-off-loopback and rejects URL-embedded secrets outright.
+        return normalizeSecureMcpEndpoint(tenantUrl);
     }
 
     /**
