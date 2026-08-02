@@ -114,7 +114,7 @@
         "devindex:update"                      : "node ./apps/devindex/services/cli.mjs update --limit 200",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "install-brain"                        : "node ./buildScripts/util/installBrain.mjs",
-        "prepare"                              : "if [ \"$npm_config_package_lock_only\" = \"true\" ]; then exit 0; fi; husky && node ./ai/scripts/setup/initServerConfigs.mjs",
+        "prepare"                              : "node ./buildScripts/util/prepare.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
