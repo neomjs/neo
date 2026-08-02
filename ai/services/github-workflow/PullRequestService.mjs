@@ -123,7 +123,7 @@ function parseSeatedReviewerState(stdout) {
 
     try {
         parsed = JSON.parse(stdout);
-    } catch (error) {
+    } catch {
         return null;
     }
 
