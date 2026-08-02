@@ -21,6 +21,13 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs';
 import path            from 'path';
+// The COMMITTED templates, never `config.mjs` — that path resolves a repo-local ignored overlay, so
+// a test reading it asserts against whatever this machine happens to carry, and the same spec can
+// pass here while failing on a peer's box for reasons the diff cannot show. `lint-config-template-ssot`
+// refuses it. Read at each use site below rather than snapshotted: the proxies are reactive, and a
+// captured leaf is a second, stale config authority.
+import KB_Config from '../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
+import MC_Config from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 // Serial mode: this file mutates KB + MC singleton collection accessors across
 // beforeAll/afterAll. Serial ordering within this file prevents local multi-worker
@@ -34,12 +41,16 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
     let originalKbListNames, originalMcGetActiveManagers;
     let workRoot, bundleRoot, conceptsSourceDir, trajectoriesSourceFile;
 
-    // What the non-mutating pre-existence probe reports, per subsystem. Stubbing the collection GETTER
-    // is not enough: the exporter asks whether a collection existed BEFORE it resolved anything, and a
-    // fixture that only conjures a handle answers "no" — truthfully — which classifies every zero-row
-    // export as `unavailable`. Populated fixtures are unaffected either way (rows prove pre-existence),
-    // so this exists for the zero-row cases, where `empty` and `unavailable` are the whole distinction.
-    let kbCollectionNames, mcCollectionNames;
+    // Which logical collections the pre-existence probe should report as ABSENT. Stubbing the
+    // collection GETTER is not enough: the exporter asks whether a collection existed BEFORE it
+    // resolved anything, and a fixture that only conjures a handle answers "no" — truthfully — which
+    // classifies every zero-row export as `unavailable`. Populated fixtures are unaffected either way
+    // (rows prove pre-existence), so this exists for the zero-row cases, where `empty` and
+    // `unavailable` are the whole distinction.
+    //
+    // Keyed by LOGICAL name, not by collection name, so the stubs can resolve the reactive config
+    // proxy at call time instead of snapshotting it into a mutable array.
+    let hiddenCollections;
 
     const fakeCollection = (rows, name) => ({
         name,
@@ -97,26 +108,24 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             'fake-sum'
         );
 
-        const kbConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default,
-              mcConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
         // Default posture: every canonical collection pre-existed, which is what every populated test
         // here means. The probe compares against the CONFIG names, not the fake handle's `.name`.
-        kbCollectionNames = [kbConfig.collectionName];
-        mcCollectionNames = [
-            mcConfig.collections.memory,
-            mcConfig.collections.session,
-            mcConfig.collections.temporalSummary,
-            mcConfig.collections.graph
-        ];
+        hiddenCollections = new Set();
 
         originalKbListNames         = KB_ChromaManager.listCollectionNames.bind(KB_ChromaManager);
         originalMcGetActiveManagers = Memory_StorageRouter.getActiveManagers.bind(Memory_StorageRouter);
 
-        KB_ChromaManager.listCollectionNames   = async () => [...kbCollectionNames];
-        Memory_StorageRouter.getActiveManagers = async () => [
-            {listCollectionNames: async () => [...mcCollectionNames]}
-        ];
+        KB_ChromaManager.listCollectionNames = async () =>
+            hiddenCollections.has('kb') ? [] : [KB_Config.collectionName];
+
+        Memory_StorageRouter.getActiveManagers = async () => [{
+            listCollectionNames: async () => [
+                ['memory',          MC_Config.collections.memory],
+                ['summary',         MC_Config.collections.session],
+                ['temporalSummary', MC_Config.collections.temporalSummary],
+                ['graph',           MC_Config.collections.graph]
+            ].filter(([key]) => !hiddenCollections.has(key)).map(([, name]) => name)
+        }];
     });
 
     test.afterAll(() => {
@@ -379,7 +388,6 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         const captureLogger = {log: () => {}, error: () => {}, warn: msg => warnings.push(msg)};
         const savedMem      = Memory_StorageRouter.getMemoryCollection;
         const savedSum      = Memory_StorageRouter.getSummaryCollection;
-        const savedNames    = [...mcCollectionNames];
 
         try {
             // Zero rows AND no pre-existing collection — the resolver's create-on-missing is what the
@@ -387,7 +395,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             // hand-setting a flag: nothing below tells the exporter what verdict to reach.
             Memory_StorageRouter.getMemoryCollection  = async () => fakeCollection([], 'conjured-mem');
             Memory_StorageRouter.getSummaryCollection = async () => fakeCollection([], 'conjured-sum');
-            mcCollectionNames.length                  = 0;
+            hiddenCollections.add('memory').add('summary');
 
             const result = await runBackup({
                 bundleRoot: path.join(workRoot, 'bundle-unavailable'),
@@ -418,7 +426,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         } finally {
             Memory_StorageRouter.getMemoryCollection  = savedMem;
             Memory_StorageRouter.getSummaryCollection = savedSum;
-            mcCollectionNames.push(...savedNames);
+            hiddenCollections.clear();
         }
     });
 
@@ -428,12 +436,11 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         // missing — so the verdict cannot be gated on `sourceCount === 0`.
         const silentLogger = {log: () => {}, error: () => {}, warn: () => {}};
         const savedSum     = Memory_StorageRouter.getSummaryCollection;
-        const savedNames   = [...mcCollectionNames];
 
         try {
             Memory_StorageRouter.getSummaryCollection = async () => fakeCollection([], 'conjured-sum');
             // Memories still pre-exist; only the summaries collection is gone.
-            mcCollectionNames.splice(mcCollectionNames.indexOf(savedNames[1]), 1);
+            hiddenCollections.add('summary');
 
             const result = await runBackup({
                 bundleRoot: path.join(workRoot, 'bundle-partial'),
@@ -454,8 +461,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             expect(result.meta.subsystems.mc.summaries.captureOutcome).toBe('unavailable');
         } finally {
             Memory_StorageRouter.getSummaryCollection = savedSum;
-            mcCollectionNames.length                  = 0;
-            mcCollectionNames.push(...savedNames);
+            hiddenCollections.clear();
         }
     });
 
