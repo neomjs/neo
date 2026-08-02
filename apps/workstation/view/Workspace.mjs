@@ -8,6 +8,7 @@ import DockDragAffordances         from '../../../src/dashboard/DockDragAffordan
 import DockDropIndicators          from '../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter           from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal            from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore        from '../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockPreview                 from '../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler    from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                 from '../../../src/ai/client/DockService.mjs';
@@ -164,6 +165,15 @@ class Workspace extends Container {
      * @member {Neo.ai.client.DockService|null} dockService=null
      */
     dockService = null
+    /**
+     * The named-layout home for the Neural Link perspective trio — the client DockService
+     * resolves `holder.perspectiveStore`, so instantiating it here activates capture (stored),
+     * list, and restore against this workspace with no service-side change. Restore rides the
+     * store's migration-honest `loadPerspective` plus this view's `onDockZoneDocumentChange`
+     * commit seam — the same path `execute_dock_operation` commits through.
+     * @member {Neo.dashboard.DockPerspectiveStore|null} perspectiveStore=null
+     */
+    perspectiveStore = null
     /**
      * @member {Neo.ai.client.TourRunner|null} tourRunner=null
      */
@@ -399,8 +409,9 @@ class Workspace extends Container {
 
         let me = this;
 
-        me.dockModel   = DockZoneModel.clone(initialDocument);
-        me.dockService = Neo.create(DockService, {});
+        me.dockModel         = DockZoneModel.clone(initialDocument);
+        me.dockService       = Neo.create(DockService, {});
+        me.perspectiveStore  = Neo.create(DockPerspectiveStore, {});
 
         // Cross-window hit testing reads manager.Window as its one geometry authority. Movement
         // snapshots alone go stale after a main-window resize, so this render target publishes
@@ -5116,6 +5127,7 @@ class Workspace extends Container {
         me.vesselWorkspaces.clear();
         me.tourRunner?.destroy();
         me.dockService?.destroy();
+        me.perspectiveStore?.destroy();
         me.dragAffordances?.destroy();
         me.interactionService?.destroy();
         me.vesselProxyEmbodiment?.destroy();
