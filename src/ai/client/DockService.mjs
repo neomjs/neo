@@ -2,6 +2,7 @@ import DockTopologyDiff       from '../../dashboard/DockTopologyDiff.mjs';
 import DockTopologyReconciler from '../../dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel          from '../../dashboard/DockZoneModel.mjs';
 import Service                from './Service.mjs';
+import {deriveSubtreePath}    from '../deriveSubtreePath.mjs';
 
 /**
  * Handles dock-layout Neural Link requests: topology readout, semantic operation execution and
@@ -402,14 +403,58 @@ class DockService extends Service {
     }
 
     /**
+     * Builds the reverse-op for an `execute_dock_operation` write — `op⁻¹ = applyDocument(preDoc)`,
+     * capturing the pre-mutation document BEFORE the forward op lands: the document IS the state,
+     * so the honest inverse of any dock mutation is re-committing its prior document through the
+     * shared fail-closed commit path. Returns `null` for a legacy / unattributed write (no writer
+     * identity ⇒ no per-writer undo stack) or an unresolvable target, so {@link #recordUndo} no-ops.
+     * The reverse is a re-dispatchable validated tool descriptor — data-not-code, per the Neural
+     * Link capability boundary.
+     *
+     * Named bound: a whole-document reverse is **per-writer last-writer-wins**. A's undo re-commits
+     * A's pre-mutation document and silently discards any mutation B interleaved between A's capture
+     * and A's undo — `targetSubtreePath` is audit metadata, never an enforcement path, so nothing at
+     * undo time checks that the subtree still matches capture-time. Inherent to document-as-state,
+     * not a defect; single-writer surfaces never reveal it.
+     * @param {Object} params
+     * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @param {Object} params.descriptor  The forward `{operation, ...}` descriptor
+     * @param {Object} params.preDocument Deep clone of the pre-mutation dockZone.v1 document
+     * @returns {Object|null} A reverse-record op, or `null` when the write is not capturable.
+     * @protected
+     */
+    buildDockReverse({context, componentId, descriptor, preDocument}) {
+        if (!context?.agentId || !context?.sessionId) {
+            return null
+        }
+
+        const targetSubtreePath = deriveSubtreePath(componentId, cid => Neo.getComponent(cid)?.parentId);
+
+        if (!targetSubtreePath) {
+            return null
+        }
+
+        return {
+            sequenceId  : `${componentId}:${++this.undoSequence}`,
+            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
+            targetSubtreePath,
+            forward     : {tool: 'execute_dock_operation', args: {componentId, descriptor}},
+            reverse     : {tool: 'execute_dock_operation', args: {componentId, descriptor: {operation: 'applyDocument', document: preDocument}}},
+            label       : `dock ${descriptor.operation} on ${componentId}`
+        }
+    }
+
+    /**
      * Applies one semantic dock operation to the holder's document through the landed commit
      * path and returns the post-operation state, so agents can verify without a second call.
      * @param {Object} params
      * @param {String} params.componentId The dock workspace / holder component id
      * @param {Object} params.descriptor  `{operation, ...}` — the `DockZoneModel.applyOperation()` shape
+     * @param {Object|null} [context] The Bridge-stamped agent writer pair (2nd dispatch arg); null/undefined = legacy.
      * @returns {Object} `{applied, errors, document}` — `applied: false` carries the executor's errors
      */
-    async executeDockOperation({componentId, descriptor}) {
+    async executeDockOperation({componentId, descriptor}, context) {
         const operation = descriptor?.operation;
 
         if (!operation || !DockService.operations.includes(operation)) {
@@ -421,6 +466,19 @@ class DockService extends Service {
 
         const holder = this.resolveHolder(componentId);
         let result;
+
+        // Capture the reverse (a deep clone of the pre-mutation document) BEFORE applying — an undo
+        // replay (`context.undoReplay`, set by the undo/redo dispatch) is NOT captured: re-applying a
+        // captured op must never enqueue a new transaction. A legacy / unattributed write builds no
+        // op at all, so the post-commit recordUndo no-ops.
+        const undoOp = context?.undoReplay
+            ? null
+            : this.buildDockReverse({
+                  componentId,
+                  context,
+                  descriptor,
+                  preDocument: Neo.clone(this.readDocument(holder), true)
+              });
 
         try {
             if (typeof holder.applyDockZoneOperation === 'function') {
@@ -457,6 +515,9 @@ class DockService extends Service {
             if (typeof holder.onDockZoneDocumentChange === 'function') {
                 holder.onDockZoneDocumentChange(result.document, descriptor, this)
             }
+
+            // After the commit, never before: capturing an undo must never break the forward write.
+            this.recordUndo(context, undoOp)
         }
 
         return {

@@ -85,6 +85,7 @@ class DockZoneModel extends Base {
             DockZoneModel.findContainingTabsId(document, descriptor.itemId)
                 ? DockZoneModel.moveItem(document, {itemId: descriptor.itemId, targetNodeId: descriptor.tabsNodeId, index: descriptor.index})
                 : DockZoneModel.addTab(document, descriptor),
+        applyDocument    : (document, descriptor) => DockZoneModel.applyDocument(document, descriptor),
         moveItem         : (document, descriptor) => DockZoneModel.moveItem(document, descriptor),
         splitNode        : (document, descriptor) => DockZoneModel.splitNode(document, descriptor),
         moveNode         : (document, descriptor) => DockZoneModel.moveNode(document, descriptor),
@@ -871,6 +872,23 @@ class DockZoneModel extends Base {
             errors     = DockZoneModel.validate(normalized);
 
         return errors.length ? {document: original, errors} : {document: normalized, errors: []}
+    }
+
+    /**
+     * @summary Re-applies a whole candidate document through the shared fail-closed commit — the
+     * generic reverse of any forward operation: the document IS the state, so the honest inverse
+     * of a mutation (or a mutation burst) is the pre-mutation document, normalized + validated
+     * exactly like any forward commit. A missing candidate fails closed with the original returned
+     * untouched; a candidate failing validation never commits, per the `commit()` contract.
+     * @param {Object} document the committed dock-zone document
+     * @param {Object} descriptor {document: Object} the candidate document to commit
+     * @returns {{document:Object, errors:String[]}}
+     * @static
+     */
+    static applyDocument(document, descriptor = {}) {
+        return descriptor.document
+            ? DockZoneModel.commit(document, descriptor.document)
+            : {document, errors: ['applyDocument requires a candidate document']}
     }
 
     /**
