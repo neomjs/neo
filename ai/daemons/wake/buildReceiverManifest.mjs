@@ -527,14 +527,6 @@ export function parseManifestBuilderArgs(argv = process.argv.slice(2)) {
  * rather than being fetched here. That keeps the module graphless: the caller already holds an
  * authenticated session, and this stays runnable on a host that cannot reach the container plane.
  *
- * @summary Builds and publishes the caller's routes, reporting skips and fingerprints but never keys.
- * @param {Object} config
- * @param {String} config.subscriptionsPath JSON file, or `-` for stdin.
- * @param {String} config.manifestPath      Absolute manifest destination.
- * @param {Object} [config.logger=console]
- * @returns {Promise<{published: String, routeSummaries: Object[], skipped: Object[]}>}
- */
-/**
  * Runs one build-and-publish pass for whichever seat is calling.
  *
  * **This is a per-peer call, not a provisioning batch.** Every family runs it for its own identity
