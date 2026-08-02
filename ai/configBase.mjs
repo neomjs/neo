@@ -252,6 +252,20 @@ class ConfigBase extends ConfigProvider {
                  * @type {string}
                  */
                 planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
+                /**
+                 * Patience for ONE tenant-plane probe request (initialize, the initialized
+                 * notification, the identity proof) — a single declared bound replacing per-site
+                 * literals, env-relocatable. Calibrated from MEASURED plane latency, both modes:
+                 * healthy establish+prove answers in well under a second (measured 41-397ms,
+                 * 2026-08-02, post-rebuild), while the loaded-window receipts put `initialize`
+                 * at ~17s under WAL/embed load — the prior 10s literals read exactly those
+                 * healthy-but-loaded windows as degraded, a fabrication class, not caution.
+                 * 30s covers the measured loaded tail with margin while keeping boot-path
+                 * failure detection bounded; a wedged plane failing this probe after 30s is the
+                 * honest outcome, not the defect. Milliseconds.
+                 * @type {number}
+                 */
+                tenantProbeTimeoutMs: leaf(30000, 'NEO_FLEET_TENANT_PROBE_TIMEOUT_MS', 'number'),
                 harnessBinaries: {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly
@@ -1602,6 +1616,20 @@ class ConfigBase extends ConfigProvider {
                         keepMinimum: 3,
                         maxDays    : 30
                     },
+                    /**
+                     * How many candidate bundles `verifyLatestBackupRestorable` may FULLY validate
+                     * before giving up and reporting the newest failure.
+                     *
+                     * The probe walks newest-first because a single unusable newest bundle must not
+                     * hide recoverable history behind it, but full validation streams and parses every
+                     * row of every JSONL in a bundle — on a multi-GB bundle that is not free, and an
+                     * unbounded walk would let a run of corrupt bundles turn a deploy preflight into an
+                     * arbitrarily long scan. Exhausting it logs which bundles went unexamined rather
+                     * than reporting a clean "nothing restorable" — a silent cap reads exactly like an
+                     * exhaustive search, which is the same false-negative the walk exists to end.
+                     * @type {Number}
+                     */
+                    restorabilityScanLimit: 5,
                     /**
                      * Off-host durability hook (plain nested keys inside this object leaf — the owning
                      * ticket owns validation; see backup.mjs#validateOffHostSyncConfig). An empty

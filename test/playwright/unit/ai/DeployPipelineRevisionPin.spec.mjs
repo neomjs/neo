@@ -120,9 +120,10 @@ async function createFakeBin(plainLines, peelLine = '') {
  *
  * @param {Object} fake The `createFakeBin` result.
  * @param {Boolean} declareInitialization
+ * @param {String} projectName Explicit deployment project identity; empty exercises the fail-closed path.
  * @returns {Object}
  */
-function preflightEnv(fake, declareInitialization) {
+function preflightEnv(fake, declareInitialization, projectName) {
     return {
         // INSIDE the per-test temp dir, never `fake.bin/..` — that resolved to `os.tmpdir()` itself, so
         // every test AND every run on the machine shared one backup root. The gate's own contract is
@@ -131,12 +132,18 @@ function preflightEnv(fake, declareInitialization) {
         //
         // It also made the suite non-idempotent in a way a single local run cannot show: the first run
         // passed because the marker did not exist yet, and created the state that failed the second.
-        NEO_BACKUP_PATH      : path.join(fake.bin, 'preflight-backups'),
-        NEO_DEPLOY_INITIALIZE: declareInitialization ? '1' : '0'
+        NEO_BACKUP_PATH        : path.join(fake.bin, 'preflight-backups'),
+        NEO_DEPLOY_INITIALIZE  : declareInitialization ? '1' : '0',
+        NEO_DEPLOY_PROJECT_NAME: projectName
     }
 }
 
-function runPipelineWithProbe(fake, selector, {declareInitialization = true, fetchFails = false, peelTo = ''} = {}) {
+function runPipelineWithProbe(fake, selector, {
+    declareInitialization = true,
+    fetchFails            = false,
+    peelTo                = '',
+    projectName           = declareInitialization ? 'neo-test-project' : ''
+} = {}) {
     // `spawnSync` rather than `execFileSync`, and NO shell. Both streams are needed on the SUCCESS
     // path too — the peel note is a stderr WARNING, and `execFileSync` discards stderr when the
     // command succeeds, so an assertion about it could never pass even when the script emits it
@@ -156,7 +163,7 @@ function runPipelineWithProbe(fake, selector, {declareInitialization = true, fet
             FAKE_PEEL_TO    : peelTo,
             NEO_REF         : selector,
             PATH            : `${fake.bin}:${process.env.PATH}`,
-            ...preflightEnv(fake, declareInitialization)
+            ...preflightEnv(fake, declareInitialization, projectName)
         },
         stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -175,7 +182,10 @@ function runPipelineWithProbe(fake, selector, {declareInitialization = true, fet
  * @param {String} selector Value for `NEO_REF`.
  * @returns {Object} `{code, output}`.
  */
-function runPipeline(fake, selector, {declareInitialization = true} = {}) {
+function runPipeline(fake, selector, {
+    declareInitialization = true,
+    projectName           = declareInitialization ? 'neo-test-project' : ''
+} = {}) {
     try {
         const output = execFileSync('bash', [scriptPath], {
             cwd     : repoRoot,
@@ -186,7 +196,7 @@ function runPipeline(fake, selector, {declareInitialization = true} = {}) {
                 FAKE_LS_PLAIN: fake.plainLines,
                 NEO_REF      : selector,
                 PATH         : `${fake.bin}:${process.env.PATH}`,
-                ...preflightEnv(fake, declareInitialization)
+                ...preflightEnv(fake, declareInitialization, projectName)
             },
             stdio: ['ignore', 'pipe', 'pipe']
         });
@@ -345,7 +355,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         }
     });
 
-    test('the survivability preflight refuses BEFORE Docker, even with a perfectly resolvable revision', async () => {
+    test('an ordinary redeploy keeps the default project and refuses BEFORE Docker without a bundle', async () => {
         // My change to this script broke the six positive-path tests here, and the honest repair is not
         // just to hand the fixture a declaration — it is to assert at this seam what the gate does.
         //
@@ -359,9 +369,30 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         expect(result.code).toBe(1);
         expect(result.output).toMatch(/REFUSING to proceed/);
         expect(result.output).toMatch(/REFUSE_NO_VERIFIED_BUNDLE/);
+        // An unset declaration is allowed on the non-destructive path and still resolves the
+        // reference deployment identity. Requiring the env var here would make the safety split
+        // costly enough to invite bypasses; sharing the initialize-path default would reopen it.
+        expect(result.output).toContain('[deploy] project:  neo-agent-os');
         // The resolvable revision is not what stopped it — the revision resolved fine.
         expect(result.output).toContain(FULL_SHA);
         // The load-bearing half: nothing touched containers.
+        expect(await dockerInvocations(fake.dockerLog)).toBe(0)
+    });
+
+    test('declared initialization without a declared project identity fails before Docker', async () => {
+        // The pipeline's ordinary-redeploy default is not an initialization declaration. If this
+        // value is inferred, a truthful project-scoped absence can be misread as plane-wide absence
+        // while another Compose project still owns the populated primary volume.
+        const fake   = await createFakeBin(''),
+              result = runPipelineWithProbe(fake, FULL_SHA, {
+                  declareInitialization: true,
+                  peelTo               : FULL_SHA,
+                  projectName          : ''
+              });
+
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('NEO_DEPLOY_PROJECT_NAME');
+        expect(result.output).toMatch(/explicitly declared.*--initialize/i);
         expect(await dockerInvocations(fake.dockerLog)).toBe(0)
     });
 

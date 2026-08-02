@@ -381,11 +381,46 @@ class ActivityStream extends Container {
      * @summary The row's human text — the event payload's summary/subject when present, else an agent +
      * type fallback so an un-summarized event still reads. `subject` is the live A2A/PR/lane adapter's
      * text field (fixtures carry `text`); both are honored so real feed events render meaningfully.
+     * The chain accepts STRINGS only: two payload vocabularies share the `subject` key — A2A rows
+     * carry the message subject (a string), work-stall rows carry the stall's subject ENTITY (an
+     * object) — and an object reaching a text node renders the literal `[object Object]`. Stall
+     * rows build their text from the entity instead; anything else shapeless takes the named
+     * agent+type fallback, never a raw object.
      * @param {Object} event
      * @returns {String}
      */
     eventText(event) {
-        return event?.payload?.text ?? event?.payload?.summary ?? event?.payload?.subject ?? `${event?.agentId ?? 'fleet'} · ${event?.type ?? 'event'}`
+        const
+            payload = event?.payload,
+            text    = [payload?.text, payload?.summary, payload?.subject]
+                .find(value => typeof value === 'string' && value !== '');
+
+        if (text) {
+            return text
+        }
+
+        if (payload?.kind === 'work-stall') {
+            return this.stallText(payload)
+        }
+
+        return `${event?.agentId ?? 'fleet'} · ${event?.type ?? 'event'}`
+    }
+
+    /**
+     * @summary The stall row's human text, from the finding's subject entity: reference (number or
+     * id) + title when present, else the finding class — a stall without a describable subject
+     * still reads as a stall, never as `[object Object]`.
+     * @param {Object} payload A `work-stall` event payload (`subject` per the PR/lane adapter).
+     * @returns {String}
+     */
+    stallText(payload) {
+        const
+            subject = payload?.subject,
+            ref     = subject?.number != null ? `#${subject.number}` : (subject?.id ?? null),
+            title   = typeof subject?.title === 'string' && subject.title !== '' ? subject.title : null,
+            detail  = [ref, title].filter(Boolean).join(' · ');
+
+        return detail ? `stalled · ${detail}` : `stalled · ${payload?.findingClass ?? 'work item'}`
     }
 }
 

@@ -71,6 +71,7 @@ class DomAccess extends Base {
                 'getBoundingClientRect',
                 'getChildNodeIds',
                 'getComputedStyle',
+                'getLayoutRect',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
@@ -452,6 +453,69 @@ class DomAccess extends Base {
                     returnData.minHeight = me.measure({value: minHeight, id: node})
                 }
             }
+        }
+
+        return returnData
+    }
+
+    /**
+     * @summary Returns transform-immune layout-box metrics for a given dom node id.
+     *
+     * `getBoundingClientRect()` reports VISUAL (post-transform) geometry: while a presentation
+     * layer animates an ancestor (e.g. the DockFlip inverse-transform window), rect widths and
+     * heights are scaled fiction. Layout consumers that persist sizes (grid column generation,
+     * buffered mounting math) must read the LAYOUT box instead, which transforms never affect.
+     *
+     * The size contract, per node state:
+     * - Rendered box: fractional computed used values, normalized to border-box when an element
+     *   opts into content-box sizing.
+     * - No generated box (`display: none`, `display: contents`, detached subtree): the zero
+     *   shape — matching `getBoundingClientRect()`. Computed styles would report SPECIFIED
+     *   sizes for boxless nodes (phantom boxes), so this path never reads them.
+     * - Rendered box whose used value does not resolve to px (defensive narrowing): integer
+     *   `offsetWidth`/`offsetHeight` — still layout-truth, reduced precision.
+     *
+     * x/y are offset-parent-relative (`offsetLeft`/`offsetTop`). Use this for size and
+     * sibling-relative position semantics; use `getBoundingClientRect()` whenever viewport-space
+     * coordinates are required.
+     * @param {Object} data
+     * @param {Array|String} data.id either an id or an array of ids
+     * @returns {Object|Object[]} rect-shaped layout metrics ({x, y, left, top, right, bottom, width, height})
+     */
+    getLayoutRect(data) {
+        let me = this;
+
+        if (Array.isArray(data.id)) {
+            return data.id.map(id => me.getLayoutRect({id}))
+        }
+
+        let node       = me.getElementOrBody(data.nodeType ? data : data.id),
+            returnData = {};
+
+        if (node) {
+            if (node.getClientRects().length < 1) {
+                return {x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0}
+            }
+
+            let style  = node.ownerDocument.defaultView.getComputedStyle(node),
+                read   = property => parseFloat(style.getPropertyValue(property)) || 0,
+                width  = parseFloat(style.getPropertyValue('width')),
+                height = parseFloat(style.getPropertyValue('height')),
+                x      = node.offsetLeft,
+                y      = node.offsetTop;
+
+            if (Number.isFinite(width) && Number.isFinite(height)) {
+                // Used width/height track the box-sizing mode; normalize to border-box metrics
+                if (style.getPropertyValue('box-sizing') === 'content-box') {
+                    width  += read('padding-left') + read('padding-right')  + read('border-left-width') + read('border-right-width');
+                    height += read('padding-top')  + read('padding-bottom') + read('border-top-width')  + read('border-bottom-width')
+                }
+            } else {
+                width  = node.offsetWidth;
+                height = node.offsetHeight
+            }
+
+            returnData = {x, y, left: x, top: y, right: x + width, bottom: y + height, width, height}
         }
 
         return returnData

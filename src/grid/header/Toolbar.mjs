@@ -160,7 +160,7 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     beforeSetScrollLeft(value, oldValue) {
-        let me        = this,
+        let me                              = this,
             {pendingScrollTarget, sortZone} = me;
 
         if (sortZone?.itemRects) {
@@ -229,7 +229,7 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
-        let me = this,
+        let me          = this,
             { mounted } = me;
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
@@ -276,8 +276,8 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
-            ignoreDragSelector: '.neo-resizable',
-            scrollLeft: me.scrollLeft
+            ignoreDragSelector : '.neo-resizable',
+            scrollLeft         : me.scrollLeft
         });
 
         super.createSortZone(config)
@@ -305,21 +305,28 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary Derives `columnPositions` + `availableWidth` from the rendered header buttons.
+     *
+     * Dynamic-width buttons are measured via LAYOUT-box metrics (`getLayoutRect()`), never
+     * `getBoundingClientRect()`: this measurement races presentation windows (committed dock
+     * resizes trigger it while DockFlip still scale-transforms the pane), and visual button
+     * rects sampled mid-motion would poison every column position and the summed
+     * `availableWidth` the body paints itself with.
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent = false) {
-        let me = this,
-            gridContainer = me.gridContainer,
-            layoutLock = me.layoutLock,
-            body = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
-            { items } = me,
+        let me              = this,
+            gridContainer   = me.gridContainer,
+            layoutLock      = me.layoutLock,
+            body            = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
+            { items }       = me,
             columnPositions = [],
-            currentX = 0,
+            currentX        = 0,
             hasDynamicWidth = false,
-            layoutFinished = true,
-            i = 0,
-            len = items.length,
+            layoutFinished  = true,
+            i               = 0,
+            len             = items.length,
             item, rects, w, width;
 
         for (; i < len; i++) {
@@ -333,7 +340,7 @@ class Toolbar extends BaseToolbar {
         }
 
         if (hasDynamicWidth) {
-            rects = await me.getDomRect(items.map(item => item.id));
+            rects = await me.getLayoutRect(items.map(item => item.id));
 
             // If the css sizing is not done, columns after the first one can get x === firstX
             for (i = 1; i < len; i++) {
@@ -353,8 +360,8 @@ class Toolbar extends BaseToolbar {
                 for (i = 0; i < len; i++) {
                     columnPositions.push({
                         dataField: items[i].dataField,
-                        width: rects[i].width,
-                        x: currentX
+                        width    : rects[i].width,
+                        x        : currentX
                     });
 
                     currentX += rects[i].width
@@ -367,7 +374,7 @@ class Toolbar extends BaseToolbar {
                     columnPositions.push({
                         dataField: item.dataField,
                         width,
-                        x: currentX
+                        x        : currentX
                     });
 
                     currentX += width
@@ -462,9 +469,9 @@ class Toolbar extends BaseToolbar {
 
         return {
             ...super.toJSON(),
-            scrollLeft: me.scrollLeft,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable: me.sortable,
+            scrollLeft        : me.scrollLeft,
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
             useTriStateSorting: me.useTriStateSorting
         }
     }

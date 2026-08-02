@@ -112,7 +112,27 @@
 
 .neo-dashboard-dock-splitter {
     flex-shrink: 0;
-    touch-action: none;
+    position     : relative;
+    touch-action : none;
+    z-index      : 2;
+
+    // The visible handle stays `size`-thin while its hit target expands past the rail:
+    // a near-handle miss used to fall through into a text-selection sweep across the
+    // adjacent cards. The pseudo-element is the hit surface only — pointer events on a
+    // ::before resolve to the originating element, so the drag contract is unchanged.
+    &::before {
+        content : '';
+        inset   : 0;
+        position: absolute;
+    }
+
+    &.neo-dashboard-dock-splitter-horizontal::before {
+        margin: 0 -4px;
+    }
+
+    &.neo-dashboard-dock-splitter-vertical::before {
+        margin: -4px 0;
+    }
 }
 
 // Opt-in only: `size` containment requires a host with definite inline and block extents.

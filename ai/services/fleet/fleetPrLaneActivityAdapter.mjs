@@ -190,6 +190,18 @@ export function createIssueActivityEvents(issues = [], {capturedAt = new Date()}
 
 /**
  * @summary Convert work-graph stall findings into cockpit activity events.
+ *
+ * The ranking timestamp rides the stall's own STABLE temporal fact — `waitingSince`, the moment
+ * the work stopped moving — never the scan clock: the findings builder re-stamps `observedAt`/
+ * `lastVerifiedAt` on every snapshot, so ranking by observation time re-floats every unchanged
+ * stall to the top of the merged feed on every poll, drowning genuinely fresh activity. A stall
+ * that began yesterday is a yesterday event, however recently it was re-confirmed; the fresher
+ * observation facts stay available in the payload. A finding carrying no temporal fact at all
+ * degrades to the capture clock WITH the `rankAnchor` marker naming that degradation — never
+ * silently. One upstream bound the marker cannot see: the findings builder defaults an absent
+ * `waitingSince` to its own scan-time `observedAt` BEFORE the finding reaches this adapter, so
+ * such rows arrive indistinguishable from genuinely-anchored ones and read `rankAnchor: 'finding'`
+ * — the marker names locally-absent anchors only.
  * @param {Object[]} stallFindings Findings from `buildWorkGraphStallFindings`.
  * @param {Object} options
  * @param {Date|String} options.capturedAt Fallback timestamp.
@@ -198,23 +210,30 @@ export function createIssueActivityEvents(issues = [], {capturedAt = new Date()}
 export function createStallActivityEvents(stallFindings = [], {capturedAt = new Date()} = {}) {
     return asArray(stallFindings)
         .filter(Boolean)
-        .map(finding => createFleetCockpitEvent({
-            type      : 'work-stall',
-            source    : FLEET_COCKPIT_SOURCES.graphStall,
-            agentId   : finding.subject?.owner || null,
-            confidence: finding.sourceFidelity === 'candidate' || finding.grade === 'candidate-stall' ? 'inferred' : 'observed',
-            occurredAt: toIsoString(finding.observedAt || finding.lastVerifiedAt || finding.waitingSince, capturedAt),
-            payload   : {
-                kind              : 'work-stall',
-                findingClass      : finding.findingClass || null,
-                grade             : finding.grade || null,
-                motionPredicate   : finding.motionPredicate || null,
-                evidenceRefs      : asArray(finding.evidenceRefs),
-                verificationSource: finding.verificationSource || null,
-                waitingSince      : finding.waitingSince || null,
-                subject           : normalizeSubject(finding.subject)
-            }
-        }))
+        .map(finding => {
+            const anchoredAt = finding.waitingSince || finding.observedAt || finding.lastVerifiedAt || null
+
+            return createFleetCockpitEvent({
+                type      : 'work-stall',
+                source    : FLEET_COCKPIT_SOURCES.graphStall,
+                agentId   : finding.subject?.owner || null,
+                confidence: finding.sourceFidelity === 'candidate' || finding.grade === 'candidate-stall' ? 'inferred' : 'observed',
+                occurredAt: toIsoString(anchoredAt, capturedAt),
+                payload   : {
+                    kind              : 'work-stall',
+                    findingClass      : finding.findingClass || null,
+                    grade             : finding.grade || null,
+                    motionPredicate   : finding.motionPredicate || null,
+                    evidenceRefs      : asArray(finding.evidenceRefs),
+                    verificationSource: finding.verificationSource || null,
+                    waitingSince      : finding.waitingSince || null,
+                    observedAt        : finding.observedAt || null,
+                    lastVerifiedAt    : finding.lastVerifiedAt || null,
+                    rankAnchor        : anchoredAt ? 'finding' : 'capture-time-degraded',
+                    subject           : normalizeSubject(finding.subject)
+                }
+            })
+        })
 }
 
 function createActivityCapability({capturedAt, confidence, reason = null, state}) {
@@ -330,7 +349,9 @@ function redactSecretText(text) {
 }
 
 function toIsoString(value, fallback = new Date()) {
-    const date = value instanceof Date ? value : new Date(value)
+    // null is MISSING, not a date: `new Date(null)` is the valid epoch, which would silently rank
+    // an anchorless event into 1970 instead of taking the declared fallback.
+    const date = value == null ? new Date(NaN) : (value instanceof Date ? value : new Date(value))
     if (!Number.isNaN(date.getTime())) return date.toISOString()
 
     const fallbackDate = fallback instanceof Date ? fallback : new Date(fallback)
