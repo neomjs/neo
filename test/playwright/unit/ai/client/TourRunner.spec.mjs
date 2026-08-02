@@ -424,6 +424,15 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             expect(result.errors.join('\n')).toContain("unknown 'teleportItem'")
         });
 
+        test('a malformed host settlement boundary is refused before dispatch', async () => {
+            createRunner({stepSettlement: {}});
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('stepSettlement: must be a Function or null')
+        });
+
         test('cross-window refuses an absent or incompatible executor before dispatch', async () => {
             createRunner({script: crossWindowScript()});
 
@@ -512,6 +521,103 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
 
             expect(result.completed).toBe(true);
             expect(events).toEqual(['wait:14', 'settled:pause:1'])
+        });
+
+        test('an injected host settlement blocks the next beat without changing the replay log', async () => {
+            let release, enteredResolve;
+            const
+                entered = new Promise(resolve => enteredResolve = resolve),
+                events  = [];
+
+            createRunner({
+                stepSettlement(data) {
+                    events.push(`host:${data.stepIndex}:${data.stepType}:log-${data.logLength}`);
+
+                    if (data.stepIndex === 0) {
+                        enteredResolve();
+                        data.stepIndex = 99;
+                        return new Promise(resolve => release = resolve)
+                    }
+                }
+            });
+            runner.on({
+                beat       : data => events.push(`beat:${data.stepIndex}`),
+                stepSettled: data => events.push(`settled:${data.stepIndex}`)
+            });
+
+            const running = runner.start();
+
+            await entered;
+
+            expect(events).toEqual(['beat:0', 'host:0:op:log-1']);
+            expect(runner.log).toHaveLength(1);
+
+            release();
+
+            const result = await running;
+
+            expect(result.completed).toBe(true);
+            expect(events.slice(0, 4)).toEqual([
+                'beat:0',
+                'host:0:op:log-1',
+                'settled:0',
+                'beat:1'
+            ]);
+            expect(events).not.toContain('settled:99');
+            expect(events.filter(event => event.startsWith('host:'))).toEqual([
+                'host:0:op:log-1',
+                'host:1:pause:log-2',
+                'host:2:op:log-3',
+                'host:3:topology-assert:log-4',
+                'host:4:op:log-5'
+            ]);
+            expect(result.log).toHaveLength(smokeScript().scenes[0].steps.length)
+        });
+
+        test('destroying the runner rejects a pending host settlement without a late step event', async () => {
+            let release, enteredResolve;
+            const
+                entered = new Promise(resolve => enteredResolve = resolve),
+                settled = [];
+
+            createRunner({
+                stepSettlement() {
+                    enteredResolve();
+                    return new Promise(resolve => release = resolve)
+                }
+            });
+            runner.on('stepSettled', data => settled.push(data));
+
+            const running = runner.start();
+
+            await entered;
+            runner.destroy();
+
+            expect(await running).toEqual({
+                completed: false,
+                errors   : ['TourRunner destroyed mid-tour'],
+                log      : [expect.objectContaining({stepIndex: 0, type: 'op'})]
+            });
+            expect(settled).toEqual([]);
+
+            release();
+            await Promise.resolve();
+
+            expect(settled).toEqual([])
+        });
+
+        test('a rejected host settlement aborts structurally without a successful step event', async () => {
+            const settled = [];
+
+            createRunner({stepSettlement: async () => { throw new Error('surface vanished') }});
+            runner.on('stepSettled', data => settled.push(data));
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain('host step settlement failed: surface vanished');
+            expect(result.log).toHaveLength(1);
+            expect(settled).toEqual([])
         });
 
         test('cross-window awaits one host dispatch before settlement and logs semantics only', async () => {

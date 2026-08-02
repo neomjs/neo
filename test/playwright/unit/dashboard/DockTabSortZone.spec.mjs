@@ -22,6 +22,10 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
  * walk); the rendered consequence rides the visual harness.
  */
 test.describe('Neo.dashboard.DockTabSortZone', () => {
+    test('keeps the parent-sized dock toolbar extent during a drag', () => {
+        expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false)
+    });
+
     test.describe('getDragProxyConfig — the carried-scope embodiment contract', () => {
         // Mirrors the real workstation shape: the workspace theme-swaps an INNER root
         // (document.body keeps the boot theme), the dock host below it owns the language,
@@ -106,35 +110,33 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
      * `dockReleaseTolerance` config — pure over instance state, so the matrix drives it with
      * explicit rects for both orientations.
      */
-    test.describe('onDragStart — the snapshot precedes the base mutation (lifecycle order)', () => {
-        test('the toolbar rect is captured BEFORE the base writes span dimensions onto the live style', async () => {
-            // A toolbar WIDER than its button span — the exact shape where the base's
-            // expandOwnerOnDrag style-write shrinks the live box at drag start. The stub owner
-            // reports the wide rect only while that write has not happened: a post-`super`
-            // measure would read the span box, so the assertion proves the ORDER, not a value.
+    test.describe('onDragStart — the source-boundary snapshot precedes the base lifecycle', () => {
+        test('captures the real toolbar rect before delegating to the base drag start', async () => {
+            // A toolbar WIDER than its button span. DockTabSortZone disables the inherited live
+            // owner-width write, but release decisions still require the pre-base toolbar rect
+            // rather than the base's later span-trimmed sort geometry.
             // Prototype-driven like the carried-scope pins above — the method chain is the unit,
             // never a fully-constructed zone.
             const WIDE = {x: 100, y: 100, width: 600, height: 32};
             const SPAN = {x: 100, y: 100, width: 180, height: 32};
 
-            let styleWritten = false;
+            const calls = [];
 
             const owner = {
                 getDomRect(ids) {
-                    // the no-arg call is the subclass snapshot; array calls are the base batch
-                    if (ids === undefined) return Promise.resolve(styleWritten ? {...SPAN} : {...WIDE});
+                    calls.push(ids === undefined ? 'snapshot' : 'base-measure');
+
+                    if (ids === undefined) return Promise.resolve({...WIDE});
                     return Promise.resolve(ids.map(() => ({...SPAN})))
-                },
-                get style() { return {} },
-                set style(value) { styleWritten = true }
+                }
             };
 
-            // The base chain needs more scaffolding than this witness wants to carry — stub it
-            // to ONLY perform the mutation whose ordering is under test.
+            // The base chain needs more scaffolding than this witness wants to carry. Its stub
+            // records delegation and reads the snapshot so ordering remains the tested contract.
             const original = TabHeaderSortZone.prototype.onDragStart;
 
             TabHeaderSortZone.prototype.onDragStart = async function() {
-                this.owner.style = {width: '180px'} // the expandOwnerOnDrag write, distilled
+                calls.push('base-start')
             };
 
             const zone = {dockItemIds: ['audit'], dockWorkspaceId: null, dragComponent: null, owner, startIndex: 0};
@@ -142,8 +144,8 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             try {
                 await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
 
-                expect(styleWritten, 'the base mutation ran').toBe(true);
-                expect(zone.dockSourceToolbarRect, 'the snapshot is the PRE-mutation toolbar extent').toEqual(WIDE);
+                expect(calls).toEqual(['snapshot', 'base-start']);
+                expect(zone.dockSourceToolbarRect, 'release truth is the pre-base toolbar extent').toEqual(WIDE);
             } finally {
                 TabHeaderSortZone.prototype.onDragStart = original
             }

@@ -231,6 +231,52 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('startTour preserves the structured receipt when host refresh settlement rejects', async () => {
+        const
+            feedStore = {count: 25, maxRecords: 500},
+            failure   = new Error('projection vanished'),
+            captions  = [];
+
+        let host;
+
+        host = {
+            cueErrors           : [],
+            cuePromise          : Promise.resolve(),
+            cueReceipts         : [],
+            cueSettlements      : new Map(),
+            dockModel           : null,
+            feedBatchCount      : 7,
+            lastTourReceipt     : null,
+            progressPromise     : Promise.resolve(),
+            refreshPromise      : Promise.resolve(),
+            getStateProvider    : () => ({getStore: () => feedStore}),
+            refreshDockWorkspace: async () => {},
+            setPipProgress      : async () => {},
+            setTourCaption      : value => captions.push(value),
+            tourRunner          : {
+                running: false,
+                async start() {
+                    host.refreshPromise = Promise.reject(failure);
+
+                    return {
+                        completed: false,
+                        errors   : ['scene[0] host step settlement failed: projection vanished'],
+                        log      : [{sceneIndex: 0, stepIndex: 0, type: 'op'}]
+                    }
+                }
+            }
+        };
+
+        const receipt = await Workspace.prototype.startTour.call(host);
+
+        expect(receipt).toBe(host.lastTourReceipt);
+        expect(receipt.completed).toBe(false);
+        expect(receipt.errors).toEqual([
+            'scene[0] host step settlement failed: projection vanished'
+        ]);
+        expect(captions.at(-1)).toContain('Tour stopped')
+    });
+
     test('provider-owned stores and cached data panes survive split + return', async () => {
         const workspace = Neo.create(Workspace, {});
 

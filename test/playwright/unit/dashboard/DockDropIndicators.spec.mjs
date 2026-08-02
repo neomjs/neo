@@ -139,6 +139,23 @@ test.describe('Neo.dashboard.DockDropIndicators (§06 — the indicator-overlay 
         expect(hit.edge).toBe('top')
     });
 
+    test('getCandidateHitPoint finds a reachable cross point when a higher chip covers its center', () => {
+        layer = Neo.create(DockDropIndicators, {hostRect: HOST_RECT});
+        layer.candidateSet = mkSet({zoneRect: {x: 400, y: 539, width: 200, height: 100}});
+
+        const previewId = 'preview:terminal:main-tabs:edge-bottom';
+
+        // The root-bottom chip owns the exact center by render-order precedence.
+        expect(layer.hitTest({x: 500, y: 627}).preview.previewId)
+            .toBe('preview:terminal:root:edge-bottom');
+
+        const point = layer.getCandidateHitPoint(previewId);
+
+        expect(point).not.toBeNull();
+        expect(layer.hitTest(point).preview.previewId).toBe(previewId);
+        expect(layer.getCandidateHitPoint('missing-preview')).toBeNull()
+    });
+
     test('updatePointer drives the active candidate: event fired, active cls tracked', () => {
         layer = Neo.create(DockDropIndicators, {hostRect: HOST_RECT});
         layer.candidateSet = mkSet();

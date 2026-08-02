@@ -1273,39 +1273,40 @@ test.describe('Workstation — dense living-data composition', () => {
                     .map(element => element.id);
 
             const state = globalThis.__workstationMonitor = {
-                activeTabEmptyMaxMs           : 0,
-                activeTabEmptySamples         : [],
-                blankSamples                  : [],
-                blankFrames                   : 0,
-                chromeAnimationLeakFrames     : 0,
-                chromeAnimationMaxTargets     : 0,
-                done                          : false,
-                flipSamples                   : 0,
+                activeTabEmptyMaxMs            : 0,
+                activeTabEmptySamples          : [],
+                blankSamples                   : [],
+                blankFrames                    : 0,
+                chromeAnimationLeakFrames      : 0,
+                chromeAnimationMaxTargets      : 0,
+                done                           : false,
+                flipSamples                    : 0,
                 initialContainerIds,
-                initialContainerMissingFrames : 0,
+                initialContainerMissingFrames  : 0,
                 initialHeaderIds,
-                initialHeaderMissingFrames    : 0,
-                midpointSeen                  : false,
-                missingBodyFrames             : 0,
-                novelContainerIds             : [],
-                novelHeaderIds                : [],
-                overflowControlCounts         : {},
-                overflowControlDuplicateFrames: 0,
-                palettes                      : [],
-                pipCounts                     : [initialPipCount],
-                pipRegressionFrames           : 0,
-                railMismatchFrames            : 0,
-                sampledFrames                 : 0,
-                securityCaptured              : false,
-                securityActiveHeaderMissFrames: 0,
-                securityBodyMissingFrames     : 0,
-                securityFullyClippedFrames    : 0,
-                securityFullyClippedSamples   : [],
-                securityMissingFrames         : 0,
-                securityPresenceTransitions   : [],
-                securityOverflowMutationFrames: 0,
-                securityReplacementFrames     : 0,
-                securityStageFramesByBurst    : []
+                initialHeaderMissingFrames     : 0,
+                midpointSeen                   : false,
+                missingBodyFrames              : 0,
+                novelContainerIds              : [],
+                novelHeaderIds                 : [],
+                overflowControlCounts          : {},
+                overflowControlDuplicateFrames : 0,
+                overflowControlDuplicateSamples: [],
+                palettes                       : [],
+                pipCounts                      : [initialPipCount],
+                pipRegressionFrames            : 0,
+                railMismatchFrames             : 0,
+                sampledFrames                  : 0,
+                securityCaptured               : false,
+                securityActiveHeaderMissFrames : 0,
+                securityBodyMissingFrames      : 0,
+                securityFullyClippedFrames     : 0,
+                securityFullyClippedSamples    : [],
+                securityMissingFrames          : 0,
+                securityPresenceTransitions    : [],
+                securityOverflowMutationFrames : 0,
+                securityReplacementFrames      : 0,
+                securityStageFramesByBurst     : []
             };
             const activeTabEmptySpans = {};
             let   securityNode        = null,
@@ -1328,8 +1329,9 @@ test.describe('Workstation — dense living-data composition', () => {
                       body         = document.querySelector('.workstation-scale-pane .neo-grid-body'),
                       railTabCount = [...document.querySelectorAll('.neo-dashboard-dock-rail-tab')]
                           .filter(isVisible).length,
-                      overflowControlCount = [...document.querySelectorAll('.neo-tab-overflow-control')]
-                          .filter(isVisible).length,
+                      overflowControls = [...document.querySelectorAll('.neo-tab-overflow-control')]
+                          .filter(isVisible),
+                      overflowControlCount = overflowControls.length,
                       currentSecurityNode = document.getElementById(identity.securityPaneId);
 
                 if (Boolean(currentSecurityNode) !== Boolean(state.securityPresent)) {
@@ -1426,7 +1428,47 @@ test.describe('Workstation — dense living-data composition', () => {
                 railTabCount === 2 || state.railMismatchFrames++;
                 state.overflowControlCounts[overflowControlCount]
                     = (state.overflowControlCounts[overflowControlCount] || 0) + 1;
-                overflowControlCount > 1 && state.overflowControlDuplicateFrames++;
+
+                if (overflowControlCount > 1) {
+                    state.overflowControlDuplicateFrames++;
+
+                    const sample = {
+                        caption: document.querySelector('.workstation-tour-caption')?.textContent?.trim() || '',
+                        owners : overflowControls.map(control => {
+                            const
+                                controlRect = control.getBoundingClientRect(),
+                                toolbar     = [...document.querySelectorAll('.neo-tab-header-toolbar')]
+                                    .filter(isVisible)
+                                    .map(element => {
+                                        const rect = element.getBoundingClientRect();
+
+                                        return {
+                                            distance: Math.hypot(
+                                                controlRect.right - rect.right,
+                                                controlRect.top + controlRect.height / 2 - (rect.top + rect.height / 2)
+                                            ),
+                                            element
+                                        }
+                                    })
+                                    .sort((a, b) => a.distance - b.distance)[0]?.element,
+                                container   = toolbar?.closest('.neo-tab-container');
+
+                            return {
+                                containerId: container?.id || null,
+                                controlId  : control.id || null,
+                                tabs       : [...toolbar?.querySelectorAll('.neo-tab-header-button') || []]
+                                    .filter(isVisible)
+                                    .map(element => element.textContent?.trim() || ''),
+                                toolbarId: toolbar?.id || null
+                            }
+                        }),
+                        pipCount: root?.querySelectorAll('.workstation-pip-done').length || 0
+                    };
+
+                    JSON.stringify(state.overflowControlDuplicateSamples.at(-1)) === JSON.stringify(sample)
+                        || state.overflowControlDuplicateSamples.length >= 20
+                        || state.overflowControlDuplicateSamples.push(sample)
+                }
 
                 if (currentSecurityNode) {
                     if (!securityNode) {
@@ -1668,7 +1710,8 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBe(0);
         expect(monitor.railMismatchFrames, 'both real rails remain present through every sampled frame').toBe(0);
         expect(monitor.overflowControlDuplicateFrames,
-            `the projection never leaks duplicate overflow controls: ${JSON.stringify(monitor.overflowControlCounts)}`)
+            `the projection never leaks duplicate overflow controls: counts=${JSON.stringify(monitor.overflowControlCounts)} ` +
+            `samples=${JSON.stringify(monitor.overflowControlDuplicateSamples)}`)
             .toBe(0);
         expect(monitor.overflowControlCounts['1'], 'the real overflow state is observed').toBeGreaterThan(0);
         expect(monitor.securityCaptured, 'the overflow cue mounts Security before its structural move').toBe(true);

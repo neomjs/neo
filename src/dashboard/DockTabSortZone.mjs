@@ -79,6 +79,13 @@ class DockTabSortZone extends TabHeaderSortZone {
          */
         dockWorkspaceId: null,
         /**
+         * Dock tab toolbars are parent-sized projection surfaces. Pinning their live width to the
+         * draggable button span would SHRINK a wide header during the gesture, causing Overflow to
+         * misclassify the dragged tab as space-hidden and create a phantom menu control.
+         * @member {Boolean} expandOwnerOnDrag=false
+         */
+        expandOwnerOnDrag: false,
+        /**
          * Slack in px around the source toolbar's REAL bounds inside which a release still counts
          * as a within-toolbar gesture (the base reorder applies). A release farther out than this
          * on any side is dock-gesture territory: the tracked reorder is voided so the cross-zone
@@ -142,11 +149,10 @@ class DockTabSortZone extends TabHeaderSortZone {
 
     /**
      * The source toolbar's PRISTINE viewport rect, measured once per gesture at
-     * {@link #onDragStart} — BEFORE the base runs: the base sort trims its in-memory `ownerRect`
-     * to the button span AND (via its inherited `expandOwnerOnDrag`) writes those trimmed
-     * dimensions onto the toolbar's live style, so neither the base rect nor any post-`super`
-     * measure is a release-decision surface. This pre-mutation snapshot is the real toolbar
-     * boundary {@link #releaseVoidsReorder} decides against.
+     * {@link #onDragStart} — BEFORE the base runs and trims its in-memory `ownerRect` to the
+     * draggable button span. Dock toolbars disable the base's live owner-width write, but the
+     * trimmed rect is still a sort-local surface rather than the real toolbar boundary
+     * {@link #releaseVoidsReorder} decides against.
      * @member {Object|null} dockSourceToolbarRect=null
      * @protected
      */
@@ -954,10 +960,8 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         me.stackDragActive = false;
 
-        // The real toolbar boundary — measured BEFORE the base runs: the base drag-start (with
-        // its inherited `expandOwnerOnDrag`) WRITES the trimmed button-span dimensions onto the
-        // toolbar's live style, so any post-`super` measure reads the mutated box, not the
-        // toolbar's true extent. One pre-gesture measure, off the per-frame hot path.
+        // The real toolbar boundary — measured BEFORE the base trims its sort-local ownerRect to
+        // the draggable button span. One pre-gesture measure, off the per-frame hot path.
         me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
 
         await super.onDragStart(data);
