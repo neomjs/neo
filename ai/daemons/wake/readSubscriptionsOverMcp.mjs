@@ -42,7 +42,10 @@ export function readToolJson(result) {
  * @param {String} options.baseUrl Fully-resolved MCP endpoint, injected by the entrypoint.
  * @param {String} [options.credential=''] Bearer credential; empty means a tokenless plane, which
  * decides admission itself and fail-closed — matching `createPlaneMailboxClient`'s contract.
- * @param {Number} [options.timeoutMs=DEFAULT_TIMEOUT_MS] Per-operation budget.
+ * @param {Number} [options.deadlineMs=DEFAULT_TIMEOUT_MS] Budget for ALL stages COMBINED, not per stage.
+ * Per-stage budgets do not compose: two 8s stages under a 15s caller deadline can consume 16s and be
+ * killed after the read but before publication, which is the one moment a half-finished run is worst.
+ * One shared deadline means the caller's own limit is the only limit that has to hold.
  * @param {Function} [options.ClientClass=Client] Spec seam.
  * @param {Function} [options.TransportClass=StreamableHTTPClientTransport] Spec seam.
  * @returns {Promise<Object[]>} The subscription records, in the shape the manifest builder consumes.
@@ -51,7 +54,7 @@ export async function readSubscriptionsOverMcp({
     baseUrl,
     credential     = '',
     identity       = '',
-    timeoutMs      = DEFAULT_TIMEOUT_MS,
+    deadlineMs     = DEFAULT_TIMEOUT_MS,
     ClientClass    = Client,
     TransportClass = StreamableHTTPClientTransport
 } = {}) {
@@ -79,14 +82,25 @@ export async function readSubscriptionsOverMcp({
 
     const client = new ClientClass({name: 'neo-wake-arming', version: '1.0.0'}, {capabilities: {}});
 
-    const bound = (promise, label) => new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-            abortController.abort();
-            reject(new Error(`${label} timed out after ${timeoutMs}ms`))
-        }, timeoutMs);
+    // One deadline for the whole exchange: each stage gets whatever is LEFT, so connect + list can never
+    // exceed the caller's budget between them.
+    const deadline = Date.now() + deadlineMs,
+          bound    = (promise, label) => new Promise((resolve, reject) => {
+              const remaining = deadline - Date.now();
 
-        promise.then(resolve, reject).finally(() => clearTimeout(timer));
-    });
+              if (remaining <= 0) {
+                  abortController.abort();
+                  reject(new Error(`${label} skipped: the ${deadlineMs}ms wake-arming deadline was already spent`));
+                  return
+              }
+
+              const timer = setTimeout(() => {
+                  abortController.abort();
+                  reject(new Error(`${label} timed out with ${remaining}ms left of the ${deadlineMs}ms deadline`))
+              }, remaining);
+
+              promise.then(resolve, reject).finally(() => clearTimeout(timer));
+          });
 
     try {
         await bound(client.connect(transport), 'wake-arming MCP connect');

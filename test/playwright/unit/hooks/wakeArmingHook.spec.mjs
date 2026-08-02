@@ -11,6 +11,9 @@ import {armSeatWakeRoute,
 import {readSubscriptionsOverMcp,
         readToolJson}            from '../../../../ai/daemons/wake/readSubscriptionsOverMcp.mjs';
 import {armClaudeSeat,
+        HOOK_TIMEOUT_MS,
+        PUBLISH_MARGIN_MS,
+        resolveExchangeDeadlineMs,
         resolveManifestPath}     from '../../../../.claude/hooks/wakeArmingHook.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -127,6 +130,52 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
         // resolution of the same leaves rather than a second spelling of it.
         expect(seen.baseUrl).toBe('http://127.0.0.1:3102/mc/mcp');
         expect(seen.credential).toBe('secret-token');
+    });
+
+    test('the outer hook budget strictly exceeds the inner exchange, from one derived source (#16355)', async () => {
+        // @neo-gpt's deadline finding: the registered hook timeout was 15s while the reader allowed 8s to
+        // connect AND another 8s to list, so a slow plane could spend the whole caller budget and be killed
+        // AFTER reading subscriptions and BEFORE publishing. Per-stage budgets do not compose.
+        const exchange = resolveExchangeDeadlineMs();
+
+        expect(exchange).toBeLessThan(HOOK_TIMEOUT_MS);
+        expect(HOOK_TIMEOUT_MS - exchange).toBeGreaterThanOrEqual(PUBLISH_MARGIN_MS);
+
+        // Never negative or zero, however the pair is later retuned — a non-positive deadline would make
+        // every stage skip instantly and report a timeout that never happened.
+        expect(resolveExchangeDeadlineMs(1000, 9000)).toBeGreaterThan(0);
+    });
+
+    test('the registered template timeout matches the constant the deadline is derived from (#16355)', () => {
+        // Two places holding the same number drift silently, and the drift is invisible until a slow plane
+        // truncates a run mid-publish. Bind them.
+        const template = JSON.parse(fs.readFileSync(path.join(repoRoot, '.claude/settings.template.json'), 'utf8')),
+              hook     = (template.hooks?.SessionStart || [])
+                  .flatMap(entry => entry.hooks || [])
+                  .find(entry => entry.command?.includes('wakeArmingHook.mjs'));
+
+        expect(hook).toBeTruthy();
+        expect(hook.timeout * 1000).toBe(HOOK_TIMEOUT_MS);
+    });
+
+    test('one shared deadline covers both MCP stages, not one budget each (#16355)', async () => {
+        // The composed-boundary coverage: a connect that consumes the whole deadline must leave the LIST
+        // stage nothing, rather than granting it a fresh budget of the same size.
+        const started = Date.now();
+
+        await expect(readSubscriptionsOverMcp({
+            baseUrl       : 'http://127.0.0.1:9/mc/mcp',
+            deadlineMs    : 300,
+            TransportClass: class { async start() {} async send() {} async close() {} },
+            ClientClass   : class {
+                async connect() { return new Promise(() => {}) }
+                async callTool() { return {content: []} }
+                async close() {}
+            }
+        })).rejects.toThrow(/deadline/);
+
+        // Bounded by the SHARED deadline, so nowhere near two stages' worth.
+        expect(Date.now() - started).toBeLessThan(1500);
     });
 
     test('the reader resolves no config of its own and refuses an absent baseUrl (#16355)', async () => {

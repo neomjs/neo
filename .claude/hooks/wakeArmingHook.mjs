@@ -14,6 +14,36 @@ import {readSubscriptionsOverMcp} from '../../ai/daemons/wake/readSubscriptionsO
 export const DEFAULT_MANIFEST_RELATIVE = 'Library/Application Support/Neo/AgentOS/wake/routes.json';
 
 /**
+ * Budget for the whole MCP exchange, and the publication margin left after it.
+ *
+ * These exist as one derived pair rather than two unrelated numbers because that is exactly how the
+ * first version was wrong: the hook's registered timeout was 15s while the reader allowed 8s to connect
+ * and another 8s to list, so a slow plane could consume the caller's entire budget and be killed AFTER
+ * reading subscriptions and BEFORE publishing — the worst possible moment to stop. `HOOK_TIMEOUT_MS`
+ * must stay equal to the `timeout` registered in `.claude/settings.template.json`; a spec asserts it,
+ * because two places holding the same number silently drift.
+ * @type {Number}
+ */
+export const HOOK_TIMEOUT_MS = 15000;
+
+/**
+ * Margin reserved for deriving the tuple, writing the temp file, publishing the manifest, and process
+ * teardown — everything after the exchange returns.
+ * @type {Number}
+ */
+export const PUBLISH_MARGIN_MS = 5000;
+
+/**
+ * @summary The MCP exchange's total budget, derived so the outer deadline strictly exceeds inner work.
+ * @param {Number} [hookTimeoutMs=HOOK_TIMEOUT_MS]
+ * @param {Number} [publishMarginMs=PUBLISH_MARGIN_MS]
+ * @returns {Number}
+ */
+export function resolveExchangeDeadlineMs(hookTimeoutMs = HOOK_TIMEOUT_MS, publishMarginMs = PUBLISH_MARGIN_MS) {
+    return Math.max(1000, hookTimeoutMs - publishMarginMs)
+}
+
+/**
  * @summary Resolves the manifest path from the environment, falling back to the receiver's own default.
  * @param {Object} [options]
  * @param {Object} [options.env=process.env] Environment source.
@@ -99,6 +129,7 @@ export async function armClaudeSeat({
         listSubscriptions: ({identity} = {}) => listSubscriptions({
             baseUrl   : `${planeBase}/mc/mcp`,
             credential: resolved?.planeBearer ?? '',
+            deadlineMs: resolveExchangeDeadlineMs(),
             identity
         }),
         manifestPath: resolveManifestPath({env, homeDir})
