@@ -436,15 +436,34 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         expect(seen.thought).toBeUndefined();
         expect(JSON.stringify(seen)).not.toContain(secret);
 
-        // Consequence: the stored summary, and every default/public read of it, are secret-free.
-        const summaryRead = await MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'summary', limit: 5}),
-              fullRead    = await MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'full',    limit: 5});
+        // Consequence: a same-tenant PEER reading @agent-a's turns receives the row and it is
+        // secret-free. Read as @agent-b inside a bound request context on purpose:
+        //   - Without `RequestContextService.run`, `queryRecentTurns` takes its fail-closed no-tenant
+        //     exit (an empty result), and `not.toContain` would pass on nothing at all. That is how
+        //     the first version of this spec was vacuous — green, and proving only that the reader
+        //     returned no rows.
+        //   - Reading as a PEER rather than the owner exercises the branch that forces
+        //     `projection: 'public'`, which is the boundary the canary is testing.
+        const peerCtx     = {userId: 'tenant-a', agentIdentityNodeId: '@agent-b'},
+              summaryRead = await RequestContextService.run(peerCtx, async () =>
+                  MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'summary', limit: 50})),
+              fullRead    = await RequestContextService.run(peerCtx, async () =>
+                  MemoryService.queryRecentTurns({agentIdentity: '@agent-a', detail: 'full', limit: 50}));
 
+        // POSITIVE CONTROL on the read itself — a negative privacy assertion is worthless until the
+        // protected row is proven observed. Both reads must actually return `budget-thought`, and its
+        // summary must be non-empty, or the `not.toContain` assertions below cannot fail.
+        expect(summaryRead.turns.some(turn => turn.id === 'budget-thought')).toBe(true);
+        expect(fullRead.turns.some(turn => turn.id === 'budget-thought')).toBe(true);
+        expect(summaryRead.turns.find(turn => turn.id === 'budget-thought').summary).toBeTruthy();
+
+        // The peer sees the row, and the row carries no private reasoning.
         expect(JSON.stringify(summaryRead)).not.toContain(secret);
         expect(JSON.stringify(fullRead)).not.toContain(secret);
+        expect(fullRead.turns.find(turn => turn.id === 'budget-thought').thought).toBeUndefined();
 
-        // Positive control: the canary IS present in the stored row, so a green result above means the
-        // boundary held — not that the fixture never carried a secret in the first place.
+        // And the fixture genuinely carried a secret, so green means the boundary held rather than the
+        // canary never having been written.
         expect(memStore.get('budget-thought').thought).toBe(secret);
     });
 
