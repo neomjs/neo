@@ -108,10 +108,11 @@ class FleetControlBridge extends Base {
     historySource = null
     /**
      * Viewer-bound memories source — an injected collaborator exposing `readMemories(params)`:
-     * one page of an explicit target agent's recent turn memories through the single registered
-     * `query_recent_turns` operation. The source resolves the viewer from authenticated request
-     * context at each call and DERIVES the projection (private only for self); this bridge carries
-     * no viewer field and never simulates the plane's admission decision.
+     * one page of an explicit target agent's session summaries through the single registered
+     * `get_all_summaries` operation (the deployment's settled team-visible cross-author read).
+     * The source resolves the viewer from authenticated request context at each call and sends
+     * only the target and paging on the operation call — no viewer claim, no projection axis;
+     * this bridge carries no viewer field and never simulates sharing policy.
      * @member {Object|null} memoriesSource=null
      */
     memoriesSource = null

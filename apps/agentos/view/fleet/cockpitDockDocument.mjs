@@ -34,8 +34,8 @@ export function cockpitDockDocument() {
             // invoked historical complement to the bounded Activity stream — source-owned Bird
             // Views, Fleet-owned runtime anchor, never ambient cockpit density
             catchUp     : {componentRef: 'catch-up',          title: 'Catch up',     kind: 'tool',      autoHidden: true},
-            // invoked per-agent turn recall — the memory complement to catch-up's window digests;
-            // viewer-bound plane reads, never ambient cockpit density
+            // invoked per-agent session-summary recall — the memory complement to catch-up's
+            // window digests; team-visible summary corpus, never ambient cockpit density
             memories    : {componentRef: 'memories',          title: 'Memories',     kind: 'tool',      autoHidden: true},
             // the operator's own mailbox + compose surface — a secondary tool pane like
             // perspectives, so it rides the auto-hide rail and never crowds the split

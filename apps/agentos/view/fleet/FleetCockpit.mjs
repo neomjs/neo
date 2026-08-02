@@ -1174,12 +1174,15 @@ class FleetCockpit extends Container {
                     reference: 'catch-up'
                 };
             case 'memories':
-                // invoked per-agent turn recall: the pane renders the owner-held source envelope
-                // and fires intent; this cockpit owns the authenticated bridge. Agent choices
+                // invoked per-agent session-summary recall: the pane renders the owner-held
+                // source envelope and fires intent; this cockpit owns the authenticated bridge.
+                // The selected target travels WITH the snapshot (one coherent state key), so a
+                // rematerialized pane never shows cards no selection points at. Agent choices
                 // derive from the same provider-owned roster as the cards — no second resident list.
                 return {
                     module      : MemoriesPane,
                     cls         : [marker],
+                    activeAgent : me.memoriesSnapshot?.target ?? null,
                     snapshot    : me.memoriesSnapshot,
                     agentOptions: me.buildMemoriesAgentOptions(),
                     listeners   : {memoriesRequest: 'onMemoriesRequest'},
@@ -2236,8 +2239,9 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Build the memories-pane agent choices from the live roster Store — canonical
-     * `@identity` targets for the viewer-bound `fleetMemories` read. Same provider-owned roster as
-     * the cards; the projection (private only for self) is derived server-side, never here.
+     * `@identity` targets for the `fleetMemories` session-summary read. Same provider-owned
+     * roster as the cards; the summary corpus is the team-visible cross-author read, so the wire
+     * carries the target and paging only — never a viewer claim.
      * @returns {Object[]}
      */
     buildMemoriesAgentOptions() {

@@ -4,7 +4,8 @@ import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authent
 const CAPTURED_AT = '2026-08-03T08:00:00.000Z';
 
 const rosterRows = [
-    {id: 'ada', githubUsername: 'neo-opus-ada', displayName: 'Ada', engineTag: 'fixture', family: 'claude'}
+    {id: 'ada', githubUsername: 'neo-opus-ada', displayName: 'Ada', engineTag: 'fixture', family: 'claude'},
+    {id: 'bob', githubUsername: 'neo-gpt-bob',  displayName: 'Bob', engineTag: 'fixture', family: 'gpt'}
 ];
 
 /**
@@ -20,6 +21,23 @@ function memoriesResult(params = {}) {
     const
         target = params.agentIdentity,
         shared = {viewer: '@e2e-operator', target};
+
+    if (target === '@neo-gpt-bob') {
+        return {
+            capability: {state: 'wired', capturedAt: CAPTURED_AT},
+            ...shared,
+            page    : {offset: 0, limit: 20},
+            sessions: [
+                {
+                    id         : 'bob-1', sessionId: 'bobsess1-0000', timestamp: '2026-08-02T18:00:00.000Z',
+                    title      : 'Bob fixture session', summary: 'A single truthful session.', category: 'other',
+                    memoryCount: 2, quality: 80, impact: 30, sourceAgentIdentities: ['@neo-gpt-bob']
+                }
+            ],
+            count: 1,
+            total: 1
+        }
+    }
 
     if (params.offset > 0) {
         return {
@@ -62,9 +80,14 @@ function memoriesResult(params = {}) {
 async function startMemoriesFleet() {
     const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
+          gates                    = {},
           options                  = authenticatedFleetOptions({
               dispatch: async request => {
                   requests.push(request);
+
+                  if (request.method === 'fleetMemories' && gates[request.params?.agentIdentity]) {
+                      await gates[request.params.agentIdentity]
+                  }
 
                   switch (request.method) {
                       case 'resolveViewerIdentity':
@@ -86,6 +109,7 @@ async function startMemoriesFleet() {
 
     return {
         requests,
+        gates,
         bearerToken: options.bearerToken,
         endpoint   : `http://127.0.0.1:${server.address().port}/fleet`,
         close      : () => new Promise(resolve => server.close(resolve))
@@ -155,10 +179,33 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             await expect(pane.locator('.fm-memories-card').nth(2)).toContainText('Summary unavailable for this session.');
             await expect(pane).not.toContainText('[object Object]');
 
+            // ── switch-while-pending coherence (the reviewer's exact-head probe as a witness) ──
+            // Gate Bob's page zero so the switch-pending window is real and observable.
+            let releaseBob;
+            fleet.gates['@neo-gpt-bob'] = new Promise(resolve => { releaseBob = resolve });
+
+            await pane.getByRole('button', {name: 'Bob'}).click();
+
+            // old target's cards + continuation die IMMEDIATELY; pending state is honest
+            await expect(pane).toContainText('Reading @neo-gpt-bob…');
+            await expect(pane.locator('.fm-memories-card')).toHaveCount(0);
+            await expect(older).toBeHidden();
+            await expect(pane).toContainText('Waiting for this agent’s first page.');
+
+            releaseBob();
+
+            await expect(pane.locator('.fm-memories-card')).toHaveCount(1, {timeout: 10000});
+            await expect(pane).toContainText('@neo-gpt-bob · 1 of 1 sessions');
+            await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('Bob fixture session');
+            await expect(older).toBeHidden();
+
             const memoriesRequests = fleet.requests.filter(request => request.method === 'fleetMemories');
+            // NO offset request for Bob exists anywhere — the continuation could not fire in the
+            // pending window, so page zero was never superseded or preceded
             expect(memoriesRequests.map(request => request.params)).toEqual([
                 {agentIdentity: '@neo-opus-ada'},
-                {agentIdentity: '@neo-opus-ada', offset: 2}
+                {agentIdentity: '@neo-opus-ada', offset: 2},
+                {agentIdentity: '@neo-gpt-bob'}
             ]);
             // the wire carries the explicit target only — no viewer claim, no caller-chosen projection
             expect(memoriesRequests.every(request =>

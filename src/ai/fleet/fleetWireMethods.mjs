@@ -13,9 +13,9 @@
  *
  * `getBootIdentity`, `fleetActivity`, `fleetHistory`, `fleetMemories`, `fleetRoster`, and `fleetMailboxMirror`
  * are **read-observe** verbs — the advisory boot-identity fact, the bounded fleet activity snapshot,
- * one viewer-bound catch-up window, one page of an agent's recent turn memories (projection derived
- * server-side, private only for self), the assembled roster cockpit DTO, and one agent's mailbox
- * mirror: they carry NO lifecycle-write / restart authority. The
+ * one viewer-bound catch-up window, one page of an agent's session summaries (the team-visible
+ * corpus; the wire carries the canonical target and paging only), the assembled roster cockpit
+ * DTO, and one agent's mailbox mirror: they carry NO lifecycle-write / restart authority. The
  * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
  * client wire — only advisory reads ride it.
  *

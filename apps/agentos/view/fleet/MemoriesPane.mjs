@@ -143,9 +143,19 @@ class MemoriesPane extends Container {
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        this.summaryStore = Neo.create(AgentSessionSummaries);
-        this.refreshAgents();
-        this.applySnapshot()
+        const me = this;
+
+        me.summaryStore = Neo.create(AgentSessionSummaries);
+
+        // Rematerialization coherence: a pane rebuilt from an owner-held snapshot must not render
+        // cards for a target no selection points at — the selection is derived from the rendered
+        // truth when the owner did not pass one explicitly.
+        if (me.activeAgent === null && me.snapshot?.target) {
+            me.activeAgent = me.snapshot.target
+        }
+
+        me.refreshAgents();
+        me.applySnapshot()
     }
 
     /** @param {...*} args */
@@ -175,12 +185,23 @@ class MemoriesPane extends Container {
         this.isConstructed && this.applySnapshot()
     }
 
-    /** @param {String} agentIdentity */
+    /**
+     * @summary Switch the selected target. The selected target is part of the rendered snapshot
+     * KEY, not merely a request parameter: the old target's cards and continuation affordance are
+     * invalidated IMMEDIATELY (switch-pending state), so no stale store depth can anchor an
+     * offset request and no old-target action survives into the new selection.
+     * @param {String} agentIdentity
+     */
     onAgentClick(agentIdentity) {
-        if (agentIdentity === this.activeAgent) return;
+        const me = this;
 
-        this.activeAgent = agentIdentity;
-        this.fire('memoriesRequest', {agentIdentity})
+        if (agentIdentity === me.activeAgent) return;
+
+        me.activeAgent = agentIdentity;
+        me.summaryStore?.clear();
+        me.renderedTarget = null;
+        me.applySnapshot();
+        me.fire('memoriesRequest', {agentIdentity})
     }
 
     /** @summary Re-read the newest page for the selected agent. */
@@ -188,11 +209,20 @@ class MemoriesPane extends Container {
         this.activeAgent && this.fire('memoriesRequest', {agentIdentity: this.activeAgent})
     }
 
-    /** @summary Page back through the corpus by the Store's own rendered depth. */
+    /**
+     * @summary Page back through the corpus by the Store's own rendered depth. Guarded by the
+     * coherence contract: fires ONLY once the selected target's page zero has been accepted
+     * (rendered truth === selection), so an offset page can never precede or supersede it.
+     */
     onLoadMoreClick() {
         const me = this;
 
-        me.activeAgent && me.summaryStore && me.fire('memoriesRequest', {
+        if (!me.activeAgent || !me.summaryStore || me.renderedTarget !== me.activeAgent ||
+            me.snapshot?.target !== me.activeAgent) {
+            return
+        }
+
+        me.fire('memoriesRequest', {
             agentIdentity: me.activeAgent,
             offset       : me.summaryStore.count
         })
@@ -220,8 +250,12 @@ class MemoriesPane extends Container {
     }
 
     /**
-     * @summary Project the latest envelope into Store cards and honest chrome. Replace is the
-     * default; append happens only for a same-target `page.offset > 0` continuation.
+     * @summary Project the latest envelope into Store cards and honest chrome under the coherence
+     * contract: the selected target is part of the rendered snapshot KEY. An envelope whose target
+     * mismatches a non-null selection is NOT adopted — the pane renders the switch-pending state
+     * instead, so a stale or late foreign-target page can never resurrect old cards or re-enable
+     * continuation. Replace is the default; append happens only for a same-target
+     * `page.offset > 0` continuation on an already-accepted page zero.
      */
     applySnapshot() {
         const
@@ -230,56 +264,73 @@ class MemoriesPane extends Container {
             metaEl    = me.getReference('memories-meta'),
             moreEl    = me.getReference('memories-more'),
             refreshEl = me.getReference('memories-refresh'),
-            wired     = snapshot?.capability?.state === 'wired';
+            coherent  = !snapshot || !me.activeAgent || snapshot.target === me.activeAgent,
+            adopted   = coherent ? snapshot : null,
+            wired     = adopted?.capability?.state === 'wired',
+            pending   = me.activeAgent && (!adopted || adopted.target !== me.activeAgent);
 
         if (!me.summaryStore) return;
 
-        const append = wired && snapshot.page?.offset > 0 && snapshot.target === me.renderedTarget;
+        const append = wired && adopted.page?.offset > 0 && adopted.target === me.renderedTarget;
 
         if (!append) {
             me.summaryStore.clear()
         }
 
         if (wired) {
-            const fresh = snapshot.sessions.filter(session => session?.id && !me.summaryStore.get(session.id));
+            const fresh = adopted.sessions.filter(session => session?.id && !me.summaryStore.get(session.id));
 
             fresh.length > 0 && me.summaryStore.add(fresh);
-            me.renderedTarget = snapshot.target
+            me.renderedTarget = adopted.target
         } else {
             me.renderedTarget = null
         }
 
         if (metaEl) {
-            metaEl.text = !snapshot
-                ? (me.activeAgent ? 'Memories not observed yet' : 'Pick an agent to read their recent sessions.')
-                : wired
-                    ? `${snapshot.target} · ${me.summaryStore.count} of ${snapshot.total ?? '?'} sessions · captured ${me.formatStamp(snapshot.capability.capturedAt)}`
-                    : `Memories unavailable · ${snapshot.capability?.reason || 'unknown reason'}`
+            metaEl.text = pending
+                ? `Reading ${me.activeAgent}…`
+                : !adopted
+                    ? 'Pick an agent to read their recent sessions.'
+                    : wired
+                        ? `${adopted.target} · ${me.summaryStore.count} of ${adopted.total ?? '?'} sessions · captured ${me.formatStamp(adopted.capability.capturedAt)}`
+                        : `Memories unavailable · ${adopted.capability?.reason || 'unknown reason'}`
         }
 
         refreshEl && (refreshEl.hidden = !me.activeAgent);
-        moreEl    && (moreEl.hidden    = !(wired && Number.isFinite(snapshot.total) && me.summaryStore.count < snapshot.total));
+        moreEl    && (moreEl.hidden    = !(wired && !pending && Number.isFinite(adopted.total) && me.summaryStore.count < adopted.total));
 
-        me.renderRows(snapshot, wired)
+        me.renderRows(adopted, wired, pending)
     }
 
     /**
-     * @summary Render the Store's cards (or the honest empty/unavailable state) into the rows zone.
+     * @summary Render the Store's cards (or the honest pending/empty/unavailable state) into the
+     * rows zone. `snapshot` here is the ADOPTED envelope — a coherence-rejected one arrives as
+     * null with `pending` set.
      * @param {Object|null} snapshot
      * @param {Boolean} wired
+     * @param {Boolean} pending
      */
-    renderRows(snapshot, wired) {
+    renderRows(snapshot, wired, pending) {
         const target = this.getReference('memories-rows');
 
         if (!target) return;
 
         target.removeAll(true);
 
+        if (pending) {
+            target.add({
+                module: Component,
+                cls   : ['fm-memories-empty'],
+                text  : 'Waiting for this agent’s first page. Nothing here claims to be their history yet.'
+            });
+            return
+        }
+
         if (!snapshot) {
             target.add({
                 module: Component,
                 cls   : ['fm-memories-empty'],
-                text  : this.activeAgent ? 'No read has been made yet.' : 'Session summaries render here once an agent is chosen.'
+                text  : 'Session summaries render here once an agent is chosen.'
             });
             return
         }
