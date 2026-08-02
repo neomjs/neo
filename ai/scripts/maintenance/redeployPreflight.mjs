@@ -16,8 +16,9 @@ import {verifyLatestBackupRestorable} from './restore.mjs';
 /**
  * @module ai/scripts/maintenance/redeployPreflight
  * @summary Refuses a container-affecting deploy unless a verified, non-empty, restorable
- * pre-transition bundle exists — or the operator has explicitly declared initialization and the
- * Docker plane independently confirms that no primary-store volume exists.
+ * pre-transition bundle exists — or the operator has explicitly declared initialization plus its
+ * Compose project identity, and the Docker plane confirms that no primary-store volume exists for
+ * that declared project.
  *
  * ## What this can and cannot protect
  *
@@ -38,7 +39,9 @@ import {verifyLatestBackupRestorable} from './restore.mjs';
  * present as absence** on the host filesystem. Nothing about "no bundle here" says which one it is,
  * so keying the refusal on that absence alone would either block the first legitimate deploy or
  * fail open on an established plane. The operator therefore DECLARES initialization, while the
- * preflight also observes the independently durable Compose primary-store volume.
+ * preflight also observes the independently durable Compose primary-store volume. The project
+ * selector is part of that declaration: a defaulted or missing identity cannot authorize this path,
+ * because project-scoped absence is not plane-wide absence on a multi-project host.
  *
  * The marker lives beside the bundles on the host bind-mount, which survives ordinary container
  * recreation. The primary store lives in a Docker named volume, a separate durability domain. A
@@ -200,9 +203,9 @@ export function evaluateRedeployPreconditions({
  * @summary Observes the Compose primary-store volume using read-only Docker metadata operations.
  *
  * The lookup first narrows by BOTH canonical Compose labels, then inspects the single match and
- * verifies those labels exactly. Zero matches is a measured absence. Multiple matches, malformed
- * labels, command failures, and missing project identity remain unknown and can never authorize
- * initialization.
+ * verifies those labels exactly. Zero matches is a measured absence for the declared project.
+ * Multiple matches, malformed labels, command failures, and missing project identity remain unknown
+ * and can never authorize initialization.
  *
  * @param {Object} [options]
  * @param {String} [options.composeProject] Expected Compose project label.

@@ -419,8 +419,10 @@ test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)'
         expect(source).toMatch(/set -euo pipefail/);
         // And the escape hatch has to be reachable, or a genuine first install cannot deploy at all.
         expect(source).toMatch(/NEO_DEPLOY_INITIALIZE/);
-        // The initialization observer must use the SAME project identity Compose uses.
-        expect(source).toContain('--initialize --compose-project "$PROJECT_NAME"');
+        // The initialization observer must use the DECLARED identity, never the ordinary-redeploy
+        // default: a defaulted project-scoped absence cannot prove this host has no existing plane.
+        expect(source).toContain('--initialize --compose-project "$DECLARED_PROJECT_NAME"');
+        expect(source).toMatch(/NEO_DEPLOY_PROJECT_NAME must be explicitly declared/);
         // The contract permits metadata observation, but no container lifecycle mutation before the gate.
         expect(source).toMatch(/read-only Docker volume metadata query/);
     })
