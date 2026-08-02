@@ -1,8 +1,16 @@
 import {spawnSync}                from 'node:child_process';
-import {existsSync, readFileSync} from 'node:fs';
-import path                       from 'node:path';
-import process                    from 'node:process';
-import {fileURLToPath}            from 'node:url';
+import {
+    cpSync,
+    existsSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    rmSync
+} from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
+import process         from 'node:process';
+import {fileURLToPath} from 'node:url';
 
 const
     __filename   = fileURLToPath(import.meta.url),
@@ -204,18 +212,29 @@ if (isMain) {
     if (dryRun) {
         console.log(`${resolveNpmCommand()} ${args.join(' ')}`);
         for (const pin of nested) {
-            console.log(`(cd node_modules/${pin.parent} && ${resolveNpmCommand()} ${buildNpmArgs([`${pin.name}@${pin.version}`], {ignoreScripts}).join(' ')})`);
+            console.log(`[nested] ${pin.name}@${pin.version} → node_modules/${pin.parent}/node_modules/${pin.name} (staged install + copy)`);
         }
     } else {
         console.log(`[install-brain] Overlaying the Brain tier (${topLevel.length} exact top-level specifiers from the committed closure) onto the base install…`);
 
         runNpm(args, repoRoot);
 
-        // Nested range-pins install INTO their parent's tree — the only placement that satisfies
-        // the range without re-resolving it live. Runs after the overlay so the parents exist.
+        // Nested range-pins land via a staged install + copy: installing inside the parent's own
+        // directory would treat the parent as a project root and pull its ENTIRE dependency +
+        // devDependency tree along with the pin (that pollution fired for real). The stage keeps
+        // the copy to exactly the pinned package. Pure-JS placement: a future nested pin shipping
+        // a `bin` needs the parent's `.bin` link step added here deliberately.
         for (const pin of nested) {
             console.log(`[install-brain] Freezing nested pin ${pin.name}@${pin.version} under ${pin.parent}…`);
-            runNpm(buildNpmArgs([`${pin.name}@${pin.version}`], {ignoreScripts}), path.join(repoRoot, 'node_modules', pin.parent));
+
+            const stage  = mkdtempSync(path.join(os.tmpdir(), 'install-brain-nested-')),
+                  target = path.join(repoRoot, 'node_modules', pin.parent, 'node_modules', pin.name);
+
+            runNpm(buildNpmArgs([`${pin.name}@${pin.version}`], {ignoreScripts}), stage);
+            mkdirSync(path.dirname(target), {recursive: true});
+            rmSync(target, {force: true, recursive: true});
+            cpSync(path.join(stage, 'node_modules', pin.name), target, {recursive: true});
+            rmSync(stage, {force: true, recursive: true});
         }
 
         console.log('[install-brain] Brain tier armed: `better-sqlite3`, `chromadb`, `@chroma-core/default-embed`.');
