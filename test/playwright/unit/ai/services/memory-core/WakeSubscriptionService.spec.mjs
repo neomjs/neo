@@ -24,7 +24,12 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 // The setup regression is outside this spec's delivery contract.
 if (!Neo.get) Neo.get = () => null;
 
-import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import RequestContextService       from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {buildWakeReceiverManifest} from '../../../../../../ai/daemons/wake/buildReceiverManifest.mjs';
+
+// The per-machine receiver address a real boot envelope supplies. No committed file can hold it,
+// which is why bootstrap derives the transport but must be GIVEN the address.
+const BOOT_URL = 'http://host.docker.internal:3199/wake';
 
 test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
@@ -107,8 +112,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         owner = '@alice',
         trigger = 'SENT_TO_ME',
         filters = {},
-        harnessTarget = 'bridge-daemon',
-        harnessTargetMetadata = {appName: 'Codex'},
+        // Defaults to the DERIVED shape, because that is what bootstrap now produces and what a
+        // post-migration plane stores. Specs that need the legacy transport pass it explicitly.
+        harnessTarget = 'a2a-webhook',
+        harnessTargetMetadata = {appName: 'Codex', url: BOOT_URL},
         status = 'active',
         createdAt = '2026-05-04T20:00:00.000Z',
         updatedAt = createdAt
@@ -181,8 +188,13 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     // -----------------------------------------------------------------------------
 
     test.describe('bootstrap', () => {
-        test('creates new subscription from identity template', async () => {
-            // Give Alice a template
+        test('creates new subscription from identity template, DERIVING the transport over a stale one', async () => {
+            // The template deliberately still declares `bridge-daemon`, because that is the live
+            // shape: cleaning the seed in `identityRoots.mjs` does not rewrite `subscriptionTemplate`
+            // on nodes already persisted in a graph. Deriving — rather than trusting a cleaned
+            // template — is what makes bootstrap arm a seat on a plane that already has the stale
+            // value stored. Reading the template would reproduce the original defect on every
+            // existing deployment while passing on a fresh one.
             GraphService.upsertNode({
                 id        : '@alice',
                 type      : 'AGENT',
@@ -198,15 +210,167 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                // `overrideMetadata` is the boot envelope's channel. The receiver URL is per-machine
+                // and reaches bootstrap only this way — no committed file can hold it.
+                const res = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL, adapter: 'osascript'}
+                });
                 expect(res.status).toBe('created');
                 expect(res.subscriptionId).toMatch(/^WAKE_SUB:[0-9a-f-]{36}$/);
-                expect(res.harnessTarget).toBe('bridge-daemon');
+
+                // The whole point: NOT the template's 'bridge-daemon'. That target is withdrawn by
+                // `buildReceiverManifest`, so a row minted from it can never become a route.
+                expect(res.harnessTarget).toBe('a2a-webhook');
 
                 const node = GraphService.db.nodes.get(res.subscriptionId);
                 expect(node.properties.trigger).toBe('SENT_TO_ME');
                 expect(node.properties.filters.priority).toBe('high');
+                expect(node.properties.harnessTarget).toBe('a2a-webhook');
+                // GUI hints from the template survive — they are policy, not transport.
                 expect(node.properties.harnessTargetMetadata.appName).toBe('Antigravity');
+                // And the key the template could never carry is minted on this branch.
+                expect(node.properties.harnessTargetMetadata.signingKey).toMatch(/^[0-9a-f]{64}$/);
+            });
+        });
+
+        test('a seat carrying a legacy transport gets a SECOND row, and the legacy one is never retired', async () => {
+            // The migration end-state, pinned because the mechanism is counter-intuitive and my PR
+            // body first described it wrongly. `_reconcileDuplicateSubscriptions` groups by canonical
+            // route key, and `_buildSubscriptionRouteKey` includes `harnessTarget` verbatim — so a
+            // stored `bridge-daemon` row and a derived `a2a-webhook` row are two singleton groups and
+            // neither is ever N-1'd. There is no self-heal. What neutralizes the legacy row is the
+            // manifest builder, which withdraws that target with a named reason; nothing retires it.
+            //
+            // Asserted rather than narrated so nobody can "fix" this back into a self-heal claim: the
+            // reconciler's route-key grouping is what protects legitimate multi-route seats, and
+            // blanket-retiring non-deliverable targets would destroy Shape C setups.
+            GraphService.upsertNode({
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger              : 'SENT_TO_ME',
+                        filters              : {},
+                        harnessTargetMetadata: {appName: 'Antigravity'}
+                    }
+                }
+            });
+
+            const legacy = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:legacy-uuid',
+                owner                : '@alice',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Antigravity'}
+            });
+
+            const readStatus = id => JSON.parse(
+                GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id).data
+            ).properties.status;
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL, adapter: 'osascript'}
+                });
+
+                // A second row is minted: the derived route tuple cannot match the stored one.
+                expect(res.status).toBe('created');
+                expect(res.subscriptionId).not.toBe(legacy.subscriptionId);
+                expect(res.harnessTarget).toBe('a2a-webhook');
+
+                // And the legacy row is STILL ACTIVE — not retired, on this boot or any later one.
+                // It stays visible as `active` on lifecycle surfaces while being unpublishable.
+                expect(readStatus(legacy.subscriptionId)).toBe('active');
+
+                // A second bootstrap changes nothing: reconcile still sees two singleton groups.
+                const again = await WakeSubscriptionService.manage({
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL, adapter: 'osascript'}
+                });
+
+                expect(again.subscriptionId).toBe(res.subscriptionId);
+                expect(readStatus(legacy.subscriptionId)).toBe('active');
+            });
+        });
+
+        test('without a receiver URL it REFUSES by name instead of minting a dark row', async () => {
+            // The behaviour change that matters most on a live plane, and it is a refusal rather
+            // than an arming. Before, bootstrap read `bridge-daemon` off the template, minted a row
+            // the manifest builder withdraws by design, and returned `status: 'created'` — a silent
+            // false success that left the seat reading `active` while unreachable.
+            //
+            // Now the derived target reaches `subscribe()`'s Shape-B validation, which names the one
+            // input nothing supplies yet: the per-machine receiver URL. A named refusal the boot
+            // path logs beats a success that arms nobody — and it is why this ticket's remaining
+            // half is "where does the URL come from", not "why is the seat dark".
+            GraphService.upsertNode({
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger              : 'SENT_TO_ME',
+                        filters              : {priority: 'high'},
+                        harnessTargetMetadata: {appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await expect(WakeSubscriptionService.manage({action: 'bootstrap'}))
+                    .rejects.toThrow(/requires harnessTargetMetadata\.url/);
+
+                // And it left nothing behind — a refusal that half-created a row would be worse
+                // than the silent success it replaces.
+                const owned = Object.values(GraphService.db.nodes.items || {})
+                    .filter(n => n.label === 'WAKE_SUBSCRIPTION' && n.properties?.agentIdentity === '@alice');
+                expect(owned).toEqual([]);
+            });
+        });
+
+        test('the bootstrapped row is one the manifest builder accepts — the two agree by construction', async () => {
+            // Cross-side agreement, asserted rather than assumed: bootstrap's output must be a row
+            // `buildWakeReceiverManifest` will publish. Before this, bootstrap minted `bridge-daemon`
+            // rows the builder withdraws by design — success on one side, refusal on the other, and
+            // nothing compared them.
+            GraphService.upsertNode({
+                id        : '@alice',
+                type      : 'AGENT',
+                name      : 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger              : 'SENT_TO_ME',
+                        filters              : {priority: 'high'},
+                        harnessTargetMetadata: {appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({
+                          action          : 'bootstrap',
+                          overrideMetadata: {url: BOOT_URL, adapter: 'tmux', tmuxSession: 'spec'}
+                      }),
+                      node = GraphService.db.nodes.get(res.subscriptionId);
+
+                const record = {
+                    id                   : res.subscriptionId,
+                    agentIdentity        : '@alice',
+                    status               : 'active',
+                    harnessTarget        : node.properties.harnessTarget,
+                    harnessTargetMetadata: node.properties.harnessTargetMetadata
+                };
+
+                const {manifest, skipped} = buildWakeReceiverManifest({
+                    subscriptions : [record],
+                    callerIdentity: '@alice'
+                });
+
+                expect(Object.keys(manifest.routes)).toContain(res.subscriptionId);
+                expect(skipped).toEqual([]);
             });
         });
 
@@ -232,7 +396,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     now             : '2026-06-04T00:00:00.000Z',
                     overrideMetadata: {
                         instanceAddress: '/Users/example/.antigravity-instances/Neo',
-                        addressType    : 'userDataDir'
+                        addressType    : 'userDataDir',
+                        // A real boot envelope for a deliverable route carries the receiver URL
+                        // alongside the instance tuple; the derived Shape-B target requires it.
+                        url            : BOOT_URL
                     },
                     presence: {
                         state       : 'idle',
@@ -275,10 +442,10 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const first = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const first = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
                 expect(first.status).toBe('created');
 
-                const second = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const second = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
                 expect(second.status).toBe('existing');
                 expect(second.subscriptionId).toBe(first.subscriptionId);
             });
@@ -318,10 +485,11 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.manage({
-                    action: 'bootstrap',
-                    bootId: 'new-boot',
-                    now   : '2026-06-04T00:01:00.000Z',
-                    pid   : process.pid
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL},
+                    bootId          : 'new-boot',
+                    now             : '2026-06-04T00:01:00.000Z',
+                    pid             : process.pid
                 });
             });
 
@@ -366,10 +534,11 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.manage({
-                    action: 'bootstrap',
-                    bootId: 'ttl-boot',
-                    now   : '2026-06-04T00:11:00.000Z',
-                    pid   : process.pid
+                    action          : 'bootstrap',
+                    overrideMetadata: {url: BOOT_URL},
+                    bootId          : 'ttl-boot',
+                    now             : '2026-06-04T00:11:00.000Z',
+                    pid             : process.pid
                 });
             });
 
@@ -406,9 +575,11 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             };
 
             await RequestContextService.run({agentIdentityNodeId: '@neo-gpt'}, async () => {
-                const res = await WakeSubscriptionService.manage({action: 'bootstrap'});
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
                 expect(res.status).toBe('created');
-                expect(res.harnessTarget).toBe('bridge-daemon');
+                // Recovered from the durable row, but the transport is still derived — the durable
+                // template's stale 'bridge-daemon' is read for policy and ignored for transport.
+                expect(res.harnessTarget).toBe('a2a-webhook');
 
                 const subscriptionNode = GraphService.db.nodes.get(res.subscriptionId);
                 expect(subscriptionNode.properties.trigger).toBe('SENT_TO_ME');
@@ -454,23 +625,30 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // Seed 2 active subscriptions for @alice with identical route-tuple but
             // different creation times; only the newest route should remain active.
+            // Seeded in the post-derivation shape so this test measures what it is named for —
+            // duplicate reconciliation — rather than incidentally measuring route matching. A
+            // seat whose stored rows still carry the old transport is a different case: those rows
+            // land in a different route group and are never reconciled, pinned by the legacy-transport
+            // bootstrap test above.
+            const seededRoute = {harnessTarget: 'a2a-webhook', harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL}};
+
             const older = insertDurableSubscription({
-                subscriptionId       : 'WAKE_SUB:older-uuid',
-                owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt            : '2026-05-08T17:57:00.000Z',
-                updatedAt            : '2026-05-08T17:57:00.000Z'
+                subscriptionId: 'WAKE_SUB:older-uuid',
+                owner         : '@alice',
+                ...seededRoute,
+                createdAt: '2026-05-08T17:57:00.000Z',
+                updatedAt: '2026-05-08T17:57:00.000Z'
             });
             const newer = insertDurableSubscription({
-                subscriptionId       : 'WAKE_SUB:newer-uuid',
-                owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
-                createdAt            : '2026-05-10T17:09:00.000Z',
-                updatedAt            : '2026-05-10T17:09:00.000Z'
+                subscriptionId: 'WAKE_SUB:newer-uuid',
+                owner         : '@alice',
+                ...seededRoute,
+                createdAt: '2026-05-10T17:09:00.000Z',
+                updatedAt: '2026-05-10T17:09:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
 
                 // Bootstrap should return the NEWER subscription as existing (reconciler-kept).
                 expect(res.subscriptionId).toBe(newer.subscriptionId);
@@ -506,12 +684,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             const only = insertDurableSubscription({
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                // Must equal the MERGED metadata bootstrap computes (template hints + boot-envelope
+                // address), or the route-idempotency check misses and mints a second row.
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-10T17:09:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
 
                 expect(res.subscriptionId).toBe(only.subscriptionId);
                 expect(res.status).toBe('existing');
@@ -540,24 +720,24 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const oldest = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:oldest',
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-06T12:00:00.000Z'
             });
             const middle = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:middle',
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-08T12:00:00.000Z'
             });
             const newest = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:newest',
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-10T12:00:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
 
                 expect(res.subscriptionId).toBe(newest.subscriptionId);
             });
@@ -588,13 +768,14 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 }
             });
 
-            // Route A: SENT_TO_ME + bridge-daemon + Antigravity (matches bootstrap template)
+            // Route A: SENT_TO_ME + the DERIVED transport + Antigravity — the tuple bootstrap now
+            // computes. The discriminator under test is the trigger, not the transport.
             const routeA = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:route-a',
                 owner                : '@alice',
                 trigger              : 'SENT_TO_ME',
-                harnessTarget        : 'bridge-daemon',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTarget        : 'a2a-webhook',
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-10T17:09:00.000Z'
             });
 
@@ -604,12 +785,12 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 owner                : '@alice',
                 trigger              : 'TASK_STATE_CHANGED',
                 harnessTarget        : 'bridge-daemon',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-10T17:09:30.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
                 // Bootstrap re-uses Route A (matches template); does NOT collapse Route B.
                 expect(res.subscriptionId).toBe(routeA.subscriptionId);
                 expect(res.status).toBe('existing');
@@ -642,19 +823,19 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const retired = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:already-retired',
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 status               : 'retired',
                 createdAt            : '2026-05-08T17:57:00.000Z'
             });
             const active = insertDurableSubscription({
                 subscriptionId       : 'WAKE_SUB:still-active',
                 owner                : '@alice',
-                harnessTargetMetadata: {appName: 'Antigravity'},
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL},
                 createdAt            : '2026-05-10T17:09:00.000Z'
             });
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap', overrideMetadata: {url: BOOT_URL}});
 
                 expect(res.subscriptionId).toBe(active.subscriptionId);
                 expect(res.status).toBe('existing');
@@ -929,7 +1110,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const res = await WakeSubscriptionService.subscribe({
                 trigger              : 'SENT_TO_ME',
                 harnessTarget        : 'bridge-daemon',
-                harnessTargetMetadata: {appName: 'Antigravity'}
+                harnessTargetMetadata: {appName: 'Antigravity', url: BOOT_URL}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
