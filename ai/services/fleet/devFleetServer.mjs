@@ -60,6 +60,7 @@ import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWak
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
+import {wireFleetMemoriesSource}              from './wireFleetMemoriesSource.mjs';
 import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.mjs';
 import path                                   from 'node:path';
 import {fileURLToPath, pathToFileURL}         from 'node:url';
@@ -238,6 +239,15 @@ async function boot() {
         exploreMemoryHistory     : args => callHistoryOperation('explore_memory_history', args),
         explorePullRequestHistory: args => callHistoryOperation('explore_pull_request_history', args),
         resolveViewerIdentity    : () => RequestContextService.getAgentIdentityNodeId()
+    });
+
+    // The memories view rides the SAME operation boundary as the catch-up source: the single
+    // registered `query_recent_turns` op through the proven plane client (plane mode) or the lazy
+    // tool-service import (in-process mode). Zero new Memory Core surface — the plane's own
+    // admission (CAN_READ_MEMORIES_OF, tenant sharing policy) stays the only read authority.
+    wireFleetMemoriesSource({
+        queryRecentTurns     : args => callHistoryOperation('query_recent_turns', args),
+        resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
     });
 
     FleetControlBridge.mailboxMirrorSource = {

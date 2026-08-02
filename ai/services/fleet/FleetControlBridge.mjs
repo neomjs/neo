@@ -107,6 +107,15 @@ class FleetControlBridge extends Base {
      */
     historySource = null
     /**
+     * Viewer-bound memories source — an injected collaborator exposing `readMemories(params)`:
+     * one page of an explicit target agent's recent turn memories through the single registered
+     * `query_recent_turns` operation. The source resolves the viewer from authenticated request
+     * context at each call and DERIVES the projection (private only for self); this bridge carries
+     * no viewer field and never simulates the plane's admission decision.
+     * @member {Object|null} memoriesSource=null
+     */
+    memoriesSource = null
+    /**
      * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
      * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
@@ -480,6 +489,28 @@ class FleetControlBridge extends Base {
                 viewerState        : {lastSeen: null, lastVisitAt: null},
                 window             : null,
                 sources            : null
+            };
+    }
+
+    /**
+     * @summary READ-OBSERVE: read one page of an agent's recent turn memories for the
+     * authenticated viewer. The source envelope passes through untouched; an unwired source is
+     * named as unavailable rather than fabricated empty history.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetMemories(params = {}) {
+        return typeof this.memoriesSource?.readMemories === 'function'
+            ? this.memoriesSource.readMemories(params)
+            : {
+                capability: {state: 'unavailable', reason: 'fleet memories source not wired'},
+                viewer    : null,
+                target    : params.agentIdentity || null,
+                projection: null,
+                page      : {before: params.before ?? null, limit: null},
+                turns     : [],
+                count     : 0,
+                nextCursor: null
             };
     }
 
