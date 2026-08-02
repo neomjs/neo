@@ -17,24 +17,23 @@ import {normalizeAgentIdentityNodeId}                 from '../../graph/normaliz
  */
 
 /**
- * @summary Resolves and BINDS the Fleet viewer at trusted server bootstrap — fail-closed.
+ * @summary Resolves the Fleet viewer's identity CLAIM — the graphless first half of viewer binding.
  *
- * Composition mirrors the memory-core stdio boot (identity chain → canonical node id → seeded
- * graph-node verification) with one deliberate inversion: where memory-core treats a missing
- * graph node as single-tenant fallthrough, Fleet REFUSES to serve. The viewer identity is what
- * every admitted request gets stamped with; serving without a bound one would make admission
- * facts unattributable.
+ * Runs only the identity chain (env-var → gh CLI) and canonical node-id derivation; it deliberately
+ * touches NO Memory Core surface. Plane-mode boot consumes this claim and lets the plane itself
+ * verify it (the plane-side `list_permissions` proof binds the bearer's server-resolved subject to
+ * this claim), so a missing or stale HOST graph can never veto a healthy configured plane. The
+ * in-process mode composes this claim with the host-graph verification via
+ * {@link resolveFleetViewer}.
  *
  * @param {Object}   [options]
  * @param {Function} [options.resolveIdentity] `() => Promise<{githubLogin, username, source}>` —
  *     defaults to the shared stdio resolver (env-var → gh CLI chain), lazily imported so tests
  *     inject without paying the Neo-class import.
- * @param {Function} [options.getGraphService] `() => Promise<{ready, getNode}>` — defaults to the
- *     memory-core GraphService, lazily imported per the established cross-process read pattern.
  * @returns {Promise<{userId: String, username: String, agentIdentityNodeId: String, source: String}>}
- * @throws {Error} Named, remediation-bearing refusals for the unresolved and unseeded cases.
+ * @throws {Error} The named, remediation-bearing refusal for the unresolved case.
  */
-export async function resolveFleetViewer({resolveIdentity = null, getGraphService = null} = {}) {
+export async function resolveFleetViewerClaim({resolveIdentity = null} = {}) {
     const resolve = resolveIdentity
         || (async () => (await import('../../mcp/server/shared/services/StdioIdentityResolver.mjs')).default.resolve());
 
@@ -48,7 +47,37 @@ export async function resolveFleetViewer({resolveIdentity = null, getGraphServic
         )
     }
 
-    const nodeId  = normalizeAgentIdentityNodeId(identity.githubLogin),
+    return {
+        userId             : identity.githubLogin,
+        username           : identity.username || identity.githubLogin,
+        agentIdentityNodeId: normalizeAgentIdentityNodeId(identity.githubLogin),
+        source             : identity.source
+    }
+}
+
+/**
+ * @summary Resolves and BINDS the Fleet viewer at trusted server bootstrap — fail-closed.
+ *
+ * Composition mirrors the memory-core stdio boot (identity chain → canonical node id → seeded
+ * graph-node verification) with one deliberate inversion: where memory-core treats a missing
+ * graph node as single-tenant fallthrough, Fleet REFUSES to serve. The viewer identity is what
+ * every admitted request gets stamped with; serving without a bound one would make admission
+ * facts unattributable.
+ *
+ * This is the IN-PROCESS mode binding: the {@link resolveFleetViewerClaim} claim verified against
+ * the host graph. Plane-mode boot uses the claim alone — its verification authority is the plane.
+ *
+ * @param {Object}   [options]
+ * @param {Function} [options.resolveIdentity] Forwarded to {@link resolveFleetViewerClaim}.
+ * @param {Function} [options.getGraphService] `() => Promise<{ready, getNode}>` — defaults to the
+ *     memory-core GraphService, lazily imported per the established cross-process read pattern.
+ * @returns {Promise<{userId: String, username: String, agentIdentityNodeId: String, source: String}>}
+ * @throws {Error} Named, remediation-bearing refusals for the unresolved and unseeded cases.
+ */
+export async function resolveFleetViewer({resolveIdentity = null, getGraphService = null} = {}) {
+    const claim = await resolveFleetViewerClaim({resolveIdentity});
+
+    const nodeId  = claim.agentIdentityNodeId,
           service = getGraphService
               ? await getGraphService()
               : (await import('../memory-core/GraphService.mjs')).default;
@@ -59,7 +88,7 @@ export async function resolveFleetViewer({resolveIdentity = null, getGraphServic
 
     if (node?.type !== 'AgentIdentity') {
         throw new Error(
-            `[fleet] startup refused: resolved viewer '${identity.githubLogin}' has no seeded ` +
+            `[fleet] startup refused: resolved viewer '${claim.userId}' has no seeded ` +
             `AgentIdentity node ${nodeId}. The handle is stale, renamed, or unseeded — fix ` +
             'NEO_AGENT_IDENTITY or seed it via seedAgentIdentities.mjs. Serving without a bound ' +
             'viewer would make admission unattributable, so the Fleet ingress fails closed.'
@@ -67,10 +96,8 @@ export async function resolveFleetViewer({resolveIdentity = null, getGraphServic
     }
 
     return {
-        userId             : identity.githubLogin,
-        username           : identity.username || identity.githubLogin,
-        agentIdentityNodeId: node.id,
-        source             : identity.source
+        ...claim,
+        agentIdentityNodeId: node.id
     }
 }
 

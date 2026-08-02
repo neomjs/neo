@@ -140,6 +140,8 @@
         "fleet.harnessBinaries.kimiCode",
         "fleet.harnessBinaries.openCode",
         "fleet.instanceRoot",
+        "fleet.planeBase",
+        "fleet.planeBearer",
         "geminiApiKey",
         "graphProvider",
         "knowledgeBase",
