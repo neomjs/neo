@@ -171,6 +171,7 @@
         "memoryService.graphProjectionRetryMaxMs",
         "memoryService.miniSummaryBackfillFreshReserve",
         "memoryService.miniSummaryBackfillMaxRunMs",
+        "memoryService.miniSummaryMaxAttempts",
         "memoryService.miniSummaryMaxChars",
         "memoryService.miniSummaryTimeoutMs",
         "modelName",
