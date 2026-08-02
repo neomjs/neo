@@ -228,26 +228,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Marks the first resize delivery after a (re)mount. The mount path (`addResizeObserver()`)
-     * already measures via `passSizeToBody()`, so the ResizeObserver's register-time echo is
-     * redundant — but ONLY when it actually carries the already-measured size. `onResize()`
-     * therefore classifies the first delivery against `lastMeasuredContainerSize` instead of
-     * consuming it blindly: a first delivery that differs is a REAL resize which raced the
-     * registration (e.g. a committed dock-splitter re-layout) and must be processed, or worker
-     * geometry freezes at the stale mount value until an unrelated resize.
-     * @member {Boolean} initialResizeEvent=true
-     * @protected
-     */
-    initialResizeEvent = true
-    /**
-     * The container border-box size of the most recent `passSizeToBody()` measurement.
-     * Consumed by `onResize()` to classify the first post-(re)mount delivery as a redundant
-     * register-time echo vs a real resize that raced the registration.
-     * @member {Object|null} lastMeasuredContainerSize=null
-     * @protected
-     */
-    lastMeasuredContainerSize = null
-    /**
      * @member {Object[]|Neo.grid.column.Base[]} centerColumns=[]
      * @protected
      */
@@ -363,7 +343,6 @@ class GridContainer extends BaseContainer {
             ResizeObserver.register(resizeParams);
             await me.passSizeToBody()
         } else {
-            me.initialResizeEvent = true;
             ResizeObserver.unregister(resizeParams)
         }
     }
@@ -1190,37 +1169,31 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Re-derives worker grid geometry from a ResizeObserver delivery.
+     * @summary Re-derives worker grid geometry from every ResizeObserver delivery.
      *
-     * The first delivery after a (re)mount is only skipped when it is a true register-time
-     * echo of the size the mount path already measured. A first delivery carrying a DIFFERENT
-     * size is a real resize which raced the registration (a committed dock re-layout can land
-     * before the observer's echo) — blindly consuming it would freeze `containerWidth` at the
-     * stale mount-time value until an unrelated resize repairs it.
+     * Deliberately NO first-delivery skip: a skip flag assumes the register-time echo after a
+     * (re)mount always arrives, but that echo can lose its routing race — the flag then consumes
+     * the first REAL resize (a committed dock re-layout can land before the echo), freezing
+     * `containerWidth` at the stale mount-time value until an unrelated resize repairs it.
+     * Size-equivalence classification is no safer: any tolerance swallows a real sub-tolerance
+     * resize. Re-processing the echo is idempotent (a silent set of identical values), so
+     * correctness costs one redundant measurement per mount.
      * @param {Object} data
      * @param {Object} [data.borderBoxSize]
      * @returns {Promise<void>}
      */
     async onResize(data) {
-        let me       = this,
-            measured = me.lastMeasuredContainerSize,
-            isEcho   = me.initialResizeEvent && measured
-                && Math.abs((data?.borderBoxSize?.inlineSize ?? 0) - measured.width)  < 1
-                && Math.abs((data?.borderBoxSize?.blockSize  ?? 0) - measured.height) < 1;
+        let me = this;
 
-        me.initialResizeEvent = false;
+        me.applyResponsiveLockPolicy(data);
 
-        if (!isEcho) {
-            me.applyResponsiveLockPolicy(data);
+        await me.passSizeToBody(true);
 
-            await me.passSizeToBody(true);
+        me.bodyStart?.updateMountedAndVisibleColumns();
+        me.body.updateMountedAndVisibleColumns();
+        me.bodyEnd?.updateMountedAndVisibleColumns();
 
-            me.bodyStart?.updateMountedAndVisibleColumns();
-            me.body.updateMountedAndVisibleColumns();
-            me.bodyEnd?.updateMountedAndVisibleColumns();
-
-            await me.headerToolbar.passSizeToBody()
-        }
+        await me.headerToolbar.passSizeToBody()
     }
 
     /**
@@ -1308,8 +1281,6 @@ class GridContainer extends BaseContainer {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
-            me.lastMeasuredContainerSize = {width: containerRect.width, height: containerRect.height};
-
             let config = {
                 availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
                 containerWidth : containerRect.width

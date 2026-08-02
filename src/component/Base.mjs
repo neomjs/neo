@@ -1310,7 +1310,9 @@ class Component extends Abstract {
      *
      * Mirrors {@link #getDomRect}, but resolves the LAYOUT box via `Neo.main.DomAccess.getLayoutRect()`:
      * ancestor transforms (FLIP presentation windows, animated overlays) never distort the result,
-     * so the returned sizes are safe to persist into layout state. Coordinates are
+     * so the returned sizes are safe to persist into layout state. Nodes without a generated box
+     * (`display: none`, detached subtrees) resolve to the zero shape — matching
+     * `getBoundingClientRect()` — never to phantom specified sizes. Coordinates are
      * offset-parent-relative — use {@link #getDomRect} when viewport space is required.
      * @param {String[]|String} id=this.id
      * @param {String} windowId=this.windowId

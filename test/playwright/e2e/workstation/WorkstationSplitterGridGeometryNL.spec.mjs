@@ -5,31 +5,40 @@ import { test, expect } from '../../fixtures.mjs';
  *
  * After committed DockSplitter resizes, the 100k Matrix grid could keep painting while
  * its geometry generations drifted apart — header labels narrower than their cells, the last
- * body column clipped at the shared right edge, phantom mounted columns. Mechanism: the grid's
- * resize measurement (`grid.Container#passSizeToBody` + `grid.header.Toolbar#passSizeToBody`)
- * ran `getBoundingClientRect()` through async worker→main round-trips that could land inside
- * DockFlip's inverse-transform presentation window, persisting transform-scaled VISUAL rects
- * as `containerWidth` / `availableWidth` / `columnPositions` (witnessed live: containerWidth
- * 476.77 and availableWidth 1328.72 at a settled 388px rest). The seam now reads layout-box
- * metrics (`getLayoutRect()`), which transforms never affect.
+ * body column clipped at the shared right edge, phantom mounted columns. Two stacked mechanisms:
+ * a first-resize-after-mount skip flag could consume a REAL resize whose register-time echo lost
+ * its routing race (freezing worker geometry at the mount value), and the grid's resize
+ * measurement ran `getBoundingClientRect()` through async worker→main round-trips that could
+ * land inside DockFlip's inverse-transform presentation window, persisting transform-scaled
+ * VISUAL rects as `containerWidth` / `availableWidth` / `columnPositions` (witnessed live:
+ * containerWidth 476.77 and availableWidth 1328.72 at a settled 388px rest). The repair: every
+ * delivery re-derives geometry (no skip), through layout-box metrics (`getLayoutRect()`), which
+ * transforms never affect.
  *
- * This guard drives the ticket's own recipe — a bounded series of real committed drags, BOTH
- * directions, repeated cycles — and after every settled commit asserts the full attribution
- * matrix (worker → header → body):
- *   1. worker `containerWidth` equals the grid container's layout width (±1px);
- *   2. worker `availableWidth` equals the summed layout widths of the header buttons (±1.5px);
- *   3. every visible header button and its x-order-paired first-row cell agree on left/width
- *      (±1px) — the ticket's visible symptom, asserted pairwise.
+ * The drag guard drives the ticket's own recipe — a bounded series of real committed drags,
+ * BOTH directions, repeated cycles — and after every settled commit asserts the attribution
+ * matrix in three coordinate spaces, each surface keyed by `aria-colindex` (the grid's own
+ * accessibility contract, present on header buttons and body cells alike):
+ *   1. key-set identity: the visible header and cell key sets are EQUAL (cardinality + identity
+ *      — a missing or shifted column on either surface fails here, not in a truncated zip);
+ *   2. visual space: per-key header↔cell `getBoundingClientRect` left/width agreement (±1px) —
+ *      the ticket's user-visible symptom;
+ *   3. content space (scroll-invariant by construction): worker `columnPositions` width/x per
+ *      dataField against the cell's `style.left`/layout width AND the header button's
+ *      `offsetLeft`/layout width — plus worker `containerWidth`/`availableWidth` against the
+ *      container/button layout truth.
  *
- * Settlement is event/state-based only (dock document commit, projected DOM extent, motion
- * lifecycle class, zero fixed-stage residue, transform-free grid) — no fixed-delay sleeps,
- * per the ticket's walls.
+ * Settlement is event/state-based only, with a POSITIVE motion-entry barrier: a MutationObserver
+ * must first witness the dock-motion lifecycle class ENTER (guarding against asserting before
+ * the deferred projection even starts), then release (class absent, zero fixed-stage residue,
+ * transform-free grid). No fixed-delay sleeps, per the ticket's walls.
  *
  * The race itself is pinned RACE-FREE by the first test: it freezes a "mid-motion" frame (a
  * static ancestor scale transform), triggers the measurement through the projection's own
- * mutation class (a flex-basis write on the pane's tab container), and asserts the worker
- * persists the LAYOUT box. Pre-fix that fails deterministically on every run — no lucky
- * timing can green-wash it; the drag test then guards the integrated surface.
+ * mutation class (the normalized flex pair written to both pane tab containers), and asserts
+ * the worker persists the LAYOUT box. Pre-fix that fails deterministically on every run — no
+ * lucky timing can green-wash it. The same test binds the measurement primitive's no-box
+ * contract: a `display: none` node resolves to the zero shape, never phantom specified sizes.
  *
  * Run: npx playwright test WorkstationSplitterGridGeometryNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -40,35 +49,73 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
     const GRID_ID = 'neo-grid-container-1',
           BODY_ID = 'neo-grid-body-1';
 
-    /** Page-side geometry matrix for the Matrix grid: container, header buttons, row-0 cells. */
+    /**
+     * Page-side geometry matrix for the Matrix grid. Headers and cells are keyed by
+     * `aria-colindex`; sizes are layout-truth (computed used values), positions carry BOTH
+     * spaces: visual (`getBoundingClientRect`) and content (`offsetLeft` for header buttons,
+     * `style.left` for absolutely positioned cells — both scroll- and transform-invariant).
+     */
     const readMatrix = page => page.evaluate(gridId => {
         const grid    = document.getElementById(gridId),
               header  = grid.querySelector('.neo-grid-header-toolbar'),
               body    = grid.querySelector('.neo-grid-body'),
               clip    = body.getBoundingClientRect(),
               inClip  = r => r.width > 0 && r.right > clip.left + 1 && r.left < clip.right - 1,
-              buttons = [...header.children]
-                  .map(b => ({r: b.getBoundingClientRect(), lw: parseFloat(getComputedStyle(b).width)}))
-                  .filter(({r}) => r.width > 0),
-              headers = buttons
-                  .filter(({r}) => inClip(r))
-                  .map(({r}) => ({x: r.left, w: r.width}))
-                  .sort((a, b) => a.x - b.x),
               row     = body.querySelector('[role="row"]'),
-              cells   = row ? [...row.children]
-                  .map(c => c.getBoundingClientRect())
-                  .filter(r => inClip(r))
-                  .map(r => ({x: r.left, w: r.width}))
-                  .sort((a, b) => a.x - b.x) : [];
+              headers = {},
+              cells   = {};
+
+        [...header.children].forEach(b => {
+            const key = b.getAttribute('aria-colindex'),
+                  r   = b.getBoundingClientRect();
+
+            if (key && inClip(r)) {
+                headers[key] = {
+                    visualX : r.left,
+                    visualW : r.width,
+                    contentX: b.offsetLeft,
+                    layoutW : parseFloat(getComputedStyle(b).width)
+                }
+            }
+        });
+
+        row && [...row.children].forEach(c => {
+            const key = c.getAttribute('aria-colindex'),
+                  r   = c.getBoundingClientRect();
+
+            if (key && inClip(r)) {
+                cells[key] = {
+                    dataField: c.getAttribute('data-field'),
+                    visualX  : r.left,
+                    visualW  : r.width,
+                    contentX : parseFloat(c.style.left),
+                    layoutW  : parseFloat(getComputedStyle(c).width)
+                }
+            }
+        });
 
         return {
             layoutWidth   : parseFloat(getComputedStyle(grid).width),
             transform     : getComputedStyle(grid).transform,
-            buttonWidthSum: buttons.reduce((sum, {lw}) => sum + lw, 0),
+            buttonWidthSum: [...header.children]
+                .filter(b => b.getClientRects().length > 0)
+                .reduce((sum, b) => sum + parseFloat(getComputedStyle(b).width), 0),
+            scrollLeft    : header.scrollLeft,
             headers,
             cells
         };
     }, GRID_ID);
+
+    /** Worker-truth read: containerWidth, availableWidth, and the keyed columnPositions. */
+    async function readWorker(app) {
+        const props = await app.getComponent(BODY_ID, ['containerWidth', 'availableWidth', 'columnPositions.items']);
+
+        return {
+            containerWidth : props.containerWidth,
+            availableWidth : props.availableWidth,
+            columnPositions: props['columnPositions.items'] || []
+        };
+    }
 
     test('measurement stays layout-true while an ancestor transform holds (deterministic reproducer)', async ({ page, neuralLink }) => {
         const SCALE_X = 0.6,
@@ -81,17 +128,26 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         const app = await neuralLink.connectToApp('Workstation');
 
         // boot settlement: the worker knows the real grid width
-        await expect.poll(async () => {
-            const {containerWidth} = await app.getComponent(BODY_ID, ['containerWidth']);
-            return containerWidth
-        }, {timeout: 15000, intervals: [100, 250]}).toBeGreaterThan(0);
+        await expect.poll(async () => (await readWorker(app)).containerWidth,
+            {timeout: 15000, intervals: [100, 250]}).toBeGreaterThan(0);
 
         const boot = await readMatrix(page);
 
-        // ARM THE TRAP: freeze a "mid-motion" frame — a static ancestor scale transform.
+        // ARM THE TRAP: freeze a "mid-motion" frame — a static ancestor scale transform —
+        // and plant the primitive's contract fixtures inside it.
         await page.evaluate(([sx, sy]) => {
             document.body.style.transformOrigin = 'left top';
-            document.body.style.transform       = `scale(${sx}, ${sy})`
+            document.body.style.transform       = `scale(${sx}, ${sy})`;
+
+            const visible = document.createElement('div');
+            visible.id = 'probe-16375-visible';
+            visible.style.cssText = 'position:absolute;left:0;top:0;width:333.5px;height:41.5px;pointer-events:none;opacity:0;';
+            document.body.appendChild(visible);
+
+            const hidden = document.createElement('div');
+            hidden.id = 'probe-16375-hidden';
+            hidden.style.cssText = 'display:none;width:222px;height:33px;';
+            document.body.appendChild(hidden)
         }, [SCALE_X, SCALE_Y]);
 
         // trap premises: the visual box IS scaled; the layout box is NOT
@@ -107,6 +163,18 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             'trap premise: getBoundingClientRect reports the scaled visual box').toBeLessThan(2);
         expect(Math.abs(armed.layoutWidth - boot.layoutWidth),
             'trap premise: the layout box ignores the ancestor transform').toBeLessThan(1);
+
+        // PRIMITIVE CONTRACT, through the full worker→main path, under the held transform:
+        // a visible box reports fractional LAYOUT truth; a no-box node reports the zero shape.
+        const [visibleRect, hiddenRect] = await app.callMethod(
+            GRID_ID, 'getLayoutRect', [['probe-16375-visible', 'probe-16375-hidden']]);
+
+        expect(Math.abs(visibleRect.width - 333.5),
+            'primitive contract: a transformed visible box reports its fractional layout width').toBeLessThan(0.1);
+        expect(Math.abs(visibleRect.height - 41.5),
+            'primitive contract: a transformed visible box reports its fractional layout height').toBeLessThan(0.1);
+        expect(hiddenRect.width, 'primitive contract: a display:none node reports zero width, not its specified size').toBe(0);
+        expect(hiddenRect.height, 'primitive contract: a display:none node reports zero height, not its specified size').toBe(0);
 
         // TRIGGER: the deferred projection's own mutation class — the normalized flex pair the
         // projection writes on both pane tab containers — changes the grid layout box while the
@@ -132,7 +200,7 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         // Pre-fix, containerWidth lands at ~SCALE_X * layoutWidth and availableWidth at
         // ~SCALE_X * buttonWidthSum (the gBCR samples), so these polls time out red.
         await expect.poll(async () => {
-            const {containerWidth} = await app.getComponent(BODY_ID, ['containerWidth']),
+            const {containerWidth} = await readWorker(app),
                   current          = await readMatrix(page);
             return Math.abs(containerWidth - current.layoutWidth)
         }, {
@@ -142,7 +210,7 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         }).toBeLessThan(1);
 
         await expect.poll(async () => {
-            const {availableWidth} = await app.getComponent(BODY_ID, ['availableWidth']),
+            const {availableWidth} = await readWorker(app),
                   current          = await readMatrix(page);
             return Math.abs(availableWidth - current.buttonWidthSum)
         }, {
@@ -151,8 +219,10 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             intervals: [100, 250]
         }).toBeLessThan(1.5);
 
-        // DISARM + coherence: restore the pane flex pair and the transform, geometry re-converges.
+        // DISARM + coherence: restore fixtures, pane flex pair, and the transform.
         await page.evaluate(flex => {
+            document.getElementById('probe-16375-visible').remove();
+            document.getElementById('probe-16375-hidden').remove();
             document.getElementById('neo-tab-container-2').style.flex = flex[0];
             document.getElementById('neo-tab-container-3').style.flex = flex[1];
             document.body.style.transform       = '';
@@ -160,7 +230,7 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         }, originalFlex);
 
         await expect.poll(async () => {
-            const {containerWidth} = await app.getComponent(BODY_ID, ['containerWidth']),
+            const {containerWidth} = await readWorker(app),
                   current          = await readMatrix(page);
             return Math.abs(containerWidth - current.layoutWidth)
         }, {
@@ -191,14 +261,12 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         expect(workspaceId, 'the page owns a Workstation workspace').toBeTruthy();
 
         // boot settlement: worker knows the grid width before the first drag
-        await expect.poll(async () => {
-            const {containerWidth} = await app.getComponent(BODY_ID, ['containerWidth']);
-            return containerWidth
-        }, {timeout: 15000, intervals: [100, 250]}).toBeGreaterThan(0);
+        await expect.poll(async () => (await readWorker(app)).containerWidth,
+            {timeout: 15000, intervals: [100, 250]}).toBeGreaterThan(0);
 
         const boot = await readMatrix(page);
 
-        /** One committed drag + event-based settlement + the full attribution matrix. */
+        /** One committed drag + positive-entry settlement + the keyed attribution matrix. */
         async function dragAndVerify(deltaX, tag) {
             const splitter                 = page.locator('.neo-dashboard-dock-splitter-horizontal'),
                   box                      = await splitter.boundingBox(),
@@ -206,6 +274,19 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                   sy                       = box.y + box.height / 2,
                   before                   = await readMatrix(page),
                   {dockModel: modelBefore} = await app.getComponent(workspaceId, ['dockModel']);
+
+            // positive motion-entry barrier: witness the lifecycle ENTER, not just its absence later
+            await page.evaluate(() => {
+                const el = document.querySelector('.workstation-workspace');
+                globalThis.__motion16375?.observer.disconnect();
+                globalThis.__motion16375 = {
+                    seen    : el.classList.contains('neo-dashboard-dock-animating'),
+                    observer: new MutationObserver(() => {
+                        el.classList.contains('neo-dashboard-dock-animating') && (globalThis.__motion16375.seen = true)
+                    })
+                };
+                globalThis.__motion16375.observer.observe(el, {attributes: true, attributeFilter: ['class']})
+            });
 
             await page.mouse.move(sx, sy);
             await page.mouse.down();
@@ -232,7 +313,14 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                 intervals: [50, 100]
             }).toBeCloseTo(before.layoutWidth + deltaX, 0);
 
-            // 3. the motion lifecycle fully released the presentation
+            // 3. the motion lifecycle ENTERED (positive barrier) ...
+            await expect.poll(() => page.evaluate(() => globalThis.__motion16375.seen), {
+                message  : `${tag}: the committed resize enters the dock-motion lifecycle`,
+                timeout  : 10000,
+                intervals: [25, 50]
+            }).toBe(true);
+
+            // ... and fully released the presentation
             await expect(root, `${tag}: the dock motion lifecycle settles`)
                 .not.toHaveClass(/neo-dashboard-dock-animating/, {timeout: 10000});
             await expect(page.locator('.neo-dock-flip-fixed-stage'),
@@ -242,10 +330,10 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
 
             expect(settled.transform, `${tag}: the grid carries no residual transform`).toBe('none');
 
-            // ATTRIBUTION MATRIX (worker → header → body), the ticket's AC net:
+            // ATTRIBUTION MATRIX (worker → header → body), keyed by aria-colindex:
             // 1. worker containerWidth rides the layout box — poisoned visual samples time this out
             await expect.poll(async () => {
-                const {containerWidth} = await app.getComponent(BODY_ID, ['containerWidth']),
+                const {containerWidth} = await readWorker(app),
                       current          = await readMatrix(page);
                 return Math.abs(containerWidth - current.layoutWidth)
             }, {
@@ -254,27 +342,47 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                 intervals: [100, 250]
             }).toBeLessThan(1);
 
-            // 2. worker availableWidth rides the header buttons' summed LAYOUT widths
-            const {availableWidth} = await app.getComponent(BODY_ID, ['availableWidth']);
+            const worker = await readWorker(app),
+                  matrix = await readMatrix(page);
 
-            expect(Math.abs(availableWidth - settled.buttonWidthSum),
+            // 2. worker availableWidth rides the header buttons' summed LAYOUT widths
+            expect(Math.abs(worker.availableWidth - matrix.buttonWidthSum),
                 `${tag}: worker availableWidth equals the summed header-button layout widths`)
                 .toBeLessThan(1.5);
 
-            // 3. every visible header agrees with its x-order-paired first-row cell
-            expect(settled.headers.length, `${tag}: visible header buttons exist`).toBeGreaterThan(2);
-            expect(settled.cells.length, `${tag}: visible row-0 cells exist`).toBeGreaterThan(2);
+            // 3. key-set identity: the visible header and cell key sets are EQUAL
+            const headerKeys = Object.keys(matrix.headers).sort((a, b) => a - b),
+                  cellKeys   = Object.keys(matrix.cells).sort((a, b) => a - b);
 
-            const pairCount = Math.min(settled.headers.length, settled.cells.length);
+            expect(headerKeys.length, `${tag}: visible header buttons exist`).toBeGreaterThan(2);
+            expect(cellKeys, `${tag}: visible header and cell aria-colindex key sets are identical`)
+                .toEqual(headerKeys);
 
-            for (let i = 0; i < pairCount; i++) {
-                const h = settled.headers[i],
-                      c = settled.cells[i];
+            // 4. per-key agreement in both spaces + worker columnPositions attribution
+            const positionsByField = new Map(worker.columnPositions.map(c => [c.dataField, c]));
 
-                expect(Math.abs(h.x - c.x),
-                    `${tag}: header[${i}] left aligns with its cell (h ${h.x} vs c ${c.x})`).toBeLessThan(1);
-                expect(Math.abs(h.w - c.w),
-                    `${tag}: header[${i}] width matches its cell (h ${h.w} vs c ${c.w})`).toBeLessThan(1)
+            for (const key of headerKeys) {
+                const h = matrix.headers[key],
+                      c = matrix.cells[key];
+
+                // visual space — the user-visible symptom
+                expect(Math.abs(h.visualX - c.visualX),
+                    `${tag}: col ${key} header/cell visual left agree (h ${h.visualX} vs c ${c.visualX})`).toBeLessThan(1);
+                expect(Math.abs(h.visualW - c.visualW),
+                    `${tag}: col ${key} header/cell visual width agree (h ${h.visualW} vs c ${c.visualW})`).toBeLessThan(1);
+
+                // content space — worker columnPositions is the generation both surfaces ride
+                const workerColumn = positionsByField.get(c.dataField);
+
+                expect(workerColumn, `${tag}: col ${key} (${c.dataField}) exists in worker columnPositions`).toBeTruthy();
+                expect(Math.abs(workerColumn.x - c.contentX),
+                    `${tag}: col ${key} worker x matches the cell content-space left`).toBeLessThan(0.5);
+                expect(Math.abs(workerColumn.width - c.layoutW),
+                    `${tag}: col ${key} worker width matches the cell layout width`).toBeLessThan(1);
+                // offsetLeft is layout-space (scroll-independent), so no scroll term belongs here;
+                // the visual-space asserts above carry scroll inherently via getBoundingClientRect
+                expect(Math.abs(workerColumn.x - h.contentX),
+                    `${tag}: col ${key} worker x matches the header button offset position`).toBeLessThan(1)
             }
         }
 
