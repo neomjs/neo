@@ -33,6 +33,13 @@ const MANIFEST_WATCH_DEBOUNCE_MS = 150;
  * @type {Number}
  */
 const MANIFEST_RECONCILE_INTERVAL_MS = 30 * 1000;
+/**
+ * Bounded re-reads when a publish lands mid-read. Boot has no later trigger to fall back on, so an
+ * unlucky moment must not be fatal — but a file being rewritten without pause is a real fault and has
+ * to surface rather than spin.
+ * @type {Number}
+ */
+const MANIFEST_READ_ATTEMPTS = 3;
 const LOOPBACK_HOSTS         = new Set(['127.0.0.1', 'localhost', '::1']);
 const PRODUCTION_ADAPTERS    = new Set([
     'osascript',
@@ -318,7 +325,14 @@ export function createWakeReceiver({
  * @param {Object} [options.logger=console]
  * @returns {Promise<{server:http.Server,state:WakeReceiverState,drain:Function}>}
  */
-export async function startWakeReceiver({manifestPath, stateDir, host, port, logger = console} = {}) {
+export async function startWakeReceiver({
+    manifestPath,
+    stateDir,
+    host,
+    port,
+    logger = console,
+    reconcileIntervalMs = MANIFEST_RECONCILE_INTERVAL_MS
+} = {}) {
     if (net.isIP(host) === 0) {
         throw new Error('Wake receiver requires an explicit IP-literal --host');
     }
@@ -326,7 +340,11 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
         throw new Error('Wake receiver requires an integer --port in 1..65535');
     }
 
-    const manifest = await loadWakeReceiverManifest(manifestPath);
+    // Captured from the SAME operation that produces the manifest below, never from a later stat.
+    // Statting afterwards records whatever is on disk THEN, which may already be a newer file this
+    // process never loaded — and the comparison would then read "unchanged" forever.
+    const boot     = await loadManifestWithRevision(manifestPath);
+    const manifest = boot.manifest;
     const state    = new WakeReceiverState({stateDir});
 
     await state.init();
@@ -348,9 +366,42 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
      * empty a working route table — that turns a stale receiver into a dead one, mid-incident.
      * @returns {Promise<Number|null>} Route count now serving, or `null` when the reload was refused.
      */
-    const reload = async () => {
+    // The revision of the snapshot currently SERVED — not of whatever is on disk. They are separate
+    // facts, and conflating them is how a receiver decides it is current while serving something else.
+    // A REFUSED reload must not advance it, so the next sweep retries instead of treating a rejected
+    // file as accepted.
+    let servingRevision = boot.revision;
+
+    // Every reload path — watcher, sweep, SIGHUP, direct caller — runs through this chain. Unserialized
+    // reloads can complete out of order and let an OLDER parse win the final `setManifest`, rolling the
+    // route table backwards with both callers reporting success.
+    let reloadChain = Promise.resolve(null);
+
+    /**
+     * @summary Serializes a reload step onto the single swap chain.
+     * @param {Function} step
+     * @returns {Promise<Number|null>}
+     */
+    const serialize = step => {
+        reloadChain = reloadChain.then(step, step);
+
+        return reloadChain
+    };
+
+    /**
+     * @summary Loads, revalidates and swaps in the manifest, recording the revision it accepted.
+     *
+     * Load failures leave the serving routes untouched and are reported, because an unreadable or
+     * malformed file must never empty a working route table — that turns a stale receiver into a dead
+     * one, mid-incident.
+     * @returns {Promise<Number|null>} Route count now serving, or `null` when the reload was refused.
+     */
+    const applyReload = async () => {
         try {
-            const count = setManifest(await loadWakeReceiverManifest(manifestPath));
+            const {manifest: next, revision} = await loadManifestWithRevision(manifestPath),
+                  count                      = setManifest(next);
+
+            servingRevision = revision;
 
             logger.log?.(`[Wake Receiver] manifest reloaded; serving ${count} route(s).`);
 
@@ -362,9 +413,7 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
         }
     };
 
-    // The mtime the currently-served route table was loaded from. A reload that is REFUSED must not
-    // record it, so the next sweep retries rather than treating a rejected file as accepted.
-    let servingMtimeMs = await readManifestMtimeMs(manifestPath);
+    const reload = () => serialize(applyReload);
 
     /**
      * @summary Reloads only when the manifest on disk differs from the one being served.
@@ -373,19 +422,15 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
      * a redundant parse-and-swap, and the periodic sweep stays free when nothing has changed.
      * @returns {Promise<Number|null>} Route count now serving, or `null` when nothing was reloaded.
      */
-    const reloadIfChanged = async () => {
-        const mtimeMs = await readManifestMtimeMs(manifestPath);
+    const reloadIfChanged = () => serialize(async () => {
+        const revision = await readManifestRevision(manifestPath);
 
         // Absent is what an atomic rename looks like from the outside, mid-publish. Keep serving and
         // let the next event or sweep settle it — an unreadable moment must never empty a route table.
-        if (mtimeMs === null || mtimeMs === servingMtimeMs) return null;
+        if (revision === null || revision === servingRevision) return null;
 
-        const count = await reload();
-
-        if (count !== null) servingMtimeMs = mtimeMs;
-
-        return count
-    };
+        return applyReload()
+    });
 
     let debounceTimer = null;
 
@@ -413,9 +458,22 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
         logger.warn?.(`[Wake Receiver] manifest watch unavailable, relying on the periodic sweep: ${error.message}`);
     }
 
-    const reconcileTimer = setInterval(() => { void reloadIfChanged() }, MANIFEST_RECONCILE_INTERVAL_MS);
+    const reconcileTimer = setInterval(() => { void reloadIfChanged() }, reconcileIntervalMs);
 
     reconcileTimer.unref?.();
+
+    /**
+     * @summary Releases only the filesystem watcher, leaving the periodic sweep running.
+     *
+     * Separate from full teardown so the missed-event path can be exercised for real: a test that
+     * stopped both would disable the very mechanism it means to prove.
+     * @returns {void}
+     */
+    const stopManifestWatcher = () => {
+        clearTimeout(debounceTimer);
+        watcher?.close();
+        watcher = null;
+    };
 
     /**
      * @summary Releases the watcher and the sweep. Callers that own the process lifetime (tests, a
@@ -423,9 +481,8 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
      * @returns {void}
      */
     const stopWatchingManifest = () => {
-        clearTimeout(debounceTimer);
+        stopManifestWatcher();
         clearInterval(reconcileTimer);
-        watcher?.close();
     };
 
     // SIGHUP stays. It is the documented escape hatch and the delivered contract of the predecessor
@@ -435,24 +492,63 @@ export async function startWakeReceiver({manifestPath, stateDir, host, port, log
 
     logger.log?.(
         `[Wake Receiver] listening on http://${host}:${port}/wake — manifest changes reload automatically ` +
-        `(watch + ${MANIFEST_RECONCILE_INTERVAL_MS / 1000}s sweep); SIGHUP still forces one`
+        `(watch + ${reconcileIntervalMs / 1000}s sweep); SIGHUP still forces one`
     );
 
-    return {server, state, drain, reload, reloadIfChanged, stopWatchingManifest};
+    return {server, state, drain, reload, reloadIfChanged, stopManifestWatcher, stopWatchingManifest};
 }
 
 /**
- * @summary Reads the manifest's modification time, or `null` when it cannot be stat'ed.
+ * @summary Reads a collision-resistant identity for the manifest currently on disk, or `null` when it
+ * cannot be stat'ed.
+ *
+ * Modification time alone is not an identity: two atomic publishes can land inside one clock tick and
+ * alias to the same value, so a genuinely new route table reads as "unchanged" and is never adopted.
+ * The publisher writes a temporary file and renames it, so the **inode** differs on every publish and
+ * is what actually discriminates; size is included because it is free and separates same-inode rewrites.
  * @param {String} manifestPath
- * @returns {Promise<Number|null>}
+ * @returns {Promise<String|null>}
  * @private
  */
-async function readManifestMtimeMs(manifestPath) {
+async function readManifestRevision(manifestPath) {
     try {
-        return (await fs.stat(manifestPath)).mtimeMs
+        const {mtimeMs, size, ino} = await fs.stat(manifestPath);
+
+        return `${mtimeMs}:${size}:${ino}`
     } catch {
         return null
     }
+}
+
+/**
+ * @summary Loads and validates the manifest, returning it with the revision it was read from.
+ *
+ * The revision is captured around the read and confirmed afterwards: a publish landing mid-read would
+ * otherwise attach the incoming file's identity to the outgoing file's content, and every later
+ * comparison would agree that a stale table is current. A mismatch throws, so the caller keeps serving
+ * and retries — the same fail-safe an unreadable file already gets.
+ * @param {String} manifestPath
+ * @returns {Promise<{manifest:Object,revision:String}>}
+ * @private
+ */
+async function loadManifestWithRevision(manifestPath, attempts = MANIFEST_READ_ATTEMPTS) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const revision = await readManifestRevision(manifestPath),
+              manifest = await loadWakeReceiverManifest(manifestPath),
+              after    = await readManifestRevision(manifestPath);
+
+        if (revision !== null && revision === after) {
+            return {manifest, revision}
+        }
+
+        // A publish landed mid-read. Retrying in-place matters most at BOOT, where there is no later
+        // trigger to fall back on — an unlucky moment must not be fatal, and a republish is finite.
+        lastError = new Error('Wake receiver manifest changed while being read');
+    }
+
+    throw lastError
 }
 
 /**
