@@ -275,6 +275,7 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
     const signingKey = 'a'.repeat(64);
     const mine       = 'WAKE_SUB:mine';
     const peer       = 'WAKE_SUB:peer';
+    const third      = 'WAKE_SUB:third';
 
     const route = agentIdentity => ({
         signingKey,
@@ -310,19 +311,42 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
 
         await write({[mine]: route('@neo-opus-ada')});
 
+        // A short sweep so the periodic trigger can be asserted as itself. The production default is
+        // measured in tens of seconds; injecting it is what lets a spec prove the real timer fires
+        // rather than calling the reload helper by hand and claiming the timer was covered.
         receiver = await startWakeReceiver({
             manifestPath,
-            stateDir: path.join(dir, 'state'),
-            host    : '127.0.0.1',
-            port    : await freePort(),
-            logger  : {error() {}, warn() {}, log() {}}
+            stateDir           : path.join(dir, 'state'),
+            host               : '127.0.0.1',
+            port               : await freePort(),
+            logger             : {error() {}, warn() {}, log() {}},
+            reconcileIntervalMs: 40
         });
     });
 
     test.afterEach(async () => {
+        receiver.stopWatchingManifest?.();
         await new Promise(resolve => receiver.server.close(resolve));
         await fs.rm(dir, {recursive: true, force: true});
     });
+
+    /**
+     * Polls until the predicate holds. Watch latency is a property of the platform, not of the code
+     * under test, so a spec that asserts once after a fixed sleep measures the sleep.
+     * @param {Function} predicate
+     * @param {Number} [timeoutMs=4000]
+     * @returns {Promise<Boolean>}
+     */
+    const waitFor = async (predicate, timeoutMs = 4000) => {
+        const deadline = Date.now() + timeoutMs;
+
+        while (Date.now() < deadline) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+
+        return false
+    };
 
     // A forged signature separates the two states and needs no key: a route the process holds reaches
     // the signature gate (401); one it does not know is rejected earlier (404).
@@ -374,5 +398,163 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
         await fs.chmod(manifestPath, 0o600);
         expect(await receiver.reload()).toBe(2);
         expect(await probe(peer)).toBe(401);
+    });
+
+    test('a published route goes live with NO signal, restart, or reload() call', async () => {
+        // The headline: nothing external happens after the write. Previously the file said two routes
+        // and the process served one, with no surface reporting the discrepancy — a published route was
+        // silently undeliverable until someone remembered to signal.
+        expect(await probe(peer)).toBe(404);
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
+
+        // And the route it already served is untouched — a reload adds, it does not swap one for another.
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('a change that fires no watch event still converges — the REAL sweep timer is the self-heal', async () => {
+        // `fs.watch` may legitimately miss events (network and virtualised filesystems routinely do).
+        // Closing ONLY the watcher reproduces that exactly and leaves the periodic sweep running, so
+        // what this asserts is the scheduled trigger firing on its own. Stopping both and then calling
+        // the helper by hand would disable the mechanism under test and prove nothing about it.
+        receiver.stopManifestWatcher();
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        // No watcher observes the write; only the interval can rescue it.
+        expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
+    });
+
+    test('an unchanged manifest costs no reload, so a duplicate event is free', async () => {
+        // Watch events arrive doubled on some platforms. Funnelling every trigger through a revision
+        // comparison makes a duplicate cost a stat instead of a redundant parse-and-swap.
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await probe(mine)).toBe(401);
+    });
+
+    test('a publish during startup is still adopted — the served revision is the one that was LOADED', async () => {
+        // @neo-gpt-emmy's first falsifier. Recording the revision from a stat taken AFTER boot work
+        // (state init, listen) attaches whatever is on disk by then to content loaded earlier: the
+        // comparison then reads "unchanged" forever and the route is permanently dark. Reproduced by
+        // publishing while startup is still in flight.
+        const started = startWakeReceiver({
+            manifestPath,
+            stateDir           : path.join(dir, 'state-startup'),
+            host               : '127.0.0.1',
+            port               : await freePort(),
+            logger             : {error() {}, warn() {}, log() {}},
+            reconcileIntervalMs: 40
+        });
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        const startupReceiver = await started;
+
+        try {
+            const hit = async id => (await fetch(
+                `http://127.0.0.1:${startupReceiver.server.address().port}/wake`,
+                {
+                    method : 'POST',
+                    headers: {
+                        'content-type'              : 'application/json',
+                        'x-neo-wake-subscription-id': id,
+                        'x-neo-wake-schema-version' : '1.0',
+                        'x-neo-wake-signature'      : 'deadbeef'
+                    },
+                    body: '{}'
+                }
+            )).status;
+
+            expect(await waitFor(async () => await hit(peer) === 401)).toBe(true);
+        } finally {
+            startupReceiver.stopWatchingManifest();
+            await new Promise(resolve => startupReceiver.server.close(resolve));
+        }
+    });
+
+    test('two overlapping reloads cannot let the older one win', async () => {
+        // @neo-gpt-emmy's second falsifier. Unserialized reloads can complete out of order, so an
+        // older parse lands its `setManifest` last and rolls the route table backwards while both
+        // callers report success. Fired concurrently against two different manifests.
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        const first = receiver.reloadIfChanged();
+
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace'), [third]: route('@neo-gpt')});
+
+        const [, second] = await Promise.all([first, receiver.reloadIfChanged()]);
+
+        // Whatever the interleaving, the FINAL served table must be the newest file — never an earlier
+        // one reinstated by a slower caller.
+        expect(await probe(third)).toBe(401);
+        expect(await probe(peer)).toBe(401);
+        expect(second === null || second === 3).toBe(true);
+    });
+
+    test('a distinct publish sharing an mtime is still adopted — mtime alone is not an identity', async () => {
+        // @neo-gpt-emmy's third falsifier. Two atomic publishes can land inside one clock tick; an
+        // mtime-only revision aliases them and the second is never adopted. The publisher renames a
+        // temp file, so the inode differs even when the timestamp does not — forcing the timestamps
+        // equal here isolates exactly that.
+        // Isolating the inode term takes three things, and dropping any one lets a weaker term pass the
+        // spec: identical mtime, identical SIZE, and delivery by RENAME. An in-place overwrite keeps the
+        // inode, and a manifest with a different route count changes the size — either way something
+        // other than the inode does the discriminating and the term this patch relies on is untested.
+        const pinned = 1_760_000_000;
+        const alpha  = 'WAKE_SUB:aaa';
+        const beta   = 'WAKE_SUB:bbb';
+
+        /**
+         * Publishes the way the generator does: write a sibling temp file, then rename over the target.
+         * @param {Object} routes
+         * @returns {Promise<Object>} The published file's stat.
+         */
+        const publishByRename = async routes => {
+            const temp = path.join(dir, `routes.${Math.abs(Object.keys(routes)[0].length)}.tmp`);
+
+            await fs.writeFile(temp, JSON.stringify({schemaVersion: 1, routes}), {mode: 0o600});
+            await fs.chmod(temp, 0o600);
+            await fs.utimes(temp, pinned, pinned);
+            await fs.rename(temp, manifestPath);
+
+            return fs.stat(manifestPath)
+        };
+
+        const first = await publishByRename({[alpha]: route('@neo-opus-ada')});
+
+        // Establish that exact revision as the SERVED one, so the next publish collides with it.
+        await receiver.reloadIfChanged();
+
+        const second = await publishByRename({[beta]: route('@neo-opus-ada')});
+
+        // The controls. Without these three the spec silently degrades into the size test it used to be.
+        expect(second.mtimeMs).toBe(first.mtimeMs);
+        expect(second.size).toBe(first.size);
+        expect(second.ino).not.toBe(first.ino);
+
+        expect(await receiver.reloadIfChanged()).toBe(1);
+        expect(await probe(beta)).toBe(401);
+        expect(await probe(alpha)).toBe(404);
+    });
+
+    test('a corrupt write leaves the serving table intact, and recovery needs no signal', async () => {
+        expect(await probe(mine)).toBe(401);
+
+        await fs.writeFile(manifestPath, '{ not json', {mode: 0o600});
+
+        // The fail-safe under the AUTOMATIC path: the existing spec proves reload() refuses, but the
+        // watcher is a new caller of it. A malformed file reaching an emptied route table would turn a
+        // stale receiver into a dead one — the exact inversion this daemon must never make.
+        expect(await receiver.reloadIfChanged()).toBe(null);
+        expect(await probe(mine)).toBe(401);
+
+        // A refused reload must NOT record the file's mtime, or the sweep would treat a rejected write
+        // as accepted and never retry — the corrupt file would become permanently authoritative.
+        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
+
+        expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
     });
 });
