@@ -585,6 +585,13 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #16344](https://neomjs.com/raw/news/tickets/16344.md)
+- [Ticket #16343](https://neomjs.com/raw/news/tickets/16343.md)
+- [Ticket #16342](https://neomjs.com/raw/news/tickets/16342.md)
+- [Ticket #16341](https://neomjs.com/raw/news/tickets/16341.md)
+- [Ticket #16338](https://neomjs.com/raw/news/tickets/16338.md)
+- [Ticket #16337](https://neomjs.com/raw/news/tickets/16337.md)
+- [Ticket #16336](https://neomjs.com/raw/news/tickets/16336.md)
 - [Ticket #16334](https://neomjs.com/raw/news/tickets/16334.md)
 - [Ticket #16333](https://neomjs.com/raw/news/tickets/16333.md)
 - [Ticket #16331](https://neomjs.com/raw/news/tickets/16331.md)
@@ -11456,6 +11463,9 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #16345](https://neomjs.com/raw/news/pulls/16345.md)
+- [Pull Request #16340](https://neomjs.com/raw/news/pulls/16340.md)
+- [Pull Request #16339](https://neomjs.com/raw/news/pulls/16339.md)
 - [Pull Request #16335](https://neomjs.com/raw/news/pulls/16335.md)
 - [Pull Request #16332](https://neomjs.com/raw/news/pulls/16332.md)
 - [Pull Request #16330](https://neomjs.com/raw/news/pulls/16330.md)
