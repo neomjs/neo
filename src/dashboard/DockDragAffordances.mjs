@@ -185,12 +185,16 @@ class DockDragAffordances extends Base {
      * GLIDE); the pointer selects an indicator geometrically; the selected candidate's
      * preview — or the pointer-inference FALLBACK tier when no indicator is hovered — feeds
      * the renderer with its exact target region.
-     * @param {Object} data {clientX, clientY, itemId, groupNodeId, sourceNodeId} —
+     * @param {Object} data {clientX, clientY, itemId, groupNodeId, sourceNodeId, writeRenderer} —
      *     `groupNodeId` is optional; remote grouped (whole-stack) gestures pass it so the
      *     indicator and fallback previews carry the SAME grouped previewId the cross-window
      *     semantic path produces — the gesture-ready contract reads the trio's agreement.
+     *     `writeRenderer` defaults to true; pass false when the caller owns the preview
+     *     renderer (the cross-window participation path, whose semantic preview writes the
+     *     same renderer synchronously) — the indicator menu + candidate selection still
+     *     update, but this async pipeline never clears or replaces a renderer it does not own.
      */
-    async onDragMove({clientX, clientY, itemId, groupNodeId = null, sourceNodeId}) {
+    async onDragMove({clientX, clientY, itemId, groupNodeId = null, sourceNodeId, writeRenderer = true}) {
         let me              = this,
             geometryPromise = me.ensureGeometry(),
             geometry        = await geometryPromise;
@@ -215,7 +219,7 @@ class DockDragAffordances extends Base {
             dockPreview = candidate?.preview
                 ?? producer.produce({pointer, zones: geometry.zones, itemId, groupNodeId, sourceNodeId});
 
-        if (preview) {
+        if (preview && writeRenderer) {
             preview.dockPreview = dockPreview;
 
             if (dockPreview) {

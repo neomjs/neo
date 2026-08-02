@@ -1007,12 +1007,17 @@ class Workspace extends Container {
                 // fire-and-forget (caught) — the readiness poll tolerates the async warm-up
                 // and a rejected measurement must never stall the gesture it annotates.
                 if (isMain) {
+                    // writeRenderer: false — the semantic path (renderCrossWindowPreview)
+                    // owns this renderer for cross-window gestures and paints it
+                    // synchronously (incl. the stored-home fallback); this feed exists to
+                    // populate the indicator tier, and an async write here would race it.
                     Promise.resolve(me.dragAffordances?.onDragMove({
-                        clientX     : data?.localX,
-                        clientY     : data?.localY,
-                        groupNodeId : data?.draggedItem?.dockGroupNodeId ?? null,
-                        itemId      : data?.draggedItem?.dockItemId,
-                        sourceNodeId: data?.draggedItem?.dockSourceNodeId ?? data?.sourceNodeId
+                        clientX      : data?.localX,
+                        clientY      : data?.localY,
+                        groupNodeId  : data?.draggedItem?.dockGroupNodeId ?? null,
+                        itemId       : data?.draggedItem?.dockItemId,
+                        sourceNodeId : data?.draggedItem?.dockSourceNodeId ?? data?.sourceNodeId,
+                        writeRenderer: false
                     })).catch(() => {});
                 }
 
