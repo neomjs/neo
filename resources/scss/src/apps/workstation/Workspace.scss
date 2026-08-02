@@ -95,12 +95,46 @@
         box-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
         overflow      : hidden;
 
-        .neo-dashboard-dock-rail-tab {
+        // The stock theme floors every `.neo-button` at `min-width: var(--cmp-button-height)` (48px)
+        // through `:root .neo-theme-* .neo-button` — a (0,3,0) selector that TIES the shared rail
+        // override and wins on load order alone. On the 14px vertical rail that floor defeats the
+        // cross-axis stretch and pushes the rotated label span outside the clipped strip: the rail
+        // renders as an empty pill. The `.neo-button` compound lifts this layer to (0,4,0) so the
+        // tie stops being a load-order bet; with the floor released, the tab snaps to the strip and
+        // the label renders inside it.
+        .neo-button.neo-dashboard-dock-rail-tab {
             background: transparent;
             border    : 0;
-            color     : var(--workstation-ink);
+            box-shadow: none;
+            color     : var(--workstation-ink-dim);
             font-family: var(--workstation-font-mono);
+            min-width : 0;
+            transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                        color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+
+            &:hover {
+                background: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
+                color     : var(--workstation-ink);
+            }
+
+            // The generic button skin re-colors these descendants through its own token layer,
+            // which resolves anti-theme against the workstation palette (black on the dark rail,
+            // white on the light one — inverted contrast in both themes). Inheriting pins them to
+            // the rail-tab ink above; same treatment the tourbar theme-button already needed.
+            .neo-button-glyph,
+            .neo-button-text {
+                color: inherit;
+            }
         }
+    }
+
+    // Horizontal rails read as an app-edge info line: give their labels the tourbar caption's
+    // breathing room instead of the shared strip's 1px inline padding. The vertical rails keep the
+    // slim shared padding — the physical 1px inline is what lets the rotated label fit the 14px
+    // strip at all.
+    .neo-dashboard-dock-edge-rail-top .neo-button.neo-dashboard-dock-rail-tab,
+    .neo-dashboard-dock-edge-rail-bottom .neo-button.neo-dashboard-dock-rail-tab {
+        padding: 4px 10px;
     }
 
 }
