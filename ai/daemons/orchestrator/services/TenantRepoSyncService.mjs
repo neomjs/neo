@@ -15,7 +15,7 @@ import {
     TenantRepoAccessCode,
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
-import {detectStarvedTenantSync, isRepoDue} from '../scheduling/tenantRepoSync.mjs';
+import {detectStarvedTenantSync, isRepoDue, isStarvedOrderInverted} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -362,6 +362,15 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
  * @see https://github.com/neomjs/neo/issues/16045
  */
 class TenantRepoSyncService extends Base {
+    /**
+     * Latches the once-per-process inverted-leaf-order warning (runTask boundary): the
+     * first sweep emits it, later sweeps stay quiet. Deliberately not reactive — it is
+     * process-local latch state, not configuration.
+     * @member {Boolean} starvedOrderWarned=false
+     * @protected
+     */
+    starvedOrderWarned = false
+
     static config = {
         /**
          * @member {String} className='Neo.ai.daemons.services.TenantRepoSyncService'
@@ -746,6 +755,15 @@ class TenantRepoSyncService extends Base {
         leaseRenewalIntervalMs,
         seedBootstrap     = true
     } = {}) {
+        // One-time deployment sanity check on the two tuning leaves' RELATIONSHIP (never a
+        // throw — a noisy alert beats a dead lane): an inverted floor makes ordinary capped
+        // backoff emit heal records for transient outages. The checker stays out of the pure
+        // predicates; this boundary is where the resolved values meet.
+        if (!this.starvedOrderWarned && isStarvedOrderInverted({backoffCapMs, starvedAfterMs})) {
+            this.starvedOrderWarned = true;
+            writeLog?.('WARN', `[TenantRepoSync] tenantRepoSync.starvedAfterMs (${starvedAfterMs}) does not exceed backoffCapMs (${backoffCapMs}): a lane in ordinary capped backoff crosses the starved duration floor and emits heal records for a transient outage. Set starvedAfterMs above the cap, or 0 to disable the record.`);
+        }
+
         const state = taskStateService.getTaskState(taskName);
 
         if (state?.running) {

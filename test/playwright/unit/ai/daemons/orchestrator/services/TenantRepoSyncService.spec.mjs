@@ -3361,6 +3361,46 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             events = await readHealLedger({dir: ledgerDir});
             expect(events).toHaveLength(1);
         });
+
+        test('an inverted starved floor warns exactly once per process — and never throws (#16312)', async () => {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                logLines         = [],
+                options          = {
+                    reason                       : 'periodic',
+                    taskStateService,
+                    writeLog                     : (level, msg) => logLines.push({level, msg}),
+                    tenantReposConfig            : {tenantRepos: [buildStarvedRepo()]},
+                    gitMirror                    : makeFakeGitMirror(),
+                    knowledgeBaseIngestionService: makeFakeIngestionService(),
+                    revisionsFilePath            : revisionsFile,
+                    globalCadenceMs              : 60_000,
+                    jitterRatio                  : 0,
+                    backoffCapMs                 : 6 * 60 * 60 * 1000, // inverted: cap ABOVE the floor
+                    starvedAfterMs               : 2 * 60 * 60 * 1000,
+                    seedBootstrap                : false
+                },
+                originalLatch    = TenantRepoSyncService.starvedOrderWarned;
+
+            try {
+                TenantRepoSyncService.starvedOrderWarned = false;
+
+                await seedStarvedState(Date.now() - 30 * 60 * 1000);
+
+                const first    = await TenantRepoSyncService.runTask(options),
+                      second   = await TenantRepoSyncService.runTask(options),
+                      warnings = logLines.filter(l => l.level === 'WARN' && l.msg.includes('starvedAfterMs'));
+
+                // The lane runs regardless — a noisy alert beats a dead lane, never a throw.
+                expect(first.status).not.toBe('failed');
+                expect(second.status).not.toBe('failed');
+
+                expect(warnings).toHaveLength(1);
+                expect(warnings[0].msg).toContain('does not exceed backoffCapMs')
+            } finally {
+                TenantRepoSyncService.starvedOrderWarned = originalLatch
+            }
+        });
     });
 });
 
