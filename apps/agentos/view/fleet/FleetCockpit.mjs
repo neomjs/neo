@@ -1256,6 +1256,17 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.OperatorMailbox} instance whether it is
+     * docked or gesture-torn into a vessel. A torn pane lives outside this cockpit's projected tree,
+     * so owner-side identity and inbox refreshes must use the captured handle instead of stopping at
+     * `getReference()`.
+     * @returns {Neo.container.Base|null} The operator mailbox, or `null` before materialization.
+     */
+    getOperatorMailboxPane() {
+        return this.tearOutPaneHandles?.operator || this.getReference('operator-mailbox')
+    }
+
+    /**
      * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit,
      * reusing the SAME widget-childapp shell the click pop-out proves (an empty pane host — the
      * cockpit reparents on connect). Fail-closed per the admission contract: `Neo.Main.windowOpen`
@@ -2383,7 +2394,7 @@ class FleetCockpit extends Container {
             me.operatorRecord = {agentIdentityNodeId: nodeId, githubUsername: nodeId.replace(/^@/, '')};
             // a materialized pane picks up the identity live and reads; an autoHidden one materializes from
             // the held record on reveal
-            me.getReference('operator-mailbox')?.set({record: me.operatorRecord})
+            me.getOperatorMailboxPane()?.set({record: me.operatorRecord})
         }
     }
 
@@ -2400,7 +2411,7 @@ class FleetCockpit extends Container {
     async loadOperatorInbox({offset = 0} = {}) {
         const
             me      = this,
-            pane    = me.getReference('operator-mailbox'),
+            pane    = me.getOperatorMailboxPane(),
             bridge  = globalThis.AgentOS?.fleet?.registryBridge,
             subject = me.operatorRecord?.agentIdentityNodeId;
 
