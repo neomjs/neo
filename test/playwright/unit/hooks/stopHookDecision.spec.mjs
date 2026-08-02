@@ -292,6 +292,30 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — #14440 mid-chain operat
         expect(context.midChainOperator).toBe(false);
     });
 
+    test('the lane-handback phrase blocks autonomously but stays carved in live dialogue (#16325 boundary)', () => {
+        // The registry entry and the operator-dialogue carve are TWO independent gates, and both were
+        // shut when this phrase was first observed. Proving the registry missed it says nothing about
+        // the carve; this crosses classifyPromptingContext into the decision so the reachable boundary
+        // is executable rather than asserted in prose.
+        const slip = "That's next unless you'd rather I take something else.";
+
+        const autonomous = classifyPromptingContext({
+            stopHookActive: false,
+            promptingText : '[WAKE][priority:high] 1 events for @neo-opus-vega'
+        });
+        expect(autonomous.operatorInLoop).toBe(false);
+        expect(decideDeferenceStopHookAction(slip, autonomous)).not.toBeNull();
+
+        const liveDialogue = classifyPromptingContext({
+            stopHookActive: false,
+            promptingText : 'please check messages, choose your lanes'
+        });
+        expect(liveDialogue.operatorInLoop).toBe(true);
+        // Deliberately pinned as the CURRENT boundary, not as desired behavior: the live-dialogue case
+        // that motivated the phrase is still uncaught, and ownership of that carve is a separate lane.
+        expect(decideDeferenceStopHookAction(slip, liveDialogue)).toBeNull();
+    });
+
     test('chained + attested + synthetic / handoff / empty candidates all fail closed', () => {
         for (const promptingText of [
             '<hook_prompt hook_run_id="stop:2">reminder</hook_prompt>',
