@@ -65,17 +65,23 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
               headers = {},
               cells   = {};
 
+        // Collect RAW rows first (duplicate keys must stay countable — an object write would
+        // collapse a duplicated column silently before any cardinality assert), then key.
+        const headerRows = [],
+              cellRows   = [];
+
         [...header.children].forEach(b => {
             const key = b.getAttribute('aria-colindex'),
                   r   = b.getBoundingClientRect();
 
             if (key && inClip(r)) {
-                headers[key] = {
+                headerRows.push({
+                    key,
                     visualX : r.left,
                     visualW : r.width,
                     contentX: b.offsetLeft,
                     layoutW : parseFloat(getComputedStyle(b).width)
-                }
+                })
             }
         });
 
@@ -84,17 +90,23 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                   r   = c.getBoundingClientRect();
 
             if (key && inClip(r)) {
-                cells[key] = {
+                cellRows.push({
+                    key,
                     dataField: c.getAttribute('data-field'),
                     visualX  : r.left,
                     visualW  : r.width,
                     contentX : parseFloat(c.style.left),
                     layoutW  : parseFloat(getComputedStyle(c).width)
-                }
+                })
             }
         });
 
+        headerRows.forEach(h => { headers[h.key] = h });
+        cellRows.forEach(c => { cells[c.key] = c });
+
         return {
+            headerRowCount: headerRows.length,
+            cellRowCount  : cellRows.length,
             layoutWidth   : parseFloat(getComputedStyle(grid).width),
             transform     : getComputedStyle(grid).transform,
             buttonWidthSum: [...header.children]
@@ -264,10 +276,12 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             intervals: [100, 250]
         }).toBeLessThan(1);
 
-        // SUB-PIXEL DELIVERY IS PROCESSED (no echo/tolerance swallow): a fractional flex nudge
-        // moves the grid layout box by well under one CSS pixel; the worker must track it.
-        // Under the retired first-delivery skip OR any <1px equivalence predicate, this exact
-        // class of delivery was swallowed (witnessed on real Chromium: 123.4375 → 123.9375).
+        // SUB-PIXEL DELIVERY IS PROCESSED: a fractional flex nudge moves the grid layout box by
+        // well under one CSS pixel; the worker must track it. This binds the size-equivalence
+        // class — any <1px "same size" predicate swallows exactly this delivery (witnessed on
+        // real Chromium: 123.4375 → 123.9375). The retired FIRST-delivery skip is bound
+        // separately: the large flex trigger above and the drag test's first commit are first
+        // post-registration deliveries, both red under the skip in the pre-fix stash round.
         const settled = await readMatrix(page);
 
         await page.evaluate(() => {
@@ -429,9 +443,19 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
                 `${tag}: worker availableWidth equals the summed header-button layout widths`)
                 .toBeLessThan(1.5);
 
-            // 3. key-set identity: the visible header and cell key sets are EQUAL
+            // 3. key-set identity WITHOUT duplicate collapse: raw per-surface counts must equal
+            //    unique key counts (a duplicated column on either surface fails HERE), and the
+            //    worker's columnPositions must be dataField-unique before it serves as a map.
             const headerKeys = Object.keys(matrix.headers).sort((a, b) => a - b),
                   cellKeys   = Object.keys(matrix.cells).sort((a, b) => a - b);
+
+            expect(matrix.headerRowCount, `${tag}: no duplicated aria-colindex among visible header buttons`)
+                .toBe(headerKeys.length);
+            expect(matrix.cellRowCount, `${tag}: no duplicated aria-colindex among visible row-0 cells`)
+                .toBe(cellKeys.length);
+            expect(new Set(worker.columnPositions.map(c => c.dataField)).size,
+                `${tag}: worker columnPositions carry unique dataFields`)
+                .toBe(worker.columnPositions.length);
 
             expect(headerKeys.length, `${tag}: visible header buttons exist`).toBeGreaterThan(2);
             expect(cellKeys, `${tag}: visible header and cell aria-colindex key sets are identical`)
