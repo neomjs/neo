@@ -2124,7 +2124,7 @@ class PullRequestService extends Base {
 
     /**
      * Gets the diff for a specific pull request.
-     * @param {Object|number} options Either a PR number or an object with parameters
+     * @param {Object} options Parameters object
      * @param {number}  options.pr_number  The number of the pull request
      * @param {string}  [options.file]     Optional file path (or comma-separated paths) to filter diff
      * @param {string}  [options.sha]      Optional SHA to diff against instead of live PR head
@@ -2132,9 +2132,7 @@ class PullRequestService extends Base {
      * @returns {Promise<string|object>} A promise that resolves to the diff text, file list JSON, or a structured error.
      */
     async getPullRequestDiff(options) {
-        const { pr_number, file, sha, files_only } = typeof options === 'number' || typeof options === 'string'
-            ? { pr_number: parseInt(options, 10) }
-            : (options || {});
+        const { pr_number, file, sha, files_only } = options || {};
 
         const prNumber = parseInt(pr_number, 10);
 
