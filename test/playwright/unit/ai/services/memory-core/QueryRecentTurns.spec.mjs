@@ -32,11 +32,16 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
     test.describe.configure({mode: 'serial'});
 
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore;
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore, withTimeoutCode;
 
     test.beforeAll(async () => {
+        const memoryServiceModule = await import('../../../../../../ai/services/memory-core/MemoryService.mjs');
+
+        // Read the code off the module rather than repeating the literal: a rename must break this spec
+        // instead of leaving it green while the production classifier matches nothing.
+        withTimeoutCode      = memoryServiceModule.WITH_TIMEOUT_CODE;
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        MemoryService        = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+        MemoryService        = memoryServiceModule.default;
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
@@ -390,6 +395,29 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         expect(plain.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
         expect(plain.failureCauses['timeout-outer']).toBeUndefined();
+
+        // The positive control the negative case above cannot supply: without this, the classifier's true
+        // branch is never exercised, so a wrong constant would keep the whole suite green while
+        // `timeout-outer` became unreachable — the one cause a window-widening consumer can act on.
+        memStore.set('cause-timed-out', {prompt: 'timed out prompt', response: 'timed out response'});
+        GraphService.upsertNode({
+            id              : 'cause-timed-out', type: 'AGENT_MEMORY', name: 'Memory: timed out', description: 'timed out',
+            semanticVectorId: 'cause-timed-out',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'thrown', timestamp: ts}
+        });
+
+        const timedOut = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            buildMiniSummary: async () => {
+                const error = new Error('miniSummary summarize timed out after 30000ms');
+
+                error.code = withTimeoutCode;
+                throw error
+            }
+        });
+
+        expect(timedOut.failureCauses['timeout-outer']).toBeGreaterThanOrEqual(1);
+        expect(timedOut.failureCauses['provider-error']).toBeUndefined();
     });
 
     test('the two failure branches are counted separately, so a branch flip is visible (#16223)', async () => {
