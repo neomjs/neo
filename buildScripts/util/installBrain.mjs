@@ -164,9 +164,10 @@ if (isMain) {
     } else {
         console.log(`[install-brain] Overlaying the Brain tier (${specifiers.length} exact specifiers from the committed closure) onto the base install…`);
 
-        // `shell: true` is load-bearing on win32 (npm.cmd cannot spawn without one) and inert on
-        // POSIX — the same shape `build/all.mjs` uses for its npm invocations.
-        const result = spawnSync(resolveNpmCommand(), args, {cwd: repoRoot, env: process.env, shell: true, stdio: 'inherit'});
+        // The shell is load-bearing ONLY on win32 (npm.cmd cannot spawn without one); on POSIX
+        // it is a DEP0190 warning plus unescaped-args concatenation for zero benefit.
+        const isWindows = process.platform.startsWith('win'),
+              result    = spawnSync(resolveNpmCommand(), args, {cwd: repoRoot, env: process.env, shell: isWindows, stdio: 'inherit'});
 
         if (result.status !== 0) {
             throw new Error(`install-brain: npm exited with status ${result.status}`);
