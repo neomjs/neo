@@ -1149,6 +1149,76 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     });
 
+    test('the remote affordance feed never clears the semantic stored-home renderer after it settles (#16309)', async () => {
+        const
+            workspace         = Neo.create(Workspace, {}),
+            sourceWorkspaceId = Workspace.vesselWorkspaceId('queues'),
+            hostRect          = {x: 100, y: 80, width: 900, height: 600},
+            targetRect        = {x: 120, y: 120, width: 260, height: 260};
+
+        try {
+            await workspace.crossWindowParticipationPromise;
+
+            workspace.windowId = 'window-main';
+            workspace.vesselWorkspaces.set(sourceWorkspaceId, {itemId: 'queues'});
+            workspace.tearOutPlacements.queues = {index: 0, tabsNodeId: 'left-tabs'};
+
+            // The construct-time participation resolves before windowId exists in this
+            // harness — refresh it now that the window identity is set.
+            const participation = await workspace.refreshCrossWindowParticipation(Workspace.MAIN_WORKSPACE_ID);
+
+            const
+                host               = workspace.getReference('dock-host'),
+                renderer           = workspace.dragAffordances.preview,
+                WindowManager      = Neo.manager.Window,
+                originalGet        = WindowManager.get,
+                originalGetDomRect = host.getDomRect,
+                originalWindowId   = workspace.windowId;
+
+            try {
+                WindowManager.get = () => ({innerRect: {x: 0, y: 0, width: 1280, height: 720}});
+                host.getDomRect   = async () => [hostRect, targetRect];
+
+                await workspace.ensureCrossWindowPreviewGeometry(Workspace.MAIN_WORKSPACE_ID, 'left-tabs');
+
+                // Off-zone but window-admitted: inside the host rect, outside the exact node
+                // rect — the stored-home fallback must paint the grouped tab-into…
+                participation.target.onRemoteDragMove({
+                    draggedItem: {
+                        dockGroupNodeId      : 'workstation-vessel-tabs:queues',
+                        dockItemId           : 'queues',
+                        dockSourceWorkspaceId: sourceWorkspaceId
+                    },
+                    localX      : 700,
+                    localY      : 500,
+                    sourceNodeId: Workspace.vesselTabsNodeId('queues')
+                });
+
+                const semanticPreview = participation.target.currentPreview;
+
+                expect(semanticPreview?.previewId).toBe('preview:group:workstation-vessel-tabs:queues:left-tabs:tab-into');
+                expect(renderer.dockPreview?.previewId).toBe(semanticPreview.previewId);
+
+                // …and once the fire-and-forget affordance feed settles, its async tier
+                // must not clear or replace a renderer it does not own.
+                await new Promise(resolve => setTimeout(resolve, 0));
+                await new Promise(resolve => setTimeout(resolve, 0));
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                expect(renderer.dockPreview?.previewId).toBe(semanticPreview.previewId);
+                expect(participation.target.currentPreview?.previewId).toBe(renderer.dockPreview.previewId)
+            } finally {
+                WindowManager.get  = originalGet;
+                host.getDomRect    = originalGetDomRect;
+                workspace.windowId = originalWindowId;
+                workspace.vesselWorkspaces.delete(sourceWorkspaceId);
+                delete workspace.tearOutPlacements.queues
+            }
+        } finally {
+            workspace.destroy()
+        }
+    });
+
     test('pane identity remains readable after the catalog moves into a vessel workspace', () => {
         const workspace = Neo.create(Workspace, {});
 
