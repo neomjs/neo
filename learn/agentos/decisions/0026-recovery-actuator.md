@@ -80,7 +80,17 @@ The **controller** (what turns a diagnosis into an action choice) and the **actu
 
 > **diagnosis → [controller selects action] → actuator.apply(serviceKey, action) within the §2.5 envelope → outcome → re-observe.**
 
-- **The actuator interface is fixed:** `apply(serviceKey, action)` where `action ∈ {restart, recycle, throttle, reconfigure(knownKey), shed}` and the call is rejected unless the anti-thrash envelope (§2.5) admits it. The actuator is **controller-blind** — it does not know *why*, only *what* and *whether the envelope allows it*.
+- **The actuator interface is fixed:** `apply(serviceKey, action)`, rejected unless the anti-thrash envelope (§2.5) admits it. The actuator is **controller-blind** — it does not know *why*, only *what* and *whether the envelope allows it*.
+- **The action set is a matrix, not a flat list** (amended 2026-08-02, `#16374`). This ADR originally specified one flat set of five actions applying to every target. The implementation outgrew that shape: actions are admitted **per target kind**, which a flat set cannot express — and an implementation obeying the flat set literally would be *less* safe, because nothing would stop `redeploy` being aimed at a supervised in-process child. Shipped:
+
+  | target kind | admitted actions |
+  |---|---|
+  | supervised task | `restart`, `warm-provider` |
+  | compose service | `restart`, `warm-provider`, `reconfigure` |
+  | deploy target | `redeploy` |
+
+  `warm-provider` (config/readiness repair) and `redeploy` (lifecycle on a known deploy target) both sit inside AC-2's config-and-lifecycle envelope. **`recycle`, `throttle` and `shed` remain specified but UNIMPLEMENTED** — no consumer exists, and a reader of this section must be able to tell which of the listed actions they can actually call.
+- **`reconfigure` takes a KNOB, not a key** (amended 2026-08-02, `#16374`). The original `reconfigure(knownKey)` cannot express a change that must move several leaves together: a nested timeout window has an inner and an outer bound with an ordering invariant, and applying such a pair one leaf at a time passes through a state that violates it. The unit is therefore a **knob** — a named entry in a closed set carrying its ordered leaves plus its invariants — so the transaction boundary lives in the registry rather than in a controller that could compose an arbitrary group of leaves. A knob may also be bounded by leaves it does **not** change; those bounds are expressed as relationships against the live value, never as constants, because a constant goes stale the moment the leaf it was derived from moves. Mechanically: a validated transaction is written to a durable JSON overlay on a mount the actuator owns read-write and the target reads read-only, then applied by the existing `restart` — which is what line 61's *"re-apply an intended env override"* always meant.
 - **The controller is swappable.** Phase-1 (this epic) ships a **reactive** controller: diagnosis-class → fixed action (transient-crash→restart, contention→throttle/shed, config-drift→reconfigure/redeploy then record-if-un-resolvable, never page — #14191). Phase-2 (#13873) swaps in a **homeostatic** controller (a setpoint loop that may act before a hard fault) against the *same* `apply` interface and the *same* envelope. **No actuator rewrite** is the binding constraint — the phase-2 controller cannot widen the action set or bypass the envelope.
 - The B0 instance (#13900) is the interface's first implementation in miniature: its "controller" is the sustained-failure health probe (the diagnosis), its `apply` is `killTask`-recycle, its envelope is the supervisor cooldown.
 
