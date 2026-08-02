@@ -82,9 +82,14 @@ export {withTimeout,
  * `timeout-outer`, including one from an unrelated nested wrapper that never involved this window; a
  * consumer would then widen a window that was not binding. The label is the instance discriminator, and
  * a single constant is what keeps the producer and the classifier from drifting apart silently.
+ *
+ * Module-private: both the wrapper that sets it and the classifier that reads it live here, and there is
+ * no external consumer. Exporting it would publish a contract nothing depends on — and a public label is
+ * a thing future code could match on instead of asking this module, which is the coupling the single
+ * constant exists to avoid.
  * @type {String}
  */
-export const MINI_SUMMARY_OUTER_LABEL = 'miniSummary backfill summarize';
+const MINI_SUMMARY_OUTER_LABEL = 'miniSummary backfill summarize';
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
