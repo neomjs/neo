@@ -12,6 +12,12 @@ import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../../mcp/server/memory-core/logger.mjs';
 import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {createBoundedRetryGate} from '../shared/boundedRetryGate.mjs';
+import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
+import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
+import {
+    DELIVERABLE_HARNESS_TARGET,
+    isServerIssuedSigningKey
+} from '../../daemons/wake/buildReceiverManifest.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
@@ -569,7 +575,70 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         // Other errors (permission, etc.) also degrade gracefully to defaults.
     }
 
-    return {...gateBlock, ...livenessBlock};
+    return {...gateBlock, ...livenessBlock, subscription: await buildSubscriptionArmingBlock()};
+}
+
+/**
+ * @summary Answers whether the CALLING identity holds a deliverable wake subscription — the
+ * question nothing currently asks, so an unarmed seat reads healthy on every surface.
+ *
+ * **Scope, stated precisely, because conflating the two legs is how this stays invisible.** This
+ * reports the Memory-Core side ONLY: does the caller own an active subscription that delivery would
+ * accept. It does NOT claim a wake will arrive — the receiver holds a boot-snapshotted route
+ * manifest and its own adapter coordinates, neither of which Memory Core can see. A seat can be
+ * `armed: true` here and still unreachable because its route is absent from the host manifest. The
+ * field is named for what it measures.
+ *
+ * The verdict mirrors `buildWakeReceiverManifest`'s own admission gate, in its order, because that
+ * build is what actually decides whether a route exists: `status === 'active'`, then
+ * `harnessTarget === 'a2a-webhook'`, then a server-issued `signingKey`. Re-deriving a looser rule
+ * here is how a healthcheck comes to disagree with the thing it reports on — the earlier draft of
+ * this block treated any non-`a2a-webhook` target as fine, exactly inverting the gate, so a seat
+ * that the manifest refuses to publish would have read `armed: true`.
+ *
+ * `reason` names the furthest gate the seat reached, so it points at the next repair rather than the
+ * first failure: `unmigrated-target` outranks `no-active-subscription`, and `missing-signing-key`
+ * outranks both. All three were live on this plane.
+ *
+ * Never throws, and never reports `false` on ignorance — an unbound identity (a container
+ * healthcheck carries none) or an unreadable graph yields `armed: null`. Reporting `false` there
+ * would manufacture an alarm out of a missing instrument.
+ * @returns {Promise<{armed: Boolean|null, reason: String}>}
+ * @see ai/daemons/wake/buildReceiverManifest.mjs — the gate this mirrors
+ */
+async function buildSubscriptionArmingBlock() {
+    try {
+        if (!RequestContextService.getAgentIdentityNodeId()) {
+            return {armed: null, reason: 'unbound-identity'};
+        }
+
+        const {subscriptions = []} = await WakeSubscriptionService.list(),
+              // Absent `status` predates the field and means active; `degraded` does NOT — delivery
+              // short-circuits a degraded row without an attempt, and the manifest withdraws its route.
+              active               = subscriptions.filter(entry => (entry.status ?? 'active') === 'active');
+
+        if (active.length === 0) {
+            return {armed: false, reason: 'no-active-subscription'};
+        }
+
+        const onDeliverablePath = active.filter(entry => entry.harnessTarget === DELIVERABLE_HARNESS_TARGET);
+
+        if (onDeliverablePath.length === 0) {
+            return {armed: false, reason: 'unmigrated-target'};
+        }
+
+        // A Shape-B route without its server-issued key is structurally undeliverable: the manifest
+        // build throws on it and delivery refuses unsigned webhooks, so the row reads active while
+        // nothing is ever sent.
+        const armed = onDeliverablePath.some(entry =>
+            isServerIssuedSigningKey(entry.harnessTargetMetadata?.signingKey));
+
+        return armed
+            ? {armed: true,  reason: 'deliverable'}
+            : {armed: false, reason: 'missing-signing-key'};
+    } catch (e) {
+        return {armed: null, reason: 'unreadable'};
+    }
 }
 
 /**

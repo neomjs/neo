@@ -2199,7 +2199,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             gateTrippedBy        : null,
             daemonRunning        : false,
             lastPulseAt          : null,
-            secondsSinceLastPulse: null
+            secondsSinceLastPulse: null,
+            // Arming reports `null`, never `false`, when it cannot determine: a healthcheck with no
+            // bound identity has no row to answer about, and claiming "not armed" there would
+            // manufacture an alarm out of a missing instrument rather than a real condition.
+            subscription         : {armed: null, reason: 'unbound-identity'}
         });
     });
 
@@ -2252,6 +2256,218 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
                 delete process.env.POLL_INTERVAL;
             }
         }
+    });
+});
+
+/**
+ * @summary Coverage for the wake-arming verdict — the question nothing asked, so an unarmed seat
+ * read healthy on every surface while receiving nothing.
+ *
+ * The verdict must agree with `buildWakeReceiverManifest`, which is what actually decides whether a
+ * route exists. The final test asserts that agreement directly rather than pinning strings on each
+ * side: a record the health block calls `armed` must produce a published route, and one it calls
+ * unarmed must not. String-pinning both sides is what let the first draft invert the target check.
+ *
+ * Test isolation: `RequestContextService.getAgentIdentityNodeId` and `WakeSubscriptionService.list`
+ * are the block's only two inputs; both are restored in afterEach.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildSubscriptionArmingBlock
+ * @see ai/daemons/wake/buildReceiverManifest.mjs
+ */
+test.describe('HealthService #16310 — wake subscription arming verdict', () => {
+    let buildWakeFeaturesBlock, RequestContextService, WakeSubscriptionService, buildWakeReceiverManifest;
+    let originalGetAgentIdentityNodeId, originalList;
+
+    const KEY = 'k'.repeat(64); // server-issued keys are >= 32 chars
+
+    /** A record the manifest gate accepts, minus whatever a given test removes. */
+    const deliverableRecord = (overrides = {}) => ({
+        id                   : 'WAKE_SUB:arming-spec',
+        agentIdentity        : '@spec-seat',
+        status               : 'active',
+        harnessTarget        : 'a2a-webhook',
+        harnessTargetMetadata: {
+            signingKey : KEY,
+            url        : 'http://host.docker.internal:3199/wake',
+            adapter    : 'tmux',
+            tmuxSession: 'spec'
+        },
+        ...overrides
+    });
+
+    /** Runs the block through its only public entrypoint. */
+    const arming = async () => (await buildWakeFeaturesBlock()).subscription;
+
+    test.beforeAll(async () => {
+        buildWakeFeaturesBlock    = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).buildWakeFeaturesBlock;
+        RequestContextService     = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        WakeSubscriptionService   = (await import('../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs')).default;
+        buildWakeReceiverManifest = (await import('../../../../../../ai/daemons/wake/buildReceiverManifest.mjs')).buildWakeReceiverManifest;
+
+        originalGetAgentIdentityNodeId = RequestContextService.getAgentIdentityNodeId;
+        originalList                   = WakeSubscriptionService.list;
+    });
+
+    test.beforeEach(() => {
+        RequestContextService.getAgentIdentityNodeId = () => 'AGENT:spec-seat';
+    });
+
+    test.afterEach(() => {
+        RequestContextService.getAgentIdentityNodeId = originalGetAgentIdentityNodeId;
+        WakeSubscriptionService.list                 = originalList;
+    });
+
+    test('an active a2a-webhook row with a server-issued key is armed', async () => {
+        WakeSubscriptionService.list = async () => ({subscriptions: [deliverableRecord()]});
+
+        expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
+    });
+
+    test('an active a2a-webhook row with NO signingKey is unarmed — the live shape on this plane', async () => {
+        // Measured on this plane, not hypothetical: the row reads `status: 'active'` on every
+        // surface while delivery refuses it unsigned and the manifest build throws on it. Nothing
+        // attempted, nothing logged, nothing failed — the seat is simply deaf.
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [deliverableRecord({
+                harnessTargetMetadata: {url: 'http://host.docker.internal:3199/wake', adapter: 'osascript'}
+            })]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'missing-signing-key'});
+    });
+
+    test('a too-short signingKey is unarmed — the health verdict uses the gate\'s own predicate', async () => {
+        // A truncated key passes a `Boolean(...)` presence check and then throws at manifest build.
+        // Sharing `isServerIssuedSigningKey` with the gate is what keeps those two answers identical.
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [deliverableRecord({
+                harnessTargetMetadata: {signingKey: 'too-short', url: 'http://x/wake', adapter: 'tmux'}
+            })]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'missing-signing-key'});
+    });
+
+    test('no subscriptions at all is unarmed, not unknown', async () => {
+        WakeSubscriptionService.list = async () => ({subscriptions: []});
+
+        expect(await arming()).toEqual({armed: false, reason: 'no-active-subscription'});
+    });
+
+    test('a degraded row does not count as active — delivery skips it without an attempt', async () => {
+        // REGRESSION GUARD. Filtering only `status !== 'retired'` left degraded rows in the active
+        // set, so a route that delivery short-circuits and the manifest withdraws reported `armed`.
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [deliverableRecord({status: 'degraded'})]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'no-active-subscription'});
+    });
+
+    test('an active row on a non-deliverable target is unarmed — only a2a-webhook reaches the receiver', async () => {
+        // REGRESSION GUARD for an inverted predicate. The first draft read `harnessTarget !==
+        // 'a2a-webhook'` as "no key needed, therefore fine", which reported `armed: true` for exactly
+        // the seats `buildWakeReceiverManifest` refuses to publish ("cannot receive a container wake
+        // until it is migrated"). RED against that draft.
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [deliverableRecord({harnessTarget: 'mcp-notifications'})]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'unmigrated-target'});
+    });
+
+    test('an explicitly disabled target is unarmed rather than silently fine', async () => {
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [deliverableRecord({harnessTarget: 'disabled'})]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'unmigrated-target'});
+    });
+
+    test('a legacy row with no `status` field counts as active', async () => {
+        const record = deliverableRecord();
+        delete record.status;
+
+        WakeSubscriptionService.list = async () => ({subscriptions: [record]});
+
+        expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
+    });
+
+    test('one deliverable row among broken ones arms the seat', async () => {
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [
+                deliverableRecord({id: 'WAKE_SUB:a', harnessTargetMetadata: {url: 'http://x/wake'}}),
+                deliverableRecord({id: 'WAKE_SUB:b'})
+            ]
+        });
+
+        expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
+    });
+
+    test('reason names the furthest gate reached, so it points at the next repair', async () => {
+        // A degraded-but-keyed row and an active-but-keyless one: the actionable repair is the key,
+        // not the migration, and not "you have no subscription".
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [
+                deliverableRecord({id: 'WAKE_SUB:dead', status: 'degraded'}),
+                deliverableRecord({id: 'WAKE_SUB:live', harnessTargetMetadata: {url: 'http://x/wake'}})
+            ]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'missing-signing-key'});
+    });
+
+    test('an unbound identity yields null, never false, and never reads the graph', async () => {
+        // A container healthcheck carries no request identity. Reporting `false` there manufactures
+        // an alarm out of a missing instrument.
+        let listCalls = 0;
+
+        RequestContextService.getAgentIdentityNodeId = () => null;
+        WakeSubscriptionService.list                 = async () => { listCalls++; return {subscriptions: []} };
+
+        expect(await arming()).toEqual({armed: null, reason: 'unbound-identity'});
+        expect(listCalls).toBe(0);
+    });
+
+    test('an unreadable graph yields null and cannot break the surrounding healthcheck', async () => {
+        WakeSubscriptionService.list = async () => { throw new Error('graph unavailable') };
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.subscription).toEqual({armed: null, reason: 'unreadable'});
+        // The rest of the wake block still reports — one unreadable axis is not a dead healthcheck.
+        expect(result).toHaveProperty('gateState');
+        expect(result).toHaveProperty('daemonRunning');
+    });
+
+    test('AGREEMENT: `armed` implies the manifest publishes a route, and unarmed implies it does not', async () => {
+        // The invariant, asserted across both sides rather than pinned as strings on each. This is
+        // what fails if either the gate or the verdict moves without the other.
+        const armedRecord   = deliverableRecord({id: 'WAKE_SUB:agree-armed'}),
+              unarmedRecord = deliverableRecord({
+                  id                   : 'WAKE_SUB:agree-unarmed',
+                  harnessTarget        : 'mcp-notifications',
+                  harnessTargetMetadata: {url: 'http://x/wake', adapter: 'tmux', tmuxSession: 'spec'}
+              });
+
+        WakeSubscriptionService.list = async () => ({subscriptions: [armedRecord]});
+        expect((await arming()).armed).toBe(true);
+
+        WakeSubscriptionService.list = async () => ({subscriptions: [unarmedRecord]});
+        expect((await arming()).armed).toBe(false);
+
+        // Both through ONE build: the gate must publish the armed record and skip the unarmed one.
+        // A build of the unarmed record alone throws outright ("refusing to write an empty manifest"),
+        // which is the same refusal stated more loudly — asserting it in company keeps this test about
+        // agreement rather than about the empty-manifest guard.
+        const {manifest, skipped} = buildWakeReceiverManifest({
+            subscriptions : [armedRecord, unarmedRecord],
+            callerIdentity: '@spec-seat'
+        });
+
+        expect(Object.keys(manifest.routes)).toContain('WAKE_SUB:agree-armed');
+        expect(Object.keys(manifest.routes)).not.toContain('WAKE_SUB:agree-unarmed');
+        expect(skipped.map(entry => entry.subscriptionId)).toContain('WAKE_SUB:agree-unarmed');
     });
 });
 
