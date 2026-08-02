@@ -68,15 +68,48 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
 
         try {
-            expect(() => resolveHuskyBin(empty)).toThrow(/husky entrypoint not found/);
+            expect(() => resolveHuskyBin(empty)).toThrow(/husky package not found/);
         } finally {
             fs.rmSync(empty, {force: true, recursive: true})
         }
     });
 
-    test('the real entrypoint runs clean on this host: guard, husky, configs — POSIX parity receipt', () => {
-        // The behavior contract on a POSIX host must be identical before and after the move: this
-        // is the receipt that the portable script does what the one-liner did here.
+    test('a husky package declaring no bin entry is a named error', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+
+        fs.mkdirSync(path.join(dir, 'node_modules', 'husky'), {recursive: true});
+        fs.writeFileSync(path.join(dir, 'node_modules', 'husky', 'package.json'), '{}');
+
+        try {
+            expect(() => resolveHuskyBin(dir)).toThrow(/declares no bin entry/);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a bin target missing from disk is a named error naming the entry', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+
+        fs.mkdirSync(path.join(dir, 'node_modules', 'husky'), {recursive: true});
+        fs.writeFileSync(path.join(dir, 'node_modules', 'husky', 'package.json'), JSON.stringify({bin: {husky: 'bin.js'}}));
+
+        try {
+            expect(() => resolveHuskyBin(dir)).toThrow(/'bin\.js' not found/);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a failure-to-launch throws with the error code — never a bare exit 1 with no diagnostic', () => {
+        // spawnSync signals failure-to-launch through `error`, not `status`: reading only `status`
+        // maps it to 1 with zero output, the same invisibility class this module exists to remove.
+        const spawnFn = () => ({error: Object.assign(new Error('spawn node ENOENT'), {code: 'ENOENT'}), status: null});
+
+        expect(() => runPrepare({env: {}, spawnFn})).toThrow(/failed to launch.*ENOENT/);
+    });
+
+    test('the husky entrypoint resolves from the package\'s own bin declaration on this host', () => {
+        // The resolution is read from husky's manifest, not hardcoded — and it exists here.
         expect(fs.existsSync(resolveHuskyBin(repoRoot))).toBe(true);
     });
 });
