@@ -182,6 +182,12 @@ function assertEmbeddingFunction(embeddingFunction, label) {
  *    canonical-name refusal. The substrate-level invariant fires regardless of
  *    harness or config state.
  *
+ * 4. **`chromaListCollectionNames({client})`** — paginated, NON-MUTATING enumeration. Both
+ *    subsystems needed the identical page loop to answer one question the resolvers destroy the
+ *    answer to: did this collection exist BEFORE the read that measured it. It belongs beside the
+ *    other client-lifecycle helpers precisely because it is not resolution — it creates nothing, so
+ *    it carries none of the per-subsystem semantics listed below.
+ *
  * **What this module does NOT own (per V-B-A on the ticket's prescription):**
  *
  * - `getOrCreateCollection` / `getCollection` / `createCollection` — collection-resolution
@@ -311,4 +317,45 @@ export async function chromaDeleteCollection({client, name, subsystem, confirmat
 
     assertCanonicalCollectionDeleteAllowed({name, subsystem, confirmation});
     return await client.deleteCollection({name})
+}
+
+/**
+ * @summary Enumerates every collection name the client can see, creating nothing.
+ *
+ * The one non-mutating way to ask "does this collection exist?" against a store whose resolvers
+ * answer that question by making it true. `getCollection` throws not-found without creating, but both
+ * subsystems wrap it in retry/swap-aware resolution that ends in a create; `listCollections` has no
+ * such tail, which is why the backup lane's pre-existence probe reads through here.
+ *
+ * Pages rather than taking the first batch: the previous KB-local copy of this loop existed because a
+ * single unpaged call silently truncates at the server's page size, and a truncated enumeration would
+ * report a live collection as absent — a false `unavailable` verdict for a healthy store.
+ *
+ * Throws on client failure rather than returning an empty list. An empty result and an unreachable
+ * server are different facts, and collapsing them here would hand callers the exact conflation this
+ * probe exists to break.
+ *
+ * @param {Object}  options
+ * @param {Object}  options.client    The chromadb library client (with `.listCollections`).
+ * @param {Number} [options.pageSize] Rows per request; the loop stops on the first short page.
+ * @returns {Promise<String[]>} Collection names, in server order.
+ * @see https://github.com/neomjs/neo/issues/16348
+ */
+export async function chromaListCollectionNames({client, pageSize = 1000} = {}) {
+    const names  = [];
+    let   offset = 0;
+
+    while (true) {
+        const page = await client.listCollections({limit: pageSize, offset});
+
+        names.push(...page.map(collection => collection.name));
+
+        if (page.length < pageSize) {
+            break
+        }
+
+        offset += pageSize
+    }
+
+    return names
 }
