@@ -35,10 +35,12 @@ const
 
 export {COMMIT_TICKET_PATTERN, DECLARED_TICKET_PATTERN};
 
-export const CHANGE_CLASS_TO_TYPE = Object.freeze({
-    capability  : 'feat',
-    restoration : 'fix',
-    'zero-delta': 'chore'
+export const CHANGE_CLASS_TO_TYPES = Object.freeze({
+    capability : ['feat'],
+    restoration: ['fix'],
+    // The repo's live zero-delta vocabulary: `chore` plus the conventional types history
+    // already merges for deltas that change neither runtime behavior nor capability.
+    'zero-delta': ['chore', 'test', 'docs', 'ci', 'build']
 });
 
 /**
@@ -127,7 +129,7 @@ export function filterMjsFiles(files) {
  * @param {String|null} [options.changeClass]
  * @param {String|null} [options.commitSubject]
  * @param {String|null} [options.prTitle]
- * @returns {{errors: String[], expectedType: String|null, skipped: Boolean, valid: Boolean}}
+ * @returns {{errors: String[], expectedTypes: String[]|null, skipped: Boolean, valid: Boolean}}
  */
 export function validateChangeClass({
     changeClass = null,
@@ -143,22 +145,22 @@ export function validateChangeClass({
 
     if (!hasInput) {
         return {
-            errors      : [],
-            expectedType: null,
-            skipped     : true,
-            valid       : true
+            errors       : [],
+            expectedTypes: null,
+            skipped      : true,
+            valid        : true
         }
     }
 
     const
-        errors       = [],
-        expectedType = Object.hasOwn(CHANGE_CLASS_TO_TYPE, changeClass)
-            ? CHANGE_CLASS_TO_TYPE[changeClass]
+        errors        = [],
+        expectedTypes = Object.hasOwn(CHANGE_CLASS_TO_TYPES, changeClass)
+            ? CHANGE_CLASS_TO_TYPES[changeClass]
             : null;
 
     if (!changeClass) {
         errors.push('`--change-class` is required when `--commit-subject` or `--pr-title` is provided.')
-    } else if (!expectedType) {
+    } else if (!expectedTypes) {
         errors.push(
             `Unknown change class \`${changeClass}\`; expected capability, restoration, or zero-delta.`
         )
@@ -168,19 +170,23 @@ export function validateChangeClass({
         errors.push('`--change-class` requires at least one `--commit-subject` or `--pr-title` to validate.')
     }
 
-    if (expectedType) {
+    if (expectedTypes) {
+        const requirement = expectedTypes.length === 1
+            ? `requires \`${expectedTypes[0]}\``
+            : `requires one of ${expectedTypes.map(type => `\`${type}\``).join(', ')}`;
+
         subjects.forEach(({label, value}) => {
             const match = value.match(CONVENTIONAL_TYPE_PATTERN);
 
             if (!match) {
                 errors.push(
                     `${label} is missing a valid Conventional Commit prefix; change class ` +
-                    `\`${changeClass}\` requires \`${expectedType}\`.`
+                    `\`${changeClass}\` ${requirement}.`
                 )
-            } else if (match[1] !== expectedType) {
+            } else if (!expectedTypes.includes(match[1])) {
                 errors.push(
                     `${label} declares \`${match[1]}\`, but change class \`${changeClass}\` ` +
-                    `requires \`${expectedType}\`.`
+                    `${requirement}.`
                 )
             }
         })
@@ -188,7 +194,7 @@ export function validateChangeClass({
 
     return {
         errors,
-        expectedType,
+        expectedTypes,
         skipped: false,
         valid  : errors.length === 0
     }
@@ -578,7 +584,7 @@ export function runAgentPreflight({
 
         writeLine(
             stdout,
-            `agent-preflight: declared ${options.changeClass} maps to ${changeClassResult.expectedType}; ` +
+            `agent-preflight: declared ${options.changeClass} maps to ${changeClassResult.expectedTypes.join(', ')}; ` +
             `${surfaceCount} intended subject${surfaceCount === 1 ? '' : 's'} matched.`
         )
     } else {
