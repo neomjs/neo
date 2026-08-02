@@ -263,6 +263,11 @@ test.describe('createStallActivityEvents — stable rank time', () => {
         expect(first.occurredAt).toBe(waitingSince)
         expect(second.occurredAt).toBe(waitingSince)
         expect(first.payload.rankAnchor).toBe('finding')
+
+        // The claim-vs-rank separation, pinned: the RANK ignores the re-stamped observation time,
+        // while the PAYLOAD carries it — a consumer can always see when the stall was last seen.
+        expect(first.payload.observedAt).toBe('2026-08-02T16:00:00.000Z')
+        expect(second.payload.observedAt).toBe('2026-08-02T17:00:00.000Z')
     })
 
     test('a fresh real event outranks a stale stall under the composer sort key', () => {

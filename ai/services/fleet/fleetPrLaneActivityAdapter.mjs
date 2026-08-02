@@ -198,7 +198,10 @@ export function createIssueActivityEvents(issues = [], {capturedAt = new Date()}
  * that began yesterday is a yesterday event, however recently it was re-confirmed; the fresher
  * observation facts stay available in the payload. A finding carrying no temporal fact at all
  * degrades to the capture clock WITH the `rankAnchor` marker naming that degradation — never
- * silently.
+ * silently. One upstream bound the marker cannot see: the findings builder defaults an absent
+ * `waitingSince` to its own scan-time `observedAt` BEFORE the finding reaches this adapter, so
+ * such rows arrive indistinguishable from genuinely-anchored ones and read `rankAnchor: 'finding'`
+ * — the marker names locally-absent anchors only.
  * @param {Object[]} stallFindings Findings from `buildWorkGraphStallFindings`.
  * @param {Object} options
  * @param {Date|String} options.capturedAt Fallback timestamp.
@@ -224,6 +227,8 @@ export function createStallActivityEvents(stallFindings = [], {capturedAt = new 
                     evidenceRefs      : asArray(finding.evidenceRefs),
                     verificationSource: finding.verificationSource || null,
                     waitingSince      : finding.waitingSince || null,
+                    observedAt        : finding.observedAt || null,
+                    lastVerifiedAt    : finding.lastVerifiedAt || null,
                     rankAnchor        : anchoredAt ? 'finding' : 'capture-time-degraded',
                     subject           : normalizeSubject(finding.subject)
                 }
