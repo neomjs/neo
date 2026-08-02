@@ -238,9 +238,11 @@ async function boot() {
             runInContext  : (context, fn) => RequestContextService.run(context, fn)
         });
 
-        const cleanShutdown = signal => {
+        // AWAITED plane teardown before every exit: an un-awaited close races process death, which
+        // leaks the proven plane session (the server reaps it only on its own timeline).
+        const cleanShutdown = async signal => {
             console.log(`[fleet] received ${signal}; stopping.`);
-            planeClient?.close();
+            await planeClient?.close();
             server.close(() => process.exit(0))
         };
 
@@ -261,12 +263,16 @@ async function boot() {
             agentIdentityNodeId: viewer.agentIdentityNodeId
         });
 
+        // Both occupied-port exits close the proven plane session AWAITED — reuse and refusal alike
+        // would otherwise orphan it on the plane.
         if (probe.reusable) {
             console.log(`[fleet] healthy Fleet already listening on port ${port} (${probe.reason}; viewer: ${probe.viewer}, pid: ${probe.pid}) — reusing it.`);
+            await planeClient?.close();
             process.exit(0)
         }
 
         console.error(`[fleet] port ${port} is occupied and NOT reusable: ${probe.reason}`);
+        await planeClient?.close();
         process.exit(1)
     }
 }

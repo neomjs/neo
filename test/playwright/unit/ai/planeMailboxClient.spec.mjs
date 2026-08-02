@@ -315,7 +315,104 @@ test.describe('planeMailboxClient: concurrency (the production catch-up call sha
     })
 });
 
+test.describe('planeMailboxClient: replay boundary (proven session-invalid only)', () => {
+    test('an AMBIGUOUS mutating failure commits at most once: response lost AFTER commit → throw, no replay', async () => {
+        // Reviewer-reproduced shape (committedCopies: 2 on the broken build): the plane COMMITS the
+        // add_message, then the response is lost to a network error. Ambiguity must throw — a
+        // replay would be a SECOND durable message, since MC mints a fresh id per invocation.
+        let committedCopies = 0;
+
+        const plane = scriptedPlane({
+            toolResponder: ({name}) => {
+                if (name === 'add_message') {
+                    committedCopies++;
+
+                    throw Object.assign(new Error('socket closed mid-response'), {name: 'TypeError'})
+                }
+
+                return {payload: {}}
+            }
+        });
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl: plane.fetchImpl});
+
+        expect((await client.init({expectedIdentity: IDENTITY})).ok).toBe(true);
+
+        await expect(client.addMessage({to: '@peer', subject: 's', body: 'b'}))
+            .rejects.toThrow(/ambiguous — not replayed/);
+
+        expect(committedCopies).toBe(1);
+        expect(plane.calls.filter(call => call.toolName === 'add_message')).toHaveLength(1)
+    });
+
+    test('an ambiguous 5xx read failure throws without replay — the adapters own the degraded state', async () => {
+        const {client, plane} = await initializedClient({toolResponder: () => ({status: 503})});
+
+        await expect(client.listMessages()).rejects.toThrow(/ambiguous — not replayed/);
+        expect(plane.calls.filter(call => call.toolName === 'list_messages')).toHaveLength(1)
+    })
+});
+
 test.describe('planeMailboxClient: session loss (one bounded recovery, identity re-proven)', () => {
+    test('CONCURRENT callers after a FAILED recovery share ONE single-flight re-proof — no orphan session', async () => {
+        // Reviewer-named race: session === null after a failed recovery, then two production-shaped
+        // concurrent callers. Broken build: two parallel handshakes, the later candidate overwrites
+        // the shared slot, the earlier proven session is orphaned. Contract: ONE shared re-proof.
+        let initializeAttempts = 0,
+            firstToolFailed    = false;
+
+        const plane = scriptedPlane({
+            identityBySession: [IDENTITY, IDENTITY, IDENTITY],
+            toolResponder    : ({name}) => {
+                if (!firstToolFailed) {
+                    firstToolFailed = true;
+
+                    return {status: 404}
+                }
+
+                return {payload: {tool: name}}
+            }
+        });
+
+        const fetchImpl = async (url, init = {}) => {
+            const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+
+            // Initialize #2 (the first recovery) fails — that failed recovery leaves session null.
+            if (body?.method === 'initialize' && ++initializeAttempts === 2) {
+                return planeResponse({status: 503, body: 'down'})
+            }
+
+            return plane.fetchImpl(url, init)
+        };
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl});
+
+        expect((await client.init({expectedIdentity: IDENTITY})).ok).toBe(true);
+
+        // Call 1: 404 → recovery initialize 503s → session stays null.
+        await expect(client.listMessages()).rejects.toThrow(/session lost and plane unreachable/);
+
+        // The production catch-up pair arrives concurrently against the null session.
+        const [memory, pulls] = await Promise.allSettled([
+            client.callTool('explore_memory_history',       {limit: 1}),
+            client.callTool('explore_pull_request_history', {limit: 1})
+        ]);
+
+        expect(memory.status).toBe('fulfilled');
+        expect(pulls.status).toBe('fulfilled');
+        expect(memory.value).toEqual({tool: 'explore_memory_history'});
+        expect(pulls.value).toEqual({tool: 'explore_pull_request_history'});
+
+        // Single-flight: exactly 3 initialize attempts total (boot, failed recovery, ONE shared
+        // re-proof) and exactly 2 identity proofs (boot + the shared re-proof).
+        expect(initializeAttempts).toBe(3);
+        expect(plane.calls.filter(call => call.toolName === 'list_permissions')).toHaveLength(2);
+
+        // No orphan: the only torn session is the boot session (one DELETE); the shared re-proof
+        // session is current, never overwritten by a second candidate.
+        expect(plane.calls.filter(call => call.method === 'DELETE')).toHaveLength(1)
+    });
+
     test('a transport-level failure reconnects ONCE, re-proves the SAME identity, then replays', async () => {
         let failed = false;
 

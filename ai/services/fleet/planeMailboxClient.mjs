@@ -85,7 +85,8 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
     });
 
     let session = null, // {client, transport, identity} once proven
-        expected = null;
+        expected     = null,
+        establishing = null; // the single-flight proof attempt every concurrent acquirer shares
 
     /**
      * @summary Tear one session down, awaited and tolerant: the plane-side session DELETE
@@ -152,6 +153,35 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
     }
 
     /**
+     * @summary SINGLE-FLIGHT proven-session acquisition: every concurrent acquirer (recovering
+     * callers, lazy re-establishment, init) shares ONE `connectProven` attempt — N failures never
+     * produce N parallel handshakes, so exactly one proven session exists afterwards and no proven
+     * session is orphaned by a later candidate overwriting the shared slot.
+     * @returns {Promise<Object>} The shared attempt's bounded `{ok, identity?, reason?}`.
+     * @private
+     */
+    function acquireProven() {
+        establishing ||= connectProven().finally(() => { establishing = null });
+
+        return establishing
+    }
+
+    /**
+     * @summary Positively identified session-invalid failure — the SDK's proven 404 class (the
+     * streamable-HTTP server answers 404 for a stale/unknown `mcp-session-id`). ONLY this class is
+     * replay-eligible: a timeout, network error, or 5xx is AMBIGUOUS — the server may have already
+     * committed the call — and an ambiguous mutating replay double-sends (MC assigns a fresh
+     * message id per `add_message` invocation, so a replay is a second durable message, never a
+     * dedupe).
+     * @param {*} error
+     * @returns {Boolean}
+     * @private
+     */
+    function isSessionInvalid(error) {
+        return error?.code === 404 || /\bHTTP 404\b/.test(error?.message ?? '')
+    }
+
+    /**
      * @summary Map one SDK CallToolResult into the in-process contract: tool errors throw their own
      * text, malformed payloads throw bounded, valid payloads return parsed.
      * @param {String} name
@@ -196,19 +226,25 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
 
             expected = next;
 
-            return connectProven()
+            return acquireProven()
         },
 
         /**
          * @summary Call one plane tool and return its parsed JSON payload. Throws like the
          * in-process services so the adapters' degraded/denied mapping applies unchanged.
          *
-         * Recovery contract: at most ONE proven reconnect per invocation. A transport-level failure
-         * mid-call triggers it with a single replay; a call arriving while no session is held (a
-         * previous recovery failed — the plane was down at that moment) SPENDS it up front on lazy
-         * re-establishment instead of staying bricked until re-init. Every reconnect must RE-PROVE
-         * the same identity before any request rides it; an unprovable or changed identity throws
-         * without replaying.
+         * Recovery contract, three rules with teeth:
+         * 1. **Replay only the proven session-invalid class** (the SDK's 404 on a stale
+         *    `mcp-session-id`), at most once per invocation. A timeout, network error, or 5xx is
+         *    AMBIGUOUS — the server may have committed the call — so it throws instead of
+         *    replaying: for `add_message` a replay would be a SECOND durable message, and the
+         *    honest answer for reads is the adapters' degraded state, not a maybe-doubled read.
+         * 2. **Acquisition is single-flight** ({@link acquireProven}): concurrent recovering
+         *    callers share one re-proof; a lazy re-establishment after an earlier failed recovery
+         *    rides the same gate, so the client never bricks and never races handshakes.
+         * 3. **Clearing is candidate-local**: a failing caller only clears/tears the session IT
+         *    rode, and only while that session is still current — a caller failing on an
+         *    already-replaced session must not destroy its successor.
          * @param {String} name Registered MC tool name (e.g. `list_messages`).
          * @param {Object} [args]
          * @returns {Promise<Object>}
@@ -219,7 +255,7 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
             let recovered = false;
 
             if (!session) {
-                const readmission = await connectProven();
+                const readmission = await acquireProven();
 
                 if (!readmission.ok) {
                     throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
@@ -228,15 +264,24 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
                 recovered = true
             }
 
+            const mine = session;
+
             let result;
 
             try {
-                result = await session.client.callTool({name, arguments: args})
+                result = await mine.client.callTool({name, arguments: args})
             } catch (error) {
-                const lost = session;
+                // Candidate-local clear: only the still-current failed session is cleared and torn
+                // down; when a concurrent caller already replaced it, the successor stays untouched
+                // (the replacer's own failure path tore the shared predecessor exactly once).
+                if (session === mine) {
+                    session = null;
+                    await teardown(mine)
+                }
 
-                session = null;
-                await teardown(lost);
+                if (!isSessionInvalid(error)) {
+                    throw new Error(`plane ${name} failed: ${error?.name ?? 'call failure'} (ambiguous — not replayed)`)
+                }
 
                 if (recovered) {
                     // This invocation already spent its one reconnect — a second failure on a
@@ -244,13 +289,15 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
                     throw new Error(`plane ${name} failed: ${error?.name ?? 'call failure'} on a freshly established session`)
                 }
 
-                const readmission = await connectProven();
+                const readmission = await acquireProven();
 
                 if (!readmission.ok) {
                     throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
                 }
 
-                result = await session.client.callTool({name, arguments: args})
+                const fresh = session;
+
+                result = await fresh.client.callTool({name, arguments: args})
             }
 
             return mapToolResult(name, result)
@@ -279,7 +326,9 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
          * is TERMINAL: it clears the held identity expectation, so later calls answer
          * "client not initialized" instead of lazily resurrecting a deliberately shut-down client
          * (lazy re-establishment is reserved for failed recoveries, where the intent to serve
-         * still stands).
+         * still stands). An acquisition in flight at close time cannot resurrect either: clearing
+         * `expected` first makes the in-flight proof land on its own mismatch path, which tears the
+         * candidate down without storing it.
          * @returns {Promise<void>}
          */
         async close() {
