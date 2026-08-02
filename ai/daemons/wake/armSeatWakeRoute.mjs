@@ -190,10 +190,31 @@ export async function armSeatWakeRoute({
             subscriptionsPath
         });
 
+        // "The builder returned" is NOT "this seat is reachable". The builder withdraws the caller's own
+        // absent route while preserving every peer's, so an empty subscription set publishes a manifest
+        // that still has nine healthy-looking routes and none of them this seat's — reporting `armed` on
+        // that recreates the exact lie this whole path exists to remove: infrastructure that reads fine
+        // while the seat cannot be woken. Admission needs a published route OWNED BY this seat, not a
+        // successful call. Counting `routeSummaries` alone is not enough either: it is the merged table,
+        // so a peer's surviving route would otherwise be counted as evidence of mine.
+        const ownRoutes = (result?.routeSummaries ?? []).filter(route =>
+            toBareIdentity(route?.agentIdentity) === toBareIdentity(tuple.identity)
+        );
+
+        if (!ownRoutes.length) {
+            return {
+                armed     : false,
+                identity  : tuple.identity,
+                routeCount: 0,
+                reason    : `the publish succeeded but produced no route owned by ${tuple.identity} — this seat is NOT reachable`,
+                skipped   : result?.skipped ?? []
+            };
+        }
+
         return {
             armed     : true,
             identity  : tuple.identity,
-            routeCount: result?.routeSummaries?.length ?? 0,
+            routeCount: ownRoutes.length,
             skipped   : result?.skipped ?? []
         }
     } catch (error) {

@@ -8,9 +8,10 @@ import {armSeatWakeRoute,
         INSTANCE_TYPE,
         resolveInstanceTuple,
         toBareIdentity}          from '../../../../ai/daemons/wake/armSeatWakeRoute.mjs';
-import {readToolJson,
-        resolveBearerToken}      from '../../../../ai/daemons/wake/readSubscriptionsOverMcp.mjs';
-import {resolveManifestPath}     from '../../../../.claude/hooks/wakeArmingHook.mjs';
+import {readSubscriptionsOverMcp,
+        readToolJson}            from '../../../../ai/daemons/wake/readSubscriptionsOverMcp.mjs';
+import {armClaudeSeat,
+        resolveManifestPath}     from '../../../../.claude/hooks/wakeArmingHook.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
@@ -58,6 +59,81 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
         expect(tuple.reason).toContain('NEO_AGENT_IDENTITY');
     });
 
+    test('a publish that produces no route owned by this seat reports UNARMED (#16355)', async () => {
+        const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-arm-home-'));
+        fs.mkdirSync(path.join(homeDir, '.claude-instances', 'neo-opus-vega'), {recursive: true});
+
+        // @neo-gpt's falsifier: a valid tuple, an EMPTY subscription set, and a builder that succeeds
+        // with no routes. The builder withdraws only the caller's absent route and preserves peers', so
+        // the manifest still looks healthy — reporting `armed` here recreates the exact lie this path
+        // exists to remove. "The builder returned" is not "this seat is reachable".
+        const empty = await armSeatWakeRoute({
+            env              : {NEO_AGENT_IDENTITY: 'neo-opus-vega'},
+            homeDir,
+            listSubscriptions: async () => [],
+            manifestPath     : path.join(homeDir, 'routes.json'),
+            runBuilder       : async () => ({routeSummaries: [], skipped: []})
+        });
+
+        expect(empty.armed).toBe(false);
+        expect(empty.routeCount).toBe(0);
+        expect(empty.reason).toContain('NOT reachable');
+
+        // And a peer's surviving route is not evidence of mine: `routeSummaries` is the MERGED table, so
+        // a non-empty length alone would have counted someone else's reachability as my own.
+        const peerOnly = await armSeatWakeRoute({
+            env              : {NEO_AGENT_IDENTITY: 'neo-opus-vega'},
+            homeDir,
+            listSubscriptions: async () => [],
+            manifestPath     : path.join(homeDir, 'routes.json'),
+            runBuilder       : async () => ({
+                routeSummaries: [{subscriptionId: 'WAKE_SUB:peer', agentIdentity: '@neo-gpt-emmy'}], skipped: []
+            })
+        });
+
+        expect(peerOnly.armed).toBe(false);
+        expect(peerOnly.routeCount).toBe(0);
+    });
+
+    test('an unconfigured plane base is a named skip, never a localhost guess (#16355)', async () => {
+        let readerCalled = false;
+
+        const result = await armClaudeSeat({
+            env              : {NEO_AGENT_IDENTITY: 'neo-opus-vega'},
+            config           : {planeBase: '   ', planeBearer: ''},
+            listSubscriptions: async () => { readerCalled = true; return [] },
+            arm              : async () => ({armed: true})
+        });
+
+        expect(result.armed).toBe(false);
+        expect(result.reason).toContain('planeBase');
+        expect(readerCalled).toBe(false);
+    });
+
+    test('the entrypoint injects the plane endpoint and credential into the reader (#16355)', async () => {
+        let seen = null;
+
+        await armClaudeSeat({
+            env              : {NEO_AGENT_IDENTITY: 'neo-opus-vega'},
+            config           : {planeBase: 'http://127.0.0.1:3102/', planeBearer: 'secret-token'},
+            listSubscriptions: async options => { seen = options; return [] },
+            arm              : async ({listSubscriptions}) => {
+                await listSubscriptions();
+                return {armed: false}
+            }
+        });
+
+        // Trailing slash collapsed and the `/mc/mcp` ingress path appended, matching devFleetServer's
+        // resolution of the same leaves rather than a second spelling of it.
+        expect(seen.baseUrl).toBe('http://127.0.0.1:3102/mc/mcp');
+        expect(seen.credential).toBe('secret-token');
+    });
+
+    test('the reader resolves no config of its own and refuses an absent baseUrl (#16355)', async () => {
+        // The config-SSOT repair, asserted behaviourally: the collaborator must not substitute a default.
+        await expect(readSubscriptionsOverMcp({})).rejects.toThrow(/requires an injected baseUrl/);
+    });
+
     test('arming publishes with the derived tuple and reports the route count', async () => {
         const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-arm-home-'));
         fs.mkdirSync(path.join(homeDir, '.claude-instances', 'neo-opus-vega'), {recursive: true});
@@ -71,7 +147,9 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
             manifestPath     : path.join(homeDir, 'routes.json'),
             runBuilder       : async config => {
                 seen = config;
-                return {routeSummaries: [{id: 'WAKE_SUB:one'}], skipped: []}
+                // Carries `agentIdentity` because the real builder's summaries do; without it the
+                // ownership guard correctly refuses to call this seat reachable.
+                return {routeSummaries: [{subscriptionId: 'WAKE_SUB:one', agentIdentity: '@neo-opus-vega'}], skipped: []}
             }
         });
 
@@ -163,7 +241,9 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
             homeDir,
             listSubscriptions: async () => [{id: 'WAKE_SUB:mine', agentIdentity: '@neo-opus-vega'}],
             manifestPath     : path.join(homeDir, 'routes.json'),
-            runBuilder       : async () => ({routeSummaries: [{id: 'WAKE_SUB:mine'}], skipped: []})
+            runBuilder       : async () => ({
+                routeSummaries: [{subscriptionId: 'WAKE_SUB:mine', agentIdentity: '@neo-opus-vega'}], skipped: []
+            })
         });
 
         expect(result.armed).toBe(true);
@@ -191,16 +271,6 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
             .not.toThrow();
         expect(() => readToolJson({content: []})).toThrow(/no text content/);
         expect(() => readToolJson({})).toThrow(/no text content/);
-    });
-
-    test('an empty bearer-token file is rejected rather than sent as no credential', () => {
-        const dir   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-arm-token-')),
-              empty = path.join(dir, 'empty-token');
-
-        fs.writeFileSync(empty, '   \n');
-
-        expect(() => resolveBearerToken(empty)).toThrow(/no credential/);
-        expect(resolveBearerToken(null)).toBeNull();
     });
 
     test('toBareIdentity strips the handle sigil and rejects non-strings', () => {

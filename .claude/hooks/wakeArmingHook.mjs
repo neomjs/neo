@@ -25,6 +25,27 @@ export function resolveManifestPath({env = process.env, homeDir = os.homedir()} 
 }
 
 /**
+ * @summary Reads the plane leaves from `AiConfig`, the one config read in this process.
+ *
+ * Imported lazily so the module stays loadable — and its pure helpers unit-testable — without booting
+ * the Neo state Provider. The hook process is an entrypoint, so importing `AiConfig` here is the
+ * sanctioned shape for an entrypoint; doing it at module scope would make every consumer of
+ * `resolveManifestPath` pay for a Provider boot.
+ * @returns {Promise<Object>} `{planeBase, planeBearer}`
+ */
+export async function readPlaneConfig() {
+    // Namespace bootstrap before the config import, the entry-point invariant `devFleetServer.mjs`
+    // documents: `Neo` + `core/_export` populate `globalThis.Neo` so the Provider's `setupClass`
+    // succeeds at module-load. Without them `ai/config.mjs` throws `Neo is not defined`.
+    await import('../../src/Neo.mjs');
+    await import('../../src/core/_export.mjs');
+
+    const {default: AiConfig} = await import('../../ai/config.mjs');
+
+    return {planeBase: AiConfig.fleet.planeBase, planeBearer: AiConfig.fleet.planeBearer}
+}
+
+/**
  * @summary Arms this seat's wake route at session start, reporting the outcome without ever failing the session.
  *
  * A once-ever manual arming step is lost the moment a seat is re-provisioned or a harness crashes,
@@ -33,10 +54,22 @@ export function resolveManifestPath({env = process.env, homeDir = os.homedir()} 
  * re-arm — the manifest builder merges additively, so repeating it neither duplicates this seat's
  * route nor withdraws a peer's.
  *
+ * **This is the entrypoint, and the only place config is resolved.** It reads `AiConfig.fleet.planeBase`
+ * / `fleet.planeBearer` — the same leaves `devFleetServer.mjs` reads to reach the containerized plane —
+ * and injects them into pure collaborators. The reader below deliberately resolves nothing itself; an
+ * earlier version re-derived the endpoint from its own env vocabulary with a hardcoded localhost
+ * fallback — module-level re-derivation of a config leaf — and invented a second credential carrier
+ * beside the plane's own.
+ *
+ * An unconfigured plane is a NAMED SKIP, never a localhost guess: `fleet.planeBase` defaults to empty
+ * precisely so "not configured" is expressible, and guessing an endpoint would either fail obscurely or
+ * publish against whatever happens to be listening.
+ *
  * @param {Object} [options]
  * @param {Object} [options.env=process.env] Environment source.
  * @param {String} [options.harness='claude'] Harness key for instance-tuple derivation.
  * @param {String} [options.homeDir] Overrides `os.homedir()` for deterministic tests.
+ * @param {Object} [options.config] Injected `{planeBase, planeBearer}`; read from `AiConfig` when absent.
  * @param {Function} [options.listSubscriptions=readSubscriptionsOverMcp] Subscription-reader seam.
  * @param {Function} [options.arm=armSeatWakeRoute] Arming seam.
  * @returns {Promise<Object>}
@@ -45,15 +78,30 @@ export async function armClaudeSeat({
     env               = process.env,
     harness           = 'claude',
     homeDir,
+    config,
     listSubscriptions = readSubscriptionsOverMcp,
     arm               = armSeatWakeRoute
 } = {}) {
+    const resolved  = config ?? await readPlaneConfig(),
+          planeBase = String(resolved?.planeBase ?? '').trim().replace(/\/+$/, '');
+
+    if (!planeBase) {
+        return {
+            armed : false,
+            reason: 'fleet.planeBase is not configured, so there is no Memory Core plane to read subscriptions from'
+        };
+    }
+
     return arm({
         env,
         harness,
         homeDir,
-        listSubscriptions: () => listSubscriptions({env}),
-        manifestPath     : resolveManifestPath({env, homeDir})
+        listSubscriptions: ({identity} = {}) => listSubscriptions({
+            baseUrl   : `${planeBase}/mc/mcp`,
+            credential: resolved?.planeBearer ?? '',
+            identity
+        }),
+        manifestPath: resolveManifestPath({env, homeDir})
     })
 }
 

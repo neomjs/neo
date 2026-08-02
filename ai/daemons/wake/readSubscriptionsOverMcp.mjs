@@ -1,50 +1,18 @@
 import {Client}                        from '@modelcontextprotocol/sdk/client/index.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {readFileSync}                  from 'node:fs';
 
 /**
- * Base URL of the Memory Core's MCP surface. On the containerized plane this is the ingress publish
- * address, not the service port: ingress routes `/mc/*` to `mc-server:3001`, so the seat talks to the
- * container through one published port rather than reaching a service directly.
- * @type {String}
- */
-export const DEFAULT_MCP_URL = 'http://127.0.0.1:3102';
-
-/**
- * @type {String}
- */
-export const DEFAULT_MCP_PATH = '/mc/mcp';
-
-/**
+ * Pure collaborator: every value it needs is INJECTED, nothing is resolved here.
+ *
+ * The first version read `NEO_MEMORY_CORE_MCP_URL` with a hardcoded `http://127.0.0.1:3102` fallback
+ * and its own bearer-token file vocabulary. That is module-level re-derivation of a
+ * config leaf — and it also invented a second credential carrier alongside the one the plane already
+ * has. `AiConfig.fleet.planeBase` / `fleet.planeBearer` are the SSOT, `devFleetServer.mjs` is the
+ * precedent for reading them once at an entrypoint and injecting, and an entrypoint is exactly what
+ * the arming hook is.
  * @type {Number}
  */
 export const DEFAULT_TIMEOUT_MS = 8000;
-
-/**
- * @summary Reads one bearer credential from a file, naming only the carrier on failure.
- * @param {String|null} tokenFile Absolute path to the secret file.
- * @param {Function} [readFile=readFileSync] Read seam.
- * @returns {String|null}
- */
-export function resolveBearerToken(tokenFile, readFile = readFileSync) {
-    const filePath = typeof tokenFile === 'string' && tokenFile.trim() ? tokenFile.trim() : null;
-
-    if (!filePath) return null;
-
-    let token;
-
-    try {
-        token = String(readFile(filePath, 'utf8')).trim()
-    } catch {
-        throw new Error('Cannot read the configured wake-arming bearer-token file')
-    }
-
-    if (!token) {
-        throw new Error('The configured wake-arming bearer-token file contains no credential')
-    }
-
-    return token
-}
 
 /**
  * @summary Extracts the JSON payload an MCP tool returned in its text content block.
@@ -70,30 +38,39 @@ export function readToolJson(result) {
  * stale route set — the failure is invisible to a green test suite, because a stale file answers
  * reads correctly. Going through MCP means the reader sees exactly what the service serves.
  *
- * @param {Object} [options]
- * @param {Object} [options.env=process.env] Environment source.
- * @param {String} [options.url] Base URL; defaults to `NEO_MEMORY_CORE_MCP_URL` then `DEFAULT_MCP_URL`.
- * @param {String} [options.mcpPath] Endpoint path below the base URL.
- * @param {String} [options.tokenFile] Bearer-token file; defaults to `NEO_MCP_AUTH_TOKEN_FILE`.
+ * @param {Object} options
+ * @param {String} options.baseUrl Fully-resolved MCP endpoint, injected by the entrypoint.
+ * @param {String} [options.credential=''] Bearer credential; empty means a tokenless plane, which
+ * decides admission itself and fail-closed — matching `createPlaneMailboxClient`'s contract.
  * @param {Number} [options.timeoutMs=DEFAULT_TIMEOUT_MS] Per-operation budget.
  * @param {Function} [options.ClientClass=Client] Spec seam.
  * @param {Function} [options.TransportClass=StreamableHTTPClientTransport] Spec seam.
  * @returns {Promise<Object[]>} The subscription records, in the shape the manifest builder consumes.
  */
 export async function readSubscriptionsOverMcp({
-    env            = process.env,
-    url            = env?.NEO_MEMORY_CORE_MCP_URL || DEFAULT_MCP_URL,
-    mcpPath        = env?.NEO_WAKE_ARMING_MCP_PATH || DEFAULT_MCP_PATH,
-    tokenFile      = env?.NEO_MCP_AUTH_TOKEN_FILE || null,
+    baseUrl,
+    credential     = '',
+    identity       = '',
     timeoutMs      = DEFAULT_TIMEOUT_MS,
     ClientClass    = Client,
     TransportClass = StreamableHTTPClientTransport
 } = {}) {
-    const bearerToken     = resolveBearerToken(tokenFile),
-          headers         = bearerToken ? {Authorization: `Bearer ${bearerToken}`} : {},
-          abortController = new AbortController();
+    if (!baseUrl) {
+        throw new Error('readSubscriptionsOverMcp requires an injected baseUrl — it resolves no config itself')
+    }
 
-    const transport = new TransportClass(new URL(mcpPath, new URL(url)), {
+    // `X-PREFERRED-USERNAME` names WHICH seat is asking, the same header `mcpHealthcheck` sends. It is
+    // not decoration: without it the plane answers as the credential's owner, so a shared token returns
+    // that owner's subscriptions — measured, and the reason the caller must still verify identity
+    // agreement rather than trusting this header to have been honoured.
+    const headers = {};
+
+    if (identity)   headers['X-PREFERRED-USERNAME'] = identity;
+    if (credential) headers['Authorization']        = `Bearer ${credential}`;
+
+    const abortController = new AbortController();
+
+    const transport = new TransportClass(new URL(baseUrl), {
         requestInit: {
             headers,
             signal: abortController.signal
