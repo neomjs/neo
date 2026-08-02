@@ -87,6 +87,19 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         }
     });
 
+    test('a corrupt husky manifest is a named parse error, matching its neighbours', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+
+        fs.mkdirSync(path.join(dir, 'node_modules', 'husky'), {recursive: true});
+        fs.writeFileSync(path.join(dir, 'node_modules', 'husky', 'package.json'), '{not json');
+
+        try {
+            expect(() => resolveHuskyBin(dir)).toThrow(/cannot parse husky's package\.json/);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
     test('a bin target missing from disk is a named error naming the entry', () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
 

@@ -41,8 +41,15 @@ export function resolveHuskyBin(root=repoRoot) {
         throw new Error(`prepare: husky package not found at '${packagePath}' — run with the repo's dependencies installed`);
     }
 
-    const bin   = JSON.parse(readFileSync(packagePath, 'utf8')).bin,
-          entry = typeof bin === 'string' ? bin : bin?.husky ?? Object.values(bin ?? {})[0];
+    let bin;
+
+    try {
+        bin = JSON.parse(readFileSync(packagePath, 'utf8')).bin;
+    } catch (error) {
+        throw new Error(`prepare: cannot parse husky's package.json at '${packagePath}' (${error.message})`);
+    }
+
+    const entry = typeof bin === 'string' ? bin : bin?.husky ?? Object.values(bin ?? {})[0];
 
     if (typeof entry !== 'string' || entry.length === 0) {
         throw new Error(`prepare: husky's package.json declares no bin entry at '${packagePath}'`);
