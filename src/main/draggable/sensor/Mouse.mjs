@@ -113,7 +113,8 @@ class Mouse extends Base {
                 // selection machinery claims the pre-threshold window first — which is how a
                 // splitter drag comes to paint card text as a selection. The class releases
                 // in onMouseUp (and defensively in the DragDrop addon's resetDragState).
-                document.body.classList.add('neo-drag-active');
+                // Guarded: bare test harnesses may stub `document` without a body/classList.
+                document.body?.classList?.add('neo-drag-active');
 
                 document.addEventListener('dragstart', preventDefault);
                 document.addEventListener('mousemove', me.onDistanceChange);
@@ -157,7 +158,7 @@ class Mouse extends Base {
 
             clearTimeout(me.mouseDownTimeout);
 
-            document.body.classList.remove('neo-drag-active');
+            document.body?.classList?.remove('neo-drag-active');
 
             document.removeEventListener('dragstart', preventDefault);
             document.removeEventListener('mousemove', me.onDistanceChange);
