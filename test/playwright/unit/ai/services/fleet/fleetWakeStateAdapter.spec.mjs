@@ -378,3 +378,114 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
         }
     })
 })
+
+/**
+ * The injected delivery-axis resolvers: the plane-mode seam. A deployment whose delivery authority
+ * is not a host daemon replaces the PID/receipt file sources with axis-level resolvers carrying the
+ * same contracts — and the same inability to fabricate: throws and out-of-contract answers degrade
+ * to unknown with the reason preserved, and precedence belongs to the injected authority.
+ */
+test.describe('fleetWakeStateAdapter — injected delivery-axis resolvers (the plane-mode seam)', () => {
+    const agents = [{id: 'grace'}, {id: 'vega'}]
+
+    test('injected axes replace the file sources entirely: on-rows with no PID path at all', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents,
+            resolveSubscriptionState       : agent => agent.id === 'grace' ? 'active' : 'none',
+            resolveDeliveryLiveness        : () => ({alive: true, reason: null}),
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: new Map()})
+        })
+
+        expect(capability).toMatchObject({state: 'wired', confidence: 'observed', reason: null})
+        expect(states).toEqual([
+            {agentId: 'grace', wake: 'on',  confidence: 'observed', source: WAKE_SOURCE_LABEL},
+            {agentId: 'vega',  wake: 'off', confidence: 'observed', source: WAKE_SOURCE_LABEL}
+        ])
+    })
+
+    test('an injected resolver WINS over configured file paths — the entrypoint named a different authority', async () => {
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                  : [{id: 'grace'}],
+            resolveSubscriptionState: () => 'active',
+            // The file picture says LIVE daemon; the injected authority says delivery is down.
+            pidFilePath                    : '/x/wake.pid',
+            readFile                       : () => '4242',
+            probeProcess                   : () => {},
+            readProcessCommand             : () => 'node /repo/ai/daemons/wake/daemon.mjs',
+            resolveDeliveryLiveness        : () => ({alive: false, reason: null}),
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: new Map()})
+        })
+
+        expect(states[0].wake).toBe('suppressed')
+    })
+
+    test('a throwing liveness resolver degrades to unknown with ITS reason — never a fabricated state', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                         : [{id: 'grace'}],
+            resolveSubscriptionState       : () => 'active',
+            resolveDeliveryLiveness        : () => { throw new Error('plane vouching surface unreachable') },
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: new Map()})
+        })
+
+        expect(capability.state).toBe('degraded')
+        expect(capability.reason).toContain('plane vouching surface unreachable')
+        expect(states[0]).toMatchObject({wake: 'unknown', confidence: 'none'})
+    })
+
+    test('an out-of-contract liveness answer cannot smuggle a fifth state', async () => {
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                         : [{id: 'grace'}],
+            resolveSubscriptionState       : () => 'active',
+            resolveDeliveryLiveness        : () => ({alive: 'maybe'}),
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: new Map()})
+        })
+
+        expect(states[0].wake).toBe('unknown')
+        expect(states[0].reason).toBe('delivery liveness resolver returned an out-of-contract value')
+    })
+
+    test('a reasonless unknown from an injected resolver names ITS source — not the wake daemon', async () => {
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                         : [{id: 'grace'}],
+            resolveSubscriptionState       : () => 'active',
+            resolveDeliveryLiveness        : () => ({alive: 'unknown', reason: null}),
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: new Map()})
+        })
+
+        expect(states[0].wake).toBe('unknown')
+        expect(states[0].reason).toBe('delivery liveness resolver answered unknown')
+    })
+
+    test('injected terminal failures project the same suppressed row as the file source', async () => {
+        const failedAt = '2026-08-02T11:22:33.000Z'
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace', githubUsername: 'neo-opus-grace'}],
+            listActiveSubscriptionIdentities: () => ['@neo-opus-grace'],
+            resolveDeliveryLiveness         : () => ({alive: true, reason: null}),
+            resolveTerminalDeliveryFailures : () => ({
+                state     : 'observed',
+                reason    : null,
+                byIdentity: new Map([['@neo-opus-grace', [{subscriptionId: 'WAKE_SUB:grace', errorClass: 'receiver-refused', failedAt}]]])
+            })
+        })
+
+        expect(states[0]).toMatchObject({
+            wake               : 'suppressed',
+            reason             : 'terminal wake delivery failure: receiver-refused',
+            lastDeliveryFailure: {subscriptionId: 'WAKE_SUB:grace', errorClass: 'receiver-refused', failedAt}
+        })
+    })
+
+    test('an out-of-contract failures answer (byIdentity not a Map) degrades that axis honestly', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                         : [{id: 'grace'}],
+            resolveSubscriptionState       : () => 'active',
+            resolveDeliveryLiveness        : () => ({alive: true, reason: null}),
+            resolveTerminalDeliveryFailures: () => ({state: 'observed', reason: null, byIdentity: {}})
+        })
+
+        expect(capability.state).toBe('degraded')
+        expect(states[0].wake).toBe('unknown')
+        expect(states[0].reason).toBe('terminal delivery resolver returned an out-of-contract value')
+    })
+})

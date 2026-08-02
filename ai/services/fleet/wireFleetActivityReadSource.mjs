@@ -29,7 +29,7 @@ import {buildWorkGraphStallFindings,
  *    injected PR payloads. The reading is the substantive work of this leaf, not a passthrough.
  *
  * @see ai/services/fleet/wireBootIdentityReadSource.mjs — the wire-shape precedent
- * @see ai/services/fleet/readActiveWakeSubscriptionIdentities.mjs — the lazy-singleton cross-process precedent
+ * @see ai/services/memory-core/readActiveWakeSubscriptionIdentities.mjs — the lazy-singleton cross-process precedent
  */
 
 /**

@@ -23,6 +23,15 @@ import path                from 'node:path'
  * default. The adapter itself never resolves configuration — config resolution belongs to process
  * entrypoints and this module is not one: the PID file path is injected by the composing
  * entrypoint; without it, liveness is honestly `unknown`.
+ *
+ * The delivery axes are RESOLVER-INJECTABLE at the same entrypoint boundary: a deployment whose
+ * delivery authority is not a host daemon (a containerized plane owning delivery, with its own
+ * vouching surface) injects `resolveDeliveryLiveness` / `resolveTerminalDeliveryFailures` instead
+ * of file paths that would measure a process which no longer exists — an absent retired daemon's
+ * PID file reads as OBSERVED not-running and would fabricate `suppressed` for every active
+ * subscription. Injected resolvers carry the exact same return contracts as the built-in sources
+ * and degrade identically: a throw or an out-of-contract answer becomes `unknown` with the reason
+ * preserved, never a fabricated state.
  */
 
 export const WAKE_STATES = Object.freeze(['on', 'off', 'suppressed', 'unknown'])
@@ -258,6 +267,14 @@ export function resolveAgentWakeState({subscriptionState, daemonAlive, deliveryF
  * @param {String|null} [options.deliveryFailureFilePath] Daemon-owned terminal receipt path. When
  *     omitted beside a configured PID path, defaults to `wake-delivery-failures.json` in that same
  *     injected directory; no config or env is resolved here.
+ * @param {Function|null} [options.resolveDeliveryLiveness] Axis-level replacement for the PID-file
+ *     liveness source: `() => {alive: Boolean|'unknown', reason: String|null}` (sync or async).
+ *     When provided, the PID-file path is not consulted for liveness — the entrypoint has named a
+ *     different delivery authority. Throw or out-of-contract ⇒ `alive: 'unknown'` with the reason.
+ * @param {Function|null} [options.resolveTerminalDeliveryFailures] Axis-level replacement for the
+ *     receipt-file source: `() => {state: 'observed'|'unknown', reason: String|null,
+ *     byIdentity: Map<String,Object[]>}` (sync or async). Same degradation contract as its file
+ *     sibling; rows must be pre-sorted newest-first per identity if order matters to the caller.
  * @param {Function} [options.readFile] Test seam for {@link resolveDaemonLiveness}.
  * @param {Function} [options.readDeliveryFailureFile] Test seam for terminal receipt reads.
  * @param {Function} [options.probeProcess] Test seam for {@link resolveDaemonLiveness}.
@@ -273,6 +290,8 @@ export async function readFleetWakeStateSnapshot({
     wakeIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
     pidFilePath = null,
     deliveryFailureFilePath = null,
+    resolveDeliveryLiveness = null,
+    resolveTerminalDeliveryFailures = null,
     readFile,
     readDeliveryFailureFile,
     probeProcess,
@@ -298,17 +317,21 @@ export async function readFleetWakeStateSnapshot({
             resolveSubscriptionState = () => { throw new Error(reason || 'subscription scan failed') }
         }
     }
-    const liveness = resolveDaemonLiveness({
-        pidFilePath,
-        ...(readFile           && {readFile}),
-        ...(probeProcess       && {probeProcess}),
-        ...(readProcessCommand && {readProcessCommand})
-    })
-    const failures = readTerminalDeliveryFailures({
-        deliveryFailureFilePath: deliveryFailureFilePath ||
-            (pidFilePath ? path.join(path.dirname(pidFilePath), 'wake-delivery-failures.json') : null),
-        ...(readDeliveryFailureFile && {readDeliveryFailureFile})
-    })
+    const liveness = resolveDeliveryLiveness
+        ? await resolveInjectedLiveness(resolveDeliveryLiveness)
+        : resolveDaemonLiveness({
+            pidFilePath,
+            ...(readFile           && {readFile}),
+            ...(probeProcess       && {probeProcess}),
+            ...(readProcessCommand && {readProcessCommand})
+        })
+    const failures = resolveTerminalDeliveryFailures
+        ? await resolveInjectedFailures(resolveTerminalDeliveryFailures)
+        : readTerminalDeliveryFailures({
+            deliveryFailureFilePath: deliveryFailureFilePath ||
+                (pidFilePath ? path.join(path.dirname(pidFilePath), 'wake-delivery-failures.json') : null),
+            ...(readDeliveryFailureFile && {readDeliveryFailureFile})
+        })
 
     const hasReader = Boolean(resolveSubscriptionState),
           states    = []
@@ -407,6 +430,72 @@ export async function readFleetWakeStateSnapshot({
             ].filter(Boolean).join('; ') || null
         },
         states
+    }
+}
+
+/**
+ * @summary Runs an injected liveness resolver under the axis contract: the answer must carry
+ * `alive` as `true`/`false`/`'unknown'`, anything else — a throw included — degrades to `'unknown'`
+ * with the reason preserved. An injected authority can therefore never fabricate a state the
+ * built-in source could not produce.
+ * @param {Function} resolver
+ * @returns {Promise<{alive: Boolean|'unknown', reason: String|null}>}
+ * @private
+ */
+async function resolveInjectedLiveness(resolver) {
+    let answer
+
+    try {
+        answer = await resolver()
+    } catch (error) {
+        return {alive: 'unknown', reason: normalizeReason(error)}
+    }
+
+    const alive = answer?.alive
+
+    if (alive !== true && alive !== false && alive !== 'unknown') {
+        return {alive: 'unknown', reason: 'delivery liveness resolver returned an out-of-contract value'}
+    }
+
+    // A reasonless `unknown` must still name ITS source: the generic fallback strings downstream
+    // talk about the wake daemon, which an injected delivery authority may not be.
+    return {
+        alive,
+        reason: answer.reason ?? (alive === 'unknown' ? 'delivery liveness resolver answered unknown' : null)
+    }
+}
+
+/**
+ * @summary Runs an injected terminal-failure resolver under the axis contract: `state` must be
+ * `'observed'` or `'unknown'` and `byIdentity` a Map — anything else degrades to `'unknown'` with
+ * an empty map, mirroring the file source's malformed-receipt handling.
+ * @param {Function} resolver
+ * @returns {Promise<{state: 'observed'|'unknown', reason: String|null, byIdentity: Map<String,Object[]>}>}
+ * @private
+ */
+async function resolveInjectedFailures(resolver) {
+    let answer
+
+    try {
+        answer = await resolver()
+    } catch (error) {
+        return {state: 'unknown', reason: normalizeReason(error), byIdentity: new Map()}
+    }
+
+    const state = answer?.state
+
+    if ((state !== 'observed' && state !== 'unknown') || !(answer.byIdentity instanceof Map)) {
+        return {
+            state     : 'unknown',
+            reason    : 'terminal delivery resolver returned an out-of-contract value',
+            byIdentity: new Map()
+        }
+    }
+
+    return {
+        state,
+        reason    : answer.reason ?? (state === 'unknown' ? 'terminal delivery resolver answered unknown' : null),
+        byIdentity: answer.byIdentity
     }
 }
 

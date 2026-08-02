@@ -2579,4 +2579,60 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
         });
     });
+
+    test.describe('fleet-identities — the fleet-telemetry read', () => {
+        const bridgeArgs = {
+            action               : 'subscribe',
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude', coalesceWindow: 0}
+        };
+
+        test('returns sorted deduplicated ACTIVE holder identities — absent status included by policy, retired excluded', async () => {
+            GraphService.upsertNode({id: '@fleet-zed',  type: 'AGENT', name: 'Zed',  properties: {}});
+            GraphService.upsertNode({id: '@fleet-yara', type: 'AGENT', name: 'Yara', properties: {}});
+            GraphService.upsertNode({id: '@fleet-xico', type: 'AGENT', name: 'Xico', properties: {}});
+
+            // zed holds TWO active rows (dedupe witness); yara's only row is retired via the real
+            // lifecycle verb; xico's row has its status REMOVED raw — the unreachable-but-not-
+            // impossible state whose meaning the shared policy owns (absent ⇒ active).
+            await RequestContextService.run({agentIdentityNodeId: '@fleet-zed'}, async () => {
+                await callTool('manage_wake_subscription', bridgeArgs);
+                await callTool('manage_wake_subscription', bridgeArgs);
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@fleet-yara'}, async () => {
+                const {subscriptionId} = await callTool('manage_wake_subscription', bridgeArgs);
+
+                await callTool('manage_wake_subscription', {action: 'unsubscribe', subscriptionId});
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@fleet-xico'}, async () => {
+                await callTool('manage_wake_subscription', bridgeArgs);
+            });
+
+            GraphService.db.storage.db.prepare(`
+                UPDATE Nodes SET data = json_remove(data, '$.properties.status')
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+                  AND json_extract(data, '$.properties.agentIdentity') = '@fleet-xico'
+            `).run();
+
+            const res = await RequestContextService.run({agentIdentityNodeId: '@alice'},
+                () => callTool('manage_wake_subscription', {action: 'fleet-identities'}));
+
+            // Identities only — no rows, no properties, nothing beside the one declared key.
+            expect(Object.keys(res)).toEqual(['identities']);
+
+            const {identities} = res;
+
+            expect(identities.filter(identity => identity === '@fleet-zed')).toHaveLength(1);
+            expect(identities).toContain('@fleet-xico');
+            expect(identities).not.toContain('@fleet-yara');
+            expect(identities).toEqual([...identities].sort());
+        });
+
+        test('an unbound caller is refused — authenticated-caller telemetry, not an open scan', async () => {
+            await expect(WakeSubscriptionService.fleetIdentities()).rejects.toThrow(/identity/i)
+        });
+    });
 });
