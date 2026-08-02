@@ -11,11 +11,10 @@
  *   are the working screenplay, and the final voice track re-times to the footage.
  *
  * Pacing: `targetSeconds` per scene is a budget, not a stopwatch — captured gestures own their
- * real duration and the cut re-paces around them. The non-conditional scenes sum to exactly 90s —
- * the envelope's `minSeconds` floor with ZERO slack, so a future core-scene budget cut must either
- * trade seconds between scenes or move the floor. The conditional scene lifts the total to 106s,
- * and captured gesture durations plus the edit-layer cut-in re-pace upward from there, inside the
- * 90–150s envelope.
+ * real duration and the cut re-paces around them. The scenes sum to exactly 106s inside the
+ * 90–150s envelope: the `minSeconds` floor no longer binds scene-for-scene — 16s of slack sit
+ * above it — so a budget edit trades seconds within the 106s sum or cuts toward the floor, and
+ * captured gesture durations plus the edit-layer cut-in re-pace upward from there.
  *
  * Claim discipline (revalidated against the current witnesses at authoring time):
  * - same-instance continuity   → `getPaneIdentity` equality asserts (scenes 3, 6, 8)
@@ -24,6 +23,10 @@
  * - atomic return + self-close → `phaseOrder` `documents-adopted → … → topology-exited` (scene 6)
  * - living-content continuity  → monotonic `feedSequence`, never reset (scenes 1, 8)
  * - preview determinism        → two-take beat-log equality + painted-dwell rect witnesses (scene 2)
+ * - perspective restore        → store-backed capture/list/restore with exact-baseline document
+ *   fidelity                     equality, fail-closed on unknown names (scene 7)
+ * - undo/redo round-trip       → dock-mutation transaction record, undo-to-exact-baseline and
+ *                                redo-re-applied witnesses on both demo surfaces (scene 7)
  * Narration makes NO cross-platform, default-selection, or portability claims, and carries no
  * competitive comparisons — captions inherit the spec's macOS-headed claim boundary.
  *
@@ -41,7 +44,8 @@
 /**
  * The flagship-film screenplay. Scene ids are stable anchors for the cut, the caption
  * renderer, and the take QA checklist; `conditional` scenes activate only when their wiring
- * ships and are skipped by consumers until then.
+ * ships and are skipped by consumers until then. The list currently carries none — the
+ * perspective and transaction wiring has landed, and the arrangements scene is core.
  * @type {Object}
  */
 export const fiveBeatFilmScript = Object.freeze({
@@ -91,7 +95,6 @@ export const fiveBeatFilmScript = Object.freeze({
         id           : 'film-perspectives-undo',
         title        : 'Arrangements are data; operations are transactions',
         targetSeconds: 16,
-        conditional  : 'activates when the workstation perspective + transaction wiring lands',
         narration    : 'Save this arrangement as a perspective. Tear the room apart — one click restores it, same instances, same living content. And every dock operation is a transaction: undo walks it back. Redo replays it.',
         beats        : ['capture perspective', 'disruptive rearrangement', 'restore: topology returns, instances persist', 'undo/redo round-trip on a dock mutation']
     }, {
