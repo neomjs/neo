@@ -396,6 +396,36 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toHaveLength(1);
     });
 
+    test('the envelope defers a repeated reconfigure — the action with the highest bounce cost is not exempt', async () => {
+        // AC3, and it has to be driven through `apply()` rather than the inner method: the anti-thrash
+        // envelope lives in `apply`, so every reconfigure spec that calls `reconfigureComposeService`
+        // directly proves the transaction and proves NOTHING about the rate limit. A new action reaching
+        // the privileged path without inheriting the envelope is precisely what §2.5 exists to prevent —
+        // and reconfigure restarts its target, so an unbounded loop here costs a bounce per iteration.
+        const {service, runtimeCalls} = createService({
+            actuatorConfig: {
+                baseBackoffMs: 30_000,
+                maxBackoffMs : 30_000
+            }
+        });
+
+        const knobValues = {
+                  'memoryService.generateMiniSummaryTimeoutMs': 40000,
+                  'memoryService.miniSummaryTimeoutMs'        : 60000
+              },
+              first  = await service.apply('mc-server', 'reconfigure', {knob: 'minisummary-generation-window', knobValues, now: 100_000}),
+              second = await service.apply('mc-server', 'reconfigure', {knob: 'minisummary-generation-window', knobValues, now: 101_000});
+
+        expect(first.status).toBe('actioned');
+        expect(second).toMatchObject({
+            status    : 'deferred',
+            reasonCode: 'backoff-active'
+        });
+
+        // One restart, not two: the deferred call must not reach the target at all.
+        expect(runtimeCalls).toHaveLength(1);
+    });
+
     test('attempt cap records as alarm-only and never loops the privileged action', async () => {
         const {service, runtimeCalls} = createService({
             actuatorConfig: {
@@ -518,6 +548,89 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             reasonCode: 'unsupported-action'
         });
         expect(runtimeCalls).toEqual([]);
+    });
+
+    test.describe('reconfigure', () => {
+        const KNOB   = 'minisummary-generation-window',
+              INNER  = 'memoryService.generateMiniSummaryTimeoutMs',
+              OUTER  = 'memoryService.miniSummaryTimeoutMs',
+              VALUES = {[INNER]: 40000, [OUTER]: 60000};
+
+        test('is admitted for a compose service and refused for a supervised task', () => {
+            const {service} = createService();
+
+            // A supervised in-process child has no mount to read a durable overlay from, so admitting
+            // the action there would write a file nothing consults and report success over it.
+            expect(service.isActionAllowedForTarget({
+                action: 'reconfigure',
+                target: {kind: 'compose-service', id: 'mc-server'}
+            })).toBe(true);
+
+            expect(service.isActionAllowedForTarget({
+                action: 'reconfigure',
+                target: {kind: 'supervised-task', id: 'chroma'}
+            })).toBe(false);
+
+            expect(service.isActionAllowedForTarget({
+                action: 'reconfigure',
+                target: {kind: 'deploy-target', id: 'cloud-deploy'}
+            })).toBe(false);
+        });
+
+        test('a refused transaction costs the target NO restart', async () => {
+            const {service, runtimeCalls} = createService();
+
+            // Ordering that matters operationally: a rejected proposal must not bounce a healthy
+            // service. The violations travel back so a controller learns what would have been valid.
+            // Failure is signalled by throwing, matching how this service reports every other failed
+            // action; `apply` wraps the call and records the attempt as failed.
+            await expect(service.reconfigureComposeService({
+                knob      : KNOB,
+                knobValues: {[INNER]: 60000, [OUTER]: 40000},
+                target    : {kind: 'compose-service', id: 'mc-server', serviceKey: 'mc-server'}
+            })).rejects.toThrow(/inner-strictly-below-outer/);
+
+            expect(runtimeCalls).toEqual([]);
+        });
+
+        test('an unknown knob is refused without touching the target', async () => {
+            const {service, runtimeCalls} = createService();
+
+            await expect(service.reconfigureComposeService({
+                knob      : 'not-in-the-closed-set',
+                knobValues: VALUES,
+                target    : {kind: 'compose-service', id: 'mc-server', serviceKey: 'mc-server'}
+            })).rejects.toThrow(/unknown knob/);
+
+            expect(runtimeCalls).toEqual([]);
+        });
+
+        test('an accepted transaction writes the overlay AND restarts, because a write alone changes nothing', async () => {
+            const {service, runtimeCalls} = createService();
+
+            // The overlay is read at boot. A write without a restart leaves the target running its old
+            // values while every surface reports the action succeeded — the exact no-op-reported-as-
+            // success this action exists to avoid, so the two halves stay one operation.
+            const result = await service.reconfigureComposeService({
+                knob      : KNOB,
+                knobValues: VALUES,
+                target    : {kind: 'compose-service', id: 'mc-server', serviceKey: 'mc-server'}
+            });
+
+            expect(result.knob).toBe(KNOB);
+            expect(result.runtimeAccess).toBeTruthy();
+            expect(result.overridePath).toContain('recovery-actuator-overrides.json');
+
+            expect(runtimeCalls.length).toBe(1);
+            expect(runtimeCalls[0].serviceKey).toBe('mc-server');
+
+            expect(JSON.parse(await readFile(result.overridePath, 'utf8'))).toEqual({
+                memoryService: {
+                    generateMiniSummaryTimeoutMs: 40000,
+                    miniSummaryTimeoutMs        : 60000
+                }
+            });
+        });
     });
 
     // The healLedgerRetention boundary getter's VALID path is exercised by the heal-ledger append tests above

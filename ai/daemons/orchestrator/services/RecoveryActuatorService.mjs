@@ -15,8 +15,12 @@ import {
     appendHealEvent,
     validateHealLedgerRetention
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    requiredContextForKnob,
+    writeKnobOverride
+} from '../../../services/memory-core/helpers/recoveryOverrideStore.mjs';
 
-const DEFAULT_ACTIONS        = Object.freeze(['restart', 'redeploy', 'warm-provider']);
+const DEFAULT_ACTIONS        = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider']);
 const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
 
 /**
@@ -242,7 +246,12 @@ export class RecoveryActuatorService extends Base {
         targetIdentity = null,
         recoveryRunId = null,
         now = Date.now(),
-        reason = null
+        reason = null,
+        // Only `reconfigure` consumes these. A controller names a KNOB, never a config leaf — the
+        // transaction boundary belongs to the closed set, so a caller cannot compose an arbitrary
+        // group of leaves and have it applied as one.
+        knob = null,
+        knobValues = null
     } = {}) {
         if (typeof serviceKey !== 'string' || serviceKey.length === 0) {
             throw new TypeError('RecoveryActuatorService.apply: serviceKey is required');
@@ -293,7 +302,7 @@ export class RecoveryActuatorService extends Base {
         const startedAt = now;
 
         try {
-            const result = await this.executeTargetAction({target, action, reason});
+            const result = await this.executeTargetAction({target, action, knob, knobValues, reason});
 
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
@@ -498,8 +507,11 @@ export class RecoveryActuatorService extends Base {
      * @returns {Boolean}
      */
     isActionAllowedForTarget({action, target}) {
+        // `reconfigure` is compose-service only: it lands a durable overlay on a mount the target reads
+        // at boot, and a supervised in-process child has no such mount to read from. Admitting it there
+        // would write a file nothing consults and report success over it.
         if (target.kind === 'compose-service') {
-            return action === 'restart' || action === 'warm-provider';
+            return action === 'reconfigure' || action === 'restart' || action === 'warm-provider';
         }
 
         if (target.kind === 'supervised-task') {
@@ -514,13 +526,61 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Writes a validated knob transaction to the durable overlay, then restarts the target so
+     * it takes effect.
+     *
+     * The restart is not a separate concern bolted on: the overlay is read at boot, so a write without
+     * one leaves the target running its old values while every surface reports the action succeeded.
+     * That is the failure this action exists to avoid, so the two halves stay one operation.
+     *
+     * The context a knob is bounded by is resolved from this process's own config. The orchestrator and
+     * the target read the same declared leaves, so a bound derived here is the best available reading —
+     * and it is the writer's reading, which is the one that must justify the write.
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    async reconfigureComposeService({target, knob, knobValues, reason}) {
+        const context = {};
+
+        for (const leafPath of requiredContextForKnob(knob)) {
+            context[leafPath] = leafPath.split('.').reduce((node, key) => node?.[key], AiConfig);
+        }
+
+        const {applied, path: overridePath, violations} = await writeKnobOverride({
+            context,
+            knob,
+            // Derived from the bridge's snapshot leaf rather than re-resolved: both files live on the
+            // same writer-owned mount, and deriving keeps them together if that root ever relocates.
+            overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
+            values     : knobValues
+        });
+
+        if (!applied) {
+            // Refused BEFORE any restart, and thrown rather than returned: this service signals action
+            // failure by throwing (`warmProviderResidency` does the same), and `apply` wraps the call so
+            // the attempt is recorded as failed. Returning a soft `{ok: false}` would be a second
+            // failure convention to keep correct, and the caller that forgot to read it would treat a
+            // refusal as a success.
+            throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
+        }
+
+        const restart = await this.restartComposeService({target, reason});
+
+        return {...restart, knob, overridePath}
+    }
+
+    /**
      * @summary Executes the typed target action through the matching privilege envelope.
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async executeTargetAction({target, action, reason}) {
+    async executeTargetAction({target, action, reason, knob, knobValues}) {
         if (action === 'warm-provider') {
             return this.warmProviderResidency({target, reason});
+        }
+
+        if (action === 'reconfigure') {
+            return this.reconfigureComposeService({knob, knobValues, reason, target});
         }
 
         if (target.kind === 'compose-service') {
