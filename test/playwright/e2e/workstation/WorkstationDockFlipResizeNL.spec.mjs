@@ -1,0 +1,139 @@
+import {test, expect} from '../../fixtures.mjs';
+
+/**
+ * @summary Whitebox E2E witness: a committed same-node splitter resize must be
+ * classified as landed-in-place, not as a replacement tree.
+ *
+ * Defect mechanics (red state): the marker nodes of a committed resize survive in place with
+ * unchanged ancestor lineage, so `hasPreservedMarkerSet()` can never classify the set — the
+ * replacement-tree branch burns its full bounded detach poll (`maxFrames = 15`) on nodes that
+ * never detach. The committed layout sits EXPOSED for ~15 frames, then the inverse transform
+ * snaps the panes back to their pre-drag geometry and plays forward — a double-take on every
+ * committed splitter drag, and the wide window in which async gBCR readers ingest scaled
+ * fiction.
+ *
+ * Fix under test: the geometry discriminator `hasLandedInPlace()` — an exact, lineage-
+ * unchanged marker set whose current rect already differs from First beyond the motion
+ * epsilons has landed in place; stage A and the replacement-tree settle frame are bypassed.
+ *
+ * Witness method: a page-side rAF sampler records the visual (computed, transform-inclusive)
+ * width of the pane left of the dragged splitter across the commit. The discriminating
+ * measurement is the exposed-Last window: the TIME between the committed layout first painting
+ * and the inverse transform appearing. The assertion is time-based, not frame-count-based:
+ * the close-target AC's "within 2 rAF frames" phrasing assumes a 60Hz cadence (~34ms); this host samples at
+ * 120Hz, where a frame count would misread by 2x. Red: ~150-300ms (the 15-frame stage-A burn).
+ * Green: <= 34ms, or the layout never paints without its inverse at all.
+ *
+ * CDP page.mouse is REQUIRED: the commit must ride the trusted-input path (the app-side
+ * synthetic path does not exercise the real drag lifecycle — measured in the drag-selection lane).
+ *
+ * Run: NEO_E2E_PORT=8117 npx playwright test workstation/WorkstationDockFlipResizeNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --headed
+ */
+test.describe('Workstation — DockFlip classifies a committed splitter resize as landed-in-place', () => {
+    test.setTimeout(60000);
+    test.use({
+        contextOptions: {screen: {height: 1080, width: 1920}},
+        viewport      : {height: 900, width: 1440}
+    });
+
+    test('the inverse transform installs within 2 frames of the committed layout landing (no stage-A double-take)', async ({page, neuralLink}) => {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 30000});
+
+        const app            = await neuralLink.connectToApp('Workstation'),
+              splitterResult = await app.queryVdom({cls: 'neo-dashboard-dock-splitter-horizontal'}),
+              splitterNode   = Array.isArray(splitterResult) ? splitterResult[0] : (splitterResult?.vdom ?? splitterResult),
+              splitterDomId  = splitterNode?.id;
+
+        expect(splitterDomId, 'the horizontal splitter must exist in the vdom').toBeTruthy();
+
+        const [rect] = await app.getDomRect(splitterDomId),
+              cx     = rect.x + rect.width / 2,
+              cy     = rect.y + rect.height / 2;
+
+        // The pane immediately left of the splitter carries a `workstation-pane-<itemId>` marker
+        // class; the sampler tracks its full marker class (stable across the same-node commit).
+        const markerCls = await page.evaluate(({sx, sy}) => {
+            const splitter = document.elementFromPoint(sx, sy),
+                  panes    = [...document.querySelectorAll('[class*="workstation-pane-"]')]
+                      .filter(el => el.getClientRects().length > 0);
+
+            let best = null, bestGap = Infinity;
+
+            panes.forEach(el => {
+                const r   = el.getBoundingClientRect(),
+                      cls = [...el.classList].find(c => c.startsWith('workstation-pane-')),
+                      gap = splitter.getBoundingClientRect().left - r.right;
+
+                if (cls && gap >= -2 && gap < bestGap) {
+                    best    = cls;
+                    bestGap = gap
+                }
+            });
+
+            return best
+        }, {sx: cx, sy: cy});
+
+        expect(markerCls, 'a workstation pane marker element must sit immediately left of the splitter').toBeTruthy();
+
+        // Sampler: one record per rAF for the whole gesture + settlement window. `transformed`
+        // reads the COMPUTED transform, so it stays true from the invert through the entire
+        // play (the inline style alone is released after one frame and would be racy).
+        const sampling = page.evaluate(({markerCls, durationMs}) => new Promise(resolve => {
+            const pane    = document.getElementsByClassName(markerCls)[0],
+                  samples = [],
+                  t0      = performance.now();
+
+            (function tick() {
+                const rect = pane.getBoundingClientRect();
+
+                samples.push({
+                    t          : Math.round(performance.now() - t0),
+                    transformed: globalThis.getComputedStyle(pane).transform !== 'none',
+                    w          : Math.round(rect.width * 10) / 10
+                });
+
+                performance.now() - t0 < durationMs
+                    ? requestAnimationFrame(tick)
+                    : resolve(samples)
+            })()
+        }), {durationMs: 3000, markerCls});
+
+        await page.mouse.move(cx, cy);
+        await page.mouse.down();
+        await page.mouse.move(cx + 40, cy, {steps: 4});
+        await page.mouse.move(cx + 160, cy, {steps: 8});
+        await page.mouse.up();
+
+        const samples = await sampling,
+              median  = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)],
+              w0      = median(samples.slice(0, 10).map(s => s.w)),
+              w1      = median(samples.slice(-10).map(s => s.w));
+
+        const landedIdx  = samples.findIndex(s => Math.abs(s.w - w1) <= 2),
+              inverseIdx = landedIdx < 0 ? -1 : samples.findIndex((s, i) => i >= landedIdx && s.transformed),
+              exposed    = landedIdx < 0 ? 0 : (inverseIdx < 0 ? Infinity : inverseIdx - landedIdx),
+              exposedMs  = landedIdx < 0 ? 0 : (inverseIdx < 0 ? Infinity : samples[inverseIdx].t - samples[landedIdx].t);
+
+        console.log('[flip-diag] w0:', w0, 'w1:', w1, 'landedIdx:', landedIdx, 'inverseIdx:', inverseIdx, 'exposedFrames:', exposed, 'exposedMs:', exposedMs, 'samples:', samples.length);
+        console.log('[flip-diag] window:', JSON.stringify(samples.slice(Math.max(0, (landedIdx < 0 ? 0 : landedIdx) - 3), (landedIdx < 0 ? 0 : landedIdx) + 20)));
+
+        expect(Math.abs(w1 - w0), 'the drag must have committed a real resize (~+160px on the left pane)').toBeGreaterThan(100);
+
+        // AC1/AC2: the committed layout may sit exposed WITHOUT its inverse for at most ~2 rAF
+        // frames at a 60Hz cadence — asserted as 34ms because rAF cadence is host-dependent
+        // (this host samples at 120Hz; the red state's stage-A burn measured ~150-300ms here).
+        // landedIdx === -1 means the layout never painted without its inverse — the ideal landing.
+        expect(
+            exposedMs,
+            `the committed layout sat exposed for ${exposed} frames / ${exposedMs}ms before the inverse installed (red state: ~15 frames / 150-300ms)`
+        ).toBeLessThanOrEqual(34);
+
+        // Settlement truth: after the full gesture + play, the pane converges to the committed
+        // geometry and no transform lingers.
+        const tail = samples.slice(-5);
+
+        expect(tail.every(s => Math.abs(s.w - w1) <= 2), 'the pane must settle at the committed width').toBe(true);
+        expect(tail.every(s => !s.transformed), 'no transform may linger after the play completes').toBe(true)
+    })
+})
