@@ -28,12 +28,27 @@
  * expressed over the resolved values by leaf path.
  * @type {Object}
  */
+/**
+ * Fewest items the mini-summary sweep must still be able to attempt for the backfill to be draining
+ * rather than crawling. Named rather than inlined so the ceiling it produces reads as a throughput trade
+ * instead of a magic number a later reader will "tune".
+ * @type {Number}
+ */
+const MINISUMMARY_MIN_ITEMS_PER_SWEEP = 4;
+
 export const RECOVERY_KNOBS = Object.freeze({
-    'mini-summary-window': Object.freeze({
+    'minisummary-generation-window': Object.freeze({
         description: 'Nested generation timeouts for mini-summary backfill. Widened when generation ' +
                      'starvation is diagnosed; the inner bound guards a single generate call, the outer ' +
                      'bound guards the sweep that wraps it.',
-        leaves: Object.freeze([
+        /**
+         * Leaves this knob does NOT change but whose values bound it. The caller resolves these from the
+         * live config and passes them as `context`, so a bound derived from another leaf stays correct
+         * when that leaf moves — a hardcoded ceiling would silently go stale the moment it did.
+         */
+        requires        : Object.freeze(['memoryService.miniSummaryBackfillMaxRunMs']),
+        minItemsPerSweep: MINISUMMARY_MIN_ITEMS_PER_SWEEP,
+        leaves          : Object.freeze([
             Object.freeze({
                 path: 'memoryService.generateMiniSummaryTimeoutMs',
                 env : 'NEO_MC_GENERATE_MINI_SUMMARY_TIMEOUT_MS',
@@ -55,10 +70,30 @@ export const RECOVERY_KNOBS = Object.freeze({
             Object.freeze({
                 id    : 'inner-strictly-below-outer',
                 reason: 'The outer timeout wraps the inner one. At inner >= outer the outer fires first, ' +
-                          'so every failure moves from the inner falsy branch to the sweep\'s thrown branch ' +
-                          'and a branch-reading detector loses its signal mid-actuation.',
-                holds   : values => values['memoryService.generateMiniSummaryTimeoutMs'] <
-                                    values['memoryService.miniSummaryTimeoutMs']
+                        'so every failure moves from the inner falsy branch to the sweep\'s thrown branch ' +
+                        'and a branch-reading detector loses its signal mid-actuation.',
+                holds : values => values['memoryService.generateMiniSummaryTimeoutMs'] <
+                                  values['memoryService.miniSummaryTimeoutMs']
+            }),
+            Object.freeze({
+                id    : 'outer-leaves-room-for-a-draining-sweep',
+                reason: 'The sweep has a fixed wall-clock budget, so a wider per-item timeout buys ' +
+                        'per-item success by spending the number of items a sweep can attempt. Past a ' +
+                        'point the sweep goes single-item and the backlog stops draining — while every ' +
+                        'individual widening still looks like an improvement, because per-item success ' +
+                        'rate rises as total output collapses. This refuses the step where the action ' +
+                        'starts working against the outcome it is being taken for.',
+                holds : (values, context = {}) => {
+                    const budget = context['memoryService.miniSummaryBackfillMaxRunMs'];
+
+                    // Unresolvable budget is not a licence to widen without limit. Refusing here is the
+                    // same fail-closed rule the rest of this module follows: an unknown bound is a
+                    // refusal, never an absent one.
+                    if (!Number.isFinite(budget)) return false;
+
+                    return values['memoryService.miniSummaryTimeoutMs'] <=
+                           budget / MINISUMMARY_MIN_ITEMS_PER_SWEEP
+                }
             })
         ])
     })
@@ -83,6 +118,19 @@ export function knobLeafPaths(knob) {
 }
 
 /**
+ * @summary The leaf paths a caller must resolve and pass as `context` before a knob can be validated.
+ *
+ * These are leaves the knob does not change but is bounded by. Exposed so the actuator can resolve
+ * exactly what it needs without knowing which invariants exist — adding a bound to a knob therefore does
+ * not require editing its caller.
+ * @param {String} knob
+ * @returns {String[]}
+ */
+export function knobRequiredContext(knob) {
+    return isKnownKnob(knob) ? [...(RECOVERY_KNOBS[knob].requires ?? [])] : []
+}
+
+/**
  * @summary Validates a proposed knob transaction, returning every reason it is refused.
  *
  * Returns ALL violations rather than the first, because an operator or controller reading a refusal
@@ -94,17 +142,29 @@ export function knobLeafPaths(knob) {
  * @param {Object} options
  * @param {String} options.knob Knob name.
  * @param {Object} options.values Proposed values, keyed by leaf path.
+ * @param {Object} [options.context] Resolved values for the knob's `requires` leaves — the ones it does
+ * not change but is bounded by. Supplied by the caller rather than read here, so this module stays pure
+ * and a bound derived from another leaf is evaluated against that leaf's live value.
  * @returns {{valid: Boolean, violations: String[]}}
  */
-export function validateKnobTransaction({knob, values} = {}) {
+export function validateKnobTransaction({knob, values, context} = {}) {
     const violations = [];
 
     if (!isKnownKnob(knob)) {
         return {valid: false, violations: [`unknown knob '${knob}' — the actuator turns only: ${Object.keys(RECOVERY_KNOBS).join(', ')}`]}
     }
 
-    const {leaves, invariants} = RECOVERY_KNOBS[knob],
-          proposed             = values && typeof values === 'object' ? values : {};
+    const {leaves, invariants, requires = []} = RECOVERY_KNOBS[knob],
+          proposed                            = values  && typeof values  === 'object' ? values  : {},
+          resolved                            = context && typeof context === 'object' ? context : {};
+
+    // A bound the caller could not resolve is refused, not skipped. Silently dropping an unevaluable
+    // invariant would make the widest transactions the easiest to authorize, which is backwards.
+    for (const path of requires) {
+        if (resolved[path] === undefined) {
+            violations.push(`missing context '${path}' — knob '${knob}' is bounded by it and cannot be validated without it`);
+        }
+    }
 
     // A knob is atomic, so a partial proposal is refused rather than merged with current values. Merging
     // would make the resulting state depend on what the target happens to hold right now, which is
@@ -137,7 +197,7 @@ export function validateKnobTransaction({knob, values} = {}) {
     // violation cannot surface as a confusing invariant failure.
     if (violations.length === 0) {
         for (const invariant of invariants) {
-            if (!invariant.holds(proposed)) {
+            if (!invariant.holds(proposed, resolved)) {
                 violations.push(`invariant '${invariant.id}' violated — ${invariant.reason}`);
             }
         }
