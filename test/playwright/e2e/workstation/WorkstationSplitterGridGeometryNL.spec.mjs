@@ -106,13 +106,14 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         };
     }, GRID_ID);
 
-    /** Worker-truth read: containerWidth, availableWidth, and the keyed columnPositions. */
+    /** Worker-truth read: containerWidth, availableWidth, scroll state, and the keyed columnPositions. */
     async function readWorker(app) {
-        const props = await app.getComponent(BODY_ID, ['containerWidth', 'availableWidth', 'columnPositions.items']);
+        const props = await app.getComponent(BODY_ID, ['containerWidth', 'availableWidth', 'scrollLeft', 'columnPositions.items']);
 
         return {
             containerWidth : props.containerWidth,
             availableWidth : props.availableWidth,
+            scrollLeft     : props.scrollLeft,
             columnPositions: props['columnPositions.items'] || []
         };
     }
@@ -147,7 +148,20 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             const hidden = document.createElement('div');
             hidden.id = 'probe-16375-hidden';
             hidden.style.cssText = 'display:none;width:222px;height:33px;';
-            document.body.appendChild(hidden)
+            document.body.appendChild(hidden);
+
+            // non-replaced inline: computed width/height resolve to 'auto' (the unresolved-size
+            // class) — the primitive's documented fallback is integer offset metrics. The fixed
+            // off-viewport wrapper keeps document flow untouched; the span inside stays inline.
+            const inlineHost = document.createElement('div');
+            inlineHost.id = 'probe-16375-inline-host';
+            inlineHost.style.cssText = 'position:fixed;left:-500px;top:0;pointer-events:none;opacity:0;';
+            const inline = document.createElement('span');
+            inline.id = 'probe-16375-inline';
+            inline.textContent = 'unresolved-size probe';
+            inlineHost.appendChild(inline);
+            document.body.appendChild(inlineHost);
+            globalThis.__probe16375InlineOffset = {w: inline.offsetWidth, h: inline.offsetHeight}
         }, [SCALE_X, SCALE_Y]);
 
         // trap premises: the visual box IS scaled; the layout box is NOT
@@ -165,9 +179,10 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             'trap premise: the layout box ignores the ancestor transform').toBeLessThan(1);
 
         // PRIMITIVE CONTRACT, through the full worker→main path, under the held transform:
-        // a visible box reports fractional LAYOUT truth; a no-box node reports the zero shape.
-        const [visibleRect, hiddenRect] = await app.callMethod(
-            GRID_ID, 'getLayoutRect', [['probe-16375-visible', 'probe-16375-hidden']]);
+        // a visible box reports fractional LAYOUT truth; a no-box node reports the zero shape;
+        // an unresolved-size node (inline: computed 'auto') reports its integer offset metrics.
+        const [visibleRect, hiddenRect, inlineRect] = await app.callMethod(
+            GRID_ID, 'getLayoutRect', [['probe-16375-visible', 'probe-16375-hidden', 'probe-16375-inline']]);
 
         expect(Math.abs(visibleRect.width - 333.5),
             'primitive contract: a transformed visible box reports its fractional layout width').toBeLessThan(0.1);
@@ -175,6 +190,14 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             'primitive contract: a transformed visible box reports its fractional layout height').toBeLessThan(0.1);
         expect(hiddenRect.width, 'primitive contract: a display:none node reports zero width, not its specified size').toBe(0);
         expect(hiddenRect.height, 'primitive contract: a display:none node reports zero height, not its specified size').toBe(0);
+
+        const inlineOffset = await page.evaluate(() => globalThis.__probe16375InlineOffset);
+
+        expect(inlineRect.width, 'primitive contract: an unresolved-size node falls back to its integer offset width')
+            .toBe(inlineOffset.w);
+        expect(inlineRect.height, 'primitive contract: an unresolved-size node falls back to its integer offset height')
+            .toBe(inlineOffset.h);
+        expect(inlineRect.width, 'the unresolved-size probe is actually rendered').toBeGreaterThan(0);
 
         // TRIGGER: the deferred projection's own mutation class — the normalized flex pair the
         // projection writes on both pane tab containers — changes the grid layout box while the
@@ -223,6 +246,8 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
         await page.evaluate(flex => {
             document.getElementById('probe-16375-visible').remove();
             document.getElementById('probe-16375-hidden').remove();
+            document.getElementById('probe-16375-inline-host').remove();
+            delete globalThis.__probe16375InlineOffset;
             document.getElementById('neo-tab-container-2').style.flex = flex[0];
             document.getElementById('neo-tab-container-3').style.flex = flex[1];
             document.body.style.transform       = '';
@@ -235,6 +260,54 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             return Math.abs(containerWidth - current.layoutWidth)
         }, {
             message  : 'worker containerWidth re-converges on the layout box after the transform clears',
+            timeout  : 10000,
+            intervals: [100, 250]
+        }).toBeLessThan(1);
+
+        // SUB-PIXEL DELIVERY IS PROCESSED (no echo/tolerance swallow): a fractional flex nudge
+        // moves the grid layout box by well under one CSS pixel; the worker must track it.
+        // Under the retired first-delivery skip OR any <1px equivalence predicate, this exact
+        // class of delivery was swallowed (witnessed on real Chromium: 123.4375 → 123.9375).
+        const settled = await readMatrix(page);
+
+        await page.evaluate(() => {
+            document.getElementById('neo-tab-container-2').style.flex = '0.6005 1 0%';
+            document.getElementById('neo-tab-container-3').style.flex = '0.3995 1 0%'
+        });
+
+        await expect.poll(async () => (await readMatrix(page)).layoutWidth, {
+            message  : 'the fractional flex nudge moves the layout box sub-pixel',
+            timeout  : 5000,
+            intervals: [50, 100]
+        }).toBeGreaterThan(settled.layoutWidth + 0.2);
+
+        const nudged = await readMatrix(page);
+
+        expect(nudged.layoutWidth - settled.layoutWidth,
+            'the nudge stays sub-pixel (the swallowed class)').toBeLessThan(1);
+
+        await expect.poll(async () => {
+            const {containerWidth} = await readWorker(app),
+                  current          = await readMatrix(page);
+            return Math.abs(containerWidth - current.layoutWidth)
+        }, {
+            message  : 'worker containerWidth tracks a sub-pixel resize delivery (processed, never swallowed)',
+            timeout  : 10000,
+            intervals: [100, 250]
+        }).toBeLessThan(0.25);
+
+        // restore the original flex pair; geometry re-converges once more
+        await page.evaluate(flex => {
+            document.getElementById('neo-tab-container-2').style.flex = flex[0];
+            document.getElementById('neo-tab-container-3').style.flex = flex[1]
+        }, originalFlex);
+
+        await expect.poll(async () => {
+            const {containerWidth} = await readWorker(app),
+                  current          = await readMatrix(page);
+            return Math.abs(containerWidth - current.layoutWidth)
+        }, {
+            message  : 'worker containerWidth re-converges after the nudge restores',
             timeout  : 10000,
             intervals: [100, 250]
         }).toBeLessThan(1)
@@ -345,7 +418,13 @@ test.describe('Workstation splitter drags: grid geometry stays attributable (#16
             const worker = await readWorker(app),
                   matrix = await readMatrix(page);
 
-            // 2. worker availableWidth rides the header buttons' summed LAYOUT widths
+            // 2. scroll state agrees across worker and main BEFORE any geometry comparison —
+            //    a scroll divergence would shift every visual-space read
+            expect(Math.abs(worker.scrollLeft - matrix.scrollLeft),
+                `${tag}: worker scrollLeft agrees with the header toolbar's native scroll state`)
+                .toBeLessThan(0.5);
+
+            // 3. worker availableWidth rides the header buttons' summed LAYOUT widths
             expect(Math.abs(worker.availableWidth - matrix.buttonWidthSum),
                 `${tag}: worker availableWidth equals the summed header-button layout widths`)
                 .toBeLessThan(1.5);
