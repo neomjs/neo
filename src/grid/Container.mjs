@@ -228,12 +228,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * We do not need the first event to trigger logic, since afterSetMounted() handles this
-     * @member {Boolean} initialResizeEvent=true
-     * @protected
-     */
-    initialResizeEvent = true
-    /**
      * @member {Object[]|Neo.grid.column.Base[]} centerColumns=[]
      * @protected
      */
@@ -349,7 +343,6 @@ class GridContainer extends BaseContainer {
             ResizeObserver.register(resizeParams);
             await me.passSizeToBody()
         } else {
-            me.initialResizeEvent = true;
             ResizeObserver.unregister(resizeParams)
         }
     }
@@ -1176,25 +1169,31 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Re-derives worker grid geometry from every ResizeObserver delivery.
+     *
+     * Deliberately NO first-delivery skip: a skip flag assumes the register-time echo after a
+     * (re)mount always arrives, but that echo can lose its routing race — the flag then consumes
+     * the first REAL resize (a committed dock re-layout can land before the echo), freezing
+     * `containerWidth` at the stale mount-time value until an unrelated resize repairs it.
+     * Size-equivalence classification is no safer: any tolerance swallows a real sub-tolerance
+     * resize. Re-processing the echo is idempotent (a silent set of identical values), so
+     * correctness costs one redundant measurement per mount.
      * @param {Object} data
+     * @param {Object} [data.borderBoxSize]
      * @returns {Promise<void>}
      */
     async onResize(data) {
         let me = this;
 
-        if (!me.initialResizeEvent) {
-            me.applyResponsiveLockPolicy(data);
+        me.applyResponsiveLockPolicy(data);
 
-            await me.passSizeToBody(true);
+        await me.passSizeToBody(true);
 
-            me.bodyStart?.updateMountedAndVisibleColumns();
-            me.body.updateMountedAndVisibleColumns();
-            me.bodyEnd?.updateMountedAndVisibleColumns();
+        me.bodyStart?.updateMountedAndVisibleColumns();
+        me.body.updateMountedAndVisibleColumns();
+        me.bodyEnd?.updateMountedAndVisibleColumns();
 
-            await me.headerToolbar.passSizeToBody()
-        } else {
-            me.initialResizeEvent = false
-        }
+        await me.headerToolbar.passSizeToBody()
     }
 
     /**
@@ -1256,6 +1255,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Measures the container chrome and passes the derived body size downstream.
+     *
+     * Reads LAYOUT-box metrics (`getLayoutRect()`), never `getBoundingClientRect()`: this async
+     * measurement races presentation windows (a committed dock resize triggers it while DockFlip
+     * still scale-transforms the pane), and visual rects sampled mid-motion would persist as
+     * poisoned `containerWidth`/`availableHeight` until an unrelated resize.
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
@@ -1269,7 +1274,7 @@ class GridContainer extends BaseContainer {
             domRects.push(footerToolbar.id)
         }
 
-        [containerRect, headerRect, footerRect] = await me.getDomRect(domRects);
+        [containerRect, headerRect, footerRect] = await me.getLayoutRect(domRects);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {

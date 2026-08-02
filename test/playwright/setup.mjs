@@ -103,7 +103,7 @@ export function setup(options = {}) {
 
     Neo.main ??= {
         addon: {
-            DragDrop: {},
+            DragDrop : {},
             Navigator: {
                 subscribe  : () => {},
                 unsubscribe: () => {},
@@ -115,8 +115,17 @@ export function setup(options = {}) {
             }
         },
         DomAccess: {
-            focus: () => {},
+            focus                : () => {},
             getBoundingClientRect: async ({id}) => {
+                const rect = {width: 1000, height: 1000, x: 0, y: 0};
+                if (Array.isArray(id)) {
+                    return id.map(() => rect);
+                }
+                return rect;
+            },
+            // The single-thread simulation has no transforms, so the layout box equals the
+            // visual box: the transform-immune variant mirrors getBoundingClientRect here.
+            getLayoutRect: async ({id}) => {
                 const rect = {width: 1000, height: 1000, x: 0, y: 0};
                 if (Array.isArray(id)) {
                     return id.map(() => rect);
@@ -160,8 +169,8 @@ export function setup(options = {}) {
                 // Fallback for general bounding client rect reads
                 return {
                     attributes: {},
-                    functions: {},
-                    rects: [{width: 1000, height: 1000, x: 0, y: 0}]
+                    functions : {},
+                    rects     : [{width: 1000, height: 1000, x: 0, y: 0}]
                 };
             }
             return {};
