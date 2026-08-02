@@ -386,16 +386,43 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'real-outer', timestamp: ts}
         });
 
-        // Composition witness: the escaping rejection is produced by the REAL `withTimeout` racing a
-        // promise that never settles, so the `code` the classifier matches was set by the wrapper rather
-        // than by this test. A renamed constant breaks this without anyone editing the spec.
+        // @neo-gpt-emmy falsified my first attempt at this: returning `withTimeout(never, 5, 'spec outer
+        // window')` FROM the summarizer times a wrapper the SPEC created, which rejects long before the
+        // real outer window — and the classifier then labelled it `timeout-outer` on the code family
+        // alone. It passed while proving nothing. The real witness makes backfill's OWN wrapper reject,
+        // by bounding its window instead of substituting one.
         const result = await MemoryService.backfillMiniSummaries({
             limit           : 50,
-            buildMiniSummary: () => withTimeout(new Promise(() => {}), 5, 'spec outer window')
+            outerTimeoutMs  : 10,
+            buildMiniSummary: () => new Promise(() => {})
         });
 
         expect(result.failureCauses['timeout-outer']).toBeGreaterThanOrEqual(1);
         expect(result.failureCauses['provider-error']).toBeUndefined();
+    });
+
+    test('a nested wrapper timeout that escapes the summarizer is a provider-error, not the outer window (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-nested', {prompt: 'nested prompt', response: 'nested response'});
+        GraphService.upsertNode({
+            id              : 'cause-nested', type: 'AGENT_MEMORY', name: 'Memory: nested', description: 'nested',
+            semanticVectorId: 'cause-nested',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'nested', timestamp: ts}
+        });
+
+        // The counterexample for the code-family confusion. This rejection is genuinely produced by a real
+        // `withTimeout` and genuinely carries WITH_TIMEOUT_CODE — but it is a DIFFERENT wrapper instance,
+        // so it escaped the summarizer's guard rather than exhausting this window. Calling it
+        // `timeout-outer` would tell a widening consumer to widen a window that was never binding.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            outerTimeoutMs  : 5000,
+            buildMiniSummary: () => withTimeout(new Promise(() => {}), 5, 'some unrelated nested wrapper')
+        });
+
+        expect(result.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
+        expect(result.failureCauses['timeout-outer']).toBeUndefined();
     });
 
     test('the completion log carries the cause tally on a failing run and omits it when clean (#16388)', async () => {
@@ -486,6 +513,11 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // The positive control the negative case above cannot supply: without this, the classifier's true
         // branch is never exercised, so a wrong constant would keep the whole suite green while
         // `timeout-outer` became unreachable — the one cause a window-widening consumer can act on.
+        //
+        // What the SECOND half asserts changed after review: a forged code alone is deliberately NOT
+        // enough any more. Classification requires this window's label too, so a rejection carrying the
+        // code family without the label is a provider-error. The real outer witness lives in its own
+        // test, where backfill's own wrapper does the rejecting.
         memStore.set('cause-timed-out', {prompt: 'timed out prompt', response: 'timed out response'});
         GraphService.upsertNode({
             id              : 'cause-timed-out', type: 'AGENT_MEMORY', name: 'Memory: timed out', description: 'timed out',
@@ -503,8 +535,9 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             }
         });
 
-        expect(timedOut.failureCauses['timeout-outer']).toBeGreaterThanOrEqual(1);
-        expect(timedOut.failureCauses['provider-error']).toBeUndefined();
+        // Same code family, no label from this window: an error, not a window problem.
+        expect(timedOut.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
+        expect(timedOut.failureCauses['timeout-outer']).toBeUndefined();
     });
 
     test('the two failure branches are counted separately, so a branch flip is visible (#16223)', async () => {

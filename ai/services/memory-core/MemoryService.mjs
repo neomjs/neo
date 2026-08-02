@@ -74,6 +74,19 @@ export {withTimeout,
         WITH_TIMEOUT_CODE};
 
 /**
+ * Label carried by the backfill's OUTER window rejection, shared by the wrapper that produces it and
+ * the classifier that names it.
+ *
+ * `WITH_TIMEOUT_CODE` identifies the *code family*, not the instance — every `withTimeout` in the tree
+ * sets it. Classifying on the code alone therefore labels ANY escaping wrapper rejection as
+ * `timeout-outer`, including one from an unrelated nested wrapper that never involved this window; a
+ * consumer would then widen a window that was not binding. The label is the instance discriminator, and
+ * a single constant is what keeps the producer and the classifier from drifting apart silently.
+ * @type {String}
+ */
+export const MINI_SUMMARY_OUTER_LABEL = 'miniSummary backfill summarize';
+
+/**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
  * `add_memory` response — the per-turn **mailbox delta signal**.
  *
@@ -1939,6 +1952,9 @@ class MemoryService extends Base {
      *     `aiConfig.memoryService.miniSummaryBackfillMaxRunMs`. The loop stops starting new rows once reached and defers
      *     the remainder to the next sweep, keeping the supervised child under its watchdog.
      * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
+     * @param {Number} [options.outerTimeoutMs] Outer per-item window; defaults to
+     * `aiConfig.memoryService.miniSummaryTimeoutMs`. Exposed so a spec can make the REAL outer wrapper
+     * reject inside a test budget — witnessing `timeout-outer` any other way times a different wrapper.
      * @param {Function} [options.buildMiniSummary] Optional summarizer seam. Returns `{summary, cause}`;
      * a bare string / `null` is accepted and its failure is tallied as `unspecified` rather than guessed.
      * @returns {Promise<Object>} Pass tallies:
@@ -1954,7 +1970,7 @@ class MemoryService extends Base {
      *          Present on **every** exit — including the no-SQLite and zero-row early returns — so a
      *          caller never sees a shape that sometimes lacks it.
      */
-    async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
+    async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, outerTimeoutMs = aiConfig.memoryService.miniSummaryTimeoutMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
             return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}};
@@ -2083,8 +2099,8 @@ class MemoryService extends Base {
             try {
                 const generated = await withTimeout(
                     summarize({prompt: metadata.prompt, response: metadata.response}),
-                    aiConfig.memoryService.miniSummaryTimeoutMs,
-                    'miniSummary backfill summarize'
+                    outerTimeoutMs,
+                    MINI_SUMMARY_OUTER_LABEL
                 );
 
                 // An injected summarizer may still return a bare string or null rather than the
@@ -2126,7 +2142,14 @@ class MemoryService extends Base {
                 // is not this wrapper's own rejection escaped the summarizer's guard entirely, so it is
                 // an error rather than a window problem — and calling it a timeout would tell a widening
                 // consumer to widen for something no window would have prevented.
-                recordCause(error?.code === WITH_TIMEOUT_CODE ? 'timeout-outer' : 'provider-error');
+                // Code AND label: the code names the family (every wrapper in the tree sets it), the label
+                // names THIS window. A nested wrapper's rejection that escaped the summarizer is an error,
+                // not a window problem — my own comment above said so while the code still called it a
+                // timeout, which would tell a widening consumer to widen for something no window prevented.
+                const isOuterWindow = error?.code === WITH_TIMEOUT_CODE &&
+                                      error?.label === MINI_SUMMARY_OUTER_LABEL;
+
+                recordCause(isOuterWindow ? 'timeout-outer' : 'provider-error');
 
                 if (this._exhaustMiniSummaryAttempt(row.id)) {
                     exhausted++;
