@@ -489,6 +489,16 @@ class FleetCockpit extends Container {
      */
     memoriesReadGeneration = 0
     /**
+     * Owner-held CURRENT memories selection — set at REQUEST time, before any await, so the
+     * selection survives pane removal/rematerialization while page zero is still pending. The
+     * snapshot records the last ACCEPTED truth; this records the requested target. A
+     * rematerialized pane receives this as `activeAgent` and therefore reopens on the pending
+     * selection (honest "Reading X…" state), never on a stale snapshot's target and never null
+     * while a response is in flight.
+     * @member {String|null} memoriesTarget=null
+     */
+    memoriesTarget = null
+    /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
      * index the reattach restores (`addTab` APPENDS by default — the stored index is the only
@@ -1182,7 +1192,7 @@ class FleetCockpit extends Container {
                 return {
                     module      : MemoriesPane,
                     cls         : [marker],
-                    activeAgent : me.memoriesSnapshot?.target ?? null,
+                    activeAgent : me.memoriesTarget ?? me.memoriesSnapshot?.target ?? null,
                     snapshot    : me.memoriesSnapshot,
                     agentOptions: me.buildMemoriesAgentOptions(),
                     listeners   : {memoriesRequest: 'onMemoriesRequest'},
@@ -2342,9 +2352,17 @@ class FleetCockpit extends Container {
      */
     async loadMemories(params = {}) {
         const me         = this,
-              pane       = me.getReference('memories'),
               bridge     = globalThis.AgentOS?.fleet?.registryBridge,
-              generation = ++me.memoriesReadGeneration,
+              generation = ++me.memoriesReadGeneration;
+
+        // Owner-hold the requested selection BEFORE any await: a pane removed and rematerialized
+        // while this read is in flight must reopen on the PENDING target (honest switch-pending
+        // state), not on the last accepted snapshot's target and not with a null selection.
+        if (params.agentIdentity) {
+            me.memoriesTarget = params.agentIdentity
+        }
+
+        const
               fallback   = reason => ({
                   capability: {state: 'unavailable', reason},
                   viewer    : null,
@@ -2369,7 +2387,14 @@ class FleetCockpit extends Container {
 
         if (generation === me.memoriesReadGeneration && !me.isDestroyed) {
             me.memoriesSnapshot = snapshot;
-            pane && (pane.snapshot = snapshot)
+
+            // Resolve the pane at WRITE time, not call time: the pane can be removed and
+            // rematerialized while this read was in flight — a call-time reference would write
+            // the accepted truth into the DESTROYED instance and leave the live pane pending
+            // forever. The owner state above plus this live-resolve keep both variants coherent.
+            const livePane = me.getReference('memories');
+
+            livePane && (livePane.snapshot = snapshot)
         }
 
         return snapshot

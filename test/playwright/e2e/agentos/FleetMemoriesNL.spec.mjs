@@ -155,9 +155,32 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             await expect(pane).toContainText('Session summaries render here once an agent is chosen.');
             await expect(pane.locator('.fm-memories-card')).toHaveCount(0);
 
-            await pane.getByRole('button', {name: 'Ada'}).click();
+            // ── rematerialization VARIANT B: pending first-ever read, NO prior snapshot ──
+            // Gate Ada's page zero, select her, remove the pane mid-flight (rail switch), return.
+            let releaseAda;
+            fleet.gates['@neo-opus-ada'] = new Promise(resolve => { releaseAda = resolve });
 
-            await expect(pane.locator('.fm-memories-card')).toHaveCount(2, {timeout: 10000});
+            await pane.getByRole('button', {name: 'Ada'}).click();
+            await expect(pane).toContainText('Reading @neo-opus-ada…');
+
+            await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'}).click();
+            await expect(page.locator('.fm-memories-pane')).toHaveCount(0);
+            await rail.click();
+
+            const paneB = page.locator('.fm-memories-pane');
+            await expect(paneB).toBeVisible({timeout: 10000});
+            // the owner-held PENDING selection travels into the rebuilt pane: honest pending
+            // state — never the null-selection "Pick an agent" while a response is in flight
+            await expect(paneB).toContainText('Reading @neo-opus-ada…');
+            await expect(paneB).not.toContainText('Pick an agent');
+            await expect(paneB.locator('.fm-memories-card')).toHaveCount(0);
+
+            delete fleet.gates['@neo-opus-ada'];
+            releaseAda();
+
+            // the in-flight response lands in the REBUILT pane (write-time pane resolve), with
+            // the selection attached — variant B's "renders with activeAgent: null" is dead
+            await expect(paneB.locator('.fm-memories-card')).toHaveCount(2, {timeout: 10000});
             await expect(pane).toContainText('@neo-opus-ada · 2 of 3 sessions · captured 2026-08-03 08:00Z');
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('Wake transport and integrity contracts');
             await expect(pane.locator('.fm-memories-card').nth(0)).toContainText('feature · 61 memories · quality 95');
@@ -192,6 +215,18 @@ test.describe('AgentOS Fleet memories — authenticated rail journey (#16398)', 
             await expect(older).toBeHidden();
             await expect(pane).toContainText('Waiting for this agent’s first page.');
 
+            // ── rematerialization VARIANT A: pending switch WITH a prior (Ada) snapshot held ──
+            // Remove + rebuild the pane mid-flight: it must reopen on the PENDING selection,
+            // never on the stale accepted snapshot's target, cards, or continuation.
+            await page.locator('.neo-dashboard-dock-rail-tab', {hasText: 'Catch up'}).click();
+            await expect(page.locator('.fm-memories-pane')).toHaveCount(0);
+            await rail.click();
+            await expect(pane).toBeVisible({timeout: 10000});
+            await expect(pane).toContainText('Reading @neo-gpt-bob…');
+            await expect(pane).not.toContainText('@neo-opus-ada · 3 of 3');
+            await expect(pane.locator('.fm-memories-card')).toHaveCount(0);
+
+            delete fleet.gates['@neo-gpt-bob'];
             releaseBob();
 
             await expect(pane.locator('.fm-memories-card')).toHaveCount(1, {timeout: 10000});
