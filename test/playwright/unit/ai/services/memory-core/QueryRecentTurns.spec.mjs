@@ -32,11 +32,17 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
     test.describe.configure({mode: 'serial'});
 
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore;
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore, withTimeoutCode, withTimeout;
 
     test.beforeAll(async () => {
+        const memoryServiceModule = await import('../../../../../../ai/services/memory-core/MemoryService.mjs');
+
+        // Read the code off the module rather than repeating the literal: a rename must break this spec
+        // instead of leaving it green while the production classifier matches nothing.
+        withTimeoutCode      = memoryServiceModule.WITH_TIMEOUT_CODE;
+        withTimeout          = memoryServiceModule.withTimeout;
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        MemoryService        = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+        MemoryService        = memoryServiceModule.default;
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
@@ -226,7 +232,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             }
         });
         expect(calls).toEqual(['new prompt']);
-        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
+        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-new');
         const data = JSON.parse(row.data);
@@ -258,11 +264,280 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // failedOuter, not failedInner: this fixture THROWS, so it escapes to the sweep's catch — the
         // same branch the real outer `miniSummaryTimeoutMs` rejection takes. A falsy-returning summarizer
         // would count as failedInner instead, which is the distinction the split exists to make.
-        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 1});
+        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 1, failureCauses: {'provider-error': 1}});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-failure');
         const data = JSON.parse(row.data);
         expect(data.properties.miniSummary).toBeUndefined();
+    });
+
+    test('failure causes are tallied by what the summarizer reported, never inferred from a branch (#16388)', async () => {
+        const ts = Date.now();
+
+        // Three rows, three distinct causes. The point is that all three land on the SAME branch
+        // (`failedInner`) and are still told apart — which is exactly what a branch counter cannot do.
+        for (const id of ['cause-timeout', 'cause-no-model', 'cause-empty']) {
+            memStore.set(id, {prompt: `${id} prompt`, response: `${id} response`});
+            GraphService.upsertNode({
+                id, type: 'AGENT_MEMORY', name: `Memory: ${id}`, description: id,
+                semanticVectorId: id,
+                properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'causes', timestamp: ts}
+            });
+        }
+
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            buildMiniSummary: async ({prompt}) => {
+                if (prompt.startsWith('cause-timeout')) {
+                    return {summary: null, cause: 'timeout-inner'};
+                }
+                if (prompt.startsWith('cause-no-model')) {
+                    return {summary: null, cause: 'no-model'};
+                }
+                if (prompt.startsWith('cause-empty')) {
+                    return {summary: null, cause: 'empty-output'};
+                }
+                return {summary: null, cause: 'provider-error'};
+            }
+        });
+
+        expect(result.failureCauses['timeout-inner']).toBe(1);
+        expect(result.failureCauses['no-model']).toBe(1);
+        expect(result.failureCauses['empty-output']).toBe(1);
+
+        // All three arrived on the falsy branch. A consumer reading `failedInner` as "the inner window
+        // is binding" would be wrong for two of the three — which is why the branch cannot carry a
+        // timeout verdict and the cause must.
+        expect(result.failedInner).toBeGreaterThanOrEqual(3);
+        expect(result.failedOuter).toBe(0);
+    });
+
+    test('the real buildMiniSummary names each cause at the frame that creates it (#16388)', async () => {
+        // The gap this closes: every other cause spec INJECTS a summarizer returning the expected cause
+        // string, which proves the sweep's tally and nothing about the producer's vocabulary. These drive
+        // the real method — its own `no-model` branch, its own normalization, its own catch — through the
+        // `buildModel` seam, so the cause strings come from production code rather than from the fixture.
+        const {PROVIDER_TIMEOUT_CODE,
+               createTimeoutError} = await import('../../../../../../ai/provider/createTimeoutError.mjs');
+
+        const noModel = await MemoryService.buildMiniSummary({
+            prompt: 'p', response: 'r', buildModel: () => null
+        });
+
+        expect(noModel).toEqual({summary: null, cause: 'no-model'});
+
+        // The defect Emmy found: whitespace is TRUTHY, so a raw check passed it as usable and it
+        // normalized to '' — returned as a success with an empty summary, then tallied `unspecified`.
+        const whitespace = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => '   \n\t  '}})})
+        });
+
+        expect(whitespace).toEqual({summary: null, cause: 'empty-output'});
+
+        const emptyString = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => ''}})})
+        });
+
+        expect(emptyString.cause).toBe('empty-output');
+
+        // A genuine one-line answer must still succeed, or the three assertions above would also pass
+        // against a producer that had stopped summarizing at all.
+        const usable = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => '  a real   summary  '}})})
+        });
+
+        expect(usable).toEqual({summary: 'a real summary', cause: null});
+
+        const providerError = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => { throw new Error('upstream exploded') }})
+        });
+
+        expect(providerError.cause).toBe('provider-error');
+
+        // timeout-inner reached through a REAL provider timeout object, not a hand-set `.code`: the
+        // rejection is built by `createTimeoutError`, one of the three producers the classifier names.
+        const providerTimeout = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({
+                generateContent: async () => {
+                    // `createTimeoutError` sets the code itself, so nothing here is forged.
+                    throw createTimeoutError({
+                        provider: 'openAiCompatible', operationLabel: 'miniSummary generation', timeoutMs: 1
+                    })
+                }
+            })
+        });
+
+        expect(providerTimeout.cause).toBe('timeout-inner');
+        expect(providerTimeout.timeoutCode).toBe(PROVIDER_TIMEOUT_CODE);
+    });
+
+    test('timeout-outer is reached by a real withTimeout rejection, not a forged code (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-real-outer', {prompt: 'real outer prompt', response: 'real outer response'});
+        GraphService.upsertNode({
+            id              : 'cause-real-outer', type: 'AGENT_MEMORY', name: 'Memory: real outer', description: 'real outer',
+            semanticVectorId: 'cause-real-outer',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'real-outer', timestamp: ts}
+        });
+
+        // @neo-gpt-emmy falsified my first attempt at this: returning `withTimeout(never, 5, 'spec outer
+        // window')` FROM the summarizer times a wrapper the SPEC created, which rejects long before the
+        // real outer window — and the classifier then labelled it `timeout-outer` on the code family
+        // alone. It passed while proving nothing. The real witness makes backfill's OWN wrapper reject,
+        // by bounding its window instead of substituting one.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            outerTimeoutMs  : 10,
+            buildMiniSummary: () => new Promise(() => {})
+        });
+
+        expect(result.failureCauses['timeout-outer']).toBeGreaterThanOrEqual(1);
+        expect(result.failureCauses['provider-error']).toBeUndefined();
+    });
+
+    test('a nested wrapper timeout that escapes the summarizer is a provider-error, not the outer window (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-nested', {prompt: 'nested prompt', response: 'nested response'});
+        GraphService.upsertNode({
+            id              : 'cause-nested', type: 'AGENT_MEMORY', name: 'Memory: nested', description: 'nested',
+            semanticVectorId: 'cause-nested',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'nested', timestamp: ts}
+        });
+
+        // The counterexample for the code-family confusion. This rejection is genuinely produced by a real
+        // `withTimeout` and genuinely carries WITH_TIMEOUT_CODE — but it is a DIFFERENT wrapper instance,
+        // so it escaped the summarizer's guard rather than exhausting this window. Calling it
+        // `timeout-outer` would tell a widening consumer to widen a window that was never binding.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            outerTimeoutMs  : 5000,
+            buildMiniSummary: () => withTimeout(new Promise(() => {}), 5, 'some unrelated nested wrapper')
+        });
+
+        expect(result.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
+        expect(result.failureCauses['timeout-outer']).toBeUndefined();
+    });
+
+    test('the completion log carries the cause tally on a failing run and omits it when clean (#16388)', async () => {
+        const ts       = Date.now(),
+              captured = [],
+              original = console.error;
+
+        console.error = (...args) => captured.push(args.join(' '));
+
+        try {
+            memStore.set('log-clean', {prompt: 'clean prompt', response: 'clean response'});
+            GraphService.upsertNode({
+                id              : 'log-clean', type: 'AGENT_MEMORY', name: 'Memory: clean', description: 'clean',
+                semanticVectorId: 'log-clean',
+                properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'log-clean', timestamp: ts}
+            });
+
+            await MemoryService.backfillMiniSummaries({
+                limit: 50, buildMiniSummary: async () => ({summary: 'ok', cause: null})
+            });
+
+            const cleanLine = captured.filter(line => line.includes('backfill complete')).at(-1);
+
+            expect(cleanLine).toBeTruthy();
+            expect(cleanLine).not.toContain('causes:');
+
+            memStore.set('log-failed', {prompt: 'failed prompt', response: 'failed response'});
+            GraphService.upsertNode({
+                id              : 'log-failed', type: 'AGENT_MEMORY', name: 'Memory: failed', description: 'failed',
+                semanticVectorId: 'log-failed',
+                properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'log-failed', timestamp: ts}
+            });
+
+            await MemoryService.backfillMiniSummaries({
+                limit: 50, buildMiniSummary: async () => ({summary: null, cause: 'timeout-inner'})
+            });
+
+            // The operator-facing half of the contract: on a live plane the starvation is read out of captured
+            // stderr, so a cause that only reaches the return value is invisible where it is needed.
+            expect(captured.filter(line => line.includes('backfill complete')).at(-1))
+                .toContain('[causes: timeout-inner=');
+        } finally {
+            console.error = original;
+        }
+    });
+
+    test('a summarizer that reports no cause is recorded as unspecified, never as a plausible one (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-legacy', {prompt: 'legacy prompt', response: 'legacy response'});
+        GraphService.upsertNode({
+            id              : 'cause-legacy', type: 'AGENT_MEMORY', name: 'Memory: legacy', description: 'legacy',
+            semanticVectorId: 'cause-legacy',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'legacy', timestamp: ts}
+        });
+
+        // The pre-contract shape: a bare null with no cause attached. Guessing `timeout-inner` here
+        // would recreate the defect this contract closes — a cause nothing observed — so it must be
+        // `unspecified`, which correctly denies any downstream timeout verdict.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit: 50, buildMiniSummary: async () => null
+        });
+
+        expect(result.failureCauses.unspecified).toBeGreaterThanOrEqual(1);
+        expect(result.failureCauses['timeout-inner']).toBeUndefined();
+    });
+
+    test('an escaped throw is only a timeout when it carries the wrapper code (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-thrown', {prompt: 'thrown prompt', response: 'thrown response'});
+        GraphService.upsertNode({
+            id              : 'cause-thrown', type: 'AGENT_MEMORY', name: 'Memory: thrown', description: 'thrown',
+            semanticVectorId: 'cause-thrown',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'thrown', timestamp: ts}
+        });
+
+        // A plain throw is a provider error, NOT a timeout — even though it reaches the same catch the
+        // outer window's rejection would. Classifying by code rather than by arrival point is what keeps
+        // these apart; a message-matching guard would call both timeouts on the wrong day.
+        const plain = await MemoryService.backfillMiniSummaries({
+            limit: 50, buildMiniSummary: async () => { throw new Error('provider exploded') }
+        });
+
+        expect(plain.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
+        expect(plain.failureCauses['timeout-outer']).toBeUndefined();
+
+        // The positive control the negative case above cannot supply: without this, the classifier's true
+        // branch is never exercised, so a wrong constant would keep the whole suite green while
+        // `timeout-outer` became unreachable — the one cause a window-widening consumer can act on.
+        //
+        // What the SECOND half asserts changed after review: a forged code alone is deliberately NOT
+        // enough any more. Classification requires this window's label too, so a rejection carrying the
+        // code family without the label is a provider-error. The real outer witness lives in its own
+        // test, where backfill's own wrapper does the rejecting.
+        memStore.set('cause-timed-out', {prompt: 'timed out prompt', response: 'timed out response'});
+        GraphService.upsertNode({
+            id              : 'cause-timed-out', type: 'AGENT_MEMORY', name: 'Memory: timed out', description: 'timed out',
+            semanticVectorId: 'cause-timed-out',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'thrown', timestamp: ts}
+        });
+
+        const timedOut = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            buildMiniSummary: async () => {
+                const error = new Error('miniSummary summarize timed out after 30000ms');
+
+                error.code = withTimeoutCode;
+                throw error
+            }
+        });
+
+        // Same code family, no label from this window: an error, not a window problem.
+        expect(timedOut.failureCauses['provider-error']).toBeGreaterThanOrEqual(1);
+        expect(timedOut.failureCauses['timeout-outer']).toBeUndefined();
     });
 
     test('the two failure branches are counted separately, so a branch flip is visible (#16223)', async () => {
@@ -422,7 +697,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // Positive control: the drain did real work, so the zero below is an emptied set rather than a
         // sweep that never ran.
         expect(drain.processed).toBeGreaterThan(0);
-        expect(zeroRow).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
+        expect(zeroRow).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}});
 
         // No-SQLite: the sweep reads `GraphService.db?.storage?.db` once at entry. Swapped rather than
         // mocked so the real guard runs, and restored in a finally so a failure here cannot cascade
@@ -437,7 +712,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
                 buildMiniSummary: async () => 'unused'
             });
 
-            expect(noSqlite).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
+            expect(noSqlite).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}});
         } finally {
             GraphService.db = realDb;
         }
