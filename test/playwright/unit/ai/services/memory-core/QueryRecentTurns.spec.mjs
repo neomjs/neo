@@ -226,7 +226,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
             }
         });
         expect(calls).toEqual(['new prompt']);
-        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
+        expect(result).toEqual({processed: 1, updated: 1, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-new');
         const data = JSON.parse(row.data);
@@ -255,11 +255,52 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
                 throw new Error('provider unavailable');
             }
         });
-        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, exhausted: 0, runBudgetHit: false});
+        // failedOuter, not failedInner: this fixture THROWS, so it escapes to the sweep's catch — the
+        // same branch the real outer `miniSummaryTimeoutMs` rejection takes. A falsy-returning summarizer
+        // would count as failedInner instead, which is the distinction the split exists to make.
+        expect(result).toEqual({processed: 1, updated: 0, deferred: 1, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 1});
 
         const row  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('backfill-failure');
         const data = JSON.parse(row.data);
         expect(data.properties.miniSummary).toBeUndefined();
+    });
+
+    test('the two failure branches are counted separately, so a branch flip is visible (#16223)', async () => {
+        const ts = Date.now();
+
+        // Two rows, one per branch: a falsy return (what the INNER generateMiniSummaryTimeoutMs produces,
+        // because buildMiniSummary catches its own timeout) and a throw (what the OUTER miniSummaryTimeoutMs
+        // produces, because it wraps summarize() from outside and its rejection escapes).
+        for (const id of ['branch-falsy', 'branch-thrown']) {
+            memStore.set(id, {prompt: `${id} prompt`, response: `${id} response`});
+            GraphService.upsertNode({
+                id, type: 'AGENT_MEMORY', name: `Memory: ${id}`, description: id,
+                semanticVectorId: id,
+                properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'branch-split', timestamp: ts}
+            });
+        }
+
+        // Deliberately order-independent: earlier tests leave their own pending rows in the shared store,
+        // so this cannot assume which rows the sweep selects. Exactly ONE row throws (mine); everything
+        // else returns falsy. That pins the split without pinning the population.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            buildMiniSummary: async ({prompt}) => {
+                if (prompt.startsWith('branch-thrown')) {
+                    throw new Error('escaped the inner guard');
+                }
+                return null;
+            }
+        });
+
+        // The totals CANNOT tell these apart — both land in `deferred` — which is exactly why the split
+        // exists. Widening the inner leaf past the outer one moves every failure from one branch to the
+        // other while `deferred` stays put, so a consumer reading only totals sees no change at the moment
+        // the failure mode actually changed.
+        expect(result.updated).toBe(0);
+        expect(result.failedOuter).toBe(1);
+        expect(result.failedInner).toBeGreaterThanOrEqual(1);
+        expect(result.failedInner + result.failedOuter).toBe(result.deferred + result.exhausted);
     });
 
     test('backfillMiniSummaries archives a row once the attempt budget is spent, and tallies it (#16313)', async () => {
@@ -381,7 +422,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // Positive control: the drain did real work, so the zero below is an emptied set rather than a
         // sweep that never ran.
         expect(drain.processed).toBeGreaterThan(0);
-        expect(zeroRow).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
+        expect(zeroRow).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
 
         // No-SQLite: the sweep reads `GraphService.db?.storage?.db` once at entry. Swapped rather than
         // mocked so the real guard runs, and restored in a finally so a failure here cannot cascade
@@ -396,7 +437,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
                 buildMiniSummary: async () => 'unused'
             });
 
-            expect(noSqlite).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false});
+            expect(noSqlite).toEqual({processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0});
         } finally {
             GraphService.db = realDb;
         }
