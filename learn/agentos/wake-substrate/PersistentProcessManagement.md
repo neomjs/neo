@@ -165,7 +165,7 @@ The other fields describe the substrate; this one describes **you**. It is RLS-s
 
 **One keyless row unarms the whole seat.** The status and target gates *skip* a failing row, so it costs only its own route. The key gate **throws**, aborting the entire manifest build — so a seat holding one keyed and one keyless row publishes nothing at all, including for the good row. Repair the keyless row and the rest returns with it.
 
-**A missing `status` resolves to `active`, and every decision point now resolves it the same way.** One shared policy (`ai/services/memory-core/wakeSubscriptionStatusPolicy.mjs`) owns that single question; all 14 status decision points across 9 files derive from it rather than each deciding for themselves — including the hot push path (`WakeSubscriptionService.pump()`), the external-active-session exclusion in `SessionService`, the health arming verdict, and `buildWakeReceiverManifest`.
+**A missing `status` resolves to `active`, and every decision point now resolves it the same way.** One shared policy (`ai/services/memory-core/wakeSubscriptionStatusPolicy.mjs`) owns that single question; all 20 status decision points across 10 files derive from it rather than each deciding for themselves — including the hot push path (`WakeSubscriptionService.pump()`), the external-active-session exclusion in `SessionService`, the health arming verdict, and `buildWakeReceiverManifest`.
 
 Note what the producer does NOT do: `list()` routes to `_listDurableSubscriptionsForOwner`, whose query carries no status predicate, and hydration preserves a missing `status` as missing. Consumers receive `undefined` and must decide — which is why the decision lives in one module instead of at each call site.
 

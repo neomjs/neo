@@ -1,12 +1,17 @@
 /**
  * @summary Pure policy owning ONE question: what does an absent `status` on a `WAKE_SUBSCRIPTION`
- * row mean? All 14 decision points across 9 files derive their answer here, so they cannot drift
+ * row mean? All 20 decision points across 10 files derive their answer here, so they cannot drift
  * apart again.
  *
- * **The failure mode this replaces (reads-active-while-undeliverable).** 14 decision points each
- * decided the absent case for themselves, and they did not agree. Ten coalesced it to `active`;
- * four compared strictly and treated absence as NOT active — the receiver-manifest builder, the
- * health arming verdict, the hot push path (`pump()`), and the external-active-session exclusion.
+ * **The failure mode this replaces (reads-active-while-undeliverable).** 20 decision points each
+ * decided the absent case for themselves, and they did not agree. Most defaulted absence to
+ * `active` — via `COALESCE`, `?? 'active'`, or `|| 'active'` — while four compared strictly and
+ * treated absence as NOT active: the receiver-manifest builder, the health arming verdict, the hot
+ * push path (`pump()`), and the external-active-session exclusion.
+ *
+ * The `|| 'active'` spelling was worse than duplication: it also coerced `''`, `false` and `0` to
+ * active, contradicting the fail-closed rule documented below. Three sweeps were needed to find all
+ * three spellings, which is why the vocabulary is enumerated here rather than left to the next grep.
  *
  * **The producer hands absence through untouched.** `list()` routes to
  * `_listDurableSubscriptionsForOwner`, whose query carries NO status predicate at all, and
@@ -26,9 +31,9 @@
  *    delivery, where a failure is attributable and counted. Withholding one produces a deaf seat:
  *    no error, no signal, and the agent cannot tell it is unreachable. Between a noisy failure and
  *    a silent one on the same uncertainty, the substrate takes the noisy one.
- * 2. **It is the smaller behavioral change.** Ten of the 14 decision points already read absence as
- *    active; converging on strict would flip ten rather than four, and every flip is a route that
- *    stops being published.
+ * 2. **It is the smaller behavioral change.** Sixteen of the 20 decision points already read absence
+ *    as active; converging on strict would flip sixteen rather than four, and every flip is a route
+ *    that stops being published.
  * 3. **It costs nothing today, measured rather than assumed.** 17 durable rows on the canonical
  *    plane, 15 `active` + 2 `retired`, zero absent — so no seat changes state either way, and the
  *    choice is about which failure a FUTURE such row should produce.

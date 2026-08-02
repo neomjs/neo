@@ -7,7 +7,10 @@ import Database                       from 'better-sqlite3';
 import fs                             from 'fs-extra';
 import path                           from 'path';
 import {pathToFileURL}                from 'url';
-import {activeWakeSubscriptionStatusSql} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
+import {
+    activeWakeSubscriptionStatusSql,
+    WAKE_SUBSCRIPTION_DEFAULT_STATUS
+} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * @module ai.scripts.maintenance.compactGraphLog
@@ -214,7 +217,7 @@ export function parseWakeSubscriptionRow(row) {
             agentIdentity: props.agentIdentity || null,
             harnessTarget: props.harnessTarget || null,
             trigger      : props.trigger || null,
-            status       : props.status || 'active'
+            status       : props.status ?? WAKE_SUBSCRIPTION_DEFAULT_STATUS
         };
     } catch (e) {
         return null;

@@ -37,6 +37,7 @@ import wakeDecisionServiceInstance, {WakeDecisionService} from './WakeDecisionSe
 import {swarmWakeCooldown as swarmWakeCooldownScript}     from '../../../scripts/lifecycle/swarmWakeCooldown.mjs';
 import {
     activeWakeSubscriptionStatusSql,
+    isActiveWakeSubscriptionStatus,
     resolvedWakeSubscriptionStatusSql
 } from '../../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 import {
@@ -587,7 +588,7 @@ class SwarmHeartbeatService extends Base {
                 .filter(subscription =>
                     subscription.trigger === 'SENT_TO_ME' &&
                     subscription.harnessTarget === 'bridge-daemon' &&
-                    (subscription.status || 'active') === 'active'
+                    isActiveWakeSubscriptionStatus(subscription.status)
                 )
                 .sort((a, b) =>
                     Date.parse(b.updatedAt || b.createdAt || '') -

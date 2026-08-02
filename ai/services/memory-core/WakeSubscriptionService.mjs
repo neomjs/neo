@@ -1725,7 +1725,7 @@ class WakeSubscriptionService extends Base {
         });
 
         for (const subscription of this._getCandidateSubscriptions(owner, trigger, harnessTarget)) {
-            if ((subscription.status || 'active') !== 'active') continue;
+            if (!isActiveWakeSubscriptionStatus(subscription.status)) continue;
             if (this._buildSubscriptionRouteKey(subscription) === candidateRouteKey) {
                 this.subscriptionCache.set(subscription.id, subscription);
                 return subscription;
@@ -1913,7 +1913,7 @@ class WakeSubscriptionService extends Base {
             if (node.label !== 'WAKE_SUBSCRIPTION')   continue;
             const props = node.properties || {};
             if (props.agentIdentity !== owner)        continue;
-            if ((props.status || 'active') !== 'active') continue;
+            if (!isActiveWakeSubscriptionStatus(props.status)) continue;
             const entry = {id: node.id, ...props};
             if (!predicate(entry))                    continue;
             candidates.push(entry);
