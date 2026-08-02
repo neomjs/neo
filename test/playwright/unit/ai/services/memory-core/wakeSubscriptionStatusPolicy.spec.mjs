@@ -59,16 +59,11 @@ test.describe('Neo.ai.services.memory-core.wakeSubscriptionStatusPolicy (#16331)
 
     test('explicit terminal and unknown states fail closed — absence is the ONLY defaulted case', () => {
         // The `|| 'active'` spelling that survived three sweeps coerced every falsy value to active.
-        // These four are the ones it silently admitted, and they are the reason the policy uses `??`.
-        for (const unknown of ['retired', 'degraded', '', 'unrecognised-future-state']) {
+        // These values show the widened set it silently admitted and why the policy uses `??`.
+        for (const unknown of ['retired', 'degraded', '', false, 0, 'unrecognised-future-state']) {
             expect(isActiveWakeSubscriptionStatus(unknown)).toBe(false);
             expect(sqlAdmits(unknown)).toBe(false);
         }
-
-        // `false` and `0` are the JS-side half of the same coercion trap; SQL cannot hold them, so
-        // only the predicate is asserted here rather than pretending the SQL path is exercised.
-        expect(isActiveWakeSubscriptionStatus(false)).toBe(false);
-        expect(isActiveWakeSubscriptionStatus(0)).toBe(false);
     });
 
     test('the SQL resolver yields the effective status for readers asking a different question', () => {

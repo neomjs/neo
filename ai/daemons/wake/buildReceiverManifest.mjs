@@ -183,10 +183,10 @@ export function buildWakeReceiverManifest({
         // Skipping only the input left a retired or retargeted seat's old route published — the
         // subscription was gone and the route kept accepting wakes for it. Reconciliation is scoped
         // to ids the caller actually presented, so a peer's route is never touched.
-        // Absent `status` resolves through the shared policy rather than being compared here. This
-        // builder used to compare strictly while the query that FEEDS it coalesces, so a row the
-        // lister returned as active was silently dropped at publication — the seat read healthy on
-        // every other surface and received nothing.
+        // Absent `status` resolves through the shared policy rather than being compared here. The
+        // durable lister and hydrator preserve absence, but this builder used to compare strictly
+        // while lifecycle and fleet consumers defaulted that same row to active. The result was a
+        // row counted as live elsewhere and silently dropped at publication.
         if (!isActiveWakeSubscriptionStatus(status)) {
             withdrawOwnedRoute(routes, id, skipped, `status is '${status}', not '${WAKE_SUBSCRIPTION_DEFAULT_STATUS}'`);
             continue

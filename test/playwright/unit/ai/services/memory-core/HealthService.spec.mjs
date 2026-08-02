@@ -2386,10 +2386,9 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
 
     test('a legacy row with no `status` IS armed — every reader now resolves absence the same way', async () => {
         // This assertion was previously inverted, and deliberately so: the builder compared strictly
-        // while the lister that feeds it coalesced, and this verdict sided with the builder because
-        // that is the only thing it claims. The readers are now converged on one shared predicate
-        // (absent ⇒ active), so the verdict follows the builder to the SAME answer rather than to the
-        // opposite one. Siding with the builder is still the rule; the builder's answer changed.
+        // while lifecycle and fleet consumers defaulted the lister's unchanged missing value to
+        // active. This verdict sided with the builder because that is the only thing it claims. The
+        // readers now share one predicate (absent ⇒ active), so the verdict and builder agree.
         const record = deliverableRecord();
         delete record.status;
 
