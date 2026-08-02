@@ -137,9 +137,17 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
         ).toBe(true);
 
         const identitiesBefore = {
-            panes  : (await app.getDockTopology(wsId)).document.items,
+            paneFeed    : await app.callMethod(wsId, 'getPaneIdentity', ['feed']),
+            paneScale   : await app.callMethod(wsId, 'getPaneIdentity', ['scale']),
+            scaleStoreId: (await (async () => {
+                const scaleStores = await app.findInstances({className: 'Workstation.store.Scale'}, ['id']);
+                return (Array.isArray(scaleStores) ? scaleStores : [scaleStores])[0]?.id
+            })()),
             storeId: feedStore.id
         };
+
+        expect(identitiesBefore.paneFeed, 'live feed pane identity must exist before the drag').toBeTruthy();
+        expect(identitiesBefore.paneScale, 'live scale pane identity must exist before the drag').toBeTruthy();
 
         // --- (1..N) repeated real splitter drags, rendered-cell control after each --------
         // Drag path: the app-side real-pointer dispatch (InteractionService) — the same event
@@ -194,17 +202,27 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 {message: `cycle ${cycle}: the resizeSplit document must commit with new sizes`, timeout: 8000, intervals: [100]}
             ).not.toBe(JSON.stringify(sizesBefore));
 
-            // motion settlement: FLIP/generation guards retire inside one render budget after commit
-            await page.waitForTimeout(800);
+            // Semantic settlement: the FLIP staging must be fully retired and the projection's
+            // animation flag cleared — measured off committed DOM state, never a fixed delay
+            await expect.poll(
+                async () => page.locator('.neo-dashboard-dock-animating').count(),
+                {message: `cycle ${cycle}: projection animation must settle`, timeout: 8000, intervals: [100]}
+            ).toBe(0);
+            await expect.poll(
+                async () => page.locator('.neo-dock-flip-fixed-stage').count(),
+                {message: `cycle ${cycle}: the FLIP staging frame must be fully retired`, timeout: 8000, intervals: [100]}
+            ).toBe(0);
 
-            // identities after cycle 1 only — later cycles re-prove the repaint discriminant
+            // live identities after cycle 1 only — later cycles re-prove the repaint discriminant
             if (cycle === 1) {
-                const docAfter = (await app.getDockTopology(wsId)).document;
-
                 expect(
-                    Object.keys(docAfter.items),
-                    'pane identity: every pane survives the drag'
-                ).toEqual(Object.keys(identitiesBefore.panes));
+                    await app.callMethod(wsId, 'getPaneIdentity', ['feed']),
+                    'live pane identity: the SAME feed pane instance must survive the drag'
+                ).toBe(identitiesBefore.paneFeed);
+                expect(
+                    await app.callMethod(wsId, 'getPaneIdentity', ['scale']),
+                    'live pane identity: the SAME scale pane instance must survive the drag'
+                ).toBe(identitiesBefore.paneScale);
 
                 const feedAfter = await app.findInstances({className: 'Workstation.store.Feed'}, ['id']);
 
@@ -212,6 +230,13 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                     (Array.isArray(feedAfter) ? feedAfter : [feedAfter]).map(store => store.id),
                     'store identity: the feed store instance survives re-projection'
                 ).toContain(identitiesBefore.storeId);
+
+                const scaleAfter = await app.findInstances({className: 'Workstation.store.Scale'}, ['id']);
+
+                expect(
+                    (Array.isArray(scaleAfter) ? scaleAfter : [scaleAfter]).map(store => store.id),
+                    'store identity: the scale store instance survives re-projection'
+                ).toContain(identitiesBefore.scaleStoreId);
             }
 
             // --- the freeze discriminant, every cycle --------------------------------------
@@ -273,44 +298,42 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
 
         let markerSeq = 1;
 
-        const insertMarker = async marker => {
-            const id = `scale-zz${String(markerSeq++).padStart(6, '0')}`;
+        // Mutate the SAME already-visible Model's counter field through the row component's
+        // own `record` handle — the ordinary existing-record repaint path (record.set → store
+        // recordChange → Body.onStoreRecordChange → pooled-row redraw), never an
+        // insert/materialization shortcut that can green over a detached recordChange listener.
+        const SCALE_ROW_COMPONENT = 'neo-grid-body-1__row-0';
 
-            await app.callMethod(scaleStore.id, 'insert', [0, [{
-                counter  : markerSeq,
-                id,
-                name     : 'spec.repaint.witness',
-                progress : 0,
-                status   : marker,
-                timestamp: new Date().toLocaleTimeString('en-GB'),
-                trend    : [0],
-                value    : 0
-            }]]);
+        const mutateTopCounter = async () => {
+            const marker = 900000 + markerSeq++;
+
+            await app.callMethod(SCALE_ROW_COMPONENT, 'record.set', [{counter: marker}]);
 
             const storeBack = await app.callMethod(scaleStore.id, 'getAt', [0]);
+
             expect(
-                storeBack?.status,
-                'worker truth: the scale store must carry the inserted marker at index 0'
-            ).toBe(marker)
+                storeBack?.counter,
+                'worker truth: the scale store must carry the mutated counter on the same record'
+            ).toBe(marker);
+
+            return marker
         };
 
-        const readScaleTopRowCells = () => page.evaluate(() => {
-            const pane = document.querySelector('.workstation-scale-pane'),
-                  row  = pane?.querySelector('.neo-grid-row');
-            return row ? [...row.querySelectorAll('.neo-grid-cell')].map(cell => cell.textContent.trim()) : []
-        });
-
-        const markerOf = tag => `SCALE-REPAINT-${tag}-${Date.now()}`;
+        // The rendered counter cell — found by the materialized data.field binding (pool cell
+        // ids shift with column switches; the binding is the render-time truth)
+        const readCounterCell = () => page.evaluate(rowId => {
+            const row  = document.getElementById(rowId),
+                  cell = row?.querySelector('[data-field="counter"]');
+            return cell ? cell.textContent.trim() : null
+        }, SCALE_ROW_COMPONENT);
 
         // --- pre-drag control on the pane the main split resizes --------------------------
-        const preMarker = markerOf('PRE');
-
-        await insertMarker(preMarker);
+        const pre = await mutateTopCounter();
 
         await expect.poll(
-            async () => (await readScaleTopRowCells()).includes(preMarker),
-            {message: 'pre-drag control: the scale pane top row must paint the inserted marker', timeout: 8000, intervals: [100]}
-        ).toBe(true);
+            readCounterCell,
+            {message: 'pre-drag control: the exact counter-bound cell must paint the mutated value', timeout: 8000, intervals: [100]}
+        ).toBe(String(pre));
 
         // --- the real drag on the split that resizes THIS pane ----------------------------
         const windowId2       = await page.evaluate(() => Neo.worker.Manager.windowId),
@@ -351,19 +374,26 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             {message: 'the resizeSplit document must commit with new sizes', timeout: 8000, intervals: [100]}
         ).not.toBe(JSON.stringify(sizesBefore));
 
-        await page.waitForTimeout(800);
+        // Semantic settlement: FLIP staging retired + projection animation cleared
+        await expect.poll(
+            async () => page.locator('.neo-dashboard-dock-animating').count(),
+            {message: 'projection animation must settle', timeout: 8000, intervals: [100]}
+        ).toBe(0);
+        await expect.poll(
+            async () => page.locator('.neo-dock-flip-fixed-stage').count(),
+            {message: 'the FLIP staging frame must be fully retired', timeout: 8000, intervals: [100]}
+        ).toBe(0);
 
         // --- the freeze discriminant on the resized pane ----------------------------------
-        const postMarker = markerOf('POST');
-
-        await insertMarker(postMarker);
+        const post = await mutateTopCounter();
 
         await expect.poll(
-            async () => (await readScaleTopRowCells()).includes(postMarker),
-            {message: 'FREEZE CHECK (scale pane): the resized pane must still paint a post-drag insert', timeout: 8000, intervals: [100]}
-        ).toBe(true);
+            readCounterCell,
+            {message: 'FREEZE CHECK (scale pane): the exact counter-bound cell must still paint a post-drag record change', timeout: 8000, intervals: [100]}
+        ).toBe(String(post));
 
         expect(pageErrors, 'no page errors may escape during the scale repaint witness').toEqual([]);
         expect(runtimeErrors, 'no runtime errors may escape during the scale repaint witness').toEqual([]);
-    })
+    });
+
 })
