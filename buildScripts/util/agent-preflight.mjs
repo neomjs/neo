@@ -36,11 +36,15 @@ const
 export {COMMIT_TICKET_PATTERN, DECLARED_TICKET_PATTERN};
 
 export const CHANGE_CLASS_TO_TYPES = Object.freeze({
-    capability : ['feat'],
-    restoration: ['fix'],
-    // The repo's live zero-delta vocabulary: `chore` plus the conventional types history
-    // already merges for deltas that change neither runtime behavior nor capability.
-    'zero-delta': ['chore', 'test', 'docs', 'ci', 'build']
+    capability : Object.freeze(['feat']),
+    restoration: Object.freeze(['fix']),
+    // The repo's conventional zero-delta type labels. The gate maps the AUTHOR-DECLARED
+    // class to this allowed set — a prefix never proves the class; the author's truthful
+    // declaration remains the semantic authority. Evidence (14-day dev history): test 20,
+    // docs 22, chore 65, build 4; `ci` rides the same convention for CI-config deltas.
+    // Arrays are frozen and `validateChangeClass` returns an isolated copy: the policy is
+    // never mutable through the map or a returned observation.
+    'zero-delta': Object.freeze(['chore', 'test', 'docs', 'ci', 'build'])
 });
 
 /**
@@ -194,9 +198,11 @@ export function validateChangeClass({
 
     return {
         errors,
-        expectedTypes,
-        skipped: false,
-        valid  : errors.length === 0
+        // An observation, never a write capability: the copy isolates the caller from the
+        // frozen policy arrays, so mutating a result cannot change later validations.
+        expectedTypes: expectedTypes ? [...expectedTypes] : null,
+        skipped      : false,
+        valid        : errors.length === 0
     }
 }
 
