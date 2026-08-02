@@ -23,6 +23,10 @@ export const DEFERENCE_PHRASES = [
     'do you want me',
     'Your steer on',
     "if you'd rather",
+    // Composition of the two neighbours above; listed separately because neither matches it. Catches the
+    // lane-handback shape ("that is next unless you'd rather I took something else") - offering back a
+    // lane the agent already owns, which §swarm_topology_anchor assigns to the agent, not the operator.
+    "unless you'd rather",
     'or steer me elsewhere',
     'your call',
     'your move'
