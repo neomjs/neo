@@ -2393,11 +2393,30 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
         expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
     });
 
-    test('one deliverable row among broken ones arms the seat', async () => {
+    test('ONE keyless row unarms the whole seat — the key gate aborts the build, it does not skip', async () => {
+        // The decisive asymmetry, and the case an earlier draft got backwards. Status and target
+        // failures `continue` (that row is skipped, its route withdrawn, everything else builds).
+        // A missing key THROWS — so this pair produces no manifest at all, and the perfectly good
+        // keyed row publishes nothing either. Read with `some`, this reported armed: true.
         WakeSubscriptionService.list = async () => ({
             subscriptions: [
-                deliverableRecord({id: 'WAKE_SUB:a', harnessTargetMetadata: {url: 'http://x/wake'}}),
-                deliverableRecord({id: 'WAKE_SUB:b'})
+                deliverableRecord({id: 'WAKE_SUB:keyed'}),
+                deliverableRecord({id: 'WAKE_SUB:keyless', harnessTargetMetadata: {url: 'http://x/wake'}})
+            ]
+        });
+
+        expect(await arming()).toEqual({armed: false, reason: 'missing-signing-key'});
+    });
+
+    test('a SKIPPED row alongside a keyed one still arms — skips cost only themselves', async () => {
+        // The control for the test above: proves the unarming is caused by the throw specifically,
+        // not by "any imperfect row in the set". A non-deliverable target is skipped, so the keyed
+        // webhook row still builds and the seat is armed.
+        WakeSubscriptionService.list = async () => ({
+            subscriptions: [
+                deliverableRecord({id: 'WAKE_SUB:keyed'}),
+                deliverableRecord({id: 'WAKE_SUB:other', harnessTarget: 'mcp-notifications'}),
+                deliverableRecord({id: 'WAKE_SUB:dead',  status: 'degraded'})
             ]
         });
 
@@ -2468,6 +2487,28 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
         expect(Object.keys(manifest.routes)).toContain('WAKE_SUB:agree-armed');
         expect(Object.keys(manifest.routes)).not.toContain('WAKE_SUB:agree-unarmed');
         expect(skipped.map(entry => entry.subscriptionId)).toContain('WAKE_SUB:agree-unarmed');
+    });
+
+    test('AGREEMENT (throw class): a keyed+keyless pair is unarmed AND unbuildable', async () => {
+        // The agreement case the first version of this spec missed. Its unarmed specimen used a
+        // non-deliverable TARGET, which the builder SKIPS — so it only ever proved agreement across
+        // the skip class, and the throw class went untested. That gap is exactly where health and
+        // the builder disagreed: health said armed, the build could not run.
+        const keyed   = deliverableRecord({id: 'WAKE_SUB:mixed-keyed'}),
+              keyless = deliverableRecord({
+                  id                   : 'WAKE_SUB:mixed-keyless',
+                  harnessTargetMetadata: {url: 'http://x/wake', adapter: 'tmux', tmuxSession: 'spec'}
+              });
+
+        WakeSubscriptionService.list = async () => ({subscriptions: [keyed, keyless]});
+        expect((await arming()).armed).toBe(false);
+
+        // Not "publishes fewer routes" — refuses to build at all, which is why one keyless row
+        // unarms the seat rather than costing only its own route.
+        expect(() => buildWakeReceiverManifest({
+            subscriptions : [keyed, keyless],
+            callerIdentity: '@spec-seat'
+        })).toThrow(/signingKey/);
     });
 });
 

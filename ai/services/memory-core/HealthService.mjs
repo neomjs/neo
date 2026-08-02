@@ -524,10 +524,18 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
  * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
  * Aligns with the "surface, don't obscure" principle.
  *
+ * - `subscription`: the caller-scoped arming verdict — whether THIS identity holds a wake
+ *   subscription the receiver-manifest build would accept. `armed` is tri-state: `null` means the
+ *   question could not be answered (unbound identity, unreadable graph), never "not armed".
+ *   `reason` is one of `deliverable` | `no-active-subscription` | `unmigrated-target` |
+ *   `missing-signing-key` | `unbound-identity` | `unreadable`. It reports the Memory-Core leg only
+ *   and does NOT claim a wake will arrive — see {@link buildSubscriptionArmingBlock}.
+ *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
  * @returns {Promise<{gateState: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
- *     secondsSinceLastPulse: Number|null}>}
+ *     secondsSinceLastPulse: Number|null,
+ *     subscription: {armed: Boolean|null, reason: String}}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
  * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
@@ -600,6 +608,11 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  * first failure: `unmigrated-target` outranks `no-active-subscription`, and `missing-signing-key`
  * outranks both. All three were live on this plane.
  *
+ * **The gates are not symmetric, and the verdict follows their asymmetry.** Status and target
+ * failures SKIP their row; a missing key ABORTS the build. So one keyless row on the deliverable
+ * path leaves the seat unarmed even when other rows are perfect — the manifest cannot be built at
+ * all, so those good rows publish nothing either.
+ *
  * Never throws, and never reports `false` on ignorance — an unbound identity (a container
  * healthcheck carries none) or an unreadable graph yields `armed: null`. Reporting `false` there
  * would manufacture an alarm out of a missing instrument.
@@ -627,10 +640,13 @@ async function buildSubscriptionArmingBlock() {
             return {armed: false, reason: 'unmigrated-target'};
         }
 
-        // A Shape-B route without its server-issued key is structurally undeliverable: the manifest
-        // build throws on it and delivery refuses unsigned webhooks, so the row reads active while
-        // nothing is ever sent.
-        const armed = onDeliverablePath.some(entry =>
+        // `every`, NOT `some` — and the asymmetry is the whole point. The two earlier gates SKIP a
+        // failing row (`continue`, route withdrawn), so one bad row costs only itself. The key check
+        // THROWS, aborting the entire build. A single keyless row therefore makes the manifest
+        // unbuildable for EVERY row in the set, including ones that are individually perfect. Read
+        // with `some`, a seat holding one keyed and one keyless row reported armed while the build
+        // it depends on could not run at all.
+        const armed = onDeliverablePath.every(entry =>
             isServerIssuedSigningKey(entry.harnessTargetMetadata?.signingKey));
 
         return armed
