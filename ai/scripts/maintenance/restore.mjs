@@ -463,6 +463,45 @@ function bundleContentError(message) {
 }
 
 /**
+ * @summary Reports absence that was PROVEN, never absence inferred from an error we could not read
+ * past.
+ *
+ * `fs.pathExists` resolves `false` for *any* failure, so an `EACCES` on a parent directory is
+ * indistinguishable from the path genuinely not being there. Every caller below turns that boolean
+ * into a statement about bundle CONTENT — "required subdirectory missing", "no receipt, therefore a
+ * legacy bundle" — which is how an unreadable bundle acquires a content verdict and, through
+ * {@link CONTINUE_ELIGIBLE_BUNDLE_VERDICTS}, permission for the walk to skip it.
+ *
+ * Only `ENOENT` proves absence. Everything else propagates UNMARKED so `probeBundle` classifies it
+ * as `BUNDLE_UNVERIFIABLE` — the same allowlist stance as the error classifier, for the same reason:
+ * an unanticipated errno must land on the fail-closed side without anyone having enumerated it.
+ *
+ * @param {String} target Absolute path.
+ * @returns {Promise<Boolean>} True only when the path is provably not there.
+ * @throws {Error} The original syscall error when presence could not be determined.
+ */
+async function pathIsProvablyAbsent(target) {
+    // A layout key that was never populated is an absent path, not an unreadable one — callers
+    // legitimately pass partial layouts (the optional-subdir and ledger loops both do). `fs.pathExists`
+    // absorbed this by resolving false; `fs.stat` raises a TypeError instead, so the tolerance has to
+    // be restated rather than inherited. Preserves the prior verdict exactly: no path, nothing to read.
+    if (!target) {
+        return true
+    }
+
+    try {
+        await fs.stat(target);
+        return false
+    } catch (error) {
+        if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+            return true
+        }
+
+        throw error
+    }
+}
+
+/**
  * Validates the bundle directory layout and every JSONL row without writing any state.
  *
  * Required subdirs (`kb`, `mc`, `graph`, `concepts`, `trajectories`) MUST exist; missing
@@ -482,7 +521,7 @@ function bundleContentError(message) {
  *     receipt — the structured unknown-provenance classification is never dropped.
  */
 export async function validateBundle(bundleRoot, layout, logger = console, expectedDimension = AiConfig.vectorDimension) {
-    if (!await fs.pathExists(bundleRoot)) {
+    if (await pathIsProvablyAbsent(bundleRoot)) {
         throw bundleContentError(`Bundle directory not found: ${bundleRoot}`);
     }
 
@@ -493,14 +532,17 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
 
     for (const subdir of REQUIRED_BUNDLE_SUBDIRS) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) {
+        if (await pathIsProvablyAbsent(dir)) {
             throw bundleContentError(`Required bundle subdirectory missing: ${subdir}/ (expected at ${dir})`);
         }
     }
 
     for (const subdir of OPTIONAL_BUNDLE_SUBDIRS) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) {
+        // Provably-absent only. An unreadable optional subdir must NOT be quietly "skipped" — the probe
+        // would then attest a bundle whose member it never examined, which is the failure the ledger
+        // members already taught us once.
+        if (await pathIsProvablyAbsent(dir)) {
             logger.warn?.(`[Restore] Optional bundle subdirectory absent: ${subdir}/ (legacy bundle, skipping)`);
         }
     }
@@ -523,7 +565,10 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     };
     for (const subdir of allSubdirs) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) continue;
+        // Skipping on provable absence only. `pathExists` would also skip an unreadable directory, and
+        // a skipped directory is one whose rows never get streamed — so the bundle could be declared
+        // restorable on the strength of content nobody looked at.
+        if (await pathIsProvablyAbsent(dir)) continue;
         const entries    = await fs.readdir(dir);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
         for (const file of jsonlFiles) {
@@ -564,9 +609,15 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     const metaPath = path.join(bundleRoot, 'bundle-meta.json');
     let   meta     = null;
 
-    if (await fs.pathExists(metaPath)) {
+    if (!await pathIsProvablyAbsent(metaPath)) {
+        // The read is OUTSIDE the try on purpose. `fs.readJson` both reads and parses, so wrapping it
+        // whole made an `EACCES` on the receipt indistinguishable from malformed JSON — the exact
+        // production path @neo-gpt reproduced, where an unreadable newest bundle was labelled
+        // `BUNDLE_INVALID` and the walk continued to older history. IO failures now propagate unmarked.
+        const rawMeta = await fs.readFile(metaPath, 'utf8');
+
         try {
-            meta = await fs.readJson(metaPath);
+            meta = JSON.parse(rawMeta)
         } catch (err) {
             throw bundleContentError(`Failed to parse bundle-meta.json: ${err.message}`);
         }
@@ -581,12 +632,15 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // The two ledger members the top-level scan cannot reach: `heal-attempts.json` is not `.jsonl`, and
     // the recovery-run files are NESTED. Both were accepted malformed while the verdict still read
     // `RESTORABLE`. A probe may only attest what it has actually parsed.
-    if (await fs.pathExists(layout.ledgers)) {
+    if (!await pathIsProvablyAbsent(layout.ledgers)) {
         const attemptsPath = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts);
 
-        if (await fs.pathExists(attemptsPath)) {
+        if (!await pathIsProvablyAbsent(attemptsPath)) {
+            // Same split as the receipt above: the read must not be able to masquerade as a parse.
+            const rawAttempts = await fs.readFile(attemptsPath, 'utf8');
+
             try {
-                JSON.parse(await fs.readFile(attemptsPath, 'utf8'))
+                JSON.parse(rawAttempts)
             } catch (err) {
                 throw bundleContentError(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
             }
@@ -594,7 +648,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
 
         const runsDir = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
 
-        if (await fs.pathExists(runsDir)) {
+        if (!await pathIsProvablyAbsent(runsDir)) {
             for (const file of (await fs.readdir(runsDir)).filter(name => name.endsWith('.jsonl'))) {
                 const stream = fs.createReadStream(path.join(runsDir, file), {encoding: 'utf8'}),
                       rl     = readline.createInterface({crlfDelay: Infinity, input: stream});

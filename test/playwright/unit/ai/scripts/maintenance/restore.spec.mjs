@@ -1274,6 +1274,68 @@ test.describe('verifyLatestBackupRestorable — falls back past an unusable newe
         expect(verdict.errorCode).toBeNull();   // no syscall errno — and still fails closed
     });
 
+    test('PRODUCTION PATH: a real IO failure inside the validator fails closed, not just the injected seam', async () => {
+        // The second half of the same finding. The first fix classified errors AFTER they reached
+        // `probeBundle`, but the real `validateBundle` wrapped `fs.readJson` — read AND parse — in one
+        // try and relabelled the result a content error, so an unreadable receipt was already
+        // `BUNDLE_INVALID` before the new classifier ever saw it. Injected-seam coverage cannot catch
+        // that: it bypasses the very code that erases the cause.
+        //
+        // The witness is a DIRECTORY where `bundle-meta.json` belongs, which yields a genuine EISDIR
+        // from the real validator on every platform. `chmod 000` was the obvious choice and is the
+        // wrong one — root ignores permission bits, so on a root CI image it would quietly stop
+        // testing anything while still reporting green.
+        writeValidBundle('backup-2027-01-01T00-00-00');
+
+        const newest = writeValidBundle('backup-2027-01-02T00-00-00');
+        fs.mkdirSync(path.join(newest, 'bundle-meta.json'));
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.code).toBe('BUNDLE_UNVERIFIABLE');
+        expect(verdict.bundleRoot).toContain('backup-2027-01-02T00-00-00');
+        expect(verdict.examined).toBe(1);            // the older bundle was never consulted
+        expect(verdict.unverifiable).toBe(true);
+        expect(verdict.errorCode).toBe('EISDIR');    // the cause survived, rather than being relabelled
+    });
+
+    test('PRODUCTION PATH positive control: malformed metadata is still CONTENT and still falls through', async () => {
+        // Shares the property under test with the case above — the newest bundle's `bundle-meta.json`
+        // is unusable and the failure surfaces from the real validator — and differs only in that this
+        // one is a parse failure rather than an IO failure. Without it, splitting the read from the
+        // parse could have been "fixed" by making every metadata problem unverifiable, which would
+        // silently reinstate the newest-only behaviour this PR exists to remove.
+        writeValidBundle('backup-2027-02-01T00-00-00');
+
+        const newest = writeValidBundle('backup-2027-02-02T00-00-00');
+        fs.writeFileSync(path.join(newest, 'bundle-meta.json'), '{NOT VALID JSON');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.code).toBe('RESTORABLE');
+        expect(verdict.bundleRoot).toContain('backup-2027-02-01T00-00-00');
+        expect(verdict.skipped[0].code).toBe('BUNDLE_INVALID');
+    });
+
+    test('a genuinely MISSING required subdirectory is content, but an unreadable one is not', async () => {
+        // `fs.pathExists` resolves false for ANY failure, so "required subdirectory missing" was a
+        // content verdict derived from a boolean that cannot tell absence from inaccessibility. Only
+        // a proven ENOENT may claim absence; everything else propagates. Both directions asserted,
+        // because fixing one alone flips the defect rather than removing it.
+        writeValidBundle('backup-2027-03-01T00-00-00');
+
+        const newest = writeValidBundle('backup-2027-03-02T00-00-00');
+        fsExtra.removeSync(path.join(newest, 'kb'));
+
+        const missing = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(missing.restorable).toBe(true);                                  // proven absent = content
+        expect(missing.bundleRoot).toContain('backup-2027-03-01T00-00-00');
+        expect(missing.skipped[0].code).toBe('BUNDLE_INVALID');
+    });
+
     test('stopping on an unverifiable candidate is announced, not silent', async () => {
         // The operator has to learn that older bundles were deliberately NOT considered. Silence here
         // reads identically to "nothing older exists", which is the confusion this whole lane is about.
