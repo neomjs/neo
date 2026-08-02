@@ -1,5 +1,7 @@
 import fs              from 'fs-extra';
 import path            from 'path';
+import {execFile}      from 'node:child_process';
+import {promisify}     from 'node:util';
 import {fileURLToPath} from 'url';
 
 // Neo namespace bootstrap (entry-point invariant) — this is an operator-runnable driver, and the
@@ -14,7 +16,9 @@ import {verifyLatestBackupRestorable} from './restore.mjs';
 /**
  * @module ai/scripts/maintenance/redeployPreflight
  * @summary Refuses a container-affecting deploy unless a verified, non-empty, restorable
- * pre-transition bundle exists — or the operator has explicitly declared initialization.
+ * pre-transition bundle exists — or the operator has explicitly declared initialization plus its
+ * Compose project identity, and the Docker plane confirms that no primary-store volume exists for
+ * that declared project.
  *
  * ## What this can and cannot protect
  *
@@ -31,19 +35,43 @@ import {verifyLatestBackupRestorable} from './restore.mjs';
  *
  * ## Why an explicit initialization mode rather than a heuristic
  *
- * A genuine first deployment and a plane that was destroyed or relocated **both present as
- * absence**. Nothing about "no bundle here" says which one it is, so keying the refusal on absence
- * alone would block the very first legitimate deploy. The operator therefore DECLARES
- * initialization, and a durable marker records that this host has deployed before.
+ * A genuine first deployment and a plane whose backup root was destroyed or relocated **both
+ * present as absence** on the host filesystem. Nothing about "no bundle here" says which one it is,
+ * so keying the refusal on that absence alone would either block the first legitimate deploy or
+ * fail open on an established plane. The operator therefore DECLARES initialization, while the
+ * preflight also observes the independently durable Compose primary-store volume. The project
+ * selector is part of that declaration: a defaulted or missing identity cannot authorize this path,
+ * because project-scoped absence is not plane-wide absence on a multi-project host.
  *
- * The marker lives beside the bundles on the host bind-mount, which is precisely the mount
- * `docker compose down -v` does not touch. That is the point: it has to survive the operation whose
- * aftermath it exists to describe. `verifyLatestBackupRestorable` only enumerates `backup-*`
- * directories, so a dotfile marker can never be mistaken for a bundle.
+ * The marker lives beside the bundles on the host bind-mount, which survives ordinary container
+ * recreation. The primary store lives in a Docker named volume, a separate durability domain. A
+ * read-only label query can therefore still prove prior plane state after the marker or entire
+ * backup root is lost, without starting or exec-ing a probe container. `verifyLatestBackupRestorable`
+ * only enumerates `backup-*` directories, so a dotfile marker can never be mistaken for a bundle.
  */
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __filename    = fileURLToPath(import.meta.url),
+      execFileAsync = promisify(execFile);
+
+const COMPOSE_PROJECT_LABEL = 'com.docker.compose.project';
+const COMPOSE_VOLUME_LABEL  = 'com.docker.compose.volume';
+
+/**
+ * Compose volume key that carries the Memory Core primary store.
+ * @type {String}
+ */
+export const PRIMARY_STORE_VOLUME_NAME = 'shared-sqlite-data';
+
+/**
+ * Tri-state result for the read-only Docker-plane observation. Only `ABSENT` can authorize a
+ * genuine first initialization; every unmeasurable or ambiguous result stays `UNKNOWN`.
+ * @type {Object}
+ */
+export const PRIMARY_VOLUME_STATE = Object.freeze({
+    ABSENT : 'absent',
+    PRESENT: 'present',
+    UNKNOWN: 'unknown'
+});
 
 /**
  * Marker filename. A dotfile beside the bundles: same surviving mount, invisible to bundle
@@ -64,7 +92,8 @@ export const REDEPLOY_PREFLIGHT_DECISION = Object.freeze({
     PROCEED_MARKER_RECOVERED  : 'PROCEED_MARKER_RECOVERED',
     PROCEED_VERIFIED          : 'PROCEED_VERIFIED',
     REFUSE_ALREADY_INITIALIZED: 'REFUSE_ALREADY_INITIALIZED',
-    REFUSE_NO_VERIFIED_BUNDLE : 'REFUSE_NO_VERIFIED_BUNDLE'
+    REFUSE_NO_VERIFIED_BUNDLE : 'REFUSE_NO_VERIFIED_BUNDLE',
+    REFUSE_PLANE_STATE_UNKNOWN: 'REFUSE_PLANE_STATE_UNKNOWN'
 });
 
 /**
@@ -77,32 +106,61 @@ export const REDEPLOY_PREFLIGHT_DECISION = Object.freeze({
  * @param {Object} options
  * @param {Boolean} options.markerPresent Whether this host has recorded a prior deployment.
  * @param {Boolean} options.initializeRequested Whether the operator passed the explicit flag.
+ * @param {String|null} [options.primaryVolumeState=null] Docker primary-volume observation.
  * @param {String} options.verdictCode A `verifyLatestBackupRestorable` code.
  * @returns {{decision: String, proceed: Boolean, writeMarker: Boolean, reason: String}}
  */
-export function evaluateRedeployPreconditions({markerPresent, initializeRequested, verdictCode}) {
+export function evaluateRedeployPreconditions({
+    markerPresent,
+    initializeRequested,
+    primaryVolumeState = null,
+    verdictCode
+}) {
     const restorable = verdictCode === 'RESTORABLE';
 
-    // Row 6 first. `--initialize` on a host that has already deployed is an operator mistake worth
-    // catching, never a licence to wipe — checking it before the restorable fast-path is what stops
-    // the escape hatch from becoming the bypass.
-    if (markerPresent && initializeRequested) {
-        return {
-            decision   : REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED,
-            proceed    : false,
-            writeMarker: false,
-            reason     : 'This host has deployed before, so --initialize cannot apply. Remove the flag to run an ordinary redeploy; if you intend to discard the existing plane, do that deliberately and separately.'
-        }
-    }
-
-    // Row 1 — declared first deployment. The one path that proceeds without a bundle, and it
-    // requires a human to have said so.
     if (initializeRequested) {
+        const priorEvidence = [];
+
+        if (markerPresent) {
+            priorEvidence.push('the initialization marker')
+        }
+        if (restorable) {
+            priorEvidence.push('a verified restorable bundle')
+        }
+        if (primaryVolumeState === PRIMARY_VOLUME_STATE.PRESENT) {
+            priorEvidence.push('the Compose-labeled primary-store volume')
+        }
+
+        // Destructive-path ordering is load-bearing: every proof of prior state must win BEFORE the
+        // initialization proceed branch. The old ordering consulted only the marker and ignored even
+        // a RESTORABLE bundle when the marker was missing.
+        if (priorEvidence.length > 0) {
+            return {
+                decision   : REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED,
+                proceed    : false,
+                writeMarker: false,
+                reason     : `--initialize cannot apply because prior deployment is proven by ${priorEvidence.join(', ')}. Remove the flag to run an ordinary redeploy; if you intend to discard the existing plane, do that deliberately and separately.`
+            }
+        }
+
+        // `absent` is the sole authorizing observation. Missing, malformed, ambiguous, and failed
+        // observations all remain unknown and fail closed under a distinct audit code.
+        if (primaryVolumeState !== PRIMARY_VOLUME_STATE.ABSENT) {
+            return {
+                decision   : REDEPLOY_PREFLIGHT_DECISION.REFUSE_PLANE_STATE_UNKNOWN,
+                proceed    : false,
+                writeMarker: false,
+                reason     : `--initialize requires proof that the Compose primary-store volume is absent; observed ${primaryVolumeState ?? 'no result'}. No plane mutation is authorized.`
+            }
+        }
+
+        // Declared first deployment: no marker, no restorable bundle, and the independent Docker
+        // plane observer positively measured that the primary-store volume does not exist.
         return {
             decision   : REDEPLOY_PREFLIGHT_DECISION.PROCEED_INITIALIZING,
             proceed    : true,
             writeMarker: true,
-            reason     : 'Initialization declared by the operator and no prior deployment is recorded on this host.'
+            reason     : 'Initialization declared by the operator; no marker or restorable bundle exists, and the Compose primary-store volume is absent.'
         }
     }
 
@@ -138,6 +196,122 @@ export function evaluateRedeployPreconditions({markerPresent, initializeRequeste
         reason     : markerPresent
             ? `This host has deployed before and has no usable pre-transition bundle (${verdictCode}). Proceeding could cross into an unrecoverable plane.`
             : `No prior deployment is recorded and no usable bundle exists (${verdictCode}). This is indistinguishable from a destroyed or relocated plane. If this is genuinely a first install, pass --initialize to say so.`
+    }
+}
+
+/**
+ * @summary Observes the Compose primary-store volume using read-only Docker metadata operations.
+ *
+ * The lookup first narrows by BOTH canonical Compose labels, then inspects the single match and
+ * verifies those labels exactly. Zero matches is a measured absence for the declared project.
+ * Multiple matches, malformed labels, command failures, and missing project identity remain unknown
+ * and can never authorize initialization.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.composeProject] Expected Compose project label.
+ * @param {Function} [options.execFileFn=execFileAsync] Promise-based `execFile` seam.
+ * @returns {Promise<Object>} Tri-state observation with bounded audit metadata.
+ */
+export async function observePrimaryStoreVolume({composeProject, execFileFn = execFileAsync} = {}) {
+    const project = typeof composeProject === 'string' ? composeProject.trim() : '';
+
+    if (!project) {
+        return {
+            state : PRIMARY_VOLUME_STATE.UNKNOWN,
+            reason: 'compose-project-unavailable'
+        }
+    }
+
+    const commandOptions = {
+        encoding : 'utf8',
+        maxBuffer: 64 * 1024,
+        timeout  : 5000
+    };
+
+    try {
+        const listResult = await execFileFn('docker', [
+                  'volume',
+                  'ls',
+                  '--quiet',
+                  '--filter',
+                  `label=${COMPOSE_PROJECT_LABEL}=${project}`,
+                  '--filter',
+                  `label=${COMPOSE_VOLUME_LABEL}=${PRIMARY_STORE_VOLUME_NAME}`
+              ], commandOptions),
+              matches = String(listResult.stdout ?? '')
+                  .split(/\r?\n/)
+                  .map(item => item.trim())
+                  .filter(Boolean);
+
+        if (matches.length === 0) {
+            return {
+                matchCount: 0,
+                reason    : 'volume-not-found',
+                state     : PRIMARY_VOLUME_STATE.ABSENT
+            }
+        }
+
+        if (matches.length !== 1) {
+            return {
+                matchCount: matches.length,
+                reason    : 'volume-match-ambiguous',
+                state     : PRIMARY_VOLUME_STATE.UNKNOWN
+            }
+        }
+
+        const volumeName    = matches[0],
+              inspectResult = await execFileFn('docker', [
+                  'volume',
+                  'inspect',
+                  '--format',
+                  '{{json .Labels}}',
+                  volumeName
+              ], commandOptions);
+
+        let labels;
+
+        try {
+            labels = JSON.parse(String(inspectResult.stdout ?? '').trim())
+        } catch {
+            return {
+                matchCount: 1,
+                reason    : 'volume-labels-malformed',
+                state     : PRIMARY_VOLUME_STATE.UNKNOWN,
+                volumeName
+            }
+        }
+
+        if (!labels || Array.isArray(labels) || typeof labels !== 'object') {
+            return {
+                matchCount: 1,
+                reason    : 'volume-labels-malformed',
+                state     : PRIMARY_VOLUME_STATE.UNKNOWN,
+                volumeName
+            }
+        }
+
+        if (labels[COMPOSE_PROJECT_LABEL] !== project ||
+            labels[COMPOSE_VOLUME_LABEL] !== PRIMARY_STORE_VOLUME_NAME) {
+            return {
+                matchCount: 1,
+                reason    : 'volume-label-mismatch',
+                state     : PRIMARY_VOLUME_STATE.UNKNOWN,
+                volumeName
+            }
+        }
+
+        return {
+            matchCount: 1,
+            reason    : 'volume-labels-verified',
+            state     : PRIMARY_VOLUME_STATE.PRESENT,
+            volumeName
+        }
+    } catch (error) {
+        return {
+            errorCode: error && typeof error.code === 'string' ? error.code : null,
+            reason   : 'docker-volume-query-failed',
+            state    : PRIMARY_VOLUME_STATE.UNKNOWN
+        }
     }
 }
 
@@ -178,26 +352,34 @@ export async function writeInitializationMarker({backupRoot, decision, fsModule 
  *
  * @param {Object} [options]
  * @param {String} [options.backupRoot] Bundle root. Defaults to the resolved leaf.
+ * @param {String} [options.composeProject] Compose project used for the exact volume-label lookup.
  * @param {Boolean} [options.initializeRequested=false] Explicit initialization declaration.
  * @param {Object} [options.logger=console] Log sink.
  * @param {Function} [options.probeFn=verifyLatestBackupRestorable] Probe seam.
+ * @param {Function} [options.primaryVolumeProbeFn=observePrimaryStoreVolume] Docker observer seam.
  * @param {Object} [options.fsModule=fs] Filesystem seam.
  * @returns {Promise<Object>}
  */
 export async function runRedeployPreflight({
     backupRoot,
-    initializeRequested = false,
-    logger              = console,
-    probeFn             = verifyLatestBackupRestorable,
-    fsModule            = fs
+    composeProject,
+    initializeRequested  = false,
+    logger               = console,
+    probeFn              = verifyLatestBackupRestorable,
+    primaryVolumeProbeFn = observePrimaryStoreVolume,
+    fsModule             = fs
 } = {}) {
     const resolvedRoot  = backupRoot ?? AiConfig.backupPath,
           markerPresent = await readInitializationMarker({backupRoot: resolvedRoot, fsModule}),
           verdict       = await probeFn({backupRoot: resolvedRoot, logger}),
+          primaryVolume = initializeRequested
+              ? await primaryVolumeProbeFn({composeProject})
+              : {reason: 'not-required-for-ordinary-redeploy', state: null},
           outcome       = evaluateRedeployPreconditions({
               initializeRequested,
               markerPresent,
-              verdictCode: verdict.code
+              primaryVolumeState: primaryVolume.state,
+              verdictCode       : verdict.code
           });
 
     if (outcome.proceed && outcome.writeMarker) {
@@ -206,9 +388,15 @@ export async function runRedeployPreflight({
 
     return {
         ...outcome,
-        backupRoot: resolvedRoot,
-        bundleRoot: verdict.bundleRoot ?? null,
+        backupRoot             : resolvedRoot,
+        bundleRoot             : verdict.bundleRoot ?? null,
+        composeProject         : composeProject ?? null,
         markerPresent,
+        primaryVolumeErrorCode : primaryVolume.errorCode ?? null,
+        primaryVolumeMatchCount: primaryVolume.matchCount ?? null,
+        primaryVolumeName      : primaryVolume.volumeName ?? null,
+        primaryVolumeReason    : primaryVolume.reason,
+        primaryVolumeState     : primaryVolume.state,
         // The probe's own verdict travels with the decision so a deploy log records WHY, not just
         // whether. `rowTotal` is what `RESTORABLE` was decided on.
         verdictCode  : verdict.code,
@@ -218,13 +406,28 @@ export async function runRedeployPreflight({
 }
 
 /**
+ * @summary Reads a required value from a two-token CLI option.
+ * @param {String[]} argv CLI argument vector without the executable and script path.
+ * @param {String} option Option name, including its leading dashes.
+ * @returns {String|null}
+ */
+function readCliOption(argv, option) {
+    const index = argv.indexOf(option),
+          value = index === -1 ? null : argv[index + 1];
+
+    return typeof value === 'string' && value.length > 0 && !value.startsWith('--') ? value : null
+}
+
+/**
  * @summary CLI entrypoint. Exit 0 proceeds; exit 1 refuses.
  * @returns {Promise<void>}
  */
 async function main() {
-    const initializeRequested = process.argv.includes('--initialize'),
-          asJson              = process.argv.includes('--json'),
-          result              = await runRedeployPreflight({initializeRequested});
+    const args                = process.argv.slice(2),
+          initializeRequested = args.includes('--initialize'),
+          asJson              = args.includes('--json'),
+          composeProject      = readCliOption(args, '--compose-project'),
+          result              = await runRedeployPreflight({composeProject, initializeRequested});
 
     if (asJson) {
         console.log(JSON.stringify(result, null, 2));
@@ -232,10 +435,13 @@ async function main() {
         console.log(`[preflight] ${result.decision}`);
         console.log(`[preflight] ${result.reason}`);
         console.log(`[preflight] bundle root: ${result.backupRoot} (marker ${result.markerPresent ? 'present' : 'absent'}, probe ${result.verdictCode}${result.rowTotal === null ? '' : `, ${result.rowTotal} rows`})`);
+        if (result.primaryVolumeState !== null) {
+            console.log(`[preflight] primary volume: ${result.primaryVolumeState} (${result.primaryVolumeReason}${result.primaryVolumeName === null ? '' : `, ${result.primaryVolumeName}`})`);
+        }
     }
 
     if (!result.proceed) {
-        console.error('[preflight] REFUSING to proceed. Docker was NOT invoked.');
+        console.error('[preflight] REFUSING to proceed. A read-only Docker metadata query may have run; no container lifecycle mutation was invoked.');
         process.exit(1);
     }
 }
@@ -245,7 +451,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename
         // A preflight that cannot decide must REFUSE. Failing open here would make an unreadable
         // bundle root indistinguishable from a verified one, which is the whole defect inverted.
         console.error(`[preflight] FATAL: ${error.message}`);
-        console.error('[preflight] REFUSING to proceed. Docker was NOT invoked.');
+        console.error('[preflight] REFUSING to proceed. A read-only Docker metadata query may have run; no container lifecycle mutation was invoked.');
         process.exit(1);
     });
 }
