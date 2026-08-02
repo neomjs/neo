@@ -98,12 +98,15 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         expect(linux.topLevel).toContain(`chromadb-js-bindings-linux-x64-gnu@${expected}`);
         expect(linux.topLevel.some(s => /chromadb-js-bindings-(darwin|win32)/.test(s))).toBe(false);
 
-        // libc split on musl: the musl sibling wins, the glibc spelling is skipped.
+        // libc split on musl: the musl variant wins, and a glibc-ONLY package (chromadb's
+        // bindings carry no musl build) is skipped entirely — deterministic by construction,
+        // since live resolution cannot conjure a compatible artifact either.
         const muslVersion = lock.packages['node_modules/@img/sharp-linuxmusl-x64'].version,
               musl        = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath, platform: 'linux', arch: 'x64', isMusl: true});
 
         expect(musl.topLevel).toContain(`@img/sharp-linuxmusl-x64@${muslVersion}`);
         expect(musl.topLevel.some(s => s.startsWith('@img/sharp-linux-x64@'))).toBe(false);
+        expect(musl.topLevel.some(s => s.startsWith('chromadb-js-bindings-'))).toBe(false);
     });
 
     test('the closure is consumed as a TREE: nested range-pins install into their parents (the terminal falsifier)', () => {

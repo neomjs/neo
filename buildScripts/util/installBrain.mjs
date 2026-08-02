@@ -149,29 +149,23 @@ export function resolveBrainInstallClosure({
         if (entry.link === true || entry.version === undefined) continue;
 
         // Platform-variant binaries (sharp/libvips/onnxruntime per-os-cpu builds, fsevents…) need
-        // care in BOTH directions: a darwin binary as a direct arg EBADPLATFORMs the linux runner,
-        // but skipping the matching variant leaves its parent to resolve the variant's RANGE live
-        // — chromadb declares chromadb-js-bindings-* as ^1.3.4, so tomorrow's 1.3.5 would rewrite
-        // the graph the lock froze at 1.3.4 (the re-review blocker). The matching variant is
-        // therefore passed EXACTLY (satisfying the parent's range with the lock's version);
-        // non-matching variants are skipped, and npm never sees an incompatible binary.
-        if (entry.cpu || entry.os) {
+        // care in BOTH directions: an incompatible variant as a direct arg EBADPLATFORMs (darwin
+        // binary on the linux runner — and a GLIBC binary on musl, which fired too: npm tracks
+        // libc as a third platform dimension), but skipping the matching variant leaves its
+        // parent to resolve the variant's RANGE live — chromadb declares chromadb-js-bindings-*
+        // as ^1.3.4, so tomorrow's 1.3.5 would rewrite the graph the lock froze at 1.3.4 (the
+        // re-review blocker). The matching variant is passed EXACTLY, satisfying the parent's
+        // range with the lock's version. Matching is data-driven on all three dimensions the lock
+        // records; where NO compatible variant exists at any version (musl + a glibc-only
+        // package), nothing installs — which is deterministic by construction, since live
+        // resolution cannot conjure one either.
+        if (entry.cpu || entry.os || entry.libc) {
             const name = entryPath.slice(entryPath.lastIndexOf('node_modules/') + 'node_modules/'.length);
 
-            let matchesPlatform =
-                (!entry.os  || entry.os.includes(platform)) &&
-                (!entry.cpu || entry.cpu.includes(arch));
-
-            if (matchesPlatform && name.includes('linux')) {
-                // libc split: a 'linuxmusl' spelling is musl-only; a plain 'linux'/'linux-*-gnu'
-                // spelling yields to its musl sibling on musl systems, and matches everywhere
-                // else (a package with no musl sibling pins its only linux variant anywhere).
-                const muslSibling = name.replace('linux', 'linuxmusl');
-
-                matchesPlatform = name.includes('linuxmusl')
-                    ? isMusl
-                    : !isMusl || lock.packages[`node_modules/${muslSibling}`] === undefined;
-            }
+            const matchesPlatform =
+                (!entry.os   || entry.os.includes(platform)) &&
+                (!entry.cpu  || entry.cpu.includes(arch))    &&
+                (!entry.libc || entry.libc.includes(isMusl ? 'musl' : 'glibc'));
 
             if (matchesPlatform) {
                 topLevel.push(`${name}@${entry.version}`);
