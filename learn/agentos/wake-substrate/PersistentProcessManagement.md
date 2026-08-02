@@ -155,7 +155,7 @@ The other fields describe the substrate; this one describes **you**. It is RLS-s
 | `armed` | `reason` | meaning |
 |---|---|---|
 | `true`  | `deliverable` | every active `a2a-webhook` row carries a server-issued key; the manifest build would accept them |
-| `false` | `no-active-subscription` | no row with `status: 'active'` — nothing is ever attempted, so nothing fails or logs. Includes a **legacy row whose `status` is absent**: the manifest build compares strictly and skips it, so it cannot receive a wake even though other readers count it as active (see the note below) |
+| `false` | `no-active-subscription` | no row resolves to `active` — nothing is ever attempted, so nothing fails or logs. A **legacy row whose `status` is absent** no longer lands here: absence resolves to `active` for every reader (see the note below) |
 | `false` | `unmigrated-target` | active rows exist, but none targets `a2a-webhook`; only that target reaches a container wake |
 | `false` | `missing-signing-key` | an active `a2a-webhook` row has no server-issued key. Repair with `manage_wake_subscription` `action: 'rotate-key'` — do **not** unsubscribe and re-subscribe, which mints a new id and orphans the published route |
 | `null`  | `unbound-identity` | no request identity is bound (a container healthcheck carries none) — the question could not be asked |
@@ -165,7 +165,11 @@ The other fields describe the substrate; this one describes **you**. It is RLS-s
 
 **One keyless row unarms the whole seat.** The status and target gates *skip* a failing row, so it costs only its own route. The key gate **throws**, aborting the entire manifest build — so a seat holding one keyed and one keyless row publishes nothing at all, including for the good row. Repair the keyless row and the rest returns with it.
 
-**A missing `status` is not treated as active here, and the substrate disagrees with itself about that.** The durable list path preserves a historical row with no `status`; `checkSunsetted.mjs` and `readActiveWakeSubscriptionIdentities.mjs` then coalesce that absence to `'active'`, while `buildWakeReceiverManifest` compares strictly and withdraws the route. This verdict follows the manifest, because its only claim is "the build would accept my rows"; siding with those coalescing consumers would report a route as deliverable that the build silently skips. If a seat reports `no-active-subscription` while its row looks present and healthy elsewhere, check whether the row predates the `status` field.
+**A missing `status` resolves to `active`, and every reader now resolves it the same way.** One shared policy (`ai/services/memory-core/wakeSubscriptionStatusPolicy.mjs`) owns that single question; the durable lister, the sunsetting check, the fleet identity reader, the heartbeat lane, the GraphLog compactor, this health verdict and `buildWakeReceiverManifest` all derive from it rather than each deciding for themselves.
+
+This previously disagreed. The manifest builder compared strictly while the query feeding it coalesced, so a row with no `status` returned from `list()` looking active, counted toward every sunsetting and fleet sweep, and was then silently dropped at publication — a seat that reads healthy on every ordinary surface and receives nothing. Absence now resolves in the loud direction: an ambiguous row is published and fails visibly at delivery rather than being withheld with no signal at all.
+
+Only the absent case is defaulted. `retired`, `degraded`, and any unknown future value are NOT active — unknown states fail closed, because only absence has the producer-consumer argument behind it.
 
 **Scope, stated precisely, because conflating the two legs is how a deaf seat stays invisible.** This reports the **Memory-Core leg only**: whether you own a subscription that delivery would accept. It does **not** claim a wake will arrive. The host receiver holds a boot-snapshotted route manifest and its own adapter coordinates, neither of which Memory Core can see — so a seat can read `armed: true` and still be unreachable because its route is absent from the receiver's manifest (see 3d). To check the other leg, verify the published route on the receiver side.
 

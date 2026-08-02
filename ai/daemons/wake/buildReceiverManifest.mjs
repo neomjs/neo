@@ -56,6 +56,11 @@ import {pathToFileURL} from 'node:url';
 import {loadWakeReceiverManifest} from './receiver.mjs';
 import {withOutboxLock}           from './outboxLock.mjs';
 
+import {
+    isActiveWakeSubscriptionStatus,
+    WAKE_SUBSCRIPTION_DEFAULT_STATUS
+} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
+
 /**
  * Default per-attempt dispatch budget, in milliseconds.
  * The receiver requires a positive value at or below 300000 and declares no default of its own,
@@ -178,8 +183,12 @@ export function buildWakeReceiverManifest({
         // Skipping only the input left a retired or retargeted seat's old route published — the
         // subscription was gone and the route kept accepting wakes for it. Reconciliation is scoped
         // to ids the caller actually presented, so a peer's route is never touched.
-        if (status !== 'active') {
-            withdrawOwnedRoute(routes, id, skipped, `status is '${status}', not 'active'`);
+        // Absent `status` resolves through the shared policy rather than being compared here. This
+        // builder used to compare strictly while the query that FEEDS it coalesces, so a row the
+        // lister returned as active was silently dropped at publication — the seat read healthy on
+        // every other surface and received nothing.
+        if (!isActiveWakeSubscriptionStatus(status)) {
+            withdrawOwnedRoute(routes, id, skipped, `status is '${status}', not '${WAKE_SUBSCRIPTION_DEFAULT_STATUS}'`);
             continue
         }
 

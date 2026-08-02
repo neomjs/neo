@@ -62,6 +62,7 @@ import * as core from '../../../src/core/_export.mjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import {isActiveWakeSubscriptionStatus} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import AiConfig from '../../config.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
@@ -98,7 +99,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         subscriptionStatus = 'missing';
     } else {
         const activeSub = allSubs.find(s =>
-            (s.status ?? 'active') === 'active' && s.harnessTarget !== 'disabled'
+            isActiveWakeSubscriptionStatus(s.status) && s.harnessTarget !== 'disabled'
         );
         if (activeSub) {
             subscriptionStatus = 'active';

@@ -23,9 +23,10 @@ import {
     hasCoreSwarmParticipant,
     normalizeUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {buildSqliteHolderDiagnostics} from './helpers/harnessClassifier.mjs';
-import {readRecentRemRunStates}       from './helpers/remRunStateStore.mjs';
-import {withTimeout}                  from './helpers/withTimeout.mjs';
+import {buildSqliteHolderDiagnostics}   from './helpers/harnessClassifier.mjs';
+import {readRecentRemRunStates}         from './helpers/remRunStateStore.mjs';
+import {withTimeout}                    from './helpers/withTimeout.mjs';
+import {isActiveWakeSubscriptionStatus} from './wakeSubscriptionStatusPolicy.mjs';
 import {
     LOOPBACK_PROBE_HEALTH_KEY,
     LOOPBACK_PROBE_TIMEOUT_MS,
@@ -625,15 +626,15 @@ async function buildSubscriptionArmingBlock() {
             return {armed: null, reason: 'unbound-identity'};
         }
 
-        // STRICT equality, deliberately. The durable list path preserves historical rows whose
-        // `status` is absent; `checkSunsetted.mjs` and `readActiveWakeSubscriptionIdentities.mjs`
-        // then treat that absence as active. The manifest builder does not: it compares
-        // `status !== 'active'` and withdraws the route. Since THIS verdict claims only "the
-        // manifest build would accept my rows", it must take the manifest's side; matching those
-        // coalescing consumers would report `deliverable` for a row the build silently skips.
-        // That reader split is a real substrate disagreement, not a preference — tracked separately.
+        // Shared predicate, deliberately — this verdict claims only "the manifest build would accept
+        // my rows", so it must decide `status` exactly as the builder does. It previously compared
+        // strictly because the builder did, while the durable list path and the other consumers
+        // coalesced an absent `status` to active; that split is now resolved in one place, and this
+        // gate follows it rather than re-deciding. Hand-comparing here again would reintroduce the
+        // same divergence in the opposite direction: reporting `armed: false` for a row the build
+        // publishes.
         const {subscriptions = []} = await WakeSubscriptionService.list(),
-              active               = subscriptions.filter(entry => entry.status === 'active');
+              active               = subscriptions.filter(entry => isActiveWakeSubscriptionStatus(entry.status));
 
         if (active.length === 0) {
             return {armed: false, reason: 'no-active-subscription'};

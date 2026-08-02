@@ -11,6 +11,7 @@ import TurnPresenceService                                                      
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
+import {activeWakeSubscriptionStatusSql}                                                        from './wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * @summary Renders a millisecond window as the coarsest unit that divides it evenly, for the
@@ -1747,7 +1748,7 @@ class WakeSubscriptionService extends Base {
             SELECT id, data FROM Nodes
             WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
               AND json_extract(data, '$.properties.agentIdentity') = ?
-              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+              AND ${activeWakeSubscriptionStatusSql()}
             ORDER BY COALESCE(
                 json_extract(data, '$.properties.updatedAt'),
                 json_extract(data, '$.properties.createdAt'),
@@ -1844,7 +1845,7 @@ class WakeSubscriptionService extends Base {
                   AND json_extract(data, '$.properties.agentIdentity') = ?
                   AND json_extract(data, '$.properties.trigger') = ?
                   AND json_extract(data, '$.properties.harnessTarget') = ?
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND ${activeWakeSubscriptionStatusSql()}
             `).all(owner, trigger, harnessTarget);
 
             return rows
@@ -1874,7 +1875,7 @@ class WakeSubscriptionService extends Base {
                 WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
                   AND json_extract(data, '$.properties.agentIdentity') = ?
                   AND json_extract(data, '$.properties.harnessTarget') IN ('bridge-daemon', 'a2a-webhook')
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND ${activeWakeSubscriptionStatusSql()}
             `).get(identity);
             return (row?.count || 0) > 0;
         }
