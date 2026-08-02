@@ -77,6 +77,11 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         for (const specifier of specifiers) {
             expect(specifier, `non-exact specifier: ${specifier}`).toMatch(/^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(-[\w.]+)?$/);
         }
+
+        // Portability IS the contract: platform-variant binaries (sharp/libvips per-os-cpu builds)
+        // are pulled by their exact-pinned parents as optional deps, never pinned directly — an
+        // explicit darwin binary EBADPLATFORMs the linux CI runner (this fired for real).
+        expect(specifiers.some(s => /darwin|win32|linux/.test(s)), `platform-variant leaked into the install list: ${specifiers.filter(s => /darwin|win32|linux/.test(s)).join(', ')}`).toBe(false);
     });
 
     test('a manifest/lock disagreement is a named drift error — never a silent float to live ranges', () => {

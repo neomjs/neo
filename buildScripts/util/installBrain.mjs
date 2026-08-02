@@ -118,6 +118,12 @@ export function resolveBrainInstallClosure({manifestFile=manifestPath, lockFile=
 
     return Object.entries(lock.packages)
         .filter(([entryPath]) => /^node_modules\/(?:@[^/]+\/)?[^/]+$/.test(entryPath))
+        // Platform-variant binaries (sharp/libvips/onnxruntime per-os-cpu builds, fsevents…) are
+        // never passed as direct install args: an exact pin of a darwin binary EBADPLATFORMs the
+        // linux runner, and vice versa. They arrive as optional deps of their parents instead —
+        // which ARE exact-pinned here, so the parent's exact optional spec pulls the exact
+        // matching variant on any platform. Determinism and portability in the same move.
+        .filter(([, entry]) => !entry.cpu && !entry.os)
         .map(([entryPath, entry]) => `${entryPath.slice('node_modules/'.length)}@${entry.version}`)
         .sort();
 }
