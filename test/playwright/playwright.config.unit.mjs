@@ -58,16 +58,24 @@ export const profilingTestMatch = /[\\/]devindex[\\/](StoreFilter|GridScroll)Pro
 export const brainHookTestMatch = /[\\/]hooks[\\/](codexContextHook|kimiTurnPresenceHook)\.spec\.mjs$/;
 
 /**
- * @summary Probes whether the Brain-tier set is installed under `rootDir/node_modules`. All three
- * roots are load-bearing: brain specs statically import `better-sqlite3`, the `chroma-setup`
- * project boots a Chroma server from the `chromadb` package's CLI, and the KB's default embedder
- * resolves `@chroma-core/default-embed` by name at runtime.
+ * @summary Probes whether the Brain-tier set is installed AND consumable under `rootDir/node_modules`.
+ * Directory names alone lie: a pruned or corrupt install can leave three empty husks that
+ * false-green CI. The probe therefore checks each root's consumable entrypoint — for
+ * `better-sqlite3` including the compiled native artifact (the thing a broken build actually
+ * loses). It deliberately stops at artifact presence rather than `require()`: loading the
+ * default embedder pulls `@huggingface/transformers` (seconds at every config load), while the
+ * only artifact that realistically breaks without leaving a file-level trace is the native one.
  * @param {String} rootDir Repository root containing `node_modules`.
  * @returns {Boolean}
  */
 export function hasBrainTier(rootDir) {
-    return ['better-sqlite3', 'chromadb', '@chroma-core/default-embed']
-        .every(pkg => existsSync(path.join(rootDir, 'node_modules', pkg)))
+    return [
+        ['better-sqlite3', 'lib/index.js', 'build/Release/better_sqlite3.node'],
+        ['chromadb', 'dist/chromadb.mjs'],
+        ['@chroma-core/default-embed', 'dist/default-embed.mjs']
+    ].every(([pkg, ...entrypoints]) =>
+        entrypoints.every(entry => existsSync(path.join(rootDir, 'node_modules', pkg, entry)))
+    )
 }
 
 /**

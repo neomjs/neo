@@ -102,16 +102,25 @@ test.describe('playwright.config.unit — Chroma capability admission', () => {
         expect(() => assertBrainTierForEnvironment({brainPresent: false, isCI: false})).not.toThrow();
     });
 
-    test('hasBrainTier requires all three roots — a partial install is not armed', () => {
+    test('hasBrainTier requires all three roots AND their consumable entrypoints — an empty husk is not armed', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-tier-probe-')),
-              mk   = pkg => fs.mkdirSync(path.join(root, 'node_modules', pkg), {recursive: true});
+              mk   = (pkg, ...files) => files.forEach(file => {
+                  const full = path.join(root, 'node_modules', pkg, file);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, '{}')
+              });
 
         try {
             expect(hasBrainTier(root)).toBe(false);
-            mk('better-sqlite3');
-            mk('chromadb');
+            // Three bare directories — the false-green shape a pruned-but-husked install leaves.
+            mk('better-sqlite3'); mk('chromadb'); mk('@chroma-core/default-embed');
             expect(hasBrainTier(root)).toBe(false);
-            mk('@chroma-core/default-embed');
+            // Entrypoints but no native artifact: the broken-build case the directory probe missed.
+            mk('better-sqlite3', 'lib/index.js');
+            mk('chromadb', 'dist/chromadb.mjs');
+            mk('@chroma-core/default-embed', 'dist/default-embed.mjs');
+            expect(hasBrainTier(root)).toBe(false);
+            mk('better-sqlite3', 'build/Release/better_sqlite3.node');
             expect(hasBrainTier(root)).toBe(true);
         } finally {
             fs.rmSync(root, {force: true, recursive: true})

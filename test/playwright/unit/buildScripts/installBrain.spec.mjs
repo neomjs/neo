@@ -7,13 +7,16 @@ import {fileURLToPath} from 'node:url';
 
 import {
     buildNpmArgs,
-    resolveBrainInstallPlan
+    resolveBrainInstallClosure,
+    resolveBrainInstallPlan,
+    resolveNpmCommand
 } from '../../../../buildScripts/util/installBrain.mjs';
 
 const
     __filename        = fileURLToPath(import.meta.url),
     repoRoot          = path.resolve(path.dirname(__filename), '../../../..'),
     brainManifestPath = path.join(repoRoot, 'package.brain.json'),
+    brainLockPath     = path.join(repoRoot, 'package-lock.brain.json'),
     rootManifestPath  = path.join(repoRoot, 'package.json');
 
 /**
@@ -60,11 +63,47 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         fs.rmSync(dir, {force: true, recursive: true});
     });
 
+    test('the committed closure agrees with the manifest and installs EXACT specifiers only', () => {
+        // The determinism contract: install specifiers come from package-lock.brain.json (the
+        // frozen graph), never from live range resolution — the same SHA installs the same Brain
+        // tier on every machine. Shape, never a frozen population: the closure grows and shrinks
+        // with registry state at regeneration time, so only exactness + root coverage is pinned.
+        const specifiers = resolveBrainInstallClosure({manifestFile: brainManifestPath, lockFile: brainLockPath});
+
+        expect(specifiers.length).toBeGreaterThan(3);
+        for (const root of ['better-sqlite3', 'chromadb', '@chroma-core/default-embed']) {
+            expect(specifiers.some(s => s.startsWith(`${root}@`)), `closure missing root ${root}`).toBe(true);
+        }
+        for (const specifier of specifiers) {
+            expect(specifier, `non-exact specifier: ${specifier}`).toMatch(/^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(-[\w.]+)?$/);
+        }
+    });
+
+    test('a manifest/lock disagreement is a named drift error — never a silent float to live ranges', () => {
+        const dir      = fs.mkdtempSync(path.join(os.tmpdir(), 'install-brain-drift-')),
+              manifest = path.join(dir, 'package.brain.json'),
+              lock     = path.join(dir, 'package-lock.brain.json');
+
+        fs.writeFileSync(manifest, JSON.stringify({devDependencies: {'better-sqlite3': '12.11.1', chromadb: '3.5.0'}}));
+        fs.writeFileSync(lock, JSON.stringify({packages: {'': {devDependencies: {'better-sqlite3': '12.11.1', chromadb: '3.4.0'}}}}));
+
+        expect(() => resolveBrainInstallClosure({manifestFile: manifest, lockFile: lock})).toThrow(/disagree/);
+        expect(() => resolveBrainInstallClosure({manifestFile: manifest, lockFile: path.join(dir, 'missing.json')})).toThrow(/closure not found/);
+
+        fs.rmSync(dir, {force: true, recursive: true});
+    });
+
+    test('resolveNpmCommand follows the repo’s Windows launcher seam', () => {
+        expect(resolveNpmCommand('win32')).toBe('npm.cmd');
+        expect(resolveNpmCommand('darwin')).toBe('npm');
+        expect(resolveNpmCommand('linux')).toBe('npm');
+    });
+
     test('buildNpmArgs overlays without mutating package.json or the lockfile', () => {
         // --no-save is the whole mechanism: a merged manifest would be a permanently dirty tree
         // for every Brain-side seat, and one careless commit would re-tier the repo.
-        expect(buildNpmArgs(['better-sqlite3@^12.11.1'])).toEqual([
-            'install', '--no-save', '--no-audit', '--no-fund', 'better-sqlite3@^12.11.1'
+        expect(buildNpmArgs(['better-sqlite3@12.11.1'])).toEqual([
+            'install', '--no-save', '--no-audit', '--no-fund', 'better-sqlite3@12.11.1'
         ]);
     });
 
@@ -72,10 +111,10 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         // The deploy image build installs with lifecycle scripts off by contract (husky must not
         // run without .git); the flag forwards so the overlay honors the same boundary, and the
         // caller keeps explicit ownership of config materialization.
-        expect(buildNpmArgs(['better-sqlite3@^12.11.1'], {ignoreScripts: true})).toEqual([
-            'install', '--no-save', '--no-audit', '--no-fund', '--ignore-scripts', 'better-sqlite3@^12.11.1'
+        expect(buildNpmArgs(['better-sqlite3@12.11.1'], {ignoreScripts: true})).toEqual([
+            'install', '--no-save', '--no-audit', '--no-fund', '--ignore-scripts', 'better-sqlite3@12.11.1'
         ]);
-        expect(buildNpmArgs(['better-sqlite3@^12.11.1'])).not.toContain('--ignore-scripts');
+        expect(buildNpmArgs(['better-sqlite3@12.11.1'])).not.toContain('--ignore-scripts');
     });
 
     test('--dry-run prints the exact npm command without executing it', () => {

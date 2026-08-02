@@ -49,7 +49,7 @@ If you want to contribute to the development of neo.mjs itself, or if you want t
     npm install
     npm run install-brain
     ```
-    One documented command overlays the Brain set (`better-sqlite3`, `chromadb`, `@chroma-core/default-embed`; see `package.brain.json`) onto the base install. Note: a plain `npm install` or `npm ci` afterwards prunes the Brain set again — just re-run `npm run install-brain`. The unit-test runner skips the Brain projects with a clear message while the set is not installed.
+    One documented command overlays the Brain set (`better-sqlite3`, `chromadb`, `@chroma-core/default-embed`; see `package.brain.json`) onto the base install, resolved from the committed exact closure (`package-lock.brain.json`) — the same checkout installs the same Brain graph on every machine. Note: a plain `npm install` or `npm ci` afterwards prunes the Brain set again — just re-run `npm run install-brain`. The unit-test runner skips the Brain projects with a clear message while the set is not installed.
 3.  Run all relevant build scripts at once:
     ```sh
     npm run build-all
