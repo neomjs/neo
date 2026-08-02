@@ -411,9 +411,14 @@ class DockFlip extends Base {
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
      * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
+     * @param {Boolean} [opts.geometryOnly=false] Consumer-declared geometry-only projection:
+     * no topology swap can be pending, so an exact, lineage-unchanged marker set whose rects
+     * already moved may be classified as landed-in-place (`hasLandedInPlace`). Without this
+     * declaration a geometry-moved same-parent set stays ambiguous by contract — an independent
+     * geometry change can race a pending structural swap — and keeps the bounded wait.
      * @returns {Promise<Boolean>} true if an animation played (resolves AFTER the motion completes), false on any instant-landing path
      */
-    async play({hostId, markerPrefix, maxFrames = 15}) {
+    async play({hostId, markerPrefix, maxFrames = 15, geometryOnly = false}) {
         const first = this.#firstSnapshots[hostId];
 
         let cancel,
@@ -494,15 +499,16 @@ class DockFlip extends Base {
                 frame              = 0,
                 markers            = this.collectMarkers(hostId, markerPrefix),
                 preservedMarkerSet = this.hasPreservedMarkerSet(firstMarkers, markers, firstLineages, hostEl),
-                landedInPlace      = !preservedMarkerSet
+                landedInPlace      = geometryOnly && !preservedMarkerSet
                     && this.hasLandedInPlace(firstMarkers, firstRects, firstLineages, markers, hostEl);
 
             // stage A: the swap lands asynchronously through the delta pipeline — the OLD
             // tree's markers would satisfy a naive presence-poll instantly and measure
             // identical geometry. An exact preserved marker set is the native atomic-move path:
             // those nodes MUST remain connected, so it bypasses the outgoing-detach poll. A
-            // committed same-node resize bypasses it too: those nodes never detach either, and
-            // the landed geometry (landedInPlace) is the proof the swap already happened.
+            // consumer-declared geometry-only projection (a committed resize) bypasses it too:
+            // those nodes never detach either, and the landed geometry (landedInPlace) is the
+            // proof the swap already happened.
             if (!preservedMarkerSet && !landedInPlace) {
                 while (frame < maxFrames && first.els.length > 0 && first.els.every(el => el.isConnected)) {
                     await new Promise(resolve => requestAnimationFrame(resolve));
