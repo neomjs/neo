@@ -111,11 +111,30 @@ export function createDevelopmentThemeFreshnessHooks({
 
 const developmentThemeFreshnessHooks = createDevelopmentThemeFreshnessHooks();
 
+/**
+ * An agent seat's dev-server port cannot be a committed value — several seats share one machine, so the
+ * port has to be chosen at launch time and told to us. The Claude-Code browser pane does exactly that: it
+ * allocates a free port when the configured one is taken and publishes the choice through `PORT`.
+ *
+ * Without reading it, two independent port selections run and disagree — the pane points at the port it
+ * allocated while webpack-dev-server auto-bumps to its own, so the preview loads nothing while a perfectly
+ * healthy server serves the tree on a different number. Passing `--port` instead does not fix it; that
+ * pins webpack and leaves the pane's allocation unread, which is the same divergence with the sides
+ * swapped.
+ *
+ * Left unset, this resolves to `undefined` and webpack-dev-server keeps its own default and auto-bump, so
+ * an ordinary `npm run server-start` is unchanged.
+ * @type {Number|undefined}
+ */
+const port = process.env.PORT ? Number(process.env.PORT) : undefined;
+
 export default {
     mode: 'production',
 
     devServer: {
         ...developmentThemeFreshnessHooks,
+
+        port,
 
         static: {
             directory: process.cwd(),

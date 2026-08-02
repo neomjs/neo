@@ -142,3 +142,37 @@ The composed command runs on the default fleet endpoint (`:8083`) — the browse
 pins it. Setting a non-default `NEO_FLEET_PORT` makes the launcher refuse with a named reason
 rather than boot a server the cockpit can never reach (the standalone `npm run ai:fleet-server`
 keeps honoring the variable for advanced setups).
+
+### Dev-server ports when several seats share one machine
+
+The dev server reads `PORT` and binds it. Left unset, webpack-dev-server keeps its own default and
+auto-bump, so a plain `npm run server-start` is unchanged.
+
+That matters because a seat's port cannot be a committed value — several agents run on one host, and
+whoever starts second gets a different number. Anything that launches the dev server has to *choose*
+a port and then *tell* it, which is what `PORT` is for. A launcher that only picks a port without
+passing it produces two independent choices that disagree: the launcher waits on the port it picked
+while a healthy server serves the tree on another.
+
+**Claude-Code seats** get this from the tracked `.claude/launch.json` — `autoPort: true` and no port
+flag in `runtimeArgs`, so the harness allocates a free port and publishes it through `PORT`. Do not
+add `--port` there; pinning webpack leaves the harness's allocation unread, which is the same
+divergence with the sides swapped.
+
+**Every other harness** (OpenCode, Kimi CLI, Codex, Gemini) has no `launch.json` contract, so pass
+the port explicitly and suppress the browser hijack — `--open` targets whichever display owns the
+session, which on a shared machine is somebody else's:
+
+```bash
+PORT=<your-seat-port> npm run server-start -- --no-open
+```
+
+### A port is not provenance
+
+Never bind a measurement to "the port that answered." On a shared host several servers answer, each
+serving a different checkout, and the one on the default port is as likely to be a stale clone as
+yours. A styling defect was once "reproduced" against another seat's tree for exactly this reason.
+
+Record the **checkout path and SHA** the server is serving. Webpack prints the path it serves at
+startup (`Content not from webpack is served from '<dir>'`), and `curl -s localhost:<port>/package.json`
+is the cheap live check when a report has to name what was measured.
