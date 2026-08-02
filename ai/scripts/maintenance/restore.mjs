@@ -410,6 +410,98 @@ export async function runRestore({
 }
 
 /**
+ * @summary An error the validator raised as a JUDGEMENT ABOUT BUNDLE CONTENT, as opposed to a
+ * failure to observe the bundle at all.
+ *
+ * The distinction is an authorization boundary, not a tidiness one. `verifyLatestBackupRestorable`
+ * walks backwards past a bundle it has proven unusable — and "proven unusable" is only true when the
+ * validator actually reached the bytes and judged them. A permissions failure, a disappearing mount,
+ * file-descriptor exhaustion, or a bug inside the validator all say *"I could not tell"*, and
+ * treating that as *"this bundle is bad"* lets a newer, perfectly good recovery source be skipped
+ * because it was merely unreadable — authorizing a deploy against stale history.
+ *
+ * Marker-based rather than message-based on purpose: matching English out of `error.message` stops
+ * working the moment the prose is reworded, which is the same failure the machine-readable verdict
+ * codes exist to prevent. It is also an ALLOWLIST — only errors the validator deliberately
+ * constructs are continue-eligible, so any unrecognised throw (including one from a future code
+ * path nobody has thought about yet) fails closed by construction rather than by enumeration.
+ */
+/**
+ * @summary The only per-candidate verdicts that authorize {@link verifyLatestBackupRestorable} to
+ * keep walking backwards.
+ *
+ * Both members are POSITIVE findings about a bundle the validator actually read: it parsed and held
+ * no recoverable rows (`BUNDLE_EMPTY`), or it parsed far enough to be judged malformed
+ * (`BUNDLE_INVALID`). Everything else — notably `BUNDLE_UNVERIFIABLE` — means the probe failed to
+ * observe the candidate, which is not evidence about the candidate and must stop the walk.
+ *
+ * An allowlist rather than a denylist so a verdict code added later cannot silently become
+ * continue-eligible; a new code fails closed until someone decides otherwise.
+ * @type {Set<String>}
+ */
+export const CONTINUE_ELIGIBLE_BUNDLE_VERDICTS = new Set(['BUNDLE_EMPTY', 'BUNDLE_INVALID']);
+
+export class BundleContentError extends Error {
+    /**
+     * @param {String} message
+     */
+    constructor(message) {
+        super(message);
+        this.name             = 'BundleContentError';
+        this.bundleContentBad = true
+    }
+}
+
+/**
+ * @summary Constructs a content-judgement error. Use for every validator throw that expresses
+ * "I read this bundle and it is malformed"; never for an IO or instrument failure.
+ * @param {String} message
+ * @returns {BundleContentError}
+ */
+function bundleContentError(message) {
+    return new BundleContentError(message)
+}
+
+/**
+ * @summary Reports absence that was PROVEN, never absence inferred from an error we could not read
+ * past.
+ *
+ * `fs.pathExists` resolves `false` for *any* failure, so an `EACCES` on a parent directory is
+ * indistinguishable from the path genuinely not being there. Every caller below turns that boolean
+ * into a statement about bundle CONTENT — "required subdirectory missing", "no receipt, therefore a
+ * legacy bundle" — which is how an unreadable bundle acquires a content verdict and, through
+ * {@link CONTINUE_ELIGIBLE_BUNDLE_VERDICTS}, permission for the walk to skip it.
+ *
+ * Only `ENOENT` proves absence. Everything else propagates UNMARKED so `probeBundle` classifies it
+ * as `BUNDLE_UNVERIFIABLE` — the same allowlist stance as the error classifier, for the same reason:
+ * an unanticipated errno must land on the fail-closed side without anyone having enumerated it.
+ *
+ * @param {String} target Absolute path.
+ * @returns {Promise<Boolean>} True only when the path is provably not there.
+ * @throws {Error} The original syscall error when presence could not be determined.
+ */
+async function pathIsProvablyAbsent(target) {
+    // A layout key that was never populated is an absent path, not an unreadable one — callers
+    // legitimately pass partial layouts (the optional-subdir and ledger loops both do). `fs.pathExists`
+    // absorbed this by resolving false; `fs.stat` raises a TypeError instead, so the tolerance has to
+    // be restated rather than inherited. Preserves the prior verdict exactly: no path, nothing to read.
+    if (!target) {
+        return true
+    }
+
+    try {
+        await fs.stat(target);
+        return false
+    } catch (error) {
+        if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+            return true
+        }
+
+        throw error
+    }
+}
+
+/**
  * Validates the bundle directory layout and every JSONL row without writing any state.
  *
  * Required subdirs (`kb`, `mc`, `graph`, `concepts`, `trajectories`) MUST exist; missing
@@ -429,25 +521,28 @@ export async function runRestore({
  *     receipt — the structured unknown-provenance classification is never dropped.
  */
 export async function validateBundle(bundleRoot, layout, logger = console, expectedDimension = AiConfig.vectorDimension) {
-    if (!await fs.pathExists(bundleRoot)) {
-        throw new Error(`Bundle directory not found: ${bundleRoot}`);
+    if (await pathIsProvablyAbsent(bundleRoot)) {
+        throw bundleContentError(`Bundle directory not found: ${bundleRoot}`);
     }
 
     const stat = await fs.stat(bundleRoot);
     if (!stat.isDirectory()) {
-        throw new Error(`Bundle path is not a directory: ${bundleRoot}`);
+        throw bundleContentError(`Bundle path is not a directory: ${bundleRoot}`);
     }
 
     for (const subdir of REQUIRED_BUNDLE_SUBDIRS) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) {
-            throw new Error(`Required bundle subdirectory missing: ${subdir}/ (expected at ${dir})`);
+        if (await pathIsProvablyAbsent(dir)) {
+            throw bundleContentError(`Required bundle subdirectory missing: ${subdir}/ (expected at ${dir})`);
         }
     }
 
     for (const subdir of OPTIONAL_BUNDLE_SUBDIRS) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) {
+        // Provably-absent only. An unreadable optional subdir must NOT be quietly "skipped" — the probe
+        // would then attest a bundle whose member it never examined, which is the failure the ledger
+        // members already taught us once.
+        if (await pathIsProvablyAbsent(dir)) {
             logger.warn?.(`[Restore] Optional bundle subdirectory absent: ${subdir}/ (legacy bundle, skipping)`);
         }
     }
@@ -470,7 +565,10 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     };
     for (const subdir of allSubdirs) {
         const dir = layout[subdir];
-        if (!await fs.pathExists(dir)) continue;
+        // Skipping on provable absence only. `pathExists` would also skip an unreadable directory, and
+        // a skipped directory is one whose rows never get streamed — so the bundle could be declared
+        // restorable on the strength of content nobody looked at.
+        if (await pathIsProvablyAbsent(dir)) continue;
         const entries    = await fs.readdir(dir);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
         for (const file of jsonlFiles) {
@@ -485,7 +583,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                 try {
                     row = JSON.parse(line);
                 } catch (err) {
-                    throw new Error(`Bundle JSONL parse error at ${subdir}/${file} (line ${lineNo}): ${err.message}`);
+                    throw bundleContentError(`Bundle JSONL parse error at ${subdir}/${file} (line ${lineNo}): ${err.message}`);
                 }
 
                 const collection = collectionOf(subdir, file);
@@ -494,12 +592,12 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                     streamedCounts[collection] = (streamedCounts[collection] ?? 0) + 1;
 
                     if (typeof row?.id !== 'string' || row.id.length === 0) {
-                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): missing-id`);
+                        throw bundleContentError(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): missing-id`);
                     }
 
                     const reason = classifyRowVector(row, expectedDimension);
                     if (reason) {
-                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
+                        throw bundleContentError(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
                     }
                 }
             }
@@ -511,11 +609,17 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     const metaPath = path.join(bundleRoot, 'bundle-meta.json');
     let   meta     = null;
 
-    if (await fs.pathExists(metaPath)) {
+    if (!await pathIsProvablyAbsent(metaPath)) {
+        // The read is OUTSIDE the try on purpose. `fs.readJson` both reads and parses, so wrapping it
+        // whole made an `EACCES` on the receipt indistinguishable from malformed JSON — the exact
+        // production path @neo-gpt reproduced, where an unreadable newest bundle was labelled
+        // `BUNDLE_INVALID` and the walk continued to older history. IO failures now propagate unmarked.
+        const rawMeta = await fs.readFile(metaPath, 'utf8');
+
         try {
-            meta = await fs.readJson(metaPath);
+            meta = JSON.parse(rawMeta)
         } catch (err) {
-            throw new Error(`Failed to parse bundle-meta.json: ${err.message}`);
+            throw bundleContentError(`Failed to parse bundle-meta.json: ${err.message}`);
         }
     } else {
         logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
@@ -528,20 +632,23 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     // The two ledger members the top-level scan cannot reach: `heal-attempts.json` is not `.jsonl`, and
     // the recovery-run files are NESTED. Both were accepted malformed while the verdict still read
     // `RESTORABLE`. A probe may only attest what it has actually parsed.
-    if (await fs.pathExists(layout.ledgers)) {
+    if (!await pathIsProvablyAbsent(layout.ledgers)) {
         const attemptsPath = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts);
 
-        if (await fs.pathExists(attemptsPath)) {
+        if (!await pathIsProvablyAbsent(attemptsPath)) {
+            // Same split as the receipt above: the read must not be able to masquerade as a parse.
+            const rawAttempts = await fs.readFile(attemptsPath, 'utf8');
+
             try {
-                JSON.parse(await fs.readFile(attemptsPath, 'utf8'))
+                JSON.parse(rawAttempts)
             } catch (err) {
-                throw new Error(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
+                throw bundleContentError(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
             }
         }
 
         const runsDir = path.join(layout.ledgers, INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns);
 
-        if (await fs.pathExists(runsDir)) {
+        if (!await pathIsProvablyAbsent(runsDir)) {
             for (const file of (await fs.readdir(runsDir)).filter(name => name.endsWith('.jsonl'))) {
                 const stream = fs.createReadStream(path.join(runsDir, file), {encoding: 'utf8'}),
                       rl     = readline.createInterface({crlfDelay: Infinity, input: stream});
@@ -554,7 +661,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                     try {
                         JSON.parse(line)
                     } catch (err) {
-                        throw new Error(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
+                        throw bundleContentError(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
                     }
                 }
             }
@@ -600,7 +707,7 @@ export function validateEmbeddingContractSchema({expectedDimension, meta, stream
     }
 
     const fail = (reason, detail) => {
-        throw new Error(`Bundle embedding contract violation: ${reason} (${detail})`)
+        throw bundleContentError(`Bundle embedding contract violation: ${reason} (${detail})`)
     };
 
     if (declared.schemaVersion !== 1) {
@@ -698,27 +805,64 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
 }
 
 /**
- * @summary Verifies the latest backup bundle is structurally restorable WITHOUT performing a restore.
+ * @summary Verifies the newest RESTORABLE backup bundle WITHOUT performing a restore.
  *
  * Backups are the recovery source of last resort, yet assumed-restorable-but-never-checked. This runs
  * the same pre-flight `validateBundle` gate the restore path uses (required subdirs present, JSONL
- * parseable, `bundle-meta.json` parseable) against the newest `backup-<ISO-ts>/` under `backupRoot`,
- * returning a structured verdict. It performs NO writes and NO live-store import — a read-only
- * restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it shares the
- * AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check that produces
- * the verdict that piece consumes.
+ * parseable, `bundle-meta.json` parseable) against `backup-<ISO-ts>/` directories under `backupRoot`
+ * newest-first, returning a structured verdict. It performs NO writes and NO live-store import — a
+ * read-only restorability probe. The alert-on-failure wiring is the escalation-mechanism piece (it
+ * shares the AC1 sink decision, tracked on the parent backup-reliability ticket); this is the check
+ * that produces the verdict that piece consumes.
+ *
+ * ## Why it does not stop at the newest bundle
+ *
+ * It used to inspect `bundleNames[0]` and nothing else, so ONE unusable newest bundle reported the
+ * whole root unrecoverable. A run that died mid-write left a 0-byte bundle-shaped directory, this
+ * probe read it, and a complete bundle carrying 94,325 recoverable rows sitting directly beside it
+ * was never looked at — the deploy guard refused, and the repair was `rm -rf` on a directory inside
+ * the backup root. Deleting evidence to unblock a guard is the operation this walk exists to stop
+ * being necessary.
+ *
+ * The fallback is deliberately NOT silent. Every bundle passed over travels in `skipped` with its own
+ * code and reason, and a warning names them, because a fallback that quietly succeeded would remove
+ * the pressure to notice that bundles are being produced broken at all — the underlying capture
+ * defect is a separate half of the same ticket.
+ *
+ * ## Why it stops for an unreadable candidate
+ *
+ * Walking backwards is only justified by a POSITIVE finding: the validator reached this bundle and
+ * judged its content unusable (`BUNDLE_EMPTY` / `BUNDLE_INVALID` — see
+ * {@link CONTINUE_ELIGIBLE_BUNDLE_VERDICTS}). A permissions failure, a vanished mount, fd
+ * exhaustion, or a defect inside the validator all mean *"I could not tell"*, and an earlier
+ * revision of this walk collapsed those into `BUNDLE_INVALID` and continued — so a newer, perfectly
+ * good recovery source could be skipped merely because it was unreadable, authorizing a deploy
+ * against staler history than actually exists. That is missing evidence being used as negative
+ * evidence at a deployment authorization boundary. Such a candidate now returns
+ * `BUNDLE_UNVERIFIABLE` immediately, carrying `unverifiable: true` and the syscall `errorCode` when
+ * the platform supplied one, and older bundles are not considered.
  *
  * @param {Object}    options
  * @param {String}    options.backupRoot Absolute path to the `.neo-ai-data/backups` root.
  * @param {Object}   [options.logger=console] Log sink.
  * @param {Object}   [options.fsModule=fs] Filesystem seam (test injection).
  * @param {Function} [options.validateFn=validateBundle] Bundle validator seam (test injection).
- * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, embeddingAdvisories: Object[]}>}
+ * @param {Number}   [options.maxBundlesExamined=AiConfig.maintenance.backup.restorabilityScanLimit]
+ *     Cap on bundles validated. Read as a default parameter (evaluated per call, so an overlay change
+ *     is honoured without a reload). Exhausting it warns which candidates went unexamined rather than
+ *     reporting a clean "nothing restorable".
+ * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, rowTotal: Number|undefined, embeddingAdvisories: Object[], skipped: Object[], examined: Number}>}
  * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
- * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH structurally valid
- * and non-empty; `rowTotal` reports the row count it was decided on. That strength lives here rather
- * than in a caller so a shell gate consumes one authoritative verdict instead of re-reading metadata
- * and growing a second predicate able to disagree with this one.
+ * `BUNDLE_EMPTY`, `BUNDLE_INVALID`, or `BUNDLE_UNVERIFIABLE`. `RESTORABLE` asserts the bundle is BOTH
+ * structurally valid and non-empty; `rowTotal` reports the row count it was decided on, and
+ * `bundleRoot` names WHICH bundle earned the verdict — no longer necessarily the newest one present.
+ * That strength lives here rather than in a caller so a shell gate consumes one authoritative verdict
+ * instead of re-reading metadata and growing a second predicate able to disagree with this one.
+ *
+ * On failure the reported `code`/`bundleRoot`/`reason` describe the NEWEST bundle rather than an
+ * invented aggregate, so a single-bundle root answers exactly as it did before this function learned
+ * to look further back, and `redeployPreflight`'s refusal still prints the most recent cause.
+ * `skipped` lists every rejected candidate newest-first; `examined` counts full validations spent.
  *
  * It exists so a caller gating on this probe branches on a value rather than
  * pattern-matching English out of `reason`, which would silently stop working the moment the prose
@@ -729,12 +873,21 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  */
 export async function verifyLatestBackupRestorable({
     backupRoot,
-    logger     = console,
-    fsModule   = fs,
-    validateFn = validateBundle
+    logger             = console,
+    fsModule           = fs,
+    validateFn         = validateBundle,
+    maxBundlesExamined = AiConfig.maintenance.backup.restorabilityScanLimit
 } = {}) {
     if (!backupRoot) {
         throw new Error('verifyLatestBackupRestorable requires a `backupRoot` argument.');
+    }
+
+    // Guarding the class, not the one malformed value. A bound below 1 examines nothing, so the walk
+    // would fall through to the no-candidate return with nothing recorded and raise an obscure
+    // TypeError inside a deploy guard. A probe whose job is to be believed must fail loud about its
+    // own arguments rather than crash describing something else.
+    if (!Number.isInteger(maxBundlesExamined) || maxBundlesExamined < 1) {
+        throw new Error(`verifyLatestBackupRestorable requires a positive integer \`maxBundlesExamined\`; received ${maxBundlesExamined}.`);
     }
 
     const checkedAt = new Date().toISOString();
@@ -744,7 +897,7 @@ export async function verifyLatestBackupRestorable({
         // path RELATIVE to the compose project directory, so a deployment run from a different host
         // checkout addresses a directory that never existed rather than an empty one. Reporting "no
         // bundle" for bundles sitting safely in a prior checkout would answer about the wrong subject.
-        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'BUNDLE_ROOT_MISSING', bundleRoot: null, reason: `backup root not found: ${backupRoot}`, checkedAt, skipped: [], examined: 0};
     }
 
     // backup-<ISO-ts> names sort lexically by their ISO timestamp, so reverse-sort yields newest-first.
@@ -755,10 +908,94 @@ export async function verifyLatestBackupRestorable({
         .reverse();
 
     if (bundleNames.length === 0) {
-        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt};
+        return {restorable: false, code: 'NO_BUNDLES', bundleRoot: null, reason: `no backup-* bundles under ${backupRoot}`, checkedAt, skipped: [], examined: 0};
     }
 
-    const bundleRoot = path.join(backupRoot, bundleNames[0]);
+    const skipped  = [];
+    let   examined = 0,
+          newest   = null;
+
+    for (const bundleName of bundleNames) {
+        if (examined >= maxBundlesExamined) {
+            // A bound that is silent reads exactly like an exhaustive search that found nothing, which
+            // is the same false-negative this function exists to stop being. Say what was not looked at.
+            logger.warn?.(
+                `[Restore] examined ${examined} candidate bundle(s) without finding a restorable one; ` +
+                `${bundleNames.length - examined} older candidate(s) were NOT examined ` +
+                '(maxBundlesExamined). Raise the bound to search further back.'
+            );
+            break
+        }
+
+        examined++;
+
+        const verdict = await probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt});
+
+        if (verdict.restorable) {
+            // Reporting rather than hiding. The operator's repair for the incident was `rm -rf` on the
+            // unusable newest directory; a fallback that silently succeeded would have removed the
+            // pressure to notice it at all, so every bundle passed over travels with the verdict.
+            if (skipped.length > 0) {
+                logger.warn?.(
+                    `[Restore] verified ${verdict.bundleRoot} after passing over ${skipped.length} ` +
+                    `unusable newer bundle(s): ${skipped.map(s => `${s.bundleName} (${s.code})`).join(', ')}`
+                );
+            }
+
+            return {...verdict, skipped, examined}
+        }
+
+        // FAIL CLOSED on an unobservable candidate. Walking backwards is only justified when the
+        // validator REACHED this bundle and judged its content bad; an EACCES, a disappearing mount,
+        // fd exhaustion, or a bug in the validator all mean "I could not tell". Continuing there would
+        // let a newer, perfectly good recovery source be skipped because it was merely unreadable, and
+        // authorize a deploy against stale history — turning missing evidence into negative evidence
+        // at the exact boundary the restore gate exists to protect. Reported by @neo-gpt on this PR,
+        // reproduced with the validator seam before this branch existed.
+        if (!CONTINUE_ELIGIBLE_BUNDLE_VERDICTS.has(verdict.code)) {
+            logger.warn?.(
+                `[Restore] STOPPING at ${bundleName}: its bundle verdict could not be established ` +
+                `(${verdict.code}). Older bundles were NOT considered — an unreadable candidate is not ` +
+                'a bad one, and skipping it would authorize recovery from staler history than exists. ' +
+                `Reason: ${verdict.reason}`
+            );
+
+            return {...verdict, skipped, examined}
+        }
+
+        // The WHOLE verdict, not a projection of it. Rebuilding a reduced `{code, reason, bundleRoot}`
+        // silently dropped `rowTotal` and `embeddingAdvisories` from every refusal — fields a caller
+        // had before this function learned to walk. The failure shape must stay byte-identical to the
+        // single-bundle one it replaces.
+        newest ??= verdict;
+        skipped.push({bundleName, code: verdict.code, reason: verdict.reason});
+    }
+
+    // No candidate survived. The verdict keeps the NEWEST bundle's own result rather than inventing an
+    // aggregate one: consumers (`redeployPreflight.evaluateRedeployPreconditions`) branch on
+    // `RESTORABLE` vs everything-else and log the code as the refusal cause, so the most recent
+    // failure remains the most useful thing to print — and a single-bundle root reports exactly what
+    // it reported before this function learned to look further back.
+    return {...newest, skipped, examined}
+}
+
+/**
+ * @summary Runs the full structural + non-emptiness probe against ONE bundle.
+ *
+ * Extracted verbatim from {@link verifyLatestBackupRestorable}'s former single-bundle body so the
+ * walk gains a loop without the per-bundle contract changing. Every verdict this returns is one the
+ * function already returned before it could look past the newest bundle.
+ *
+ * @param {Object}    options
+ * @param {String}    options.backupRoot Absolute `.neo-ai-data/backups` root.
+ * @param {String}    options.bundleName `backup-<ISO-ts>` directory name.
+ * @param {Object}    options.logger Log sink.
+ * @param {Function}  options.validateFn Bundle validator seam.
+ * @param {String}    options.checkedAt Shared ISO timestamp for the whole walk.
+ * @returns {Promise<Object>} `RESTORABLE`, `BUNDLE_EMPTY`, or `BUNDLE_INVALID` for this bundle alone.
+ */
+async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt}) {
+    const bundleRoot = path.join(backupRoot, bundleName);
     // `ledgers` belongs in the probe's layout because the probe ATTESTS a restore that will write
     // them. Omitting it meant malformed ledger content passed unexamined while the verdict still said
     // `RESTORABLE` — the probe vouching for a member it never looked at.
@@ -799,7 +1036,33 @@ export async function verifyLatestBackupRestorable({
 
         return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, rowTotal, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
     } catch (error) {
-        return {restorable: false, code: 'BUNDLE_INVALID', bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
+        // Two different answers, and only one of them is a judgement about the bundle.
+        //
+        // `BUNDLE_INVALID` means the validator read this bundle and found its content malformed —
+        // a fact about the artifact, and the only failure that entitles the caller to look further
+        // back. `BUNDLE_UNVERIFIABLE` means the validator could not establish anything: permissions,
+        // a vanished mount, fd exhaustion, or a defect in the validator itself.
+        //
+        // The test is the marker the validator sets on errors it deliberately constructs, never the
+        // message text — prose reworks silently, which is exactly why the verdict codes exist. And it
+        // is an ALLOWLIST, so an unrecognised throw from any future code path lands on the
+        // fail-closed side without anyone remembering to enumerate it.
+        const contentJudged = error instanceof BundleContentError || error?.bundleContentBad === true,
+              reason        = contentJudged
+                  ? error.message
+                  : `bundle verdict could not be established: ${error?.message ?? String(error)}`;
+
+        return {
+            restorable         : false,
+            code               : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
+            bundleRoot,
+            reason,
+            checkedAt,
+            embeddingAdvisories: error.embeddingAdvisories ?? [],
+            // Structured, so a consumer distinguishes the two states without matching English.
+            // `errorCode` carries the syscall errno when the platform supplied one (EACCES, EMFILE…).
+            ...(contentJudged ? {} : {unverifiable: true, errorCode: error?.code ?? null})
+        }
     }
 }
 
