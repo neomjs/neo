@@ -280,6 +280,7 @@ paths:
       summary: Get PR Diff
       operationId: get_pull_request_diff
       x-neo-tool-tier: read
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |

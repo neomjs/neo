@@ -72,6 +72,7 @@ paths:
       summary: Get Ingestion Progress
       operationId: get_ingestion_progress
       x-neo-tool-tier: extended
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       x-neo-tool-summary: Ingestion progress for THIS PROCESS only; pull-mode tenant lanes run elsewhere.

@@ -744,17 +744,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             'get_mcp_tool_handbook': 'arrow handler takes the toolId positionally',
 
             // `getIssueById(issueNumber)` — genuinely positional, single argument.
-            'github-workflow:get_local_issue_by_id': 'handler signature is a single positional issueNumber',
-
-            // `getPullRequestDiff(options)` documents `{Object|number}` and re-wraps a bare number, so
-            // the positional call still resolves pr_number — but `file`, `sha` and `files_only` are
-            // dropped by arity. Listed to keep this guard green, NOT because the dispatch is right.
-            'github-workflow:get_pull_request_diff': 'tolerates a bare pr_number; the other three declared arguments never arrive',
-
-            // `getIngestionProgress({staleAfterMs = 60000} = {})` destructures, but the `= {}` default
-            // keeps it from throwing on a positional call: it falls back to 60000 and the caller's
-            // value never lands. Same category as the entry above.
-            'knowledge-base:get_ingestion_progress': 'destructures behind a `= {}` default; positional call degrades silently'
+            'github-workflow:get_local_issue_by_id': 'handler signature is a single positional issueNumber'
         };
 
         const offenders = [];
