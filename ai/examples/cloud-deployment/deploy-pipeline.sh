@@ -29,8 +29,17 @@ COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../deploy/docker-compose
 
 # A stable project name pins named-volume identity across redeploys. Export the
 # same value consumed by docker-compose.yml for its top-level project name and
-# the orchestrator runtime-access target identity.
-PROJECT_NAME="${NEO_DEPLOY_PROJECT_NAME:-neo-agent-os}"
+# the orchestrator runtime-access target identity. Ordinary redeploys retain the
+# reference default; initialization cannot use it, because a defaulted selector
+# cannot prove that a differently named plane is absent.
+DECLARED_PROJECT_NAME="${NEO_DEPLOY_PROJECT_NAME:-}"
+PROJECT_NAME="${DECLARED_PROJECT_NAME:-neo-agent-os}"
+
+if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ] && [ -z "$DECLARED_PROJECT_NAME" ]; then
+    echo "[deploy] FATAL: NEO_DEPLOY_PROJECT_NAME must be explicitly declared when NEO_DEPLOY_INITIALIZE=1; --initialize will not use the ordinary redeploy default. Docker was NOT invoked." >&2
+    exit 1
+fi
+
 export NEO_DEPLOY_PROJECT_NAME="$PROJECT_NAME"
 
 # Profiles to deploy. Default: the full cloud stack + ingress. Override by
@@ -144,7 +153,8 @@ echo "[deploy] compose:  $COMPOSE_FILE"
 echo "[deploy] project:  $PROJECT_NAME"
 echo "[deploy] profiles: ${profile_args[*]}"
 
-# SURVIVABILITY GATE — runs BEFORE anything touches containers.
+# SURVIVABILITY GATE — runs BEFORE any container lifecycle mutation. On `--initialize` it may issue
+# a read-only Docker volume metadata query; it never starts, execs, recreates, or removes a container.
 #
 # Refuses unless a verified, non-empty, restorable pre-transition bundle exists. `up -d --build`
 # recreates containers, and a redeploy that crosses into an unrecoverable plane is exactly the
@@ -153,11 +163,14 @@ echo "[deploy] profiles: ${profile_args[*]}"
 #
 # On a GENUINE first install there is no bundle yet and nothing to protect, so pass --initialize:
 #
-#     NEO_DEPLOY_INITIALIZE=1 ai/examples/cloud-deployment/deploy-pipeline.sh
+#     NEO_DEPLOY_PROJECT_NAME=my-agent-os NEO_DEPLOY_INITIALIZE=1 \
+#         ai/examples/cloud-deployment/deploy-pipeline.sh
 #
-# That is an explicit declaration on purpose. A first deployment and a plane that was destroyed or
-# relocated both present as ABSENCE, and no heuristic separates them — so refusing on absence alone
+# Both values are explicit declarations on purpose. A first deployment and a plane that was destroyed
+# or relocated both present as ABSENCE, and no heuristic separates them — so refusing on absence alone
 # would block the first legitimate deploy, while proceeding on absence is how the incident happened.
+# The ordinary-redeploy project default cannot cross this branch: zero volumes under a defaulted label
+# says nothing about differently named planes on the same host.
 # The gate records a marker beside the bundles (on the bind-mount `down -v` does not touch), so a
 # later absence is informative rather than ambiguous. --initialize on an already-initialized host is
 # REFUSED: the escape hatch must not become the bypass.
@@ -172,9 +185,9 @@ PREFLIGHT="$SCRIPT_DIR/../../scripts/maintenance/redeployPreflight.mjs"
 
 echo "[deploy] running redeploy survivability preflight..."
 if [ "${NEO_DEPLOY_INITIALIZE:-0}" = "1" ]; then
-    node "$PREFLIGHT" --initialize
+    node "$PREFLIGHT" --initialize --compose-project "$DECLARED_PROJECT_NAME"
 else
-    node "$PREFLIGHT"
+    node "$PREFLIGHT" --compose-project "$PROJECT_NAME"
 fi
 
 # Build + recreate containers, KEEPING named volumes and the backup bind-mount.
