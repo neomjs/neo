@@ -7,6 +7,9 @@ import path           from 'path';
 import {
     evaluateRedeployPreconditions,
     INITIALIZATION_MARKER_FILENAME,
+    observePrimaryStoreVolume,
+    PRIMARY_STORE_VOLUME_NAME,
+    PRIMARY_VOLUME_STATE,
     readInitializationMarker,
     REDEPLOY_PREFLIGHT_DECISION,
     runRedeployPreflight
@@ -30,6 +33,7 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
             const declared = evaluateRedeployPreconditions({
                 initializeRequested: true,
                 markerPresent      : false,
+                primaryVolumeState : PRIMARY_VOLUME_STATE.ABSENT,
                 verdictCode
             });
 
@@ -104,11 +108,53 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
             const outcome = evaluateRedeployPreconditions({
                 initializeRequested: true,
                 markerPresent      : true,
+                primaryVolumeState : PRIMARY_VOLUME_STATE.UNKNOWN,
                 verdictCode
             });
 
             expect(outcome.proceed).toBe(false);
             expect(outcome.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
+        }
+    });
+
+    test('--initialize refuses when a restorable bundle proves prior deployment without a marker', () => {
+        const outcome = evaluateRedeployPreconditions({
+            initializeRequested: true,
+            markerPresent      : false,
+            primaryVolumeState : PRIMARY_VOLUME_STATE.ABSENT,
+            verdictCode        : 'RESTORABLE'
+        });
+
+        expect(outcome.proceed).toBe(false);
+        expect(outcome.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
+        expect(outcome.reason).toContain('verified restorable bundle')
+    });
+
+    test('--initialize refuses when the independently durable primary-store volume exists', () => {
+        const outcome = evaluateRedeployPreconditions({
+            initializeRequested: true,
+            markerPresent      : false,
+            primaryVolumeState : PRIMARY_VOLUME_STATE.PRESENT,
+            verdictCode        : 'NO_BUNDLES'
+        });
+
+        expect(outcome.proceed).toBe(false);
+        expect(outcome.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
+        expect(outcome.reason).toContain('primary-store volume')
+    });
+
+    test('--initialize gives an unmeasurable plane its own refusal code', () => {
+        for (const primaryVolumeState of [null, PRIMARY_VOLUME_STATE.UNKNOWN, 'invalid-state']) {
+            const outcome = evaluateRedeployPreconditions({
+                initializeRequested: true,
+                markerPresent      : false,
+                primaryVolumeState,
+                verdictCode        : 'NO_BUNDLES'
+            });
+
+            expect(outcome.proceed).toBe(false);
+            expect(outcome.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_PLANE_STATE_UNKNOWN);
+            expect(outcome.writeMarker).toBe(false)
         }
     });
 
@@ -134,23 +180,147 @@ test.describe('redeploy preflight — the truth table (#16055 AC2/AC3/AC4)', () 
 
         for (const markerPresent of [true, false]) {
             for (const initializeRequested of [true, false]) {
-                for (const verdictCode of [...REFUSAL_CODES, 'RESTORABLE']) {
-                    const outcome = evaluateRedeployPreconditions({initializeRequested, markerPresent, verdictCode});
+                for (const primaryVolumeState of Object.values(PRIMARY_VOLUME_STATE)) {
+                    for (const verdictCode of [...REFUSAL_CODES, 'RESTORABLE']) {
+                        const outcome = evaluateRedeployPreconditions({
+                            initializeRequested,
+                            markerPresent,
+                            primaryVolumeState,
+                            verdictCode
+                        });
 
-                    expect(Object.values(REDEPLOY_PREFLIGHT_DECISION)).toContain(outcome.decision);
-                    expect(typeof outcome.proceed).toBe('boolean');
-                    // A refusal may never authorise a marker write: a refused deploy has to leave the
-                    // host exactly as it found it, or the next run reads a deployment that never was.
-                    if (!outcome.proceed) expect(outcome.writeMarker).toBe(false);
-                    decisions.add(outcome.decision);
+                        expect(Object.values(REDEPLOY_PREFLIGHT_DECISION)).toContain(outcome.decision);
+                        expect(typeof outcome.proceed).toBe('boolean');
+                        // A refusal may never authorise a marker write: a refused deploy has to leave the
+                        // host exactly as it found it, or the next run reads a deployment that never was.
+                        if (!outcome.proceed) expect(outcome.writeMarker).toBe(false);
+                        decisions.add(outcome.decision)
+                    }
                 }
             }
         }
 
-        // All five decisions reachable — otherwise the table has dead rows and the coverage above is
+        // All decisions reachable — otherwise the table has dead rows and the coverage above is
         // measuring less than it appears to.
         expect(decisions.size).toBe(Object.keys(REDEPLOY_PREFLIGHT_DECISION).length);
     });
+});
+
+test.describe('redeploy preflight — read-only Docker primary-volume observer (#16344)', () => {
+    test('zero exact-label matches is a measured absence', async () => {
+        const calls  = [],
+              result = await observePrimaryStoreVolume({
+                  composeProject: 'neo-agent-os',
+                  execFileFn(command, args) {
+                      calls.push({args, command});
+
+                      return Promise.resolve({stdout: ''})
+                  }
+              });
+
+        expect(result).toEqual({
+            matchCount: 0,
+            reason    : 'volume-not-found',
+            state     : PRIMARY_VOLUME_STATE.ABSENT
+        });
+        expect(calls).toHaveLength(1);
+        expect(calls[0].command).toBe('docker');
+        expect(calls[0].args).toContain(`label=com.docker.compose.project=neo-agent-os`);
+        expect(calls[0].args).toContain(`label=com.docker.compose.volume=${PRIMARY_STORE_VOLUME_NAME}`)
+    });
+
+    test('one match is present only after its exact Compose labels are verified', async () => {
+        const calls  = [],
+              result = await observePrimaryStoreVolume({
+                  composeProject: 'neo-agent-os',
+                  execFileFn(command, args) {
+                      calls.push({args, command});
+
+                      return Promise.resolve(args[1] === 'ls'
+                          ? {stdout: 'neo-agent-os_shared-sqlite-data\n'}
+                          : {stdout: JSON.stringify({
+                              'com.docker.compose.project': 'neo-agent-os',
+                              'com.docker.compose.volume' : PRIMARY_STORE_VOLUME_NAME
+                          })})
+                  }
+              });
+
+        expect(result).toEqual({
+            matchCount: 1,
+            reason    : 'volume-labels-verified',
+            state     : PRIMARY_VOLUME_STATE.PRESENT,
+            volumeName: 'neo-agent-os_shared-sqlite-data'
+        });
+        expect(calls).toHaveLength(2);
+        expect(calls[1].args.slice(0, 4)).toEqual(['volume', 'inspect', '--format', '{{json .Labels}}']);
+        // The observer is metadata-only: no container lifecycle or exec verb can appear.
+        const argv = calls.flatMap(call => call.args);
+
+        for (const forbidden of ['create', 'exec', 'remove', 'restart', 'run', 'start', 'stop']) {
+            expect(argv).not.toContain(forbidden)
+        }
+    });
+
+    test('multiple exact-label matches stay unknown and are never inspected heuristically', async () => {
+        const calls  = [],
+              result = await observePrimaryStoreVolume({
+                  composeProject: 'neo-agent-os',
+                  execFileFn(command, args) {
+                      calls.push({args, command});
+
+                      return Promise.resolve({stdout: 'first\nsecond\n'})
+                  }
+              });
+
+        expect(result).toEqual({
+            matchCount: 2,
+            reason    : 'volume-match-ambiguous',
+            state     : PRIMARY_VOLUME_STATE.UNKNOWN
+        });
+        expect(calls).toHaveLength(1)
+    });
+
+    test('malformed or mismatched labels stay unknown', async () => {
+        for (const inspectStdout of [
+            'not-json',
+            JSON.stringify({'com.docker.compose.project': 'foreign'}),
+            JSON.stringify({
+                'com.docker.compose.project': 'neo-agent-os',
+                'com.docker.compose.volume' : 'chroma-data'
+            })
+        ]) {
+            const result = await observePrimaryStoreVolume({
+                composeProject: 'neo-agent-os',
+                execFileFn(command, args) {
+                    return Promise.resolve(args[1] === 'ls'
+                        ? {stdout: 'candidate\n'}
+                        : {stdout: inspectStdout})
+                }
+            });
+
+            expect(result.state).toBe(PRIMARY_VOLUME_STATE.UNKNOWN);
+            expect(result.reason).toMatch(/volume-label/)
+        }
+    });
+
+    test('Docker/socket failure and missing project identity stay unknown', async () => {
+        const dockerError = Object.assign(new Error('socket unavailable'), {code: 'ECONNREFUSED'}),
+              failed      = await observePrimaryStoreVolume({
+                  composeProject: 'neo-agent-os',
+                  execFileFn    : async () => { throw dockerError }
+              }),
+              unscoped    = await observePrimaryStoreVolume();
+
+        expect(failed).toEqual({
+            errorCode: 'ECONNREFUSED',
+            reason   : 'docker-volume-query-failed',
+            state    : PRIMARY_VOLUME_STATE.UNKNOWN
+        });
+        expect(unscoped).toEqual({
+            reason: 'compose-project-unavailable',
+            state : PRIMARY_VOLUME_STATE.UNKNOWN
+        })
+    })
 });
 
 test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)', () => {
@@ -165,31 +335,61 @@ test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)'
     });
 
     test('a refused run writes NO marker, so a later absence stays informative', async () => {
+        let primaryProbeCalls = 0;
+
         const backupRoot = path.join(workRoot, 'backups'),
               result     = await runRedeployPreflight({
                   backupRoot,
-                  initializeRequested: false,
-                  logger             : silent,
-                  probeFn            : async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false})
+                  initializeRequested : false,
+                  logger              : silent,
+                  primaryVolumeProbeFn: async () => {
+                      primaryProbeCalls++;
+
+                      return {reason: 'unexpected', state: PRIMARY_VOLUME_STATE.PRESENT}
+                  },
+                  probeFn: async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false})
               });
 
         expect(result.proceed).toBe(false);
+        expect(primaryProbeCalls).toBe(0);
+        expect(result.primaryVolumeState).toBeNull();
         expect(await readInitializationMarker({backupRoot})).toBe(false);
     });
 
     test('an initializing run records the marker, and the SAME command then refuses', async () => {
-        const backupRoot = path.join(workRoot, 'backups'),
-              probeFn    = async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false});
+        const backupRoot           = path.join(workRoot, 'backups'),
+              composeProject       = 'neo-test',
+              primaryVolumeProbeFn = async () => ({
+                  matchCount: 0,
+                  reason    : 'volume-not-found',
+                  state     : PRIMARY_VOLUME_STATE.ABSENT
+              }),
+              probeFn              = async () => ({code: 'NO_BUNDLES', reason: 'none', restorable: false});
 
-        const first = await runRedeployPreflight({backupRoot, initializeRequested: true, logger: silent, probeFn});
+        const first = await runRedeployPreflight({
+            backupRoot,
+            composeProject,
+            initializeRequested: true,
+            logger             : silent,
+            primaryVolumeProbeFn,
+            probeFn
+        });
 
         expect(first.proceed).toBe(true);
+        expect(first.primaryVolumeState).toBe(PRIMARY_VOLUME_STATE.ABSENT);
         expect(await readInitializationMarker({backupRoot})).toBe(true);
 
         // Re-running the identical initialization command must now REFUSE. This is the property that
         // stops `--initialize` becoming a habit: it works exactly once per host, and a second use is
         // caught rather than silently repeating a wipe-authorising flag.
-        const second = await runRedeployPreflight({backupRoot, initializeRequested: true, logger: silent, probeFn});
+        const second = await runRedeployPreflight({
+            backupRoot,
+            composeProject,
+            initializeRequested: true,
+            logger             : silent,
+            primaryVolumeProbeFn,
+            probeFn
+        });
 
         expect(second.proceed).toBe(false);
         expect(second.decision).toBe(REDEPLOY_PREFLIGHT_DECISION.REFUSE_ALREADY_INITIALIZED);
@@ -219,5 +419,9 @@ test.describe('redeploy preflight — wiring and marker durability (#16055 AC2)'
         expect(source).toMatch(/set -euo pipefail/);
         // And the escape hatch has to be reachable, or a genuine first install cannot deploy at all.
         expect(source).toMatch(/NEO_DEPLOY_INITIALIZE/);
+        // The initialization observer must use the SAME project identity Compose uses.
+        expect(source).toContain('--initialize --compose-project "$PROJECT_NAME"');
+        // The contract permits metadata observation, but no container lifecycle mutation before the gate.
+        expect(source).toMatch(/read-only Docker volume metadata query/);
     })
 });
