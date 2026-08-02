@@ -68,6 +68,16 @@ test.describe('buildScripts/util/installBrain — the Brain-tier opt-in (#16364)
         ]);
     });
 
+    test('--ignore-scripts forwards for script-hostile environments (image builds)', () => {
+        // The deploy image build installs with lifecycle scripts off by contract (husky must not
+        // run without .git); the flag forwards so the overlay honors the same boundary, and the
+        // caller keeps explicit ownership of config materialization.
+        expect(buildNpmArgs(['better-sqlite3@^12.11.1'], {ignoreScripts: true})).toEqual([
+            'install', '--no-save', '--no-audit', '--no-fund', '--ignore-scripts', 'better-sqlite3@^12.11.1'
+        ]);
+        expect(buildNpmArgs(['better-sqlite3@^12.11.1'])).not.toContain('--ignore-scripts');
+    });
+
     test('--dry-run prints the exact npm command without executing it', () => {
         const output = execFileSync(process.execPath, [
             path.join(repoRoot, 'buildScripts/util/installBrain.mjs'), '--dry-run'

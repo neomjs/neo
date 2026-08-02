@@ -66,18 +66,23 @@ export function resolveBrainInstallPlan(file=manifestPath) {
 /**
  * @summary Builds the npm argument list for the overlay install.
  * @param {String[]} specifiers
+ * @param {Object} [options]
+ * @param {Boolean} [options.ignoreScripts=false] Forward `--ignore-scripts` — required in
+ * script-hostile environments like image builds, where the root `prepare` lifecycle (husky +
+ * server-config init) must not run; the caller then owns config materialization explicitly.
  * @returns {String[]}
  */
-export function buildNpmArgs(specifiers) {
-    return ['install', '--no-save', '--no-audit', '--no-fund', ...specifiers];
+export function buildNpmArgs(specifiers, {ignoreScripts=false}={}) {
+    return ['install', '--no-save', '--no-audit', '--no-fund', ...(ignoreScripts ? ['--ignore-scripts'] : []), ...specifiers];
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;
 
 if (isMain) {
-    const dryRun     = process.argv.includes('--dry-run'),
-          specifiers = resolveBrainInstallPlan(),
-          args       = buildNpmArgs(specifiers);
+    const dryRun        = process.argv.includes('--dry-run'),
+          ignoreScripts = process.argv.includes('--ignore-scripts'),
+          specifiers    = resolveBrainInstallPlan(),
+          args          = buildNpmArgs(specifiers, {ignoreScripts});
 
     if (dryRun) {
         console.log(`npm ${args.join(' ')}`);
