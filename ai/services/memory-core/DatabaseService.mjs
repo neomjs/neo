@@ -166,17 +166,28 @@ class DatabaseService extends Base {
      * Helper method to export the Native Graph (Nodes and Edges) as JSONL.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<number>} The total number of graph elements exported.
+     * @returns {Promise<{collection: String, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics preserving source-row completeness.
+     * @throws {Error} `GRAPH_COUNT_QUERY_FAILED` when the source tables cannot be counted.
+     * @throws {Error} `PARTIAL_COLLECTION_EXPORT` when one or more counted rows cannot be exported.
      * @private
      */
     async #exportGraph(backupPath, filePrefix) {
         logger.log(`Fetching all nodes and edges from the native graph...`);
-        const GraphService = (await import('./GraphService.mjs')).default;
+        const GraphService   = (await import('./GraphService.mjs')).default,
+              collectionName = 'native-graph',
+              emptyStats     = {
+                  collection: collectionName,
+                  backupFile: null,
+                  expected  : 0,
+                  exported  : 0,
+                  skipped   : 0,
+                  skippedIds: []
+              };
 
         // Ensure graph is initialized
         if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
              logger.log(`Graph database not initialized. Skipping graph export.`);
-             return 0;
+             return emptyStats
         }
 
         const db = GraphService.db.storage.db;
@@ -187,16 +198,24 @@ class DatabaseService extends Base {
         try {
             nodesCount = db.prepare('SELECT count(*) as c FROM Nodes').get().c || 0;
             edgesCount = db.prepare('SELECT count(*) as c FROM Edges').get().c || 0;
-        } catch (e) {
-            logger.error(`Error querying Native Graph tables: ${e.message}`);
-            return 0;
+        } catch (cause) {
+            logger.error(`Error querying Native Graph tables: ${cause.message}`);
+
+            const error = new Error(`GRAPH_COUNT_QUERY_FAILED: could not count ${collectionName} rows (${cause.message}).`, {cause});
+            error.code    = 'GRAPH_COUNT_QUERY_FAILED';
+            error.details = {
+                collection: collectionName,
+                cause     : cause.message,
+                stage     : 'count'
+            };
+            throw error
         }
 
         const totalCount = nodesCount + edgesCount;
 
         if (totalCount === 0) {
             logger.log(`No nodes or edges found in the native graph to export.`);
-            return 0;
+            return emptyStats
         }
 
         logger.log(`Found ${nodesCount} nodes and ${edgesCount} edges to export.`);
@@ -208,38 +227,58 @@ class DatabaseService extends Base {
         const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
-
-        let exported = 0;
+        const stats       = {
+            collection: collectionName,
+            backupFile,
+            expected  : totalCount,
+            exported  : 0,
+            skipped   : 0,
+            skippedIds: []
+        };
 
         // Export Nodes
-        const nodesStmt = db.prepare('SELECT data FROM Nodes');
+        const nodesStmt = db.prepare('SELECT id, data FROM Nodes');
         for (const row of nodesStmt.iterate()) {
              try {
                  const node   = JSON.parse(row.data);
                  const record = { type: 'node', data: node };
                  writeStream.write(JSON.stringify(record) + '\n');
-                 exported++;
-             } catch(e) {
-                 logger.error(`Error parsing node during export`, e);
+                 stats.exported++;
+             } catch (error) {
+                 stats.skipped++;
+                 stats.skippedIds.push(`node:${row.id}`);
+                 logger.error(`Error parsing node during export`, error);
              }
         }
 
         // Export Edges
-        const edgesStmt = db.prepare('SELECT data FROM Edges');
+        const edgesStmt = db.prepare('SELECT id, data FROM Edges');
         for (const row of edgesStmt.iterate()) {
              try {
                  const edge   = JSON.parse(row.data);
                  const record = { type: 'edge', data: edge };
                  writeStream.write(JSON.stringify(record) + '\n');
-                 exported++;
-             } catch(e) {
-                 logger.error(`Error parsing edge during export`, e);
+                 stats.exported++;
+             } catch (error) {
+                 stats.skipped++;
+                 stats.skippedIds.push(`edge:${row.id}`);
+                 logger.error(`Error parsing edge during export`, error);
              }
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        logger.log(`Successfully exported ${exported} graph elements to: ${backupFile}`);
-        return exported;
+        if (stats.exported !== stats.expected) {
+            const error = new Error(
+                `PARTIAL_COLLECTION_EXPORT: ${collectionName} exported ${stats.exported}/${stats.expected} ` +
+                `records to ${backupFile}; skipped ${stats.skipped} unreadable graph row(s).`
+            );
+            error.code    = 'PARTIAL_COLLECTION_EXPORT';
+            error.details = stats;
+            throw error
+        }
+
+        logger.log(`Successfully exported ${stats.exported}/${stats.expected} graph elements to: ${backupFile}`);
+        return stats
     }
 
     /**
@@ -318,8 +357,7 @@ class DatabaseService extends Base {
             }
 
             if (include.includes('graph')) {
-                const graphCount = await this.#exportGraph(backupPath, 'graph-backup');
-                graphStats       = {expected: graphCount, exported: graphCount};
+                graphStats = await this.#exportGraph(backupPath, 'graph-backup')
             }
 
             const memoryCount          = memoryStats?.exported || 0,
