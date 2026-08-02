@@ -103,6 +103,45 @@ function normalizeRequestedReviewer(node) {
 }
 
 /**
+ * @summary Reads the reviewer state GitHub actually seated out of a `requested_reviewers` REST response.
+ *
+ * The `POST`/`DELETE` `requested_reviewers` endpoints answer with the full pull-request object, whose
+ * `requested_reviewers` / `requested_teams` arrays are the post-mutation truth. That makes the response
+ * itself the verification channel — no follow-up read is needed, and none should be added: a second call
+ * would open a window in which a concurrent change could make the read disagree with what this call did.
+ *
+ * Logins are lower-cased because GitHub treats them case-insensitively (a caller passing `Neo-GPT` is
+ * seated as `neo-gpt`); comparing raw would report a seated reviewer as missing.
+ *
+ * @param {string} stdout Raw `gh api` stdout for the mutation.
+ * @returns {{users: Set<string>, teams: Set<string>}|null} Seated logins/slugs, or `null` when the payload
+ * does not carry the expected shape — an unverifiable result the caller must surface as a failure rather
+ * than degrade into an echo of its own request.
+ */
+function parseSeatedReviewerState(stdout) {
+    let parsed;
+
+    try {
+        parsed = JSON.parse(stdout);
+    } catch (error) {
+        return null;
+    }
+
+    const {requested_reviewers: users, requested_teams: teams} = parsed || {};
+
+    // Both arrays must be present. A payload missing them proves nothing about who is seated, and
+    // treating "absent" as "empty" would silently resurrect the false-success this guard exists to stop.
+    if (!Array.isArray(users) || !Array.isArray(teams)) {
+        return null;
+    }
+
+    return {
+        users: new Set(users.map(user => user?.login?.toLowerCase()).filter(Boolean)),
+        teams: new Set(teams.map(team => team?.slug?.toLowerCase()).filter(Boolean))
+    };
+}
+
+/**
  * @summary Projects one PR board row with explicit nulls when GitHub does not prove a freshness field.
  * @param {Object} pullRequest GitHub pull-request node from the list query.
  * @returns {Object}
@@ -2668,6 +2707,11 @@ class PullRequestService extends Base {
     /**
      * @summary Unified add/remove of GitHub PR reviewer-requests via the REST `requested_reviewers` endpoint.
      *
+     * Verifies the **effect**: the endpoint's own 200 body carries the resulting `requested_reviewers` /
+     * `requested_teams`, and the verdict is read from there. GitHub accepts a login that does not exist,
+     * returns 200, and seats nobody, so neither the exit code nor the absence of an exception proves a
+     * reviewer was assigned. Mirrors `IssueService.assignIssue`'s `verifiedAssignees` post-verify.
+     *
      * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
      * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
      * itself is the validation layer (Approved-status before merge); this tool is the active
@@ -2685,7 +2729,10 @@ class PullRequestService extends Base {
      * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
      * @param {string[]}  [options.team_reviewers]   Array of bare team slugs (no owner prefix — the REST endpoint takes slugs directly).
      * @param {string}    options.action             Either `'add'` or `'remove'`.
-     * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
+     * @returns {Promise<object>} On success, a message plus `verifiedReviewers` / `verifiedTeamReviewers`
+     * read out of GitHub's response — never echoed from the arguments. A requested login that GitHub did
+     * not seat returns `REVIEWER_NOT_SEATED` (with `unseated`), and a response that cannot be verified
+     * returns `REVIEWER_STATE_UNVERIFIABLE`; both are failures, not partial successes.
      *
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
@@ -2726,14 +2773,54 @@ class PullRequestService extends Base {
             const command = `gh api repos/${aiConfig.owner}/${aiConfig.repo}/pulls/${pr_number}/requested_reviewers -X ${method} ${allFlags}`;
             logger.info(`Attempting to ${action} reviewers on PR #${pr_number} via REST: ${allTargets.join(', ')}`);
 
-            await execFn(command, {cwd: aiConfig.projectRoot});
+            const {stdout} = await execFn(command, {cwd: aiConfig.projectRoot}) || {};
+
+            // Report the EFFECT, not the request. GitHub answers this endpoint with 200 and the
+            // full PR object even when it seated nobody: an unknown login is accepted and silently dropped,
+            // so `gh` exits 0 and there is no error for the catch below to see. Echoing `reviewerList` back
+            // as success told callers a reviewer was assigned when none was, and the PR then sat unreviewed
+            // with no failure signal anywhere. The 200 body already carries the resulting state, so the
+            // verdict comes from what GitHub returned — never from what we asked for.
+            const seated = parseSeatedReviewerState(stdout);
+
+            if (!seated) {
+                logger.error(`Unverifiable requested_reviewers response on PR #${pr_number}`);
+                return {
+                    error  : 'Reviewer state unverifiable',
+                    message: `Cannot confirm reviewer state on PR #${pr_number}: the requested_reviewers response did not carry the expected 'requested_reviewers'/'requested_teams' arrays, so whether ${allTargets.join(', ')} ${action === 'add' ? 'was seated' : 'was removed'} is unknown. Re-read the PR before trusting any reviewer assumption.`,
+                    code   : 'REVIEWER_STATE_UNVERIFIABLE',
+                    pr_number
+                };
+            }
+
+            // `add` demands presence, `remove` demands absence — the same read-back, inverted.
+            const wanted        = action === 'add';
+            const unseatedUsers = reviewerList    .filter(login => seated.users.has(login.toLowerCase()) !== wanted);
+            const unseatedTeams = teamReviewerList.filter(slug  => seated.teams.has(slug .toLowerCase()) !== wanted);
+            const unseated      = [...unseatedUsers, ...unseatedTeams];
+
+            if (unseated.length > 0) {
+                const failedVerb = wanted ? 'were not seated as reviewers on' : 'remain requested reviewers on';
+                logger.error(`REVIEWER_NOT_SEATED on PR #${pr_number}: ${unseated.join(', ')}`);
+                return {
+                    error  : 'Reviewer not seated',
+                    message: `${unseated.join(', ')} ${failedVerb} PR #${pr_number}. GitHub accepted the request (HTTP 200) but the returned reviewer state does not include the change — the usual cause is a login that does not exist or is not a collaborator. Verify the login against the roster in ai/graph/identityRoots.mjs.`,
+                    code   : 'REVIEWER_NOT_SEATED',
+                    pr_number,
+                    unseated,
+                    // Same meaning as on the success path: who GitHub reports as seated right now.
+                    verifiedReviewers    : [...seated.users],
+                    verifiedTeamReviewers: [...seated.teams]
+                };
+            }
 
             const verb = action === 'add' ? 'requested' : 'removed';
             return {
-                message       : `Successfully ${verb} reviewers on PR #${pr_number}: ${allTargets.join(', ')}`,
+                message              : `Successfully ${verb} reviewers on PR #${pr_number}: ${allTargets.join(', ')} (verified against the returned reviewer state)`,
                 pr_number,
-                reviewers     : reviewerList,
-                team_reviewers: teamReviewerList
+                // Derived from GitHub's response, not from the caller's arguments — that is the whole point.
+                verifiedReviewers    : [...seated.users],
+                verifiedTeamReviewers: [...seated.teams]
             };
         } catch (error) {
             logger.error(`Error managing reviewers on PR #${pr_number}:`, error);

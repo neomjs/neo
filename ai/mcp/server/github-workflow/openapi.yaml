@@ -979,6 +979,8 @@ paths:
         **Action: 'remove'** — `DELETE`s the review requests.
 
         At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Errors surface as `GH_API_ERROR` carrying the REST `requested_reviewers` response (repo-scope semantics), not a `gh` CLI exit code.
+
+        **The result reports the effect, not the request.** GitHub accepts an unknown login on this endpoint, returns 200, and seats nobody — so a 200 is not evidence a reviewer was assigned. Every requested login is checked against the reviewer state in GitHub's own response: unseated logins fail with `REVIEWER_NOT_SEATED` (naming each under `unseated`) instead of reporting partial success, and `verifiedReviewers` / `verifiedTeamReviewers` are always derived from that response rather than echoed from the arguments. Trust those fields, not the request you sent.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -1015,13 +1017,19 @@ paths:
                   example: ["maintainers"]
       responses:
         '200':
-          description: Reviewer-requests updated successfully.
+          description: Reviewer-requests updated AND verified — every requested login was confirmed seated (or, for `remove`, confirmed absent) in GitHub's returned reviewer state.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/ManagePrReviewersResponse'
         '400':
           description: Invalid arguments (bad action OR missing both reviewers and team_reviewers).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: The call succeeded at the HTTP layer but the effect did not happen — `REVIEWER_NOT_SEATED` (GitHub returned 200 without seating a requested login, typically a nonexistent or non-collaborator account; the response names each one under `unseated`) or `REVIEWER_STATE_UNVERIFIABLE` (the response did not carry the reviewer arrays, so the outcome is unknown). Never reported as success.
           content:
             application/json:
               schema:
@@ -2136,6 +2144,30 @@ components:
           type: string
           description: "`git rev-parse HEAD` read back from `repoPath` after checkout."
           example: "0123456789abcdef0123456789abcdef01234567"
+
+    ManagePrReviewersResponse:
+      type: object
+      description: Verifiable result for `manage_pr_reviewers`. The reviewer lists are read out of GitHub's `requested_reviewers` response, NOT echoed from the request — GitHub accepts an unknown login, returns 200, and seats nobody, so a success message built from the arguments would report a reviewer that does not exist. A requested login that was not seated fails with `REVIEWER_NOT_SEATED` rather than reporting partial success.
+      properties:
+        message:
+          type: string
+          example: "Successfully requested reviewers on PR #123: neo-gpt (verified against the returned reviewer state)"
+        pr_number:
+          type: integer
+          description: The pull request the reviewer state was verified on.
+          example: 123
+        verifiedReviewers:
+          type: array
+          items:
+            type: string
+          description: User logins actually seated as requested reviewers, read back from GitHub's response after the mutation.
+          example: ["neo-gpt"]
+        verifiedTeamReviewers:
+          type: array
+          items:
+            type: string
+          description: Team slugs actually seated as requested reviewers, read back from GitHub's response after the mutation.
+          example: []
 
     CommentResponse:
       type: object
