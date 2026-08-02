@@ -979,6 +979,8 @@ paths:
         **Action: 'remove'** — `DELETE`s the review requests.
 
         At least one of `reviewers` or `team_reviewers` is required. A leading `@` on a login is stripped. Errors surface as `GH_API_ERROR` carrying the REST `requested_reviewers` response (repo-scope semantics), not a `gh` CLI exit code.
+
+        **The result reports the effect, not the request.** GitHub accepts an unknown login on this endpoint and seats nobody — so a successful mutation response is not evidence a reviewer was assigned (measured: that call answered 200 with the full PR object). Every requested login is checked against the reviewer state in GitHub's own response: a login `add` did not seat fails with `REVIEWER_NOT_SEATED`, a login `remove` left in place fails with `REVIEWER_STILL_REQUESTED`, both naming each target under `unseated` rather than reporting partial success. `verifiedReviewers` / `verifiedTeamReviewers` are always derived from that response, never echoed from the arguments. Trust those fields, not the request you sent.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -1015,17 +1017,23 @@ paths:
                   example: ["maintainers"]
       responses:
         '200':
-          description: Reviewer-requests updated successfully.
+          description: Reviewer-requests updated AND verified — every requested login was confirmed seated (or, for `remove`, confirmed absent) in GitHub's returned reviewer state.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/ManagePrReviewersResponse'
         '400':
           description: Invalid arguments (bad action OR missing both reviewers and team_reviewers).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: The call succeeded at the HTTP layer but the effect did not happen — `REVIEWER_NOT_SEATED` (an `add` GitHub answered successfully without seating a requested login, typically a nonexistent or non-collaborator account), `REVIEWER_STILL_REQUESTED` (a `remove` whose target is still listed as a requested reviewer — the seat is NOT free), or `REVIEWER_STATE_UNVERIFIABLE` (the response did not carry the reviewer arrays, so the outcome is unknown). Never reported as success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagePrReviewersErrorResponse'
         '500':
           description: REST `requested_reviewers` call failed (`GH_API_ERROR` — typically a repo-scope/permission or network error).
           content:
@@ -2136,6 +2144,95 @@ components:
           type: string
           description: "`git rev-parse HEAD` read back from `repoPath` after checkout."
           example: "0123456789abcdef0123456789abcdef01234567"
+
+    ManagePrReviewersResponse:
+      type: object
+      description: |
+        Verifiable result for `manage_pr_reviewers`. The reviewer lists are read out of GitHub's
+        `requested_reviewers` response, NOT echoed from the request — GitHub accepts an unknown login and
+        seats nobody (measured: that call answered 200 with the full PR object), so a success message built
+        from the arguments would report a reviewer that does not exist. A requested change GitHub did not
+        apply fails with `REVIEWER_NOT_SEATED` / `REVIEWER_STILL_REQUESTED` rather than reporting partial
+        success.
+
+        Every field is required: a success payload missing the verification fields is exactly the defect
+        this response type exists to make impossible, and without a `required` list an empty object
+        satisfies the declared contract.
+      required: [message, pr_number, verifiedReviewers, verifiedTeamReviewers]
+      properties:
+        message:
+          type: string
+          example: "Successfully requested reviewers on PR #123: neo-gpt (verified against the returned reviewer state)"
+        pr_number:
+          type: integer
+          description: The pull request the reviewer state was verified on.
+          example: 123
+        verifiedReviewers:
+          type: array
+          items:
+            type: string
+          description: User logins actually seated as requested reviewers, read back from GitHub's response after the mutation.
+          example: ["neo-gpt"]
+        verifiedTeamReviewers:
+          type: array
+          items:
+            type: string
+          description: Team slugs actually seated as requested reviewers, read back from GitHub's response after the mutation.
+          example: []
+
+    ManagePrReviewersErrorResponse:
+      type: object
+      description: |
+        Structured failure for `manage_pr_reviewers` when GitHub answered successfully but the requested
+        reviewer change did not take effect. Distinct from the generic `ErrorResponse` because the caller
+        needs the observed state to act: which targets did not move (`unseated`) and who GitHub currently
+        reports as seated (`verifiedReviewers` / `verifiedTeamReviewers`).
+
+        `code` carries the direction that failed, and the two directions describe OPPOSITE observed states:
+        `REVIEWER_NOT_SEATED` means an `add` target is ABSENT from the returned reviewer state, while
+        `REVIEWER_STILL_REQUESTED` means a `remove` target is still PRESENT — so its seat is not free, and
+        remediation aimed at a nonexistent login would be wrong.
+
+        `unseated` and the verified arrays are documented but NOT required, because
+        `REVIEWER_STATE_UNVERIFIABLE` is the case where the response carried no reviewer arrays at all.
+        Requiring them there would force this schema to publish empty arrays, which read as "GitHub reports
+        nobody seated" — a definite claim about the exact state that is unknown. Only the four fields that
+        every failure can honestly supply are required.
+      required: [error, message, code, pr_number]
+      properties:
+        error:
+          type: string
+          example: "Reviewer still requested"
+        message:
+          type: string
+          example: "neo-gpt remain requested reviewers on PR #123: the removal was not applied."
+        code:
+          type: string
+          enum: [REVIEWER_NOT_SEATED, REVIEWER_STILL_REQUESTED, REVIEWER_STATE_UNVERIFIABLE]
+          description: Which postcondition failed. `REVIEWER_NOT_SEATED` — an `add` target is absent. `REVIEWER_STILL_REQUESTED` — a `remove` target is still present. `REVIEWER_STATE_UNVERIFIABLE` — the response carried no reviewer arrays, so the outcome is unknown.
+          example: "REVIEWER_STILL_REQUESTED"
+        pr_number:
+          type: integer
+          description: The pull request whose reviewer state was read.
+          example: 123
+        unseated:
+          type: array
+          items:
+            type: string
+          description: Targets whose requested change was not applied — absent after `add`, still present after `remove`. Omitted on `REVIEWER_STATE_UNVERIFIABLE`, where no per-target verdict could be reached.
+          example: ["neo-gpt"]
+        verifiedReviewers:
+          type: array
+          items:
+            type: string
+          description: User logins GitHub reports as seated right now — the same meaning as on the success path. Omitted on `REVIEWER_STATE_UNVERIFIABLE`.
+          example: ["neo-gpt"]
+        verifiedTeamReviewers:
+          type: array
+          items:
+            type: string
+          description: Team slugs GitHub reports as seated right now. Omitted on `REVIEWER_STATE_UNVERIFIABLE`.
+          example: []
 
     CommentResponse:
       type: object
