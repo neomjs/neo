@@ -1,0 +1,12 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "neo-dev-server",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": ["webpack", "serve", "-c", "./buildScripts/webpack/webpack.server.config.mjs"],
+            "port": 8080,
+            "autoPort": true
+        }
+    ]
+}
