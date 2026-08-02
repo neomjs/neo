@@ -5,7 +5,11 @@ import GraphService        from './GraphService.mjs';
 import logger              from '../../mcp/server/memory-core/logger.mjs';
 import SessionService      from './SessionService.mjs';
 import TurnPresenceService from './TurnPresenceService.mjs';
-import {withTimeout}       from './helpers/withTimeout.mjs';
+import {withTimeout,
+        WITH_TIMEOUT_CODE} from './helpers/withTimeout.mjs';
+
+import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+        PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 
 import {
     appendWalGraphProjectionMarker,
@@ -61,8 +65,31 @@ export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged to th
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
  * a `MemoryService` ⇄ `SessionService` import cycle). Kept exported here for back-compat with
  * existing importers.
+ *
+ * `WITH_TIMEOUT_CODE` travels with it deliberately: an importer that can reach the thrower but not its
+ * identity has to hardcode the literal to classify a rejection, which is the silent-drift failure the
+ * constant exists to remove.
  */
-export {withTimeout};
+export {withTimeout,
+        WITH_TIMEOUT_CODE};
+
+/**
+ * Label carried by the backfill's OUTER window rejection, shared by the wrapper that produces it and
+ * the classifier that names it.
+ *
+ * `WITH_TIMEOUT_CODE` identifies the *code family*, not the instance — every `withTimeout` in the tree
+ * sets it. Classifying on the code alone therefore labels ANY escaping wrapper rejection as
+ * `timeout-outer`, including one from an unrelated nested wrapper that never involved this window; a
+ * consumer would then widen a window that was not binding. The label is the instance discriminator, and
+ * a single constant is what keeps the producer and the classifier from drifting apart silently.
+ *
+ * Module-private: both the wrapper that sets it and the classifier that reads it live here, and there is
+ * no external consumer. Exporting it would publish a contract nothing depends on — and a public label is
+ * a thing future code could match on instead of asking this module, which is the coupling the single
+ * constant exists to avoid.
+ * @type {String}
+ */
+const MINI_SUMMARY_OUTER_LABEL = 'miniSummary backfill summarize';
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
@@ -1621,16 +1648,37 @@ class MemoryService extends Base {
      *
      * Reuses the `modelProvider` reactive-Provider SSOT through {@link buildChatModel} — the user's
      * deployment-agnostic choice resolves to **local** (gemma4 via `openAiCompatible`/`ollama`) OR
-     * **remote** (gemini-flash via `gemini`), identically in local + cloud. **Fail-soft:** returns
-     * `null` on no-provider (e.g. gemini without an API key), timeout, or error — the caller stores
-     * no summary and recency recall falls back to raw content. Never throws into the write path.
+     * **remote** (gemini-flash via `gemini`), identically in local + cloud. **Fail-soft:** never throws
+     * into the write path — no-provider, timeout, empty output and provider error all resolve, the
+     * caller stores no summary, and recency recall falls back to raw content.
+     *
+     * Reports **why** alongside **whether**. A bare `null` collapsed no-provider, empty output, timeout
+     * and provider error into one indistinguishable outcome, so no consumer could tell a window that
+     * needs widening from a provider that was never reachable — the cause was destroyed here, one frame
+     * above every counter that tried to describe it. `cause` is classified from `error.code`, never from
+     * the message: a reworded message stops matching silently, and an unrelated error mentioning a
+     * timeout would be misread as one.
+     *
+     * **Return-shape migration, not a truthiness-compatible change.** A failure used to be a falsy
+     * `null` and is now a truthy `{summary: null, cause}`, so any consumer testing the RESULT for
+     * truthiness inverts. The sweep is the only production caller and reads `.summary`; the shape is
+     * documented here as a migration rather than described as backward compatible, because a future
+     * caller written against "falsy means failed" would be silently wrong.
      *
      * @param {Object} options
      * @param {String} options.prompt
      * @param {String} options.response
-     * @returns {Promise<String|null>} A one-line summary capped at `aiConfig.memoryService.miniSummaryMaxChars` (default 280), or `null`.
+     * @param {Function} [options.buildModel=buildChatModel] Chat-model factory seam. Exists so a spec can
+     * drive the real classification path — the `no-model` branch, whitespace normalization, and the
+     * `catch`'s code-based split — instead of substituting the whole producer and asserting its own
+     * fixtures back. A suite that injects the expected cause strings proves the tally, not the vocabulary.
+     * @returns {Promise<Object>} `{summary, cause}` — `summary` is a one-line summary capped at
+     * `aiConfig.memoryService.miniSummaryMaxChars` (default 280) with `cause: null`, or `summary: null`
+     * with `cause` naming the failure: `'no-model'`, `'empty-output'`, `'timeout-inner'`, or
+     * `'provider-error'`. `timeoutCode` carries which layer gave up when the cause is a timeout —
+     * the wrapper or the provider — since those are distinct facts worth keeping.
      */
-    async buildMiniSummary({prompt, response}) {
+    async buildMiniSummary({prompt, response, buildModel = buildChatModel}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
         // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
@@ -1638,14 +1686,14 @@ class MemoryService extends Base {
         // backfill per-item timeout (aiConfig.memoryService.miniSummaryTimeoutMs).
         const TIMEOUT_MS = aiConfig.memoryService.generateMiniSummaryTimeoutMs;
         try {
-            const model = buildChatModel({
+            const model = buildModel({
                 modelProvider         : aiConfig.modelProvider,
                 openAiCompatibleConfig: aiConfig.openAiCompatible,
                 ollamaConfig          : aiConfig.ollama,
                 geminiApiKey          : aiConfig.geminiApiKey,
                 geminiModelName       : aiConfig.modelName
             });
-            if (!model) return null;
+            if (!model) return {summary: null, cause: 'no-model'};
 
             // `thought` is deliberately NOT summarized here, and adding it would be a privacy change
             // rather than an input-quality one. `thought` is private: `queryRecentTurns` forces
@@ -1669,11 +1717,42 @@ class MemoryService extends Base {
                 'miniSummary generation'
             );
 
-            const text = result?.response?.text?.() ?? null;
-            return text ? String(text).replace(/\s+/g, ' ').trim().slice(0, aiConfig.memoryService.miniSummaryMaxChars) : null;
+            const raw = result?.response?.text?.() ?? null;
+
+            // Normalize BEFORE classifying, not after. A whitespace-only answer ('   ', '\n\n') is
+            // truthy, so a raw truthiness check passes it as usable; it then normalizes to '' and was
+            // returned as a SUCCESS carrying an empty summary, which the sweep recorded as `unspecified`
+            // — the one cause that means "the summarizer told us nothing". A model that answers with
+            // whitespace is empty-output, and the classification has to see the same string the caller
+            // would store.
+            const summary = raw === null || raw === undefined
+                ? ''
+                : String(raw).replace(/\s+/g, ' ').trim();
+
+            if (!summary) {
+                return {summary: null, cause: 'empty-output'};
+            }
+
+            return {
+                summary: summary.slice(0, aiConfig.memoryService.miniSummaryMaxChars),
+                cause  : null
+            };
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary generation failed (fail-soft): ${error.message}`);
-            return null;
+
+            // Classified by code, never by message. Three producers can report that the inner budget was
+            // exceeded — this method's own `withTimeout` wrapper, and the provider's two layers — and all
+            // three mean the same actionable thing: the inner window was too small. Which layer noticed is
+            // kept in `timeoutCode` rather than folded into the cause, because that distinction is a real
+            // fact (`createTimeoutError` keeps its two codes separate for the same reason) and erasing it
+            // would hide whether the provider or the wrapper gave up first.
+            const isTimeout = error?.code === WITH_TIMEOUT_CODE ||
+                              error?.code === PROVIDER_TIMEOUT_CODE ||
+                              error?.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE;
+
+            return isTimeout
+                ? {summary: null, cause: 'timeout-inner', timeoutCode: error.code}
+                : {summary: null, cause: 'provider-error'};
         }
     }
 
@@ -1874,20 +1953,32 @@ class MemoryService extends Base {
      * @param {Number} [options.freshReserve] Of `limit`, how many newest rows to reserve before the
      *     remainder drains the oldest. Defaults to `aiConfig.memoryService.miniSummaryBackfillFreshReserve`; clamped to
      *     `limit`. Exposed for deterministic split-coverage tests.
-     * @param {Function} [options.buildMiniSummary] Optional summarizer seam for deterministic tests.
      * @param {Number} [options.maxRunMs] Wall-clock budget for the run; defaults to
      *     `aiConfig.memoryService.miniSummaryBackfillMaxRunMs`. The loop stops starting new rows once reached and defers
      *     the remainder to the next sweep, keeping the supervised child under its watchdog.
      * @param {Function} [options.now] Clock seam (defaults to `Date.now`) for deterministic budget tests.
-     * @returns {Promise<{processed: Number, updated: Number, deferred: Number, missingContent: Number, exhausted: Number, runBudgetHit: Boolean}>}
+     * @param {Number} [options.outerTimeoutMs] Outer per-item window; defaults to
+     * `aiConfig.memoryService.miniSummaryTimeoutMs`. Exposed so a spec can make the REAL outer wrapper
+     * reject inside a test budget — witnessing `timeout-outer` any other way times a different wrapper.
+     * @param {Function} [options.buildMiniSummary] Optional summarizer seam. Returns `{summary, cause}`;
+     * a bare string / `null` is accepted and its failure is tallied as `unspecified` rather than guessed.
+     * @returns {Promise<Object>} Pass tallies:
+     * `processed` rows attempted · `updated` summaries written · `deferred` failures left pending ·
+     * `missingContent` rows archived as un-summarizable · `exhausted` rows archived on attempt budget ·
+     * `runBudgetHit` whether the wall-clock budget stopped the run ·
+     * `failedInner` / `failedOuter` failures by **control-flow branch** (falsy return vs escaped throw) —
+     * a branch says WHICH path ran, never WHY, so neither may be read as a timeout verdict ·
+     * `failureCauses` a per-cause tally (`timeout-inner`, `timeout-outer`, `no-model`, `empty-output`,
+     * `provider-error`, `unspecified`) — the only field that carries the reason, and the only one a
+     * consumer may use to name a binding timeout.
      *          `exhausted` counts rows that spent their attempt budget and were reversibly archived.
      *          Present on **every** exit — including the no-SQLite and zero-row early returns — so a
      *          caller never sees a shape that sometimes lacks it.
      */
-    async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
+    async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, outerTimeoutMs = aiConfig.memoryService.miniSummaryTimeoutMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}};
         }
 
         // Fail loud on an unresolved leaf, before touching a single row. A stale operator overlay
@@ -1936,7 +2027,7 @@ class MemoryService extends Base {
         const rows = [...new Set([...scanIds('DESC', reserve), ...scanIds('ASC', drainLimit)])].map(id => ({id}));
 
         if (rows.length === 0) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}};
         }
 
         let byId;
@@ -1949,7 +2040,7 @@ class MemoryService extends Base {
             // Both branch counters stay 0: the content store was unreachable, so no generation was
             // attempted. Attributing these rows to either branch would report generation timeouts that
             // never happened and steer an adaptive consumer toward widening a window that is not the fault.
-            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
+            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0, failureCauses: {}};
         }
 
         // `failedInner` / `failedOuter` split the SAME failures the `deferred`/`exhausted` pair already
@@ -1960,8 +2051,24 @@ class MemoryService extends Base {
         // below (outer). Widening the inner leaf past the outer one moves every failure from one branch
         // to the other while `deferred` and `exhausted` report an identical shape — so a consumer reading
         // only those totals goes blind at exactly the window an adaptive controller is actuating toward.
+        // `failureCauses` is the dimension the branch counters cannot supply. A branch says WHICH code
+        // path ran; a cause says WHY. `failedInner` counts every falsy-returning generation — a missing
+        // provider and an exceeded window land on it identically — so a consumer that reads a branch as
+        // a timeout verdict is asserting something no counter here measured. Causes are reported by the
+        // summarizer and tallied verbatim; nothing is inferred from a branch.
         let updated     = 0, deferred = 0, missingContent = 0, processed = 0, exhausted = 0, runBudgetHit = false,
             failedInner = 0, failedOuter = 0;
+
+        const failureCauses = {};
+
+        /**
+         * @summary Tallies one reported failure cause.
+         * @param {String} cause
+         * @returns {void}
+         */
+        const recordCause = cause => {
+            failureCauses[cause] = (failureCauses[cause] || 0) + 1
+        };
 
         for (const row of rows) {
             // Bound the run safely under the ProcessSupervisor watchdog: stop starting new rows once
@@ -1995,14 +2102,24 @@ class MemoryService extends Base {
             }
 
             try {
-                const miniSummary = await withTimeout(
+                const generated = await withTimeout(
                     summarize({prompt: metadata.prompt, response: metadata.response}),
-                    aiConfig.memoryService.miniSummaryTimeoutMs,
-                    'miniSummary backfill summarize'
+                    outerTimeoutMs,
+                    MINI_SUMMARY_OUTER_LABEL
                 );
+
+                // An injected summarizer may still return a bare string or null rather than the
+                // `{summary, cause}` contract. Normalise it WITHOUT guessing: a bare failure reports
+                // `unspecified`, never a plausible-looking cause. Inventing one here would recreate the
+                // exact defect this contract exists to close — a consumer reading a cause that nothing
+                // observed — and `unspecified` correctly denies a downstream timeout verdict.
+                const isContract  = generated !== null && typeof generated === 'object',
+                      miniSummary = isContract ? generated.summary : generated,
+                      cause       = isContract ? generated.cause : (generated ? null : 'unspecified');
 
                 if (!miniSummary) {
                     failedInner++;
+                    recordCause(cause || 'unspecified');
 
                     if (this._exhaustMiniSummaryAttempt(row.id)) {
                         exhausted++;
@@ -2026,6 +2143,19 @@ class MemoryService extends Base {
                 // outside the timeout guard, or an injected summarizer — so neither path can loop.
                 failedOuter++;
 
+                // The OUTER window, identified by code rather than message. Anything reaching here that
+                // is not this wrapper's own rejection escaped the summarizer's guard entirely, so it is
+                // an error rather than a window problem — and calling it a timeout would tell a widening
+                // consumer to widen for something no window would have prevented.
+                // Code AND label: the code names the family (every wrapper in the tree sets it), the label
+                // names THIS window. A nested wrapper's rejection that escaped the summarizer is an error,
+                // not a window problem — my own comment above said so while the code still called it a
+                // timeout, which would tell a widening consumer to widen for something no window prevented.
+                const isOuterWindow = error?.code === WITH_TIMEOUT_CODE &&
+                                      error?.label === MINI_SUMMARY_OUTER_LABEL;
+
+                recordCause(isOuterWindow ? 'timeout-outer' : 'provider-error');
+
                 if (this._exhaustMiniSummaryAttempt(row.id)) {
                     exhausted++;
                 } else {
@@ -2039,9 +2169,17 @@ class MemoryService extends Base {
         }
 
         // Completion line so the run ends with a visible tally, not silence (stderr → captured by the supervisor).
-        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content, ${exhausted} exhausted)`);
+        // The cause tally is appended only when something failed: a starved plane is diagnosed from captured
+        // stderr, not by a caller inspecting this return value, so the reason has to reach the log too — while a
+        // healthy run keeps its existing shape rather than carrying an empty object every sweep.
+        const causeEntries = Object.entries(failureCauses),
+              causeSuffix  = causeEntries.length
+                  ? ` [causes: ${causeEntries.map(([cause, count]) => `${cause}=${count}`).join(', ')}]`
+                  : '';
 
-        return {processed, updated, deferred, missingContent, exhausted, runBudgetHit, failedInner, failedOuter};
+        console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content, ${exhausted} exhausted)${causeSuffix}`);
+
+        return {processed, updated, deferred, missingContent, exhausted, runBudgetHit, failedInner, failedOuter, failureCauses};
     }
 
     /**
