@@ -35,10 +35,16 @@ const
 
 export {COMMIT_TICKET_PATTERN, DECLARED_TICKET_PATTERN};
 
-export const CHANGE_CLASS_TO_TYPE = Object.freeze({
-    capability  : 'feat',
-    restoration : 'fix',
-    'zero-delta': 'chore'
+export const CHANGE_CLASS_TO_TYPES = Object.freeze({
+    capability : Object.freeze(['feat']),
+    restoration: Object.freeze(['fix']),
+    // The repo's conventional zero-delta type labels. The gate maps the AUTHOR-DECLARED
+    // class to this allowed set — a prefix never proves the class; the author's truthful
+    // declaration remains the semantic authority. Evidence (14-day dev history): test 20,
+    // docs 22, chore 65, build 4; `ci` rides the same convention for CI-config deltas.
+    // Arrays are frozen and `validateChangeClass` returns an isolated copy: the policy is
+    // never mutable through the map or a returned observation.
+    'zero-delta': Object.freeze(['chore', 'test', 'docs', 'ci', 'build'])
 });
 
 /**
@@ -127,7 +133,7 @@ export function filterMjsFiles(files) {
  * @param {String|null} [options.changeClass]
  * @param {String|null} [options.commitSubject]
  * @param {String|null} [options.prTitle]
- * @returns {{errors: String[], expectedType: String|null, skipped: Boolean, valid: Boolean}}
+ * @returns {{errors: String[], expectedTypes: String[]|null, skipped: Boolean, valid: Boolean}}
  */
 export function validateChangeClass({
     changeClass = null,
@@ -143,22 +149,22 @@ export function validateChangeClass({
 
     if (!hasInput) {
         return {
-            errors      : [],
-            expectedType: null,
-            skipped     : true,
-            valid       : true
+            errors       : [],
+            expectedTypes: null,
+            skipped      : true,
+            valid        : true
         }
     }
 
     const
-        errors       = [],
-        expectedType = Object.hasOwn(CHANGE_CLASS_TO_TYPE, changeClass)
-            ? CHANGE_CLASS_TO_TYPE[changeClass]
+        errors        = [],
+        expectedTypes = Object.hasOwn(CHANGE_CLASS_TO_TYPES, changeClass)
+            ? CHANGE_CLASS_TO_TYPES[changeClass]
             : null;
 
     if (!changeClass) {
         errors.push('`--change-class` is required when `--commit-subject` or `--pr-title` is provided.')
-    } else if (!expectedType) {
+    } else if (!expectedTypes) {
         errors.push(
             `Unknown change class \`${changeClass}\`; expected capability, restoration, or zero-delta.`
         )
@@ -168,19 +174,23 @@ export function validateChangeClass({
         errors.push('`--change-class` requires at least one `--commit-subject` or `--pr-title` to validate.')
     }
 
-    if (expectedType) {
+    if (expectedTypes) {
+        const requirement = expectedTypes.length === 1
+            ? `requires \`${expectedTypes[0]}\``
+            : `requires one of ${expectedTypes.map(type => `\`${type}\``).join(', ')}`;
+
         subjects.forEach(({label, value}) => {
             const match = value.match(CONVENTIONAL_TYPE_PATTERN);
 
             if (!match) {
                 errors.push(
                     `${label} is missing a valid Conventional Commit prefix; change class ` +
-                    `\`${changeClass}\` requires \`${expectedType}\`.`
+                    `\`${changeClass}\` ${requirement}.`
                 )
-            } else if (match[1] !== expectedType) {
+            } else if (!expectedTypes.includes(match[1])) {
                 errors.push(
                     `${label} declares \`${match[1]}\`, but change class \`${changeClass}\` ` +
-                    `requires \`${expectedType}\`.`
+                    `${requirement}.`
                 )
             }
         })
@@ -188,9 +198,11 @@ export function validateChangeClass({
 
     return {
         errors,
-        expectedType,
-        skipped: false,
-        valid  : errors.length === 0
+        // An observation, never a write capability: the copy isolates the caller from the
+        // frozen policy arrays, so mutating a result cannot change later validations.
+        expectedTypes: expectedTypes ? [...expectedTypes] : null,
+        skipped      : false,
+        valid        : errors.length === 0
     }
 }
 
@@ -578,7 +590,7 @@ export function runAgentPreflight({
 
         writeLine(
             stdout,
-            `agent-preflight: declared ${options.changeClass} maps to ${changeClassResult.expectedType}; ` +
+            `agent-preflight: declared ${options.changeClass} maps to ${changeClassResult.expectedTypes.join(', ')}; ` +
             `${surfaceCount} intended subject${surfaceCount === 1 ? '' : 's'} matched.`
         )
     } else {
