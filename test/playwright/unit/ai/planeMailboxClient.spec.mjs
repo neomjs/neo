@@ -59,7 +59,7 @@ function planeResponse({status = 200, contentType = 'application/json', sessionI
  *     before succeeding.
  * @returns {Object} `{fetchImpl, calls}`
  */
-function scriptedPlane({identityBySession = [IDENTITY], toolResponder = null, failInitializeTimes = 0} = {}) {
+function scriptedPlane({identityBySession = [IDENTITY], toolResponder = null, failInitializeTimes = 0, deleteDelayMs = 0} = {}) {
     const calls = [];
 
     let sessions           = 0,
@@ -84,8 +84,15 @@ function scriptedPlane({identityBySession = [IDENTITY], toolResponder = null, fa
 
         calls.push(call);
 
-        if (method === 'GET')    return planeResponse({status: 405});
-        if (method === 'DELETE') return planeResponse({status: 200, body: {}});
+        if (method === 'GET') return planeResponse({status: 405});
+
+        if (method === 'DELETE') {
+            // Slow teardown widens the window in which a concurrent caller's failure lands while a
+            // predecessor is still being torn down — the reviewer's asymmetric-teardown probe shape.
+            if (deleteDelayMs) await new Promise(resolve => setTimeout(resolve, deleteDelayMs));
+
+            return planeResponse({status: 200, body: {}})
+        }
 
         if (body?.method === 'initialize') {
             if (initializeFailures > 0) {
@@ -481,6 +488,97 @@ test.describe('planeMailboxClient: session loss (one bounded recovery, identity 
             .rejects.toThrow(/^plane list_messages failed: session lost and plane unreachable/);
 
         expect(initializes).toBe(2)
+    })
+});
+
+test.describe('planeMailboxClient: generation safety + the terminal close barrier', () => {
+    test('dual 404 from ONE live predecessor with slow teardown: the replacement is reused, never overwritten — every candidate closes', async () => {
+        // Reviewer-reproduced shape: two concurrent callers fail 404 on the SAME live session while
+        // the predecessor teardown is still in flight. Broken build: generations 2 AND 3 proven,
+        // generation 2 overwritten and left unclosed after explicit close. Contract: the later
+        // failure RIDES the current proven replacement.
+        const plane = scriptedPlane({
+            identityBySession: [IDENTITY, IDENTITY],
+            deleteDelayMs    : 30,
+            toolResponder    : ({name, sessionOrdinal}) => {
+                if (sessionOrdinal === 0) {
+                    // Both first-session calls fail 404, landing staggered so the second failure
+                    // arrives while the first caller's teardown/re-proof is in progress.
+                    return {status: 404, delayMs: name === 'explore_memory_history' ? 5 : 20}
+                }
+
+                return {payload: {tool: name}}
+            }
+        });
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl: plane.fetchImpl});
+
+        expect((await client.init({expectedIdentity: IDENTITY})).ok).toBe(true);
+
+        const [memory, pulls] = await Promise.allSettled([
+            client.callTool('explore_memory_history',       {limit: 1}),
+            client.callTool('explore_pull_request_history', {limit: 1})
+        ]);
+
+        expect(memory.status).toBe('fulfilled');
+        expect(pulls.status).toBe('fulfilled');
+        expect(memory.value).toEqual({tool: 'explore_memory_history'});
+        expect(pulls.value).toEqual({tool: 'explore_pull_request_history'});
+
+        // Generation safety: exactly TWO sessions ever proven (boot + ONE replacement) — no
+        // generation 3, and the identity oracle ran exactly twice.
+        const initializes = plane.calls.filter(call => call.rpcMethod === 'initialize');
+
+        expect(initializes).toHaveLength(2);
+        expect(plane.calls.filter(call => call.toolName === 'list_permissions')).toHaveLength(2);
+
+        // Every candidate closes: after the terminal close, both proven sessions carry a DELETE.
+        await client.close();
+
+        expect(plane.calls.filter(call => call.method === 'DELETE')).toHaveLength(2)
+    });
+
+    test('close during establishment FENCES the in-flight proof: candidate torn before close resolves, no resurrection', async () => {
+        const plane = scriptedPlane();
+
+        let initializeStarted;
+
+        const started   = new Promise(resolve => { initializeStarted = resolve });
+        const fetchImpl = async (url, init = {}) => {
+            const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+
+            if (body?.method === 'initialize') {
+                initializeStarted();
+                await new Promise(resolve => setTimeout(resolve, 40))
+            }
+
+            return plane.fetchImpl(url, init)
+        };
+
+        const client = createPlaneMailboxClient({baseUrl: LOOPBACK_URL, credential: 't', fetchImpl});
+
+        const admissionPromise = client.init({expectedIdentity: IDENTITY});
+
+        await started;
+
+        await client.close();
+
+        // The barrier resolved only after the fenced proof settled and its candidate was torn.
+        expect(plane.calls.filter(call => call.method === 'DELETE').length).toBeGreaterThanOrEqual(1);
+
+        const admission = await admissionPromise;
+
+        expect(admission.ok).toBe(false);
+
+        await expect(client.callTool('list_messages')).rejects.toThrow('client not initialized')
+    });
+
+    test('concurrent closers share ONE terminal barrier: a single teardown sequence', async () => {
+        const {client, plane} = await initializedClient();
+
+        await Promise.all([client.close(), client.close(), client.close()]);
+
+        expect(plane.calls.filter(call => call.method === 'DELETE')).toHaveLength(1)
     })
 });
 

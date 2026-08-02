@@ -43,25 +43,25 @@
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate globalThis.Neo so
 // the fleet singletons' `Neo.setupClass` succeeds at module-load; `InstanceManager` binds the aliases.
-import Neo                                                                from '../../../src/Neo.mjs';
-import * as core                                                          from '../../../src/core/_export.mjs';
-import InstanceManager                                                    from '../../../src/manager/Instance.mjs';
-import AiConfig                                                           from '../../config.mjs';
-import memoryCoreConfig                                                   from '../../mcp/server/memory-core/config.mjs';
-import RequestContextService                                              from '../../mcp/server/shared/services/RequestContextService.mjs';
-import FleetControlBridge                                                 from './FleetControlBridge.mjs';
-import FleetManager                                                       from './FleetManager.mjs';
-import {startFleetBridgeServer}                                           from './fleetBridgeServer.mjs';
+import Neo                      from '../../../src/Neo.mjs';
+import * as core                from '../../../src/core/_export.mjs';
+import InstanceManager          from '../../../src/manager/Instance.mjs';
+import AiConfig                 from '../../config.mjs';
+import memoryCoreConfig         from '../../mcp/server/memory-core/config.mjs';
+import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
+import FleetControlBridge       from './FleetControlBridge.mjs';
+import FleetManager             from './FleetManager.mjs';
+import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {createPlaneMailboxClient}                                         from './planeMailboxClient.mjs';
-import {readActiveWakeSubscriptionIdentities}                             from './readActiveWakeSubscriptionIdentities.mjs';
-import {wireBootIdentityReadSource}                                       from './wireBootIdentityReadSource.mjs';
-import {wireFleetActivityReadSource}                                      from './wireFleetActivityReadSource.mjs';
-import {wireFleetCatchUpSource}                                           from './wireFleetCatchUpSource.mjs';
-import {wireOperatorComposeWriter}                                        from './wireOperatorComposeWriter.mjs';
-import path                                                               from 'node:path';
-import {fileURLToPath, pathToFileURL}                                     from 'node:url';
+import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
+import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
+import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
+import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
+import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
+import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.mjs';
+import path                                   from 'node:path';
+import {fileURLToPath, pathToFileURL}         from 'node:url';
 
 const port = Number(process.env.NEO_FLEET_PORT) || 8083;
 
@@ -253,18 +253,29 @@ async function boot() {
         // process emits; the launcher that supplied (or will inject) it owns the hand-off.
         console.log(`[fleet] authenticated app<->fleet transport listening on http://127.0.0.1:${server.address().port}/fleet (viewer: ${viewer.agentIdentityNodeId}, bearer: ${process.env.NEO_FLEET_BEARER ? 'supplied' : 'generated'})`)
     } catch (error) {
-        if (error?.code !== 'EADDRINUSE') throw error;
+        // EVERY exit below this line closes the proven plane session AWAITED — startup failures,
+        // probe failures, reuse, and refusal alike would otherwise orphan it on the plane. The
+        // client's close() is a shared terminal barrier, so overlapping closers are safe.
+        if (error?.code !== 'EADDRINUSE') {
+            await planeClient?.close();
+            throw error
+        }
 
         // Occupied port: reuse-or-refuse through the incumbent's authenticated probe — never
         // silent adoption of a process we cannot verify.
-        const probe = await probeExistingFleetServer({
-            probeUrl           : `http://127.0.0.1:${port}/fleet/probe`,
-            bearerToken,
-            agentIdentityNodeId: viewer.agentIdentityNodeId
-        });
+        let probe;
 
-        // Both occupied-port exits close the proven plane session AWAITED — reuse and refusal alike
-        // would otherwise orphan it on the plane.
+        try {
+            probe = await probeExistingFleetServer({
+                probeUrl           : `http://127.0.0.1:${port}/fleet/probe`,
+                bearerToken,
+                agentIdentityNodeId: viewer.agentIdentityNodeId
+            })
+        } catch (probeError) {
+            await planeClient?.close();
+            throw probeError
+        }
+
         if (probe.reusable) {
             console.log(`[fleet] healthy Fleet already listening on port ${port} (${probe.reason}; viewer: ${probe.viewer}, pid: ${probe.pid}) — reusing it.`);
             await planeClient?.close();

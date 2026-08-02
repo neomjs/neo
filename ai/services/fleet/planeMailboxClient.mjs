@@ -86,7 +86,8 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
 
     let session = null, // {client, transport, identity} once proven
         expected     = null,
-        establishing = null; // the single-flight proof attempt every concurrent acquirer shares
+        establishing = null, // the single-flight proof attempt every concurrent acquirer shares
+        closing      = null; // the shared terminal close barrier every closer awaits
 
     /**
      * @summary Tear one session down, awaited and tolerant: the plane-side session DELETE
@@ -153,14 +154,20 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
     }
 
     /**
-     * @summary SINGLE-FLIGHT proven-session acquisition: every concurrent acquirer (recovering
-     * callers, lazy re-establishment, init) shares ONE `connectProven` attempt — N failures never
-     * produce N parallel handshakes, so exactly one proven session exists afterwards and no proven
-     * session is orphaned by a later candidate overwriting the shared slot.
-     * @returns {Promise<Object>} The shared attempt's bounded `{ok, identity?, reason?}`.
+     * @summary SINGLE-FLIGHT, GENERATION-SAFE proven-session acquisition: every concurrent acquirer
+     * (recovering callers, lazy re-establishment, init) shares ONE `connectProven` attempt — and an
+     * acquirer arriving while a proven session ALREADY exists rides it instead of starting a later
+     * proof. The two guards together kill both windows of the overwrite/orphan race: overlapping
+     * acquisitions share the latch, and post-completion acquisitions see the stored session — no
+     * generation-3 proof can ever overwrite and orphan generation 2. A closed client (no held
+     * expectation) refuses instead of reacquiring.
+     * @returns {Promise<Object>} Bounded `{ok, identity?, reason?}`.
      * @private
      */
     function acquireProven() {
+        if (!expected) return Promise.resolve({ok: false, reason: 'client closed'});
+        if (session)   return Promise.resolve({ok: true, identity: session.identity});
+
         establishing ||= connectProven().finally(() => { establishing = null });
 
         return establishing
@@ -221,9 +228,11 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
             }
 
             // Terminal-close any prior life FIRST — close() clears the expectation, so the new one
-            // is installed after it, never nulled by it.
+            // is installed after it, never nulled by it. Re-arming opens a NEW close epoch: the
+            // spent barrier is reset so a later close() tears THIS life down too.
             await this.close();
 
+            closing  = null;
             expected = next;
 
             return acquireProven()
@@ -289,13 +298,25 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
                     throw new Error(`plane ${name} failed: ${error?.name ?? 'call failure'} on a freshly established session`)
                 }
 
-                const readmission = await acquireProven();
+                // Generation-safe: a concurrent caller may already have proven the replacement —
+                // ride it. Only acquire when no current session exists (and acquireProven itself
+                // re-checks, so a still-later arrival cannot start an overwriting proof either).
+                let fresh = session;
 
-                if (!readmission.ok) {
-                    throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
+                if (!fresh) {
+                    const readmission = await acquireProven();
+
+                    if (!readmission.ok) {
+                        throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
+                    }
+
+                    fresh = session
                 }
 
-                const fresh = session;
+                if (!fresh) {
+                    // A terminal close raced the acquisition — closed beats replay.
+                    throw new Error(`plane ${name} failed: client closed during recovery`)
+                }
 
                 result = await fresh.client.callTool({name, arguments: args})
             }
@@ -322,22 +343,38 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
         },
 
         /**
-         * @summary Awaited, idempotent teardown for normal and refusal exits alike. Explicit close
-         * is TERMINAL: it clears the held identity expectation, so later calls answer
-         * "client not initialized" instead of lazily resurrecting a deliberately shut-down client
-         * (lazy re-establishment is reserved for failed recoveries, where the intent to serve
-         * still stands). An acquisition in flight at close time cannot resurrect either: clearing
-         * `expected` first makes the in-flight proof land on its own mismatch path, which tears the
-         * candidate down without storing it.
+         * @summary The SHARED TERMINAL close barrier. Every closer — explicit close, concurrent
+         * signal handlers, refusal exits — awaits the SAME promise, and that promise resolves only
+         * after (1) any in-flight establishment is fenced (awaited; with the expectation already
+         * cleared it lands on its own mismatch path and tears its candidate down — and a proof that
+         * beat the clear is captured late and torn here), and (2) the held session's teardown
+         * completed. Post-close reacquisition is refused at {@link acquireProven} (`client closed`),
+         * and later calls answer "client not initialized". `init` opens a new epoch by resetting
+         * the spent barrier after awaiting it.
          * @returns {Promise<void>}
          */
-        async close() {
-            const held = session;
+        close() {
+            closing ||= (async () => {
+                const held = session;
 
-            session  = null;
-            expected = null;
+                session  = null;
+                expected = null;
 
-            await teardown(held)
+                if (establishing) {
+                    try { await establishing } catch { /* refusal paths tear their own candidate */ }
+                }
+
+                // A proof that completed between the clear above and its own mismatch check may
+                // have stored — capture and tear it so no candidate survives the barrier.
+                const late = session;
+
+                session = null;
+
+                await teardown(held);
+                await teardown(late)
+            })();
+
+            return closing
         }
     }
 }
