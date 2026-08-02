@@ -8,6 +8,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import Base                        from '../../../src/core/Base.mjs';
 import {resolveFleetCredentialKey} from './FleetRegistryService.mjs';
+import {
+    normalizeAgentIdentity,
+    parseMcpEnvelope,
+    readMcpToolPayload
+} from './mcpWireParsing.mjs';
 
 /**
  * Hosts for which plain `http:` is accepted. Deliberately an exact set rather than a range or a
@@ -597,69 +602,8 @@ class FleetTenantService extends Base {
     }
 }
 
-/**
- * @summary Normalize a provider login / AgentIdentity node id to the canonical `@login` shape.
- * The provider response is remote-authored, so malformed values fail closed instead of crossing
- * into diagnostics.
- * @param {*} value
- * @returns {String|null}
- * @private
- */
-function normalizeAgentIdentity(value) {
-    if (typeof value !== 'string') return null;
-
-    const login = value.trim().replace(/^AGENT_IDENTITY:/, '').replace(/^@/, '');
-
-    return login && /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$/.test(login) ? `@${login}` : null
-}
-
-/**
- * @summary Parse one JSON or SSE MCP response envelope without forwarding remote prose.
- * @param {String} text
- * @returns {Object|null}
- * @private
- */
-function parseMcpEnvelope(text) {
-    try {
-        return JSON.parse(text)
-    } catch {}
-
-    for (const line of String(text).split(/\r?\n/)) {
-        if (!line.startsWith('data:')) continue;
-
-        try {
-            return JSON.parse(line.slice(5).trim())
-        } catch {}
-    }
-
-    return null
-}
-
-/**
- * @summary Read the JSON payload of one MCP tool result. Only structured JSON or a JSON text item
- * is accepted; arbitrary remote text never becomes a diagnostic.
- * @param {Object|null} envelope
- * @returns {Object|null}
- * @private
- */
-function readMcpToolPayload(envelope) {
-    const result = envelope?.result;
-
-    if (!result || result.isError) return null;
-    if (result.structuredContent && typeof result.structuredContent === 'object') {
-        return result.structuredContent
-    }
-
-    const text = result.content?.find?.(item => item?.type === 'text')?.text;
-
-    if (typeof text !== 'string') return null;
-
-    try {
-        return JSON.parse(text)
-    } catch {
-        return null
-    }
-}
+// normalizeAgentIdentity / parseMcpEnvelope / readMcpToolPayload live in ./mcpWireParsing.mjs —
+// the fleet subsystem's one MCP-wire parsing authority, shared with planeMailboxClient.
 
 /**
  * @summary Ask Memory Core for the request-bound caller identity inside the initialized session.

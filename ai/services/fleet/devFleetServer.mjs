@@ -21,6 +21,11 @@
  * 4. wires the mailbox-mirror source BEHIND the boundary: the adapter reads through the real
  *    `MailboxService.listMessages` under the per-request identity `RequestContextService` carries —
  *    admission is the Memory Core's decision, attributed to the transport-stamped viewer.
+ * 5. decides the mailbox-seam plane ONCE: a configured `fleet.planeBase` binds the
+ *    mailbox, compose, and catch-up seams to the containerized plane through an identity-verified
+ *    MCP client — the bearer's plane-side subject must BE the boot-resolved viewer, else startup
+ *    refuses plane mode fail-closed; an empty base keeps the in-process singletons. All-or-nothing
+ *    per boot, logged either way — the operator can always trust which plane the cockpit shows.
  *
  * Invocation: `node ai/services/fleet/devFleetServer.mjs` (or `npm run ai:fleet-server`). Loopback
  * only; the port is `NEO_FLEET_PORT` (default 8083) and must match the URL the App Worker's
@@ -44,6 +49,7 @@ import FleetControlBridge                                                 from '
 import FleetManager                                                       from './FleetManager.mjs';
 import {startFleetBridgeServer}                                           from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer} from './fleetLaunchContract.mjs';
+import {createPlaneMailboxClient}                                         from './planeMailboxClient.mjs';
 import {readActiveWakeSubscriptionIdentities}                             from './readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}                                       from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}                                      from './wireFleetActivityReadSource.mjs';
@@ -70,6 +76,29 @@ async function boot() {
     // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
     wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
 
+    // The mailbox-seam plane decision: resolved ONCE at boot, all-or-nothing, logged. The
+    // leaves resolve here at the use site (the AiConfig SSOT contract); the client itself reads no config. Fail-closed:
+    // a configured plane whose bearer resolves to any OTHER subject than the boot viewer would
+    // silently re-attribute every admission decision — refusal is the only honest outcome.
+    const planeBase   = AiConfig.fleet.planeBase.trim(),
+          planeClient = planeBase ? createPlaneMailboxClient({
+              baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
+              credential: AiConfig.fleet.planeBearer
+          }) : null;
+
+    if (planeClient) {
+        const admission = await planeClient.init({expectedIdentity: viewer.agentIdentityNodeId});
+
+        if (!admission.ok) {
+            console.error(`[fleet] plane mode refused (${planeBase}): ${admission.reason ?? `status ${admission.status}`} — fix fleet.planeBase / fleet.planeBearer, or empty the base for in-process mode.`);
+            process.exit(1)
+        }
+
+        console.log(`[fleet] mailbox/compose/catch-up seams bound to the containerized plane at ${planeBase} (viewer-verified: ${admission.identity})`)
+    } else {
+        console.log('[fleet] fleet.planeBase is empty — mailbox/compose/catch-up seams stay in-process (host plane).')
+    }
+
     // Wire the wake-telltale producer sources (the S2 axis): the config-resolved daemon PID path +
     // the trusted bulk subscription scan. This entrypoint is where config resolution belongs; the
     // adapter itself never resolves it. Fail-soft by construction — a failing scan or an absent
@@ -91,25 +120,42 @@ async function boot() {
     // the pulls reader fills the composer's last honest-empty slot so the PR/lane slot emits pr-activity
     // events (opens/reviews/merges) alongside issues + lane-claims + stall. Fail-soft: an unavailable
     // singleton leaves activitySource unwired.
-    Promise.all([
-        import('../memory-core/MailboxService.mjs'),
-        import('../memory-core/GraphService.mjs')
-    ]).then(([{default: MailboxService}, {default: GraphService}]) => {
+    if (planeClient) {
+        // Plane mode: both seams ride the verified client — no in-process memory-core spin-up at
+        // all (opening the host graph/mailbox is the split-brain read this mode exists to end).
+        // The PR/lane slot's OPTIONAL graphService is deliberately absent: its stall
+        // defer-disposition degrades per that slot's own fail-soft contract while issues/pulls
+        // keep reading the git-synced local trees (correctly host-local, ticket Out of Scope).
         wireFleetActivityReadSource({
             issuesDir   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/issues'),
             pullsDir    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/pulls'),
-            listMessages: MailboxService.listMessages.bind(MailboxService),
-            graphService: GraphService
+            listMessages: args => planeClient.listMessages(args)
         });
 
-        // The write-side sibling: the composeOperatorMessage verb's writer. Same lazy-singleton
-        // boundary discipline — the bound addMessage resolves the author + principal class from
-        // the request context the authenticated ingress stamped; the seam carries payload, never
-        // identity. Fail-soft: an unavailable singleton leaves the compose seam honestly unwired.
         wireOperatorComposeWriter({
-            addMessage: MailboxService.addMessage.bind(MailboxService)
+            addMessage: args => planeClient.addMessage(args)
         })
-    }).catch(error => console.warn('[fleet] activity source not wired:', error?.message ?? error));
+    } else {
+        Promise.all([
+            import('../memory-core/MailboxService.mjs'),
+            import('../memory-core/GraphService.mjs')
+        ]).then(([{default: MailboxService}, {default: GraphService}]) => {
+            wireFleetActivityReadSource({
+                issuesDir   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/issues'),
+                pullsDir    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/pulls'),
+                listMessages: MailboxService.listMessages.bind(MailboxService),
+                graphService: GraphService
+            });
+
+            // The write-side sibling: the composeOperatorMessage verb's writer. Same lazy-singleton
+            // boundary discipline — the bound addMessage resolves the author + principal class from
+            // the request context the authenticated ingress stamped; the seam carries payload, never
+            // identity. Fail-soft: an unavailable singleton leaves the compose seam honestly unwired.
+            wireOperatorComposeWriter({
+                addMessage: MailboxService.addMessage.bind(MailboxService)
+            })
+        }).catch(error => console.warn('[fleet] activity source not wired:', error?.message ?? error))
+    }
 
     // The mailbox mirror goes live ONLY behind the boundary: the adapter + MailboxService load
     // lazily (the established cross-process read pattern — pay the memory-core import when a pane
@@ -127,11 +173,13 @@ async function boot() {
     // notAuthority envelopes included) through a lazy import; no MCP code crosses into the Body.
     // The closure holds zero result cache. The source instance holds only per-viewer runtime anchors,
     // so a cockpit reload preserves them while this process lives and a service restart resets them.
-    const callHistoryOperation = async (name, args) => {
-        const {callTool} = await import('../../mcp/server/memory-core/toolService.mjs');
+    const callHistoryOperation = planeClient
+        ? (name, args) => planeClient.callTool(name, args)
+        : async (name, args) => {
+            const {callTool} = await import('../../mcp/server/memory-core/toolService.mjs');
 
-        return callTool(name, args)
-    };
+            return callTool(name, args)
+        };
 
     wireFleetCatchUpSource({
         exploreMemoryHistory     : args => callHistoryOperation('explore_memory_history', args),
@@ -141,10 +189,20 @@ async function boot() {
 
     FleetControlBridge.mailboxMirrorSource = {
         async readMailboxMirror(params = {}) {
-            const [{readFleetMailboxMirror}, {default: MailboxService}] = await Promise.all([
-                import('./fleetMailboxMirrorAdapter.mjs'),
-                import('../memory-core/MailboxService.mjs')
-            ]);
+            const {readFleetMailboxMirror} = await import('./fleetMailboxMirrorAdapter.mjs');
+
+            // Plane mode keeps the audit contract intact: the read executes as the plane bearer's
+            // subject, which init PROVED is the boot viewer — the same identity the ingress stamps
+            // on every request and resolveBoundIdentity reports. One identity, two witnesses.
+            if (planeClient) {
+                return readFleetMailboxMirror({
+                    listMessages        : args => planeClient.listMessages(args),
+                    resolveBoundIdentity: () => RequestContextService.getAgentIdentityNodeId(),
+                    ...params
+                })
+            }
+
+            const {default: MailboxService} = await import('../memory-core/MailboxService.mjs');
 
             return readFleetMailboxMirror({
                 mailboxService      : MailboxService,
@@ -165,6 +223,7 @@ async function boot() {
 
         const cleanShutdown = signal => {
             console.log(`[fleet] received ${signal}; stopping.`);
+            planeClient?.close();
             server.close(() => process.exit(0))
         };
 
