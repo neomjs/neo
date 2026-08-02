@@ -12,6 +12,12 @@ import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../../mcp/server/memory-core/logger.mjs';
 import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {createBoundedRetryGate} from '../shared/boundedRetryGate.mjs';
+import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
+import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
+import {
+    DELIVERABLE_HARNESS_TARGET,
+    isServerIssuedSigningKey
+} from '../../daemons/wake/buildReceiverManifest.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
@@ -518,10 +524,18 @@ export function buildProviderPrerequisiteBlock(cfg, env = process.env) {
  * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
  * Aligns with the "surface, don't obscure" principle.
  *
+ * - `subscription`: the caller-scoped arming verdict — whether THIS identity holds a wake
+ *   subscription the receiver-manifest build would accept. `armed` is tri-state: `null` means the
+ *   question could not be answered (unbound identity, unreadable graph), never "not armed".
+ *   `reason` is one of `deliverable` | `no-active-subscription` | `unmigrated-target` |
+ *   `missing-signing-key` | `unbound-identity` | `unreadable`. It reports the Memory-Core leg only
+ *   and does NOT claim a wake will arrive — see {@link buildSubscriptionArmingBlock}.
+ *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
  * @returns {Promise<{gateState: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
- *     secondsSinceLastPulse: Number|null}>}
+ *     secondsSinceLastPulse: Number|null,
+ *     subscription: {armed: Boolean|null, reason: String}}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
  * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
@@ -569,7 +583,83 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         // Other errors (permission, etc.) also degrade gracefully to defaults.
     }
 
-    return {...gateBlock, ...livenessBlock};
+    return {...gateBlock, ...livenessBlock, subscription: await buildSubscriptionArmingBlock()};
+}
+
+/**
+ * @summary Answers whether the CALLING identity holds a deliverable wake subscription — the
+ * question nothing currently asks, so an unarmed seat reads healthy on every surface.
+ *
+ * **Scope, stated precisely, because conflating the two legs is how this stays invisible.** This
+ * reports the Memory-Core side ONLY: does the caller own an active subscription that delivery would
+ * accept. It does NOT claim a wake will arrive — the receiver holds a boot-snapshotted route
+ * manifest and its own adapter coordinates, neither of which Memory Core can see. A seat can be
+ * `armed: true` here and still unreachable because its route is absent from the host manifest. The
+ * field is named for what it measures.
+ *
+ * The verdict mirrors `buildWakeReceiverManifest`'s own admission gate, in its order, because that
+ * build is what actually decides whether a route exists: `status === 'active'`, then
+ * `harnessTarget === 'a2a-webhook'`, then a server-issued `signingKey`. Re-deriving a looser rule
+ * here is how a healthcheck comes to disagree with the thing it reports on — the earlier draft of
+ * this block treated any non-`a2a-webhook` target as fine, exactly inverting the gate, so a seat
+ * that the manifest refuses to publish would have read `armed: true`.
+ *
+ * `reason` names the furthest gate the seat reached, so it points at the next repair rather than the
+ * first failure: `unmigrated-target` outranks `no-active-subscription`, and `missing-signing-key`
+ * outranks both. All three were live on this plane.
+ *
+ * **The gates are not symmetric, and the verdict follows their asymmetry.** Status and target
+ * failures SKIP their row; a missing key ABORTS the build. So one keyless row on the deliverable
+ * path leaves the seat unarmed even when other rows are perfect — the manifest cannot be built at
+ * all, so those good rows publish nothing either.
+ *
+ * Never throws, and never reports `false` on ignorance — an unbound identity (a container
+ * healthcheck carries none) or an unreadable graph yields `armed: null`. Reporting `false` there
+ * would manufacture an alarm out of a missing instrument.
+ * @returns {Promise<{armed: Boolean|null, reason: String}>}
+ * @see ai/daemons/wake/buildReceiverManifest.mjs — the gate this mirrors
+ */
+async function buildSubscriptionArmingBlock() {
+    try {
+        if (!RequestContextService.getAgentIdentityNodeId()) {
+            return {armed: null, reason: 'unbound-identity'};
+        }
+
+        // STRICT equality, deliberately. The durable list path preserves historical rows whose
+        // `status` is absent; `checkSunsetted.mjs` and `readActiveWakeSubscriptionIdentities.mjs`
+        // then treat that absence as active. The manifest builder does not: it compares
+        // `status !== 'active'` and withdraws the route. Since THIS verdict claims only "the
+        // manifest build would accept my rows", it must take the manifest's side; matching those
+        // coalescing consumers would report `deliverable` for a row the build silently skips.
+        // That reader split is a real substrate disagreement, not a preference — tracked separately.
+        const {subscriptions = []} = await WakeSubscriptionService.list(),
+              active               = subscriptions.filter(entry => entry.status === 'active');
+
+        if (active.length === 0) {
+            return {armed: false, reason: 'no-active-subscription'};
+        }
+
+        const onDeliverablePath = active.filter(entry => entry.harnessTarget === DELIVERABLE_HARNESS_TARGET);
+
+        if (onDeliverablePath.length === 0) {
+            return {armed: false, reason: 'unmigrated-target'};
+        }
+
+        // `every`, NOT `some` — and the asymmetry is the whole point. The two earlier gates SKIP a
+        // failing row (`continue`, route withdrawn), so one bad row costs only itself. The key check
+        // THROWS, aborting the entire build. A single keyless row therefore makes the manifest
+        // unbuildable for EVERY row in the set, including ones that are individually perfect. Read
+        // with `some`, a seat holding one keyed and one keyless row reported armed while the build
+        // it depends on could not run at all.
+        const armed = onDeliverablePath.every(entry =>
+            isServerIssuedSigningKey(entry.harnessTargetMetadata?.signingKey));
+
+        return armed
+            ? {armed: true,  reason: 'deliverable'}
+            : {armed: false, reason: 'missing-signing-key'};
+    } catch (e) {
+        return {armed: null, reason: 'unreadable'};
+    }
 }
 
 /**

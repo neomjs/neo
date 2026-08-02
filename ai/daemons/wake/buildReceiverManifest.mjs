@@ -72,6 +72,25 @@ export const DEFAULT_ATTEMPT_TIMEOUT_MS = 10000;
 export const DELIVERABLE_HARNESS_TARGET = 'a2a-webhook';
 
 /**
+ * Shortest string accepted as a server-issued signing key.
+ * @type {Number}
+ */
+const MIN_SIGNING_KEY_LENGTH = 32;
+
+/**
+ * @summary Whether a record carries the server-issued signing key rather than a placeholder or nothing.
+ *
+ * Exported because the health surface must answer "is this seat armed" with the SAME predicate the
+ * manifest build enforces. Re-deriving it there let the two disagree: a record can read armed on the
+ * healthcheck and then throw here, which is the silent-deafness shape this whole path exists to remove.
+ * @param {*} signingKey
+ * @returns {Boolean}
+ */
+export function isServerIssuedSigningKey(signingKey) {
+    return typeof signingKey === 'string' && signingKey.length >= MIN_SIGNING_KEY_LENGTH;
+}
+
+/**
  * Metadata keys that belong to the SENDER and must not be copied into receiver-visible route state.
  *
  * `signingKey` is promoted to the route's own top-level field, where the receiver expects it; leaving
@@ -186,7 +205,7 @@ export function buildWakeReceiverManifest({
         // record is malformed, not that we should invent one.
         const signingKey = harnessTargetMetadata.signingKey;
 
-        if (typeof signingKey !== 'string' || signingKey.length < 32) {
+        if (!isServerIssuedSigningKey(signingKey)) {
             throw new Error(
                 `Subscription '${id}' carries no server-issued signingKey; ` +
                 'the key is minted by WakeSubscriptionService at subscribe-time and cannot be generated here'

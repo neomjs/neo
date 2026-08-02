@@ -137,12 +137,37 @@ For a single-call observability check, the Memory Core healthcheck surfaces the 
         "gateTrippedBy": null,
         "daemonRunning": true,        // mtime of heartbeat-liveness file < 2× POLL_INTERVAL
         "lastPulseAt": "2026-05-07T20:51:52.141Z",
-        "secondsSinceLastPulse": 12
+        "secondsSinceLastPulse": 12,
+        "subscription": {             // caller-scoped: answers about YOUR identity's rows
+            "armed": true,
+            "reason": "deliverable"
+        }
     }
 }
 ```
 
 The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `SwarmHeartbeatService.touchLivenessFile()` at the top of every `pulse()` (the producer is the Orchestrator's swarm-heartbeat lane since #11766), NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults are documented inline at `HealthService.buildWakeFeaturesBlock`.
+
+#### `subscription` — is this seat armed to receive a wake?
+
+The other fields describe the substrate; this one describes **you**. It is RLS-scoped, so it answers only about the calling identity's own subscription rows.
+
+| `armed` | `reason` | meaning |
+|---|---|---|
+| `true`  | `deliverable` | every active `a2a-webhook` row carries a server-issued key; the manifest build would accept them |
+| `false` | `no-active-subscription` | no row with `status: 'active'` — nothing is ever attempted, so nothing fails or logs. Includes a **legacy row whose `status` is absent**: the manifest build compares strictly and skips it, so it cannot receive a wake even though other readers count it as active (see the note below) |
+| `false` | `unmigrated-target` | active rows exist, but none targets `a2a-webhook`; only that target reaches a container wake |
+| `false` | `missing-signing-key` | an active `a2a-webhook` row has no server-issued key. Repair with `manage_wake_subscription` `action: 'rotate-key'` — do **not** unsubscribe and re-subscribe, which mints a new id and orphans the published route |
+| `null`  | `unbound-identity` | no request identity is bound (a container healthcheck carries none) — the question could not be asked |
+| `null`  | `unreadable` | the subscription store could not be read |
+
+**`armed` is tri-state and `null` never means "not armed".** A missing instrument is reported as a missing instrument; claiming `false` there would manufacture an alarm out of ignorance.
+
+**One keyless row unarms the whole seat.** The status and target gates *skip* a failing row, so it costs only its own route. The key gate **throws**, aborting the entire manifest build — so a seat holding one keyed and one keyless row publishes nothing at all, including for the good row. Repair the keyless row and the rest returns with it.
+
+**A missing `status` is not treated as active here, and the substrate disagrees with itself about that.** The durable list path preserves a historical row with no `status`; `checkSunsetted.mjs` and `readActiveWakeSubscriptionIdentities.mjs` then coalesce that absence to `'active'`, while `buildWakeReceiverManifest` compares strictly and withdraws the route. This verdict follows the manifest, because its only claim is "the build would accept my rows"; siding with those coalescing consumers would report a route as deliverable that the build silently skips. If a seat reports `no-active-subscription` while its row looks present and healthy elsewhere, check whether the row predates the `status` field.
+
+**Scope, stated precisely, because conflating the two legs is how a deaf seat stays invisible.** This reports the **Memory-Core leg only**: whether you own a subscription that delivery would accept. It does **not** claim a wake will arrive. The host receiver holds a boot-snapshotted route manifest and its own adapter coordinates, neither of which Memory Core can see — so a seat can read `armed: true` and still be unreachable because its route is absent from the receiver's manifest (see 3d). To check the other leg, verify the published route on the receiver side.
 
 **Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. (The Orchestrator's per-lane outcomes are recorded via `recordTaskOutcome`, but no longer surfaced as a healthcheck block — the verbose `orchestrator.tasks` block was trimmed to keep the probe lean.)
 
