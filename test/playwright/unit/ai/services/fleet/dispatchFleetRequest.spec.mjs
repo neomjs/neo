@@ -128,14 +128,16 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
             // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
             // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
-            // assembled roster DTO + viewer-bound catch-up history + one agent's mailbox mirror +
-            // the whoami identity-bootstrap) plus the two explicit write verbs. Catch-up mark is
-            // process-local only; compose persists payload while the server stamps identity.
-            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetHistory', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'markFleetCaughtUp', 'removeAgent', 'resolveViewerIdentity', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            // assembled roster DTO + viewer-bound catch-up history + one page of an agent's turn
+            // memories + one agent's mailbox mirror + the whoami identity-bootstrap) plus the two
+            // explicit write verbs. Catch-up mark is process-local only; compose persists payload
+            // while the server stamps identity.
+            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetHistory', 'fleetMailboxMirror', 'fleetMemories', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'markFleetCaughtUp', 'removeAgent', 'resolveViewerIdentity', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');
         expect(FLEET_WIRE_METHODS).toContain('fleetHistory');
+        expect(FLEET_WIRE_METHODS).toContain('fleetMemories');
         expect(FLEET_WIRE_METHODS).toContain('fleetRoster');
         // the wire's first WRITE verb: compose rides the authenticated transport with a whitelisted
         // payload — the author is the server-stamped ambient identity, never a wire parameter

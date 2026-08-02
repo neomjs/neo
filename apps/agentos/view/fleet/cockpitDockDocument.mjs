@@ -34,6 +34,9 @@ export function cockpitDockDocument() {
             // invoked historical complement to the bounded Activity stream — source-owned Bird
             // Views, Fleet-owned runtime anchor, never ambient cockpit density
             catchUp     : {componentRef: 'catch-up',          title: 'Catch up',     kind: 'tool',      autoHidden: true},
+            // invoked per-agent turn recall — the memory complement to catch-up's window digests;
+            // viewer-bound plane reads, never ambient cockpit density
+            memories    : {componentRef: 'memories',          title: 'Memories',     kind: 'tool',      autoHidden: true},
             // the operator's own mailbox + compose surface — a secondary tool pane like
             // perspectives, so it rides the auto-hide rail and never crowds the split
             operator    : {componentRef: 'operator-mailbox',  title: 'Operator',     kind: 'tool',      autoHidden: true}
@@ -46,7 +49,7 @@ export function cockpitDockDocument() {
             'fleet-tabs'   : {type: 'tabs', items: ['fleet'],  activeItemId: 'fleet'},
             'stream-tabs'  : {type: 'tabs', items: ['stream'], activeItemId: 'stream'},
             // Secondary panes collapse to this edge's rail (§2.7): their item records carry `autoHidden`.
-            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent', 'catchUp', 'operator'], activeItemId: 'detail'}
+            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'operator'], activeItemId: 'detail'}
         }
     }
 }
