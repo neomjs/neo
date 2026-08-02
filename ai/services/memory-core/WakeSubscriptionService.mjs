@@ -11,6 +11,10 @@ import TurnPresenceService                                                      
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
+import {
+    activeWakeSubscriptionStatusSql,
+    isActiveWakeSubscriptionStatus
+} from './wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * @summary Renders a millisecond window as the coarsest unit that divides it evenly, for the
@@ -239,8 +243,13 @@ class WakeSubscriptionService extends Base {
             // touched through this process's lazy cache.
             this._warmPushSubscriptions();
 
+            // Shared predicate, NOT `sub.status === 'active'`. This is the hot push path, and the cache
+            // is warmed from `_hydrateSubscriptionFromDurableNode`, which preserves an absent `status`
+            // as absent rather than synthesizing one. A strict compare here publishes a route into the
+            // manifest and then never dispatches through it — a live route that reads armed everywhere
+            // and delivers nothing, which is worse than either consistent answer.
             const activeSubs = Array.from(this.subscriptionCache.values())
-                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && sub.status === 'active');
+                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && isActiveWakeSubscriptionStatus(sub.status));
 
             if (activeSubs.length === 0) {
                 this._setLiveCursor(delta.lastLogId);
@@ -1716,7 +1725,7 @@ class WakeSubscriptionService extends Base {
         });
 
         for (const subscription of this._getCandidateSubscriptions(owner, trigger, harnessTarget)) {
-            if ((subscription.status || 'active') !== 'active') continue;
+            if (!isActiveWakeSubscriptionStatus(subscription.status)) continue;
             if (this._buildSubscriptionRouteKey(subscription) === candidateRouteKey) {
                 this.subscriptionCache.set(subscription.id, subscription);
                 return subscription;
@@ -1747,7 +1756,7 @@ class WakeSubscriptionService extends Base {
             SELECT id, data FROM Nodes
             WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
               AND json_extract(data, '$.properties.agentIdentity') = ?
-              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+              AND ${activeWakeSubscriptionStatusSql()}
             ORDER BY COALESCE(
                 json_extract(data, '$.properties.updatedAt'),
                 json_extract(data, '$.properties.createdAt'),
@@ -1844,7 +1853,7 @@ class WakeSubscriptionService extends Base {
                   AND json_extract(data, '$.properties.agentIdentity') = ?
                   AND json_extract(data, '$.properties.trigger') = ?
                   AND json_extract(data, '$.properties.harnessTarget') = ?
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND ${activeWakeSubscriptionStatusSql()}
             `).all(owner, trigger, harnessTarget);
 
             return rows
@@ -1874,7 +1883,7 @@ class WakeSubscriptionService extends Base {
                 WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
                   AND json_extract(data, '$.properties.agentIdentity') = ?
                   AND json_extract(data, '$.properties.harnessTarget') IN ('bridge-daemon', 'a2a-webhook')
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND ${activeWakeSubscriptionStatusSql()}
             `).get(identity);
             return (row?.count || 0) > 0;
         }
@@ -1904,7 +1913,7 @@ class WakeSubscriptionService extends Base {
             if (node.label !== 'WAKE_SUBSCRIPTION')   continue;
             const props = node.properties || {};
             if (props.agentIdentity !== owner)        continue;
-            if ((props.status || 'active') !== 'active') continue;
+            if (!isActiveWakeSubscriptionStatus(props.status)) continue;
             const entry = {id: node.id, ...props};
             if (!predicate(entry))                    continue;
             candidates.push(entry);

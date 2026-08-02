@@ -7,6 +7,10 @@ import Database                       from 'better-sqlite3';
 import fs                             from 'fs-extra';
 import path                           from 'path';
 import {pathToFileURL}                from 'url';
+import {
+    activeWakeSubscriptionStatusSql,
+    WAKE_SUBSCRIPTION_DEFAULT_STATUS
+} from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * @module ai.scripts.maintenance.compactGraphLog
@@ -192,7 +196,7 @@ export function listActiveWakeSubscriptions({db}) {
     return db.prepare(`
         SELECT id, data FROM Nodes
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+          AND ${activeWakeSubscriptionStatusSql()}
     `).all()
         .map(row => parseWakeSubscriptionRow(row))
         .filter(Boolean);
@@ -213,7 +217,7 @@ export function parseWakeSubscriptionRow(row) {
             agentIdentity: props.agentIdentity || null,
             harnessTarget: props.harnessTarget || null,
             trigger      : props.trigger || null,
-            status       : props.status || 'active'
+            status       : props.status ?? WAKE_SUBSCRIPTION_DEFAULT_STATUS
         };
     } catch (e) {
         return null;

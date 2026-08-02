@@ -2384,18 +2384,17 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
         expect(await arming()).toEqual({armed: false, reason: 'unmigrated-target'});
     });
 
-    test('a legacy row with no `status` is NOT armed — the manifest skips it, whatever other readers do', async () => {
-        // The verdict follows the manifest builder (strict `status !== 'active'`). The durable list
-        // path preserves this historical row without inventing a status, while checkSunsetted.mjs
-        // and readActiveWakeSubscriptionIdentities.mjs treat that absence as active. The build still
-        // refuses it. Reporting `deliverable` here would be the exact false positive this block
-        // exists to remove.
+    test('a legacy row with no `status` IS armed — every reader now resolves absence the same way', async () => {
+        // This assertion was previously inverted, and deliberately so: the builder compared strictly
+        // while lifecycle and fleet consumers defaulted the lister's unchanged missing value to
+        // active. This verdict sided with the builder because that is the only thing it claims. The
+        // readers now share one predicate (absent ⇒ active), so the verdict and builder agree.
         const record = deliverableRecord();
         delete record.status;
 
         WakeSubscriptionService.list = async () => ({subscriptions: [record]});
 
-        expect(await arming()).toEqual({armed: false, reason: 'no-active-subscription'});
+        expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
     });
 
     test('ONE keyless row unarms the whole seat — the key gate aborts the build, it does not skip', async () => {
@@ -2516,18 +2515,27 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
         })).toThrow(/signingKey/);
     });
 
-    test('AGREEMENT (legacy no-status): unarmed here AND skipped by the builder', async () => {
+    test('AGREEMENT (legacy no-status): armed here AND published by the builder', async () => {
+        // THE convergence falsifier. The invariant under test is not "absent means active" — it is
+        // that the health verdict and the manifest builder give a legacy row the SAME answer. That
+        // invariant is what the split violated (armed-looking on every ordinary surface, silently
+        // dropped at publication) and it is what the shared predicate now enforces.
+        //
+        // It is asserted from BOTH ends on purpose: the verdict alone would pass if health simply
+        // never armed anything, and the build alone would pass if it published everything. Only the
+        // pair pins agreement, and it goes red if either side is hand-compared again — in EITHER
+        // direction, which the previous single-direction form could not do.
+        //
         // Production-reachable, not a hand-built specimen: the durable lister returns caller-owned
-        // rows without a status filter and `_hydrateSubscriptionFromDurableNode` copies persisted
-        // properties verbatim, so `list()` yields this row with `status` still absent while the build
-        // skips it. Health must side with the build, because that is the only thing its verdict claims.
+        // rows and `_hydrateSubscriptionFromDurableNode` copies persisted properties verbatim, so a
+        // row whose `status` was never written arrives from `list()` exactly like this.
         const legacy = deliverableRecord({id: 'WAKE_SUB:legacy-no-status'});
         delete legacy.status;
 
         WakeSubscriptionService.list = async () => ({subscriptions: [legacy]});
-        expect(await arming()).toEqual({armed: false, reason: 'no-active-subscription'});
+        expect(await arming()).toEqual({armed: true, reason: 'deliverable'});
 
-        // Paired with a valid row so this asserts the SKIP, not the empty-manifest guard.
+        // Paired with a valid row so this asserts publication, not the empty-manifest guard.
         const keyed = deliverableRecord({id: 'WAKE_SUB:legacy-companion'});
 
         const {manifest, skipped} = buildWakeReceiverManifest({
@@ -2535,8 +2543,8 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
             callerIdentity: '@spec-seat'
         });
 
-        expect(Object.keys(manifest.routes)).not.toContain('WAKE_SUB:legacy-no-status');
-        expect(skipped.map(entry => entry.subscriptionId)).toContain('WAKE_SUB:legacy-no-status');
+        expect(Object.keys(manifest.routes)).toContain('WAKE_SUB:legacy-no-status');
+        expect(skipped.map(entry => entry.subscriptionId)).not.toContain('WAKE_SUB:legacy-no-status');
     });
 });
 

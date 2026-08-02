@@ -36,6 +36,11 @@ import WakeSubscriptionService                            from '../../../service
 import wakeDecisionServiceInstance, {WakeDecisionService} from './WakeDecisionService.mjs';
 import {swarmWakeCooldown as swarmWakeCooldownScript}     from '../../../scripts/lifecycle/swarmWakeCooldown.mjs';
 import {
+    activeWakeSubscriptionStatusSql,
+    isActiveWakeSubscriptionStatus,
+    resolvedWakeSubscriptionStatusSql
+} from '../../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
+import {
     resolveTargets        as resolveHeartbeatTargets,
     VALID_TARGET_SOURCES
 } from '../scheduling/swarmHeartbeat.mjs';
@@ -583,7 +588,7 @@ class SwarmHeartbeatService extends Base {
                 .filter(subscription =>
                     subscription.trigger === 'SENT_TO_ME' &&
                     subscription.harnessTarget === 'bridge-daemon' &&
-                    (subscription.status || 'active') === 'active'
+                    isActiveWakeSubscriptionStatus(subscription.status)
                 )
                 .sort((a, b) =>
                     Date.parse(b.updatedAt || b.createdAt || '') -
@@ -747,7 +752,7 @@ class SwarmHeartbeatService extends Base {
                 FROM Nodes
                 WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
                   AND json_extract(data, '$.properties.trigger') = 'SENT_TO_ME'
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND ${activeWakeSubscriptionStatusSql()}
                   AND COALESCE(json_extract(data, '$.properties.harnessTarget'), '') != 'disabled'
                   AND json_extract(data, '$.properties.agentIdentity') IS NOT NULL
             `);
@@ -1092,7 +1097,7 @@ class SwarmHeartbeatService extends Base {
                   AND json_extract(data, '$.properties.agentIdentity') = ?
                   AND json_extract(data, '$.properties.trigger') = 'SENT_TO_ME'
                   AND json_extract(data, '$.properties.harnessTarget') IN (${PUSH_CAPABLE_TARGETS.map(() => '?').join(', ')})
-                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
+                  AND ${resolvedWakeSubscriptionStatusSql()} != 'degraded'
             `);
             const row = stmt.get(identity, ...PUSH_CAPABLE_TARGETS);
             return (row?.count || 0) > 0

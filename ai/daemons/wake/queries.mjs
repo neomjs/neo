@@ -1,6 +1,9 @@
 import fs                              from 'fs-extra';
 import Database                        from 'better-sqlite3';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../graph/storage/constants.mjs';
+// Only the WAKE_SUBSCRIPTION reads below use this. The HARNESS_PRESENCE query later in this file
+// carries the same COALESCE idiom for a DIFFERENT entity and must not be folded into it.
+import { activeWakeSubscriptionStatusSql } from '../../services/memory-core/wakeSubscriptionStatusPolicy.mjs';
 
 export function initializeDatabase(dbPath) {
     try {
@@ -92,7 +95,7 @@ export function getActiveShapeCSubscriptions(db) {
         FROM Nodes
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
           AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+          AND ${activeWakeSubscriptionStatusSql()}
     `);
     return collapseDuplicateShapeCRoutes(stmt.all().map(row => JSON.parse(row.data)));
 }
