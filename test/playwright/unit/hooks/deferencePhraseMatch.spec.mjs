@@ -15,12 +15,31 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('So - which do you want me driving next?')).toBe('do you want me');
     });
 
+    test("matches the operator-flagged lane-handback slip (#16325)", () => {
+        // The list already carried "if you'd rather" and "unless you want me", so this composition read
+        // as covered while returning null - on the autonomous path too, not just under the operator carve.
+        expect(matchDeferencePhrase("That's next unless you'd rather I take something else."))
+            .toBe("unless you'd rather");
+
+        // The negative control that keeps the addition honest: a decisive authority-boundary statement
+        // is not deference, and must stay silent.
+        expect(matchDeferencePhrase('Next: #16208. The merge is yours per critical_gates 1.')).toBeNull();
+
+        // The near-miss guard that already existed for "unless you ..." must survive.
+        expect(matchDeferencePhrase('The test fails unless you mock the system clock.')).toBeNull();
+
+        // Reporting the phrase is not using it - this ticket's own body does exactly that.
+        expect(matchDeferencePhrase("The phrase unless you'd rather is part of the deference register."))
+            .toBeNull();
+    });
+
     test('matches each tight phrase case-insensitively', () => {
         expect(matchDeferencePhrase('WOULD YOU LIKE ME TO open the PR?')).toBe('would you like me to');
         expect(matchDeferencePhrase('I can take it unless you want me elsewhere.')).toBe('unless you want me');
         expect(matchDeferencePhrase('Want me to start the refactor?')).toBe('want me to');
         expect(matchDeferencePhrase('Your steer on the next lane.')).toBe('Your steer on');
         expect(matchDeferencePhrase("IF YOU'D RATHER, I can leave this parked.")).toBe("if you'd rather");
+        expect(matchDeferencePhrase("I can take it UNLESS YOU'D RATHER I picked another.")).toBe("unless you'd rather");
         expect(matchDeferencePhrase('I can do this, or steer me elsewhere.')).toBe('or steer me elsewhere');
         expect(matchDeferencePhrase('Your call on the branch cut.')).toBe('your call');
         expect(matchDeferencePhrase('Your move.')).toBe('your move');
@@ -91,6 +110,7 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(DEFERENCE_PHRASES).toContain('do you want me');
         expect(DEFERENCE_PHRASES).toContain('Your steer on');
         expect(DEFERENCE_PHRASES).toContain("if you'd rather");
+        expect(DEFERENCE_PHRASES).toContain("unless you'd rather");
         expect(DEFERENCE_PHRASES).toContain('or steer me elsewhere');
         expect(DEFERENCE_REMINDER).toContain('helpful assistant');
         expect(reminder).toContain('equal peer');
