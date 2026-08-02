@@ -135,6 +135,10 @@ export async function writeKnobOverride({
           // this exists to prevent.
           tempPath     = `${overridePath}.${knob}.tmp`;
 
+    // The mount exists but its subdirectory may not on a plane that has never written one, and a
+    // writer that requires someone else to have created its destination first is a boot-ordering
+    // dependency wearing a filesystem error.
+    await fsModule.mkdir(overrideDir, {recursive: true});
     await fsModule.writeFile(tempPath, `${JSON.stringify(next, null, 4)}\n`, {mode: 0o644});
     await fsModule.rename(tempPath, overridePath);
 

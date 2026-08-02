@@ -131,6 +131,7 @@ test.describe('recoveryOverrideStore — a write aimed at a boot path (#16374)',
 
         const before   = await readRecoveryOverrides(overridePath),
               fsModule = {
+                  mkdir    : fs.mkdir,
                   readFile : fs.readFile,
                   writeFile: fs.writeFile,
                   rename   : async () => { throw new Error('simulated rename failure') }
@@ -158,6 +159,23 @@ test.describe('recoveryOverrideStore — a write aimed at a boot path (#16374)',
 
     test('a missing overlay is an empty starting point, not an error', async () => {
         expect(await readRecoveryOverrides(overridePath)).toEqual({});
+    });
+
+    test('the destination directory is created — the writer owns its own path', async () => {
+        // A plane that has never written an overlay has no such directory. A writer that requires
+        // someone else to create its destination first is a boot-ordering dependency wearing a
+        // filesystem error, and it fails at exactly the moment the actuator is most needed.
+        const nested = path.join(dir, 'deployment-state');
+
+        const result = await writeKnobOverride({context: CTX, knob: KNOB, overrideDir: nested, values: VALUES, env: {}});
+
+        expect(result.applied).toBe(true);
+        expect(await readRecoveryOverrides(path.join(nested, RECOVERY_OVERRIDE_FILENAME))).toEqual({
+            memoryService: {
+                generateMiniSummaryTimeoutMs: 40000,
+                miniSummaryTimeoutMs        : 60000
+            }
+        });
     });
 
     test('the required context is reachable without importing the registry', async () => {
