@@ -353,6 +353,14 @@ class DragDrop extends Base {
     resetDragState() {
         let me = this;
 
+        // Idempotent second release site for the sensor-side gesture selection guard — NOT an
+        // off-document-release fallback: resetDragState() is only reached downstream of the
+        // sensor's own `drag:end`. The Mouse sensor owns the physical mousedown→release bracket,
+        // including lost-release recovery on its own move stream; this line just keeps the two
+        // layers from drifting should that bracket's semantics ever change.
+        // Guarded: bare test harnesses may stub `document` without a body/classList.
+        document.body?.classList?.remove('neo-drag-active');
+
         DragDrop.prototype.promoteWindowDragParkRecovery.call(me);
 
         Object.assign(me, {
