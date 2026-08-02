@@ -234,6 +234,24 @@ class ConfigBase extends ConfigProvider {
                  * @type {string}
                  */
                 instanceRoot   : leaf(path.resolve(planeDataRootDefault, 'fleet/instances'), 'NEO_FLEET_INSTANCE_ROOT', 'string', {planeMember: true}),
+                /**
+                 * Canonical base of the containerized Agent OS plane the Fleet server's mailbox,
+                 * compose, and catch-up seams consume (`<base>/mc/mcp` is derived — the
+                 * connected-tenant resource contract). EMPTY means in-process binding: correct for machines without
+                 * the container stack; the dockerized canonical machine activates plane mode via
+                 * its operator overlay or env (e.g. `http://127.0.0.1:3102`). Not a plane member —
+                 * this is host-edge consumer config, not a data-root path.
+                 * @type {string}
+                 */
+                planeBase: leaf('', 'NEO_FLEET_PLANE_BASE', 'string'),
+                /**
+                 * Bearer credential for the plane's MCP resources. The plane resolves this to its
+                 * canonical subject, and the Fleet entry refuses plane mode unless that subject IS
+                 * the boot-resolved viewer (the single-viewer invariant). Empty is accepted
+                 * only by planes that admit tokenless callers; admission failure degrades honestly.
+                 * @type {string}
+                 */
+                planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
                 harnessBinaries: {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly
