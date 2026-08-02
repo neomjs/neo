@@ -95,7 +95,6 @@ export const IDENTITIES = [
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
                 filters              : {priority: 'high'},
-                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName     : 'Claude',
                     tabShortcut : '3',
@@ -174,7 +173,6 @@ export const IDENTITIES = [
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
                 filters              : {priority: 'high'},
-                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName     : 'Claude',
                     tabShortcut : '3',
@@ -292,7 +290,6 @@ export const IDENTITIES = [
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
                 filters              : {priority: 'high'},
-                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     // The macOS app is `Antigravity` (Google's IDE forked from Cursor;
                     // CFBundleName + CFBundleDisplayName: 'Antigravity'). Empirically verified
@@ -347,7 +344,6 @@ export const IDENTITIES = [
             subscriptionTemplate: {
                 trigger              : 'SENT_TO_ME',
                 filters              : {priority: 'high'},
-                harnessTarget        : 'bridge-daemon',
                 harnessTargetMetadata: {
                     adapter     : 'osascript',
                     appName     : 'Codex',

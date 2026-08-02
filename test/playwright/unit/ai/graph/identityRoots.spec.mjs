@@ -117,13 +117,12 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
     const expectedTemplate = {
         trigger              : 'SENT_TO_ME',
         filters              : {priority: 'high'},
-        harnessTarget        : 'bridge-daemon',
         harnessTargetMetadata: {appName: 'Claude', tabShortcut: '3', focusSeedKey: 'space'}
     };
 
     // Identities that carry the static, machine-agnostic wake template.
     for (const id of ['@neo-opus-ada', '@neo-opus-vega']) {
-        test(`${id} defines the machine-agnostic bridge-daemon wake route`, () => {
+        test(`${id} defines policy and GUI hints only — never a transport`, () => {
             const entry = findIdentity(id);
             expect(entry, `${id} must be a registered AgentIdentity root`).toBeTruthy();
 
@@ -146,6 +145,28 @@ test.describe('ai/graph/identityRoots — same-app Claude wake routes', () => {
             expect(meta.addressType,     'addressType must not be committed').toBeUndefined();
         });
     }
+
+    test('NO identity template declares a transport — a committed one can never be deliverable', () => {
+        // The regression guard. Every template shipped `harnessTarget: 'bridge-daemon'`, which
+        // `buildReceiverManifest` withdraws by design — so `bootstrap()` minted rows the builder
+        // was built to reject, reported success, and left the seat reading `status: 'active'`
+        // while dark.
+        //
+        // Re-adding one cannot be made to work by choosing a better value, which is why this
+        // asserts ABSENCE rather than a correct target: the two things that make a route
+        // deliverable are both un-committable. The signing key is minted server-side at
+        // subscribe-time, and the address is per-machine and arrives via the boot envelope. A
+        // repository file can hold neither, so transport is derived at bootstrap from
+        // DELIVERABLE_HARNESS_TARGET — the same constant the manifest builder enforces.
+        const offenders = IDENTITIES
+            .filter(entry => entry.properties?.subscriptionTemplate?.harnessTarget !== undefined)
+            .map(entry => `${entry.id} → '${entry.properties.subscriptionTemplate.harnessTarget}'`);
+
+        expect(
+            offenders,
+            `subscriptionTemplate.harnessTarget is derived, never declared. Offending identities:\n${offenders.join('\n')}`
+        ).toEqual([]);
+    });
 
     // Self-registered-runtime identities carry NO static template: their wake route registers at
     // runtime from a distinct boot env. @neo-opus-grace uses a self-registered WAKE_SUBSCRIPTION;
@@ -254,7 +275,6 @@ test.describe('ai/graph/identityRoots — Codex wake route', () => {
         expect(entry.properties.subscriptionTemplate).toMatchObject({
             trigger              : 'SENT_TO_ME',
             filters              : {priority: 'high'},
-            harnessTarget        : 'bridge-daemon',
             harnessTargetMetadata: {
                 adapter     : 'osascript',
                 appName     : 'Codex',
