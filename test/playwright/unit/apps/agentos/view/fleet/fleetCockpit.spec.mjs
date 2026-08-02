@@ -1973,7 +1973,7 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
     const makeReadOwner = ({subject = 'NODE:operator', priorSnapshot = null, generation = 0, isDestroyed = false} = {}) => {
         const pane    = {snapshot: priorSnapshot},
               cockpit = {
-                  getReference               : reference => reference === 'operator-mailbox' ? pane : null,
+                  getOperatorMailboxPane     : () => pane,
                   operatorRecord             : subject ? {agentIdentityNodeId: subject} : null,
                   operatorSnapshot           : priorSnapshot,
                   operatorInboxReadGeneration: generation,
@@ -2150,6 +2150,17 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         expect(pane.snapshot).toBe(snapshot)
     });
 
+    test('inbox · a gesture-torn mailbox resolves through its owner-held vessel handle', async () => {
+        const docked  = {id: 'docked'},
+              torn    = {id: 'torn'},
+              cockpit = {
+                  getReference      : reference => reference === 'operator-mailbox' ? docked : null,
+                  tearOutPaneHandles: {operator: torn}
+              };
+
+        expect(FleetCockpit.prototype.getOperatorMailboxPane.call(cockpit)).toBe(torn)
+    });
+
     test('inbox · a superseded read never overwrites newer news (generation fence)', async () => {
         const fresh = {rows: ['fresh']},
               stale = {rows: ['stale']};
@@ -2211,7 +2222,7 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
 
         const paneSets = [],
               pane     = {set(cfg) { paneSets.push(cfg) }},
-              cockpit  = {operatorRecord: null, getReference: reference => reference === 'operator-mailbox' ? pane : null};
+              cockpit  = {operatorRecord: null, getOperatorMailboxPane: () => pane};
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
@@ -2236,9 +2247,9 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
     test('identity · an autoHidden pane (not materialized at boot) still seeds the record for a reveal-time read', async () => {
         setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-opus-grace'})});
 
-        // the pane is not materialized yet (getReference → null); the `?.set` no-ops but the record is held
+        // the pane is not materialized yet (accessor → null); the `?.set` no-ops but the record is held
         // owner-side (with the possession authority), so a later projection materializes the pane and reads
-        const cockpit = {operatorRecord: null, getReference: () => null};
+        const cockpit = {operatorRecord: null, getOperatorMailboxPane: () => null};
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
