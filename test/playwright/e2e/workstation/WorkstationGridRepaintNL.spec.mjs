@@ -1,6 +1,65 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
+ * Reads the rendered split geometry around the horizontal dock splitter (sibling precedent:
+ * `WorkstationNL.spec.mjs` — the deferred projection must apply the committed split to live
+ * DOM extents before any residue gate is meaningful).
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object|null>}
+ */
+const readHorizontalSplitGeometry = page => page.evaluate(() => {
+    const
+        splitter = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
+        children = splitter && [...splitter.parentElement.children]
+            .filter(element => !element.classList.contains('neo-dashboard-dock-splitter'));
+
+    if (!splitter || children.length < 2) return null;
+
+    const
+        first    = children[0].getBoundingClientRect(),
+        second   = children[1].getBoundingClientRect(),
+        boundary = splitter.getBoundingClientRect();
+
+    return {
+        boundaryWidth: boundary.width,
+        firstWidth   : first.width,
+        secondWidth  : second.width
+    }
+});
+
+/**
+ * Arms a MutationObserver that flips a page-global flag the moment the workspace enters the
+ * shared dock-motion lifecycle — the positive barrier that absence-of-residue checks can
+ * never provide (zero `.neo-dashboard-dock-animating` is the natural state BEFORE the
+ * deferred projection starts; only a seen-entry proves the gates run after it).
+ * @param {import('@playwright/test').Page} page
+ */
+const armSplitterMotionWitness = page => page.evaluate(() => {
+    const root = document.querySelector('.workstation-workspace');
+
+    globalThis.__gridRepaintSplitterMotion?.observer?.disconnect();
+    globalThis.__gridRepaintSplitterMotion = {
+        observer: new MutationObserver(() => {
+            root.classList.contains('neo-dashboard-dock-animating')
+                && (globalThis.__gridRepaintSplitterMotion.seen = true)
+        }),
+        seen: root.classList.contains('neo-dashboard-dock-animating')
+    };
+    globalThis.__gridRepaintSplitterMotion.observer.observe(root, {
+        attributeFilter: ['class'],
+        attributes     : true
+    })
+});
+
+/**
+ * Retires the armed motion witness.
+ * @param {import('@playwright/test').Page} page
+ */
+const disarmSplitterMotionWitness = page => page.evaluate(() => {
+    globalThis.__gridRepaintSplitterMotion?.observer?.disconnect()
+});
+
+/**
  * @summary Whitebox E2E witness for the grid-freeze-after-splitter hypothesis.
  *
  * Separates three truths that green backend receipts alone conflate:
@@ -191,9 +250,11 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
         const DRAG_CYCLES = 10;
 
         for (let cycle = 1; cycle <= DRAG_CYCLES; cycle++) {
-            const sizesBefore = (await app.getDockTopology(wsId)).document.nodes['split-main'].sizes,
-                  direction   = cycle % 2 === 0 ? -90 : 90;
+            const sizesBefore    = (await app.getDockTopology(wsId)).document.nodes['split-main'].sizes,
+                  geometryBefore = await readHorizontalSplitGeometry(page),
+                  direction      = cycle % 2 === 0 ? -90 : 90;
 
+            await armSplitterMotionWitness(page);
             await dragSplitter(direction);
 
             // Settlement off the committed document — never a fixed delay
@@ -202,8 +263,24 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 {message: `cycle ${cycle}: the resizeSplit document must commit with new sizes`, timeout: 8000, intervals: [100]}
             ).not.toBe(JSON.stringify(sizesBefore));
 
-            // Semantic settlement: the FLIP staging must be fully retired and the projection's
-            // animation flag cleared — measured off committed DOM state, never a fixed delay
+            // Positive projection barrier 1: the deferred projection must apply the committed
+            // split to LIVE DOM extents — a document commit alone says nothing about projection
+            await expect.poll(
+                async () => {
+                    const geometry = await readHorizontalSplitGeometry(page);
+                    return geometry ? Math.abs(geometry.firstWidth - geometryBefore.firstWidth) : -Infinity
+                },
+                {message: `cycle ${cycle}: the deferred projection must apply the committed split to live DOM extents`, timeout: 8000, intervals: [100]}
+            ).toBeGreaterThan(20);
+
+            // Positive projection barrier 2: the shared dock-motion lifecycle must have been
+            // ENTERED — only then do the residue gates run after, not before, projection
+            await expect.poll(
+                async () => page.evaluate(() => globalThis.__gridRepaintSplitterMotion.seen),
+                {message: `cycle ${cycle}: the committed resize must enter the dock-motion lifecycle`, timeout: 8000, intervals: [50]}
+            ).toBe(true);
+
+            // Residue gates — meaningful only behind both positive barriers
             await expect.poll(
                 async () => page.locator('.neo-dashboard-dock-animating').count(),
                 {message: `cycle ${cycle}: projection animation must settle`, timeout: 8000, intervals: [100]}
@@ -212,6 +289,8 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
                 async () => page.locator('.neo-dock-flip-fixed-stage').count(),
                 {message: `cycle ${cycle}: the FLIP staging frame must be fully retired`, timeout: 8000, intervals: [100]}
             ).toBe(0);
+
+            await disarmSplitterMotionWitness(page);
 
             // live identities after cycle 1 only — later cycles re-prove the repaint discriminant
             if (cycle === 1) {
@@ -296,18 +375,41 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
 
         expect(scaleStore?.id, 'the provider-owned scale store must be findable').toBeTruthy();
 
+        // Resolve this run's scale surface dynamically — generated ids are process-global and
+        // must never be hardcoded: pane → grid body → visible row 0 → its record identity
+        const scalePanes  = await app.findInstances({className: 'Workstation.view.ScalePane'}, ['id']),
+              scalePaneId = (Array.isArray(scalePanes) ? scalePanes : [scalePanes])[0]?.id;
+
+        expect(scalePaneId, 'the ScalePane component must exist in this run').toBeTruthy();
+
+        const bodyProps   = await app.getComponent(scalePaneId, ['body.id']),
+              scaleBodyId = bodyProps['body.id'];
+
+        expect(scaleBodyId, 'the scale grid body id must resolve dynamically').toBeTruthy();
+
+        const scaleRowComponent = `${scaleBodyId}__row-0`,
+              scaleRowRecord    = (await app.getComponent(scaleRowComponent, ['record.id']))['record.id'];
+
+        expect(scaleRowRecord != null, 'row 0 must carry a live record identity in this run').toBe(true);
+
+        const scaleIdentityBefore = {
+            pane  : await app.callMethod(wsId, 'getPaneIdentity', ['scale']),
+            record: scaleRowRecord,
+            store : scaleStore.id
+        };
+
+        expect(scaleIdentityBefore.pane, 'live scale pane identity must exist before the drag').toBeTruthy();
+
         let markerSeq = 1;
 
         // Mutate the SAME already-visible Model's counter field through the row component's
         // own `record` handle — the ordinary existing-record repaint path (record.set → store
         // recordChange → Body.onStoreRecordChange → pooled-row redraw), never an
         // insert/materialization shortcut that can green over a detached recordChange listener.
-        const SCALE_ROW_COMPONENT = 'neo-grid-body-1__row-0';
-
         const mutateTopCounter = async () => {
             const marker = 900000 + markerSeq++;
 
-            await app.callMethod(SCALE_ROW_COMPONENT, 'record.set', [{counter: marker}]);
+            await app.callMethod(scaleRowComponent, 'record.set', [{counter: marker}]);
 
             const storeBack = await app.callMethod(scaleStore.id, 'getAt', [0]);
 
@@ -325,7 +427,7 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             const row  = document.getElementById(rowId),
                   cell = row?.querySelector('[data-field="counter"]');
             return cell ? cell.textContent.trim() : null
-        }, SCALE_ROW_COMPONENT);
+        }, scaleRowComponent);
 
         // --- pre-drag control on the pane the main split resizes --------------------------
         const pre = await mutateTopCounter();
@@ -346,7 +448,10 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
 
         expect(splitterDomId2, 'the horizontal splitter must exist in the vdom').toBeTruthy();
 
-        const sizesBefore = (await app.getDockTopology(wsId)).document.nodes['split-main'].sizes;
+        const sizesBefore    = (await app.getDockTopology(wsId)).document.nodes['split-main'].sizes,
+              geometryBefore = await readHorizontalSplitGeometry(page);
+
+        await armSplitterMotionWitness(page);
 
         await app.simulateEvent([{
             options : {bubbles: true, button: 0, clientX: cx, clientY: cy},
@@ -374,7 +479,24 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             {message: 'the resizeSplit document must commit with new sizes', timeout: 8000, intervals: [100]}
         ).not.toBe(JSON.stringify(sizesBefore));
 
-        // Semantic settlement: FLIP staging retired + projection animation cleared
+        // Positive projection barrier 1: the deferred projection must apply the committed
+        // split to LIVE DOM extents — a document commit alone says nothing about projection
+        await expect.poll(
+            async () => {
+                const geometry = await readHorizontalSplitGeometry(page);
+                return geometry ? Math.abs(geometry.firstWidth - geometryBefore.firstWidth) : -Infinity
+            },
+            {message: 'the deferred projection must apply the committed split to live DOM extents', timeout: 8000, intervals: [100]}
+        ).toBeGreaterThan(20);
+
+        // Positive projection barrier 2: the shared dock-motion lifecycle must have been
+        // ENTERED — only then do the residue gates run after, not before, projection
+        await expect.poll(
+            async () => page.evaluate(() => globalThis.__gridRepaintSplitterMotion.seen),
+            {message: 'the committed resize must enter the dock-motion lifecycle', timeout: 8000, intervals: [50]}
+        ).toBe(true);
+
+        // Residue gates — meaningful only behind both positive barriers
         await expect.poll(
             async () => page.locator('.neo-dashboard-dock-animating').count(),
             {message: 'projection animation must settle', timeout: 8000, intervals: [100]}
@@ -383,6 +505,24 @@ test.describe('Workstation — grid repaint truth across a real splitter drag', 
             async () => page.locator('.neo-dock-flip-fixed-stage').count(),
             {message: 'the FLIP staging frame must be fully retired', timeout: 8000, intervals: [100]}
         ).toBe(0);
+
+        await disarmSplitterMotionWitness(page);
+
+        // Same-run identity reassert: pane, store, and row-record must be the SAME instances
+        // the pre-drag controls bound — projection must not have swapped them
+        expect(
+            await app.callMethod(wsId, 'getPaneIdentity', ['scale']),
+            'live scale pane identity must survive the drag'
+        ).toBe(scaleIdentityBefore.pane);
+        expect(
+            (await app.getComponent(scaleRowComponent, ['record.id']))['record.id'],
+            'row 0 must carry the SAME record instance identity after the drag'
+        ).toBe(scaleIdentityBefore.record);
+        expect(
+            (await app.findInstances({className: 'Workstation.store.Scale'}, ['id']))
+                .map(store => (Array.isArray(store) ? store : [store])[0]?.id ?? store.id)[0],
+            'the scale store instance identity must survive the drag'
+        ).toBe(scaleIdentityBefore.store);
 
         // --- the freeze discriminant on the resized pane ----------------------------------
         const post = await mutateTopCounter();
