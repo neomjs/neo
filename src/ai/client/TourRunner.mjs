@@ -92,9 +92,13 @@ function validateCrossWindowResult(result) {
  *              with motion disabled would record a lie about the product).
  * - `spec`   — pause waits skipped entirely; assertions identical. The whitebox-e2e replay mode.
  *
+ * Hosting-surface cues and projection remain external to the replay log. A host that must prevent
+ * its asynchronous surface work from being overtaken can inject {@link #stepSettlement}; the runner
+ * awaits that opaque boundary after its own step succeeds and before the next beat starts.
+ *
  * Events (observable): `beat` (before each step — the tour bar's caption feed), `stepSettled`
- * (after one runner-owned step succeeds; hosting-surface cues/projection remain external), `scene`
- * (scene boundary), `error` (abort with structured failures), `complete` (full log).
+ * (after runner and optional host settlement), `scene` (scene boundary), `error` (abort with
+ * structured failures), `complete` (full log).
  * As with every object event, `Neo.core.Observable` adds the runner id as `source`.
  *
  * Script schema + fail-closed validator: `tourScript.mjs` (same directory) · dock documents:
@@ -178,6 +182,16 @@ class TourRunner extends Base {
          */
         reducedMotion: null,
         /**
+         * Optional host-owned settlement boundary. Called after runner-owned work succeeds and
+         * before `stepSettled` / the next beat, with the JSON-safe settlement payload. The runner
+         * neither interprets nor logs the returned value; it only awaits the promise so external
+         * cues and projections cannot be overtaken by a later document mutation. The callback may
+         * await only work already initiated by the current `beat`; awaiting `stepSettled`, `complete`,
+         * a progress boundary downstream of this callback, or a later beat creates a dependency cycle.
+         * @member {Function|null} stepSettlement=null
+         */
+        stepSettlement: null,
+        /**
          * The `neo.tour.script.v1` script to execute. Validated fail-closed at
          * {@link #start} time against the resolved operation vocabulary.
          * @member {Object|null} script=null
@@ -244,10 +258,10 @@ class TourRunner extends Base {
      */
     #preflight() {
         const
-            me                                 = this,
-            {crossWindowExecutor, dockService} = me,
-            crossWindowAvailable               = typeof crossWindowExecutor?.executeCrossWindowStep === 'function',
-            errors                             = [];
+            me                                                 = this,
+            {crossWindowExecutor, dockService, stepSettlement} = me,
+            crossWindowAvailable                               = typeof crossWindowExecutor?.executeCrossWindowStep === 'function',
+            errors                                             = [];
 
         if (typeof dockService?.executeDockOperation !== 'function' || typeof dockService?.getDockTopology !== 'function') {
             errors.push('dockService: required — inject Neo.ai.client.DockService (or a fixture exposing executeDockOperation + getDockTopology)')
@@ -255,6 +269,10 @@ class TourRunner extends Base {
 
         if (typeof me.componentId !== 'string' || me.componentId.length < 1) {
             errors.push('componentId: required — the dock-document holder component id (the execute_dock_operation target)')
+        }
+
+        if (stepSettlement !== null && typeof stepSettlement !== 'function') {
+            errors.push('stepSettlement: must be a Function or null')
         }
 
         if (me.mode === 'record' && me.reducedMotion !== false) {
@@ -340,9 +358,9 @@ class TourRunner extends Base {
      */
     async #run() {
         const
-            me                                              = this,
-            {componentId, crossWindowExecutor, dockService} = me,
-            {scenes}                                        = me.script;
+            me                                                              = this,
+            {componentId, crossWindowExecutor, dockService, stepSettlement} = me,
+            {scenes}                                                        = me.script;
 
         let sceneIndex = 0;
 
@@ -491,19 +509,33 @@ class TourRunner extends Base {
                     }
                 }
 
-                // This event owns ONLY runner settlement: the operation/assertion/pause succeeded
-                // and its deterministic log entry exists. Hosting surfaces combine it with their
-                // own cue and projection promises instead of making the runner await listeners.
-                const logLength = me.log.length;
+                // The explicit callback is the host's asynchronous settlement boundary. Events
+                // remain observational and are never awaited; the callback's return value never
+                // enters the deterministic replay log.
+                const
+                    logLength  = me.log.length,
+                    settlement = {
+                        completedCount: logLength,
+                        logLength,
+                        sceneId,
+                        sceneIndex,
+                        stepIndex,
+                        stepType      : step.type
+                };
 
-                me.fire('stepSettled', {
-                    completedCount: logLength,
-                    logLength,
-                    sceneId,
-                    sceneIndex,
-                    stepIndex,
-                    stepType      : step.type
-                });
+                if (stepSettlement) {
+                    try {
+                        await me.trap(Promise.resolve(stepSettlement({...settlement})))
+                    } catch (e) {
+                        if (e === Neo.isDestroyed) throw e;
+
+                        return me.#abort([
+                            `${sceneId}[${stepIndex}] host step settlement failed: ${e?.message || String(e)}`
+                        ])
+                    }
+                }
+
+                me.fire('stepSettled', settlement);
 
                 stepIndex++
             }
