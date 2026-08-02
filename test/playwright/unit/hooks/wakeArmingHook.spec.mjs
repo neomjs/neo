@@ -178,6 +178,33 @@ test.describe('Neo.ai.daemons.wake session-start arming', () => {
         expect(Date.now() - started).toBeLessThan(1500);
     });
 
+    test('an already-spent deadline means the stage was never INVOKED, not merely reported skipped (#16355)', async () => {
+        // @neo-gpt's probe: `bound(client.callTool(...), label)` evaluates the argument FIRST, so the stage
+        // is already in flight when the guard rejects — he observed `callTool === 1` while the result claimed
+        // the stage was skipped. A check that runs after the action cannot describe the action.
+        //
+        // Constructed with an already-spent budget rather than a slow stage: my first attempt made connect
+        // consume the deadline, but then connect REJECTS and the second stage is never reached at all, so
+        // the eager and thunked forms behaved identically and the test proved nothing. Mutation-testing it
+        // is the only reason I found that out. A zero budget puts the FIRST stage on the wrong side of the
+        // check deterministically, with no race.
+        let connects = 0;
+
+        await expect(readSubscriptionsOverMcp({
+            baseUrl       : 'http://127.0.0.1:9/mc/mcp',
+            deadlineMs    : 0,
+            TransportClass: class { async start() {} async send() {} async close() {} },
+            ClientClass   : class {
+                async connect() { connects++ }
+                async callTool() { return {content: [{type: 'text', text: '[]'}]} }
+                async close() {}
+            }
+        })).rejects.toThrow(/not started/);
+
+        // The load-bearing assertion: zero invocations, not "invoked and then disowned".
+        expect(connects).toBe(0);
+    });
+
     test('the reader resolves no config of its own and refuses an absent baseUrl (#16355)', async () => {
         // The config-SSOT repair, asserted behaviourally: the collaborator must not substitute a default.
         await expect(readSubscriptionsOverMcp({})).rejects.toThrow(/requires an injected baseUrl/);

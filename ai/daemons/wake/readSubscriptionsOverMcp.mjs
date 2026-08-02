@@ -84,29 +84,39 @@ export async function readSubscriptionsOverMcp({
 
     // One deadline for the whole exchange: each stage gets whatever is LEFT, so connect + list can never
     // exceed the caller's budget between them.
+    //
+    // Takes a THUNK, not a promise. Passing `bound(client.callTool(...), label)` evaluates the argument
+    // first, so the stage is already in flight before the deadline is examined — the guard then rejects
+    // saying "skipped" for work that demonstrably ran. Measured: `callTool === 1` while the result claimed
+    // the list stage was skipped. A check that runs after the action cannot describe the action, and the
+    // message asserting otherwise is the defect, not the wording.
     const deadline = Date.now() + deadlineMs,
-          bound    = (promise, label) => new Promise((resolve, reject) => {
+          bound    = (start, label) => {
               const remaining = deadline - Date.now();
 
               if (remaining <= 0) {
                   abortController.abort();
-                  reject(new Error(`${label} skipped: the ${deadlineMs}ms wake-arming deadline was already spent`));
-                  return
+                  return Promise.reject(new Error(
+                      `${label} not started: the ${deadlineMs}ms wake-arming deadline was already spent`
+                  ))
               }
 
-              const timer = setTimeout(() => {
-                  abortController.abort();
-                  reject(new Error(`${label} timed out with ${remaining}ms left of the ${deadlineMs}ms deadline`))
-              }, remaining);
+              return new Promise((resolve, reject) => {
+                  const timer = setTimeout(() => {
+                      abortController.abort();
+                      reject(new Error(`${label} timed out with ${remaining}ms left of the ${deadlineMs}ms deadline`))
+                  }, remaining);
 
-              promise.then(resolve, reject).finally(() => clearTimeout(timer));
-          });
+                  // Invoked only now, AFTER the deadline check.
+                  start().then(resolve, reject).finally(() => clearTimeout(timer));
+              })
+          };
 
     try {
-        await bound(client.connect(transport), 'wake-arming MCP connect');
+        await bound(() => client.connect(transport), 'wake-arming MCP connect');
 
         const result = await bound(
-            client.callTool({name: 'manage_wake_subscription', arguments: {action: 'list'}}),
+            () => client.callTool({name: 'manage_wake_subscription', arguments: {action: 'list'}}),
             'wake-arming manage_wake_subscription list'
         );
 
