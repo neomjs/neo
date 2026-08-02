@@ -241,3 +241,41 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         expect(approveThenDismiss.payload.humanGateState.changedRequested).toBe(false)
     })
 })
+
+/**
+ * The stall ranking timestamp rides the finding's STABLE temporal fact, never the scan clock —
+ * the findings builder re-stamps its observation fields every snapshot, and ranking by those
+ * re-floats every unchanged stall to the top of the merged feed on every poll.
+ */
+test.describe('createStallActivityEvents — stable rank time', () => {
+    const waitingSince = '2026-08-01T10:00:00.000Z'
+
+    test('an unchanged stall keeps its rank across snapshots: occurredAt is waitingSince, not the re-stamped observation', () => {
+        const base = {
+            findingClass: 'ownership-gap',
+            waitingSince,
+            subject     : {owner: '@grace', number: 16310, title: 'Nothing arms a wake route at boot'}
+        }
+
+        const [first]  = createStallActivityEvents([{...base, observedAt: '2026-08-02T16:00:00.000Z'}], {capturedAt: '2026-08-02T16:00:00.000Z'}),
+              [second] = createStallActivityEvents([{...base, observedAt: '2026-08-02T17:00:00.000Z'}], {capturedAt: '2026-08-02T17:00:00.000Z'})
+
+        expect(first.occurredAt).toBe(waitingSince)
+        expect(second.occurredAt).toBe(waitingSince)
+        expect(first.payload.rankAnchor).toBe('finding')
+    })
+
+    test('a fresh real event outranks a stale stall under the composer sort key', () => {
+        const [stall] = createStallActivityEvents([{waitingSince, subject: {owner: '@grace'}}], {capturedAt: '2026-08-02T17:00:00.000Z'})
+
+        expect('2026-08-02T16:59:00.000Z'.localeCompare(stall.occurredAt)).toBeGreaterThan(0)
+    })
+
+    test('a finding with no temporal fact degrades to capture time WITH the named marker — never silently', () => {
+        const capturedAt = '2026-08-02T17:00:00.000Z',
+              [event]    = createStallActivityEvents([{findingClass: 'x', subject: {owner: '@a'}}], {capturedAt})
+
+        expect(event.occurredAt).toBe(capturedAt)
+        expect(event.payload.rankAnchor).toBe('capture-time-degraded')
+    })
+})
