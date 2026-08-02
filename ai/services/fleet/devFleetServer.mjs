@@ -54,8 +54,8 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {readMcpToolResultPayload}             from './mcpWireParsing.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
+import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
 import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
@@ -137,17 +137,10 @@ async function boot() {
     // signed host receiver, and neither is observable from this process today.
     if (planeClient) {
         FleetManager.wakeStateOptions = {
-            listActiveSubscriptionIdentities: async () => {
-                const payload = readMcpToolResultPayload(
-                    await planeClient.callTool('manage_wake_subscription', {action: 'fleet-identities'})
-                );
-
-                if (!Array.isArray(payload?.identities)) {
-                    throw new Error('plane wake fleet-identities answer unreadable')
-                }
-
-                return payload.identities
-            },
+            // The proven client returns PARSED payloads (its mapToolResult owns envelope handling)
+            // — the reader consumes them directly; a second parse here would reject every healthy
+            // answer and silently blind the whole axis.
+            listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
             resolveDeliveryLiveness: () => ({
                 alive : 'unknown',
                 reason: 'delivery-lane liveness is not exposed by the containerized plane yet'
