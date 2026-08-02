@@ -7,6 +7,7 @@ import {
     SUPPORTED_PROTOCOL_VERSIONS
 } from '@modelcontextprotocol/sdk/types.js';
 import Base                        from '../../../src/core/Base.mjs';
+import AiConfig                    from '../../config.mjs';
 import {resolveFleetCredentialKey} from './FleetRegistryService.mjs';
 import {
     normalizeAgentIdentity,
@@ -603,7 +604,7 @@ async function probeMcpIdentity({url, credential, sessionId, protocolVersion, ex
             method : 'tools/call',
             params : {name: 'list_permissions', arguments: {}}
         }),
-        signal: AbortSignal.timeout(10_000)
+        signal: AbortSignal.timeout(AiConfig.fleet.tenantProbeTimeoutMs)
     });
     const payload  = readMcpToolPayload(parseMcpEnvelope(await response.text()));
     const identity = normalizeAgentIdentity(payload?.identity);
@@ -644,7 +645,7 @@ async function notifyMcpInitialized({url, credential, sessionId, protocolVersion
             jsonrpc: '2.0',
             method : 'notifications/initialized'
         }),
-        signal: AbortSignal.timeout(10_000)
+        signal: AbortSignal.timeout(AiConfig.fleet.tenantProbeTimeoutMs)
     });
 
     await response.text();
@@ -682,7 +683,7 @@ async function initializeMcpResource({url, credential, expectedIdentity=null}) {
                 clientInfo     : {name: 'neo-fleet-readiness', version: '1'}
             }
         }),
-        signal: AbortSignal.timeout(10_000)
+        signal: AbortSignal.timeout(AiConfig.fleet.tenantProbeTimeoutMs)
     });
 
     const sessionId = response.headers.get('mcp-session-id');
