@@ -499,24 +499,45 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
         // mtime-only revision aliases them and the second is never adopted. The publisher renames a
         // temp file, so the inode differs even when the timestamp does not — forcing the timestamps
         // equal here isolates exactly that.
-        // Pinned to a whole-second stamp on BOTH publishes so the timestamps are byte-identical rather
-        // than merely close — sub-millisecond drift would hand the comparison a difference to find and
-        // the alias would never be exercised.
+        // Isolating the inode term takes three things, and dropping any one lets a weaker term pass the
+        // spec: identical mtime, identical SIZE, and delivery by RENAME. An in-place overwrite keeps the
+        // inode, and a manifest with a different route count changes the size — either way something
+        // other than the inode does the discriminating and the term this patch relies on is untested.
         const pinned = 1_760_000_000;
+        const alpha  = 'WAKE_SUB:aaa';
+        const beta   = 'WAKE_SUB:bbb';
 
-        await write({[mine]: route('@neo-opus-ada')});
-        await fs.utimes(manifestPath, pinned, pinned);
+        /**
+         * Publishes the way the generator does: write a sibling temp file, then rename over the target.
+         * @param {Object} routes
+         * @returns {Promise<Object>} The published file's stat.
+         */
+        const publishByRename = async routes => {
+            const temp = path.join(dir, `routes.${Math.abs(Object.keys(routes)[0].length)}.tmp`);
 
-        // Establish this exact stamp as the SERVED revision, so the next publish collides with it.
+            await fs.writeFile(temp, JSON.stringify({schemaVersion: 1, routes}), {mode: 0o600});
+            await fs.chmod(temp, 0o600);
+            await fs.utimes(temp, pinned, pinned);
+            await fs.rename(temp, manifestPath);
+
+            return fs.stat(manifestPath)
+        };
+
+        const first = await publishByRename({[alpha]: route('@neo-opus-ada')});
+
+        // Establish that exact revision as the SERVED one, so the next publish collides with it.
         await receiver.reloadIfChanged();
 
-        await write({[mine]: route('@neo-opus-ada'), [peer]: route('@neo-opus-grace')});
-        await fs.utimes(manifestPath, pinned, pinned);
+        const second = await publishByRename({[beta]: route('@neo-opus-ada')});
 
-        expect((await fs.stat(manifestPath)).mtimeMs).toBe(pinned * 1000);
+        // The controls. Without these three the spec silently degrades into the size test it used to be.
+        expect(second.mtimeMs).toBe(first.mtimeMs);
+        expect(second.size).toBe(first.size);
+        expect(second.ino).not.toBe(first.ino);
 
-        expect(await receiver.reloadIfChanged()).toBe(2);
-        expect(await probe(peer)).toBe(401);
+        expect(await receiver.reloadIfChanged()).toBe(1);
+        expect(await probe(beta)).toBe(401);
+        expect(await probe(alpha)).toBe(404);
     });
 
     test('a corrupt write leaves the serving table intact, and recovery needs no signal', async () => {
