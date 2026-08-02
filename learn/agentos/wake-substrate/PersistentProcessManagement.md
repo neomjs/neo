@@ -165,7 +165,9 @@ The other fields describe the substrate; this one describes **you**. It is RLS-s
 
 **One keyless row unarms the whole seat.** The status and target gates *skip* a failing row, so it costs only its own route. The key gate **throws**, aborting the entire manifest build — so a seat holding one keyed and one keyless row publishes nothing at all, including for the good row. Repair the keyless row and the rest returns with it.
 
-**A missing `status` resolves to `active`, and every reader now resolves it the same way.** One shared policy (`ai/services/memory-core/wakeSubscriptionStatusPolicy.mjs`) owns that single question; the durable lister, the sunsetting check, the fleet identity reader, the heartbeat lane, the GraphLog compactor, this health verdict and `buildWakeReceiverManifest` all derive from it rather than each deciding for themselves.
+**A missing `status` resolves to `active`, and every decision point now resolves it the same way.** One shared policy (`ai/services/memory-core/wakeSubscriptionStatusPolicy.mjs`) owns that single question; all 14 status decision points across 9 files derive from it rather than each deciding for themselves — including the hot push path (`WakeSubscriptionService.pump()`), the external-active-session exclusion in `SessionService`, the health arming verdict, and `buildWakeReceiverManifest`.
+
+Note what the producer does NOT do: `list()` routes to `_listDurableSubscriptionsForOwner`, whose query carries no status predicate, and hydration preserves a missing `status` as missing. Consumers receive `undefined` and must decide — which is why the decision lives in one module instead of at each call site.
 
 This previously disagreed. The manifest builder compared strictly while the query feeding it coalesced, so a row with no `status` returned from `list()` looking active, counted toward every sunsetting and fleet sweep, and was then silently dropped at publication — a seat that reads healthy on every ordinary surface and receives nothing. Absence now resolves in the loud direction: an ambiguous row is published and fails visibly at delivery rather than being withheld with no signal at all.
 

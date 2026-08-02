@@ -26,6 +26,9 @@ import fs            from 'fs';
 import path          from 'path';
 import os            from 'os';
 import logger        from '../../mcp/server/memory-core/logger.mjs';
+import {
+    activeWakeSubscriptionStatusSql
+} from './wakeSubscriptionStatusPolicy.mjs';
 import RequestContextService, {
     SHARED_USER_ID,
     normalizeUserId,
@@ -266,7 +269,7 @@ class SessionService extends Base {
                             json_extract(memory.data, '$.properties.agentIdentity'),
                             json_extract(memory.data, '$.properties.userId')
                         )
-                        AND json_extract(subscription.data, '$.properties.status') = 'active'
+                        AND ${activeWakeSubscriptionStatusSql('subscription.data')}
                         AND json_extract(subscription.data, '$.properties.harnessTarget') != 'disabled'
                   )
             `).all();

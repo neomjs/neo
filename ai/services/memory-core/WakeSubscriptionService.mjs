@@ -11,7 +11,10 @@ import TurnPresenceService                                                      
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
-import {activeWakeSubscriptionStatusSql}                                                        from './wakeSubscriptionStatusPolicy.mjs';
+import {
+    activeWakeSubscriptionStatusSql,
+    isActiveWakeSubscriptionStatus
+} from './wakeSubscriptionStatusPolicy.mjs';
 
 /**
  * @summary Renders a millisecond window as the coarsest unit that divides it evenly, for the
@@ -240,8 +243,13 @@ class WakeSubscriptionService extends Base {
             // touched through this process's lazy cache.
             this._warmPushSubscriptions();
 
+            // Shared predicate, NOT `sub.status === 'active'`. This is the hot push path, and the cache
+            // is warmed from `_hydrateSubscriptionFromDurableNode`, which preserves an absent `status`
+            // as absent rather than synthesizing one. A strict compare here publishes a route into the
+            // manifest and then never dispatches through it — a live route that reads armed everywhere
+            // and delivers nothing, which is worse than either consistent answer.
             const activeSubs = Array.from(this.subscriptionCache.values())
-                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && sub.status === 'active');
+                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && isActiveWakeSubscriptionStatus(sub.status));
 
             if (activeSubs.length === 0) {
                 this._setLiveCursor(delta.lastLogId);

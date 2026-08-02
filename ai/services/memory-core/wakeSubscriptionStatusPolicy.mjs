@@ -1,33 +1,43 @@
 /**
  * @summary Pure policy owning ONE question: what does an absent `status` on a `WAKE_SUBSCRIPTION`
- * row mean? Every reader derives its answer here, so the four call sites cannot drift apart again.
+ * row mean? All 14 decision points across 9 files derive their answer here, so they cannot drift
+ * apart again.
  *
- * **The failure mode this replaces (reads-active-while-undeliverable).** Four readers each decided
- * the absent case for themselves, and three of them disagreed with the one whose verdict actually
- * decides delivery:
+ * **The failure mode this replaces (reads-active-while-undeliverable).** 14 decision points each
+ * decided the absent case for themselves, and they did not agree. Ten coalesced it to `active`;
+ * four compared strictly and treated absence as NOT active — the receiver-manifest builder, the
+ * health arming verdict, the hot push path (`pump()`), and the external-active-session exclusion.
  *
- * | reader | absent `status` was treated as |
- * |---|---|
- * | the durable lister's SQL | `active` (COALESCE) |
- * | the sunsetting check | `active` (`?? 'active'`) |
- * | the fleet identity reader | `active` (`?? 'active'`) |
- * | the receiver-manifest builder | **skipped — route withdrawn** |
+ * **The producer hands absence through untouched.** `list()` routes to
+ * `_listDurableSubscriptionsForOwner`, whose query carries NO status predicate at all, and
+ * `_hydrateSubscriptionFromDurableNode` preserves a missing `status` as missing. So every consumer
+ * receives `undefined` and answers for itself — which is precisely why the answer belongs in one
+ * place rather than at each call site.
  *
- * A row in that state therefore returned from `list()` looking active, counted toward every
+ * A row in that state therefore returned from `list()` looking usable, counted toward every
  * sunsetting and fleet-identity sweep, and was then silently dropped by the manifest build. If it
  * was the seat's only row the build refused to write an empty manifest. Nothing errored, because
  * the skip was a `continue` whose reason reached only the builder's own `skipped` array. The seat
  * reads healthy on every ordinary inspection and receives nothing.
  *
- * **The chosen meaning: absent ⇒ active.** Two reasons, in order of weight:
+ * **The chosen meaning: absent ⇒ active.** The reasons, in order of weight:
  *
- * 1. **It matches the query that FEEDS the manifest.** The durable lister coalesces; the builder
- *    consumes what the lister returns. Any other choice lets the builder silently discard a row the
- *    lister just handed it as active — a disagreement between a producer and its own consumer.
- * 2. **It fails in the loud direction.** Publishing a route whose row is ambiguous surfaces at
+ * 1. **It fails in the loud direction.** Publishing a route whose row is ambiguous surfaces at
  *    delivery, where a failure is attributable and counted. Withholding one produces a deaf seat:
  *    no error, no signal, and the agent cannot tell it is unreachable. Between a noisy failure and
  *    a silent one on the same uncertainty, the substrate takes the noisy one.
+ * 2. **It is the smaller behavioral change.** Ten of the 14 decision points already read absence as
+ *    active; converging on strict would flip ten rather than four, and every flip is a route that
+ *    stops being published.
+ * 3. **It costs nothing today, measured rather than assumed.** 17 durable rows on the canonical
+ *    plane, 15 `active` + 2 `retired`, zero absent — so no seat changes state either way, and the
+ *    choice is about which failure a FUTURE such row should produce.
+ *
+ * **A rationale that was published here and is false:** that the durable lister coalesces and hands
+ * the builder an `active` value, making any other choice a producer-consumer disagreement. It does
+ * not — see the producer note above. The near-identical owner-scoped query that DOES coalesce lives
+ * in `_reconcileDuplicateSubscriptions`, which is not on the `list()` path. Recorded because the
+ * mistake is easy to repeat: two similar queries in one file, and only one of them runs here.
  *
  * **Why this is safe to converge rather than migrate.** Measured on the canonical plane
  * 2026-08-02: 17 durable `WAKE_SUBSCRIPTION` rows, 15 `active` + 2 `retired`, **0 with an absent
@@ -38,7 +48,7 @@
  *
  * That makes the ambiguity **unreachable but not impossible** — which is exactly why this module
  * exists. Nothing enforced the invariant; a future write path, a hand-inserted row, or a restored
- * backup would have re-activated the split silently. One definition, four consumers, no drift.
+ * backup would have re-activated the split silently. One definition, every consumer, no drift.
  *
  * Kept pure (no DB handle, no config, no I/O) so it is unit-testable in isolation and importable
  * from services, scripts, and the wake daemon alike — mirroring `wakeCoalescePolicy.mjs`, which the
@@ -58,7 +68,9 @@ export const WAKE_SUBSCRIPTION_DEFAULT_STATUS = 'active';
  *
  * Absent / `null` / `undefined` resolve to {@link WAKE_SUBSCRIPTION_DEFAULT_STATUS}. Any other
  * value (`'retired'`, `'degraded'`, or an unknown future state) is NOT active — unknown states fail
- * closed, because only the absent case has the producer-consumer argument behind it.
+ * closed. Absence is the single defaulted case because it has a known provenance (a row written
+ * before the field existed); `''`, `false`, `0` and any future token do not, and a written-but-
+ * unrecognized value is a stronger signal of trouble than a never-written one.
  *
  * @param {String|null|undefined} status The persisted `$.properties.status`, or nothing.
  * @returns {Boolean} `true` when the row is deliverable on status grounds alone.
