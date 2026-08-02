@@ -1657,7 +1657,7 @@ class MemoryService extends Base {
             // instead of passing through it. Widening this input requires a private summary tier that
             // the public shapes can withhold; until that exists, prompt + response only.
             const promptText = `Summarize this agent turn in one line, max ${aiConfig.memoryService.miniSummaryMaxChars} characters, no preamble:\nUser: ${prompt ?? ''}\nAgent: ${response ?? ''}`;
-            const result      = await withTimeout(
+            const result     = await withTimeout(
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
                     operationLabel: 'miniSummary generation',
@@ -1887,7 +1887,7 @@ class MemoryService extends Base {
     async backfillMiniSummaries({limit, freshReserve, buildMiniSummary, maxRunMs, now = () => Date.now()} = {}) {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
         }
 
         // Fail loud on an unresolved leaf, before touching a single row. A stale operator overlay
@@ -1936,7 +1936,7 @@ class MemoryService extends Base {
         const rows = [...new Set([...scanIds('DESC', reserve), ...scanIds('ASC', drainLimit)])].map(id => ({id}));
 
         if (rows.length === 0) {
-            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false};
+            return {processed: 0, updated: 0, deferred: 0, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
         }
 
         let byId;
@@ -1946,10 +1946,22 @@ class MemoryService extends Base {
             byId             = new Map((fetched.ids || []).map((id, index) => [id, fetched.metadatas?.[index] || {}]));
         } catch (error) {
             logger.warn(`[MemoryService] miniSummary backfill deferred the whole batch (content store unreachable, fail-soft): ${error.message}`);
-            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, exhausted: 0, runBudgetHit: false};
+            // Both branch counters stay 0: the content store was unreachable, so no generation was
+            // attempted. Attributing these rows to either branch would report generation timeouts that
+            // never happened and steer an adaptive consumer toward widening a window that is not the fault.
+            return {processed: rows.length, updated: 0, deferred: rows.length, missingContent: 0, exhausted: 0, runBudgetHit: false, failedInner: 0, failedOuter: 0};
         }
 
-        let updated = 0, deferred = 0, missingContent = 0, processed = 0, exhausted = 0, runBudgetHit = false;
+        // `failedInner` / `failedOuter` split the SAME failures the `deferred`/`exhausted` pair already
+        // counts, by the branch they arrived on — because which branch a failure takes is a function of
+        // the generation window, not a fixed property of the code. `generateMiniSummaryTimeoutMs` fires
+        // inside `buildMiniSummary`, whose try/catch swallows it into a falsy return (inner); the outer
+        // `miniSummaryTimeoutMs` wraps `summarize()` from outside, so its rejection escapes to the catch
+        // below (outer). Widening the inner leaf past the outer one moves every failure from one branch
+        // to the other while `deferred` and `exhausted` report an identical shape — so a consumer reading
+        // only those totals goes blind at exactly the window an adaptive controller is actuating toward.
+        let updated     = 0, deferred = 0, missingContent = 0, processed = 0, exhausted = 0, runBudgetHit = false,
+            failedInner = 0, failedOuter = 0;
 
         for (const row of rows) {
             // Bound the run safely under the ProcessSupervisor watchdog: stop starting new rows once
@@ -1990,6 +2002,8 @@ class MemoryService extends Base {
                 );
 
                 if (!miniSummary) {
+                    failedInner++;
+
                     if (this._exhaustMiniSummaryAttempt(row.id)) {
                         exhausted++;
                     } else {
@@ -2010,6 +2024,8 @@ class MemoryService extends Base {
                 // catches its own inner timeout and returns null, so the observed 20s timeout reaches
                 // the falsy branch above. This covers what escapes that catch — a provider throwing
                 // outside the timeout guard, or an injected summarizer — so neither path can loop.
+                failedOuter++;
+
                 if (this._exhaustMiniSummaryAttempt(row.id)) {
                     exhausted++;
                 } else {
@@ -2025,7 +2041,7 @@ class MemoryService extends Base {
         // Completion line so the run ends with a visible tally, not silence (stderr → captured by the supervisor).
         console.error(`[INFO] [MemoryService] miniSummary backfill complete: ${processed}/${rows.length} processed (${updated} updated, ${deferred} deferred, ${missingContent} missing-content, ${exhausted} exhausted)`);
 
-        return {processed, updated, deferred, missingContent, exhausted, runBudgetHit};
+        return {processed, updated, deferred, missingContent, exhausted, runBudgetHit, failedInner, failedOuter};
     }
 
     /**
