@@ -353,6 +353,10 @@ class DragDrop extends Base {
     resetDragState() {
         let me = this;
 
+        // Defensive release of the sensor-side gesture selection guard (the Mouse sensor owns
+        // the mousedown→mouseup bracket; an off-document pointer release never reaches it).
+        document.body.classList.remove('neo-drag-active');
+
         DragDrop.prototype.promoteWindowDragParkRecovery.call(me);
 
         Object.assign(me, {

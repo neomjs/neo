@@ -108,6 +108,13 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
+                // Suppress text selection for the whole gesture from this point: the drag
+                // only officially starts past the delay+distance threshold, and the native
+                // selection machinery claims the pre-threshold window first — which is how a
+                // splitter drag comes to paint card text as a selection. The class releases
+                // in onMouseUp (and defensively in the DragDrop addon's resetDragState).
+                document.body.classList.add('neo-drag-active');
+
                 document.addEventListener('dragstart', preventDefault);
                 document.addEventListener('mousemove', me.onDistanceChange);
                 document.addEventListener('mouseup',   me.onMouseUp);
@@ -149,6 +156,8 @@ class Mouse extends Base {
             let me = this;
 
             clearTimeout(me.mouseDownTimeout);
+
+            document.body.classList.remove('neo-drag-active');
 
             document.removeEventListener('dragstart', preventDefault);
             document.removeEventListener('mousemove', me.onDistanceChange);
