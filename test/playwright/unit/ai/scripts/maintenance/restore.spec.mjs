@@ -1205,4 +1205,94 @@ test.describe('verifyLatestBackupRestorable — falls back past an unusable newe
                 .rejects.toThrow(/positive integer `maxBundlesExamined`/);
         }
     });
+
+    test('an UNREADABLE newest bundle must not authorize an older one — unknown is not unusable', async () => {
+        // The fail-open @neo-gpt found in review. The walk treated every validator exception as proof
+        // that the candidate was a bad artifact, then used that as permission to fall back. But an
+        // EACCES says "I could not tell", and skipping a bundle that was merely unreadable authorizes
+        // recovery from staler history than actually exists — missing evidence used as negative
+        // evidence, at a deployment authorization boundary.
+        writeValidBundle('backup-2026-09-01T00-00-00');   // older, perfectly good
+        writeValidBundle('backup-2026-09-02T00-00-00');   // newer, but unreadable below
+
+        const validateFn = async bundleRoot => {
+            if (bundleRoot.includes('2026-09-02')) {
+                throw Object.assign(new Error('EACCES: permission denied, scandir'), {code: 'EACCES'});
+            }
+            return {streamedCounts: {memories: 1}, embeddingAdvisories: []}
+        };
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.code).toBe('BUNDLE_UNVERIFIABLE');
+        // It stopped AT the unreadable bundle; the older valid one was never reached.
+        expect(verdict.bundleRoot).toContain('backup-2026-09-02T00-00-00');
+        expect(verdict.examined).toBe(1);
+
+        // Structured evidence, so a consumer separates "unreadable" from "malformed" without matching
+        // English out of `reason` — the same reason the verdict codes exist at all.
+        expect(verdict.unverifiable).toBe(true);
+        expect(verdict.errorCode).toBe('EACCES');
+    });
+
+    test('POSITIVE CONTROL: a genuinely malformed newest bundle still falls through to the older one', async () => {
+        // Shares the property under test — also a newest bundle whose validation throws — but here the
+        // throw is a CONTENT judgement from the real validator. Without this, the test above would be
+        // satisfied by a probe that simply stopped at every failure, which would reintroduce the
+        // original defect while looking like a safety fix.
+        writeValidBundle('backup-2026-10-01T00-00-00');
+        writeTornBundle('backup-2026-10-02T00-00-00');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.code).toBe('RESTORABLE');
+        expect(verdict.bundleRoot).toContain('backup-2026-10-01T00-00-00');
+        expect(verdict.skipped[0].code).toBe('BUNDLE_INVALID');
+        expect(verdict.unverifiable).toBeUndefined();
+    });
+
+    test('an unrecognised validator failure fails CLOSED — the classifier is an allowlist', async () => {
+        // A defect inside the validator raises a TypeError carrying no errno, matching no known
+        // failure shape. A denylist of known IO codes would classify it as content-invalid and walk on;
+        // the allowlist puts anything the validator did not deliberately raise on the safe side, so a
+        // future code path nobody has thought about cannot silently become continue-eligible.
+        writeValidBundle('backup-2026-11-01T00-00-00');
+        writeValidBundle('backup-2026-11-02T00-00-00');
+
+        const validateFn = async bundleRoot => {
+            if (bundleRoot.includes('2026-11-02')) throw new TypeError('collectionOf is not a function');
+            return {streamedCounts: {memories: 1}, embeddingAdvisories: []}
+        };
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent, validateFn});
+
+        expect(verdict.restorable).toBe(false);
+        expect(verdict.code).toBe('BUNDLE_UNVERIFIABLE');
+        expect(verdict.unverifiable).toBe(true);
+        expect(verdict.errorCode).toBeNull();   // no syscall errno — and still fails closed
+    });
+
+    test('stopping on an unverifiable candidate is announced, not silent', async () => {
+        // The operator has to learn that older bundles were deliberately NOT considered. Silence here
+        // reads identically to "nothing older exists", which is the confusion this whole lane is about.
+        writeValidBundle('backup-2026-12-01T00-00-00');
+        writeValidBundle('backup-2026-12-02T00-00-00');
+
+        const warnings   = [];
+        const logger     = {log: () => {}, error: () => {}, warn: message => warnings.push(message)};
+        const validateFn = async bundleRoot => {
+            if (bundleRoot.includes('2026-12-02')) {
+                throw Object.assign(new Error('EIO: i/o error'), {code: 'EIO'});
+            }
+            return {streamedCounts: {memories: 1}, embeddingAdvisories: []}
+        };
+
+        await verifyLatestBackupRestorable({backupRoot: probeRoot, logger, validateFn});
+
+        const joined = warnings.join('\n');
+        expect(joined).toMatch(/STOPPING at backup-2026-12-02T00-00-00/);
+        expect(joined).toMatch(/Older bundles were NOT considered/);
+    });
 });

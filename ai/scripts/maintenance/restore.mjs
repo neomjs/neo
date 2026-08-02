@@ -410,6 +410,59 @@ export async function runRestore({
 }
 
 /**
+ * @summary An error the validator raised as a JUDGEMENT ABOUT BUNDLE CONTENT, as opposed to a
+ * failure to observe the bundle at all.
+ *
+ * The distinction is an authorization boundary, not a tidiness one. `verifyLatestBackupRestorable`
+ * walks backwards past a bundle it has proven unusable — and "proven unusable" is only true when the
+ * validator actually reached the bytes and judged them. A permissions failure, a disappearing mount,
+ * file-descriptor exhaustion, or a bug inside the validator all say *"I could not tell"*, and
+ * treating that as *"this bundle is bad"* lets a newer, perfectly good recovery source be skipped
+ * because it was merely unreadable — authorizing a deploy against stale history.
+ *
+ * Marker-based rather than message-based on purpose: matching English out of `error.message` stops
+ * working the moment the prose is reworded, which is the same failure the machine-readable verdict
+ * codes exist to prevent. It is also an ALLOWLIST — only errors the validator deliberately
+ * constructs are continue-eligible, so any unrecognised throw (including one from a future code
+ * path nobody has thought about yet) fails closed by construction rather than by enumeration.
+ */
+/**
+ * @summary The only per-candidate verdicts that authorize {@link verifyLatestBackupRestorable} to
+ * keep walking backwards.
+ *
+ * Both members are POSITIVE findings about a bundle the validator actually read: it parsed and held
+ * no recoverable rows (`BUNDLE_EMPTY`), or it parsed far enough to be judged malformed
+ * (`BUNDLE_INVALID`). Everything else — notably `BUNDLE_UNVERIFIABLE` — means the probe failed to
+ * observe the candidate, which is not evidence about the candidate and must stop the walk.
+ *
+ * An allowlist rather than a denylist so a verdict code added later cannot silently become
+ * continue-eligible; a new code fails closed until someone decides otherwise.
+ * @type {Set<String>}
+ */
+export const CONTINUE_ELIGIBLE_BUNDLE_VERDICTS = new Set(['BUNDLE_EMPTY', 'BUNDLE_INVALID']);
+
+export class BundleContentError extends Error {
+    /**
+     * @param {String} message
+     */
+    constructor(message) {
+        super(message);
+        this.name             = 'BundleContentError';
+        this.bundleContentBad = true
+    }
+}
+
+/**
+ * @summary Constructs a content-judgement error. Use for every validator throw that expresses
+ * "I read this bundle and it is malformed"; never for an IO or instrument failure.
+ * @param {String} message
+ * @returns {BundleContentError}
+ */
+function bundleContentError(message) {
+    return new BundleContentError(message)
+}
+
+/**
  * Validates the bundle directory layout and every JSONL row without writing any state.
  *
  * Required subdirs (`kb`, `mc`, `graph`, `concepts`, `trajectories`) MUST exist; missing
@@ -430,18 +483,18 @@ export async function runRestore({
  */
 export async function validateBundle(bundleRoot, layout, logger = console, expectedDimension = AiConfig.vectorDimension) {
     if (!await fs.pathExists(bundleRoot)) {
-        throw new Error(`Bundle directory not found: ${bundleRoot}`);
+        throw bundleContentError(`Bundle directory not found: ${bundleRoot}`);
     }
 
     const stat = await fs.stat(bundleRoot);
     if (!stat.isDirectory()) {
-        throw new Error(`Bundle path is not a directory: ${bundleRoot}`);
+        throw bundleContentError(`Bundle path is not a directory: ${bundleRoot}`);
     }
 
     for (const subdir of REQUIRED_BUNDLE_SUBDIRS) {
         const dir = layout[subdir];
         if (!await fs.pathExists(dir)) {
-            throw new Error(`Required bundle subdirectory missing: ${subdir}/ (expected at ${dir})`);
+            throw bundleContentError(`Required bundle subdirectory missing: ${subdir}/ (expected at ${dir})`);
         }
     }
 
@@ -485,7 +538,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                 try {
                     row = JSON.parse(line);
                 } catch (err) {
-                    throw new Error(`Bundle JSONL parse error at ${subdir}/${file} (line ${lineNo}): ${err.message}`);
+                    throw bundleContentError(`Bundle JSONL parse error at ${subdir}/${file} (line ${lineNo}): ${err.message}`);
                 }
 
                 const collection = collectionOf(subdir, file);
@@ -494,12 +547,12 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                     streamedCounts[collection] = (streamedCounts[collection] ?? 0) + 1;
 
                     if (typeof row?.id !== 'string' || row.id.length === 0) {
-                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): missing-id`);
+                        throw bundleContentError(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): missing-id`);
                     }
 
                     const reason = classifyRowVector(row, expectedDimension);
                     if (reason) {
-                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
+                        throw bundleContentError(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
                     }
                 }
             }
@@ -515,7 +568,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
         try {
             meta = await fs.readJson(metaPath);
         } catch (err) {
-            throw new Error(`Failed to parse bundle-meta.json: ${err.message}`);
+            throw bundleContentError(`Failed to parse bundle-meta.json: ${err.message}`);
         }
     } else {
         logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
@@ -535,7 +588,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
             try {
                 JSON.parse(await fs.readFile(attemptsPath, 'utf8'))
             } catch (err) {
-                throw new Error(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
+                throw bundleContentError(`Bundle JSON parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.healAttempts}: ${err.message}`);
             }
         }
 
@@ -554,7 +607,7 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                     try {
                         JSON.parse(line)
                     } catch (err) {
-                        throw new Error(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
+                        throw bundleContentError(`Bundle JSONL parse error at ledgers/${INCIDENT_LEDGER_BUNDLE_MEMBERS.recoveryRuns}/${file} (line ${lineNo}): ${err.message}`);
                     }
                 }
             }
@@ -600,7 +653,7 @@ export function validateEmbeddingContractSchema({expectedDimension, meta, stream
     }
 
     const fail = (reason, detail) => {
-        throw new Error(`Bundle embedding contract violation: ${reason} (${detail})`)
+        throw bundleContentError(`Bundle embedding contract violation: ${reason} (${detail})`)
     };
 
     if (declared.schemaVersion !== 1) {
@@ -722,6 +775,19 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  * the pressure to notice that bundles are being produced broken at all — the underlying capture
  * defect is a separate half of the same ticket.
  *
+ * ## Why it stops for an unreadable candidate
+ *
+ * Walking backwards is only justified by a POSITIVE finding: the validator reached this bundle and
+ * judged its content unusable (`BUNDLE_EMPTY` / `BUNDLE_INVALID` — see
+ * {@link CONTINUE_ELIGIBLE_BUNDLE_VERDICTS}). A permissions failure, a vanished mount, fd
+ * exhaustion, or a defect inside the validator all mean *"I could not tell"*, and an earlier
+ * revision of this walk collapsed those into `BUNDLE_INVALID` and continued — so a newer, perfectly
+ * good recovery source could be skipped merely because it was unreadable, authorizing a deploy
+ * against staler history than actually exists. That is missing evidence being used as negative
+ * evidence at a deployment authorization boundary. Such a candidate now returns
+ * `BUNDLE_UNVERIFIABLE` immediately, carrying `unverifiable: true` and the syscall `errorCode` when
+ * the platform supplied one, and older bundles are not considered.
+ *
  * @param {Object}    options
  * @param {String}    options.backupRoot Absolute path to the `.neo-ai-data/backups` root.
  * @param {Object}   [options.logger=console] Log sink.
@@ -733,7 +799,7 @@ export function assessEmbeddingCompatibility({expectedDimension, logger = consol
  *     reporting a clean "nothing restorable".
  * @returns {Promise<{restorable: Boolean, code: String, bundleRoot: String|null, reason: String|null, checkedAt: String, rowTotal: Number|undefined, embeddingAdvisories: Object[], skipped: Object[], examined: Number}>}
  * `code` is the machine-readable verdict — `RESTORABLE`, `BUNDLE_ROOT_MISSING`, `NO_BUNDLES`,
- * `BUNDLE_EMPTY`, or `BUNDLE_INVALID`. `RESTORABLE` asserts the bundle is BOTH
+ * `BUNDLE_EMPTY`, `BUNDLE_INVALID`, or `BUNDLE_UNVERIFIABLE`. `RESTORABLE` asserts the bundle is BOTH
  * structurally valid and non-empty; `rowTotal` reports the row count it was decided on, and
  * `bundleRoot` names WHICH bundle earned the verdict — no longer necessarily the newest one present.
  * That strength lives here rather than in a caller so a shell gate consumes one authoritative verdict
@@ -825,6 +891,24 @@ export async function verifyLatestBackupRestorable({
             return {...verdict, skipped, examined}
         }
 
+        // FAIL CLOSED on an unobservable candidate. Walking backwards is only justified when the
+        // validator REACHED this bundle and judged its content bad; an EACCES, a disappearing mount,
+        // fd exhaustion, or a bug in the validator all mean "I could not tell". Continuing there would
+        // let a newer, perfectly good recovery source be skipped because it was merely unreadable, and
+        // authorize a deploy against stale history — turning missing evidence into negative evidence
+        // at the exact boundary the restore gate exists to protect. Reported by @neo-gpt on this PR,
+        // reproduced with the validator seam before this branch existed.
+        if (!CONTINUE_ELIGIBLE_BUNDLE_VERDICTS.has(verdict.code)) {
+            logger.warn?.(
+                `[Restore] STOPPING at ${bundleName}: its bundle verdict could not be established ` +
+                `(${verdict.code}). Older bundles were NOT considered — an unreadable candidate is not ` +
+                'a bad one, and skipping it would authorize recovery from staler history than exists. ' +
+                `Reason: ${verdict.reason}`
+            );
+
+            return {...verdict, skipped, examined}
+        }
+
         // The WHOLE verdict, not a projection of it. Rebuilding a reduced `{code, reason, bundleRoot}`
         // silently dropped `rowTotal` and `embeddingAdvisories` from every refusal — fields a caller
         // had before this function learned to walk. The failure shape must stay byte-identical to the
@@ -898,7 +982,33 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
 
         return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, rowTotal, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
     } catch (error) {
-        return {restorable: false, code: 'BUNDLE_INVALID', bundleRoot, reason: error.message, checkedAt, embeddingAdvisories: error.embeddingAdvisories ?? []};
+        // Two different answers, and only one of them is a judgement about the bundle.
+        //
+        // `BUNDLE_INVALID` means the validator read this bundle and found its content malformed —
+        // a fact about the artifact, and the only failure that entitles the caller to look further
+        // back. `BUNDLE_UNVERIFIABLE` means the validator could not establish anything: permissions,
+        // a vanished mount, fd exhaustion, or a defect in the validator itself.
+        //
+        // The test is the marker the validator sets on errors it deliberately constructs, never the
+        // message text — prose reworks silently, which is exactly why the verdict codes exist. And it
+        // is an ALLOWLIST, so an unrecognised throw from any future code path lands on the
+        // fail-closed side without anyone remembering to enumerate it.
+        const contentJudged = error instanceof BundleContentError || error?.bundleContentBad === true,
+              reason        = contentJudged
+                  ? error.message
+                  : `bundle verdict could not be established: ${error?.message ?? String(error)}`;
+
+        return {
+            restorable         : false,
+            code               : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
+            bundleRoot,
+            reason,
+            checkedAt,
+            embeddingAdvisories: error.embeddingAdvisories ?? [],
+            // Structured, so a consumer distinguishes the two states without matching English.
+            // `errorCode` carries the syscall errno when the platform supplied one (EACCES, EMFILE…).
+            ...(contentJudged ? {} : {unverifiable: true, errorCode: error?.code ?? null})
+        }
     }
 }
 
