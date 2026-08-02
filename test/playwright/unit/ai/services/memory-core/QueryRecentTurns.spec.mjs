@@ -32,7 +32,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
     test.describe.configure({mode: 'serial'});
 
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore, withTimeoutCode;
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, originalGetMemoryCollection, originalEmbedText, memStore, withTimeoutCode, withTimeout;
 
     test.beforeAll(async () => {
         const memoryServiceModule = await import('../../../../../../ai/services/memory-core/MemoryService.mjs');
@@ -40,6 +40,7 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // Read the code off the module rather than repeating the literal: a rename must break this spec
         // instead of leaving it green while the production classifier matches nothing.
         withTimeoutCode      = memoryServiceModule.WITH_TIMEOUT_CODE;
+        withTimeout          = memoryServiceModule.withTimeout;
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemoryService        = memoryServiceModule.default;
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
@@ -309,6 +310,92 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
         // timeout verdict and the cause must.
         expect(result.failedInner).toBeGreaterThanOrEqual(3);
         expect(result.failedOuter).toBe(0);
+    });
+
+    test('the real buildMiniSummary names each cause at the frame that creates it (#16388)', async () => {
+        // The gap this closes: every other cause spec INJECTS a summarizer returning the expected cause
+        // string, which proves the sweep's tally and nothing about the producer's vocabulary. These drive
+        // the real method — its own `no-model` branch, its own normalization, its own catch — through the
+        // `buildModel` seam, so the cause strings come from production code rather than from the fixture.
+        const {PROVIDER_TIMEOUT_CODE,
+               createTimeoutError} = await import('../../../../../../ai/provider/createTimeoutError.mjs');
+
+        const noModel = await MemoryService.buildMiniSummary({
+            prompt: 'p', response: 'r', buildModel: () => null
+        });
+
+        expect(noModel).toEqual({summary: null, cause: 'no-model'});
+
+        // The defect Emmy found: whitespace is TRUTHY, so a raw check passed it as usable and it
+        // normalized to '' — returned as a success with an empty summary, then tallied `unspecified`.
+        const whitespace = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => '   \n\t  '}})})
+        });
+
+        expect(whitespace).toEqual({summary: null, cause: 'empty-output'});
+
+        const emptyString = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => ''}})})
+        });
+
+        expect(emptyString.cause).toBe('empty-output');
+
+        // A genuine one-line answer must still succeed, or the three assertions above would also pass
+        // against a producer that had stopped summarizing at all.
+        const usable = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => ({response: {text: () => '  a real   summary  '}})})
+        });
+
+        expect(usable).toEqual({summary: 'a real summary', cause: null});
+
+        const providerError = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({generateContent: async () => { throw new Error('upstream exploded') }})
+        });
+
+        expect(providerError.cause).toBe('provider-error');
+
+        // timeout-inner reached through a REAL provider timeout object, not a hand-set `.code`: the
+        // rejection is built by `createTimeoutError`, one of the three producers the classifier names.
+        const providerTimeout = await MemoryService.buildMiniSummary({
+            prompt    : 'p', response: 'r',
+            buildModel: () => ({
+                generateContent: async () => {
+                    // `createTimeoutError` sets the code itself, so nothing here is forged.
+                    throw createTimeoutError({
+                        provider: 'openAiCompatible', operationLabel: 'miniSummary generation', timeoutMs: 1
+                    })
+                }
+            })
+        });
+
+        expect(providerTimeout.cause).toBe('timeout-inner');
+        expect(providerTimeout.timeoutCode).toBe(PROVIDER_TIMEOUT_CODE);
+    });
+
+    test('timeout-outer is reached by a real withTimeout rejection, not a forged code (#16388)', async () => {
+        const ts = Date.now();
+
+        memStore.set('cause-real-outer', {prompt: 'real outer prompt', response: 'real outer response'});
+        GraphService.upsertNode({
+            id              : 'cause-real-outer', type: 'AGENT_MEMORY', name: 'Memory: real outer', description: 'real outer',
+            semanticVectorId: 'cause-real-outer',
+            properties      : {agentIdentity: '@agent-a', userId: 'tenant-a', sessionId: 'real-outer', timestamp: ts}
+        });
+
+        // Composition witness: the escaping rejection is produced by the REAL `withTimeout` racing a
+        // promise that never settles, so the `code` the classifier matches was set by the wrapper rather
+        // than by this test. A renamed constant breaks this without anyone editing the spec.
+        const result = await MemoryService.backfillMiniSummaries({
+            limit           : 50,
+            buildMiniSummary: () => withTimeout(new Promise(() => {}), 5, 'spec outer window')
+        });
+
+        expect(result.failureCauses['timeout-outer']).toBeGreaterThanOrEqual(1);
+        expect(result.failureCauses['provider-error']).toBeUndefined();
     });
 
     test('the completion log carries the cause tally on a failing run and omits it when clean (#16388)', async () => {

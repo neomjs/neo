@@ -1630,13 +1630,10 @@ class MemoryService extends Base {
      *
      * Reuses the `modelProvider` reactive-Provider SSOT through {@link buildChatModel} — the user's
      * deployment-agnostic choice resolves to **local** (gemma4 via `openAiCompatible`/`ollama`) OR
-     * **remote** (gemini-flash via `gemini`), identically in local + cloud. **Fail-soft:** returns
-     * `null` on no-provider (e.g. gemini without an API key), timeout, or error — the caller stores
-     * no summary and recency recall falls back to raw content. Never throws into the write path.
+     * **remote** (gemini-flash via `gemini`), identically in local + cloud. **Fail-soft:** never throws
+     * into the write path — no-provider, timeout, empty output and provider error all resolve, the
+     * caller stores no summary, and recency recall falls back to raw content.
      *
-     * @param {Object} options
-     * @param {String} options.prompt
-     * @param {String} options.response
      * Reports **why** alongside **whether**. A bare `null` collapsed no-provider, empty output, timeout
      * and provider error into one indistinguishable outcome, so no consumer could tell a window that
      * needs widening from a provider that was never reachable — the cause was destroyed here, one frame
@@ -1644,16 +1641,26 @@ class MemoryService extends Base {
      * the message: a reworded message stops matching silently, and an unrelated error mentioning a
      * timeout would be misread as one.
      *
+     * **Return-shape migration, not a truthiness-compatible change.** A failure used to be a falsy
+     * `null` and is now a truthy `{summary: null, cause}`, so any consumer testing the RESULT for
+     * truthiness inverts. The sweep is the only production caller and reads `.summary`; the shape is
+     * documented here as a migration rather than described as backward compatible, because a future
+     * caller written against "falsy means failed" would be silently wrong.
+     *
      * @param {Object} options
      * @param {String} options.prompt
      * @param {String} options.response
+     * @param {Function} [options.buildModel=buildChatModel] Chat-model factory seam. Exists so a spec can
+     * drive the real classification path — the `no-model` branch, whitespace normalization, and the
+     * `catch`'s code-based split — instead of substituting the whole producer and asserting its own
+     * fixtures back. A suite that injects the expected cause strings proves the tally, not the vocabulary.
      * @returns {Promise<Object>} `{summary, cause}` — `summary` is a one-line summary capped at
      * `aiConfig.memoryService.miniSummaryMaxChars` (default 280) with `cause: null`, or `summary: null`
      * with `cause` naming the failure: `'no-model'`, `'empty-output'`, `'timeout-inner'`, or
      * `'provider-error'`. `timeoutCode` carries which layer gave up when the cause is a timeout —
      * the wrapper or the provider — since those are distinct facts worth keeping.
      */
-    async buildMiniSummary({prompt, response}) {
+    async buildMiniSummary({prompt, response, buildModel = buildChatModel}) {
         // Calibrated above the measured local-model summary latency so a real summary is not aborted
         // before it completes. Benchmark (2026-06-09, MacBook M5 Max 128GB, gemma-4-31b-it via LM
         // Studio): a ~5k-char -> tweet-size summary takes ~5.3s warm / ~13s cold. The prior 4s cap
@@ -1661,7 +1668,7 @@ class MemoryService extends Base {
         // backfill per-item timeout (aiConfig.memoryService.miniSummaryTimeoutMs).
         const TIMEOUT_MS = aiConfig.memoryService.generateMiniSummaryTimeoutMs;
         try {
-            const model = buildChatModel({
+            const model = buildModel({
                 modelProvider         : aiConfig.modelProvider,
                 openAiCompatibleConfig: aiConfig.openAiCompatible,
                 ollamaConfig          : aiConfig.ollama,
@@ -1692,14 +1699,24 @@ class MemoryService extends Base {
                 'miniSummary generation'
             );
 
-            const text = result?.response?.text?.() ?? null;
+            const raw = result?.response?.text?.() ?? null;
 
-            if (!text) {
+            // Normalize BEFORE classifying, not after. A whitespace-only answer ('   ', '\n\n') is
+            // truthy, so a raw truthiness check passes it as usable; it then normalizes to '' and was
+            // returned as a SUCCESS carrying an empty summary, which the sweep recorded as `unspecified`
+            // — the one cause that means "the summarizer told us nothing". A model that answers with
+            // whitespace is empty-output, and the classification has to see the same string the caller
+            // would store.
+            const summary = raw === null || raw === undefined
+                ? ''
+                : String(raw).replace(/\s+/g, ' ').trim();
+
+            if (!summary) {
                 return {summary: null, cause: 'empty-output'};
             }
 
             return {
-                summary: String(text).replace(/\s+/g, ' ').trim().slice(0, aiConfig.memoryService.miniSummaryMaxChars),
+                summary: summary.slice(0, aiConfig.memoryService.miniSummaryMaxChars),
                 cause  : null
             };
         } catch (error) {
