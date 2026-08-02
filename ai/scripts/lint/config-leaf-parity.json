@@ -254,6 +254,8 @@
         "orchestrator.heavyMaintenanceLease.staleAfterMs",
         "orchestrator.intervals",
         "orchestrator.intervals.backupMs",
+        "orchestrator.intervals.backupRetryDelayMs",
+        "orchestrator.intervals.backupRetryWindowMs",
         "orchestrator.intervals.dataIntegritySweepCheckMs",
         "orchestrator.intervals.dreamMs",
         "orchestrator.intervals.dreamOverflowThreshold",

@@ -1063,6 +1063,23 @@ class ConfigBase extends ConfigProvider {
                     kbSyncMs               : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
                     githubWorkflowSyncMs   : leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
                     backupMs               : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    /**
+                     * Minimum spacing between retries of a FAILED backup run, and how long after the
+                     * last SUCCESSFUL run those retries stay permitted. `0` on either disables retry
+                     * and restores the earlier behaviour, where a run that died seconds after spawn
+                     * forfeited a full `backupMs` because `markStarted` stamps `lastRunAt` pre-spawn.
+                     *
+                     * The effective attempt budget is AT MOST `floor(backupRetryWindowMs /
+                     * backupRetryDelayMs)` — 4 at these defaults, and typically one fewer, since the
+                     * first failure consumes part of the window before the first retry can be spaced.
+                     * The load-bearing property is termination, not the exact count, and the spec
+                     * asserts it by running the clock rather than by restating this formula.
+                     * It is bounded deliberately: `backup` is the only priority-0
+                     * lane and wins the pick unconditionally, so an unbounded retry would monopolize the
+                     * heavy-maintenance lease and starve the REM chain.
+                     */
+                    backupRetryDelayMs     : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_BACKUP_RETRY_DELAY_MS', 'number'),
+                    backupRetryWindowMs    : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_BACKUP_RETRY_WINDOW_MS', 'number'),
                     graphLogCompactionMs   : leaf(DAY_MS, 'NEO_ORCHESTRATOR_GRAPHLOG_COMPACTION_INTERVAL_MS', 'number'),
                     primaryDevSyncMs       : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS', 'number'),
                     tenantRepoSyncMs       : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', 'number'),
