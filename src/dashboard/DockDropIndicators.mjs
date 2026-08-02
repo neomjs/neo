@@ -232,6 +232,52 @@ class DockDropIndicators extends Container {
     }
 
     /**
+     * Finds the nearest integer pointer coordinate inside a candidate's rendered rect that
+     * resolves back to that candidate under the layer's live overlap precedence.
+     * @summary Lets programmatic pointer choreography target a visible part of an indicator instead
+     * of assuming its center is reachable when a higher root-edge chip overlaps it.
+     * @param {String|null} previewId
+     * @returns {{x: Number, y: Number}|null}
+     */
+    getCandidateHitPoint(previewId) {
+        let target = null;
+
+        for (let entry of this.#indicatorRects.values()) {
+            if (entry.candidate?.preview?.previewId === previewId) {
+                target = entry;
+                break
+            }
+        }
+
+        if (!target) return null;
+
+        let {height, width, x, y} = target.rect,
+            center                = {x: Math.round(x + width / 2), y: Math.round(y + height / 2)},
+            best                  = null,
+            bestDistance          = Infinity,
+            maxX                  = Math.floor(x + width),
+            maxY                  = Math.floor(y + height),
+            point, distance;
+
+        for (let pointY = Math.ceil(y); pointY <= maxY; pointY++) {
+            for (let pointX = Math.ceil(x); pointX <= maxX; pointX++) {
+                point = {x: pointX, y: pointY};
+
+                if (this.hitTest(point)?.preview?.previewId === previewId) {
+                    distance = (pointX - center.x) ** 2 + (pointY - center.y) ** 2;
+
+                    if (distance < bestDistance) {
+                        best         = point;
+                        bestDistance = distance
+                    }
+                }
+            }
+        }
+
+        return best
+    }
+
+    /**
      * @summary Pure viewport-space hit-test against the computed indicator rects.
      *
      * No DOM read: the layer positioned every indicator from rect inputs, so the same math

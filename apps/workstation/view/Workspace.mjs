@@ -351,16 +351,18 @@ class Workspace extends Container {
      */
     cuePromise = Promise.resolve()
     /**
-     * Hosting-surface cue promises indexed by the runner's scene/step identity. `stepSettled`
-     * consumes each entry after runner-owned work succeeds; the map never becomes runner state.
+     * Hosting-surface cue promises indexed by the runner's scene/step identity. The injected
+     * `TourRunner.stepSettlement` callback awaits an entry before `stepSettled`; that event then
+     * consumes it for the independent progress-paint chain. The map never becomes runner state.
      * @member {Map<String,Promise>} cueSettlements
      * @protected
      */
     cueSettlements = new Map()
     /**
-     * Serialized, paint-confirmed tour progress. `TourRunner.stepSettled` proves runner-owned
-     * work only, so this local projection additionally waits for its cue and dock refresh before
-     * exposing progress to the viewer.
+     * Serialized, paint-confirmed tour progress. `TourRunner.stepSettled` arrives after this
+     * host's cue/refresh barrier, but events are observational and the next beat can start as soon
+     * as the listener returns. This local chain therefore re-awaits the keyed settlement before
+     * painting each pip in order; it never becomes part of runner execution.
      * @member {Promise} progressPromise
      * @protected
      */
@@ -419,10 +421,11 @@ class Workspace extends Container {
         Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId: me.windowId});
 
         me.tourRunner  = Neo.create(TourRunner, {
-            componentId: me.id,
-            dockService: me.dockService,
-            mode       : 'demo',
-            script     : workstationTourScript
+            componentId   : me.id,
+            dockService   : me.dockService,
+            mode          : 'demo',
+            script        : workstationTourScript,
+            stepSettlement: data => me.settleTourStep(data)
         });
 
         me.tourRunner.on({
@@ -840,9 +843,25 @@ class Workspace extends Container {
     }
 
     /**
-     * Projects one successful runner step only after the hosting surface's corresponding cue
-     * and dock refresh have also settled. The runner event deliberately does not claim either
-     * hosting-surface boundary.
+     * Settles the hosting surface for one runner step before the next screenplay beat may begin.
+     * @summary Prevents a following document operation from re-projecting the dock while the
+     * current surface cue still owns a live gesture, dwell, or paint boundary.
+     * @param {Object} data `TourRunner` settlement payload.
+     * @returns {Promise<void>}
+     */
+    async settleTourStep(data) {
+        let me            = this,
+            key           = `${data.sceneIndex}:${data.stepIndex}`,
+            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
+
+        await cueSettlement;
+        await me.refreshPromise
+    }
+
+    /**
+     * Projects one successful runner step after the injected host barrier has settled its cue and
+     * dock refresh. The listener remains observational: it serializes the independent pip paint
+     * without making event delivery an execution boundary for `TourRunner`.
      * @param {Object} data `TourRunner.stepSettled` payload.
      */
     onTourStepSettled(data) {
@@ -2420,14 +2439,34 @@ class Workspace extends Container {
             startedAt      = Date.now(),
             runnerResult   = await me.tourRunner.start();
 
-        await me.cuePromise;
-        await me.refreshPromise;
-        await me.progressPromise;
-        await me.setPipProgress(Workspace.totalBeats().length);
+        const
+            errors      = [...runnerResult.errors, ...me.cueErrors],
+            appendError = (label, result) => {
+                if (result.status === 'rejected') {
+                    const
+                        detail          = result.reason?.message || String(result.reason),
+                        alreadyRecorded = errors.some(error => error === detail || error.endsWith(`: ${detail}`));
+
+                    alreadyRecorded || errors.push(`${label} failed: ${detail}`)
+                }
+            },
+            settlements = await Promise.allSettled([
+                me.cuePromise,
+                me.refreshPromise,
+                me.progressPromise
+            ]);
+
+        ['surface cue settlement', 'dock refresh settlement', 'progress settlement']
+            .forEach((label, index) => appendError(label, settlements[index]));
+
+        const [finalProgress] = await Promise.allSettled([
+            me.setPipProgress(Workspace.totalBeats().length)
+        ]);
+
+        appendError('final progress paint', finalProgress);
 
         const
             elapsedMs    = Date.now() - startedAt,
-            errors       = [...runnerResult.errors, ...me.cueErrors],
             feedEndCount = feedStore.count,
             receipt      = {
                 completed  : runnerResult.completed && errors.length === 0,
@@ -3867,22 +3906,11 @@ class Workspace extends Container {
                 let indicators = me.dragAffordances.indicators,
                     candidate  = indicators.candidateSet.cross
                         .find(entry => entry.preview?.placement?.kind === dwell.placementKind),
-                    indicator  = candidate && indicators.items
-                        .find(item => item.candidateKey === `cross-${candidate.position}`),
-                    hostRect   = indicators.hostRect,
-                    left       = Number.parseFloat(indicator?.style?.left),
-                    top        = Number.parseFloat(indicator?.style?.top),
-                    width      = Number.parseFloat(indicator?.style?.width),
-                    height     = Number.parseFloat(indicator?.style?.height);
+                    indicatorPoint = candidate && indicators.getCandidateHitPoint(candidate.preview?.previewId);
 
-                if (!candidate || !hostRect || [left, top, width, height].some(value => !Number.isFinite(value))) {
-                    throw new Error(`indicator geometry is unavailable for '${dwell.placementKind}'`)
+                if (!candidate || !indicatorPoint) {
+                    throw new Error(`indicator hit geometry is unavailable for '${dwell.placementKind}'`)
                 }
-
-                let indicatorPoint = {
-                    x: Math.round(hostRect.x + left + width  / 2),
-                    y: Math.round(hostRect.y + top  + height / 2)
-                };
 
                 await walkTo(indicatorPoint);
 
