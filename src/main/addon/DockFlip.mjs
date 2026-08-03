@@ -31,6 +31,21 @@ const MOTION_EPSILON_POSITION = 0.5,
  * Presentation-only by contract: the committed document never waits on motion — a failed or
  * skipped animation lands the final layout instantly (every path here is fail-safe), and
  * `prefers-reduced-motion: reduce` renders the instant path by construction.
+ *
+ * Starvation-proof by contract, two layers for two starvation classes:
+ * 1. HIDDEN documents (`document.hidden === true` — agent browser panes, background tabs)
+ *    instant-land at `play()` entry: motion is unpresentable there by definition, rAF is
+ *    never serviced, AND main-thread timers are visibility-clamped (>=1s, down to ~1
+ *    wake/min under intensive throttling) — no in-page wait of any kind stays bounded.
+ * 2. OCCLUDED-but-visible windows service no frames but keep normal timer clamps, so every
+ *    frame wait inside `play()` races the native rAF arm against a timer dam (`#nextFrame`).
+ *    Frames win in every presenting document, keeping motion frame-locked; the dam bounds
+ *    the wait where no frame comes, degrading motion to the instant path while correctness
+ *    and liveness hold.
+ * Pre-repair, a raw `requestAnimationFrame` await wedged every awaiting consumer forever
+ * (witnessed: the workstation tour preamble hung inside `refreshDockWorkspace`). Same law as
+ * the ResizeObserver addon's timer-raced dispatch dam + hidden poll: paint-gated carriers
+ * need a paint-independent arm.
  * @class Neo.main.addon.DockFlip
  * @extends Neo.main.addon.Base
  */
@@ -399,6 +414,46 @@ class DockFlip extends Base {
     }
 
     /**
+     * One frame boundary that cannot starve. The native rAF arm wins in every presenting
+     * document (identical timing to a raw `requestAnimationFrame` await); the timer dam
+     * bounds the wait in rendering-starved documents, where rAF callbacks are never serviced
+     * and a raw await would wedge the caller forever. The dam result lets callers
+     * distinguish a serviced frame from a starved tick: loops re-check DOM state either way
+     * (delta application is message-driven and needs no frames), while the release path uses
+     * a starved tick as its instant-landing signal — animating a document that cannot paint
+     * would only hold transform-scaled mid-motion rects live for async measurers to read as
+     * layout truth.
+     *
+     * The race disposes BOTH arms symmetrically (the sibling ResizeObserver dam's contract):
+     * a frame win clears the timer, and a dam win cancels the pending rAF callback. Without
+     * the cancellation, every timer-won wait in a frame-starved-but-visible window would
+     * leave its callback queued — dock operations accumulate them unboundedly, and they all
+     * fire in one burst when the window finally presents again.
+     * @param {Number} [budgetMs=100] Generously above one healthy frame (17-34ms), far below
+     * a perceivable stall — a presenting document virtually always wins with a real frame.
+     * @returns {Promise<Boolean>} true when a real frame serviced the wait, false when the dam fired
+     * @private
+     */
+    #nextFrame(budgetMs=100) {
+        return new Promise(resolve => {
+            let frameId   = null,
+                timer     = setTimeout(() => {
+                    timer = null;
+                    globalThis.cancelAnimationFrame?.(frameId);
+                    resolve(false)
+                }, budgetMs);
+
+            frameId = requestAnimationFrame(() => {
+                if (timer !== null) {
+                    clearTimeout(timer);
+                    timer = null;
+                    resolve(true)
+                }
+            })
+        })
+    }
+
+    /**
      * Phase 2: wait for the new tree's marker elements, invert them onto their old geometry,
      * then play the transition to their new geometry. Safe to call unconditionally after a
      * swap — with no prior `captureFirst()` snapshot, or under reduced motion, it no-ops and
@@ -410,7 +465,9 @@ class DockFlip extends Base {
      * @param {Object} opts
      * @param {String} opts.hostId            The dock host element id
      * @param {String} opts.markerPrefix      The marker-class prefix used in `captureFirst()`
-     * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear
+     * @param {Number} [opts.maxFrames=15]    Bounded frame-poll for the new tree to appear.
+     * Every poll tick rides `#nextFrame`, so the bound holds in TIME even where no frame is
+     * ever serviced (maxFrames × dam budget) — not only in serviced-frame count
      * @param {Boolean} [opts.geometryOnly=false] Consumer-declared geometry-only projection:
      * no topology swap can be pending, so an exact, lineage-unchanged marker set whose rects
      * already moved may be classified as landed-in-place (`hasLandedInPlace`). Without this
@@ -471,6 +528,17 @@ class DockFlip extends Base {
             return false
         }
 
+        // A hidden document cannot present motion by definition — and it throttles the very
+        // carriers a bounded wait could ride: rAF is never serviced, and main-thread timers
+        // are visibility-clamped (>=1s per tick, down to ~1 wake/min under intensive
+        // throttling), so even the timer dam degrades from milliseconds to minutes there
+        // (witnessed: the pane tour preamble sat wedged in stage A at ~1 tick/min). The RO
+        // addon keys its hidden poll on the same discriminator. Occluded-but-visible windows
+        // keep normal timer clamps, so the dam below remains the carrier for that class.
+        if (document.hidden) {
+            return false
+        }
+
         const
             firstLineages = first.lineages,
             firstMarkers  = first.markers,
@@ -511,7 +579,7 @@ class DockFlip extends Base {
             // proof the swap already happened.
             if (!preservedMarkerSet && !landedInPlace) {
                 while (frame < maxFrames && first.els.length > 0 && first.els.every(el => el.isConnected)) {
-                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    await this.#nextFrame();
                     frame++
                 }
             }
@@ -520,7 +588,7 @@ class DockFlip extends Base {
             markers = this.collectMarkers(hostId, markerPrefix);
 
             while (markers.size < 1 && frame < maxFrames * 2) {
-                await new Promise(resolve => requestAnimationFrame(resolve));
+                await this.#nextFrame();
                 frame++;
                 markers = this.collectMarkers(hostId, markerPrefix)
             }
@@ -536,7 +604,7 @@ class DockFlip extends Base {
             // delaying here would expose the clipped final tree for one paint before the
             // inverse transform is installed.
             if (!preservedMarkerSet && !landedInPlace) {
-                await new Promise(resolve => requestAnimationFrame(resolve))
+                await this.#nextFrame()
             }
 
             markers.forEach((el, key) => {
@@ -629,7 +697,18 @@ class DockFlip extends Base {
                 fade && (el.style.opacity = '0.001')
             });
 
-            await new Promise(resolve => requestAnimationFrame(resolve));
+            // The invert must be committed by a real frame before the transition is released —
+            // a starved tick here means the document is not painting, so there is no motion to
+            // present: land instantly instead of transitioning into a void (and instead of
+            // holding transform-scaled mid-motion rects live for async measurers to misread
+            // as layout truth).
+            const framed = await this.#nextFrame();
+
+            if (!framed) {
+                cleanup();
+
+                return false
+            }
 
             if (interrupted || this.isDestroyed) {
                 cleanup(true);

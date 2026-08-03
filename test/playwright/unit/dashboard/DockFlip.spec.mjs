@@ -652,6 +652,265 @@ test.describe('Neo.main.addon.DockFlip', () => {
         await expect(playPromise).resolves.toBe(false)
     });
 
+    test('instant-lands at entry in a hidden document without arming a single wait (#16425)', async () => {
+        // A hidden document cannot present motion, services no rAF, and visibility-clamps
+        // main-thread timers (>=1s per tick, ~1 wake/min intensive) — so neither frame waits
+        // nor the timer dam stay bounded there. The entry discriminator must land instantly
+        // before any wait is armed.
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            hidden: true,
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.setRect({height: 100, left: 80, top: 40, width: 100});
+
+        let frameRequests = 0;
+
+        globalThis.requestAnimationFrame = () => ++frameRequests;
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(false);
+
+        expect(frameRequests, 'no frame wait is ever armed in a hidden document').toBe(0);
+        expect(marker.style, 'no presentation state is touched').toEqual({})
+    });
+
+    test('lands instantly when rendering starvation never services the release frame (#16425)', async () => {
+        // Rendering-starved documents (hidden panes, occluded windows) request frames that are
+        // never serviced. Pre-dam, play() awaited the raw rAF promise here and never resolved,
+        // wedging every awaiting consumer (the workstation tour hung in refreshDockWorkspace).
+        // The timer dam bounds the wait; a starved release tick lands instantly with a full
+        // presentation cleanup.
+        const
+            markerClass     = 'dock-flip-item-alpha',
+            marker          = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            sourceBody      = {parentElement: null},
+            destinationBody = {
+                parentElement: null,
+                getBoundingClientRect() {
+                    return {bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100}
+                }
+            },
+            host            = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            },
+            visibleStyle = {
+                contain    : 'none',
+                filter     : 'none',
+                overflowX  : 'visible',
+                overflowY  : 'visible',
+                perspective: 'none',
+                transform  : 'none',
+                willChange : 'auto',
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '260ms' : 'linear'
+                }
+            };
+
+        sourceBody.parentElement      = host;
+        destinationBody.parentElement = host;
+        marker.parentElement          = sourceBody;
+        marker.style.position         = 'relative';
+        marker.style.zIndex           = '11';
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = element => element === destinationBody
+            ? {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
+            : visibleStyle;
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.parentElement = destinationBody;
+        marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+
+        let frameRequests = 0;
+
+        globalThis.requestAnimationFrame = () => ++frameRequests;
+
+        const startedAt = Date.now();
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(false);
+
+        expect(Date.now() - startedAt, 'the dam bounds the starved wait in time').toBeLessThan(5000);
+        expect(frameRequests, 'exactly the release frame was requested on the preserved path').toBe(1);
+        expect(host.classList.contains('dock-animating')).toBe(false);
+        expect(marker.style).toMatchObject({
+            opacity        : '',
+            position       : 'relative',
+            transform      : '',
+            transformOrigin: '',
+            transition     : '',
+            zIndex         : '11'
+        });
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false)
+    });
+
+    test('bounds the detach and settle polls in time when no frame is ever serviced (#16425)', async () => {
+        // The same ambiguous same-parent fixture the presenting-mode test animates (frame
+        // stub invoking callbacks) resolves to an instant landing under starvation: the polls
+        // tick on the dam instead of frames, stay count-bounded, and the starved release tick
+        // skips the transition.
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.setRect({height: 100, left: 80, top: 40, width: 100});
+
+        let frameRequests = 0;
+
+        globalThis.requestAnimationFrame = () => ++frameRequests;
+
+        const startedAt = Date.now();
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-',
+            maxFrames   : 2
+        })).resolves.toBe(false);
+
+        expect(Date.now() - startedAt, 'the dam bounds every starved poll in time').toBeLessThan(5000);
+        expect(frameRequests, 'two detach polls, one replacement settle, and one starved release tick').toBe(4);
+        expect(host.classList.contains('dock-animating')).toBe(false);
+        expect(marker.style).toMatchObject({
+            opacity        : '',
+            transform      : '',
+            transformOrigin: '',
+            transition     : ''
+        })
+    });
+
+    test('cancels the losing rAF arm on every timer-won wait — no late frame callback stays queued (#16425)', async () => {
+        // The race must dispose BOTH arms (the ResizeObserver dam contract). Without the
+        // cancellation, each timer-won wait in a frame-starved-but-visible window leaves its
+        // callback queued; dock operations accumulate them unboundedly and they all fire in
+        // one burst when the window presents again.
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.setRect({height: 100, left: 80, top: 40, width: 100});
+
+        // Black-holed rAF with id bookkeeping: callbacks register but are never invoked.
+        const
+            registered          = new Set(),
+            cancelled           = new Set(),
+            originalCancelFrame = globalThis.cancelAnimationFrame;
+
+        let nextFrameId = 0;
+
+        globalThis.requestAnimationFrame = () => {
+            const id = ++nextFrameId;
+            registered.add(id);
+            return id
+        };
+        globalThis.cancelAnimationFrame = id => cancelled.add(id);
+
+        try {
+            await expect(dockFlip.play({
+                hostId      : 'dock-host',
+                markerPrefix: 'dock-flip-item-',
+                maxFrames   : 2
+            })).resolves.toBe(false);
+
+            expect(registered.size, 'two detach polls, one replacement settle, and one release tick registered').toBe(4);
+            expect([...cancelled].sort(), 'every timer-won wait cancelled exactly its own losing arm')
+                .toEqual([...registered].sort());
+            expect([...registered].filter(id => !cancelled.has(id)),
+                'no frame callback stays queued after the starved run').toEqual([])
+        } finally {
+            originalCancelFrame === undefined
+                ? delete globalThis.cancelAnimationFrame
+                : globalThis.cancelAnimationFrame = originalCancelFrame
+        }
+    });
+
     test('restores the host class and every temporary style when a post-invert frame fails', async () => {
         const
             markerClass     = 'dock-flip-item-alpha',
