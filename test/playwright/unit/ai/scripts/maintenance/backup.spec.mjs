@@ -759,3 +759,139 @@ test.describe('backup corruption canary — reachable by name', () => {
         expect(runbook).toContain('lastSuccessful');
     });
 });
+
+test.describe('backup.mjs — capture lineage: a zero-row export is not a claim of emptiness (#16404)', () => {
+    let buildCaptureBlock, listPublishedBundles, readPreviousBundleIdentities, captureRoot;
+
+    /**
+     * Writes a published bundle whose meta records one identity per source.
+     * @param {String} name Bundle directory name.
+     * @param {Object} sources `{key: collectionId}`.
+     */
+    function writePublishedBundle(name, sources) {
+        const dir = path.join(captureRoot, name);
+        fs.mkdirSync(dir, {recursive: true});
+        fs.writeFileSync(path.join(dir, 'bundle-meta.json'), JSON.stringify({
+            capture: {
+                schemaVersion: 1,
+                sources      : Object.fromEntries(
+                    Object.entries(sources).map(([key, collectionId]) => [key, {collectionId}])
+                )
+            }
+        }));
+    }
+
+    test.beforeAll(async () => {
+        ({buildCaptureBlock, listPublishedBundles, readPreviousBundleIdentities} =
+            await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
+    });
+
+    test.beforeEach(() => {
+        captureRoot = path.resolve(process.cwd(), 'tmp', `capture-lineage-${process.pid}-${Date.now()}`);
+        fs.mkdirSync(captureRoot, {recursive: true});
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(captureRoot, {recursive: true, force: true});
+    });
+
+    test('listPublishedBundles skips staging directories and returns newest first', async () => {
+        writePublishedBundle('backup-2026-08-01T10-00-00.000Z', {});
+        writePublishedBundle('backup-2026-08-03T10-00-00.000Z', {});
+        // The staging directory an interrupted capture leaves behind. It is a real directory with a
+        // real mtime; only the missing `backup-` prefix keeps it out, which is the contract restore
+        // and retention already depend on.
+        fs.mkdirSync(path.join(captureRoot, '.backup-partial-backup-2026-08-04T10-00-00.000Z-XyZ'), {recursive: true});
+
+        const bundles = await listPublishedBundles(captureRoot);
+
+        expect(bundles.map(b => b.name)).toEqual([
+            'backup-2026-08-03T10-00-00.000Z',
+            'backup-2026-08-01T10-00-00.000Z'
+        ]);
+    });
+
+    test('a zero-row export with an UNCHANGED identity is genuinely empty', async () => {
+        writePublishedBundle('backup-2026-08-02T10-00-00.000Z', {kb: 'collection-uuid-a'});
+
+        const {sources} = await buildCaptureBlock({
+            subsystems: {kb: {count: 0, collectionId: 'collection-uuid-a'}},
+            backupRoot: captureRoot
+        });
+
+        expect(sources.kb.lineage).toBe('same');
+        expect(sources.kb.empty).toBe(true)
+    });
+
+    test('a zero-row export with a CHANGED identity is NOT empty — it is unexplained', async () => {
+        // The defect this ticket exists for. Both captures report zero rows and both would have logged
+        // "Export complete."; only the identity distinguishes "the same source held nothing" from
+        // "a different source is here now". A promotion or a restore changes the id legitimately — so
+        // this asserts the receipt REFUSES the empty claim, not that it reports loss.
+        writePublishedBundle('backup-2026-08-02T10-00-00.000Z', {kb: 'collection-uuid-a'});
+
+        const {sources} = await buildCaptureBlock({
+            subsystems: {kb: {count: 0, collectionId: 'collection-uuid-b'}},
+            backupRoot: captureRoot
+        });
+
+        expect(sources.kb.rowState).toBe('zero');
+        expect(sources.kb.lineage).toBe('changed');
+        expect(sources.kb.empty).toBe(false)
+    });
+
+    test('a zero-row export with no predecessor degrades to unknown rather than claiming empty', async () => {
+        const {comparedTo, sources} = await buildCaptureBlock({
+            subsystems: {kb: {count: 0, collectionId: 'collection-uuid-a'}},
+            backupRoot: captureRoot
+        });
+
+        expect(comparedTo).toBeNull();
+        expect(sources.kb.lineage).toBe('unknown');
+        expect(sources.kb.empty).toBe(false)
+    });
+
+    test('a populated export is never reported empty, whatever the lineage says', async () => {
+        writePublishedBundle('backup-2026-08-02T10-00-00.000Z', {kb: 'collection-uuid-a'});
+
+        const {sources} = await buildCaptureBlock({
+            subsystems: {kb: {count: 12, collectionId: 'collection-uuid-b'}},
+            backupRoot: captureRoot
+        });
+
+        expect(sources.kb.rowState).toBe('populated');
+        expect(sources.kb.empty).toBe(false)
+    });
+
+    test('per-collection Memory Core receipts each carry their own lineage', async () => {
+        writePublishedBundle('backup-2026-08-02T10-00-00.000Z', {
+            'mc.memories' : 'memories-uuid-a',
+            'mc.summaries': 'summaries-uuid-a'
+        });
+
+        const {sources} = await buildCaptureBlock({
+            subsystems: {
+                mc: {
+                    memories : {exported: 0, collectionId: 'memories-uuid-a'},
+                    summaries: {exported: 0, collectionId: 'summaries-uuid-b'}
+                }
+            },
+            backupRoot: captureRoot
+        });
+
+        expect(sources['mc.memories'].empty).toBe(true);
+        // One re-embedded collection must not drag its sibling's verdict with it.
+        expect(sources['mc.summaries'].empty).toBe(false)
+    });
+
+    test('an unreadable predecessor degrades lineage instead of failing the backup', async () => {
+        const dir = path.join(captureRoot, 'backup-2026-08-02T10-00-00.000Z');
+        fs.mkdirSync(dir, {recursive: true});
+        fs.writeFileSync(path.join(dir, 'bundle-meta.json'), '{ this is not json');
+
+        const {bundleName, identities} = await readPreviousBundleIdentities(captureRoot, {warn: () => {}});
+
+        expect(bundleName).toBe('backup-2026-08-02T10-00-00.000Z');
+        expect(identities).toEqual({})
+    });
+});

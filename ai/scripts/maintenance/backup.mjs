@@ -23,6 +23,7 @@ import {
     Memory_LifecycleService
 } from '../../services.mjs';
 
+import {buildSourceReceipt}             from '../../services/shared/captureReceipt.mjs';
 import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
@@ -236,6 +237,99 @@ export function buildEmbeddingContract({subsystems}) {
         expectedConsumer: {model, provider},
         schemaVersion   : 1
     }
+}
+
+/**
+ * The sources whose identity is observable, and where each one's receipt lives in `subsystems`.
+ *
+ * The native graph is deliberately ABSENT. It is SQLite-backed and has no collection identity, so it
+ * could only ever record `lineage: unknown` — a permanent row that says nothing. Its own emptiness
+ * question is real but needs a different instrument, and inventing an always-unknown entry here would
+ * dress that gap as coverage.
+ * @type {Object[]}
+ */
+const LINEAGE_SOURCES = Object.freeze([
+    {key: 'kb',           read: subsystems => subsystems.kb},
+    {key: 'mc.memories',  read: subsystems => subsystems.mc?.memories},
+    {key: 'mc.summaries', read: subsystems => subsystems.mc?.summaries}
+]);
+
+/**
+ * @summary Reads the identities the previous PUBLISHED bundle recorded, keyed by source.
+ *
+ * Consumes {@link listPublishedBundles}, so a `.backup-partial-*` staging directory can never be the
+ * comparison basis — comparing against a capture that never completed would report a changed identity
+ * for an event that did not happen.
+ *
+ * Fail-soft by design: a missing, unreadable, or pre-`capture` bundle yields no identities, which
+ * degrades every lineage axis to `unknown` rather than aborting a backup. A backup that refuses to run
+ * because it cannot find its predecessor is a worse failure than one that cannot prove emptiness.
+ *
+ * @param {String} backupRoot Directory holding published bundles.
+ * @param {Object} [logger=console] Diagnostic sink.
+ * @returns {Promise<{bundleName: String|null, identities: Object}>}
+ */
+export async function readPreviousBundleIdentities(backupRoot, logger = console) {
+    const [previous] = await listPublishedBundles(backupRoot);
+
+    if (!previous) return {bundleName: null, identities: {}};
+
+    try {
+        const meta = await fs.readJson(path.join(previous.path, 'bundle-meta.json'));
+
+        // Prefer the structured capture block; fall back to the raw receipts so the FIRST bundle
+        // written after this change still has something to compare against next time.
+        const identities = {};
+        for (const {key, read} of LINEAGE_SOURCES) {
+            identities[key] = meta?.capture?.sources?.[key]?.collectionId
+                ?? read(meta?.subsystems || {})?.collectionId
+                ?? null;
+        }
+
+        return {bundleName: previous.name, identities}
+    } catch (error) {
+        logger.warn?.(`[Backup] Could not read identities from ${previous.name}: ${error.message}. Lineage degrades to unknown.`);
+        return {bundleName: previous.name, identities: {}}
+    }
+}
+
+/**
+ * @summary Builds the capture block: what each source held, and whether it is the same source.
+ *
+ * `readComplete` is `true` for every receipt that exists, and that is a fact about this substrate
+ * rather than an assumption — `#exportCollection` throws `PARTIAL_COLLECTION_EXPORT` when
+ * `exported !== expected`, so a partial read aborts the backup and never reaches a receipt.
+ *
+ * @param {Object} options
+ * @param {Object} options.subsystems Receipt map assembled by `runBackup`.
+ * @param {String} options.backupRoot Directory holding published bundles.
+ * @param {Object} [options.logger=console] Diagnostic sink.
+ * @returns {Promise<Object>} The `capture` block for `bundle-meta.json`.
+ */
+export async function buildCaptureBlock({subsystems, backupRoot, logger = console}) {
+    const {bundleName, identities} = await readPreviousBundleIdentities(backupRoot, logger);
+    const sources                  = {};
+
+    for (const {key, read} of LINEAGE_SOURCES) {
+        const receipt = read(subsystems);
+
+        if (!receipt) continue;
+
+        const rowCount = typeof receipt === 'number'
+            ? receipt
+            : receipt.count ?? receipt.exported ?? 0;
+
+        sources[key] = buildSourceReceipt({
+            source        : key,
+            rowCount,
+            readComplete  : true,
+            collectionId  : receipt.collectionId ?? null,
+            previousId    : identities[key] ?? null,
+            comparedBundle: bundleName
+        });
+    }
+
+    return {schemaVersion: 1, comparedTo: bundleName, sources}
 }
 
 /**
@@ -550,12 +644,20 @@ async function captureBackup({
     const versionInfo         = await buildVersionDescriptor(PROJECT_ROOT, logger);
     const publishedSubsystems = rebaseBundleReceiptPaths(subsystems, resolvedRoot, publishedRoot);
     const embedding           = buildEmbeddingContract({subsystems: publishedSubsystems});
-    const meta                = {
+    // Compared against the previous PUBLISHED bundle — the rename has not run yet, so this bundle is
+    // still staging and cannot select itself as its own predecessor.
+    const capture = await buildCaptureBlock({
+        subsystems: publishedSubsystems,
+        backupRoot: path.dirname(publishedRoot),
+        logger
+    });
+    const meta = {
         bundleVersion: 1,
         timestamp,
         completedAt,
         subsystems   : publishedSubsystems,
         integrity,
+        capture,
         topology,
         embedding,
         ...versionInfo
@@ -750,10 +852,23 @@ async function buildVersionDescriptor(projectRoot, logger) {
  * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
  * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
  */
-export async function cleanOldBackups(backupRoot, logger, retention = {}) {
-    if (!await fs.pathExists(backupRoot)) return;
-
-    const {keepMinimum = 3, maxDays = 30} = retention;
+/**
+ * @summary Enumerates the PUBLISHED bundles under a backup root, newest first.
+ *
+ * "Published" is not a synonym for "present". A bundle becomes authoritative only when the
+ * same-filesystem rename completes; before that it is a `.backup-partial-*` staging directory, which
+ * this enumeration skips by construction because it does not carry the `backup-` prefix. That is the
+ * same boundary restore and retention already rely on, and it is why lineage comparison must consume
+ * this function rather than its own `readdir` — a comparison against a half-written staging directory
+ * would report a changed identity for a capture that never completed.
+ *
+ * Directories whose timestamp suffix does not parse are omitted rather than sorted arbitrarily.
+ *
+ * @param {String} backupRoot Directory holding the bundles.
+ * @returns {Promise<Object[]>} `{name, path, date, time}` newest-first; empty when the root is absent.
+ */
+export async function listPublishedBundles(backupRoot) {
+    if (!await fs.pathExists(backupRoot)) return [];
 
     const entries = await fs.readdir(backupRoot, { withFileTypes: true });
 
@@ -779,6 +894,16 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
     }
 
     backups.sort((a, b) => b.time - a.time);
+
+    return backups
+}
+
+export async function cleanOldBackups(backupRoot, logger, retention = {}) {
+    if (!await fs.pathExists(backupRoot)) return;
+
+    const {keepMinimum = 3, maxDays = 30} = retention;
+
+    const backups = await listPublishedBundles(backupRoot);
 
     const K           = keepMinimum;
     const N_DAYS      = maxDays;
