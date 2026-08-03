@@ -297,12 +297,22 @@ class FleetCockpit extends Container {
      */
     dockPreviewProducer = null
     /**
-     * In-flight latch for {@link #loadBrainHealth} — one health pull airborne at a time, the same
-     * overlap suppression the liveness tick applies to the surface reads.
-     * @member {Boolean} brainHealthReadInFlight=false
+     * Monotonic read-fence for the Brain-health pulls — an immediate first read, an interval tick,
+     * and a timed-out-but-still-pending read can coexist; only the newest generation may write, so
+     * a late answer can never overwrite newer truth.
+     * @member {Number} brainHealthReadGeneration=0
      * @protected
      */
-    brainHealthReadInFlight = false
+    brainHealthReadGeneration = 0
+    /**
+     * Unsettled Brain-health reads on the wire — counted like {@link #streamReadInFlight}, capped at
+     * {@link #maxReadsInFlight} by the liveness tick, and released only on the read's OWN settle
+     * (never on the bounded-race timeout), so hung pulls can never accumulate unboundedly while a
+     * timed-out slot still frees the surface to keep re-reading.
+     * @member {Number} brainHealthReadInFlight=0
+     * @protected
+     */
+    brainHealthReadInFlight = 0
     /**
      * The retained diagnosis pointer for the DAEMON surface — the "why" the spine banner names
      * instead of generic copy. Per-surface like {@link #gridDegradedReason}: a transport sibling
@@ -2622,9 +2632,9 @@ class FleetCockpit extends Container {
         // against a bridge already failing to answer, which is precisely when piling on is worst.
         // Skipping a tick loses nothing: the next one reads the same live truth, only later.
         me.livenessTimerId = setInterval(() => {
-            if (me.streamReadInFlight < me.maxReadsInFlight) me.loadActivity();
-            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster();
-            me.brainHealthReadInFlight || me.loadBrainHealth()
+            if (me.streamReadInFlight      < me.maxReadsInFlight) me.loadActivity();
+            if (me.gridReadInFlight        < me.maxReadsInFlight) me.loadRoster();
+            if (me.brainHealthReadInFlight < me.maxReadsInFlight) me.loadBrainHealth()
         }, me.livenessPollInterval);
 
         // The daemon surface has no other first read: unlike roster/activity (seeded then wired
@@ -2666,15 +2676,23 @@ class FleetCockpit extends Container {
      * @protected
      */
     applyBrainHealth(response) {
-        let me = this;
+        let me    = this,
+            state = BRAIN_HEALTH_STATES.includes(response?.state) ? response.state : null;
 
         if (me.isDestroyed) return;
 
-        let state = BRAIN_HEALTH_STATES.includes(response?.state) ? response.state : null,
-            cause = state ? response.cause : null;
+        if (!state) {
+            // Transport truth is not daemon truth in EITHER direction: a rejection, timeout,
+            // unavailable envelope, or malformed payload must not fabricate a fault — and it must
+            // not ERASE a last-known one. A visible fault stays visible until the lifecycle owner
+            // itself answers otherwise; only a valid answer moves this surface.
+            return
+        }
 
         me.daemonState          = state;
-        me.daemonDegradedReason = cause ? (cause.detail || cause.source || null) : null;
+        me.daemonDegradedReason = state !== 'running' && response.cause
+            ? (response.cause.detail || response.cause.source || null)
+            : null;
 
         me.syncSpineBanner()
     }
@@ -2683,24 +2701,38 @@ class FleetCockpit extends Container {
      * @summary Pulls whole-Brain health from the shell's lifecycle owner — the re-read obligation.
      *
      * Pull, never push: rides the liveness cadence for as long as the cockpit renders, so a fault
-     * arriving after mount still surfaces and a recovery still clears. An absent shell (dev-server
-     * mode) or a rejected invoke resolves to the silent surface via {@link #applyBrainHealth} —
-     * absence is unknown, never nominal, and never a fabricated degradation.
+     * arriving after mount still surfaces and a recovery still clears. The read follows the same
+     * bounded discipline as the wire reads — `boundedRead` frees the surface on a hung pull
+     * while the wire-settle release plus the {@link #maxReadsInFlight} cap bound accumulation, and
+     * the generation fence discards any late answer. Transport failure (absent shell, rejection,
+     * timeout) reaches {@link #applyBrainHealth} as `null` and moves nothing.
      * @protected
      */
     async loadBrainHealth() {
         let me = this;
 
-        if (me.brainHealthReadInFlight) return;
-
-        me.brainHealthReadInFlight = true;
+        // BEFORE any early exit: absence is newer knowledge, and an older pending read must not
+        // outlive it (the same rule the wire reads follow).
+        const generation = ++me.brainHealthReadGeneration;
 
         try {
-            me.applyBrainHealth(await Neo.Main.brainHealth())
+            me.brainHealthReadInFlight++;
+
+            // Invoke INSIDE the chain: a synchronous throw becomes a rejection of the tracked
+            // promise, so the reject path owns the slot release (the sync-throw falsifier class).
+            const response = await boundedRead(
+                Promise.resolve().then(() => Neo.Main.brainHealth()),
+                me.livenessReadTimeout,
+                () => { me.brainHealthReadInFlight-- }
+            );
+
+            if (generation !== me.brainHealthReadGeneration || me.isDestroyed) return;
+
+            me.applyBrainHealth(response)
         } catch (error) {
+            if (generation !== me.brainHealthReadGeneration || me.isDestroyed) return;
+
             me.applyBrainHealth(null)
-        } finally {
-            me.brainHealthReadInFlight = false
         }
     }
 
