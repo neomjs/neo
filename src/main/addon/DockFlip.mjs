@@ -20,8 +20,10 @@ const MOTION_EPSILON_POSITION = 0.5,
  * Correlation is marker-class based (`{markerPrefix}<stableKey>`), because projected pane
  * component instances may be recreated across a coarse refresh while their dock ITEM identity
  * is stable — classes travel with the item's config, so First/Last rects correlate even when
- * the DOM nodes are new. Entering elements (no First rect) fade/scale in from their landing
- * spot; exiting elements are the outgoing tree's problem and need no animation.
+ * the DOM nodes are new. Entering elements (no First rect, or a First captured without
+ * presentable area — a mounted-but-hidden card) fade/scale in from their landing spot;
+ * zero-area Lasts have nothing to present and land instantly; exiting elements are the
+ * outgoing tree's problem and need no animation.
  *
  * Native atomic cross-boundary moves preserve the exact marker nodes. That branch skips the
  * replacement-tree detach poll and, when the First rect would be clipped by the destination,
@@ -612,7 +614,18 @@ class DockFlip extends Base {
                     firstRect = firstRects.get(key),
                     last      = el.getBoundingClientRect();
 
-                if (!firstRect) {
+                // A zero-area Last does not present at its destination (hidden card, collapsed
+                // box): there is no motion to show — the committed layout owns it.
+                if (!(last.width > 0) || !(last.height > 0)) {
+                    return
+                }
+
+                // An element without presentable First geometry is an entering element, not a
+                // mover — including a zero-area capture (a mounted-but-hidden card at First
+                // time). Inverting from a zero-area rect would install translate(-last.left,
+                // -last.top) scale(0, 0): a box collapsed onto the viewport origin, presenting
+                // blank staged frames until the transition escapes zero.
+                if (!firstRect || !(firstRect.width > 0) || !(firstRect.height > 0)) {
                     // entering element: grow into place from its landing spot
                     moves.push({el, fixedStage: false, transform: 'scale(0.92)', fade: true, last});
                     return
@@ -621,8 +634,8 @@ class DockFlip extends Base {
                 const
                     dx                  = firstRect.left - last.left,
                     dy                  = firstRect.top  - last.top,
-                    sx                  = last.width  > 0 ? firstRect.width  / last.width  : 1,
-                    sy                  = last.height > 0 ? firstRect.height / last.height : 1,
+                    sx                  = firstRect.width  / last.width,
+                    sy                  = firstRect.height / last.height,
                     preservedIdentity   = firstMarkers.get(key) === el && el.isConnected,
                     movedAcrossBoundary = preservedIdentity
                         && this.hasAncestorLineageChanged(el, firstLineages.get(key), hostEl),
