@@ -49,11 +49,18 @@ class DatabaseService extends Base {
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
      * @param {String} collectionName Stable collection label for logs, stats, and fail-loud errors.
-     * @returns {Promise<{collection: String, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics.
+     * @returns {Promise<{collection: String, collectionId: String|null, backupFile: String|null, expected: Number, exported: Number, skipped: Number, skippedIds: String[]}>} Export statistics.
      * @private
      */
     async #exportCollection(collection, backupPath, filePrefix, collectionName = collection.name || filePrefix) {
         logger.log(`Fetching all documents from "${collectionName}"...`);
+
+        // Identity, captured beside the name and never in place of it. The name survives a promotion
+        // by construction — `VectorService` swaps shadow into canonical under the same name — so only
+        // the id can distinguish "the same source held nothing" from "a different source is here now".
+        // Absent on sources that have no Chroma handle (the native graph); `null` degrades the
+        // lineage axis to `unknown` rather than asserting continuity it cannot observe.
+        const collectionId = collection?.id ?? null;
 
         // 1. Get total count first
         const count = await collection.count();
@@ -61,6 +68,7 @@ class DatabaseService extends Base {
             logger.log(`No documents found in ${collectionName} to export.`);
             return {
                 collection: collectionName,
+                collectionId,
                 backupFile: null,
                 expected  : 0,
                 exported  : 0,
@@ -77,6 +85,7 @@ class DatabaseService extends Base {
         const writeStream = fs.createWriteStream(backupFile);
         const stats       = {
             collection: collectionName,
+            collectionId,
             backupFile,
             expected  : count,
             exported  : 0,

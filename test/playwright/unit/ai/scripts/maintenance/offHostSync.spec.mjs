@@ -921,7 +921,7 @@ test.describe('backup receipt — the integrity verdict travels with the status'
     ];
     const CLEAN = [{subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206}];
 
-    test('a zero-row bundle is marked NOT restorable, and names which subsystems were empty', () => {
+    test('a zero-row bundle is marked NOT restorable, and names which subsystems brought back nothing', () => {
         const receipt = buildBackupReceipt({
             backup    : {durationMs: 24, error: null, status: 'success'},
             bundleName: 'backup-2026-07-31T04-57-18.233Z',
@@ -933,6 +933,23 @@ test.describe('backup receipt — the integrity verdict travels with the status'
         // …and the receipt now also says it is not a recovery source, with the reason named.
         expect(receipt.integrity.restorable).toBe(false);
         expect(receipt.integrity.emptySubsystems).toEqual(['kb', 'mc']);
+    });
+
+    test('the projection KEY is wire-stable at schemaVersion 1 — a receipt reader must not lose the field', () => {
+        // This key was briefly renamed to `zeroRowSubsystems` for lexical clarity. A receipt is read
+        // by whatever version is deployed where it lands, and a reader looking for `emptySubsystems`
+        // finds `undefined` — which reads as "no subsystem was empty", not as "I do not understand this
+        // receipt". Renaming a projected key without a schemaVersion bump is the same class of silent
+        // downgrade as renaming the status token itself.
+        const receipt = buildBackupReceipt({
+            backup    : {durationMs: 24, error: null, status: 'success'},
+            bundleName: 'backup-2026-06-14T02-11-05.000Z',
+            integrity : [{subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0}]
+        });
+
+        expect(Object.keys(receipt.integrity).sort()).toEqual(['emptySubsystems', 'restorable']);
+        expect(receipt.integrity.emptySubsystems).toEqual(['kb']);
+        expect(receipt.integrity.restorable).toBe(false);
     });
 
     test('POSITIVE CONTROL: a clean bundle is restorable and names nothing', () => {
