@@ -667,20 +667,76 @@ test.describe('mcpHealthcheck — a liveness expectation is a SET', () => {
         await expect(probe('degraded')).rejects.toThrow(/Expected healthcheck status 'healthy', got 'degraded'/);
     });
 
-    test('the production compose actually OPTS IN — the two layers agree in the shipped file', () => {
-        // Without this the unit fix passes while the deployment keeps the old behaviour: the defect
-        // lived in the gap between a correct instrument and the argument it was never given.
-        const test_ = readProductionCompose().services['mc-server'].healthcheck.test;
+    /**
+     * `healthcheck.test` is a LIST, and Compose REPLACES list-valued fields across `-f` layers
+     * rather than merging them. So an overlay that restates the whole command to add plane
+     * assertions silently drops every argument the base carried — and the first version of this fix
+     * did exactly that: the base opted in, the canonical local overlay overrode it, and the plane
+     * the incident happened on rendered the old healthy-only probe. Green CI, unchanged deployment.
+     *
+     * Asserted over EVERY compose file that overrides the command rather than over one rendered
+     * composition, because a rendered check only covers the layerings someone thought to enumerate.
+     * This one cannot be escaped by adding a profile.
+     */
+    const composeFiles = ['docker-compose.yml', 'docker-compose.local-agent-os.yml', 'docker-compose.dev.yml'];
 
-        expect(test_.join(' ')).toContain('--expected-status healthy,degraded');
+    /**
+     * Reads one deploy compose file and returns each service's healthcheck command as a string.
+     *
+     * Compose's merge tags (`!override`, `!reset`) are not core YAML, and a plain `yaml.load` THROWS
+     * on the overlay that uses them — which is the one file that carried this defect. They are
+     * stripped rather than schema-registered because this js-yaml build exposes no `Type` /
+     * `DEFAULT_SCHEMA` on its ESM namespace; the tags only annotate merge behaviour and carry no
+     * value this assertion reads.
+     *
+     * @param {String} file
+     * @returns {Object} `{service: joinedCommand}` for services that define `healthcheck.test`.
+     */
+    function healthcheckCommands(file) {
+        const source = fs
+            .readFileSync(new URL(`../../../../../../ai/deploy/${file}`, import.meta.url), 'utf8')
+            .replace(/(:[ \t]*)![a-z]+\b/g, '$1');
+
+        const doc = yaml.load(source);
+
+        return Object.fromEntries(
+            Object.entries(doc.services || {})
+                .filter(([, service]) => Array.isArray(service?.healthcheck?.test))
+                .map(([name, service]) => [name, service.healthcheck.test.join(' ')])
+        );
+    }
+
+    test('EVERY compose file that owns an mc-server healthcheck command carries the liveness set', () => {
+        const owning = composeFiles.filter(file => healthcheckCommands(file)['mc-server']);
+
+        // The sweep is only as good as its population: if this ever finds nothing, the assertion
+        // below is vacuously true and proves nothing.
+        expect(owning.length).toBeGreaterThanOrEqual(3);
+
+        for (const file of owning) {
+            expect(healthcheckCommands(file)['mc-server'], file).toContain('--expected-status healthy,degraded');
+        }
     });
 
-    test('the change is SCOPED: kb-server is untouched', () => {
-        // kb-server measured `healthy` throughout the incident window — it does not degrade on a cold
-        // embedding provider, so it needs no opt-in. Pinned so a future blanket edit is visible
-        // rather than inherited.
-        const test_ = readProductionCompose().services['kb-server'].healthcheck.test;
+    test('the canonical local composition renders the liveness set — the documented two-file order', () => {
+        // The runbook's start command is base + local overlay, in that order. Compose replaces the
+        // list, so the LAST file that defines it wins; that resolved command is what the plane runs.
+        const [, local] = composeFiles.map(file => healthcheckCommands(file)['mc-server']);
 
-        expect(test_.join(' ')).not.toContain('--expected-status');
+        expect(local).toContain('--expected-status healthy,degraded');
+        expect(local).toContain('--expected-plane-id neo-local-canonical');  // identity assertions retained
+    });
+
+    test('the change is SCOPED: no kb-server healthcheck opts in, in any file', () => {
+        // kb-server measured `healthy` throughout the incident window — it does not degrade on a cold
+        // embedding provider, so it needs no opt-in. Pinned across every file so a future blanket
+        // edit is visible rather than inherited.
+        for (const file of composeFiles) {
+            const command = healthcheckCommands(file)['kb-server'];
+
+            if (command) {
+                expect(command, file).not.toContain('--expected-status');
+            }
+        }
     });
 });
