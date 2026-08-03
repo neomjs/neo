@@ -79,6 +79,39 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
             .toBeNull();
     });
 
+    test('the citation may NAME the authority it cites (#16411)', () => {
+        // From a live false positive on a merge-eligibility hand-off. §critical_gates #1
+        // requires handing a merge to the operator, so every correct execution of that gate ends on a
+        // sentence assigning the decision — and the accurate way to write one names the gate. The old
+        // adjacency anchor (`/\bper\s+$/`) matched only the citation-FREE `per your call`, so the honest
+        // phrasing tripped while the phrasing that passed cited nothing.
+        expect(matchDeferencePhrase("Merge-eligible; per §critical_gates #1 that's your call.")).toBeNull();
+        expect(matchDeferencePhrase("As you said, per gate #1, that's your call.")).toBeNull();
+        // Anticipated rather than transcript-observed, and the narrowest of the four: a dash bridging the
+        // citation to the phrase. Cut this assertion and the dash characters together if a reviewer wants
+        // the exemption held to observed forms only — the word allowlist, not the punctuation, is what
+        // keeps the guard below honest.
+        expect(matchDeferencePhrase('Eligible per rule 1 — your call.')).toBeNull();
+
+        // A backticked citation is replaced by a space upstream in `stripMarkdownCode`, so this predicate
+        // sees `per   that's` with the citation erased. Whitespace alone therefore has to bridge, or the
+        // most idiomatic form in this repo would remain a false positive.
+        expect(matchDeferencePhrase("Merge-eligible; per `§critical_gates #1` that's your call.")).toBeNull();
+    });
+
+    test('a citation anchor does NOT exempt ordinary deference around it (#16411)', () => {
+        // The over-correction, pinned rather than intended. Widening to "`per` appears anywhere in the
+        // 80-character window" would exempt exactly the slip this detector exists to catch, so the bridge
+        // is an allowlist: any ordinary prose between the anchor and the phrase still fires.
+        expect(matchDeferencePhrase("Per your earlier note, I've left the direction open, your call."))
+            .toBe('your call');
+        expect(matchDeferencePhrase('As you said the sequencing matters, so which one first — your call?'))
+            .toBe('your call');
+        // Citation SHAPE is not authority: a §section or #ticket nearby exempts nothing without an anchor.
+        expect(matchDeferencePhrase('§critical_gates #1 is the gate. Your call on the merge?'))
+            .toBe('your call');
+    });
+
     test('still matches live deference uses of your call', () => {
         expect(matchDeferencePhrase('Your call on the branch cut.')).toBe('your call');
         expect(matchDeferencePhrase("It's your call whether I pick this up.")).toBe('your call');
