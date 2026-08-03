@@ -676,6 +676,30 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
         expect(addon.windowDragParkedGeometry).toBeNull()
     });
 
+    test('a reset completes safely when no document exists at all', () => {
+        // Deterministic pin for the full-suite ordering failure: resetDragState must no-op its
+        // class-list side effect when globalThis.document is entirely ABSENT — a bare
+        // `document` root reference throws ReferenceError before any optional chain engages.
+        const addon         = {},
+              savedDocument = globalThis.document,
+              hadDocument   = 'document' in globalThis;
+
+        try {
+            delete globalThis.document;
+
+            DragDrop.prototype.resetDragState.call(addon)
+        } finally {
+            hadDocument ? globalThis.document = savedDocument : delete globalThis.document
+        }
+
+        // The between-gestures baseline is applied unchanged: the document guard protects only
+        // the side effect, never the state-reset semantics.
+        expect(addon.dragCancelled).toBe(false);
+        expect(addon.dragZoneId).toBe(null);
+        expect(addon.windowDragGeneration).toBe(1);
+        expect(addon.windowDragMovePromises).toBeInstanceOf(Set)
+    });
+
     test('a reset makes the older native completion inert', async () => {
         let resolveMove;
 
