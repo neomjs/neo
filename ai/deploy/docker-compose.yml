@@ -243,6 +243,13 @@ services:
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
+      # The child heap ceiling needs a WRITER here, not just a reader in the service: without this
+      # line the deployment override is unreachable — the parent knob renders while this one stays
+      # null, so the "explicit ceiling per child" claim would hold in code and not in deployment.
+      # Empty default keeps the leaf's own default authoritative; a non-positive value fails closed
+      # in the leaf's parse hook rather than reaching Node, which would accept the flag, exit 0, and
+      # continue with a heap larger than the cgroup.
+      - NEO_SUPERVISED_TASK_HEAP_MB=${NEO_SUPERVISED_TASK_HEAP_MB:-}
       # The role is DECLARED, never inherited (#16229). The leaf carries no default, so this line
       # is what makes the containerized Orchestrator startable at all — and stating it here is the
       # point: before the cut, a host `node ai/daemons/orchestrator/daemon.mjs` resolved the same

@@ -1166,10 +1166,21 @@ test.describe('#16459 — the parent/child heap boundary', () => {
         expect(env.NODE_OPTIONS).toBe('--max-old-space-size=256');
     });
 
-    test('the child ceiling is deployment-overridable without touching code', () => {
-        const env = buildSupervisedTaskEnv({
-            baseEnv: {NEO_SUPERVISED_TASK_HEAP_MB: '768'}
-        });
+    /**
+     * The deployment override resolves through the AiConfig leaf and is INJECTED. This helper must
+     * not read the env var itself: doing so is the A1 antipattern, and the hand-rolled
+     * `Number(env) || 384` it replaced also accepted `-1`, which Node turns into a heap LARGER than
+     * the cgroup after reporting the flag out of bounds and exiting 0.
+     */
+    test('the helper ignores the env var — that resolution belongs to the leaf', () => {
+        const env = buildSupervisedTaskEnv({baseEnv: {NEO_SUPERVISED_TASK_HEAP_MB: '768'}});
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=384');
+        expect(env.NODE_OPTIONS).not.toContain('768');
+    });
+
+    test('the injected resolved ceiling is what applies', () => {
+        const env = buildSupervisedTaskEnv({defaultHeapMb: 768});
 
         expect(env.NODE_OPTIONS).toBe('--max-old-space-size=768');
     });
