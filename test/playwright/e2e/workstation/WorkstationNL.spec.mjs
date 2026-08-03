@@ -1299,6 +1299,7 @@ test.describe('Workstation — dense living-data composition', () => {
                 sampledFrames                  : 0,
                 securityCaptured               : false,
                 securityActiveHeaderMissFrames : 0,
+                securityEnterMotionFrames      : 0,
                 securityBodyMissingFrames      : 0,
                 securityFullyClippedFrames     : 0,
                 securityFullyClippedSamples    : [],
@@ -1522,17 +1523,45 @@ test.describe('Workstation — dense living-data composition', () => {
                         }
 
                         if (!painted) {
+                            const
+                                nodeStyle  = getComputedStyle(currentSecurityNode),
+                                parentRect = currentSecurityNode.parentElement?.getBoundingClientRect();
+
                             state.securityFullyClippedFrames++;
                             state.securityFullyClippedSamples.length < 20
                                 && state.securityFullyClippedSamples.push({
-                                    bottom: Math.round(rect.bottom),
-                                    height: Math.round(rect.height),
-                                    left  : Math.round(rect.left),
-                                    right : Math.round(rect.right),
-                                    top   : Math.round(rect.top),
-                                    width : Math.round(rect.width)
+                                    bottom           : Math.round(rect.bottom),
+                                    burst            : state.securityStageBursts,
+                                    caption          : document.querySelector('.workstation-tour-caption')?.textContent?.trim() || '',
+                                    computedTransform: nodeStyle.transform,
+                                    connected        : currentSecurityNode.isConnected,
+                                    display          : nodeStyle.display,
+                                    frameInBurst     : state.securityStageFramesByBurst.at(-1),
+                                    height           : Math.round(rect.height),
+                                    inlineTransform  : currentSecurityNode.style.transform,
+                                    left             : Math.round(rect.left),
+                                    parentRect       : parentRect && {
+                                        height: Math.round(parentRect.height),
+                                        left  : Math.round(parentRect.left),
+                                        top   : Math.round(parentRect.top),
+                                        width : Math.round(parentRect.width)
+                                    },
+                                    position : nodeStyle.position,
+                                    right    : Math.round(rect.right),
+                                    stagePins: {
+                                        height: currentSecurityNode.style.height,
+                                        left  : currentSecurityNode.style.left,
+                                        top   : currentSecurityNode.style.top,
+                                        width : currentSecurityNode.style.width
+                                    },
+                                    top  : Math.round(rect.top),
+                                    width: Math.round(rect.width)
                                 })
                         }
+                    }
+
+                    if (!staged && getComputedStyle(currentSecurityNode).transform !== 'none') {
+                        state.securityEnterMotionFrames++
                     }
 
                     securityWasStaged = staged
@@ -1719,12 +1748,14 @@ test.describe('Workstation — dense living-data composition', () => {
             `the active Security pane never leaves the DOM after capture: ${JSON.stringify(monitor.securityPresenceTransitions)}`)
             .toBe(0);
         expect(monitor.securityReplacementFrames, 'Security keeps the same DOM node across split and return').toBe(0);
-        expect(monitor.securityStageBursts, 'split and return each expose one preserved-identity fixed stage').toBe(2);
-        expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates the split and return stages')
-            .toHaveLength(2);
-        expect(monitor.securityStageFramesByBurst[0], 'the split stage spans multiple sequential samples')
-            .toBeGreaterThan(1);
-        expect(monitor.securityStageFramesByBurst[1], 'the return stage spans multiple sequential samples')
+        expect(monitor.securityStageBursts,
+            'only the return crossing stages: the split promotes a never-presented card (entering, unstaged)').toBe(1);
+        expect(monitor.securityEnterMotionFrames,
+            'the promoted never-presented pane presents its entering grow-in without a fixed stage')
+            .toBeGreaterThan(0);
+        expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates the return stage')
+            .toHaveLength(1);
+        expect(monitor.securityStageFramesByBurst[0], 'the return stage spans multiple sequential samples')
             .toBeGreaterThan(1);
         expect(monitor.securityStageFrames).toBe(monitor.securityStageFramesByBurst.reduce((sum, count) => sum + count, 0));
         expect(monitor.securityBodyMissingFrames,
@@ -1732,7 +1763,7 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(monitor.securityActiveHeaderMissFrames,
             'every staged frame retains a visible active tab header').toBe(0);
         expect(monitor.securityOverflowMutationFrames,
-            'the real tab-body overflow contract stays hidden throughout both moves').toBe(0);
+            'the real tab-body overflow contract stays hidden throughout the staged return').toBe(0);
         expect(monitor.securityFullyClippedFrames,
             `every staged frame paints pane content: ${JSON.stringify(monitor.securityFullyClippedSamples)}`).toBe(0);
         expect(monitor.palettes.length, 'the actual tour materially renders both theme palettes').toBeGreaterThanOrEqual(2);
