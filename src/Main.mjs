@@ -130,6 +130,7 @@ class Main extends core.Base {
         remote: {
             app: [
                 'alert',
+                'brainHealth',
                 'editRoute',
                 'fleetRequest',
                 'getByPath',
@@ -259,6 +260,18 @@ class Main extends core.Base {
         });
 
         window.location.hash = hashArr.join('&')
+    }
+
+    /**
+     * @summary Pull whole-Brain health from the Electron shell's lifecycle owner, when one hosts us.
+     * Resolves the owner's `{state, cause}` payload. Without a shell (dev-server mode) it returns a
+     * typed unavailable envelope, so consumers read absence as transport truth, never daemon truth.
+     * @returns {Promise<Object>|Object}
+     */
+    brainHealth() {
+        return globalThis.neoShell?.brainHealth
+            ? globalThis.neoShell.brainHealth()
+            : {ok: false, error: 'brain: shell health capability unavailable'}
     }
 
     /**

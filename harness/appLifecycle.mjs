@@ -6,6 +6,16 @@ export const BRAIN_STATES = Object.freeze(['running', 'degraded', 'stopped']);
 
 const brainStates = new Set(BRAIN_STATES);
 
+// Severity encodes the supersession rule: an owned-child fault outranks every window-scoped or
+// readiness cause, mirroring settleBrainBoot's `up && !brainFaulted` vote.
+const CAUSE_SEVERITY = Object.freeze({
+    'boot-not-ready'         : 1,
+    'cockpit-closed'         : 1,
+    'cockpit-destroyed'      : 1,
+    'owned-child-termination': 2,
+    'render-process-gone'    : 1
+});
+
 /**
  * @summary Creates the one shell owner for the retained cockpit, tray truth, and Brain teardown.
  * @param {Object} options
@@ -25,6 +35,7 @@ export function createAppLifecycle({
 }) {
     let
         allowFinalQuit = false,
+        brainCause     = null,
         brainFaulted   = false,
         brainState     = 'stopped',
         cockpitWindow  = null,
@@ -35,13 +46,41 @@ export function createAppLifecycle({
         trayController = null;
 
     /**
+     * @summary Retains the ONE bounded degrade cause under severity-tiered first-cause-wins.
+     * Within a tier the first cause of an episode survives; a higher-severity cause supersedes a
+     * lower one, never the reverse.
+     * @param {String} source A key of CAUSE_SEVERITY.
+     * @param {String|null} [detail=null] Bounded human-readable summary from the observation site.
+     * @returns {Object}
+     */
+    function recordBrainCause(source, detail = null) {
+        const severity = CAUSE_SEVERITY[source];
+
+        if (!severity) {
+            throw new Error(`Unsupported harness Brain cause source: ${source}`)
+        }
+
+        if (!brainCause || severity > brainCause.severity) {
+            brainCause = {detail, observedAt: Date.now(), severity, source}
+        }
+
+        return brainCause
+    }
+
+    /**
      * @summary Projects the lifecycle owner's current Brain truth into the existing tray handle.
+     * A retained cause never survives out of a degraded episode: `running` recovers, and an
+     * explicit quit/teardown (`stopped`) must never render as impairment.
      * @param {'running'|'degraded'|'stopped'} state
      * @returns {String}
      */
     function setBrainState(state) {
         if (!brainStates.has(state)) {
             throw new Error(`Unsupported harness Brain state: ${state}`)
+        }
+
+        if (state === 'running' || state === 'stopped') {
+            brainCause = null
         }
 
         if (brainState !== state) {
@@ -59,6 +98,7 @@ export function createAppLifecycle({
      * @returns {'running'|'degraded'}
      */
     function settleBrainBoot(up) {
+        up || recordBrainCause('boot-not-ready');
         return setBrainState(up && !brainFaulted ? 'running' : 'degraded')
     }
 
@@ -106,11 +146,13 @@ export function createAppLifecycle({
             cockpitWindow.on('close', onCockpitClose);
             cockpitWindow.once('closed', () => {
                 if (!explicitQuit && !allowFinalQuit) {
+                    recordBrainCause('cockpit-closed');
                     setBrainState('degraded')
                 }
             });
             cockpitWindow.webContents?.once?.('render-process-gone', () => {
                 if (!explicitQuit && !allowFinalQuit) {
+                    recordBrainCause('render-process-gone');
                     setBrainState('degraded')
                 }
             })
@@ -125,6 +167,7 @@ export function createAppLifecycle({
      */
     function openCockpit() {
         if (!cockpitWindow || cockpitWindow.isDestroyed()) {
+            recordBrainCause('cockpit-destroyed');
             setBrainState('degraded');
             return false
         }
@@ -167,23 +210,31 @@ export function createAppLifecycle({
 
     /**
      * @summary Marks unexpected owned-child termination as degraded without inventing a poller.
+     * The termination edge is the fault-observation site, so the cause (which child, which event)
+     * is produced here — downstream consumers can never reconstruct it.
      * @param {import('node:events').EventEmitter} child
+     * @param {String|null} [label=null] The owned child's registry identity, e.g. 'orchestrator'.
      * @returns {Function} Removes both observation listeners.
      */
-    function watchBrainChild(child) {
-        const onUnexpectedTermination = () => {
+    function watchBrainChild(child, label = null) {
+        const onUnexpectedTermination = summary => {
             if (!teardown && !explicitQuit && !allowFinalQuit) {
                 brainFaulted = true;
+                recordBrainCause('owned-child-termination', `${label ?? 'brain-child'}: ${summary}`.slice(0, 200));
                 setBrainState('degraded')
             }
         };
 
-        child.once('error', onUnexpectedTermination);
-        child.once('exit', onUnexpectedTermination);
+        const
+            onError = error => onUnexpectedTermination(`error ${String(error?.message ?? error ?? 'unknown')}`),
+            onExit  = (code, signal) => onUnexpectedTermination(signal ? `exit signal ${signal}` : `exit code ${code}`);
+
+        child.once('error', onError);
+        child.once('exit', onExit);
 
         return () => {
-            child.off('error', onUnexpectedTermination);
-            child.off('exit', onUnexpectedTermination)
+            child.off('error', onError);
+            child.off('exit', onExit)
         }
     }
 
@@ -263,6 +314,17 @@ export function createAppLifecycle({
     return {
         attachCockpitWindow,
         exitTerminal,
+        /**
+         * @summary The shell health wire payload: current state plus the retained cause.
+         * Severity stays producer-internal; the wire carries `{source, detail, observedAt}`.
+         * @returns {{state: String, cause: {source: String, detail: String|null, observedAt: Number}|null}}
+         */
+        get brainHealth() {
+            return {
+                cause: brainCause ? {detail: brainCause.detail, observedAt: brainCause.observedAt, source: brainCause.source} : null,
+                state: brainState
+            }
+        },
         get brainState() { return brainState },
         installTray,
         invokeTrayAction,

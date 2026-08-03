@@ -13,6 +13,99 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
     const STATES = ['sample', 'stale', 'live'];
 
+    // ⭐ The daemon surface: the shell spec's "tray-state change + ONE cockpit banner with the
+    // diagnosis pointer — never a popup storm". The storm clause is a property of EPISODES, not
+    // renders, so it is asserted as such below rather than assumed from the return type.
+    test.describe('⭐ daemon health — ONE banner per episode, ranked above a stale feed', () => {
+        const live = {grid: {state: 'live'}, stream: {state: 'live'}};
+
+        test('a stopped and a degraded daemon each speak, and `running` stays silent', () => {
+            // `running` must earn zero pixels like every other nominal state.
+            expect(deriveSpineBanner({...live, daemon: {state: 'running'}})).toEqual({hidden: true, kind: 'live', text: ''});
+
+            for (const state of ['degraded', 'stopped']) {
+                const result = deriveSpineBanner({...live, daemon: {state}});
+
+                expect(result.hidden, state).toBe(false);
+                expect(result.kind, state).toBe('degraded');
+                // The two are different operator situations, so the SENTENCE distinguishes them —
+                // not just the class. A screen reader reaches text, never a colour.
+                expect(result.text, state).toContain(state === 'stopped' ? 'stopped' : 'degraded')
+            }
+        });
+
+        test('⭐ daemon silence renders NOTHING and does not claim health', () => {
+            // Absence is UNKNOWN, not nominal. Inventing a degradation from missing information is a
+            // false alarm; claiming health from it is the fabrication. Both are wrong, so it stays
+            // quiet — and the transport line already speaks when the server is silent.
+            for (const daemon of [undefined, null, {}, {state: null}, {state: 'unknown'}, {state: ''}]) {
+                const result = deriveSpineBanner({...live, daemon});
+
+                expect(result.hidden, JSON.stringify(daemon)).toBe(true);
+                expect(result.text, JSON.stringify(daemon)).toBe('')
+            }
+        });
+
+        test('⭐ a dead daemon OUTRANKS a stale feed — the diagnosis, not the symptom', () => {
+            // A dead daemon is usually what made the feed stale. Reporting the feed alone would name
+            // the symptom and drop the pointer the spec asks for.
+            const result = deriveSpineBanner({
+                grid  : {state: 'stale', reason: 'feed went quiet'},
+                stream: {state: 'stale'},
+                daemon: {state: 'stopped', reason: 'orchestrator exited'}
+            });
+
+            expect(result.text).toContain('orchestrator exited');
+            expect(result.text).not.toContain('last-known data');
+            // Control: remove the daemon fault and the SAME input must fall back to the stale line,
+            // which is what proves the daemon branch is doing the ranking rather than the text.
+            expect(deriveSpineBanner({
+                grid: {state: 'stale', reason: 'feed went quiet'}, stream: {state: 'stale'}
+            }).text).toContain('last-known data')
+        });
+
+        test('an unreachable transport still wins — it cannot have answered a daemon pull', () => {
+            const result = deriveSpineBanner({
+                grid: {state: 'sample'}, stream: {state: 'live'}, daemon: {state: 'stopped'}
+            });
+
+            expect(result.kind).toBe('cold');
+            expect(result.text).toContain('static roster')
+        });
+
+        test('⭐ N daemons down in ONE episode yield ONE banner — the storm clause, asserted', () => {
+            // The spec's "never a popup storm" is about episodes. The derivation is total and returns
+            // exactly one line whatever the fault breadth, so the storm is unrepresentable rather than
+            // debounced — and a caller cannot turn three dead daemons into three banners.
+            const episode = deriveSpineBanner({
+                ...live,
+                daemon: {state: 'stopped', reason: 'orchestrator, fleet and chroma all exited'}
+            });
+
+            expect(Array.isArray(episode)).toBe(false);
+            expect(Object.keys(episode).sort()).toEqual(['hidden', 'kind', 'text']);
+            expect(episode.text.match(/Agent OS/g)).toHaveLength(1);
+
+            // And it is IDEMPOTENT across re-derivation: a polling consumer re-deriving the same
+            // episode produces an identical line, so nothing accumulates per poll.
+            expect(deriveSpineBanner({...live, daemon: {state: 'stopped', reason: 'orchestrator, fleet and chroma all exited'}}))
+                .toEqual(episode)
+        });
+
+        test('a daemon reason cannot be supplied OR silenced by a transport sibling', () => {
+            // The module's per-surface-reason doctrine, applied to the new surface: a `stale` grid
+            // carrying a reason must not lend it to the daemon line.
+            const result = deriveSpineBanner({
+                grid  : {state: 'stale', reason: 'grid-owned cause'},
+                stream: {state: 'live'},
+                daemon: {state: 'degraded'}
+            });
+
+            expect(result.text).not.toContain('grid-owned cause');
+            expect(result.text).toContain('check the tray state and the daemon log')
+        });
+    });
+
     test('the full 3×3 matrix: cold beats degraded beats live; only live+live hides', () => {
         for (const gridAdapterState of STATES) {
             for (const streamAdapterState of STATES) {

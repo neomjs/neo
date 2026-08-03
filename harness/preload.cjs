@@ -6,6 +6,9 @@ const {contextBridge, ipcRenderer} = require('electron');
 // capabilities land with their consuming leaves (E5 carries the contract; additions amend the
 // shell ADR §2.3 first).
 contextBridge.exposeInMainWorld('neoShell', {
+    // Pull-shaped whole-Brain health from the lifecycle owner. Consumers that render this answer
+    // must re-read it for as long as they render (interval is leaf property).
+    brainHealth : () => ipcRenderer.invoke('brain-health'),
     fleetRequest: request => ipcRenderer.invoke('fleet-request', request),
     shellVersion: process.versions.electron
 });

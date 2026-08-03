@@ -886,7 +886,7 @@ const appLifecycle = createAppLifecycle({
  */
 function registerBrainChild(entry) {
     brainState.children.push(entry);
-    appLifecycle.watchBrainChild(entry.child);
+    appLifecycle.watchBrainChild(entry.child, entry.label);
     return entry
 }
 
@@ -1046,6 +1046,16 @@ app.whenReady().then(async () => {
     }
 
     ipcMain.handle('fleet-request', fleetCapability.request);
+
+    // Whole-Brain health crosses ONLY from the lifecycle owner — never composed from per-agent
+    // fleet rows. Untrusted senders reject (transport truth, never daemon truth).
+    ipcMain.handle('brain-health', event => {
+        if (!isTrustedIpcSender(event)) {
+            throw new Error('brain-health: untrusted sender')
+        }
+
+        return appLifecycle.brainHealth
+    });
 
     const win1 = createHarnessWindow(APP_URL);
 

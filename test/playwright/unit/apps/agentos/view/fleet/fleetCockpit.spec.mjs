@@ -12,10 +12,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import {readFileSync}  from 'fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {test, expect}       from '@playwright/test';
+import {EventEmitter}       from 'node:events';
+import {createAppLifecycle} from '../../../../../../../harness/appLifecycle.mjs';
+import {readFileSync}       from 'fs';
+import path                 from 'path';
+import {fileURLToPath}      from 'url';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../../../src/manager/Instance.mjs';
@@ -1254,6 +1256,134 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
     });
 
+    // ⭐ The daemon surface reaching the REAL slot. The derivation being correct is a separate suite;
+    // this asserts the cockpit actually FEEDS it, because a derivation nothing feeds is indistinguishable
+    // from an absent feature — and the wiring is the half that makes the shell spec's banner exist.
+    test('⭐ a dead daemon reaches the slot with the diagnosis, outranking a stale feed', () => {
+        const banner = makeBanner(),
+              host   = {
+                  ...makeHost('live', 'stale', banner),
+                  daemonDegradedReason: 'orchestrator exited',
+                  daemonState         : 'stopped'
+              };
+
+        host.syncSpineBanner();
+
+        const {cls, hidden, text} = banner.calls[0];
+
+        expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
+        expect(hidden).toBe(false);
+        expect(text).toContain('stopped');
+        expect(text).toContain('orchestrator exited');
+        // The stale feed is the symptom; it must not be the sentence.
+        expect(text).not.toContain('last-known data')
+    });
+
+    test('⭐ an unfed daemon surface stays SILENT on a live owner — absence claims nothing', () => {
+        // `daemonState` is null until the runtime pull lands. This asserts the default is honest
+        // silence rather than an implicit "the organism is fine", which is what defaulting to
+        // `'running'` would have asserted on the strength of never having asked.
+        const banner = makeBanner();
+
+        makeHost('live', 'live', banner).syncSpineBanner();
+
+        expect(banner.calls[0].hidden).toBe(true);
+        expect(banner.calls[0].text).toBe('')
+    });
+
+    // ⭐ The producer→cockpit→slot witness the predecessor lacked: the SHELL transition drives the
+    // banner. A test that hand-assigns `daemonState` witnesses only a pass-through — that misreading
+    // is what made the closed predecessor PR look delivered while its fields had no writer at all.
+    test('⭐ a SHELL transition drives the banner: lifecycle owner → wire payload → feed → slot', () => {
+        const
+            child     = new EventEmitter(),
+            lifecycle = createAppLifecycle({
+                app          : Object.assign(new EventEmitter(), {exit() {}, quit() {}}),
+                teardownBrain: async () => ({})
+            }),
+            banner    = makeBanner(),
+            cockpit   = {
+                ...makeHost('live', 'live', banner),
+                applyBrainHealth       : FleetCockpit.prototype.applyBrainHealth,
+                brainHealthReadInFlight: false,
+                daemonDegradedReason   : null,
+                daemonState            : null
+            };
+
+        lifecycle.setBrainState('running');
+        lifecycle.watchBrainChild(child, 'orchestrator');
+        child.emit('error', new Error('spawn ENOENT'));
+
+        // The payload is the producer's own wire truth, never test-fabricated consumer state.
+        cockpit.applyBrainHealth(lifecycle.brainHealth);
+
+        expect(cockpit.daemonState).toBe('degraded');
+        expect(banner.calls[0].hidden).toBe(false);
+        expect(banner.calls[0].text).toContain('degraded');
+        expect(banner.calls[0].text).toContain('orchestrator: error spawn ENOENT');
+
+        // Recovery is ALSO the shell's transition — the owner's `running` write, which is the
+        // terminal step any future restart machinery performs. Restart machinery itself (a second
+        // boot-settle after an owned-child fault) is lifecycle-service scope, not this leaf's.
+        lifecycle.setBrainState('running');
+        cockpit.applyBrainHealth(lifecycle.brainHealth);
+
+        expect(cockpit.daemonState).toBe('running');
+        expect(cockpit.daemonDegradedReason).toBeNull();
+        expect(banner.calls[1].hidden).toBe(true)
+    });
+
+    test('⭐ transport failure never impersonates recovery: fault → dead transport → retained; only running clears', () => {
+        const banner  = makeBanner(),
+              cockpit = {
+                  ...makeHost('live', 'live', banner),
+                  applyBrainHealth    : FleetCockpit.prototype.applyBrainHealth,
+                  daemonDegradedReason: null,
+                  daemonState         : null
+              };
+
+        // a real fault from the lifecycle owner
+        cockpit.applyBrainHealth({cause: {detail: 'orchestrator: exit code 1', observedAt: 1, source: 'owned-child-termination'}, state: 'degraded'});
+
+        expect(cockpit.daemonState).toBe('degraded');
+        expect(banner.calls[0].hidden).toBe(false);
+        expect(banner.calls[0].text).toContain('orchestrator: exit code 1');
+
+        // the transport dies: an unavailable envelope AND a rejection-mapped null. A dead transport
+        // is not a recovered organism — the KNOWN fault must stay visible, not be erased.
+        cockpit.applyBrainHealth({error: 'brain: shell health capability unavailable', ok: false});
+        cockpit.applyBrainHealth(null);
+
+        expect(cockpit.daemonState).toBe('degraded');
+        expect(cockpit.daemonDegradedReason).toBe('orchestrator: exit code 1');
+        expect(banner.calls, 'transport answers repaint nothing').toHaveLength(1);
+
+        // ONLY the owner's own running answer clears the fault
+        cockpit.applyBrainHealth({cause: null, state: 'running'});
+
+        expect(cockpit.daemonState).toBe('running');
+        expect(cockpit.daemonDegradedReason).toBeNull();
+        expect(banner.calls[1].hidden).toBe(true)
+    });
+
+    test('dev-server mode stays silent: transport-only answers on a never-fed surface write nothing', () => {
+        const banner  = makeBanner(),
+              cockpit = {
+                  ...makeHost('live', 'live', banner),
+                  applyBrainHealth    : FleetCockpit.prototype.applyBrainHealth,
+                  daemonDegradedReason: null,
+                  daemonState         : null
+              };
+
+        cockpit.applyBrainHealth({error: 'brain: shell health capability unavailable', ok: false});
+        cockpit.applyBrainHealth(null);
+
+        // never fed → still null/null, and no banner write at all: silence claims nothing
+        expect(cockpit.daemonState).toBeNull();
+        expect(cockpit.daemonDegradedReason).toBeNull();
+        expect(banner.calls).toEqual([])
+    });
+
     test('a cold owner writes the REAL slot: cold class hook, visible, cause + shipped remedy', () => {
         const banner = makeBanner();
 
@@ -1620,13 +1750,17 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         // on the first tick. The `*ReadInFlight` pair mirrors the class defaults the latch reads.
         return {
             cleared,
-            polls               : 0,
-            gridReadInFlight    : 0,
-            livenessPollInterval: 50,
-            livenessTimerId     : null,
-            maxReadsInFlight    : 2,
-            streamReadInFlight  : 0,
+            polls                  : 0,
+            brainReads             : 0,
+            brainHealthReadInFlight: 0,
+            gridReadInFlight       : 0,
+            livenessPollInterval   : 50,
+            livenessTimerId        : null,
+            maxReadsInFlight       : 2,
+            streamReadInFlight     : 0,
             loadActivity() { this.polls++; return Promise.resolve() },
+            // the third seam counts separately: the wire-read expectations stay untouched by it
+            loadBrainHealth() { this.brainReads++; return Promise.resolve() },
             loadRoster()   { this.polls++; return Promise.resolve() },
             startLiveness: FleetCockpit.prototype.startLiveness,
             stopLiveness : FleetCockpit.prototype.stopLiveness,
@@ -1924,13 +2058,115 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         host.startLiveness();
 
         try {
+            // the daemon surface has no other first load — arming the owner IS its first read
+            expect(host.brainReads, 'the immediate first Brain read must not wait a full cadence').toBe(1);
+
             await new Promise(resolve => setTimeout(resolve, 45));
 
-            // both seams, every tick: re-driving the real verbs IS the mechanism
-            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4)
+            // both wire seams, every tick: re-driving the real verbs IS the mechanism
+            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4);
+
+            // the third seam rides the same cadence: immediate read plus tick re-reads. Overlap and
+            // hang behavior are witnessed by the never-settle tests below against REAL promises —
+            // never by assigning the in-flight field here.
+            expect(host.brainReads, 'the Brain read must re-drive on the cadence, not just once').toBeGreaterThanOrEqual(2)
         } finally {
             host.stopLiveness()
         }
+    });
+
+    /**
+     * @summary Builds a host wired to the REAL loadBrainHealth with a controllable Neo.Main mock.
+     * Returns the host, the recorded apply calls, and the hung wires' resolvers — so the tests can
+     * settle a wire deliberately instead of ever assigning the in-flight field.
+     */
+    const makeBrainReadHost = ({timeout}) => {
+        const
+            applied = [],
+            wires   = [],
+            host    = {
+                applied,
+                wires,
+                brainHealthReadGeneration: 0,
+                brainHealthReadInFlight  : 0,
+                isDestroyed              : false,
+                livenessReadTimeout      : timeout,
+                maxReadsInFlight         : 2,
+                applyBrainHealth(response) { applied.push(response) },
+                loadBrainHealth: FleetCockpit.prototype.loadBrainHealth
+            };
+
+        return host
+    };
+
+    const withMainMock = async (host, run) => {
+        const hadNeo   = Boolean(globalThis.Neo),
+              original = globalThis.Neo?.Main;
+
+        (globalThis.Neo ??= {}).Main = {brainHealth: () => new Promise(resolve => host.wires.push(resolve))};
+
+        try {
+            await run()
+        } finally {
+            if (original === undefined) { delete globalThis.Neo.Main } else { globalThis.Neo.Main = original }
+            if (!hadNeo) { delete globalThis.Neo }
+        }
+    };
+
+    test('a Brain read that NEVER settles must not freeze the surface — bounded slot, capped wires', async () => {
+        const host = makeBrainReadHost({timeout: 20});
+
+        await withMainMock(host, async () => {
+            // the first read hangs: the bounded race frees the CALLER on the timeout…
+            const first = host.loadBrainHealth();
+
+            expect(host.brainHealthReadInFlight).toBe(1);
+            await first;
+
+            expect(host.applied, 'the timed-out read lands as transport truth').toEqual([null]);
+            // …while the WIRE never settled, so its slot stays counted — the accumulation bound
+            expect(host.brainHealthReadInFlight).toBe(1);
+
+            // the surface is NOT frozen: a second read launches under the cap and hangs too
+            await host.loadBrainHealth();
+            expect(host.brainHealthReadInFlight).toBe(2);
+
+            // two hung wires reach the cap: the tick guard now suppresses — bounded, never a stop
+            expect(host.brainHealthReadInFlight < host.maxReadsInFlight).toBe(false);
+
+            // a hung wire finally answering releases its slot but its answer goes nowhere
+            host.applied.length = 0;
+            host.wires[0]({cause: null, state: 'running'});
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(host.applied, 'a wire the race already dropped never writes').toEqual([]);
+            expect(host.brainHealthReadInFlight, 'its settle still frees the slot').toBe(1)
+        })
+    });
+
+    test('a slow Brain answer landing after a newer read never writes — the generation fence', async () => {
+        const host = makeBrainReadHost({timeout: 500});
+
+        await withMainMock(host, async () => {
+            const slow = host.loadBrainHealth(),
+                  fast = host.loadBrainHealth();
+
+            // the mock's invoke sits one microtask deep (the sync-throw guard wraps it in a
+            // resolved-promise chain), so the wires materialize only after a flush
+            await expect.poll(() => host.wires.length).toBe(2);
+
+            // the NEWER read answers first with current truth
+            host.wires[1]({cause: null, state: 'running'});
+            await fast;
+            expect(host.applied).toEqual([{cause: null, state: 'running'}]);
+
+            // the STALE wire answers late — inside its timeout window, but past its generation
+            host.wires[0]({cause: {detail: 'stale news', observedAt: 1, source: 'owned-child-termination'}, state: 'degraded'});
+            await slow;
+
+            expect(host.applied, 'older news never overwrites newer truth').toEqual([{cause: null, state: 'running'}]);
+            expect(host.brainHealthReadInFlight, 'both wires settled, both slots free').toBe(0)
+        })
     })
 });
 

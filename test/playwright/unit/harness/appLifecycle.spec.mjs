@@ -279,6 +279,104 @@ test.describe('harness app lifecycle', () => {
         expect(tray.states).toEqual([])
     });
 
+    test.describe('brainHealth cause retention (ADR 0034 §2.3.7)', () => {
+        test('an owned-child fault names the child and event on the wire, severity stays internal', () => {
+            const
+                app       = createFakeApp(),
+                child     = new EventEmitter(),
+                lifecycle = createAppLifecycle({app, teardownBrain: async () => ({})});
+
+            expect(lifecycle.brainHealth).toEqual({cause: null, state: 'stopped'});
+
+            lifecycle.setBrainState('running');
+            lifecycle.watchBrainChild(child, 'orchestrator');
+            child.emit('exit', 1);
+
+            const health = lifecycle.brainHealth;
+
+            expect(health.state).toBe('degraded');
+            expect(Object.keys(health.cause).sort()).toEqual(['detail', 'observedAt', 'source']);
+            expect(health.cause.source).toBe('owned-child-termination');
+            expect(health.cause.detail).toBe('orchestrator: exit code 1');
+            expect(typeof health.cause.observedAt).toBe('number')
+        });
+
+        test('an owned-child fault supersedes a window-scoped cause, never the reverse', () => {
+            const
+                app       = createFakeApp(),
+                child     = new EventEmitter(),
+                cockpit   = createFakeWindow(),
+                tray      = createFakeTrayFactory(),
+                lifecycle = createAppLifecycle({app, teardownBrain: async () => ({})});
+
+            lifecycle.attachCockpitWindow(cockpit);
+            lifecycle.installTray(tray.factory);
+            lifecycle.setBrainState('running');
+            lifecycle.watchBrainChild(child, 'fleet');
+
+            cockpit.emit('closed');
+            expect(lifecycle.brainHealth.cause.source).toBe('cockpit-closed');
+
+            child.emit('error', new Error('spawn ENOENT'));
+            expect(lifecycle.brainHealth.cause.detail).toBe('fleet: error spawn ENOENT');
+
+            // The reverse direction: a later window-scoped observation never displaces the child fault.
+            cockpit.webContents.emit('render-process-gone');
+            expect(lifecycle.brainHealth.cause.source).toBe('owned-child-termination')
+        });
+
+        test('first cause wins within a tier and the detail stays bounded', () => {
+            const
+                app       = createFakeApp(),
+                child     = new EventEmitter(),
+                cockpit   = createFakeWindow(),
+                tray      = createFakeTrayFactory(),
+                lifecycle = createAppLifecycle({app, teardownBrain: async () => ({})});
+
+            lifecycle.attachCockpitWindow(cockpit);
+            lifecycle.installTray(tray.factory);
+            lifecycle.setBrainState('running');
+
+            cockpit.emit('closed');
+            cockpit.webContents.emit('render-process-gone');
+            expect(lifecycle.brainHealth.cause.source).toBe('cockpit-closed');
+
+            lifecycle.watchBrainChild(child, 'orchestrator');
+            child.emit('error', new Error('x'.repeat(400)));
+            expect(lifecycle.brainHealth.cause.detail.length).toBeLessThanOrEqual(200)
+        });
+
+        test('boot-not-ready is a recorded cause, and recovery to running clears it', () => {
+            const
+                app       = createFakeApp(),
+                lifecycle = createAppLifecycle({app, teardownBrain: async () => ({})});
+
+            expect(lifecycle.settleBrainBoot(false)).toBe('degraded');
+            expect(lifecycle.brainHealth.cause.source).toBe('boot-not-ready');
+
+            expect(lifecycle.settleBrainBoot(true)).toBe('running');
+            expect(lifecycle.brainHealth).toEqual({cause: null, state: 'running'})
+        });
+
+        test('an explicit quit path never renders as impairment: stopped clears the cause', async () => {
+            const
+                app       = createFakeApp(),
+                child     = new EventEmitter(),
+                lifecycle = createAppLifecycle({app, teardownBrain: async () => ({})});
+
+            lifecycle.setBrainState('running');
+            lifecycle.watchBrainChild(child, 'fleet');
+            child.emit('exit', null, 'SIGKILL');
+
+            expect(lifecycle.brainHealth.cause.detail).toBe('fleet: exit signal SIGKILL');
+
+            // exitTerminal reaches 'stopped' without ever passing through 'running'.
+            await lifecycle.exitTerminal(0);
+
+            expect(lifecycle.brainHealth).toEqual({cause: null, state: 'stopped'})
+        })
+    });
+
     test('keeps smoke terminal, trayless, and exact-once across repeated exit requests', async () => {
         const
             app       = createFakeApp(),

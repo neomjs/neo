@@ -32,6 +32,14 @@ import '../../../../src/tab/Container.mjs'; // registers the `tab-container` nty
  * at the surface that died.
  * @type {Number}
  */
+/**
+ * Brain daemon states the shell lifecycle owner can report. Mirrors `BRAIN_STATES` in
+ * `harness/appLifecycle.mjs` — the hemisphere boundary forbids importing it (apps code stays
+ * shell-agnostic), so the vocabulary is duplicated here and anything outside it is unknown → silent.
+ * @type {String[]}
+ */
+const BRAIN_HEALTH_STATES = Object.freeze(['degraded', 'running', 'stopped']);
+
 const LIVENESS_POLL_INTERVAL = 15000;
 
 /**
@@ -288,6 +296,49 @@ class FleetCockpit extends Container {
      * @protected
      */
     dockPreviewProducer = null
+    /**
+     * Monotonic read-fence for the Brain-health pulls — an immediate first read, an interval tick,
+     * and a timed-out-but-still-pending read can coexist; only the newest generation may write, so
+     * a late answer can never overwrite newer truth.
+     * @member {Number} brainHealthReadGeneration=0
+     * @protected
+     */
+    brainHealthReadGeneration = 0
+    /**
+     * Unsettled Brain-health reads on the wire — counted like {@link #streamReadInFlight}, capped at
+     * {@link #maxReadsInFlight} by the liveness tick, and released only on the read's OWN settle
+     * (never on the bounded-race timeout), so hung pulls can never accumulate unboundedly while a
+     * timed-out slot still frees the surface to keep re-reading.
+     * @member {Number} brainHealthReadInFlight=0
+     * @protected
+     */
+    brainHealthReadInFlight = 0
+    /**
+     * The retained diagnosis pointer for the DAEMON surface — the "why" the spine banner names
+     * instead of generic copy. Per-surface like {@link #gridDegradedReason}: a transport sibling
+     * must never be able to supply or silence this cause. Written only by {@link #applyBrainHealth},
+     * from the lifecycle owner's retained cause (its detail, falling back to its source key).
+     * @member {String|null} daemonDegradedReason=null
+     * @protected
+     */
+    daemonDegradedReason = null
+    /**
+     * Brain daemon health for the spine banner's third surface — `'running'|'degraded'|'stopped'`,
+     * mirroring the shell lifecycle owner's state vocabulary.
+     *
+     * **`null` by default, and that silence is deliberate rather than a placeholder.** Defaulting to
+     * `'running'` would have the banner assert "the organism is fine" on the strength of never
+     * having asked — the fabrication this cockpit's render discipline exists to prevent. `null`
+     * renders nothing and claims nothing; `deriveSpineBanner` treats absence as UNKNOWN.
+     *
+     * Fed by {@link #loadBrainHealth}: a pull on the shell's named health capability riding the
+     * liveness cadence — deliberately NOT a main→renderer push channel, and deliberately NOT the
+     * per-agent fleet wire, whose process rows answer "which agents run", never "is the organism
+     * impaired".
+     * @member {String|null} daemonState=null
+     * @protected
+     */
+    daemonState = null
     /**
      * The grid's held `adapterState` — absent-item materialization reads from HERE, so a committed
      * layout change can never reset a live grid back to its sample badge.
@@ -2581,9 +2632,14 @@ class FleetCockpit extends Container {
         // against a bridge already failing to answer, which is precisely when piling on is worst.
         // Skipping a tick loses nothing: the next one reads the same live truth, only later.
         me.livenessTimerId = setInterval(() => {
-            if (me.streamReadInFlight < me.maxReadsInFlight) me.loadActivity();
-            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster()
-        }, me.livenessPollInterval)
+            if (me.streamReadInFlight      < me.maxReadsInFlight) me.loadActivity();
+            if (me.gridReadInFlight        < me.maxReadsInFlight) me.loadRoster();
+            if (me.brainHealthReadInFlight < me.maxReadsInFlight) me.loadBrainHealth()
+        }, me.livenessPollInterval);
+
+        // The daemon surface has no other first read: unlike roster/activity (seeded then wired
+        // elsewhere), waiting a full cadence would leave a boot-time fault invisible for it.
+        me.loadBrainHealth()
     }
 
     /**
@@ -2606,6 +2662,77 @@ class FleetCockpit extends Container {
         if (me.livenessTimerId !== null) {
             clearInterval(me.livenessTimerId);
             me.livenessTimerId = null
+        }
+    }
+
+    /**
+     * @summary Applies one Brain-health wire answer onto the owner-held daemon surface, then re-syncs.
+     *
+     * The vocabulary check keeps the documented member contract honest: anything that is not a
+     * recognized Brain state — a transport envelope (`{ok: false}`), a rejection mapped to `null`,
+     * a malformed payload — lands as `null`/`null`, which renders NOTHING. Transport trouble is the
+     * transport surface's story; this surface only ever speaks with the lifecycle owner's voice.
+     * @param {Object|null} response The lifecycle owner's `{state, cause}` payload, or anything else.
+     * @protected
+     */
+    applyBrainHealth(response) {
+        let me    = this,
+            state = BRAIN_HEALTH_STATES.includes(response?.state) ? response.state : null;
+
+        if (me.isDestroyed) return;
+
+        if (!state) {
+            // Transport truth is not daemon truth in EITHER direction: a rejection, timeout,
+            // unavailable envelope, or malformed payload must not fabricate a fault — and it must
+            // not ERASE a last-known one. A visible fault stays visible until the lifecycle owner
+            // itself answers otherwise; only a valid answer moves this surface.
+            return
+        }
+
+        me.daemonState          = state;
+        me.daemonDegradedReason = state !== 'running' && response.cause
+            ? (response.cause.detail || response.cause.source || null)
+            : null;
+
+        me.syncSpineBanner()
+    }
+
+    /**
+     * @summary Pulls whole-Brain health from the shell's lifecycle owner — the re-read obligation.
+     *
+     * Pull, never push: rides the liveness cadence for as long as the cockpit renders, so a fault
+     * arriving after mount still surfaces and a recovery still clears. The read follows the same
+     * bounded discipline as the wire reads — `boundedRead` frees the surface on a hung pull
+     * while the wire-settle release plus the {@link #maxReadsInFlight} cap bound accumulation, and
+     * the generation fence discards any late answer. Transport failure (absent shell, rejection,
+     * timeout) reaches {@link #applyBrainHealth} as `null` and moves nothing.
+     * @protected
+     */
+    async loadBrainHealth() {
+        let me = this;
+
+        // BEFORE any early exit: absence is newer knowledge, and an older pending read must not
+        // outlive it (the same rule the wire reads follow).
+        const generation = ++me.brainHealthReadGeneration;
+
+        try {
+            me.brainHealthReadInFlight++;
+
+            // Invoke INSIDE the chain: a synchronous throw becomes a rejection of the tracked
+            // promise, so the reject path owns the slot release (the sync-throw falsifier class).
+            const response = await boundedRead(
+                Promise.resolve().then(() => Neo.Main.brainHealth()),
+                me.livenessReadTimeout,
+                () => { me.brainHealthReadInFlight-- }
+            );
+
+            if (generation !== me.brainHealthReadGeneration || me.isDestroyed) return;
+
+            me.applyBrainHealth(response)
+        } catch (error) {
+            if (generation !== me.brainHealthReadGeneration || me.isDestroyed) return;
+
+            me.applyBrainHealth(null)
         }
     }
 
@@ -2671,6 +2798,10 @@ class FleetCockpit extends Container {
             // each state travels WITH its own cause: the derivation reports the reason of the
             // surface that decided the verdict, and no sibling can supply or silence it
             let {hidden, kind, text} = deriveSpineBanner({
+                // Daemon health ranks above a stale feed: a dead daemon is usually what MADE the feed
+                // stale, so the transport line alone would name the symptom and drop the diagnosis.
+                // Silent while `daemonState` is null — absence is unknown, never nominal.
+                daemon: {state: me.daemonState,        reason: me.daemonDegradedReason},
                 grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
                 stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
             });
