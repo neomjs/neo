@@ -107,6 +107,16 @@ class FleetControlBridge extends Base {
      */
     historySource = null
     /**
+     * Viewer-bound memories source — an injected collaborator exposing `readMemories(params)`:
+     * one page of an explicit target agent's session summaries through the single registered
+     * `get_all_summaries` operation (the deployment's settled team-visible cross-author read).
+     * The source resolves the viewer from authenticated request context at each call and sends
+     * only the target and paging on the operation call — no viewer claim, no projection axis;
+     * this bridge carries no viewer field and never simulates sharing policy.
+     * @member {Object|null} memoriesSource=null
+     */
+    memoriesSource = null
+    /**
      * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
      * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
@@ -480,6 +490,27 @@ class FleetControlBridge extends Base {
                 viewerState        : {lastSeen: null, lastVisitAt: null},
                 window             : null,
                 sources            : null
+            };
+    }
+
+    /**
+     * @summary READ-OBSERVE: read one page of an agent's session summaries for the authenticated
+     * viewer. The source envelope passes through untouched; an unwired source is named as
+     * unavailable rather than fabricated empty history.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetMemories(params = {}) {
+        return typeof this.memoriesSource?.readMemories === 'function'
+            ? this.memoriesSource.readMemories(params)
+            : {
+                capability: {state: 'unavailable', reason: 'fleet memories source not wired'},
+                viewer    : null,
+                target    : params.agentIdentity || null,
+                page      : {offset: params.offset ?? 0, limit: null},
+                sessions  : [],
+                count     : 0,
+                total     : null
             };
     }
 
