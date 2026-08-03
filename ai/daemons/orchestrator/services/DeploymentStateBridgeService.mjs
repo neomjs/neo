@@ -1,4 +1,5 @@
 import {createHash}                         from 'node:crypto';
+import fs                                   from 'fs-extra';
 import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
@@ -394,11 +395,21 @@ export class DeploymentStateBridgeService extends Base {
                 serviceKey,
                 inspect,
                 stats,
-                statsSamples: this.getStatsSamples(serviceKey),
+                statsSamples   : this.getStatsSamples(serviceKey),
                 providerResidency,
+                churnBaseline  : this.readChurnBaseline(serviceKey),
+                plannedRestarts: this.countPlannedRestarts({serviceKey, observedAt}),
                 observedAt
             })
             : null;
+
+        // Persist the baseline BEFORE returning. A restart-churn baseline held in process memory
+        // could never work: the orchestrator is itself the process that churns, so an in-memory
+        // anchor resets on every restart and the count can never reach a threshold — the same
+        // reasoning ADR-0025 rejects in-memory anti-thrash state on. // ticket-ref-ok: names the decision this durability requirement inherits
+        if (diagnosis?.churnBaseline) {
+            this.writeChurnBaseline(serviceKey, diagnosis.churnBaseline);
+        }
 
         return {
             schemaVersion : 1,
@@ -534,6 +545,85 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         return AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices.filter(isSafeServiceKey);
+    }
+
+    /**
+     * @summary Reads the durable restart-churn baseline for one service.
+     *
+     * On disk, never in memory. The orchestrator is the process this signal watches, so an
+     * in-process anchor would reset on the very event being counted and the threshold could never
+     * be reached — a check that is green precisely when it matters most.
+     *
+     * @param {String} serviceKey
+     * @returns {Object|null} `{containerId, restartCount, observedAt}` or null when unset/unreadable.
+     */
+    readChurnBaseline(serviceKey) {
+        try {
+            return fs.readJsonSync(this.churnBaselinePath(serviceKey))
+        } catch {
+            // Absent or unreadable is "no baseline yet", which the evaluator treats as a new
+            // generation. It never reads as "no churn".
+            return null
+        }
+    }
+
+    /**
+     * @summary Persists the restart-churn baseline for one service.
+     * @param {String} serviceKey
+     * @param {Object} baseline
+     * @returns {void}
+     */
+    writeChurnBaseline(serviceKey, baseline) {
+        try {
+            fs.outputJsonSync(this.churnBaselinePath(serviceKey), baseline)
+        } catch (error) {
+            this.writeLog?.('WARN', `[DeploymentStateBridge] churn baseline write failed for ${serviceKey}: ${error.message}`);
+        }
+    }
+
+    /**
+     * @summary Resolves the on-disk baseline path for one service.
+     * @param {String} serviceKey
+     * @returns {String}
+     */
+    churnBaselinePath(serviceKey) {
+        return path.join(this.healLedgerDir, 'churn-baselines', `${String(serviceKey).replace(/[^\w.-]/g, '_')}.json`)
+    }
+
+    /**
+     * @summary Counts restarts this system itself initiated for one service inside the churn window.
+     *
+     * Subtracted from the observed delta so a deploy or an actuator restart cannot raise churn. The
+     * heal-event ledger is the record of what we did, which makes it the only honest source: this
+     * frame cannot otherwise distinguish an actuator restart from a crash, and guessing would fire
+     * the alarm on every deploy — after which it gets disabled and the blind spot returns with a
+     * dead alarm on top.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey
+     * @param {Number} options.observedAt
+     * @returns {Number}
+     */
+    countPlannedRestarts({serviceKey, observedAt}) {
+        const baseline = this.readChurnBaseline(serviceKey);
+
+        if (!baseline) return 0;
+
+        try {
+            const events = readHealLedger({dir: this.healLedgerDir});
+
+            return queryHealLedger(events, {collections: [serviceKey]})
+                .filter(event => event?.type === 'restart')
+                .filter(event => {
+                    const at = Date.parse(event.at ?? event.observedAt ?? '');
+                    return Number.isFinite(at) && at >= baseline.observedAt && at <= observedAt;
+                })
+                .length
+        } catch {
+            // Unknown provenance must not raise churn: an unreadable ledger means we cannot prove a
+            // restart was ours, and a false churn alarm costs more than a missed one.
+            return Number.MAX_SAFE_INTEGER
+        }
     }
 
     /**
