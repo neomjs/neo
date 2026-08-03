@@ -119,20 +119,40 @@ export function classifyLine(line, inBlockComment) {
  * lines unstripped put five pure-prose entries in front of the classifier on the first run.
  * Single-quote/double-quote state deliberately does NOT carry: an unterminated `'` is a syntax
  * error, so treating it as open would silently blank the rest of the file.
+ *
+ * **`${…}` substitutions are PRESERVED.** They are executable code that merely lives inside a
+ * template, and blanking them cost a real site: `src/form/field/FileUpload.mjs` computes
+ * `` `${(bytes / (1000 ** i)).toFixed(…)}` `` and the first revision of this scanner could not see
+ * it. Nesting is tracked by depth so a substitution containing its own template (or an object
+ * literal's braces) closes at the right brace rather than the first one.
  * @param {String} line Raw source line.
  * @param {Boolean} [inTemplate=false] Whether the scanner is inside a multi-line template literal.
- * @returns {{code: String, inTemplate: Boolean}} Line with quoted regions blanked, and carry state.
+ * @returns {{code: String, inTemplate: Boolean}} Line with literal TEXT blanked, substitutions kept.
  */
 export function stripLiterals(line, inTemplate = false) {
-    let out   = '',
-        quote = inTemplate ? '`' : null;
+    let out        = '',
+        quote      = inTemplate ? '`' : null,
+        substDepth = 0;
 
     for (let i = 0; i < line.length; i++) {
         const char = line[i],
               prev = line[i - 1];
 
+        // Inside a `${...}` substitution the content is code: emit it verbatim and track brace depth
+        // so a nested template or object literal does not close the substitution early.
+        if (substDepth > 0) {
+            if (char === '{') substDepth++;
+            if (char === '}') substDepth--;
+            out += substDepth === 0 ? ' ' : char;
+            continue;
+        }
+
         if (quote) {
-            if (char === quote && prev !== '\\') {
+            if (quote === '`' && char === '$' && line[i + 1] === '{') {
+                substDepth = 1;
+                out       += '  ';
+                i++;
+            } else if (char === quote && prev !== '\\') {
                 quote = null;
                 out  += char;
             } else {
@@ -150,6 +170,34 @@ export function stripLiterals(line, inTemplate = false) {
 }
 
 /**
+ * Fingerprints a matched expression so two sites in one function cannot share a key.
+ *
+ * @summary The key's discriminating half. `<path>#<symbol>` alone ALIASES: a second growth
+ * expression added inside an already-registered function silently inherited that function's prior
+ * classification and the gate stayed green — so a new retry site could enter a function already
+ * classified `not-a-retry` and never be examined.
+ *
+ * Whitespace is collapsed so reformatting does not churn the registry, but the expression's TEXT is
+ * load-bearing: changing the arithmetic changes the key, which forces re-classification. That is the
+ * intended behaviour, not a cost — an edited bound is exactly when the old classification stops
+ * being evidence.
+ * @param {String} code Literal-stripped source line.
+ * @returns {String} Eight hex characters.
+ */
+export function expressionFingerprint(code) {
+    const normalized = code.replace(/\s+/g, ' ').trim();
+
+    let hash = 0x811c9dc5;
+
+    for (let i = 0; i < normalized.length; i++) {
+        hash ^= normalized.charCodeAt(i);
+        hash  = Math.imul(hash, 0x01000193) >>> 0;
+    }
+
+    return hash.toString(16).padStart(8, '0');
+}
+
+/**
  * Resolves the nearest enclosing named symbol above a line.
  *
  * @summary The registry key's stable half. Scans backwards for a function/method/arrow declaration;
@@ -162,8 +210,11 @@ export function findEnclosingSymbol(lines, index) {
     const decl = [
         /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/,
         /^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(/,
-        /^\s*(?:static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/,
-        /^\s*([A-Za-z_$][\w$]*)\s*:\s*(?:async\s*)?(?:function)?\s*\(/
+        // `#private` methods are matched explicitly: without the `#` alternative they fell through
+        // every pattern and keyed as `<module>`, so a private retry helper was indistinguishable
+        // from a top-level one and two of them in a file would have collided.
+        /^\s*(?:static\s+)?(?:async\s+)?(#?[A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/,
+        /^\s*(#?[A-Za-z_$][\w$]*)\s*:\s*(?:async\s*)?(?:function)?\s*\(/
     ];
 
     for (let i = index; i >= 0; i--) {
@@ -253,7 +304,7 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
                 const symbol = findEnclosingSymbol(lines, index);
 
                 candidates.push({
-                    key    : `${rel}#${symbol}`,
+                    key    : `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
                     file   : rel,
                     line   : index + 1,
                     symbol,
