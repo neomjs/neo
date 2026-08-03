@@ -1322,6 +1322,27 @@ test.describe('restart churn reaches the deployment record', () => {
         expect(unreadable.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
     });
 
+    test('an unjudgeable baseline suppresses churn instead of silently re-anchoring', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const file = path.join(dir, 'churn-baselines', 'orchestrator.json');
+
+        fs.writeFileSync(file, '{ truncated');
+
+        const after = await bridgeFor('c1', 9).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(after.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+        // The damaged file must NOT be replaced by a fresh anchor: a counter that re-anchors when
+        // its own state is damaged can never reach a threshold.
+        expect(fs.readFileSync(file, 'utf8')).toBe('{ truncated');
+    });
+
+    test('internal churn state is not published in the service record', async () => {
+        const record = await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        expect(record.diagnosis === null || !Object.hasOwn(record.diagnosis, 'churnBaseline')).toBe(true);
+    });
+
     test('a quiet container produces no churn diagnosis across two observations', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 

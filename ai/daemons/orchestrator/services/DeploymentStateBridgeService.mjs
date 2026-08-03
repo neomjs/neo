@@ -390,6 +390,8 @@ export class DeploymentStateBridgeService extends Base {
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
 
+        const churnBaseline = this.readChurnBaseline(serviceKey);
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
                 serviceKey,
@@ -397,7 +399,7 @@ export class DeploymentStateBridgeService extends Base {
                 stats,
                 statsSamples   : this.getStatsSamples(serviceKey),
                 providerResidency,
-                churnBaseline  : this.readChurnBaseline(serviceKey),
+                churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
                 observedAt
             })
@@ -407,9 +409,16 @@ export class DeploymentStateBridgeService extends Base {
         // could never work: the orchestrator is itself the process that churns, so an in-memory
         // anchor resets on every restart and the count can never reach a threshold — the same
         // reasoning ADR-0025 rejects in-memory anti-thrash state on. // ticket-ref-ok: names the decision this durability requirement inherits
-        if (diagnosis?.churnBaseline) {
+        // An unjudgeable baseline must not be overwritten by a fresh anchor derived from it —
+        // that is the silent-reset path. Leave it and let the ERROR log carry the degradation.
+        if (diagnosis?.churnBaseline && !churnBaseline?.unreadable) {
             this.writeChurnBaseline(serviceKey, diagnosis.churnBaseline);
         }
+
+        // `churnBaseline` is INTERNAL scheduling state, not part of the published contract. The
+        // decision carries it back so this service can persist it; publishing it would add an
+        // undocumented field to `inspect_deployment` that no Contract Ledger row admits.
+        const {churnBaseline: _internalBaseline, ...publishedDiagnosis} = diagnosis || {};
 
         return {
             schemaVersion : 1,
@@ -422,7 +431,7 @@ export class DeploymentStateBridgeService extends Base {
             stats         : summarizeStats(stats),
             logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
             providerResidency,
-            diagnosis,
+            diagnosis     : diagnosis ? publishedDiagnosis : null,
             proofs,
             errors
         };
@@ -559,11 +568,27 @@ export class DeploymentStateBridgeService extends Base {
      */
     readChurnBaseline(serviceKey) {
         try {
-            return fs.readJsonSync(this.churnBaselinePath(serviceKey))
-        } catch {
-            // Absent or unreadable is "no baseline yet", which the evaluator treats as a new
-            // generation. It never reads as "no churn".
-            return null
+            const baseline = fs.readJsonSync(this.churnBaselinePath(serviceKey));
+
+            // A structurally invalid baseline is UNJUDGEABLE, not absent. Collapsing it to null
+            // would re-anchor the counter, and a counter that re-anchors whenever its own state is
+            // damaged can never reach a threshold — the failure mode disk persistence exists to
+            // prevent, reintroduced through the error path.
+            if (!baseline || typeof baseline.containerId !== 'string' ||
+                !Number.isFinite(baseline.restartCount) || !Number.isFinite(baseline.observedAt)
+            ) {
+                return {unreadable: true}
+            }
+
+            return baseline
+        } catch (error) {
+            // ENOENT is genuinely "no baseline yet" — the first observation of a generation, and the
+            // only case that may legitimately re-anchor.
+            if (error?.code === 'ENOENT') return null;
+
+            this.writeLog?.('WARN', `[DeploymentStateBridge] churn baseline unreadable for ${serviceKey}: ${error.message}`);
+
+            return {unreadable: true}
         }
     }
 
@@ -574,10 +599,21 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {void}
      */
     writeChurnBaseline(serviceKey, baseline) {
+        const target  = this.churnBaselinePath(serviceKey),
+              staging = `${target}.${process.pid}.tmp`;
+
         try {
-            fs.outputJsonSync(this.churnBaselinePath(serviceKey), baseline)
+            // Write-then-rename: a direct write torn by a crash leaves a half-written baseline, which
+            // the reader above must then treat as unjudgeable — turning a crash into a silently
+            // reset counter. `rename` within a directory is atomic, so a reader sees the old
+            // baseline or the new one, never a fragment.
+            fs.outputJsonSync(staging, baseline);
+            fs.renameSync(staging, target)
         } catch (error) {
-            this.writeLog?.('WARN', `[DeploymentStateBridge] churn baseline write failed for ${serviceKey}: ${error.message}`);
+            // ERROR, not WARN: a baseline that stops advancing means churn stops accumulating, and
+            // the signal dies without the record ever going unhealthy.
+            this.writeLog?.('ERROR', `[DeploymentStateBridge] churn baseline write FAILED for ${serviceKey}: ${error.message}. Churn detection is degraded until this succeeds.`);
+            fs.removeSync(staging)
         }
     }
 
