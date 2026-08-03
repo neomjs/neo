@@ -18,6 +18,7 @@ import {
 } from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
 import {describeBackupRetryState}    from '../scheduling/backup.mjs';
 import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
+import {summarizeStagingResidue}     from '../../../scripts/maintenance/backupStagingResidueCore.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     queryHealLedger,
@@ -275,33 +276,43 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object|null>}
      */
     async collectMaintenanceSnapshot({
-        backupTaskState = null,
-        now             = Date.now(),
-        receiptPath     = path.join(AiConfig.backupPath, 'last-backup-receipt.json')
+        backupTaskState   = null,
+        now               = Date.now(),
+        receiptPath       = path.join(AiConfig.backupPath, 'last-backup-receipt.json'),
+        stagingResidueRoot = AiConfig.backupPath
     } = {}) {
         // Module-scope, deliberately not a method: this projection depends only on resolved config
         // and its own argument, never on instance state, and the contract spec asserts that by
         // invoking it detached.
         const durability = resolveConfiguredDurabilityPosture();
 
-        // `retry` reports the backup lane's bounded-retry phase. It rides HERE rather than
-        // the Memory Core healthcheck's backup block on purpose: that block reads the backup
-        // DIRECTORY, and `mc-server` holds no backup mount — a surface that cannot see the thing it
-        // reports on. The orchestrator owns both the bind mount and the task state.
+        // `stagingResidue` is projected UNCONDITIONALLY, for the same reason `durability` is: it is a
+        // property of the backup ROOT rather than of any run, so it is exactly knowable at all times.
+        // `.backup-partial-*` residue is invisible to every root-level enumerator by construction —
+        // that invisibility is the safety property keeping torn bundles unrestorable — so this is the only surface
+        // its footprint can be seen from at all. Omitting it when clean would make "no residue"
+        // indistinguishable from "not reported", which is the failure the `durability` block exists
+        // to avoid.
         //
-        // Omitted rather than nulled when no task state was supplied, so a detached invocation keeps
-        // its previous shape exactly.
-        const base = backupTaskState
-            ? {
-                durability,
-                retry: describeBackupRetryState({
-                    now,
-                    retryDelayMs : AiConfig.orchestrator.intervals.backupRetryDelayMs,
-                    retryWindowMs: AiConfig.orchestrator.intervals.backupRetryWindowMs,
-                    taskState    : backupTaskState
-                })
-            }
-            : {durability};
+        // `retry` reports the backup lane's bounded-retry phase, and is omitted rather than nulled
+        // when no task state was supplied so a detached invocation keeps its run-dependent shape.
+        //
+        // Both ride HERE rather than on the Memory Core healthcheck's backup block: that block reads
+        // the backup DIRECTORY and `mc-server` holds no backup mount, so it reports from a blind
+        // container. This orchestrator owns the bind mount and the task state.
+        const base = {
+            durability,
+            stagingResidue: await summarizeStagingResidue(stagingResidueRoot)
+        };
+
+        if (backupTaskState) {
+            base.retry = describeBackupRetryState({
+                now,
+                retryDelayMs : AiConfig.orchestrator.intervals.backupRetryDelayMs,
+                retryWindowMs: AiConfig.orchestrator.intervals.backupRetryWindowMs,
+                taskState    : backupTaskState
+            })
+        }
 
         try {
             const outcome = await readBackupReceipt({filePath: receiptPath});

@@ -28,6 +28,7 @@ import {
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
+import {cleanStagingResidue}            from './backupStagingResidueCore.mjs';
 import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
@@ -314,6 +315,7 @@ async function assertBackupDestinationAbsent(targetPath, message) {
  *                                                       (`{healAttemptsFile, healEventsDir, recoveryRunsDir}`).
  *                                                       Omitted in production — resolved from AiConfig at the use site.
  * @param {Function} [options.cleanOldBackupsImpl]       Retention cleaner seam; defaults to `cleanOldBackups`.
+ * @param {Function} [options.cleanStagingResidueImpl]   Staging-residue sweep seam; defaults to `cleanStagingResidue`.
  * @param {Object}  [options.logger=console]             Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, timestamp: String, subsystems: Object}>}
  */
@@ -323,8 +325,9 @@ export async function runBackup({
     trajectoriesSourceFile = DEFAULT_TRAJECTORIES_FILE,
     sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
     ledgerSources,
-    cleanOldBackupsImpl    = cleanOldBackups,
-    logger                 = console
+    cleanOldBackupsImpl      = cleanOldBackups,
+    cleanStagingResidueImpl  = cleanStagingResidue,
+    logger                   = console
 } = {}) {
     const timestamp    = new Date().toISOString().replace(/:/g, '-');
     const resolvedRoot = bundleRoot ?? path.join(AiConfig.backupPath, `backup-${timestamp}`);
@@ -358,6 +361,22 @@ export async function runBackup({
                     throw error
                 }
             }
+        }
+
+        // Reclaim staging residue BEFORE capture, not with the post-publication retention sweep.
+        // Both are reclamation, but they answer different questions: retention prunes published
+        // history once the new bundle is safely authoritative, while this bounds a namespace whose
+        // growth is what makes the very next capture fail on a full volume. Doing it first is also
+        // what gives the exclusion teeth — `stagingRoot` exists and is the newest entry right now,
+        // so excluding it is a real operation rather than a no-op assertion made after the rename.
+        // Non-fatal by construction: a residue sweep must never be able to fail a backup.
+        try {
+            await cleanStagingResidueImpl(parentRoot, logger, {
+                excludePath : stagingRoot,
+                keepPartials: AiConfig.maintenance.backup.retention.keepPartials
+            })
+        } catch (error) {
+            logger.warn?.(`[Backup] staging-residue sweep failed; continuing with capture: ${error.message}`)
         }
 
         result = await captureBackup({

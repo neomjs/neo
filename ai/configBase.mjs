@@ -1633,7 +1633,21 @@ class ConfigBase extends ConfigProvider {
                     intervalMs: DAY_MS,
                     retention : {
                         keepMinimum: 3,
-                        maxDays    : 30
+                        maxDays    : 30,
+                        /**
+                         * How many `.backup-partial-*` staging directories left by ABRUPT death
+                         * survive the residue sweep, newest first.
+                         *
+                         * A count rather than an age bound, deliberately. The residue is the only
+                         * surviving evidence of a termination that recorded no terminal outcome,
+                         * and any age short enough to cap capacity is also short enough to delete
+                         * the artifact an operator is mid-investigation on. A count bounds growth
+                         * without making that judgement. `0` reclaims every partial not currently
+                         * in flight; the in-flight staging root is excluded explicitly, never by
+                         * relying on it being the newest.
+                         * @type {Number}
+                         */
+                        keepPartials: 2
                     },
                     /**
                      * How many candidate bundles `verifyLatestBackupRestorable` may FULLY validate

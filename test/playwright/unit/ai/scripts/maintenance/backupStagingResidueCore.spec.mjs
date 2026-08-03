@@ -1,0 +1,213 @@
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
+import {
+    cleanStagingResidue,
+    isStagingResidueName,
+    listStagingResidue,
+    selectStagingResidueForRemoval,
+    STAGING_PREFIX,
+    summarizeStagingResidue
+} from '../../../../../../ai/scripts/maintenance/backupStagingResidueCore.mjs';
+
+const HOUR_MS = 3600000;
+
+/**
+ * Builds a backup root holding published bundles and staging residue with controlled mtimes, so
+ * "newest first" is a property of the fixture rather than of directory-creation timing.
+ */
+function createBackupRoot({partials = 0, bundles = 0, bytesPerPartial = 0} = {}) {
+    const backupRoot = `/tmp/backup-staging-residue-${Date.now()}-${Math.random()}`;
+    fs.ensureDirSync(backupRoot);
+
+    const now     = Date.now(),
+          created = [];
+
+    for (let i = 0; i < partials; i++) {
+        // Oldest first, so index 0 is the oldest and the LAST created is the newest.
+        const dir = path.join(backupRoot, `${STAGING_PREFIX}backup-2026-08-0${i + 1}-abc${i}`);
+        fs.ensureDirSync(dir);
+
+        if (bytesPerPartial > 0) {
+            fs.writeFileSync(path.join(dir, 'memories.jsonl'), 'x'.repeat(bytesPerPartial), 'utf8')
+        }
+
+        const mtime = new Date(now - (partials - i) * HOUR_MS);
+        fs.utimesSync(dir, mtime, mtime);
+        created.push(dir)
+    }
+
+    for (let i = 0; i < bundles; i++) {
+        fs.ensureDirSync(path.join(backupRoot, `backup-2026-08-0${i + 1}T00-00-00.000Z`))
+    }
+
+    return {backupRoot, created};
+}
+
+test.describe('backupStagingResidueCore — the .backup-partial-* lifecycle (#16427)', () => {
+    /**
+     * AC1. The defect was unbounded growth: abrupt death cannot clean up after itself, and every
+     * root-level enumerator is blind to the residue by design, so nothing ever reclaimed it. The
+     * assertion is on the SURVIVING SET after repeated crashes, not on a single sweep's return.
+     */
+    test('residue cannot grow without bound across repeated abrupt terminations', async () => {
+        const {backupRoot} = createBackupRoot({partials: 9}),
+              logger       = {log: () => {}};
+
+        await cleanStagingResidue(backupRoot, logger, {keepPartials: 2});
+
+        const survivors = await listStagingResidue(backupRoot);
+        expect(survivors).toHaveLength(2);
+
+        // A second crash wave must not ratchet the floor upward.
+        createBackupRoot({partials: 0});
+        for (let i = 0; i < 5; i++) {
+            fs.ensureDirSync(path.join(backupRoot, `${STAGING_PREFIX}wave2-${i}`))
+        }
+
+        await cleanStagingResidue(backupRoot, logger, {keepPartials: 2});
+        expect(await listStagingResidue(backupRoot)).toHaveLength(2);
+    });
+
+    test('the survivors are the NEWEST partials, so the most recent failure stays inspectable', async () => {
+        const {backupRoot, created} = createBackupRoot({partials: 5}),
+              newest                = created.slice(-2).map(dir => path.basename(dir));
+
+        await cleanStagingResidue(backupRoot, {log: () => {}}, {keepPartials: 2});
+
+        const survivorNames = (await listStagingResidue(backupRoot)).map(entry => entry.name);
+        expect(survivorNames.sort()).toEqual(newest.sort());
+    });
+
+    /**
+     * AC2. Asserted EXPLICITLY rather than inferred from the heavy-maintenance lease that serialises
+     * the lane, and rather than left to the accident that an in-flight staging root is also the
+     * newest. `keepPartials: 0` removes that accidental protection, so only the explicit exclusion
+     * can save it — which is exactly the condition under which the AC has teeth.
+     */
+    test('an in-flight staging directory is never reclaimed, even at keepPartials 0', async () => {
+        const {backupRoot, created} = createBackupRoot({partials: 4}),
+              inFlight              = created[0]; // the OLDEST — first to die without the exclusion
+
+        await cleanStagingResidue(backupRoot, {log: () => {}}, {
+            excludePath : inFlight,
+            keepPartials: 0
+        });
+
+        expect(fs.existsSync(inFlight)).toBe(true);
+        expect(await listStagingResidue(backupRoot)).toHaveLength(1);
+    });
+
+    /**
+     * The safety property atomic publication delivered, and the most likely thing a careless fix
+     * breaks. A leading dot is what keeps an incomplete bundle out of the restorability walk.
+     */
+    test('the staging namespace never overlaps the published `backup-` namespace', async () => {
+        const {backupRoot} = createBackupRoot({partials: 3, bundles: 4});
+
+        const residue         = await listStagingResidue(backupRoot),
+              publishedByName = (await fs.readdir(backupRoot)).filter(name => name.startsWith('backup-'));
+
+        expect(residue).toHaveLength(3);
+        expect(publishedByName).toHaveLength(4);
+
+        // The pin: nothing this module reports can be seen by a `startsWith('backup-')` enumerator,
+        // and nothing a published-bundle enumerator sees can be reported here. Two disjoint sets.
+        for (const entry of residue) {
+            expect(entry.name.startsWith('backup-')).toBe(false);
+            expect(publishedByName).not.toContain(entry.name)
+        }
+
+        expect(isStagingResidueName('backup-2026-08-01T00-00-00.000Z')).toBe(false);
+        expect(isStagingResidueName(`${STAGING_PREFIX}anything`)).toBe(true);
+    });
+
+    test('a sweep leaves every published bundle untouched', async () => {
+        const {backupRoot} = createBackupRoot({partials: 5, bundles: 3});
+
+        await cleanStagingResidue(backupRoot, {log: () => {}}, {keepPartials: 0});
+
+        const remaining = (await fs.readdir(backupRoot)).filter(name => name.startsWith('backup-'));
+        expect(remaining).toHaveLength(3);
+    });
+
+    /**
+     * AC5. The residue is the only surviving evidence of a termination that recorded no terminal
+     * outcome, so a reclamation that leaves no trace is indistinguishable from one that never ran.
+     */
+    test('every reclamation is logged with the directory name and its age', async () => {
+        const {backupRoot, created} = createBackupRoot({partials: 3}),
+              lines                 = [],
+              oldest                = path.basename(created[0]);
+
+        await cleanStagingResidue(backupRoot, {log: line => lines.push(line)}, {keepPartials: 2});
+
+        const removalLine = lines.find(line => line.includes(oldest));
+        expect(removalLine).toBeTruthy();
+        expect(removalLine).toMatch(/age: \d+h/);
+    });
+
+    /**
+     * A stray FILE carrying the staging prefix is not residue. `mkdtemp` only ever creates
+     * directories, so a prefixed file is something else entirely — and sweeping or counting it
+     * would let an unrelated artifact drive a reclamation decision.
+     */
+    test('a non-directory entry carrying the prefix is neither swept nor counted', async () => {
+        const {backupRoot, created} = createBackupRoot({partials: 3}),
+              strayFile             = path.join(backupRoot, `${STAGING_PREFIX}stray-file`);
+
+        await fs.writeFile(strayFile, 'not-a-directory', 'utf8');
+
+        expect(await listStagingResidue(backupRoot)).toHaveLength(3);
+        expect((await summarizeStagingResidue(backupRoot)).count).toBe(3);
+
+        const result = await cleanStagingResidue(backupRoot, {log: () => {}}, {keepPartials: 2});
+
+        expect(result.inspected).toBe(3);
+        expect(result.removed).toEqual([path.basename(created[0])]);
+        expect(fs.existsSync(strayFile)).toBe(true);
+    });
+
+    test('summarizeStagingResidue reports count and bytes for the observability surface', async () => {
+        const {backupRoot} = createBackupRoot({partials: 3, bytesPerPartial: 128});
+
+        const summary = await summarizeStagingResidue(backupRoot);
+
+        expect(summary.count).toBe(3);
+        expect(summary.bytes).toBe(384);
+        expect(summary.oldestMtimeMs).toBeLessThan(Date.now());
+    });
+
+    test('a clean root reports zero rather than omitting the block', async () => {
+        const {backupRoot} = createBackupRoot({bundles: 2});
+
+        expect(await summarizeStagingResidue(backupRoot)).toMatchObject({
+            bytes        : 0,
+            count        : 0,
+            oldestMtimeMs: null
+        });
+    });
+
+    test('a missing backup root degrades to empty rather than throwing', async () => {
+        expect(await listStagingResidue('/tmp/does-not-exist-16427')).toEqual([]);
+        expect(await summarizeStagingResidue('/tmp/does-not-exist-16427')).toMatchObject({bytes: 0, count: 0});
+    });
+
+    test('selectStagingResidueForRemoval is pure and keeps the newest N', () => {
+        const residue = [
+            {name: 'c', path: '/r/c', mtimeMs: 300},
+            {name: 'b', path: '/r/b', mtimeMs: 200},
+            {name: 'a', path: '/r/a', mtimeMs: 100}
+        ];
+
+        expect(selectStagingResidueForRemoval(residue, {keepPartials: 1}).map(e => e.name)).toEqual(['b', 'a']);
+        expect(selectStagingResidueForRemoval(residue, {keepPartials: 0}).map(e => e.name)).toEqual(['c', 'b', 'a']);
+        expect(selectStagingResidueForRemoval(residue, {keepPartials: 9})).toEqual([]);
+
+        // The exclusion is applied BEFORE the keep-count, so an in-flight entry never consumes one
+        // of the forensic slots it is not competing for.
+        expect(
+            selectStagingResidueForRemoval(residue, {excludePath: '/r/c', keepPartials: 1}).map(e => e.name)
+        ).toEqual(['a']);
+    });
+});

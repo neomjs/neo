@@ -14,7 +14,7 @@ setup({
 import Neo                                                             from '../../../../../../src/Neo.mjs';
 import * as core                                                       from '../../../../../../src/core/_export.mjs';
 import {test, expect}                                                  from '@playwright/test';
-import {mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync} from 'node:fs';
+import {mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync} from 'node:fs';
 import {open, rename}                                                  from 'node:fs/promises';
 import {spawn}                                                         from 'node:child_process';
 import {tmpdir}                                                        from 'node:os';
@@ -711,6 +711,42 @@ test.describe('wrapper + projection behavioral witnesses', () => {
             writeFileSync(receiptPath, 'not json{');
             const unreadable = await collect({receiptPath});
             expect(unreadable.lastBackup).toEqual({finishedAt: null, kind: 'corrupt', status: 'unreadable'});
+        } finally {
+            rmSync(root, {force: true, recursive: true})
+        }
+    });
+
+    /**
+     * `.backup-partial-*` residue is invisible to all five root-level enumerators by construction —
+     * that invisibility is the safety property — so the orchestrator snapshot is the only place its
+     * footprint can be seen. The Memory Core healthcheck's backup block reads the backup DIRECTORY
+     * and `mc-server` holds no backup mount, so it reports `count: 0` from a blind container: a true
+     * statement carrying no information, indistinguishable from a passing check.
+     */
+    test('projection: staging-residue count and bytes ride the orchestrator snapshot, reported even when clean (#16427)', async () => {
+        const root = makeTmp();
+        try {
+            const bridge  = (await import('../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs')).default;
+            const collect = opts => bridge.prototype.collectMaintenanceSnapshot.call({}, opts);
+
+            const receiptPath = path.join(root, 'last-backup-receipt.json');
+
+            // Reported as an explicit zero, never omitted: "no residue" must not read the same as
+            // "nothing about residue is reportable" — the failure the durability block exists to end.
+            const clean = await collect({receiptPath, stagingResidueRoot: root});
+            expect(clean.stagingResidue).toEqual({bytes: 0, count: 0, oldestMtimeMs: null});
+
+            mkdirSync(path.join(root, '.backup-partial-backup-2026-08-03-aaa'), {recursive: true});
+            writeFileSync(path.join(root, '.backup-partial-backup-2026-08-03-aaa', 'memories.jsonl'), 'x'.repeat(64));
+            mkdirSync(path.join(root, '.backup-partial-backup-2026-08-03-bbb'), {recursive: true});
+
+            // A published bundle must not be counted as residue — the two namespaces stay disjoint.
+            mkdirSync(path.join(root, 'backup-2026-08-03T00-00-00.000Z'), {recursive: true});
+
+            const withResidue = await collect({receiptPath, stagingResidueRoot: root});
+            expect(withResidue.stagingResidue.count).toBe(2);
+            expect(withResidue.stagingResidue.bytes).toBe(64);
+            expect(withResidue.stagingResidue.oldestMtimeMs).toBeGreaterThan(0);
         } finally {
             rmSync(root, {force: true, recursive: true})
         }
