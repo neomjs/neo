@@ -150,7 +150,9 @@ A deploy job that does not gate on health reports success while serving a broken
 
 ## Targeting a real plane: a compose-file list, not a path
 
-The script is CI-neutral and was, for a long time, uncalled — no npm target and no CI job referenced it, so every redeploy was hand-typed and took none of its guards. Part of the reason is that **no correct invocation against a multi-file plane existed.**
+The script is CI-neutral: it is meant to be invoked by a deployment's own job, and this repository contains no in-repo caller for it (no npm target, no CI job). That bounds what can be said here — it says nothing about how any particular deployment has been redeployed in practice.
+
+What *is* verifiable is a capability gap: until the change below, **no correct invocation against a multi-file plane existed at all.**
 
 `NEO_DEPLOY_COMPOSE_FILE` accepts a `:`-delimited list (Docker's own `COMPOSE_FILE` convention) and expands to repeated `-f` in merge order — later files override earlier ones, so reordering them changes the result. A single path behaves exactly as before; a value resolving to zero paths aborts before Docker runs.
 
