@@ -150,6 +150,39 @@ adoption.
    surface as part of the §5 E5 leaf. The Add-Peer **curated-intent boundary** (Body submits
    `{harnessType, id, repo/account facts}` — never command/args/env) is the design contract that
    surface implements.
+7. **Whole-Brain health is a named read affordance from the lifecycle owner** *(amended
+   2026-08-03, #16051 — the PR #16050 Drop+Supersede consequence)*: the preload exposes ONE
+   additional capability, `brainHealth()` → `ipcRenderer.invoke('brain-health')`, answered by a
+   main-process handler that binds the **app-lifecycle owner's** surface (`appLifecycle.brainState`
+   plus a retained cause) and validates the sender per §2.3.4 before answering.
+   **Pull-shaped by design:** a renderer-initiated request/response keeps the audited surface
+   bounded, adds no unsolicited main→renderer event channel, and cannot leak listeners across
+   renderer generations (a dead renderer is itself a degrade source). An unpolled or unanswerable
+   affordance claims nothing — the fail-closed shape of this posture — where a push channel
+   invites silence to read as health. **The consumer obligation is symmetric:** a surface
+   rendering this affordance re-reads it for as long as it renders — a single mount-time read
+   re-imports silence-as-health through the consumer. The re-read interval is leaf property; the
+   obligation is not.
+   **Payload:** plain data — `{state, cause: {source, detail, observedAt} | null}`, `state` from
+   `BRAIN_STATES`. No credential bytes (§2.3.5/.6 untouched), no window or Node references.
+   **Producer contract:** the cause is produced where the fault is observed — the
+   `watchBrainChild` termination edge carries the owned child's identity + termination summary;
+   the cockpit-gone, render-process-gone, and boot-not-ready degrade sites name themselves. ONE
+   bounded record under **severity-tiered first-cause-wins**: within a tier the first cause of a
+   degraded episode is retained, and an owned-child fault supersedes a window-scoped cause —
+   never the reverse — encoding the child-fault primacy `settleBrainBoot` already votes
+   (`up && !brainFaulted`). The record clears on re-entry to `running` AND on transition to
+   `stopped` — an explicit quit/teardown must never render as impairment. Never accumulated
+   main-side.
+   **Failure semantics:** an invoke rejection or an absent `neoShell` is TRANSPORT truth and maps
+   to the consumer's transport surface — never daemon truth.
+   **Ownership boundary:** whole-Brain health never routes through `FleetControlBridge` /
+   `FLEET_WIRE_METHODS` — per-agent process rows answer "which agents run", not "is the organism
+   impaired" (§4, rejected shapes). The fleet allowlist is the discipline model (§2.3.4), never
+   the transport.
+   **Witness obligation:** the consuming leaf's evidence is a shell-transition-driven witness —
+   the lifecycle owner's transition drives the rendered banner; hand-assigned consumer state
+   witnesses a pass-through and is not wiring evidence.
 
 **Falsifier:** any leaf needing a renderer capability the preload cannot express through a named,
 allowlisted intent amends THIS section first (ADR-0005 lifecycle) — it never flips a window to
@@ -262,6 +295,10 @@ violates this section on its face — shell awareness lives in the packaging roo
   makes it *tempting* (BrowserWindows feel ownable from main).
 - **Renderer-readable bearer tokens** — rejected during review of this record: a token the
   renderer can read still crosses the boundary; capability-internal attachment replaced it.
+- **Per-agent fleet rows as whole-Brain health** — rejected in PR #16050's Drop+Supersede review:
+  `fleetRuntimeStatus()` composes per-agent process truth and cannot produce the organism's
+  impairment state; the fields it "fed" had no writer at all. Whole-Brain health crosses from the
+  lifecycle owner via §2.3.7 — never inferred from fleet rows.
 
 ## 5. Decomposition — the E-leaf gate (map lives on the #13377 epic)
 
