@@ -29,13 +29,17 @@ import DomEvents from '../DomEvents.mjs';
  * backgrounded windows. Worker timers and postMessage keep flowing there, so a grid keeps
  * receiving data while its geometry silently fossilizes at the last delivered box. Two additive
  * guards keep this carrier truthful without touching the visible-path behavior:
- * 1. The dispatch dam races `requestAnimationFrame` against a timer fallback. On a rendering
- *    document rAF always wins (vsync coalescing preserved byte-for-byte); on a starved document
- *    the timer opens the dam.
+ * 1. The dispatch dam races `requestAnimationFrame` against a timer fallback. rAF wins
+ *    whenever frames arrive faster than the timer delay (frame-rate-normative, not absolute:
+ *    below ~10fps at the default delay the timer may open the dam first and split a batch —
+ *    coalescing degrades gracefully, delivery correctness is unchanged); on a starved
+ *    document the timer opens the dam.
  * 2. While `document.hidden` with registered targets, a slow poll compares each target's
  *    border-box against the last dispatched size (layout computes without paint) and feeds
  *    synthetic entries through the exact same dispatch pipeline — covering boxes that change
- *    while the native observer cannot fire at all.
+ *    while the native observer cannot fire at all. The poll arms on `document.hidden` ONLY:
+ *    an occluded-but-not-hidden window keeps just the timer arm (deliveries the native
+ *    observer still makes flush without frames) — a named residual, not full coverage.
  *
  * @class Neo.main.addon.ResizeObserver
  * @extends Neo.main.addon.Base
@@ -78,9 +82,9 @@ class NeoResizeObserver extends Base {
             ]
         },
         /**
-         * Delay in ms for the timer arm of the dispatch race. Any value above one frame
-         * period keeps rAF winning on every rendering document; the timer only ever fires
-         * where no frame will come.
+         * Delay in ms for the timer arm of the dispatch race. rAF wins whenever frames
+         * arrive faster than this delay (~1000/delay fps); below that the timer may split
+         * a batch — graceful coalescing degradation, never a duplicate or lost delivery.
          * @member {Number} starvedFlushDelay=100
          */
         starvedFlushDelay: 100
