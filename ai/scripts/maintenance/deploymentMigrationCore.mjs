@@ -1,25 +1,39 @@
 /**
  * @module ai/scripts/maintenance/deploymentMigrationCore
- * @summary Pure core for the migration bootstrap's apply gate: validates a discover result produced by
- * the census-derived discover driver, joins it with the plane-side facts only this tool observes, and
+ * @summary Pure core for the migration bootstrap: derives a deployment's config-contract delta from
+ * the classified census, joins it with the plane-side facts only a plane-side reader can observe, and
  * decides whether one `apply` is authorized or refused with named reasons.
  *
- * ## The boundary, and why there is no fallback derivation
+ * ## One tool, one resolver — and why that is the cheap shape rather than the expedient one
  *
- * The discover driver owns DISCOVERY — deriving missing-required / present-forbidden / missing-secret
- * keys from the classified config census and emitting them as JSON. This module owns CONSUMPTION and
- * the apply gate. It deliberately carries **no census derivation of its own**, not even as a fallback
- * for an absent discover result: two resolvers for one contract can disagree, and the disagreement
- * surfaces as a migration that was authorized against the wrong answer. A parallel resolution path
- * running beside the canonical one is the shape this repository has already had to retire once, so an
- * absent discover result refuses rather than falling back.
+ * An earlier revision consumed this delta as JSON from a separate discovery driver and carried **no
+ * derivation of its own**, deliberately, so that two resolvers for one contract could not disagree.
+ * That reasoning was sound and its premise is gone: the separate driver was closed as not-planned,
+ * priced at *"a new CLI contract, JSON schema, tests, documentation, and ongoing compatibility
+ * surface"*. Every one of those costs is an artifact of the **split**, not of the capability — so
+ * folding derivation into this single tool removes all of them and still leaves exactly one resolver.
+ * There is no second path here to disagree with.
  *
- * ## What this module knows that the discover driver cannot
+ * ## Why the delta is a CONFIG delta and not a revision delta
  *
- * Discovery reads a contract. Apply must also read the *plane*: which Compose project and file list
- * the running containers actually belong to, and whether the cohort agrees with itself about the
- * revision it is on. Neither is derivable from the census, and both can refuse an apply that a clean
- * discover result would otherwise authorize.
+ * A rebuild at a newer revision does not repair a deployment whose config no longer satisfies the
+ * contract; it produces a refused launch. The orchestrator's authority role is the worked case: its
+ * leaf carries no default, so a deployment that never declares its role writes no state directory, no
+ * PID file and no log. The config delta decides whether a migration can work at all; the revision
+ * delta is secondary.
+ *
+ * ## Observed, never re-derived
+ *
+ * The env input must come from the target's own containers. Host-side re-derivation cannot populate an
+ * observed column — it degrades the comparison to desired-versus-desired, which passes trivially and
+ * detects nothing. A planner fed the canonical Compose file would report every deployment compliant.
+ *
+ * ## What the census cannot supply
+ *
+ * A contract says what a deployment must declare. Apply must also read the *plane*: which Compose
+ * project and file list the running containers belong to, and whether the cohort agrees with itself
+ * about its revision. Neither is derivable from the census, and both can refuse an apply that a clean
+ * contract delta would otherwise authorize.
  *
  * ## Neo-free on purpose
  *
@@ -28,72 +42,135 @@
  */
 
 /**
- * The discover-result schema version this core consumes. A mismatch refuses rather than best-efforts:
- * a shape change in the producer must fail loudly here, because the failure mode of silent
- * mis-parsing is an apply authorized against fields that were never populated.
- * @type {Number}
+ * The env namespace the deployment contract governs. The guarded Compose surface is counted in
+ * `NEO_*`/`MCP_*` keys, so anything outside it (image `PATH`, `NODE_VERSION`, Docker injections) is not
+ * ours to judge and is dropped rather than reported as unexpected.
+ * @type {RegExp}
  */
-export const DISCOVER_SCHEMA_VERSION = 1;
+const GUARDED_ENV_KEY = /^(?:NEO|MCP)_/;
 
 /**
- * The finding lists a discover result must carry. Presence is required; emptiness is fine and is the
- * normal clean case. An ABSENT list is refused because absent and empty are the same shape once
- * parsed, and treating a missing list as empty reads "you are fine" from a producer that never ran
- * that check — the exact failure the discover contract forbids: never report an empty delta.
- * @type {String[]}
+ * The census key whose absence stops a container from starting at all rather than degrading it. Its
+ * leaf carries no default, so requiredness is armed by that emptiness and a launch declaring no role is
+ * refused outright — a different triage priority from an ordinary missing input, and the one key an
+ * operator reading a long list must see first.
+ * @type {String}
  */
-const REQUIRED_FINDING_LISTS = ['missingRequired', 'presentForbidden', 'missingSecrets'];
+const BOOT_BLOCKING_KEY = 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE';
 
 /**
- * @summary Validates a parsed discover result against the consumed contract, returning named problems
- * rather than throwing.
+ * @summary Parses a Docker `Config.Env` array (`['KEY=value', …]`) into a Map of the guarded keys only.
  *
- * Every problem returned here becomes an apply blocker. Refusing on shape is deliberate: this tool
- * mutates a deployment, so it must not proceed on a payload it only partly understood.
- * @param {Object} discover The parsed JSON output of the discover driver.
- * @param {String} [expectedProfile] When given, the result's profile must match it exactly.
- * @returns {String[]} Problem descriptions; empty means the payload is consumable.
+ * Splits on the FIRST `=` because values legitimately contain `=` (base64, query strings, DSNs);
+ * splitting on all of them would truncate a value and make a present key look malformed. A bare `KEY`
+ * with no `=` is recorded with an empty-string value — Docker permits it, and treating it as absent
+ * would hide a key that was set-but-empty, which is a different defect from unset.
+ * @param {String[]} envArray Raw `Config.Env` entries; a non-array yields an empty Map.
+ * @returns {Map<String,String>} Guarded key → value, insertion-ordered.
  */
-export function validateDiscoverResult(discover, expectedProfile) {
-    const problems = [];
+export function parseObservedEnv(envArray) {
+    const observed = new Map();
 
-    if (!discover || typeof discover !== 'object' || Array.isArray(discover)) {
-        return ['discover result is not an object — nothing to validate']
+    if (!Array.isArray(envArray)) {
+        return observed
     }
 
-    if (discover.schemaVersion !== DISCOVER_SCHEMA_VERSION) {
-        problems.push(
-            `discover schemaVersion is ${JSON.stringify(discover.schemaVersion)}; this consumer implements ` +
-            `${DISCOVER_SCHEMA_VERSION} — refusing to interpret an unknown shape`
+    for (const entry of envArray) {
+        if (typeof entry !== 'string') {
+            continue
+        }
+
+        const separatorIndex = entry.indexOf('='),
+              key            = separatorIndex === -1 ? entry : entry.slice(0, separatorIndex);
+
+        if (GUARDED_ENV_KEY.test(key)) {
+            observed.set(key, separatorIndex === -1 ? '' : entry.slice(separatorIndex + 1))
+        }
+    }
+
+    return observed
+}
+
+/**
+ * @summary Resolves one profile's classified census out of the config-leaf parity document, failing closed.
+ *
+ * Throws rather than defaulting on an unknown profile. A default would silently plan against the
+ * canonical cloud contract for a deployment running a different one, and the resulting plan would read
+ * as authoritative — the census is per-profile precisely because the contracts differ.
+ * @param {Object} parity The parsed `ai/scripts/lint/config-leaf-parity.json`.
+ * @param {String} profile Repo-relative Compose path, e.g. `ai/deploy/docker-compose.yml`.
+ * @returns {Object} `{requiredDeploymentInputs, optionalOverrides, secrets, forbiddenEnv, profile}`
+ * @throws {Error} When the parity document, its parity block, or the profile is absent or mismatched.
+ */
+export function resolveCensus(parity, profile) {
+    const parityBlock = parity?.$composeDefaultParity;
+
+    if (!parityBlock) {
+        throw new Error('config-leaf-parity.json carries no $composeDefaultParity block — cannot plan against an unknown contract')
+    }
+
+    const profiles = parityBlock.profiles || {};
+
+    if (!Object.prototype.hasOwnProperty.call(profiles, profile)) {
+        throw new Error(
+            `profile '${profile}' is not declared in $composeDefaultParity.profiles ` +
+            `(declared: ${Object.keys(profiles).join(', ') || 'none'}) — refusing to plan against a defaulted contract`
         )
     }
 
-    if (typeof discover.profile !== 'string' || !discover.profile) {
-        problems.push('discover result carries no profile — the census is per-profile, so an unlabelled result cannot be trusted')
-    } else if (expectedProfile && discover.profile !== expectedProfile) {
-        problems.push(`discover result describes profile '${discover.profile}' but this run targets '${expectedProfile}'`)
+    const census = parityBlock.census || {};
+
+    // The census block names ONE profile. Planning another against it would compare a deployment to a
+    // contract that is not its own, so say so instead of proceeding.
+    if (census.profile && census.profile !== profile) {
+        throw new Error(
+            `the census describes profile '${census.profile}', not '${profile}' — ` +
+            'the classified key lists are per-profile and cannot be reused across contracts'
+        )
     }
 
-    REQUIRED_FINDING_LISTS.forEach(listName => {
-        if (!Array.isArray(discover[listName])) {
-            problems.push(`discover result is missing the '${listName}' list — absent and empty are indistinguishable once parsed, so absence is refused`)
-        }
-    });
-
-    // A producer that reports its own findings but claims nothing about cleanliness leaves the gate
-    // deciding a question the producer was meant to answer.
-    if (typeof discover.clean !== 'boolean') {
-        problems.push("discover result carries no boolean 'clean' verdict")
+    return {
+        profile,
+        requiredDeploymentInputs: Array.isArray(census.requiredDeploymentInputs) ? census.requiredDeploymentInputs : [],
+        optionalOverrides       : Array.isArray(census.optionalOverrides)        ? census.optionalOverrides        : [],
+        secrets                 : Array.isArray(census.secrets)                  ? census.secrets                  : [],
+        forbiddenEnv            : parityBlock.forbiddenEnv || {}
     }
+}
 
-    return problems
+/**
+ * @summary Derives the config-contract delta by comparing the observed env against the census.
+ *
+ * The single resolver. Reason text for a forbidden key is taken **verbatim from the census**, which
+ * already declares each one's replacement guidance — re-authoring it here would create a second copy
+ * free to drift from the authority it paraphrases.
+ * @param {Map<String,String>} observedEnv Output of {@link parseObservedEnv}.
+ * @param {Object}             census      Output of {@link resolveCensus}.
+ * @returns {Object} `{missingRequired, presentForbidden, missingSecrets, optionalPresent}`
+ */
+export function deriveContractDelta(observedEnv, census) {
+    return {
+        missingRequired : census.requiredDeploymentInputs
+            .filter(key => !observedEnv.has(key))
+            .map(key => ({
+                key,
+                bootBlocking: key === BOOT_BLOCKING_KEY,
+                reason      : key === BOOT_BLOCKING_KEY
+                    ? 'declared required with no leaf default, so a launch that does not declare it is refused rather than degraded'
+                    : 'declared in the census as a required deployment input and absent from the observed deployment'
+            })),
+        presentForbidden: Object.keys(census.forbiddenEnv)
+            .filter(key => observedEnv.has(key))
+            .map(key => ({key, reason: String(census.forbiddenEnv[key])})),
+        missingSecrets  : census.secrets
+            .filter(key => !observedEnv.has(key))
+            .map(key => ({key, reason: 'declared as a required secret and absent from the observed deployment'})),
+        optionalPresent : census.optionalOverrides.filter(key => observedEnv.has(key))
+    }
 }
 
 /**
  * @summary Normalizes one finding entry to `{key, reason}`, tolerating a bare string key.
- *
- * The reason text is taken verbatim from the producer and never re-authored: the census already
- * declares each forbidden key's replacement guidance, and a second copy here would drift from it.
  * @param {Object|String} finding
  * @returns {Object} `{key, reason}`
  */
@@ -114,41 +191,47 @@ function normalizeFinding(finding) {
  * failure, and collapsing it into either is how a partial plan reads as complete. `unchecked` never
  * blocks; it travels into the apply receipt so the operator sees exactly what was not proven.
  *
- * @param {Object}      config
- * @param {Object}      config.discover           Parsed discover result from the discover driver.
- * @param {Object}      config.composeIdentity    `{project, configFiles}` read off the running plane; `null` when undiscoverable.
- * @param {Object}      config.deployedRevisions  Service name → revision string, or `null` for unreadable.
- * @param {String|null} config.targetRevision     The resolved 40-hex target, or `null` when resolution failed.
- * @param {String}      [config.expectedProfile]  Profile the discover result must describe.
- * @param {String[]}    [config.uncheckedNotes]   Entrypoint-supplied items it could not evaluate.
- * @returns {Object} `{clean, blockers, unchecked, notes, revisionDelta, discoverFindings}`
+ * @param {Object}             config
+ * @param {Map<String,String>} config.observedEnv        Guarded env observed on the target's containers.
+ * @param {Object}             config.census             Output of {@link resolveCensus}.
+ * @param {Object}             config.composeIdentity    `{project, configFiles}` read off the running plane; `null` when undiscoverable.
+ * @param {Object}             config.deployedRevisions  Service name → revision string, or `null` for unreadable.
+ * @param {String|null}        config.targetRevision     The resolved 40-hex target, or `null` when resolution failed.
+ * @param {String[]}           [config.uncheckedNotes]   Entrypoint-supplied items it could not evaluate.
+ * @returns {Object} `{clean, blockers, unchecked, notes, revisionDelta, contractDelta}`
  */
-export function buildMigrationPlan({discover, composeIdentity, deployedRevisions, targetRevision, expectedProfile, uncheckedNotes = []}) {
+export function buildMigrationPlan({observedEnv, census, composeIdentity, deployedRevisions, targetRevision, uncheckedNotes = []}) {
     const blockers  = [],
           unchecked = [...uncheckedNotes],
           notes     = [];
 
-    // 1. The consumed payload itself. A shape problem refuses before any finding is read, because a
-    // payload this core only partly understood cannot authorize a mutation.
-    const shapeProblems = validateDiscoverResult(discover, expectedProfile);
+    // 1. An unreadable target cannot be compared to any contract. Refused before deriving anything,
+    // because an EMPTY observed set would otherwise derive "every required key is missing" — a
+    // spectacular-looking delta whose real cause is that nothing was read.
+    if (!(observedEnv instanceof Map) || observedEnv.size === 0) {
+        blockers.push({
+            kind  : 'no-observed-env',
+            key   : 'Config.Env',
+            reason: 'no guarded env was read from the target, so the contract delta would be derived from an empty ' +
+                    'observation and every required key would appear missing for the wrong reason'
+        })
+    }
 
-    shapeProblems.forEach(reason => blockers.push({kind: 'discover-result-invalid', key: 'discover', reason}));
+    const contractDelta   = deriveContractDelta(observedEnv instanceof Map ? observedEnv : new Map(), census),
+          missingRequired = contractDelta.missingRequired.map(normalizeFinding),
+          forbiddenSet    = contractDelta.presentForbidden.map(normalizeFinding),
+          missingSecrets  = contractDelta.missingSecrets.map(normalizeFinding);
 
-    const usable          = shapeProblems.length === 0,
-          missingRequired = usable ? discover.missingRequired.map(normalizeFinding)  : [],
-          forbiddenSet    = usable ? discover.presentForbidden.map(normalizeFinding) : [],
-          missingSecrets  = usable ? discover.missingSecrets.map(normalizeFinding)   : [];
-
-    // 2. The contract delta, forwarded as blockers. `bootBlocking` is surfaced as a distinct kind
-    // because the discover contract distinguishes it: a missing authority role is a refused launch, not a
-    // degraded one, and an operator triaging a long list needs that ordering.
+    // 2. The contract delta as blockers. Boot-blocking gets its own kind: a refused launch is a
+    // different triage priority from a degraded one, and it is the one key an operator reading a long
+    // list must see first.
     missingRequired.forEach(({key, reason}) => {
-        const bootBlocking = usable && discover.missingRequired.some(entry => entry?.key === key && entry?.bootBlocking === true);
+        const bootBlocking = contractDelta.missingRequired.some(entry => entry.key === key && entry.bootBlocking === true);
 
         blockers.push({
             kind  : bootBlocking ? 'missing-required-input-boot-blocking' : 'missing-required-input',
             key,
-            reason: reason || 'declared in the census as a required deployment input and absent from the target'
+            reason
         })
     });
 
@@ -164,21 +247,19 @@ export function buildMigrationPlan({discover, composeIdentity, deployedRevisions
         reason: reason || 'declared as a required secret and absent from the target'
     }));
 
-    // A producer that reports no findings but calls itself dirty knows something this gate does not;
-    // trusting the findings over the verdict would silently discard it.
-    if (usable && discover.clean === false && missingRequired.length + forbiddenSet.length + missingSecrets.length === 0) {
-        blockers.push({
-            kind  : 'discover-verdict-unexplained',
-            key   : 'clean',
-            reason: 'the discover result reports clean=false while listing no findings — refusing rather than resolving the contradiction'
-        })
+    contractDelta.optionalPresent.forEach(key => notes.push(`optional override set: ${key}`));
+
+    // Secrets are named in the census but their VALUES are not observable through container env in
+    // every deployment shape, so a satisfied secret list is weaker evidence than a satisfied required
+    // list. Say so rather than letting a clean secrets check read as a proof it is not.
+    if (census.secrets.length && missingSecrets.length === 0) {
+        unchecked.push(
+            `secret presence was checked by env key only (${census.secrets.length} declared) — a key set to an ` +
+            'empty or stale value reads as present'
+        )
     }
 
-    if (usable && Array.isArray(discover.unchecked)) {
-        unchecked.push(...discover.unchecked.map(item => `discover: ${item}`))
-    }
-
-    // 3. Compose identity — a plane-side fact discovery cannot supply. Undiscoverable identity is a
+    // 3. Compose identity — a plane-side fact the census cannot supply. Undiscoverable identity is a
     // blocker and never a default, because the shipped pipeline's own defaults (`neo-agent-os`, one
     // compose file) would address a DIFFERENT project with the overlay dropped.
     if (!composeIdentity?.project || !Array.isArray(composeIdentity.configFiles) || composeIdentity.configFiles.length === 0) {
@@ -238,15 +319,18 @@ export function buildMigrationPlan({discover, composeIdentity, deployedRevisions
     }
 
     return {
-        clean           : blockers.length === 0,
+        clean        : blockers.length === 0,
         blockers,
         unchecked,
         notes,
-        revisionDelta   : {from: singleRunning, to: targetRevision, alreadyTarget},
-        discoverFindings: {
+        revisionDelta: {from: singleRunning, to: targetRevision, alreadyTarget},
+        contractDelta: {
+            profile         : census.profile,
             missingRequired : missingRequired.map(({key}) => key),
             presentForbidden: forbiddenSet.map(({key}) => key),
-            missingSecrets  : missingSecrets.map(({key}) => key)
+            missingSecrets  : missingSecrets.map(({key}) => key),
+            optionalPresent : contractDelta.optionalPresent,
+            observedKeyCount: observedEnv instanceof Map ? observedEnv.size : 0
         }
     }
 }

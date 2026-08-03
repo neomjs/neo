@@ -5,7 +5,7 @@ import {execFile}      from 'node:child_process';
 import {promisify}     from 'node:util';
 import {fileURLToPath} from 'url';
 
-import {buildMigrationPlan, formatPlan} from './deploymentMigrationCore.mjs';
+import {buildMigrationPlan, formatPlan, parseObservedEnv, resolveCensus} from './deploymentMigrationCore.mjs';
 
 /**
  * @module ai/scripts/maintenance/migrateDeployment
@@ -17,8 +17,8 @@ import {buildMigrationPlan, formatPlan} from './deploymentMigrationCore.mjs';
  * ## Usage
  *
  * ```
- * node ai/scripts/maintenance/migrateDeployment.mjs plan  --discover-json <path> [--target dev]
- * node ai/scripts/maintenance/migrateDeployment.mjs apply --discover-json <path> --target <sha>
+ * node ai/scripts/maintenance/migrateDeployment.mjs plan  [--target dev] [--project NAME]
+ * node ai/scripts/maintenance/migrateDeployment.mjs apply --target <sha>
  * ```
  *
  * ## Why plan-then-apply rather than a caller
@@ -30,13 +30,15 @@ import {buildMigrationPlan, formatPlan} from './deploymentMigrationCore.mjs';
  * PID file and no log. The config delta decides whether the migration can work at all; the revision
  * delta is secondary.
  *
- * ## Why the contract delta is consumed and never re-derived
+ * ## Why this tool derives the contract delta itself
  *
- * The discover driver owns derivation — it reads the classified config census and emits the delta as
- * JSON for a caller to consume as the plan step of a bootstrap. This driver consumes it and adds
- * nothing to it. There is deliberately no fallback derivation for an absent discover result: two
- * resolvers for one contract can disagree, and a parallel resolution path is the shape this repository
- * has already had to retire once. Absent input refuses with a named reason.
+ * An earlier revision consumed the delta as JSON from a separate discovery driver, carrying no
+ * derivation of its own so that two resolvers could not disagree. That reasoning was sound and its
+ * premise is gone: the separate driver was closed as not-planned, priced at a new CLI contract, JSON
+ * schema, tests, documentation and an ongoing compatibility surface. Those are costs of the SPLIT, not
+ * of the capability, so folding derivation in removes all of them and still leaves exactly one
+ * resolver. Its authority is `ai/scripts/lint/config-leaf-parity.json`, the executable copy of the
+ * classified key lists — never a transcription of them.
  *
  * ## Why the target's Compose identity is discovered
  *
@@ -56,6 +58,7 @@ import {buildMigrationPlan, formatPlan} from './deploymentMigrationCore.mjs';
 const execFileAsync = promisify(execFile),
       scriptDir     = path.dirname(fileURLToPath(import.meta.url)),
       repoRoot      = path.resolve(scriptDir, '../../..'),
+      PARITY_REL    = 'ai/scripts/lint/config-leaf-parity.json',
       PIPELINE_REL  = 'ai/examples/cloud-deployment/deploy-pipeline.sh',
       DEFAULT_REPO  = 'https://github.com/neomjs/neo.git',
       /**
@@ -94,19 +97,19 @@ async function run(command, args, env) {
 /**
  * @summary Parses argv, refusing an unknown mode or flag.
  * @param {String[]} argv `process.argv.slice(2)`
- * @returns {Object} `{mode, target, project, profile, services, repoUrl, discoverJson}`
+ * @returns {Object} `{mode, target, project, profile, services, repoUrl}`
  * @throws {Error} On a missing/unknown mode, an unknown flag, or a flag without a value.
  */
 export function parseArgs(argv) {
     const [mode, ...rest] = argv,
           options         = {
               mode,
-              target      : 'dev',
-              project     : null,
-              profile     : 'ai/deploy/docker-compose.yml',
-              services    : DEFAULT_SERVICES,
-              repoUrl     : process.env.NEO_REPO_URL || DEFAULT_REPO,
-              discoverJson: null
+              target  : 'dev',
+              project : null,
+              profile : 'ai/deploy/docker-compose.yml',
+              services: DEFAULT_SERVICES,
+              repoUrl : process.env.NEO_REPO_URL || DEFAULT_REPO,
+              omitted : null
           };
 
     if (mode !== 'plan' && mode !== 'apply') {
@@ -126,7 +129,6 @@ export function parseArgs(argv) {
             case '--project'      : options.project      = value; break;
             case '--profile'      : options.profile      = value; break;
             case '--repo-url'     : options.repoUrl      = value; break;
-            case '--discover-json': options.discoverJson = value; break;
             case '--services'     : options.services     = value.split(',').map(entry => entry.trim()).filter(Boolean); break;
             default               : throw new Error(`unknown flag: ${flag}`)
         }
@@ -181,11 +183,12 @@ async function discoverProject(services, declaredProject) {
  * `/app/.neo-revision`.
  * @param {String}   project
  * @param {String[]} services
- * @returns {Promise<Object>} `{composeIdentity, deployedRevisions, unchecked}`
+ * @returns {Promise<Object>} `{composeIdentity, deployedRevisions, unchecked, observedEnv}`
  */
 async function inspectPlane(project, services) {
     const deployedRevisions = {},
-          unchecked         = [];
+          unchecked         = [],
+          observedEntries   = [];
 
     let composeIdentity = null;
 
@@ -205,14 +208,32 @@ async function inspectPlane(project, services) {
             continue
         }
 
-        const inspected = await run('docker', ['inspect', containerName, '--format', '{{json .Config.Labels}}']);
+        const inspected = await run('docker', ['inspect', containerName, '--format', '{{json .Config}}']);
 
-        if (inspected.ok && !composeIdentity) {
+        let parsedConfig = null;
+
+        if (inspected.ok) {
+            try {
+                parsedConfig = JSON.parse(inspected.stdout)
+            } catch (error) {
+                unchecked.push(`service '${service}': container config was not parseable JSON — ${error.message}`)
+            }
+        }
+
+        // Env from EVERY service, not just the first: a cohort can disagree, and a key present on one
+        // container but missing on another is a real misconfiguration that reading only one would hide.
+        // Union is the conservative direction here — it can only make the delta smaller, so a key this
+        // reports as missing is missing everywhere.
+        if (parsedConfig) {
+            observedEntries.push(...(parsedConfig.Env || []))
+        }
+
+        if (parsedConfig && !composeIdentity) {
             // The first service that yields labels establishes the plane's identity: every service in
             // one project shares it, so reading it from whichever service answered keeps a single
             // missing container from losing the identity entirely.
-            try {
-                const labels      = JSON.parse(inspected.stdout) || {},
+            {
+                const labels      = parsedConfig.Labels || {},
                       configFiles = (labels['com.docker.compose.project.config_files'] || '')
                           .split(',').map(entry => entry.trim()).filter(Boolean);
 
@@ -223,8 +244,6 @@ async function inspectPlane(project, services) {
                         workingDir: labels['com.docker.compose.project.working_dir'] || null
                     }
                 }
-            } catch (error) {
-                unchecked.push(`service '${service}': container labels were not parseable JSON — ${error.message}`)
             }
         }
 
@@ -237,7 +256,7 @@ async function inspectPlane(project, services) {
         }
     }
 
-    return {composeIdentity, deployedRevisions, unchecked}
+    return {composeIdentity, deployedRevisions, unchecked, observedEnv: parseObservedEnv(observedEntries)}
 }
 
 /**
@@ -280,31 +299,21 @@ async function resolveTargetRevision(repoUrl, selector) {
 }
 
 /**
- * @summary Loads and parses the discover result, returning a named failure rather than throwing.
- *
- * An absent path is a refusal and not a fallback: this driver carries no census derivation, so with no
- * discover result there is nothing to gate on.
- * @param {String|null} discoverJsonPath
- * @returns {Promise<Object>} `{discover, error}`
+ * @summary Loads the classified census for one profile, returning a named failure rather than throwing.
+ * @param {String} profile Repo-relative Compose path.
+ * @returns {Promise<Object>} `{census, error}`
  */
-async function loadDiscoverResult(discoverJsonPath) {
-    if (!discoverJsonPath) {
-        return {
-            discover: null,
-            error   : '--discover-json is required: the contract delta is produced by the discover driver and is never re-derived here'
-        }
-    }
+async function loadCensus(profile) {
+    const parityPath = path.join(repoRoot, PARITY_REL);
 
-    const resolved = path.resolve(repoRoot, discoverJsonPath);
-
-    if (!await fs.pathExists(resolved)) {
-        return {discover: null, error: `discover result not found at ${resolved}`}
+    if (!await fs.pathExists(parityPath)) {
+        return {census: null, error: `${PARITY_REL} is absent — it is this tool's contract authority`}
     }
 
     try {
-        return {discover: await fs.readJson(resolved), error: null}
+        return {census: resolveCensus(await fs.readJson(parityPath), profile), error: null}
     } catch (error) {
-        return {discover: null, error: `discover result at ${resolved} is not parseable JSON — ${error.message}`}
+        return {census: null, error: error.message}
     }
 }
 
@@ -348,7 +357,7 @@ async function main() {
         options = parseArgs(process.argv.slice(2))
     } catch (error) {
         console.error(`[migrate] FATAL: ${error.message}`);
-        console.error('[migrate] usage: migrateDeployment.mjs plan|apply --discover-json <path> [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c]');
+        console.error('[migrate] usage: migrateDeployment.mjs plan|apply [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c]');
         return 2
     }
 
@@ -356,12 +365,14 @@ async function main() {
     console.log(`[migrate] profile:  ${options.profile}`);
     console.log(`[migrate] selector: ${options.target}`);
 
-    const {discover, error: discoverError} = await loadDiscoverResult(options.discoverJson);
+    const {census, error: censusError} = await loadCensus(options.profile);
 
-    if (discoverError) {
-        console.error(`[migrate] FATAL: ${discoverError}`);
+    if (censusError) {
+        console.error(`[migrate] FATAL: ${censusError}`);
         return 2
     }
+
+    console.log(`[migrate] contract: ${census.requiredDeploymentInputs.length} required, ${Object.keys(census.forbiddenEnv).length} forbidden, ${census.secrets.length} secret(s)`);
 
     const {project, error: projectError} = await discoverProject(options.services, options.project);
 
@@ -370,7 +381,7 @@ async function main() {
         return 2
     }
 
-    const [{composeIdentity, deployedRevisions, unchecked}, {revision: targetRevision, error: targetError}] = await Promise.all([
+    const [{composeIdentity, deployedRevisions, unchecked, observedEnv}, {revision: targetRevision, error: targetError}] = await Promise.all([
         inspectPlane(project, options.services),
         resolveTargetRevision(options.repoUrl, options.target)
     ]);
@@ -380,12 +391,12 @@ async function main() {
     }
 
     const plan = buildMigrationPlan({
-        discover,
+        observedEnv,
+        census,
         composeIdentity,
         deployedRevisions,
         targetRevision,
-        expectedProfile: options.profile,
-        uncheckedNotes : unchecked
+        uncheckedNotes: unchecked
     });
 
     console.log('');
