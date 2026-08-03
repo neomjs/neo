@@ -220,9 +220,21 @@ test.describe('off-host durability posture (#16055)', () => {
         // The structural half of the fix: a posture is a property of CONFIG, so it is knowable before
         // any backup has run — which is precisely the deployment most at risk. The previous
         // `return null` omitted the entire maintenance section for that case.
+        //
+        // This pins the INVARIANT rather than the early-return literal. That literal moved when the
+        // backup retry phase was added beside `durability`, and the string pin reported the refactor
+        // as a regression while the property it guards was intact — pinning a member of a shape that
+        // is expected to grow guards the wrong direction. What cannot move is that the posture is
+        // resolved unconditionally, ahead of any receipt read that could fail.
+        //
+        // The behavioural proof — invoking the projection detached and asserting `durability` on a
+        // missing receipt — lives in `offHostSync.spec.mjs`, which carries the Neo bootstrap that
+        // importing the bridge requires. Asserting it here too would mean dragging that bootstrap
+        // into a pure-function spec, and a first attempt at exactly that passed only because a
+        // sibling spec had already initialised Neo in the same worker.
         const source = readFileSync(BRIDGE_PATH, 'utf8');
 
-        expect(source).toContain("if (outcome.status === 'missing') return {durability};");
+        expect(source).toContain('const durability = resolveConfiguredDurabilityPosture();');
         expect(source).not.toContain("if (outcome.status === 'missing') return null;")
     });
 

@@ -115,6 +115,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 kbSync                         : config.orchestrator.intervals.kbSyncMs,
                 githubWorkflowSync             : config.orchestrator.intervals.githubWorkflowSyncMs,
                 backup                         : config.orchestrator.intervals.backupMs,
+                backupRetryDelay               : config.orchestrator.intervals.backupRetryDelayMs,
+                backupRetryWindow              : config.orchestrator.intervals.backupRetryWindowMs,
                 graphLogCompaction             : config.orchestrator.intervals.graphLogCompactionMs,
                 primaryDevSync                 : config.orchestrator.intervals.primaryDevSyncMs,
                 tenantRepoSync                 : config.orchestrator.tenantRepoSync.sweepCadenceMs,

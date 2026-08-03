@@ -134,7 +134,9 @@ const taskRegistry = [
             return (hooks.backupGetDueTask || getBackupDueTask)({
                 state,
                 now,
-                backupIntervalMs: intervals.backup
+                backupIntervalMs   : intervals.backup,
+                backupRetryDelayMs : intervals.backupRetryDelay,
+                backupRetryWindowMs: intervals.backupRetryWindow
             });
         }
     },

@@ -16,6 +16,7 @@ import {
     readBackupReceipt,
     validateOffHostSyncConfig
 } from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
+import {describeBackupRetryState}    from '../scheduling/backup.mjs';
 import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
@@ -236,7 +237,13 @@ export class DeploymentStateBridgeService extends Base {
         const selfHeal          = await this.collectSelfHealSnapshot();
         const tenantRepoSync    = await this.collectTenantRepoSyncSnapshot({observedAt: generatedAt});
         const bridgeDiagnostics = this.collectBridgeDiagnostics({services, observedAt: generatedAt});
-        const maintenance       = await this.collectMaintenanceSnapshot();
+        // The backup retry phase is read HERE rather than inside the projection: instance state is
+        // legitimate at this call site, and `collectMaintenanceSnapshot` is contractually detached
+        // (a spec invokes it via `.call({})`), so it takes the task state as an argument instead.
+        const maintenance = await this.collectMaintenanceSnapshot({
+            backupTaskState: this.taskStateService?.getTaskState?.('backup') || null,
+            now            : generatedAt
+        });
 
         return createDeploymentStateSnapshot({
             generatedAt,
@@ -267,20 +274,43 @@ export class DeploymentStateBridgeService extends Base {
      * `lastBackup` keeps its absent-before-first-run semantics and is simply omitted in that case.
      * @returns {Promise<Object|null>}
      */
-    async collectMaintenanceSnapshot({receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json')} = {}) {
+    async collectMaintenanceSnapshot({
+        backupTaskState = null,
+        now             = Date.now(),
+        receiptPath     = path.join(AiConfig.backupPath, 'last-backup-receipt.json')
+    } = {}) {
         // Module-scope, deliberately not a method: this projection depends only on resolved config
         // and its own argument, never on instance state, and the contract spec asserts that by
         // invoking it detached.
         const durability = resolveConfiguredDurabilityPosture();
 
+        // `retry` reports the backup lane's bounded-retry phase. It rides HERE rather than
+        // the Memory Core healthcheck's backup block on purpose: that block reads the backup
+        // DIRECTORY, and `mc-server` holds no backup mount — a surface that cannot see the thing it
+        // reports on. The orchestrator owns both the bind mount and the task state.
+        //
+        // Omitted rather than nulled when no task state was supplied, so a detached invocation keeps
+        // its previous shape exactly.
+        const base = backupTaskState
+            ? {
+                durability,
+                retry: describeBackupRetryState({
+                    now,
+                    retryDelayMs : AiConfig.orchestrator.intervals.backupRetryDelayMs,
+                    retryWindowMs: AiConfig.orchestrator.intervals.backupRetryWindowMs,
+                    taskState    : backupTaskState
+                })
+            }
+            : {durability};
+
         try {
             const outcome = await readBackupReceipt({filePath: receiptPath});
 
-            if (outcome.status === 'missing') return {durability};
+            if (outcome.status === 'missing') return base;
 
             if (outcome.status === 'unreadable') {
                 return {
-                    durability,
+                    ...base,
                     lastBackup: {
                         finishedAt: outcome.finishedAt,
                         kind      : outcome.kind,
@@ -289,10 +319,10 @@ export class DeploymentStateBridgeService extends Base {
                 }
             }
 
-            return {durability, lastBackup: outcome.receipt}
+            return {...base, lastBackup: outcome.receipt}
         } catch (error) {
             return {
-                durability,
+                ...base,
                 lastBackup: {
                     finishedAt: null,
                     kind      : 'corrupt',
