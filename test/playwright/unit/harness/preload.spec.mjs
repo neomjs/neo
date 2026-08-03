@@ -130,13 +130,13 @@ function cockpitDom({rosterState='sample', rosterLabel='static roster · offline
 }
 
 test.describe('Electron harness preload capability', () => {
-    test('exposes one Fleet promise capability and no raw transport or secret facts', async () => {
+    test('exposes exactly the named promise capabilities and no raw transport or secret facts', async () => {
         const
             {exposed, invokes} = await loadPreload(),
             request            = {method: 'listAgents', params: {}};
 
         expect(exposed.name).toBe('neoShell');
-        expect(Object.keys(exposed.value).sort()).toEqual(['fleetRequest', 'shellVersion']);
+        expect(Object.keys(exposed.value).sort()).toEqual(['brainHealth', 'fleetRequest', 'shellVersion']);
         expect(exposed.value.shellVersion).toBe('42.0.0');
         expect(exposed.value).not.toHaveProperty('bearerToken');
         expect(exposed.value).not.toHaveProperty('defineFleetAgent');
@@ -145,7 +145,11 @@ test.describe('Electron harness preload capability', () => {
         expect(exposed.value).not.toHaveProperty('node');
 
         await expect(exposed.value.fleetRequest(request)).resolves.toEqual({ok: true, result: []});
-        expect(invokes).toEqual([['fleet-request', request]])
+
+        // The health pull crosses its own named channel and carries no payload — the renderer can
+        // ask, never influence.
+        await expect(exposed.value.brainHealth()).resolves.toEqual({ok: true, result: []});
+        expect(invokes).toEqual([['fleet-request', request], ['brain-health']])
     })
 
     test('keeps credential capture in the one main-owned channel with no renderer input surface', async () => {
