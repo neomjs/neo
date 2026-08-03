@@ -1,0 +1,204 @@
+{
+    "$schema": {
+        "purpose": "Explicit bound classification for every retry-growth candidate. A candidate absent from `sites` is UNCLASSIFIED, never \"unbounded\".",
+        "kind": [
+            "retry-growth",
+            "not-a-retry"
+        ],
+        "lifetime": [
+            "in-cycle",
+            "process-local",
+            "persisted"
+        ],
+        "boundCarrier": [
+            "max-delay",
+            "max-attempts",
+            "max-window",
+            "terminal-state"
+        ],
+        "witness": "REQUIRED for every entry. Names the spec or the bounding construct that PROVES the classification. An entry without one is a suppression, not a classification.",
+        "regenerate": "node ai/scripts/lint/lint-retry-bounds.mjs --list"
+    },
+    "sites": {
+        "ai/agent/Loop.mjs#processEvent": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-attempts",
+            "witness": "`retryCount < this.maxRetries` guard at ai/agent/Loop.mjs#processEvent; `maxRetries: 3` config member",
+            "note": "Recursive retry; the guard is the bound, the delay is uncapped by design (1s/2s/4s then stop)."
+        },
+        "ai/daemons/embed/drainCycle.mjs#getBackoffDelayMs": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`MAX_RECORD_COOLDOWN_MS` clamp in the same expression; test/playwright/unit/ai/daemons/embed/drainCycle.spec.mjs",
+            "note": "Per-record attempt persists across cycles in retryState, so a delay cap is required \u2014 an attempt budget would not bound wall-clock."
+        },
+        "ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "caller loop `for (let attempt = 0; attempt <= maxRetries; attempt++)` at ai/daemons/message/drainCycle.mjs#drainMessageWalRecords",
+            "note": "Returns a RAW exponential and is indistinguishable from a defect at the growth site; the bound is the caller. This is the case that defeats any returned-vs-consumed heuristic."
+        },
+        "ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs#isRepoDue": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`backoffCapMs` leaf (ai/configBase.mjs orchestrator.tenantRepoSync); test/playwright/unit/ai/daemons/orchestrator/scheduling/tenantRepoSync.spec.mjs",
+            "note": "consecutiveFailures persists in the orchestrator state volume and survives restart; uncapped it stranded a deployment ~128h (#16224)."
+        },
+        "ai/daemons/orchestrator/services/RecoveryActuatorService.mjs#computeBackoffUntil": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(maxBackoffMs, ...)` in the same expression",
+            "note": "Heal-attempt backoff; cap is co-located with the growth."
+        },
+        "ai/scripts/benchmark/setupClass-cold-start.mjs#roundMetric": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "ai/services/github-workflow/GraphqlService.mjs#<module>": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
+            "note": "GitHub GraphQL transport retry."
+        },
+        "ai/services/gitlab-workflow/GitLabClient.mjs#<module>": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
+            "note": "GitLab transport retry; mirrors GraphqlService."
+        },
+        "ai/services/knowledge-base/ChromaManager.mjs#getKnowledgeBaseCollection": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-window",
+            "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
+            "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
+        },
+        "ai/services/knowledge-base/VectorService.mjs#evaluateEmbeddingInput": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`retries < maxRetries` guard at the call site; throws on exhaustion",
+            "note": "Embedding batch retry inside one pass."
+        },
+        "ai/services/memory-core/MemoryService.mjs#_scheduleMemoryGraphProjection": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(..., aiConfig.memoryService.graphProjectionRetryMaxMs)` in the same expression"
+        },
+        "ai/services/memory-core/WebhookDeliveryService.mjs#deliver": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`attempt <= maxRetries` guard in the same loop",
+            "note": "Multiplicative mutation (`backoff *= 2`) \u2014 the syntax family a base-2 exponent census misses entirely."
+        },
+        "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "terminal-state",
+            "witness": "`attempts >= maxUnfreezeAttempts` => status `contained` in the same function; test/playwright/unit/ai/services/memory-core/helpers/freezeReprobeDecision.spec.mjs",
+            "note": "The delay value GROWS without a cap by design (anti-thrash widening); the series is bounded because a terminal state stops it. No delay-shaped check can see this bound."
+        },
+        "ai/services/shared/boundedRetryGate.mjs#settleFlight": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(failureTtlMaxMs, ...)` in the same expression",
+            "note": "The shared flight gate; #16307 records why it is NOT the right mechanism for persisted cadence state."
+        },
+        "apps/devindex/services/GitHub.mjs#<module>": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.restRetryMaxDelayMs, ...)` applied twice (pre- and post-jitter)"
+        },
+        "apps/devindex/services/Spider.mjs#pickStrategy": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#drawNetwork": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#drawShockwaves": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updateAgents": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updatePhysics": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNearestNode": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNeighbors": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#updatePhysics": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#updateRunners": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "src/canvas/Header.mjs#getStreamOffset": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "src/canvas/Sparkline.mjs#renderLoop": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "src/dashboard/DockDropIndicators.mjs#getCandidateHitPoint": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "src/data/connection/WebSocket.mjs#<module>": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(1000 * Math.pow(2, attempt - 1), 30000)` in the default backoffStrategy",
+            "note": "Body-side reconnect; the only retry-growth site outside ai/."
+        },
+        "src/main/DomEvents.mjs#getDistance": {
+            "kind": "not-a-retry",
+            "witness": "Geometry/easing/physics \u2014 no retry series exists; verified by reading the enclosing function.",
+            "note": "Non-retry use of the same syntax. Recorded rather than filtered so the examined set stays auditable."
+        },
+        "src/manager/DragCoordinator.mjs#settleNativeWindowDisposition": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(5000, ...)` plus a clamped exponent `Math.min(dispositionAttempts - 1, 4)`",
+            "note": "Bounded twice \u2014 the delay is capped AND the exponent itself is clamped."
+        }
+    }
+}
