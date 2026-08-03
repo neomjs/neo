@@ -535,7 +535,13 @@ test.describe('Tier 1 Config Immutability', () => {
             intervalMs: 24 * 60 * 60 * 1000,
             retention : {
                 keepMinimum: 3,
-                maxDays    : 30
+                maxDays    : 30,
+                // How many `.backup-partial-*` staging directories left by ABRUPT death survive the
+                // residue sweep. A forensic-retention count rather than an age bound: the residue is
+                // the only surviving evidence of a termination that recorded no terminal outcome, and
+                // any age short enough to cap capacity also deletes the artifact an operator may be
+                // mid-investigation on.
+                keepPartials: 2
             },
             // Bounds how many bundles `verifyLatestBackupRestorable` validates while walking back past
             // an unusable newest one. A policy value rather than a module constant: a primitive-local
