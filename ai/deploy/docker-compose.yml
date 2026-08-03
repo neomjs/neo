@@ -34,10 +34,10 @@ services:
     volumes:
       - chroma-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+      test        : ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
+      interval    : 10s
+      timeout     : 5s
+      retries     : 12
       start_period: 60s
     networks:
       - neo-mcp-network
@@ -45,11 +45,11 @@ services:
       resources:
         limits:
           memory: 2g
-          cpus: "2.0"
+          cpus  : "2.0"
 
   kb-server:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: knowledge-base
@@ -57,7 +57,7 @@ services:
         # Compose maps it to both internal Docker arguments so source acquisition and
         # the OCI revision assertion cannot disagree. The `:-dev` default preserves
         # the unpinned path without passing an empty ref to `git fetch`.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -101,25 +101,25 @@ services:
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      test        : ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
+      interval    : 10s
+      timeout     : 10s
+      retries     : 12
       start_period: 45s
     deploy:
       resources:
         limits:
           memory: 1g
-          cpus: "1.0"
+          cpus  : "1.0"
 
   mc-server:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: memory-core
         # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -206,16 +206,16 @@ services:
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      test        : ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      interval    : 10s
+      timeout     : 10s
+      retries     : 12
       start_period: 45s
     deploy:
       resources:
         limits:
           memory: 1g
-          cpus: "1.0"
+          cpus  : "1.0"
 
   # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
   # image via the generalized `SERVICE_ENTRYPOINT` arg. AiConfig defaults to the
@@ -225,12 +225,12 @@ services:
   # `cloud` profile — started by `docker compose --profile cloud up`.
   orchestrator:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
         # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - *handoff-file-env
@@ -341,10 +341,10 @@ services:
     # minutes; task progress stays observable there without making Docker report daemon
     # death. 90s start_period covers the first-poll latency on cold container boot.
     healthcheck:
-      test: ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const{inspectAuthorityLease}=await import('./ai/daemons/orchestrator/authorityLease.mjs');try{const{fresh}=inspectAuthorityLease({dir:AiConfig.orchestrator.dataDir,profile:AiConfig.orchestrator.authorityProfile});process.exit(fresh?0:1)}catch{process.exit(1)}"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
+      test        : ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const{inspectAuthorityLease}=await import('./ai/daemons/orchestrator/authorityLease.mjs');try{const{fresh}=inspectAuthorityLease({dir:AiConfig.orchestrator.dataDir,profile:AiConfig.orchestrator.authorityProfile});process.exit(fresh?0:1)}catch{process.exit(1)}"]
+      interval    : 60s
+      timeout     : 5s
+      retries     : 3
       start_period: 90s
     # Heap ceilings are PER PROCESS, so they are set on the command rather than in `environment`.
     # `ProcessSupervisorService` spawns supervised tasks with `{...process.env}`, so a service-level
@@ -353,13 +353,19 @@ services:
     #
     # The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
     #
-    # The concurrent-process count is NOT fully established, and the budget below says so rather than
-    # implying precision it does not have. What is known: 20 supervised task keys exist, the
-    # heavy-maintenance lease serialises 11 of them, and the remaining 9 can in principle run
-    # alongside a heavy task. What was observed here is 2 concurrent Node processes and only two task
-    # types ever started — but that observation comes from a plane dying every ~3 minutes, which never
-    # lives long enough to reach steady state, so the hourly and daily tasks have never started at
-    # all. An idle or crash-looping plane cannot show you its maximum.
+    # The concurrent-process count is NOT established, and the budget below says so rather than
+    # implying precision it does not have.
+    #
+    # A previous revision said "20 supervised task keys, 11 lease-serialised, so 9 can run alongside".
+    # That is a TASK-KEY count, not a process count, and the two are not the same: the scheduling
+    # registry distinguishes supervised-child-process, service-runner, in-process-async and
+    # health-check lanes; the pipeline dispatches one winner per poll; and authority profile plus
+    # per-task enablement remove further lanes before anything spawns. Only process-producing paths
+    # surviving those gates count, and that number has not been measured.
+    #
+    # What WAS observed here is 2 concurrent Node processes with two task types ever started — from a
+    # plane dying every ~3 minutes, which never reaches steady state, so hourly and daily tasks had
+    # never started at all. An idle or crash-looping plane cannot show its maximum.
     # `$$SERVER_ENTRYPOINT` is escaped so Compose does NOT interpolate it. It is a CONTAINER env set
     # by the Dockerfile, so config-time interpolation resolves it against the HOST environment, finds
     # nothing, and renders `node --max-old-space-size=1024 ` — a node invocation with no script.
@@ -382,7 +388,7 @@ services:
         # explicit ceilings only make sense together.
         limits:
           memory: 3g
-          cpus: "1.0"
+          cpus  : "1.0"
 
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
   # deployment (Sub C #11724). `ingress` profile — `docker compose --profile
@@ -411,16 +417,16 @@ services:
     # TCP connection, non-zero = caddy crashed. Avoids the wget --quiet + grep
     # silent-success-empty-output failure mode (#11939 cycle-1 review per @neo-gpt).
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 443"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      test        : ["CMD-SHELL", "nc -z 127.0.0.1 443"]
+      interval    : 30s
+      timeout     : 5s
+      retries     : 3
       start_period: 30s
     deploy:
       resources:
         limits:
           memory: 256m
-          cpus: "0.5"
+          cpus  : "0.5"
 
   # Optional self-hosted model-provider runtime (Post-MVP residual #11734).
   # The service is disabled unless the operator starts `--profile local-model`.
@@ -444,10 +450,10 @@ services:
     expose:
       - "11434"
     healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+      test        : ["CMD", "ollama", "list"]
+      interval    : 30s
+      timeout     : 10s
+      retries     : 10
       start_period: 60s
     profiles:
       - local-model
@@ -455,7 +461,7 @@ services:
       resources:
         limits:
           memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}"
-          cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
+          cpus  : "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
 
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
 # `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
