@@ -842,6 +842,75 @@ test.describe('Neo.main.addon.DockFlip', () => {
         })
     });
 
+    test('cancels the losing rAF arm on every timer-won wait — no late frame callback stays queued (#16425)', async () => {
+        // The race must dispose BOTH arms (the ResizeObserver dam contract). Without the
+        // cancellation, each timer-won wait in a frame-starved-but-visible window leaves its
+        // callback queued; dock operations accumulate them unboundedly and they all fire in
+        // one burst when the window presents again.
+        const
+            markerClass = 'dock-flip-item-alpha',
+            marker      = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            host        = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        marker.parentElement = host;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '260ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.setRect({height: 100, left: 80, top: 40, width: 100});
+
+        // Black-holed rAF with id bookkeeping: callbacks register but are never invoked.
+        const
+            registered          = new Set(),
+            cancelled           = new Set(),
+            originalCancelFrame = globalThis.cancelAnimationFrame;
+
+        let nextFrameId = 0;
+
+        globalThis.requestAnimationFrame = () => {
+            const id = ++nextFrameId;
+            registered.add(id);
+            return id
+        };
+        globalThis.cancelAnimationFrame = id => cancelled.add(id);
+
+        try {
+            await expect(dockFlip.play({
+                hostId      : 'dock-host',
+                markerPrefix: 'dock-flip-item-',
+                maxFrames   : 2
+            })).resolves.toBe(false);
+
+            expect(registered.size, 'two detach polls, one replacement settle, and one release tick registered').toBe(4);
+            expect([...cancelled].sort(), 'every timer-won wait cancelled exactly its own losing arm')
+                .toEqual([...registered].sort());
+            expect([...registered].filter(id => !cancelled.has(id)),
+                'no frame callback stays queued after the starved run').toEqual([])
+        } finally {
+            originalCancelFrame === undefined
+                ? delete globalThis.cancelAnimationFrame
+                : globalThis.cancelAnimationFrame = originalCancelFrame
+        }
+    });
+
     test('restores the host class and every temporary style when a post-invert frame fails', async () => {
         const
             markerClass     = 'dock-flip-item-alpha',

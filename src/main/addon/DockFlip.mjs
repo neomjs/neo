@@ -423,6 +423,12 @@ class DockFlip extends Base {
      * a starved tick as its instant-landing signal — animating a document that cannot paint
      * would only hold transform-scaled mid-motion rects live for async measurers to read as
      * layout truth.
+     *
+     * The race disposes BOTH arms symmetrically (the sibling ResizeObserver dam's contract):
+     * a frame win clears the timer, and a dam win cancels the pending rAF callback. Without
+     * the cancellation, every timer-won wait in a frame-starved-but-visible window would
+     * leave its callback queued — dock operations accumulate them unboundedly, and they all
+     * fire in one burst when the window finally presents again.
      * @param {Number} [budgetMs=100] Generously above one healthy frame (17-34ms), far below
      * a perceivable stall — a presenting document virtually always wins with a real frame.
      * @returns {Promise<Boolean>} true when a real frame serviced the wait, false when the dam fired
@@ -430,12 +436,14 @@ class DockFlip extends Base {
      */
     #nextFrame(budgetMs=100) {
         return new Promise(resolve => {
-            let timer = setTimeout(() => {
-                timer = null;
-                resolve(false)
-            }, budgetMs);
+            let frameId   = null,
+                timer     = setTimeout(() => {
+                    timer = null;
+                    globalThis.cancelAnimationFrame?.(frameId);
+                    resolve(false)
+                }, budgetMs);
 
-            requestAnimationFrame(() => {
+            frameId = requestAnimationFrame(() => {
                 if (timer !== null) {
                     clearTimeout(timer);
                     timer = null;
