@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 import {
     buildSourceReceipt,
     deriveLineage,
-    derivesEmpty,
+    derivesProvenEmpty,
     LINEAGE,
     ROW_STATE
 } from '../../../../../../ai/services/shared/captureReceipt.mjs';
@@ -20,7 +20,7 @@ import {
  */
 test.describe('ai/services/shared/captureReceipt — orthogonal facts, one derived claim', () => {
     test('`empty` requires a measured zero AND a continuous lineage', () => {
-        expect(derivesEmpty({rowState: ROW_STATE.zero, lineage: LINEAGE.same})).toBe(true);
+        expect(derivesProvenEmpty({rowState: ROW_STATE.zero, lineage: LINEAGE.same})).toBe(true);
     });
 
     test('a CHANGED lineage never derives `empty` — the falsifier that dropped the predecessor', () => {
@@ -35,7 +35,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
         });
 
         expect(promoted.lineage).toBe(LINEAGE.changed);
-        expect(promoted.empty).toBe(false);
+        expect(promoted.provenEmpty).toBe(false);
         // The facts survive rather than collapsing: a consumer can still see there were zero rows.
         expect(promoted.rowState).toBe(ROW_STATE.zero);
     });
@@ -49,7 +49,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
         });
 
         expect(firstRun.lineage).toBe(LINEAGE.unknown);
-        expect(firstRun.empty).toBe(false);
+        expect(firstRun.provenEmpty).toBe(false);
     });
 
     test('rows are self-evidencing: a populated source is never `empty`, whatever its lineage', () => {
@@ -62,7 +62,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
             });
 
             expect(populated.rowState, `previousId=${previousId}`).toBe(ROW_STATE.populated);
-            expect(populated.empty,    `previousId=${previousId}`).toBe(false);
+            expect(populated.provenEmpty,    `previousId=${previousId}`).toBe(false);
         }
     });
 
@@ -141,7 +141,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
 
                 expect(receipt.lineage).toBe(LINEAGE.same);
                 expect(receipt.rowState).toBe(ROW_STATE.unestablished);
-                expect(receipt.empty).toBe(false);
+                expect(receipt.provenEmpty).toBe(false);
             });
         }
 
@@ -165,7 +165,7 @@ test.describe('ai/services/shared/captureReceipt — orthogonal facts, one deriv
 
             expect(measured.rowState).toBe(ROW_STATE.zero);
             expect(measured.rowCount).toBe(0);
-            expect(measured.empty).toBe(true);
+            expect(measured.provenEmpty).toBe(true);
         });
     });
 });

@@ -28,12 +28,23 @@
  * describes a complete read by construction; that guarantee lives in the abort, not in a field that
  * only ever prints one value.
  *
- * **This module answers PROVENANCE, not survivability.** `empty` here means "there was genuinely
- * nothing to capture". Whether a bundle carries recoverable payload is a different proposition with a
- * different owner — {@link module:ai/services/memory-core/helpers/bundleIntegrity} — which classifies
- * a zero-row export as `zero-rows` and disqualifies it as a recovery source no matter WHY it is zero.
- * The two never contradict because they never claim the same thing: a `zero + changed` source is not
- * `empty` (the facts do not support the claim) and is still `zero-rows` (nothing to restore).
+ * **This module answers PROVENANCE, not survivability, and its claim is named `provenEmpty` for it.**
+ * It means "the facts establish there was genuinely nothing to capture". Whether a bundle carries
+ * recoverable payload is a different proposition with a different owner —
+ * {@link module:ai/services/memory-core/helpers/bundleIntegrity} — which classifies a zero-row export
+ * as `status: 'empty'` and disqualifies it as a recovery source no matter WHY it is zero. The two
+ * never contradict because they never claim the same thing: a `zero + changed` source is not
+ * `provenEmpty` (the facts do not support the claim) and its bundle is still `empty` (nothing to
+ * restore).
+ *
+ * **Why the lexical separation lands HERE and not on the older field.** Both blocks originally said
+ * `empty` about the same zero, and the obvious repair was to rename the survivability status to
+ * something like `zero-rows`. That was implemented, and it was wrong: `integrity[].status` is a
+ * persisted wire value matched by exact string in readers that are already deployed, so a bundle
+ * written with a new token reads to them as having no zero-row subsystem at all — `restorable: true`
+ * for a bundle holding nothing. Compatibility is one-directional by construction. This field is the
+ * one nothing has persisted yet, so it is the only one that can still be renamed for free, and it
+ * absorbs the whole distinction.
  *
  * @see https://github.com/neomjs/neo/issues/16404
  */
@@ -83,11 +94,11 @@ export function deriveLineage({currentId = null, previousId = null} = {}) {
 }
 
 /**
- * @summary Derives `empty` — the only verdict this module produces — from the recorded facts.
+ * @summary Derives `provenEmpty` — the only verdict this module produces — from the recorded facts.
  *
- * **`empty` requires both axes to line up: a measured zero, and a continuous lineage.** Any other
- * combination leaves the facts standing rather than collapsing them, because every other combination
- * has a reading in which the corpus was fine:
+ * **`provenEmpty` requires both axes to line up: a measured zero, and a continuous lineage.** Any
+ * other combination leaves the facts standing rather than collapsing them, because every other
+ * combination has a reading in which the corpus was fine:
  *
  * - `zero + changed` — the source was replaced between captures. A promotion or restore does this
  *   deliberately; so does a loss. The receipt says which facts it saw and refuses to guess.
@@ -101,7 +112,7 @@ export function deriveLineage({currentId = null, previousId = null} = {}) {
  * @param {String} options.lineage  A `LINEAGE` value.
  * @returns {Boolean} Whether the facts support the single claim "this source was genuinely empty".
  */
-export function derivesEmpty({rowState, lineage} = {}) {
+export function derivesProvenEmpty({rowState, lineage} = {}) {
     return rowState === ROW_STATE.zero
         && lineage  === LINEAGE.same
 }
@@ -126,7 +137,7 @@ export function derivesEmpty({rowState, lineage} = {}) {
  * @param {String|null} [options.collectionId] Identity observed this capture; `null` when unobservable.
  * @param {String|null} [options.previousId]   Identity the comparison bundle recorded.
  * @param {String|null} [options.comparedBundle] Bundle name the comparison ran against.
- * @returns {Object} The receipt entry, carrying every fact plus the derived `empty` claim.
+ * @returns {Object} The receipt entry, carrying every fact plus the derived `provenEmpty` claim.
  */
 export function buildSourceReceipt({
     source,
@@ -148,11 +159,11 @@ export function buildSourceReceipt({
 
     return {
         source,
-        rowCount: Number.isFinite(rowCount) ? rowCount : null,
+        rowCount   : Number.isFinite(rowCount) ? rowCount : null,
         rowState,
         lineage,
         collectionId,
         comparedBundle,
-        empty   : derivesEmpty({rowState, lineage})
+        provenEmpty: derivesProvenEmpty({rowState, lineage})
     }
 }

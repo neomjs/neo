@@ -496,14 +496,14 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         expect(mc.reason).toMatch(/no numeric source count/);
     });
 
-    test('verifyBundleIntegrity: zero-rows (not a silent pass) when source and bundle are both zero (#14030)', async () => {
+    test('verifyBundleIntegrity: empty (not a silent pass) when source and bundle are both zero (#14030)', async () => {
         const tempRoot = path.join(workRoot, 'integrity-empty');
         const kbDir    = path.join(tempRoot, 'kb');
 
         fs.mkdirSync(kbDir, {recursive: true});
         // The gutted-store signature: a populated deployment whose export came back empty. Both
         // sides agree at zero, so the old `bundleCount === sourceCount` branch reported 'pass' —
-        // a false recovery source. It must surface as 'zero-rows', never 'pass'.
+        // a false recovery source. It must surface as 'empty', never 'pass'.
         fs.writeFileSync(path.join(kbDir, 'kb-data.jsonl'), '');
 
         const checks = await verifyBundleIntegrity(
@@ -512,14 +512,14 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         );
 
         const kb = checks.find(c => c.subsystem === 'kb');
-        expect(kb.status).toBe('zero-rows');
+        expect(kb.status).toBe('empty');
         expect(kb.status).not.toBe('pass');
         expect(kb.sourceCount).toBe(0);
         expect(kb.bundleCount).toBe(0);
         expect(kb.reason).toMatch(/not a usable recovery source/);
     });
 
-    test('runBackup propagates a zero-row subsystem to bundle-meta.integrity + a non-fatal warning (#14048)', async () => {
+    test('runBackup propagates an empty subsystem to bundle-meta.integrity "empty" + a non-fatal warning (#14048)', async () => {
         // Close-target proof: the helper status alone is not enough — runBackup must keep a zero-row
         // subsystem non-fatal, WARN, and persist the status into bundle-meta.integrity (the
         // canary/alert handoff). Force MC (memories + summaries) to export zero rows.
@@ -540,7 +540,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
             });
 
             const mcIntegrity = result.meta.integrity.find(check => check.subsystem === 'mc');
-            expect(mcIntegrity.status).toBe('zero-rows');       // persisted into bundle-meta.integrity
+            expect(mcIntegrity.status).toBe('empty');           // persisted into bundle-meta.integrity
             expect(mcIntegrity.sourceCount).toBe(0);
             expect(mcIntegrity.bundleCount).toBe(0);
             expect(warnings.some(w => /ZERO rows|holding no rows/i.test(w))).toBe(true);  // runBackup warned, non-fatally
@@ -820,7 +820,7 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
         });
 
         expect(sources.kb.lineage).toBe('same');
-        expect(sources.kb.empty).toBe(true)
+        expect(sources.kb.provenEmpty).toBe(true)
     });
 
     test('a zero-row export with a CHANGED identity is NOT empty — it is unexplained', async () => {
@@ -837,7 +837,7 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
 
         expect(sources.kb.rowState).toBe('zero');
         expect(sources.kb.lineage).toBe('changed');
-        expect(sources.kb.empty).toBe(false)
+        expect(sources.kb.provenEmpty).toBe(false)
     });
 
     test('a zero-row export with no predecessor degrades to unknown rather than claiming empty', async () => {
@@ -848,7 +848,7 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
 
         expect(comparedTo).toBeNull();
         expect(sources.kb.lineage).toBe('unknown');
-        expect(sources.kb.empty).toBe(false)
+        expect(sources.kb.provenEmpty).toBe(false)
     });
 
     test('a populated export is never reported empty, whatever the lineage says', async () => {
@@ -860,7 +860,7 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
         });
 
         expect(sources.kb.rowState).toBe('populated');
-        expect(sources.kb.empty).toBe(false)
+        expect(sources.kb.provenEmpty).toBe(false)
     });
 
     test('per-collection Memory Core receipts each carry their own lineage', async () => {
@@ -879,9 +879,9 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
             backupRoot: captureRoot
         });
 
-        expect(sources['mc.memories'].empty).toBe(true);
+        expect(sources['mc.memories'].provenEmpty).toBe(true);
         // One re-embedded collection must not drag its sibling's verdict with it.
-        expect(sources['mc.summaries'].empty).toBe(false)
+        expect(sources['mc.summaries'].provenEmpty).toBe(false)
     });
 
     test('an unreadable predecessor degrades lineage instead of failing the backup', async () => {
@@ -901,27 +901,34 @@ test.describe('backup.mjs — capture lineage: a zero-row export is not a claim 
  *
  * A bundle-meta carries two verdicts about the same zero-row export. `capture` answers PROVENANCE —
  * was there genuinely nothing to capture — and `integrity` answers SURVIVABILITY — does this bundle
- * hold rows a restore could bring back. At the head this suite was written against, both called it
- * `empty`, and a `zero + changed` source published `capture.empty=false` beside
- * `integrity[kb].status="empty"` in one artifact while every downstream consumer read only the
- * latter.
+ * hold rows a restore could bring back. Both originally called it `empty`, so a `zero + changed`
+ * source published `capture.empty=false` beside `integrity[kb].status="empty"` in one artifact while
+ * every downstream consumer read only the latter.
  *
- * The repair is lexical, not behavioural: survivability says `zero-rows`, provenance keeps `empty`,
- * and restorability is deliberately NOT rewired through lineage — a zero-row bundle over a replaced
- * source is the most suspicious specimen in the series, and reading provenance into the recovery
- * verdict would promote exactly it.
+ * The repair is lexical, not behavioural, and **which side gets renamed is the load-bearing part.**
+ * The first attempt renamed the survivability status to `zero-rows` and introduced a worse defect
+ * than the one it fixed: `integrity[].status` is a persisted wire value matched by exact string, so a
+ * reader deployed before the rename classifies a NEW bundle as having no zero-row subsystem at all —
+ * `restorable: true` for a bundle holding nothing. Compatibility runs one way only. So the status
+ * keeps its token forever and the provenance claim, which nothing has persisted yet, is the one that
+ * moved: it is named `provenEmpty`.
  *
- * These specs traverse the real producers into the real consumers, because the defect was invisible
- * to every unit that tested one side alone.
+ * Restorability is deliberately NOT rewired through lineage either — a zero-row bundle over a
+ * replaced source is the most suspicious specimen in the series, and reading provenance into the
+ * recovery verdict would promote exactly it.
+ *
+ * These specs traverse the real producers into the real consumers, because both defects were
+ * invisible to every unit that tested one side, or one version, alone.
  */
 test.describe('bundle-meta — provenance and survivability never contradict (#16404)', () => {
-    let buildCaptureBlock, verifyBundleIntegrity, isBundleRestorable, summarizeBundleIntegrity, zeroRowSubsystems;
+    let buildCaptureBlock, verifyBundleIntegrity, INTEGRITY_STATUS;
+    let isBundleRestorable, summarizeBundleIntegrity, emptySubsystems;
     let root;
 
     test.beforeAll(async () => {
-        ({buildCaptureBlock, verifyBundleIntegrity} =
+        ({buildCaptureBlock, verifyBundleIntegrity, INTEGRITY_STATUS} =
             await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
-        ({isBundleRestorable, summarizeBundleIntegrity, zeroRowSubsystems} =
+        ({isBundleRestorable, summarizeBundleIntegrity, emptySubsystems} =
             await import('../../../../../../ai/services/memory-core/helpers/bundleIntegrity.mjs'));
     });
 
@@ -977,20 +984,20 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
     test('zero + SAME identity: genuinely empty, and still not a recovery source', async () => {
         const {integrity, capture} = await buildMeta({rows: 0, currentId: 'kb-id', previousId: 'kb-id'});
 
-        expect(capture.sources.kb.empty).toBe(true);           // provenance: nothing was there
-        expect(integrity[0].status).toBe('zero-rows');         // survivability: nothing to restore
+        expect(capture.sources.kb.provenEmpty).toBe(true);   // provenance: nothing was there
+        expect(integrity[0].status).toBe('empty');           // survivability: nothing to restore
         expect(isBundleRestorable(integrity)).toBe(false);
     });
 
     test('zero + CHANGED identity: NOT provably empty, and NOT restorable either — the case that used to contradict', async () => {
         // The exact specimen: the capture block refuses the emptiness claim while the bundle still
         // holds no rows. Both statements are true, and neither is the other's negation. Before the
-        // rename these were `empty=false` and `status="empty"` in one file.
+        // rename these were `empty=false` and `status="empty"` in one file — one word, two meanings.
         const {integrity, capture} = await buildMeta({rows: 0, currentId: 'kb-id-new', previousId: 'kb-id-old'});
 
         expect(capture.sources.kb.lineage).toBe('changed');
-        expect(capture.sources.kb.empty).toBe(false);
-        expect(integrity[0].status).toBe('zero-rows');
+        expect(capture.sources.kb.provenEmpty).toBe(false);
+        expect(integrity[0].status).toBe('empty');
         // Load-bearing: lineage must NOT soften the recovery verdict. A zero-row bundle over a
         // replaced source is the most suspicious specimen there is; promoting it to restorable would
         // be a false green delivered by the very field added to prevent one.
@@ -1001,7 +1008,7 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
         const {integrity, capture} = await buildMeta({rows: 0, currentId: 'kb-id', previousId: null});
 
         expect(capture.sources.kb.lineage).toBe('unknown');
-        expect(capture.sources.kb.empty).toBe(false);
+        expect(capture.sources.kb.provenEmpty).toBe(false);
         expect(isBundleRestorable(integrity)).toBe(false);
     });
 
@@ -1010,25 +1017,25 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
         const {integrity, capture} = await buildMeta({rows: 3, currentId: 'kb-id', previousId: 'kb-id'});
 
         expect(capture.sources.kb.rowState).toBe('populated');
-        expect(capture.sources.kb.empty).toBe(false);
+        expect(capture.sources.kb.provenEmpty).toBe(false);
         expect(integrity[0].status).toBe('pass');
         expect(isBundleRestorable(integrity)).toBe(true);
-        expect(zeroRowSubsystems(integrity)).toEqual([]);
+        expect(emptySubsystems(integrity)).toEqual([]);
     });
 
-    test('a LEGACY bundle — `empty` status, no capture block — behaves exactly as it did before', async () => {
-        // Bundles already on disk carry the old token and no capture block at all. The rename must be
-        // invisible to them: still named, still disqualifying, no crash on the absent block.
+    test('a LEGACY bundle — no capture block at all — behaves exactly as it did before', async () => {
+        // Bundles already on disk carry no capture block. Nothing about this change may reach them:
+        // still named, still disqualifying, no crash on the absent block.
         const legacy = [{subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0}];
 
-        expect(zeroRowSubsystems(legacy)).toEqual(['kb']);
+        expect(emptySubsystems(legacy)).toEqual(['kb']);
         expect(isBundleRestorable(legacy)).toBe(false);
-        expect(summarizeBundleIntegrity(legacy)).toEqual({zeroRowSubsystems: ['kb'], restorable: false});
+        expect(summarizeBundleIntegrity(legacy)).toEqual({emptySubsystems: ['kb'], restorable: false});
     });
 
     test('an ABSENT integrity block stays UNKNOWN — absence is a third answer, not a quiet false', async () => {
         expect(isBundleRestorable(undefined)).toBeNull();
-        expect(summarizeBundleIntegrity(undefined)).toEqual({zeroRowSubsystems: [], restorable: null});
+        expect(summarizeBundleIntegrity(undefined)).toEqual({emptySubsystems: [], restorable: null});
     });
 
     test('MIXED Memory Core: one re-embedded collection does not carry its sibling\'s verdict', async () => {
@@ -1044,18 +1051,77 @@ test.describe('bundle-meta — provenance and survivability never contradict (#1
 
         // No predecessor exists under `root`, so both degrade to unknown and NEITHER claims empty —
         // the honest first-run state, asserted here so the mixed case cannot silently become uniform.
-        expect(capture.sources['mc.memories'].empty).toBe(false);
-        expect(capture.sources['mc.summaries'].empty).toBe(false);
+        expect(capture.sources['mc.memories'].provenEmpty).toBe(false);
+        expect(capture.sources['mc.summaries'].provenEmpty).toBe(false);
         expect(capture.sources['mc.memories'].collectionId).toBe('mem-id');
         expect(capture.sources['mc.summaries'].collectionId).toBe('sum-id-new');
     });
 
-    test('the word `empty` survives in exactly ONE block of a published bundle-meta', async () => {
-        // The mechanical form of the whole repair. If a future edit reintroduces the token into the
-        // survivability block, this fails without anyone having to notice the semantics drifted.
+    test('the bare property `empty` exists in NEITHER block — one word, one owner', async () => {
+        // The mechanical form of the repair. `integrity` owns the token as a status VALUE; the
+        // provenance claim is a property named for what it proves. Neither block publishes a bare
+        // `empty` key, so no reader can pick one up and assume the other's meaning.
         const {integrity, capture} = await buildMeta({rows: 0, currentId: 'kb-id', previousId: 'kb-id'});
 
-        expect(JSON.stringify(integrity)).not.toContain('empty');
-        expect(JSON.stringify(capture)).toContain('empty');
+        expect(integrity[0]).not.toHaveProperty('empty');
+        expect(capture.sources.kb).not.toHaveProperty('empty');
+        expect(capture.sources.kb).toHaveProperty('provenEmpty');
+        expect(integrity[0].status).toBe('empty');
+    });
+
+    /**
+     * The version axis. Every spec above reads a bundle with the reader that wrote it, and the
+     * defect this describe block exists to prevent was invisible to all of them: a rename of the
+     * status token left old-reader + new-bundle returning `restorable: true` for a bundle holding
+     * nothing, while old/old, new/old and new/new all stayed correct. Three of four cells green.
+     *
+     * Compatibility here is one-directional by construction. A reader we ship can be taught to accept
+     * yesterday's tokens; a reader already running on a plane four figures of commits behind can never
+     * be taught tomorrow's — it matches what it knows and silently drops the rest, which for this
+     * field resolves to "no zero-row subsystem found".
+     */
+    test.describe('cross-version: a bundle written today must disqualify under a reader shipped before it', () => {
+        /**
+         * A reader frozen at the previous contract, spelled out rather than imported so it cannot
+         * drift when the live one changes. This IS the deployed population.
+         * @param {Array<Object>} integrity
+         * @returns {Boolean} The old contract's restorability verdict.
+         */
+        const oldReaderSaysRestorable = integrity =>
+            integrity.filter(check => check?.status === 'empty').length === 0;
+
+        test('WITNESS: oldReader(newBundle) === false', async () => {
+            const {integrity} = await buildMeta({rows: 0, currentId: 'kb-id', previousId: 'kb-id'});
+
+            expect(oldReaderSaysRestorable(integrity)).toBe(false);
+            expect(isBundleRestorable(integrity)).toBe(false);
+        });
+
+        test('POSITIVE CONTROL: the old reader still says TRUE for a genuinely restorable new bundle', async () => {
+            // Without this the witness passes for a reader hard-coded to `false`.
+            const {integrity} = await buildMeta({rows: 3, currentId: 'kb-id', previousId: 'kb-id'});
+
+            expect(oldReaderSaysRestorable(integrity)).toBe(true);
+            expect(isBundleRestorable(integrity)).toBe(true);
+        });
+
+        test('the writer emits ONLY tokens the frozen wire vocabulary declares', async () => {
+            // The structural guard. A new status value cannot be introduced without this failing,
+            // which is the only place the one-directional compatibility can be enforced at all —
+            // by the writer, since the readers are already deployed and cannot be changed.
+            const known = new Set(Object.values(INTEGRITY_STATUS));
+
+            for (const rows of [0, 3]) {
+                const {integrity} = await buildMeta({rows, currentId: 'kb-id', previousId: 'kb-id'});
+
+                for (const check of integrity) {
+                    expect(known, `rows=${rows} emitted an undeclared status: ${check.status}`)
+                        .toContain(check.status);
+                }
+            }
+
+            expect(Object.isFrozen(INTEGRITY_STATUS)).toBe(true);
+            expect([...known].sort()).toEqual(['empty', 'fail', 'pass', 'skipped']);
+        });
     });
 });

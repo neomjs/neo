@@ -17,35 +17,32 @@
  * historical recovery source — a worse outage than the defect this exists to fix. Absence resolves
  * to `null` (unknown), which is a third answer and not a quiet `false`.
  *
- * **This module answers SURVIVABILITY, and deliberately no longer uses the word `empty` for it.** The
- * question here is "does this bundle carry rows a restore could bring back", and the answer is `no`
- * for a zero-row subsystem regardless of WHY it is zero — a genuinely empty store and a gutted one are
- * equally unrecoverable. Provenance — whether there was anything to capture in the first place — is a
- * different proposition owned by {@link module:ai/services/shared/captureReceipt}, which reserves
- * `empty` for the claim that the facts actually support. The two blocks previously both said `empty`
- * about the same zero and could disagree, so this one says `zero-rows` and the disagreement has no
- * vocabulary left to happen in.
- */
-
-/**
- * The `bundle-meta.integrity` statuses that mean "no rows survived into the bundle".
+ * **This module answers SURVIVABILITY.** The question here is "does this bundle carry rows a restore
+ * could bring back", and the answer is `no` for a zero-row subsystem regardless of WHY it is zero — a
+ * genuinely empty store and a gutted one are equally unrecoverable. Provenance — whether there was
+ * anything to capture in the first place — is a different proposition owned by
+ * {@link module:ai/services/shared/captureReceipt}, which names its claim `provenEmpty` precisely so
+ * that one artifact never publishes two meanings of the bare word `empty`.
  *
- * `empty` is retained as an accepted INPUT and never written again. Bundles published before the
- * rename carry it, they are still live recovery sources, and a reader that matched only the new value
- * would silently promote every one of them from `restorable: false` to `restorable: true` — turning a
- * vocabulary correction into the exact false-green this module exists to end.
- * @type {String[]}
+ * **`status: 'empty'` is a WIRE VALUE and is deliberately never renamed.** An earlier revision
+ * renamed it to `zero-rows` for lexical clarity and introduced a false green:
+ * a reader deployed before the rename classifies only `'empty'`, so a bundle written *after* it reads
+ * as having no zero-row subsystems at all, i.e. `restorable: true` for a bundle holding nothing.
+ * Measured across the four-cell matrix — old/old, new/old, new/new all `false`; **old-reader +
+ * new-bundle `true`**. Compatibility here is one-directional by construction: a new reader can be
+ * taught old tokens, but readers already deployed can never be taught new ones, and this substrate
+ * has planes running four figures of commits behind. The lexical fix therefore belongs on the field
+ * nothing has persisted yet, never on this one.
  */
-const ZERO_ROW_STATUSES = Object.freeze(['zero-rows', 'empty']);
 
 /**
  * @summary Names the subsystems whose export brought back no rows.
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
  * @returns {String[]} Subsystem names, empty when none or when the block is absent.
  */
-export function zeroRowSubsystems(integrity) {
+export function emptySubsystems(integrity) {
     return Array.isArray(integrity)
-        ? integrity.filter(check => ZERO_ROW_STATUSES.includes(check?.status)).map(check => check?.subsystem ?? 'unknown')
+        ? integrity.filter(check => check?.status === 'empty').map(check => check?.subsystem ?? 'unknown')
         : [];
 }
 
@@ -57,15 +54,15 @@ export function zeroRowSubsystems(integrity) {
  * either choice is a lie — `false` condemns historical bundles, `true` re-creates the false-green
  * this module exists to end.
  *
- * ANY zero-row subsystem disqualifies the whole bundle. A partial restore is not a restore: recovering
+ * ANY empty subsystem disqualifies the whole bundle. A partial restore is not a restore: recovering
  * memories while the knowledge base comes back with nothing is a silently incomplete system, which is
  * the failure mode that is hardest to notice afterwards.
  *
  * **Lineage does not soften this.** A zero-row source whose collection identity CHANGED is not
- * `empty` in the capture receipt's sense — the facts do not support that claim — and it is still
- * unrestorable here, because the bundle holds no rows either way. Reading the provenance verdict into
- * this one would promote the most suspicious bundle in the series, a zero-row capture over a replaced
- * source, into a usable recovery source.
+ * `provenEmpty` in the capture receipt's sense — the facts do not support that claim — and it is
+ * still unrestorable here, because the bundle holds no rows either way. Reading the provenance
+ * verdict into this one would promote the most suspicious bundle in the series, a zero-row capture
+ * over a replaced source, into a usable recovery source.
  *
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
  * @returns {Boolean|null}
@@ -75,17 +72,17 @@ export function isBundleRestorable(integrity) {
         return null;
     }
 
-    return zeroRowSubsystems(integrity).length === 0;
+    return emptySubsystems(integrity).length === 0;
 }
 
 /**
  * @summary Projects the integrity checks into the compact summary receipts and health blocks embed.
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
- * @returns {{restorable: Boolean|null, zeroRowSubsystems: String[]}}
+ * @returns {{restorable: Boolean|null, emptySubsystems: String[]}}
  */
 export function summarizeBundleIntegrity(integrity) {
     return {
-        zeroRowSubsystems: zeroRowSubsystems(integrity),
-        restorable       : isBundleRestorable(integrity)
+        emptySubsystems: emptySubsystems(integrity),
+        restorable     : isBundleRestorable(integrity)
     }
 }

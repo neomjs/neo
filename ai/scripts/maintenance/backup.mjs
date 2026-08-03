@@ -631,16 +631,17 @@ async function captureBackup({
         );
     }
 
-    const zeroRowChecks = integrity.filter(check => check.status === 'zero-rows');
-    if (zeroRowChecks.length > 0) {
-        // Non-fatal (a fresh environment legitimately backs up zero-row subsystems), but loud: a
-        // zero-row export from a normally-populated deployment is the gutted-store signature, and a
-        // backup holding no rows is a false recovery source. The 'zero-rows' status is carried in
+    const emptyChecks = integrity.filter(check => check.status === 'empty');
+    if (emptyChecks.length > 0) {
+        // Non-fatal (a fresh environment legitimately backs up empty subsystems), but loud: a zero-row
+        // export from a normally-populated deployment is the gutted-store signature, and a backup
+        // holding no rows is a false recovery source. The 'empty' status is carried in
         // bundle-meta.integrity for a downstream canary/alert to escalate on. It reports what the
-        // bundle HOLDS; whether the source was genuinely empty is the capture block's question.
+        // bundle HOLDS; whether the source was genuinely empty is the capture block's separate
+        // question, answered there as `provenEmpty`.
         logger.warn?.(
-            `[Backup] ${zeroRowChecks.length} subsystem(s) exported ZERO rows — a bundle holding no rows is ` +
-            `not a usable recovery source: ${zeroRowChecks.map(c => c.subsystem).join(', ')}. Legitimate for ` +
+            `[Backup] ${emptyChecks.length} subsystem(s) exported ZERO rows — a bundle holding no rows is ` +
+            `not a usable recovery source: ${emptyChecks.map(c => c.subsystem).join(', ')}. Legitimate for ` +
             `a fresh environment; corruption-suspicious for a populated deployment.`
         );
     }
@@ -701,20 +702,44 @@ export async function countNonEmptyJsonlLines(filePath) {
 }
 
 /**
+ * The FROZEN wire vocabulary of `bundle-meta.integrity[].status`.
+ *
+ * **Adding a value here is a breaking change to every reader already deployed, and this file cannot
+ * make it safe.** Compatibility is one-directional: a reader we ship today can be taught to accept
+ * yesterday's tokens, but a reader running on a plane four figures of commits behind can never be
+ * taught tomorrow's. It classifies what it knows and silently ignores what it does not — and for this
+ * particular field, "ignored" resolves to *no zero-row subsystem found*, i.e. `restorable: true` for a
+ * bundle holding nothing.
+ *
+ * Measured, not theorised: renaming `empty` → `zero-rows` for lexical clarity produced old-reader +
+ * new-bundle ⇒ `restorable: true` while the other three cells of the matrix stayed `false` — three of
+ * four green. Vocabulary that needs to change belongs on a field nothing has persisted yet.
+ * @type {Object}
+ */
+export const INTEGRITY_STATUS = Object.freeze({
+    empty  : 'empty',
+    fail   : 'fail',
+    pass   : 'pass',
+    skipped: 'skipped'
+});
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
  * files to count non-empty lines (streaming so 1+ GB exports do not exceed V8's max string length)
  * and compares — mismatch indicates a partial/torn write that the
  * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both report zero)
- * is reported as `zero-rows`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally
+ * is reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally
  * because it is not a usable recovery source (a fresh environment is legitimately empty; a populated
- * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `zero-rows`
+ * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `empty`
  * subsystems and persists the status into `bundle-meta.integrity` for a downstream canary/alert.
  *
  * The status answers what the BUNDLE holds, never why. Whether the source was genuinely empty is the
  * `capture` block's question — see {@link module:ai/services/shared/captureReceipt} — and the two are
- * kept lexically apart so one artifact cannot publish two meanings of `empty` about the same zero.
+ * kept lexically apart by naming that one `provenEmpty`, so one artifact never publishes two meanings
+ * of the bare word `empty`. The separation is deliberately carried on the NEW field: this status is a
+ * wire value that readers already deployed classify by exact match. See {@link INTEGRITY_STATUS}.
  *
  * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
  * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
@@ -722,7 +747,7 @@ export async function countNonEmptyJsonlLines(filePath) {
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `zero-rows` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is one of the frozen {@link INTEGRITY_STATUS} values — `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -733,14 +758,14 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         const sourceCount = typeof raw === 'number' ? raw : raw?.count;
 
         if (typeof sourceCount !== 'number') {
-            checks.push({subsystem, status: 'skipped', reason: 'no numeric source count returned by SDK'});
+            checks.push({subsystem, status: INTEGRITY_STATUS.skipped, reason: 'no numeric source count returned by SDK'});
             continue;
         }
 
         const dir = layout[subsystem];
 
         if (!await fs.pathExists(dir)) {
-            checks.push({subsystem, status: 'fail', sourceCount, bundleCount: 0, reason: `bundle directory missing: ${dir}`});
+            checks.push({subsystem, status: INTEGRITY_STATUS.fail, sourceCount, bundleCount: 0, reason: `bundle directory missing: ${dir}`});
             continue;
         }
 
@@ -755,17 +780,19 @@ export async function verifyBundleIntegrity(layout, subsystems) {
             // Zero-parity is NOT a healthy pass: a bundle whose source AND files both report zero rows
             // is not a usable recovery source. Legitimate for a fresh environment, but for a normally-
             // populated deployment a zero-row export is the gutted-store signature (the corruption a
-            // backup is supposed to survive) — surface it as 'zero-rows' (visible, non-fatal) rather
-            // than a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
+            // backup is supposed to survive) — surface it as 'empty' (visible, non-fatal) rather than
+            // a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
             //
-            // Named 'zero-rows' and not 'empty' on purpose: this is a statement about what the bundle
-            // HOLDS, which is why it disqualifies a restore no matter what caused the zero. The
-            // capture block answers the separate question of whether the source was genuinely empty,
-            // and one artifact carrying both meanings under one word is how they came to disagree.
-            const status = sourceCount === 0 ? 'zero-rows' : 'pass';
+            // 'empty' is a WIRE VALUE and must not be renamed for clarity, however tempting.
+            // It is the only token readers deployed before today classify, and this substrate has
+            // planes running four figures of commits behind: emit anything else and those readers see
+            // no zero-row subsystem at all, i.e. `restorable: true` for a bundle holding nothing. The
+            // lexical separation from the capture block's provenance claim lives on `provenEmpty`,
+            // which no bundle on disk carries yet and can therefore still be named freely.
+            const status = sourceCount === 0 ? INTEGRITY_STATUS.empty : INTEGRITY_STATUS.pass;
             const entry  = {subsystem, status, sourceCount, bundleCount};
 
-            if (status === 'zero-rows') {
+            if (status === INTEGRITY_STATUS.empty) {
                 entry.reason = 'source and bundle both report zero rows — a bundle holding no rows is not a ' +
                     'usable recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
             }
@@ -774,7 +801,7 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         } else {
             checks.push({
                 subsystem,
-                status: 'fail',
+                status: INTEGRITY_STATUS.fail,
                 sourceCount,
                 bundleCount,
                 reason: `row-count mismatch: source=${sourceCount}, bundle=${bundleCount} (delta ${bundleCount - sourceCount})`

@@ -860,9 +860,9 @@ test.describe('adversarial IO + encoding edges', () => {
  * a contract end up one edit apart.
  */
 test.describe('backup receipt — the integrity verdict travels with the status', () => {
-    const ZERO_ROWS = [
-        {subsystem: 'kb', status: 'zero-rows', sourceCount: 0, bundleCount: 0},
-        {subsystem: 'mc', status: 'zero-rows', sourceCount: 0, bundleCount: 0}
+    const EMPTY = [
+        {subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0},
+        {subsystem: 'mc', status: 'empty', sourceCount: 0, bundleCount: 0}
     ];
     const CLEAN = [{subsystem: 'kb', status: 'pass', sourceCount: 61206, bundleCount: 61206}];
 
@@ -870,29 +870,31 @@ test.describe('backup receipt — the integrity verdict travels with the status'
         const receipt = buildBackupReceipt({
             backup    : {durationMs: 24, error: null, status: 'success'},
             bundleName: 'backup-2026-07-31T04-57-18.233Z',
-            integrity : ZERO_ROWS
+            integrity : EMPTY
         });
 
         // The run completed — that stays true and stays reported.
         expect(receipt.backup.status).toBe('success');
         // …and the receipt now also says it is not a recovery source, with the reason named.
         expect(receipt.integrity.restorable).toBe(false);
-        expect(receipt.integrity.zeroRowSubsystems).toEqual(['kb', 'mc']);
+        expect(receipt.integrity.emptySubsystems).toEqual(['kb', 'mc']);
     });
 
-    test('a LEGACY `empty` status still disqualifies — the rename must not resurrect old bundles', () => {
-        // Bundles published before the `empty` → `zero-rows` rename carry the old token and are still
-        // live recovery sources. A reader matching only the new value would silently flip every one of
-        // them from `restorable: false` to `restorable: true` — a vocabulary correction turning into
-        // the exact false-green the verdict exists to end.
+    test('the projection KEY is wire-stable at schemaVersion 1 — a receipt reader must not lose the field', () => {
+        // This key was briefly renamed to `zeroRowSubsystems` for lexical clarity. A receipt is read
+        // by whatever version is deployed where it lands, and a reader looking for `emptySubsystems`
+        // finds `undefined` — which reads as "no subsystem was empty", not as "I do not understand this
+        // receipt". Renaming a projected key without a schemaVersion bump is the same class of silent
+        // downgrade as renaming the status token itself.
         const receipt = buildBackupReceipt({
             backup    : {durationMs: 24, error: null, status: 'success'},
             bundleName: 'backup-2026-06-14T02-11-05.000Z',
             integrity : [{subsystem: 'kb', status: 'empty', sourceCount: 0, bundleCount: 0}]
         });
 
+        expect(Object.keys(receipt.integrity).sort()).toEqual(['emptySubsystems', 'restorable']);
+        expect(receipt.integrity.emptySubsystems).toEqual(['kb']);
         expect(receipt.integrity.restorable).toBe(false);
-        expect(receipt.integrity.zeroRowSubsystems).toEqual(['kb']);
     });
 
     test('POSITIVE CONTROL: a clean bundle is restorable and names nothing', () => {
@@ -903,7 +905,7 @@ test.describe('backup receipt — the integrity verdict travels with the status'
         });
 
         expect(receipt.integrity.restorable).toBe(true);
-        expect(receipt.integrity.zeroRowSubsystems).toEqual([]);
+        expect(receipt.integrity.emptySubsystems).toEqual([]);
     });
 
     test('an ABSENT verdict is unknown, never false — old receipts must not read as unusable', () => {
@@ -915,7 +917,7 @@ test.describe('backup receipt — the integrity verdict travels with the status'
         });
 
         expect(receipt.integrity.restorable).toBeNull();
-        expect(receipt.integrity.zeroRowSubsystems).toEqual([]);
+        expect(receipt.integrity.emptySubsystems).toEqual([]);
     });
 
     test('the schema version is UNCHANGED — the field is additive or existing receipts are rejected', () => {
