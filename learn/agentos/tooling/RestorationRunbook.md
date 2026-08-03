@@ -125,6 +125,49 @@ Reading the output: `clean` is artifact-verified and restorable. `manifest-false
 it does not have — do not restore from it. `export-failed` is the fail-loud path working correctly.
 `no-mc-claim` / `empty-claim` mean the subsystem exported nothing at all.
 
+### Reading `bundle-meta.json`: two blocks, two different questions
+
+A bundle records **two** verdicts about a zero-row export, and they answer different questions. Read
+the right one for what you are deciding.
+
+| block | question | values | use it to decide |
+|---|---|---|---|
+| `integrity[]` | **Survivability** — does this bundle hold rows a restore could bring back? | `pass` · `empty` · `fail` · `skipped` | **Whether to restore from this bundle.** |
+| `capture.sources{}` | **Provenance** — was there genuinely nothing to capture? | `provenEmpty: true/false` plus the facts behind it | **Whether to investigate.** |
+
+The two use different words on purpose. `integrity[].status: "empty"` says *this bundle holds no rows
+for this subsystem*; `capture.sources[].provenEmpty` says *the facts establish there was nothing to
+capture*. They are different claims about the same zero, and they can legitimately disagree.
+
+**Only `integrity` gates a restore.** Any subsystem reading `empty` disqualifies the whole bundle — a
+partial restore is not a restore, and recovering memories while the knowledge base comes back with
+nothing is the kind of incompleteness that is hardest to notice afterwards. This holds no matter what
+the capture block says.
+
+**`capture` tells you whether a zero is expected.** Each source records its row state, whether its
+collection identity is the same one the previous bundle saw (`lineage`), and derives `provenEmpty`
+only when both line up: a measured zero over an unchanged source.
+
+- `provenEmpty: true` — a real empty source. Normal for a fresh environment.
+- `provenEmpty: false` with `lineage: "changed"` — **the one to investigate.** The collection was
+  replaced between captures. A re-embed or a restore does that deliberately with nothing lost, and so
+  does a loss; the receipt refuses to guess. Correlate with maintenance history before concluding.
+- `provenEmpty: false` with `lineage: "unknown"` — nothing to compare against. The first bundle after
+  this field shipped reads this way, as does one whose predecessor was swept by retention.
+- `rowState: "unestablished"` — the exporter returned something that was not a row count. The zero is
+  a broken instrument, not a measurement; nothing about the corpus follows from it.
+
+**Legacy bundles degrade, they do not fail.** A bundle published before the `capture` block existed
+carries no `capture` at all; it is still read correctly and still disqualifies exactly as it did. A
+bundle with no `integrity` block either resolves to `restorable: null` — unknown, which is a third
+answer and not a quiet "unusable"; check it with `ai:check-backup-integrity` above rather than
+assuming either way.
+
+**`integrity[].status` values never change spelling.** A bundle is read by whatever version is
+deployed where it lands, and those readers match the status by exact string — so a renamed token
+reads to them as *no empty subsystem found*, i.e. a zero-row bundle reported as restorable. New
+meaning goes on new fields, never on this one.
+
 ## Restoration Procedures
 
 ### 1. Knowledge Base (KB)

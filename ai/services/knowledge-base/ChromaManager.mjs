@@ -6,6 +6,7 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
+    chromaListCollectionNames,
     createSilentExecutor,
     isChromaCollectionNotFoundError,
     registerNeoChromaEmbeddingFunctions
@@ -329,20 +330,7 @@ class ChromaManager extends Base {
      * @returns {Promise<String[]>}
      */
     async #getActiveKnowledgeBaseSwapCollections() {
-        const names  = [];
-        const limit  = 1000;
-        let   offset = 0;
-
-        do {
-            const collections = await this.client.listCollections({limit, offset});
-            names.push(...collections.map(collection => collection.name));
-
-            if (collections.length < limit) {
-                break;
-            }
-
-            offset += limit;
-        } while (true);
+        const names = await chromaListCollectionNames({client: this.client});
 
         return names.filter(name => this.#isActiveKnowledgeBaseSwapName(name)).sort();
     }

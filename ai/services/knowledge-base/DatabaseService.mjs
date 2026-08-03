@@ -114,16 +114,24 @@ class DatabaseService extends Base {
      *
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
-     * @returns {Promise<{message: String, count: Number}>} `count` is the numeric export row count,
-     *          consumed by the backup orchestrator's `verifyBundleIntegrity` for KB row-count parity
-     *          (without it the verifier reads a non-numeric source count and skips KB parity).
+     * @returns {Promise<{message: String, count: Number, collectionId: String|null}>} `count` is the
+     *          numeric export row count, consumed by the backup orchestrator's `verifyBundleIntegrity`
+     *          for KB row-count parity (without it the verifier reads a non-numeric source count and
+     *          skips KB parity). `collectionId` is the source's identity at capture time — the axis
+     *          that lets a `count: 0` receipt distinguish "this source was empty" from "a different
+     *          source is here now"; `null` degrades that axis to `unknown` rather than asserting
+     *          continuity. See `ai/services/shared/captureReceipt.mjs`.
      */
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting knowledge base export...');
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
-            return {message: `Export complete. Exported ${count} knowledge base chunks.`, count};
+            return {
+                message     : `Export complete. Exported ${count} knowledge base chunks.`,
+                count,
+                collectionId: collection?.id ?? null
+            };
         } catch (error) {
             logger.error('[DatabaseService] Error exporting knowledge base:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);

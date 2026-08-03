@@ -23,6 +23,7 @@ import {
     Memory_LifecycleService
 } from '../../services.mjs';
 
+import {buildSourceReceipt}             from '../../services/shared/captureReceipt.mjs';
 import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
@@ -237,6 +238,104 @@ export function buildEmbeddingContract({subsystems}) {
         expectedConsumer: {model, provider},
         schemaVersion   : 1
     }
+}
+
+/**
+ * The sources whose identity is observable, and where each one's receipt lives in `subsystems`.
+ *
+ * The native graph is deliberately ABSENT. It is SQLite-backed and has no collection identity, so it
+ * could only ever record `lineage: unknown` — a permanent row that says nothing. Its own emptiness
+ * question is real but needs a different instrument, and inventing an always-unknown entry here would
+ * dress that gap as coverage.
+ * @type {Object[]}
+ */
+const LINEAGE_SOURCES = Object.freeze([
+    {key: 'kb',           read: subsystems => subsystems.kb},
+    {key: 'mc.memories',  read: subsystems => subsystems.mc?.memories},
+    {key: 'mc.summaries', read: subsystems => subsystems.mc?.summaries}
+]);
+
+/**
+ * @summary Reads the identities the previous PUBLISHED bundle recorded, keyed by source.
+ *
+ * Consumes {@link listPublishedBundles}, so a `.backup-partial-*` staging directory can never be the
+ * comparison basis — comparing against a capture that never completed would report a changed identity
+ * for an event that did not happen.
+ *
+ * Fail-soft by design: a missing, unreadable, or pre-`capture` bundle yields no identities, which
+ * degrades every lineage axis to `unknown` rather than aborting a backup. A backup that refuses to run
+ * because it cannot find its predecessor is a worse failure than one that cannot prove emptiness.
+ *
+ * @param {String} backupRoot Directory holding published bundles.
+ * @param {Object} [logger=console] Diagnostic sink.
+ * @returns {Promise<{bundleName: String|null, identities: Object}>}
+ */
+export async function readPreviousBundleIdentities(backupRoot, logger = console) {
+    const [previous] = await listPublishedBundles(backupRoot);
+
+    if (!previous) return {bundleName: null, identities: {}};
+
+    try {
+        const meta = await fs.readJson(path.join(previous.path, 'bundle-meta.json'));
+
+        // Prefer the structured capture block; fall back to the raw receipts so the FIRST bundle
+        // written after this change still has something to compare against next time.
+        const identities = {};
+        for (const {key, read} of LINEAGE_SOURCES) {
+            identities[key] = meta?.capture?.sources?.[key]?.collectionId
+                ?? read(meta?.subsystems || {})?.collectionId
+                ?? null;
+        }
+
+        return {bundleName: previous.name, identities}
+    } catch (error) {
+        logger.warn?.(`[Backup] Could not read identities from ${previous.name}: ${error.message}. Lineage degrades to unknown.`);
+        return {bundleName: previous.name, identities: {}}
+    }
+}
+
+/**
+ * @summary Builds the capture block: what each source held, and whether it is the same source.
+ *
+ * Every receipt that reaches here describes a complete read, and that is a fact about this substrate
+ * rather than an assumption — `#exportCollection` throws `PARTIAL_COLLECTION_EXPORT` when
+ * `exported !== expected`, so a partial read aborts the backup and never reaches a receipt. It is
+ * therefore not recorded as an axis; see {@link module:ai/services/shared/captureReceipt}.
+ *
+ * A receipt carrying no readable count is passed through as-is rather than defaulted to zero. The
+ * classification of that case belongs to `buildSourceReceipt`, which has one rule for it; a `?? 0`
+ * here would have made the malformed case indistinguishable from a measured empty before the rule
+ * ever ran.
+ *
+ * @param {Object} options
+ * @param {Object} options.subsystems Receipt map assembled by `runBackup`.
+ * @param {String} options.backupRoot Directory holding published bundles.
+ * @param {Object} [options.logger=console] Diagnostic sink.
+ * @returns {Promise<Object>} The `capture` block for `bundle-meta.json`.
+ */
+export async function buildCaptureBlock({subsystems, backupRoot, logger = console}) {
+    const {bundleName, identities} = await readPreviousBundleIdentities(backupRoot, logger);
+    const sources                  = {};
+
+    for (const {key, read} of LINEAGE_SOURCES) {
+        const receipt = read(subsystems);
+
+        if (!receipt) continue;
+
+        const rowCount = typeof receipt === 'number'
+            ? receipt
+            : receipt.count ?? receipt.exported;
+
+        sources[key] = buildSourceReceipt({
+            source        : key,
+            rowCount,
+            collectionId  : receipt.collectionId ?? null,
+            previousId    : identities[key] ?? null,
+            comparedBundle: bundleName
+        });
+    }
+
+    return {schemaVersion: 1, comparedTo: bundleName, sources}
 }
 
 /**
@@ -552,13 +651,15 @@ async function captureBackup({
     const emptyChecks = integrity.filter(check => check.status === 'empty');
     if (emptyChecks.length > 0) {
         // Non-fatal (a fresh environment legitimately backs up empty subsystems), but loud: a zero-row
-        // export from a normally-populated deployment is the gutted-store signature, and a backup of an
-        // empty store is a false recovery source. The 'empty' status is carried in bundle-meta.integrity
-        // for a downstream canary/alert to escalate on.
+        // export from a normally-populated deployment is the gutted-store signature, and a backup
+        // holding no rows is a false recovery source. The 'empty' status is carried in
+        // bundle-meta.integrity for a downstream canary/alert to escalate on. It reports what the
+        // bundle HOLDS; whether the source was genuinely empty is the capture block's separate
+        // question, answered there as `provenEmpty`.
         logger.warn?.(
-            `[Backup] ${emptyChecks.length} subsystem(s) exported ZERO rows — empty backup is not a usable ` +
-            `recovery source: ${emptyChecks.map(c => c.subsystem).join(', ')}. Legitimate for a fresh ` +
-            `environment; corruption-suspicious for a populated deployment.`
+            `[Backup] ${emptyChecks.length} subsystem(s) exported ZERO rows — a bundle holding no rows is ` +
+            `not a usable recovery source: ${emptyChecks.map(c => c.subsystem).join(', ')}. Legitimate for ` +
+            `a fresh environment; corruption-suspicious for a populated deployment.`
         );
     }
 
@@ -567,12 +668,20 @@ async function captureBackup({
     const versionInfo         = await buildVersionDescriptor(PROJECT_ROOT, logger);
     const publishedSubsystems = rebaseBundleReceiptPaths(subsystems, resolvedRoot, publishedRoot);
     const embedding           = buildEmbeddingContract({subsystems: publishedSubsystems});
-    const meta                = {
+    // Compared against the previous PUBLISHED bundle — the rename has not run yet, so this bundle is
+    // still staging and cannot select itself as its own predecessor.
+    const capture = await buildCaptureBlock({
+        subsystems: publishedSubsystems,
+        backupRoot: path.dirname(publishedRoot),
+        logger
+    });
+    const meta = {
         bundleVersion: 1,
         timestamp,
         completedAt,
         subsystems   : publishedSubsystems,
         integrity,
+        capture,
         topology,
         embedding,
         ...versionInfo
@@ -610,16 +719,44 @@ export async function countNonEmptyJsonlLines(filePath) {
 }
 
 /**
+ * The FROZEN wire vocabulary of `bundle-meta.integrity[].status`.
+ *
+ * **Adding a value here is a breaking change to every reader already deployed, and this file cannot
+ * make it safe.** Compatibility is one-directional: a reader we ship today can be taught to accept
+ * yesterday's tokens, but a reader running on a plane four figures of commits behind can never be
+ * taught tomorrow's. It classifies what it knows and silently ignores what it does not — and for this
+ * particular field, "ignored" resolves to *no zero-row subsystem found*, i.e. `restorable: true` for a
+ * bundle holding nothing.
+ *
+ * Measured, not theorised: renaming `empty` → `zero-rows` for lexical clarity produced old-reader +
+ * new-bundle ⇒ `restorable: true` while the other three cells of the matrix stayed `false` — three of
+ * four green. Vocabulary that needs to change belongs on a field nothing has persisted yet.
+ * @type {Object}
+ */
+export const INTEGRITY_STATUS = Object.freeze({
+    empty  : 'empty',
+    fail   : 'fail',
+    pass   : 'pass',
+    skipped: 'skipped'
+});
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
  * files to count non-empty lines (streaming so 1+ GB exports do not exceed V8's max string length)
  * and compares — mismatch indicates a partial/torn write that the
- * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both empty) is
- * reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally because
- * it is not a usable recovery source (a fresh environment is legitimately empty; a populated
+ * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both report zero)
+ * is reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally
+ * because it is not a usable recovery source (a fresh environment is legitimately empty; a populated
  * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `empty`
  * subsystems and persists the status into `bundle-meta.integrity` for a downstream canary/alert.
+ *
+ * The status answers what the BUNDLE holds, never why. Whether the source was genuinely empty is the
+ * `capture` block's question — see {@link module:ai/services/shared/captureReceipt} — and the two are
+ * kept lexically apart by naming that one `provenEmpty`, so one artifact never publishes two meanings
+ * of the bare word `empty`. The separation is deliberately carried on the NEW field: this status is a
+ * wire value that readers already deployed classify by exact match. See {@link INTEGRITY_STATUS}.
  *
  * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
  * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
@@ -627,7 +764,7 @@ export async function countNonEmptyJsonlLines(filePath) {
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is one of the frozen {@link INTEGRITY_STATUS} values — `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -638,14 +775,14 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         const sourceCount = typeof raw === 'number' ? raw : raw?.count;
 
         if (typeof sourceCount !== 'number') {
-            checks.push({subsystem, status: 'skipped', reason: 'no numeric source count returned by SDK'});
+            checks.push({subsystem, status: INTEGRITY_STATUS.skipped, reason: 'no numeric source count returned by SDK'});
             continue;
         }
 
         const dir = layout[subsystem];
 
         if (!await fs.pathExists(dir)) {
-            checks.push({subsystem, status: 'fail', sourceCount, bundleCount: 0, reason: `bundle directory missing: ${dir}`});
+            checks.push({subsystem, status: INTEGRITY_STATUS.fail, sourceCount, bundleCount: 0, reason: `bundle directory missing: ${dir}`});
             continue;
         }
 
@@ -657,24 +794,31 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         }
 
         if (bundleCount === sourceCount) {
-            // Empty-parity is NOT a healthy pass: a backup whose source AND bundle are both empty is
-            // not a usable recovery source. Legitimate for a fresh environment, but for a normally-
+            // Zero-parity is NOT a healthy pass: a bundle whose source AND files both report zero rows
+            // is not a usable recovery source. Legitimate for a fresh environment, but for a normally-
             // populated deployment a zero-row export is the gutted-store signature (the corruption a
             // backup is supposed to survive) — surface it as 'empty' (visible, non-fatal) rather than
             // a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
-            const status = sourceCount === 0 ? 'empty' : 'pass';
+            //
+            // 'empty' is a WIRE VALUE and must not be renamed for clarity, however tempting.
+            // It is the only token readers deployed before today classify, and this substrate has
+            // planes running four figures of commits behind: emit anything else and those readers see
+            // no zero-row subsystem at all, i.e. `restorable: true` for a bundle holding nothing. The
+            // lexical separation from the capture block's provenance claim lives on `provenEmpty`,
+            // which no bundle on disk carries yet and can therefore still be named freely.
+            const status = sourceCount === 0 ? INTEGRITY_STATUS.empty : INTEGRITY_STATUS.pass;
             const entry  = {subsystem, status, sourceCount, bundleCount};
 
-            if (status === 'empty') {
-                entry.reason = 'source and bundle both report zero rows — empty backup is not a usable ' +
-                    'recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
+            if (status === INTEGRITY_STATUS.empty) {
+                entry.reason = 'source and bundle both report zero rows — a bundle holding no rows is not a ' +
+                    'usable recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
             }
 
             checks.push(entry);
         } else {
             checks.push({
                 subsystem,
-                status: 'fail',
+                status: INTEGRITY_STATUS.fail,
                 sourceCount,
                 bundleCount,
                 reason: `row-count mismatch: source=${sourceCount}, bundle=${bundleCount} (delta ${bundleCount - sourceCount})`
@@ -750,27 +894,22 @@ async function buildVersionDescriptor(projectRoot, logger) {
 }
 
 /**
- * Applies retention policy to the backup root.
+ * @summary Enumerates the PUBLISHED bundles under a backup root, newest first.
  *
- * Two-axis policy:
- *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
- *   - `maxDays`     — bundles older than this many days are eligible for deletion
+ * "Published" is not a synonym for "present". A bundle becomes authoritative only when the
+ * same-filesystem rename completes; before that it is a `.backup-partial-*` staging directory, which
+ * this enumeration skips by construction because it does not carry the `backup-` prefix. That is the
+ * same boundary restore and retention already rely on, and it is why lineage comparison must consume
+ * this function rather than its own `readdir` — a comparison against a half-written staging directory
+ * would report a changed identity for a capture that never completed.
  *
- * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
- * window OR younger than maxDays). Both defaults match the original hardcoded
- * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
- * existing behavior.
+ * Directories whose timestamp suffix does not parse are omitted rather than sorted arbitrarily.
  *
- * @param {String} backupRoot
- * @param {Object} logger
- * @param {Object} [retention]
- * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
- * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
+ * @param {String} backupRoot Directory holding the bundles.
+ * @returns {Promise<Object[]>} `{name, path, date, time}` newest-first; empty when the root is absent.
  */
-export async function cleanOldBackups(backupRoot, logger, retention = {}) {
-    if (!await fs.pathExists(backupRoot)) return;
-
-    const {keepMinimum = 3, maxDays = 30} = retention;
+export async function listPublishedBundles(backupRoot) {
+    if (!await fs.pathExists(backupRoot)) return [];
 
     const entries = await fs.readdir(backupRoot, { withFileTypes: true });
 
@@ -796,6 +935,38 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
     }
 
     backups.sort((a, b) => b.time - a.time);
+
+    return backups
+}
+
+/**
+ * Applies retention policy to the backup root.
+ *
+ * Two-axis policy:
+ *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
+ *   - `maxDays`     — bundles older than this many days are eligible for deletion
+ *
+ * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
+ * window OR younger than maxDays). Both defaults match the original hardcoded
+ * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
+ * existing behavior.
+ *
+ * Enumerates through {@link listPublishedBundles}, so a `.backup-partial-*` staging directory is
+ * never a retention candidate and never counts toward `keepMinimum` — an in-flight capture must not
+ * be able to age a real recovery source out of the floor.
+ *
+ * @param {String} backupRoot
+ * @param {Object} logger
+ * @param {Object} [retention]
+ * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
+ * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
+ */
+export async function cleanOldBackups(backupRoot, logger, retention = {}) {
+    if (!await fs.pathExists(backupRoot)) return;
+
+    const {keepMinimum = 3, maxDays = 30} = retention;
+
+    const backups = await listPublishedBundles(backupRoot);
 
     const K           = keepMinimum;
     const N_DAYS      = maxDays;
