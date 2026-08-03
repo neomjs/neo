@@ -32,12 +32,14 @@ const execFileAsync = promisify(execFile),
 
 /**
  * Runs the pipeline with recording stubs for `docker` and `node`.
- * @param {Object} config
- * @param {String} config.composeFileValue Value for `NEO_DEPLOY_COMPOSE_FILE`.
- * @param {String} [config.revision]       Selector for `NEO_REF`; defaults to this checkout's `HEAD`.
- * @returns {Promise<Object>} `{code, stdout, dockerCalls, composeArgs}`
+ * @param {Object}  config
+ * @param {String}  [config.composeFileValue] Value for `NEO_DEPLOY_COMPOSE_FILE`.
+ * @param {Boolean} [config.omitComposeFile]  Leave the variable UNSET rather than setting it — the only
+ * way to exercise the default path, since an empty string is a *supplied* value with different meaning.
+ * @param {String}  [config.revision]         Selector for `NEO_REF`; defaults to this checkout's `HEAD`.
+ * @returns {Promise<Object>} `{code, stdout, calls, dockerCalls, composeArgs, preflightCallIndex, firstDockerIndex}`
  */
-async function runPipeline({composeFileValue, revision}) {
+async function runPipeline({composeFileValue, omitComposeFile, revision}) {
     const workDir = await fs.mkdtemp(path.join(repoRoot, 'test/playwright/test-results/compose-list-')),
           binDir  = path.join(workDir, 'bin'),
           logPath = path.join(workDir, 'calls.log');
@@ -58,19 +60,25 @@ async function runPipeline({composeFileValue, revision}) {
     let code   = 0,
         stdout = '';
 
+    // Built by DELETION rather than by assigning `undefined`: Node coerces an `undefined` env value to
+    // the string "undefined", which the script would read as a supplied path. Only an absent key
+    // reaches bash as genuinely unset, which is the distinction under test.
+    const childEnv = {
+        ...process.env,
+        PATH                   : `${binDir}:${process.env.PATH}`,
+        CALL_LOG               : logPath,
+        NEO_REPO_URL           : repoRoot,
+        NEO_REF                : selector,
+        NEO_DEPLOY_PROJECT_NAME: 'compose-list-spec',
+        NEO_DEPLOY_COMPOSE_FILE: composeFileValue ?? ''
+    };
+
+    if (omitComposeFile) {
+        delete childEnv.NEO_DEPLOY_COMPOSE_FILE
+    }
+
     try {
-        const result = await execFileAsync('bash', [PIPELINE], {
-            cwd: repoRoot,
-            env: {
-                ...process.env,
-                PATH                   : `${binDir}:${process.env.PATH}`,
-                CALL_LOG               : logPath,
-                NEO_REPO_URL           : repoRoot,
-                NEO_REF                : selector,
-                NEO_DEPLOY_PROJECT_NAME: 'compose-list-spec',
-                NEO_DEPLOY_COMPOSE_FILE: composeFileValue
-            }
-        });
+        const result = await execFileAsync('bash', [PIPELINE], {cwd: repoRoot, env: childEnv});
 
         stdout = result.stdout
     } catch (error) {
@@ -84,7 +92,17 @@ async function runPipeline({composeFileValue, revision}) {
 
     await fs.remove(workDir);
 
-    return {code, stdout, dockerCalls, composeArgs: firstUp}
+    // `calls` is the ORDERED interleaving of both stubs. Order assertions must read it rather than the
+    // filtered per-tool lists, which discard exactly the relative position under test.
+    return {
+        code,
+        stdout,
+        calls,
+        dockerCalls,
+        composeArgs       : firstUp,
+        preflightCallIndex: calls.findIndex(line => line.startsWith('node ') && line.includes('redeployPreflight')),
+        firstDockerIndex  : calls.findIndex(line => line.startsWith('docker '))
+    }
 }
 
 /**
@@ -160,16 +178,45 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
         expect(oneFile.stdout).toContain('(1 file(s)')
     });
 
-    test('the preflight still runs BEFORE any Docker call, and the health gate is unchanged', async () => {
-        // Guards what this change must not disturb: the survivability gate's position in the order,
-        // and the health-gated build flags.
-        const result = await runPipeline({composeFileValue: '/tmp/a.yml:/tmp/b.yml'}),
-              calls  = result.dockerCalls;
+    test('the preflight runs BEFORE any Docker call — asserted on recorded POSITION', async () => {
+        // The earlier version of this test only checked that both the preflight message and some Docker
+        // call appeared, which is true for ANY ordering and so proved nothing about the guarantee it
+        // claimed. The property is positional: the survivability gate must precede every container
+        // call, so compare indices in the ordered interleaving of both stubs.
+        const result = await runPipeline({composeFileValue: '/tmp/a.yml:/tmp/b.yml'});
 
-        expect(result.stdout).toContain('running redeploy survivability preflight');
-        expect(calls.length).toBeGreaterThan(0);
+        expect(result.preflightCallIndex).toBeGreaterThan(-1);
+        expect(result.firstDockerIndex).toBeGreaterThan(-1);
+        expect(result.preflightCallIndex).toBeLessThan(result.firstDockerIndex)
+    });
+
+    test('the health gate and project pinning are unchanged, and `down` is never issued', async () => {
+        const result = await runPipeline({composeFileValue: '/tmp/a.yml:/tmp/b.yml'});
+
         expect(result.composeArgs).toContain('up -d --build --wait');
         expect(result.composeArgs).toContain('-p compose-list-spec');
-        expect(calls.some(line => line.includes(' down '))).toBe(false)
+        expect(result.dockerCalls.some(line => line.includes(' down '))).toBe(false)
+    });
+
+    test('an EXPLICIT empty value aborts; an UNSET variable keeps the compatible default', async () => {
+        // These are different inputs and `${VAR:-default}` collapses them: an explicit empty string
+        // would fall back to the base compose file, deploying the base contract to a plane that needs
+        // an overlay — precisely what the zero-entry abort exists to prevent. Unset must still default,
+        // or every existing caller breaks.
+        const explicitEmpty = await runPipeline({composeFileValue: ''});
+
+        expect(explicitEmpty.code).not.toBe(0);
+        expect(explicitEmpty.dockerCalls).toEqual([]);
+        expect(explicitEmpty.stdout).toContain('no usable path');
+
+        const unset      = await runPipeline({omitComposeFile: true}),
+              unsetFiles = orderedComposeFiles(unset.composeArgs);
+
+        expect(unset.code).toBe(0);
+        expect(unsetFiles).toHaveLength(1);
+        // Compared on what the path RESOLVES to, not on its spelling: the script builds the default
+        // from `$SCRIPT_DIR/../..`, so the literal argv contains `../..` un-normalized. Asserting the
+        // string would pin an incidental spelling rather than the file being addressed.
+        expect(path.resolve(unsetFiles[0])).toBe(path.join(repoRoot, 'ai/deploy/docker-compose.yml'))
     });
 });

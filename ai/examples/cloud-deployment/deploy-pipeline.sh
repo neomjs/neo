@@ -25,7 +25,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # here produced `ai/ai/deploy/...`, a path that has never existed. It went unnoticed because the
 # spec fakes `docker`, and a fake docker ignores `-f`, so a wrong compose path could not fail a
 # test. Any operator who did not set NEO_DEPLOY_COMPOSE_FILE was relying on a broken default.
-COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../deploy/docker-compose.yml}"
+# UNSET and EXPLICITLY-EMPTY are different inputs and must not collapse. `${VAR:-default}` treats an
+# empty string as absent, so `NEO_DEPLOY_COMPOSE_FILE=""` would silently fall back to the base file —
+# deploying the base contract to a plane that needs an overlay, which is the exact failure the
+# zero-entry abort below exists to prevent. `${VAR+set}` tests whether the operator SUPPLIED the
+# variable, independent of its value, so an unset caller keeps the compatible default while a supplied
+# value is always honoured — and, when it resolves to nothing, refused rather than replaced.
+if [ -n "${NEO_DEPLOY_COMPOSE_FILE+set}" ]; then
+    COMPOSE_FILE="$NEO_DEPLOY_COMPOSE_FILE"
+else
+    COMPOSE_FILE="$SCRIPT_DIR/../../deploy/docker-compose.yml"
+fi
 
 # A real plane is rarely ONE compose file. The canonical local Agent OS runs `docker-compose.yml`
 # plus `docker-compose.local-agent-os.yml`, and a single `-f` silently drops the overlay — so the
