@@ -464,7 +464,7 @@ test.describe('owner boundary + overlay order (source contracts)', () => {
 
         // Bundle root + retention resolve from the AiConfig leaf, never the module constant
         expect(source).toContain('path.join(AiConfig.backupPath, `backup-${timestamp}`)');
-        expect(source).toContain('cleanOldBackups(AiConfig.backupPath,');
+        expect(source).toContain('cleanOldBackupsImpl(AiConfig.backupPath, logger, retention)');
         expect(runBackupBody).not.toContain('DEFAULT_BACKUP_ROOT, `backup-');
     });
 });

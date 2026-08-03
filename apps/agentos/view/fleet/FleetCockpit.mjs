@@ -15,6 +15,7 @@ import DockZoneModel               from '../../../../src/dashboard/DockZoneModel
 import FleetCockpitController      from './FleetCockpitController.mjs';
 import FleetGrid                   from './FleetGrid.mjs';
 import FleetRoster                 from '../../store/FleetRoster.mjs';
+import MemoriesPane                from './MemoriesPane.mjs';
 import OperatorMailbox             from './OperatorMailbox.mjs';
 import StateProvider               from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument         from './cockpitDockDocument.mjs';
@@ -477,6 +478,26 @@ class FleetCockpit extends Container {
      * @member {Number} catchUpReadGeneration=0
      */
     catchUpReadGeneration = 0
+    /**
+     * Latest memories envelope, owner-held so rail re-projection rematerializes from current truth.
+     * @member {Object|null} memoriesSnapshot=null
+     */
+    memoriesSnapshot = null
+    /**
+     * Read-generation fence for {@link #loadMemories} — a slow older read never overwrites a newer one.
+     * @member {Number} memoriesReadGeneration=0
+     */
+    memoriesReadGeneration = 0
+    /**
+     * Owner-held CURRENT memories selection — set at REQUEST time, before any await, so the
+     * selection survives pane removal/rematerialization while page zero is still pending. The
+     * snapshot records the last ACCEPTED truth; this records the requested target. A
+     * rematerialized pane receives this as `activeAgent` and therefore reopens on the pending
+     * selection (honest "Reading X…" state), never on a stale snapshot's target and never null
+     * while a response is in flight.
+     * @member {String|null} memoriesTarget=null
+     */
+    memoriesTarget = null
     /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
@@ -1161,6 +1182,21 @@ class FleetCockpit extends Container {
                         liveSurfaceRequest : 'onCatchUpLiveSurfaceRequest'
                     },
                     reference: 'catch-up'
+                };
+            case 'memories':
+                // invoked per-agent session-summary recall: the pane renders the owner-held
+                // source envelope and fires intent; this cockpit owns the authenticated bridge.
+                // The selected target travels WITH the snapshot (one coherent state key), so a
+                // rematerialized pane never shows cards no selection points at. Agent choices
+                // derive from the same provider-owned roster as the cards — no second resident list.
+                return {
+                    module      : MemoriesPane,
+                    cls         : [marker],
+                    activeAgent : me.memoriesTarget ?? me.memoriesSnapshot?.target ?? null,
+                    snapshot    : me.memoriesSnapshot,
+                    agentOptions: me.buildMemoriesAgentOptions(),
+                    listeners   : {memoriesRequest: 'onMemoriesRequest'},
+                    reference   : 'memories'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a
@@ -2158,6 +2194,7 @@ class FleetCockpit extends Container {
             me.gridAdapterState = 'live';
             grid.adapterState   = 'live';
             me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
+            me.getReference('memories')?.set({agentOptions: me.buildMemoriesAgentOptions()});
             me.clearDegradedReason('grid')
         } catch (error) {
             // fenced: a slow failure must not overwrite a newer success (see the stream twin)
@@ -2207,6 +2244,25 @@ class FleetCockpit extends Container {
                 id       : `catch-up-${row.agentId}`,
                 label    : row.displayName || row.githubUsername,
                 partition: `@${row.githubUsername}`
+            }))
+    }
+
+    /**
+     * @summary Build the memories-pane agent choices from the live roster Store — canonical
+     * `@identity` targets for the `fleetMemories` session-summary read. Same provider-owned
+     * roster as the cards; the summary corpus is the team-visible cross-author read, so the wire
+     * carries the target and paging only — never a viewer claim.
+     * @returns {Object[]}
+     */
+    buildMemoriesAgentOptions() {
+        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+
+        return rows
+            .filter(row => row.githubUsername)
+            .map(row => ({
+                id           : `memories-${row.agentId}`,
+                label        : row.displayName || row.githubUsername,
+                agentIdentity: `@${row.githubUsername}`
             }))
     }
 
@@ -2284,6 +2340,64 @@ class FleetCockpit extends Container {
         }
 
         return outcome
+    }
+
+    /**
+     * @summary READ-OBSERVE: route one pane memories intent through the authenticated Fleet verb
+     * and write the returned source envelope back as owner state. Fail-closed: absence/throw
+     * becomes an explicit unavailable envelope, never an empty historical claim. Generation-fenced
+     * so a slow older read never overwrites a newer target's rows.
+     * @param {Object} [params] `{agentIdentity, offset?, limit?}`
+     * @returns {Promise<Object>}
+     */
+    async loadMemories(params = {}) {
+        const me         = this,
+              bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+              generation = ++me.memoriesReadGeneration;
+
+        // Owner-hold the requested selection BEFORE any await: a pane removed and rematerialized
+        // while this read is in flight must reopen on the PENDING target (honest switch-pending
+        // state), not on the last accepted snapshot's target and not with a null selection.
+        if (params.agentIdentity) {
+            me.memoriesTarget = params.agentIdentity
+        }
+
+        const
+              fallback   = reason => ({
+                  capability: {state: 'unavailable', reason},
+                  viewer    : null,
+                  target    : params.agentIdentity || null,
+                  page      : {offset: params.offset ?? 0, limit: null},
+                  sessions  : [],
+                  count     : 0,
+                  total     : null
+              });
+
+        let snapshot;
+
+        if (typeof bridge?.fleetMemories !== 'function') {
+            snapshot = fallback('fleet memories verb not wired')
+        } else {
+            try {
+                snapshot = await bridge.fleetMemories(params)
+            } catch (error) {
+                snapshot = fallback('fleet memories read failed')
+            }
+        }
+
+        if (generation === me.memoriesReadGeneration && !me.isDestroyed) {
+            me.memoriesSnapshot = snapshot;
+
+            // Resolve the pane at WRITE time, not call time: the pane can be removed and
+            // rematerialized while this read was in flight — a call-time reference would write
+            // the accepted truth into the DESTROYED instance and leave the live pane pending
+            // forever. The owner state above plus this live-resolve keep both variants coherent.
+            const livePane = me.getReference('memories');
+
+            livePane && (livePane.snapshot = snapshot)
+        }
+
+        return snapshot
     }
 
     /**

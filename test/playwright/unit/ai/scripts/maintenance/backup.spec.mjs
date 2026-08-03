@@ -28,7 +28,7 @@ import path            from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 2)', () => {
-    let SDK, runBackup;
+    let SDK, fsExtra, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
     let originalKbCollection, originalMcGetMemory, originalMcGetSummary;
     let workRoot, bundleRoot, conceptsSourceDir, trajectoriesSourceFile;
@@ -54,6 +54,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
 
     test.beforeAll(async () => {
         SDK                   = await import('../../../../../../ai/services.mjs');
+        fsExtra               = (await import('fs-extra')).default;
         ({runBackup, verifyBundleIntegrity, countNonEmptyJsonlLines, noticeLegacyBackupRoot} = await import('../../../../../../ai/scripts/maintenance/backup.mjs'));
         KB_ChromaManager      = SDK.KB_ChromaManager;
         Memory_StorageRouter  = SDK.Memory_StorageRouter;
@@ -143,6 +144,223 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         // graph subfolder exists but GraphService.db is not wired in unit-test mode,
         // so no graph-backup file is emitted. This is the documented "source has no data"
         // branch per ticket AC ("non-empty content when the source subsystems have data").
+    });
+
+    test('keeps the final root invisible until capture completes, then publishes it without staging residue (#16417)', async () => {
+        const
+            finalRoot      = path.join(workRoot, 'publish-after-capture'),
+            silentLogger   = {log: () => {}, error: () => {}},
+            originalRename = fsExtra.rename;
+
+        let releaseRename, signalRenameStarted;
+
+        const renameStarted = new Promise(resolve => { signalRenameStarted = resolve });
+        const renameRelease = new Promise(resolve => { releaseRename = resolve });
+        let backupPromise;
+
+        try {
+            fsExtra.rename = async function(source, destination) {
+                if (destination === finalRoot) {
+                    expect(path.basename(source)).toMatch(/^\.backup-partial-/);
+                    expect(fs.existsSync(path.join(source, 'bundle-meta.json'))).toBe(true);
+                    expect(fs.existsSync(finalRoot)).toBe(false);
+                    signalRenameStarted();
+                    await renameRelease
+                }
+
+                return originalRename.call(this, source, destination)
+            };
+
+            backupPromise = runBackup({
+                bundleRoot: finalRoot,
+                conceptsSourceDir,
+                trajectoriesSourceFile,
+                logger    : silentLogger
+            });
+
+            const boundary = await Promise.race([
+                renameStarted.then(() => 'rename'),
+                backupPromise.then(() => 'completed')
+            ]);
+
+            expect(boundary).toBe('rename');
+            expect(fs.existsSync(finalRoot)).toBe(false);
+            expect(
+                fs.readdirSync(workRoot).filter(name => name.startsWith(`.backup-partial-${path.basename(finalRoot)}-`))
+            ).toHaveLength(1);
+
+            releaseRename();
+
+            const result        = await backupPromise;
+            const persistedMeta = JSON.parse(fs.readFileSync(path.join(finalRoot, 'bundle-meta.json'), 'utf8'));
+            const mcBackupFile  = result.subsystems.mc.memories.backupFile;
+
+            expect(result.bundleRoot).toBe(finalRoot);
+            expect(fs.existsSync(path.join(finalRoot, 'bundle-meta.json'))).toBe(true);
+            expect(JSON.stringify({persistedMeta, result})).not.toContain('.backup-partial-');
+            expect(mcBackupFile.startsWith(`${finalRoot}${path.sep}`)).toBe(true);
+            expect(fs.existsSync(mcBackupFile)).toBe(true);
+            expect(persistedMeta.subsystems.mc.memories.backupFile).toBe(mcBackupFile);
+
+            if (process.platform !== 'win32') {
+                expect(fs.statSync(finalRoot).mode & 0o777).toBe(0o777 & ~process.umask())
+            }
+
+            expect(
+                fs.readdirSync(workRoot).filter(name => name.startsWith(`.backup-partial-${path.basename(finalRoot)}-`))
+            ).toHaveLength(0);
+        } finally {
+            releaseRename?.();
+            fsExtra.rename = originalRename;
+            await backupPromise?.catch(() => {});
+        }
+    });
+
+    test('a caught mid-capture failure leaves neither final nor staging root and preserves the original error (#16417)', async () => {
+        const
+            failure          = new Error('forced graph export failure'),
+            finalRoot        = path.join(workRoot, 'failed-capture'),
+            silentLogger     = {log: () => {}, error: () => {}},
+            backupService    = SDK.Memory_DatabaseService,
+            servicePrototype = Object.getPrototypeOf(backupService),
+            originalBackup   = servicePrototype.manageDatabaseBackup;
+
+        let thrown;
+
+        try {
+            servicePrototype.manageDatabaseBackup = async function(options) {
+                if (options.include?.length === 1 && options.include[0] === 'graph') {
+                    throw failure
+                }
+
+                return originalBackup.call(this, options)
+            };
+
+            try {
+                await runBackup({
+                    bundleRoot: finalRoot,
+                    conceptsSourceDir,
+                    trajectoriesSourceFile,
+                    logger    : silentLogger
+                })
+            } catch (error) {
+                thrown = error
+            }
+
+            expect(thrown).toBe(failure);
+            expect(fs.existsSync(finalRoot)).toBe(false);
+            expect(
+                fs.readdirSync(workRoot).filter(name => name.startsWith(`.backup-partial-${path.basename(finalRoot)}-`))
+            ).toHaveLength(0);
+        } finally {
+            servicePrototype.manageDatabaseBackup = originalBackup;
+        }
+    });
+
+    test('an existing final destination fails loud without mutating it (#16417)', async () => {
+        const
+            finalRoot    = path.join(workRoot, 'existing-destination'),
+            sentinelPath = path.join(finalRoot, 'sentinel.txt'),
+            silentLogger = {log: () => {}, error: () => {}};
+
+        fs.mkdirSync(finalRoot, {recursive: true});
+        fs.writeFileSync(sentinelPath, 'keep-me');
+
+        await expect(runBackup({
+            bundleRoot: finalRoot,
+            conceptsSourceDir,
+            trajectoriesSourceFile,
+            logger    : silentLogger
+        })).rejects.toThrow(/already exists/i);
+
+        expect(fs.readFileSync(sentinelPath, 'utf8')).toBe('keep-me');
+        expect(fs.readdirSync(finalRoot)).toEqual(['sentinel.txt']);
+    });
+
+    test('a dangling final-destination symlink fails loud and remains untouched (#16417)', async () => {
+        test.skip(process.platform === 'win32', 'symlink creation requires elevated privileges on some Windows hosts');
+
+        const
+            finalRoot     = path.join(workRoot, 'dangling-destination'),
+            missingTarget = path.join(workRoot, 'missing-symlink-target'),
+            silentLogger  = {log: () => {}, error: () => {}};
+
+        fs.symlinkSync(missingTarget, finalRoot);
+
+        await expect(runBackup({
+            bundleRoot: finalRoot,
+            conceptsSourceDir,
+            trajectoriesSourceFile,
+            logger    : silentLogger
+        })).rejects.toThrow(/already exists/i);
+
+        expect(fs.lstatSync(finalRoot).isSymbolicLink()).toBe(true);
+        expect(fs.readlinkSync(finalRoot)).toBe(missingTarget);
+    });
+
+    test('a long explicit final basename still has a bounded staging basename (#16417)', async () => {
+        test.skip(process.platform === 'win32', 'the parent plus 230-character filename can exceed legacy MAX_PATH');
+
+        const finalRoot = path.join(workRoot, `long-${'x'.repeat(225)}`);
+        const result    = await runBackup({
+            bundleRoot         : finalRoot,
+            cleanOldBackupsImpl: async () => {},
+            conceptsSourceDir,
+            trajectoriesSourceFile,
+            logger             : {log: () => {}, error: () => {}}
+        });
+
+        expect(result.bundleRoot).toBe(finalRoot);
+        expect(fs.existsSync(path.join(finalRoot, 'bundle-meta.json'))).toBe(true);
+    });
+
+    test('retention runs only after publication and cannot invalidate a completed bundle (#16417)', async () => {
+        const
+            finalRoot = path.join(workRoot, 'retention-after-publish'),
+            warnings  = [];
+
+        const result = await runBackup({
+            bundleRoot         : finalRoot,
+            cleanOldBackupsImpl: async () => {
+                expect(fs.existsSync(path.join(finalRoot, 'bundle-meta.json'))).toBe(true);
+                throw new Error('forced retention failure')
+            },
+            conceptsSourceDir,
+            trajectoriesSourceFile,
+            logger: {
+                error: () => {},
+                log  : () => {},
+                warn : message => warnings.push(message)
+            }
+        });
+
+        expect(result.bundleRoot).toBe(finalRoot);
+        expect(fs.existsSync(path.join(finalRoot, 'bundle-meta.json'))).toBe(true);
+        expect(warnings).toEqual([expect.stringContaining('forced retention failure')]);
+    });
+
+    test('throwing post-publication diagnostics neither fail the bundle nor suppress retention (#16417)', async () => {
+        const finalRoot       = path.join(workRoot, 'throwing-success-log');
+        let   retentionCalled = false;
+
+        const result = await runBackup({
+            bundleRoot         : finalRoot,
+            cleanOldBackupsImpl: async () => { retentionCalled = true },
+            conceptsSourceDir,
+            trajectoriesSourceFile,
+            logger             : {
+                error: () => {},
+                log  : message => {
+                    if (message.startsWith('[8/8]') || message.startsWith('✅ Backup complete:')) {
+                        throw new Error('closed terminal')
+                    }
+                }
+            }
+        });
+
+        expect(result.bundleRoot).toBe(finalRoot);
+        expect(retentionCalled).toBe(true);
+        expect(fs.existsSync(path.join(finalRoot, 'bundle-meta.json'))).toBe(true);
     });
 
     test('reports missing concept/trajectory sources as non-fatal notes', async () => {
