@@ -1719,13 +1719,17 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         // on the first tick. The `*ReadInFlight` pair mirrors the class defaults the latch reads.
         return {
             cleared,
-            polls               : 0,
-            gridReadInFlight    : 0,
-            livenessPollInterval: 50,
-            livenessTimerId     : null,
-            maxReadsInFlight    : 2,
-            streamReadInFlight  : 0,
+            polls                  : 0,
+            brainReads             : 0,
+            brainHealthReadInFlight: false,
+            gridReadInFlight       : 0,
+            livenessPollInterval   : 50,
+            livenessTimerId        : null,
+            maxReadsInFlight       : 2,
+            streamReadInFlight     : 0,
             loadActivity() { this.polls++; return Promise.resolve() },
+            // the third seam counts separately: the wire-read expectations stay untouched by it
+            loadBrainHealth() { this.brainReads++; return Promise.resolve() },
             loadRoster()   { this.polls++; return Promise.resolve() },
             startLiveness: FleetCockpit.prototype.startLiveness,
             stopLiveness : FleetCockpit.prototype.stopLiveness,
@@ -2023,10 +2027,27 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         host.startLiveness();
 
         try {
+            // the daemon surface has no other first load — arming the owner IS its first read
+            expect(host.brainReads, 'the immediate first Brain read must not wait a full cadence').toBe(1);
+
             await new Promise(resolve => setTimeout(resolve, 45));
 
-            // both seams, every tick: re-driving the real verbs IS the mechanism
-            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4)
+            // both wire seams, every tick: re-driving the real verbs IS the mechanism
+            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4);
+
+            // the third seam rides the same cadence: immediate read plus tick re-reads
+            expect(host.brainReads, 'the Brain read must re-drive on the cadence, not just once').toBeGreaterThanOrEqual(2);
+
+            // overlap suppression: an airborne Brain read makes the next tick skip, never stack
+            const before = host.brainReads;
+
+            host.brainHealthReadInFlight = true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+            expect(host.brainReads, 'an unresolved Brain read suppresses the tick — skip, never stack').toBe(before);
+
+            host.brainHealthReadInFlight = false;
+            await new Promise(resolve => setTimeout(resolve, 25));
+            expect(host.brainReads, 'suppression is a skip, not a stop').toBeGreaterThan(before)
         } finally {
             host.stopLiveness()
         }
