@@ -47,8 +47,15 @@ services:
       <<: [*local-auth, *local-provider]
     secrets:
       - mcp-auth-token
+    # `healthcheck.test` is a LIST, so this override REPLACES the base command rather than extending
+    # it — every argument the base carries must be restated here or it is silently dropped from the
+    # rendered plane. `--expected-status healthy,degraded` is one of them: without it a Memory Core
+    # that is serving correctly with the host provider down is marked unhealthy, and `ingress` +
+    # `orchestrator` gate on `service_healthy`, so the whole loopback plane fails to come up — taking
+    # a perfectly healthy Knowledge Base with it. This profile wires the host provider explicitly
+    # (`host.docker.internal:1234`), which is precisely the cold-start exposure.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--expected-plane-id", "neo-local-canonical", "--expected-plane-data-root", "/app/.neo-ai-data"]
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--expected-plane-id", "neo-local-canonical", "--expected-plane-data-root", "/app/.neo-ai-data", "--expected-status", "healthy,degraded"]
 
   orchestrator:
     restart: unless-stopped
