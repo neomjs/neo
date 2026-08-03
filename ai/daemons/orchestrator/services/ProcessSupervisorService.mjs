@@ -33,7 +33,7 @@ const CHILD_LOG_PREFIX = /^(?:\[?\d{4}-\d{2}-\d{2}T[\d:.]+Z\]?\s*)?(?<pid>\[PID:
  * entry in the task definition's own `env`.
  * @type {Number}
  */
-const DEFAULT_SUPERVISED_TASK_HEAP_MB = 512;
+const DEFAULT_SUPERVISED_TASK_HEAP_MB = 384;
 
 /**
  * @summary Builds a supervised child's environment with an explicit heap ceiling.

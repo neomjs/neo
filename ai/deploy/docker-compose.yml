@@ -344,14 +344,30 @@ services:
     # NODE_OPTIONS is inherited by every child and the container budget is silently multiplied by
     # the number of concurrent Node processes rather than spent once.
     #
-    # This container is measured at 2 concurrent Node processes: the daemon at pid 1 plus one
-    # supervised task (the heavy-maintenance lease serialises the 11 heavy tasks, so at most one of
-    # those runs at a time). The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
-    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-1024} ${SERVER_ENTRYPOINT}"]
+    # The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
+    #
+    # The concurrent-process count is NOT fully established, and the budget below says so rather than
+    # implying precision it does not have. What is known: 20 supervised task keys exist, the
+    # heavy-maintenance lease serialises 11 of them, and the remaining 9 can in principle run
+    # alongside a heavy task. What was observed here is 2 concurrent Node processes and only two task
+    # types ever started — but that observation comes from a plane dying every ~3 minutes, which never
+    # lives long enough to reach steady state, so the hourly and daily tasks have never started at
+    # all. An idle or crash-looping plane cannot show you its maximum.
+    # `$$SERVER_ENTRYPOINT` is escaped so Compose does NOT interpolate it. It is a CONTAINER env set
+    # by the Dockerfile, so config-time interpolation resolves it against the HOST environment, finds
+    # nothing, and renders `node --max-old-space-size=1024 ` — a node invocation with no script.
+    # `docker compose config` reports that as a warning and still exits 0, so an exit-code check
+    # passes while the rendered command is broken. `$$` defers expansion to the container's own sh.
+    # `${NEO_ORCHESTRATOR_HEAP_MB}` is deliberately NOT escaped: it is a deployment override and is
+    # meant to resolve from the operator's environment at config time.
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-1024} \"$$SERVER_ENTRYPOINT\""]
     deploy:
       resources:
-        # Budget, stated rather than inherited: parent 1024 + one supervised child 512 = 1536 MB of
-        # V8, leaving ~1.5g for native footprint across the tree and a third process appearing.
+        # Budget, stated rather than inherited: parent 1024 + up to TWO concurrent children at 384 =
+        # 1792 MB of V8, leaving ~1.2g for native footprint across the tree. Deliberately provisional
+        # — the true concurrent maximum cannot be observed until the plane survives long enough to
+        # reach steady state, and establishing it is a gate on #16463 rather than a number guessed
+        # here. If it proves higher, the child ceiling comes down before the limit goes up.
         #
         # The container limit cannot be raised on its own. Node sizes its DEFAULT old-space from the
         # cgroup, so a bigger container silently raises the implicit ceiling of every child that has

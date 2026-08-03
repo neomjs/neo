@@ -1131,7 +1131,7 @@ test.describe('#16459 — the parent/child heap boundary', () => {
             baseEnv: {NODE_OPTIONS: '--max-old-space-size=1024', PATH: '/usr/bin'}
         });
 
-        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=512');
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=384');
         expect(env.NODE_OPTIONS).not.toContain('1024');
         expect(env.PATH).toBe('/usr/bin');
     });
@@ -1144,7 +1144,7 @@ test.describe('#16459 — the parent/child heap boundary', () => {
     test('a child with no inherited ceiling still gets an explicit one', () => {
         const env = buildSupervisedTaskEnv({baseEnv: {PATH: '/usr/bin'}});
 
-        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=512');
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=384');
     });
 
     test('a task that declares its own ceiling keeps it — the definition is not overridden', () => {
