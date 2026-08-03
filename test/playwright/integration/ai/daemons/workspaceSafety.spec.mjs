@@ -38,9 +38,13 @@ const __dirname    = path.dirname(__filename);
 const repoRoot     = path.resolve(__dirname, '../../../../..');
 const DAEMON_ENTRY = path.join(repoRoot, 'ai/daemons/orchestrator/daemon.mjs');
 
+// `SIGKILL_REAP_MS` is how long to keep waiting for `exit` AFTER SIGKILL: a signalled process is not
+// a reaped one, and the workspace removal must not begin until it is. Reaching that bound means an
+// unkillable child, never the expected path — see `terminateDaemon`.
 const BOOT_TIMEOUT_MS  = 30000;
 const PULSE_TIMEOUT_MS = 30000;
 const SIGTERM_GRACE_MS = 5000;
+const SIGKILL_REAP_MS  = 5000;
 
 /**
  * @summary Returns true when the path exists.
@@ -193,9 +197,29 @@ async function waitForLogContent(logPath, predicate, timeoutMs, {
 }
 
 /**
- * @summary Sends SIGTERM and waits for the child process to exit, force-killing on timeout.
+ * @summary Sends SIGTERM and waits for the child process to ACTUALLY exit, escalating to SIGKILL.
+ *
+ * **Resolving on `kill()` rather than on `exit` is the teardown race.** Signals are asynchronous:
+ * `kill('SIGKILL')` marks the process for termination and returns immediately, so a caller that
+ * resolves there hands control back while the daemon is still alive and still writing. Teardown then
+ * starts a recursive removal of a workspace whose owner is mid-write, and `rmdir` fires against a
+ * directory that just became non-empty again — `ENOTEMPTY`, on a case whose assertions all passed.
+ *
+ * The AC4 case is the one guaranteed to hit it: its contract IS "degrades **with log**", and it runs
+ * with a 1s heartbeat and a 500ms poll, so it is producing filesystem writes continuously until the
+ * instant it dies. That is why 49 of 50 stay green.
+ *
+ * So both paths await `exit`, and the SIGKILL escalation is a second wait rather than a resolution.
+ * The final bound exists only so an unkillable child cannot hang the suite forever; reaching it is a
+ * real defect, and it resolves `signal: 'SIGKILL-timeout'` so teardown can tell.
+ *
+ * Deliberately NOT repaired with a tolerant `fs.rm({maxRetries})`. Retrying would let the removal
+ * win the race often enough to look fixed, while the teardown still returns before its subject is
+ * dead — the same defect, quieter, and a regression of this function would then surface only as
+ * intermittent CI failures again.
+ *
  * @param {import('node:child_process').ChildProcess} daemonProcess
- * @returns {Promise<{code:Number|null, signal:String|null}>}
+ * @returns {Promise<{code:Number|null, signal:String|null}>} Resolves only once the child is reaped.
  */
 async function terminateDaemon(daemonProcess) {
     if (!daemonProcess || daemonProcess.exitCode !== null) {
@@ -203,23 +227,41 @@ async function terminateDaemon(daemonProcess) {
     }
 
     return new Promise(resolve => {
-        const timeout = setTimeout(() => {
+        let settled = false;
+
+        const finish = (code, signal) => {
+            if (!settled) {
+                settled = true;
+                resolve({code, signal});
+            }
+        };
+
+        // The only resolution that means "the child is gone", whichever signal got it there.
+        daemonProcess.once('exit', (code, signal) => {
+            clearTimeout(graceTimer);
+            clearTimeout(hardTimer);
+            finish(code, signal);
+        });
+
+        const graceTimer = setTimeout(() => {
             try {
                 daemonProcess.kill('SIGKILL');
             } catch {}
-            resolve({code: daemonProcess.exitCode, signal: 'SIGKILL'});
+            // No resolve here: SIGKILL is asynchronous, so the process is still running. Keep waiting
+            // for `exit` above — that is the whole point of this repair.
         }, SIGTERM_GRACE_MS);
 
-        daemonProcess.once('exit', (code, signal) => {
-            clearTimeout(timeout);
-            resolve({code, signal});
-        });
+        const hardTimer = setTimeout(() => {
+            clearTimeout(graceTimer);
+            finish(daemonProcess.exitCode, 'SIGKILL-timeout');
+        }, SIGTERM_GRACE_MS + SIGKILL_REAP_MS);
 
         try {
             daemonProcess.kill('SIGTERM');
         } catch {
-            clearTimeout(timeout);
-            resolve({code: daemonProcess.exitCode, signal: null});
+            clearTimeout(graceTimer);
+            clearTimeout(hardTimer);
+            finish(daemonProcess.exitCode, null);
         }
     });
 }
@@ -256,10 +298,23 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
 
     test.afterEach(async () => {
         if (daemonProcess) {
-            await terminateDaemon(daemonProcess);
+            const {signal} = await terminateDaemon(daemonProcess);
+
+            // Asserted rather than assumed: removing a workspace whose owner is still writing is
+            // what produced the intermittent ENOTEMPTY. `exitCode === null` here means the child was
+            // never reaped, so a regression of `terminateDaemon` fails this suite deterministically
+            // instead of resurfacing as a flake on somebody else's unrelated PR.
+            expect(daemonProcess.exitCode, `daemon not reaped before workspace removal (signal=${signal})`)
+                .not.toBeNull();
         }
         if (workspaceDir) {
-            await fs.rm(workspaceDir, {recursive: true, force: true});
+            // `force` only swallows ENOENT — it does not retry ENOTEMPTY, which is the reported
+            // failure. Bounded retries are a SECOND layer, kept because the ordering repair above is
+            // a proven defect whose link to the observed symptom could not be reproduced locally
+            // (25/25 unreaped returns, 0/25 ENOTEMPTY on APFS); the CI failure was Linux under a far
+            // heavier writer. Tolerance cannot mask a regression of that repair, because the
+            // assertion above fails first and deterministically.
+            await fs.rm(workspaceDir, {recursive: true, force: true, maxRetries: 5, retryDelay: 50});
         }
     });
 
