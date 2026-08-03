@@ -59,14 +59,32 @@ export class FileLeaseHeldError extends Error {
             ? `${holder.owner} pid ${holder.pid} (since ${holder.startedAt})`
             : 'an unverifiable holder (corrupt or unreadable lease state — refusing rather than guessing)';
 
-        super(`${lockLabel} lease ${lockPath} is held by ${who}; ${requester.owner} pid ${requester.pid} ` +
-            `refuses to start a duplicate (single-owner invariant). ${remediation}`.trim());
+        // When the holder's identity is byte-identical to the requester's, the refusal is almost
+        // certainly self-succession: the same slot restarted inside the freshness window and is
+        // being refused against its own predecessor's lease. That is correct behaviour and a
+        // terrible thing to read, because the caller's remediation says to stop a duplicate — and
+        // an operator then hunts for a second process that does not exist while the restart loop's
+        // real cause scrolls past above it. Containers make this the common case rather than the
+        // exotic one: hostname is the container id and the entrypoint is always pid 1, so every
+        // restart reproduces the previous holder's identity exactly.
+        const isSelfSuccession = Boolean(holder) &&
+            holder.owner === requester.owner && holder.pid === requester.pid;
 
-        this.name      = 'FileLeaseHeldError';
-        this.code      = 'FILE_LEASE_HELD';
-        this.lockPath  = lockPath;
-        this.holder    = holder;
-        this.requester = requester;
+        const guidance = isSelfSuccession
+            ? `The holder's identity is identical to yours, so this is very likely your own previous ` +
+              `instance inside the lease freshness window, not a second live process — investigate why ` +
+              `that instance stopped rather than hunting for a duplicate.`
+            : remediation;
+
+        super(`${lockLabel} lease ${lockPath} is held by ${who}; ${requester.owner} pid ${requester.pid} ` +
+            `refuses to start a duplicate (single-owner invariant). ${guidance}`.trim());
+
+        this.name             = 'FileLeaseHeldError';
+        this.code             = 'FILE_LEASE_HELD';
+        this.lockPath         = lockPath;
+        this.holder           = holder;
+        this.requester        = requester;
+        this.selfSuccession   = isSelfSuccession;
     }
 }
 
