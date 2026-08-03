@@ -322,7 +322,8 @@ export function isRetryContext({file, line, symbol}) {
 }
 
 export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
-    const candidates = [];
+    const candidates = [],
+          seenKeys   = new Map();
 
     for (const root of SCAN_ROOTS) {
         for (const file of collectSourceFiles(path.join(rootDir, root))) {
@@ -354,14 +355,28 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
 
                 const symbol = findEnclosingSymbol(lines, index);
 
-                if (!isRetryContext({file: rel, line, symbol})) return;
+                // PARTITION, never exclusion (@neo-gpt-emmy). An earlier revision `return`ed here,
+                // which made a neutral-vocabulary retry — `schedule() { const d = base * 2 ** n }` —
+                // silently invisible: the gate went green with fewer candidates and nothing said why.
+                // Every growth expression is now discovered and reported; `retryContext` decides only
+                // whether classification is REQUIRED, so completeness and signal stop competing.
+                const retryContext = isRetryContext({file: rel, line, symbol});
+
+                // The occurrence ordinal distinguishes two IDENTICAL expressions in one symbol, which
+                // share a fingerprint by construction. Without it the second collapses onto the first
+                // and `diffRegistry`'s Set reports no drift for a site nobody classified.
+                const baseKey    = `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
+                      occurrence = seenKeys.get(baseKey) || 0;
+
+                seenKeys.set(baseKey, occurrence + 1);
 
                 candidates.push({
-                    key    : `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
+                    key    : occurrence === 0 ? baseKey : `${baseKey}#${occurrence}`,
                     file   : rel,
                     line   : index + 1,
                     symbol,
                     pattern: hit.id,
+                    retryContext,
                     snippet: line.trim().slice(0, 120)
                 });
             });
@@ -389,11 +404,27 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
  * @returns {String[]} Problems; empty when every named path exists.
  */
 export function unresolvedWitnessPaths(key, witness, rootDir = ROOT_DIR) {
-    const paths = witness.match(/\b(?:ai|src|apps|test|buildScripts|learn)\/[\w./-]*\.\w+/g) || [];
+    const refs     = witness.match(/\b(?:ai|src|apps|test|buildScripts|learn)\/[\w./-]*\.\w+(?:#[\w$]+)?/g) || [],
+          problems = [];
 
-    return [...new Set(paths)]
-        .filter(rel => !fs.existsSync(path.join(rootDir, rel)))
-        .map(rel => `${key}: witness names ${rel}, which does not exist — a witness that cannot be resolved is not evidence.`)
+    for (const ref of [...new Set(refs)]) {
+        const [rel, symbol] = ref.split('#'),
+              abs           = path.join(rootDir, rel);
+
+        if (!fs.existsSync(abs)) {
+            problems.push(`${key}: witness names ${rel}, which does not exist — a witness that cannot be resolved is not evidence.`);
+            continue;
+        }
+
+        // An existing file plus a symbol that is not in it passed before: the path resolved, so the
+        // witness looked checked. A renamed guard leaves exactly that shape, which is the case the
+        // resolution exists to catch.
+        if (symbol && !fs.readFileSync(abs, 'utf8').includes(symbol)) {
+            problems.push(`${key}: witness names ${symbol} in ${rel}, which does not contain it — the cited proof does not resolve.`);
+        }
+    }
+
+    return problems
 }
 
 /**
@@ -443,16 +474,22 @@ export function validateEntry(key, entry) {
  * @param {Object} options
  * @param {Object[]} options.candidates Discovered candidates.
  * @param {Object} options.registry Registry `sites` map.
- * @returns {{unclassified: Object[], stale: String[], invalid: String[]}}
+ * @returns {{unclassified: Object[], uncontexted: Object[], stale: String[], invalid: String[]}}
  */
 export function diffRegistry({candidates, registry}) {
-    const discovered   = new Set(candidates.map(c => c.key)),
-          registered   = Object.keys(registry),
-          unclassified = candidates.filter(c => !registry[c.key]),
+    const discovered = new Set(candidates.map(c => c.key)),
+          registered = Object.keys(registry),
+          // Only retry-context candidates are REQUIRED to be classified. The rest are still
+          // discovered, still reported, and may still be registered — they simply do not fail the
+          // gate. Asking a canvas physics loop to declare a backoff cap is how a gate gets routed
+          // around; hiding the loop entirely is how a real retry goes missing. The partition is the
+          // only arrangement that refuses both.
+          unclassified = candidates.filter(c => c.retryContext && !registry[c.key]),
+          uncontexted  = candidates.filter(c => !c.retryContext && !registry[c.key]),
           stale        = registered.filter(key => !discovered.has(key)),
           invalid      = registered.flatMap(key => validateEntry(key, registry[key]));
 
-    return {unclassified, stale, invalid};
+    return {unclassified, uncontexted, stale, invalid};
 }
 
 /**
@@ -478,12 +515,22 @@ function loadRegistry(rootDir = ROOT_DIR) {
  * @returns {{exitCode: Number}}
  */
 export function runLint() {
-    const candidates                     = discoverCandidates(),
-          registry                       = loadRegistry(),
-          {unclassified, stale, invalid} = diffRegistry({candidates, registry});
+    const candidates                                  = discoverCandidates(),
+          registry                                    = loadRegistry(),
+          {unclassified, uncontexted, stale, invalid} = diffRegistry({candidates, registry});
+
+    // The census prints on EVERY run, pass or fail. It is the record of what was examined — the
+    // property the partition must not cost. A growth expression outside retry vocabulary is visible
+    // here, so a retry whose naming this gate cannot recognise is under a reader's eye rather than
+    // silently absent, and can be registered deliberately if it turns out to be one.
+    if (uncontexted.length > 0) {
+        console.log(`[lint-retry-bounds] ${uncontexted.length} growth expression(s) outside retry vocabulary — reported, NOT gated:`);
+        uncontexted.forEach(c => console.log(`  ${c.file}:${c.line}  ${c.snippet}`));
+        console.log('  If one of these IS a retry, register it: the gate cannot see it by naming alone.\n');
+    }
 
     if (unclassified.length === 0 && stale.length === 0 && invalid.length === 0) {
-        console.log(`[lint-retry-bounds] ${candidates.length} retry-growth candidate(s), all classified.`);
+        console.log(`[lint-retry-bounds] ${candidates.length - uncontexted.length} retry-context candidate(s), all classified; ${uncontexted.length} reported ungated.`);
         return {exitCode: 0};
     }
 
@@ -495,7 +542,7 @@ export function runLint() {
         });
         console.error(`\n  Classify each in ${REGISTRY_REL}. If it is an easing curve, a random distribution, or any`);
         console.error('  other non-retry use of the same syntax, classify it as `not-a-retry` — with a witness. Do not');
-        console.error('  widen the discovery patterns to hide it: the record of what was examined is the point.\n');
+        console.error('  narrow the discovery patterns to hide it: the record of what was examined is the point.\n');
     }
 
     if (stale.length > 0) {

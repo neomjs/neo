@@ -38,7 +38,7 @@
             "kind": "retry-growth",
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",
-            "witness": "caller loop `for (let attempt = 0; attempt <= maxRetries; attempt++)` at ai/daemons/message/drainCycle.mjs#drainMessageWalRecords",
+            "witness": "caller loop `for (let attempt = 0; attempt <= maxRetries; attempt++)` at ai/daemons/message/drainCycle.mjs#processMessageBatch",
             "note": "Returns a RAW exponential and is indistinguishable from a defect at the growth site; the bound is the caller. This is the case that defeats any returned-vs-consumed heuristic."
         },
         "ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs#isRepoDue:6475b546": {
