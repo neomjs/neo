@@ -262,11 +262,16 @@ services:
     # Served identity, same contract as kb-server above — both servers declare `plane {id, dataRoot}`
     # in their healthcheck response schema, so both can be asked to prove which plane they serve.
     healthcheck:
+      # Restated, not inherited: a list-valued `healthcheck.test` override REPLACES the base command.
+      # The parity stack runs beside the canonical plane against a real provider, so it carries the
+      # same cold-start exposure — a degraded-but-serving Memory Core must not gate startup here
+      # either. `unhealthy` still fails.
       test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs",
              "--url", "http://127.0.0.1:3001",
              "--client-name", "neo-mc-parity-healthcheck",
              "--expected-plane-id", *plane-id,
-             "--expected-plane-data-root", "/app/.neo-ai-data-parity"]
+             "--expected-plane-data-root", "/app/.neo-ai-data-parity",
+             "--expected-status", "healthy,degraded"]
       interval: 15s
       timeout: 10s
       retries: 10

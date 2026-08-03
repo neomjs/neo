@@ -340,6 +340,10 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             'neo-kb-container-healthcheck'
         ]);
 
+        // MC alone opts into treating `degraded` as alive: its non-WAL dependencies are best-effort
+        // by design, so a provider-dependent canary must not mark the container unhealthy and gate
+        // every service waiting on it. KB above carries no opt-in — it measured healthy throughout
+        // the incident window and does not degrade on a cold embedding provider.
         expect(compose.services['mc-server'].healthcheck.test).toEqual([
             'CMD',
             'node',
@@ -347,9 +351,14 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
             '--url',
             'http://127.0.0.1:3001',
             '--client-name',
-            'neo-mc-container-healthcheck'
+            'neo-mc-container-healthcheck',
+            '--expected-status',
+            'healthy,degraded'
         ]);
 
+        // The gate itself is deliberately UNCHANGED. `service_healthy` still guards startup; what
+        // changed is which server states count as healthy. Relaxing this to `service_started` would
+        // have let a genuinely broken Memory Core through, which is a worse defect than the one fixed.
         expect(compose.services.orchestrator.depends_on['kb-server']).toEqual({condition: 'service_healthy'});
         expect(compose.services.orchestrator.depends_on['mc-server']).toEqual({condition: 'service_healthy'});
     });
@@ -569,5 +578,165 @@ test.describe('served-plane verification — a healthy status is not an identity
             url   : 'http://127.0.0.1:8100/',
             plane : {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'}
         });
+    });
+});
+
+/**
+ * @summary `degraded` is alive, and one provider must not remove the plane's ingress.
+ *
+ * Memory Core treats its non-WAL dependencies as best-effort by design: a provider-dependent canary
+ * must never veto MCP startup, or the mandatory end-of-turn save disappears exactly when a degraded
+ * deployment most needs lossless WAL capture. The container probe disagreed — it accepted only
+ * `healthy` — so a server that was serving correctly with one provider unreachable was marked
+ * unhealthy, and `ingress` + `orchestrator` both gate on `service_healthy`.
+ *
+ * Measured during a real cold boot: `mc-server` unhealthy with a failing streak of 56 while its WAL
+ * was caught-up and it answered over the ingress, `kb-server` perfectly healthy — and the documented
+ * `up -d --wait` start command could not bring the plane up, taking the Knowledge Base down with it.
+ *
+ * These specs pin the agreement between the two layers, and the bound that keeps it from becoming a
+ * relaxation: `unhealthy` stays the failing verdict.
+ */
+test.describe('mcpHealthcheck — a liveness expectation is a SET', () => {
+    let parseExpectedStatuses, runHealthcheck;
+
+    const readProductionCompose = () => yaml.load(fs.readFileSync(
+        new URL('../../../../../../ai/deploy/docker-compose.yml', import.meta.url),
+        'utf8'
+    ));
+
+    /** Minimal transport + client pair returning one status. */
+    class FakeTransport {}
+
+    const clientReturning = status => class {
+        async connect() {}
+        async callTool() { return {structuredContent: {status}} }
+        async close() {}
+    };
+
+    const probe = (status, expectedStatus) => runHealthcheck({
+        url           : 'http://127.0.0.1:3001',
+        ...(expectedStatus ? {expectedStatus} : {}),
+        ClientClass   : clientReturning(status),
+        TransportClass: FakeTransport
+    });
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs');
+
+        parseExpectedStatuses = mod.parseExpectedStatuses;
+        runHealthcheck        = mod.runHealthcheck;
+    });
+
+    test('a single value stays a single value — the existing default is untouched', () => {
+        expect(parseExpectedStatuses('healthy')).toEqual(['healthy']);
+    });
+
+    test('a comma-separated list becomes the accepted set, trimmed and de-duplicated', () => {
+        expect(parseExpectedStatuses('healthy,degraded')).toEqual(['healthy', 'degraded']);
+        expect(parseExpectedStatuses(' healthy , degraded ')).toEqual(['healthy', 'degraded']);
+        expect(parseExpectedStatuses('healthy,healthy')).toEqual(['healthy']);
+    });
+
+    test('an EMPTY expectation throws — a healthcheck that cannot fail is not a healthcheck', () => {
+        // The realistic arrival is a misconfigured argument, and the dangerous resolution is
+        // "accept anything". Fail at parse rather than silently widening the gate.
+        for (const value of ['', '   ', ',', ' , ', null, undefined]) {
+            expect(() => parseExpectedStatuses(value), JSON.stringify(value)).toThrow(/not a healthcheck/);
+        }
+    });
+
+    test('THE FIX: with the set, a degraded-but-serving Memory Core PASSES', async () => {
+        await expect(probe('degraded', 'healthy,degraded')).resolves.toMatchObject({status: 'degraded'});
+    });
+
+    test('…and healthy still passes — the set widens, it does not swap', async () => {
+        // Load-bearing: a single-literal expectation of `degraded` would have made the WELL state
+        // fail. That impossibility is why the option had to become a set rather than a new default.
+        await expect(probe('healthy', 'healthy,degraded')).resolves.toMatchObject({status: 'healthy'});
+    });
+
+    test('THE BOUND: `unhealthy` still fails, so the signal is not flattened', async () => {
+        await expect(probe('unhealthy', 'healthy,degraded'))
+            .rejects.toThrow(/Expected healthcheck status 'healthy' or 'degraded', got 'unhealthy'/);
+    });
+
+    test('REGRESSION GUARD: the DEFAULT expectation still rejects degraded', async () => {
+        // Callers that pass nothing keep the old contract exactly. Only the deployment that opted in
+        // treats degraded as alive; nothing else silently loosened.
+        await expect(probe('degraded')).rejects.toThrow(/Expected healthcheck status 'healthy', got 'degraded'/);
+    });
+
+    /**
+     * `healthcheck.test` is a LIST, and Compose REPLACES list-valued fields across `-f` layers
+     * rather than merging them. So an overlay that restates the whole command to add plane
+     * assertions silently drops every argument the base carried — and the first version of this fix
+     * did exactly that: the base opted in, the canonical local overlay overrode it, and the plane
+     * the incident happened on rendered the old healthy-only probe. Green CI, unchanged deployment.
+     *
+     * Asserted over EVERY compose file that overrides the command rather than over one rendered
+     * composition, because a rendered check only covers the layerings someone thought to enumerate.
+     * This one cannot be escaped by adding a profile.
+     */
+    const composeFiles = ['docker-compose.yml', 'docker-compose.local-agent-os.yml', 'docker-compose.dev.yml'];
+
+    /**
+     * Reads one deploy compose file and returns each service's healthcheck command as a string.
+     *
+     * Compose's merge tags (`!override`, `!reset`) are not core YAML, and a plain `yaml.load` THROWS
+     * on the overlay that uses them — which is the one file that carried this defect. They are
+     * stripped rather than schema-registered because this js-yaml build exposes no `Type` /
+     * `DEFAULT_SCHEMA` on its ESM namespace; the tags only annotate merge behaviour and carry no
+     * value this assertion reads.
+     *
+     * @param {String} file
+     * @returns {Object} `{service: joinedCommand}` for services that define `healthcheck.test`.
+     */
+    function healthcheckCommands(file) {
+        const source = fs
+            .readFileSync(new URL(`../../../../../../ai/deploy/${file}`, import.meta.url), 'utf8')
+            .replace(/(:[ \t]*)![a-z]+\b/g, '$1');
+
+        const doc = yaml.load(source);
+
+        return Object.fromEntries(
+            Object.entries(doc.services || {})
+                .filter(([, service]) => Array.isArray(service?.healthcheck?.test))
+                .map(([name, service]) => [name, service.healthcheck.test.join(' ')])
+        );
+    }
+
+    test('EVERY compose file that owns an mc-server healthcheck command carries the liveness set', () => {
+        const owning = composeFiles.filter(file => healthcheckCommands(file)['mc-server']);
+
+        // The sweep is only as good as its population: if this ever finds nothing, the assertion
+        // below is vacuously true and proves nothing.
+        expect(owning.length).toBeGreaterThanOrEqual(3);
+
+        for (const file of owning) {
+            expect(healthcheckCommands(file)['mc-server'], file).toContain('--expected-status healthy,degraded');
+        }
+    });
+
+    test('the canonical local composition renders the liveness set — the documented two-file order', () => {
+        // The runbook's start command is base + local overlay, in that order. Compose replaces the
+        // list, so the LAST file that defines it wins; that resolved command is what the plane runs.
+        const [, local] = composeFiles.map(file => healthcheckCommands(file)['mc-server']);
+
+        expect(local).toContain('--expected-status healthy,degraded');
+        expect(local).toContain('--expected-plane-id neo-local-canonical');  // identity assertions retained
+    });
+
+    test('the change is SCOPED: no kb-server healthcheck opts in, in any file', () => {
+        // kb-server measured `healthy` throughout the incident window — it does not degrade on a cold
+        // embedding provider, so it needs no opt-in. Pinned across every file so a future blanket
+        // edit is visible rather than inherited.
+        for (const file of composeFiles) {
+            const command = healthcheckCommands(file)['kb-server'];
+
+            if (command) {
+                expect(command, file).not.toContain('--expected-status');
+            }
+        }
     });
 });

@@ -205,8 +205,21 @@ services:
     # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
+    #
+    # `degraded` counts as ALIVE here, and that is a deliberate agreement with the server rather
+    # than a relaxation. Memory Core treats its non-WAL dependencies as best-effort on purpose
+    # (Server.mjs `prepareStartupDependency`): a provider-dependent canary must never veto MCP
+    # startup, or the mandatory end-of-turn save disappears exactly when a degraded deployment most
+    # needs lossless WAL capture. This probe defaulted to `healthy` only, so a server that was
+    # serving correctly with one provider unreachable was marked unhealthy — and because `ingress`
+    # and `orchestrator` both gate on `service_healthy`, a cold host whose embedding provider was
+    # not yet up lost its entire loopback plane, taking the Knowledge Base down with it despite
+    # `kb-server` being perfectly healthy.
+    #
+    # `unhealthy` is still failing, and is still the only failing verdict. The point is to
+    # distinguish the two, not to erase both.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck", "--expected-status", "healthy,degraded"]
       interval: 10s
       timeout: 10s
       retries: 12
