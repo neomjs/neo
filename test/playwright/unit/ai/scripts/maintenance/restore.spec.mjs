@@ -1092,6 +1092,18 @@ test.describe('verifyLatestBackupRestorable — falls back past an unusable newe
         expect(verdict.examined).toBe(2);
     });
 
+    test('an abrupt-death staging directory is never a restore candidate, even when it contains parseable rows (#16417)', async () => {
+        writeValidBundle('backup-2026-08-01T12-13-23.398Z');
+        writeValidBundle('.backup-partial-backup-2026-08-02T05-12-55.917Z-dead-process');
+
+        const verdict = await verifyLatestBackupRestorable({backupRoot: probeRoot, logger: silent});
+
+        expect(verdict.restorable).toBe(true);
+        expect(verdict.bundleRoot).toContain('backup-2026-08-01T12-13-23.398Z');
+        expect(verdict.examined).toBe(1);
+        expect(verdict.skipped).toEqual([]);
+    });
+
     test('the fallback crosses every unusable class, not just the one that caused the incident', async () => {
         // Three distinct failure shapes stacked ABOVE the only good bundle. If the walk only handled
         // the shape it was written for, one of these would stop it.
