@@ -6,7 +6,9 @@ import {
     diffRegistry,
     discoverCandidates,
     findEnclosingSymbol,
+    isRetryContext,
     stripLiterals,
+    unresolvedWitnessPaths,
     validateEntry
 } from '../../../../../../ai/scripts/lint/lint-retry-bounds.mjs';
 
@@ -15,6 +17,20 @@ const ROOT_DIR = path.resolve(process.cwd()),
       SITES    = REGISTRY.sites,
       LIVE     = discoverCandidates({rootDir: ROOT_DIR});
 
+/**
+ * Looks a site up by `file#symbol`, ignoring the expression fingerprint.
+ *
+ * Keying on the full registry key would make every assertion churn whenever an unrelated character
+ * of the expression changes, which is the opposite of what the fingerprint is for.
+ */
+function siteStartingWith(prefix) {
+    const hit = Object.entries(SITES).find(([key]) => key.startsWith(prefix));
+
+    expect(hit, `no registry entry starts with ${prefix}`).toBeTruthy();
+
+    return hit[1];
+}
+
 test.describe('lint-retry-bounds — discovery + explicit bound classification (#16443)', () => {
     /**
      * The guard's whole premise: the candidate set comes from a scan, not from a hand-maintained
@@ -22,7 +38,7 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
      * three times before this ticket existed.
      */
     test('the candidate set is DISCOVERED, and the live tree is fully classified', () => {
-        expect(LIVE.length).toBeGreaterThan(20);
+        expect(LIVE.length).toBeGreaterThan(10);
 
         const {unclassified, stale, invalid} = diffRegistry({candidates: LIVE, registry: SITES});
 
@@ -82,7 +98,7 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
      * exponential; the bound is the caller's loop.
      */
     test('message drain classifies in-cycle/max-attempts — the bound is in the CALLER', () => {
-        const entry = SITES['ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs'];
+        const entry = siteStartingWith('ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs');
 
         expect(entry.kind).toBe('retry-growth');
         expect(entry.lifetime).toBe('in-cycle');
@@ -95,7 +111,7 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
      * grows here by design; a terminal state stops the series.
      */
     test('freeze reprobe classifies terminal-state — a growing delay that is still bounded', () => {
-        const entry = SITES['ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe'];
+        const entry = siteStartingWith('ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe');
 
         expect(entry.boundCarrier).toBe('terminal-state');
         expect(entry.lifetime).toBe('persisted');
@@ -110,24 +126,66 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
     });
 
     /**
-     * The false-positive family is RECORDED, not filtered. A path/filename exclusion would hide the
-     * examined set behind a regex nobody audits — and would silently swallow a future retry site
-     * that happened to live in an excluded path.
+     * Supersedes an earlier test asserting the non-retry family is recorded rather than filtered.
+     * That design collapsed on measurement: a full-tree run produced 62 candidates of which 34 sat
+     * outside `ai/` and only 3 of those were retries — the rest were `(x2 - x1) ** 2`,
+     * `Math.pow(1 - progress, 3)` and `1000 ** i`. Asking a canvas physics loop to declare its
+     * backoff cap makes a gate developers route around, and 14 registry rows saying "Euclidean
+     * distance is not a retry" record nothing worth reading.
+     *
+     * The exclusion is SEMANTIC, not a path filter — which is what the superseded test was really
+     * protecting against, and that property is asserted directly below.
      */
-    test('non-retry matches are classified with witnesses, not path-filtered away', () => {
-        const notRetries = Object.entries(SITES).filter(([, e]) => e.kind === 'not-a-retry');
+    test('the discriminator excludes non-retries by vocabulary, never by path', () => {
+        // Same scan roots, opposite verdicts — so the exclusion cannot be a path rule.
+        expect(isRetryContext({file: 'src/main/DomEvents.mjs',        line: 'return Math.sqrt((x2 - x1) ** 2)', symbol: 'getDistance'})).toBe(false);
+        expect(isRetryContext({file: 'src/canvas/Sparkline.mjs',      line: 'progress = 1 - Math.pow(1 - progress, 3);', symbol: 'renderLoop'})).toBe(false);
+        expect(isRetryContext({file: 'src/form/field/FileUpload.mjs', line: 'bytes / (1000 ** i)', symbol: 'formatSize'})).toBe(false);
 
-        expect(notRetries.length).toBeGreaterThan(5);
-        notRetries.forEach(([key, entry]) => {
-            expect(entry.witness, `${key} needs a witness`).toBeTruthy();
-            expect(entry.lifetime).toBeUndefined();
-            expect(entry.boundCarrier).toBeUndefined();
+        expect(isRetryContext({file: 'src/data/connection/WebSocket.mjs', line: 'backoffStrategy: attempt => Math.min(1000 * Math.pow(2, attempt - 1), 30000),', symbol: '<module>'})).toBe(true);
+        expect(isRetryContext({file: 'apps/devindex/services/GitHub.mjs', line: 'this.restRetryBaseDelayMs * 2 ** (attempt - 1)', symbol: '#getRetryDelay'})).toBe(true);
+    });
+
+    /**
+     * The regression guard for the bug this discriminator introduced and nearly shipped: the first
+     * draft used `\b`-delimited words, and `\bconsecutive\b` does not match `consecutiveFailures`
+     * because a word character follows. That silently dropped `tenantRepoSync#isRepoDue` — the site
+     * whose unbounded backoff once starved a tenant sync lane for over a day. camelCase is the
+     * dominant identifier style here, so word-boundary anchoring fails precisely on the
+     * highest-value sites, and it fails by omission rather than by error.
+     */
+    test('camelCase identifiers are matched — the sites that motivated the gate stay discovered', () => {
+        expect(isRetryContext({file: 'ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs', line: 'const backoffMultiplier = Math.pow(2, Math.max(0, consecutiveFailures));', symbol: 'isRepoDue'})).toBe(true);
+        expect(isRetryContext({file: 'src/manager/DragCoordinator.mjs', line: '2 ** Math.min(candidate.dispositionAttempts - 1, 4)', symbol: 'settleNativeWindowDisposition'})).toBe(true);
+
+        const discovered = LIVE.map(c => c.file);
+
+        ['tenantRepoSync.mjs', 'boundedRetryGate.mjs', 'ai/agent/Loop.mjs', 'DragCoordinator.mjs']
+            .forEach(marker => expect(discovered.some(f => f.includes(marker)), `${marker} must stay discovered`).toBe(true));
+    });
+
+    /**
+     * A witness naming a spec deleted two refactors ago reads exactly like one naming a live spec,
+     * so presence was never evidence. Resolution is deliberately limited to PATHS — symbols and
+     * clamps still rest on review, and claiming otherwise would be its own unwitnessed assertion.
+     */
+    test('a witness naming a path that does not exist is not evidence', () => {
+        expect(unresolvedWitnessPaths('k', 'guard at ai/agent/Loop.mjs')).toEqual([]);
+        expect(unresolvedWitnessPaths('k', '`Math.min(a, b)` clamp in the same expression')).toEqual([]);
+
+        expect(unresolvedWitnessPaths('k', 'proven by test/playwright/unit/ai/deleted/gone.spec.mjs').join(' '))
+            .toMatch(/does not exist/);
+
+        // And it is wired into entry validation, not merely available.
+        expect(validateEntry('k', {
+            kind: 'not-a-retry', witness: 'see ai/services/vanished/Nope.mjs'
+        }).join(' ')).toMatch(/does not exist/);
+    });
+
+    test('every live witness resolves', () => {
+        Object.entries(SITES).forEach(([key, entry]) => {
+            expect(unresolvedWitnessPaths(key, entry.witness)).toEqual([]);
         });
-
-        // Canvas easing lives under apps/ and src/ — both inside the scan roots, proving the family
-        // is reached and classified rather than excluded by path.
-        expect(notRetries.some(([key]) => key.startsWith('src/'))).toBe(true);
-        expect(notRetries.some(([key]) => key.startsWith('apps/'))).toBe(true);
     });
 
     test('literal contents cannot match — markdown bold is not an exponent', () => {

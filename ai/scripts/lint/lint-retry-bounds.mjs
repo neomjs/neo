@@ -68,6 +68,35 @@ const
         {id: 'mutate',   re: /\b(backoff|delay|interval|cooldown|wait|retry)\w*\s*\*=/i}
     ],
 
+    /**
+     * Retry vocabulary — the discriminator between "a growth expression" and "a retry growth
+     * expression", which are not the same population.
+     *
+     * Without it the syntactic patterns above are indiscriminate, because exponentiation is how you
+     * write Euclidean distance, easing curves, and byte-size formatting. Measured on the first
+     * full-tree run: 34 of 62 candidates were outside `ai/`, and 3 of those 34 were retries — the
+     * rest were `(x2 - x1) ** 2`, `Math.pow(1 - progress, 3)`, `1000 ** i`. A gate that asks a canvas
+     * physics loop to declare its backoff cap is one developers learn to route around, and a
+     * registry padded with 30 `not-a-retry` geometry entries records nothing worth reading.
+     *
+     * This narrows the POPULATION to the concern; it does not narrow the FINDINGS within it. Every
+     * growth expression that is plausibly a retry still has to be classified with a witness.
+     *
+     * **Substring, not `\b`-delimited words.** The first draft used word boundaries and silently
+     * dropped `tenantRepoSync#isRepoDue` — the site whose unbounded backoff once starved a tenant
+     * sync lane for over a day, which is the failure this gate exists to prevent recurring. Its
+     * expression reads `Math.pow(2, Math.max(0, consecutiveFailures))`, and `\bconsecutive\b` does
+     * not match `consecutiveFailures` because a word character follows.
+     * camelCase is the dominant identifier style here, so `\b` anchoring is precisely wrong for
+     * matching identifiers, and its failure mode is silent omission of the highest-value sites.
+     *
+     * **Known false-negative:** a retry whose symbol, expression line, and filename all avoid this
+     * vocabulary — `schedule()` doing `d = base * 2 ** n` — is invisible here. That is a real gap and
+     * the honest bound on what this gate certifies: it proves the retries it can NAME are bounded,
+     * not that every retry in the tree is.
+     */
+    RETRY_VOCABULARY = /(retry|retries|retried|backoff|attempt|reconnect|redeliver|requeue|resend|failure|failing|consecutive|throttle|cooldown|reprobe)/i,
+
     VALID_KIND     = new Set(['retry-growth', 'not-a-retry']),
     VALID_LIFETIME = new Set(['in-cycle', 'process-local', 'persisted']),
     VALID_CARRIER  = new Set(['max-delay', 'max-attempts', 'max-window', 'terminal-state']);
@@ -270,6 +299,28 @@ export function collectSourceFiles(dir, acc = []) {
  * @param {String} [options.rootDir=ROOT_DIR] Repo root.
  * @returns {Object[]} `[{key, file, line, symbol, pattern, snippet}]`, sorted by key.
  */
+/**
+ * Decides whether a growth expression sits in a retry context.
+ *
+ * @summary Reads three surfaces, any one of which is sufficient: the enclosing symbol name, the
+ * expression's own line, and the file's basename. Three rather than one because a retry can be
+ * named at any of them — `getRetryDelay` names it in the symbol, `backoffStrategy: attempt => …`
+ * names it in the line, and a bare growth expression inside `boundedRetryGate.mjs` names it in the
+ * file. A whole-function window was rejected: it drags in unrelated vocabulary from neighbouring
+ * code and makes the verdict depend on where a function happens to end.
+ *
+ * @param {Object} options
+ * @param {String} options.file Repo-relative path.
+ * @param {String} options.line The raw source line holding the expression.
+ * @param {String} options.symbol Enclosing symbol name.
+ * @returns {Boolean}
+ */
+export function isRetryContext({file, line, symbol}) {
+    return RETRY_VOCABULARY.test(symbol || '') ||
+           RETRY_VOCABULARY.test(line   || '') ||
+           RETRY_VOCABULARY.test(path.basename(file || ''))
+}
+
 export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
     const candidates = [];
 
@@ -303,6 +354,8 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
 
                 const symbol = findEnclosingSymbol(lines, index);
 
+                if (!isRetryContext({file: rel, line, symbol})) return;
+
                 candidates.push({
                     key    : `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
                     file   : rel,
@@ -316,6 +369,31 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
     }
 
     return candidates.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+/**
+ * Resolves every repo-relative path a witness names.
+ *
+ * @summary Presence of a witness string is not evidence; a witness naming a spec that was deleted
+ * two refactors ago reads exactly like a witness naming a live one, and the registry would keep
+ * asserting a bound nobody can check. This is the difference between "someone typed a witness" and
+ * "the witness resolves" — and only the second is worth a gate.
+ *
+ * Deliberately narrow: it resolves **paths**, because a path is mechanically checkable, and it does
+ * not attempt to verify that a named symbol or clamp still exists inside the file. Those still rest
+ * on review. Half a resolution beats none, and claiming more would be its own unwitnessed assertion.
+ *
+ * @param {String} key Registry key, for the message.
+ * @param {String} witness The witness text.
+ * @param {String} [rootDir] Repo root.
+ * @returns {String[]} Problems; empty when every named path exists.
+ */
+export function unresolvedWitnessPaths(key, witness, rootDir = ROOT_DIR) {
+    const paths = witness.match(/\b(?:ai|src|apps|test|buildScripts|learn)\/[\w./-]*\.\w+/g) || [];
+
+    return [...new Set(paths)]
+        .filter(rel => !fs.existsSync(path.join(rootDir, rel)))
+        .map(rel => `${key}: witness names ${rel}, which does not exist — a witness that cannot be resolved is not evidence.`)
 }
 
 /**
@@ -338,6 +416,8 @@ export function validateEntry(key, entry) {
 
     if (!entry?.witness || typeof entry.witness !== 'string' || entry.witness.trim().length === 0) {
         problems.push(`${key}: witness is required — name the spec or exported policy that PROVES the classification. An entry without one is a suppression, not a classification.`);
+    } else {
+        problems.push(...unresolvedWitnessPaths(key, entry.witness));
     }
 
     if (entry?.kind === 'retry-growth') {
