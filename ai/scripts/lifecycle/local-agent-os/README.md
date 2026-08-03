@@ -250,8 +250,9 @@ plutil -replace StandardOutPath -string "${NEO_WAKE_RECEIVER_STATE_DIR}/launchd.
 plutil -replace StandardErrorPath -string "${NEO_WAKE_RECEIVER_STATE_DIR}/launchd.err.log" "${NEO_WAKE_PLIST}"
 plutil -lint "${NEO_WAKE_PLIST}"
 
-# `lint` is NOT sufficient here — see the note below. Assert no placeholder survived.
+# `lint` is NOT sufficient here — see the note after this block. Assert no placeholder survived.
 plutil -p "${NEO_WAKE_PLIST}" | grep -q '__' && { echo 'FAIL: placeholder survived in wake plist'; exit 1; }
+```
 
 **Replace the whole `ProgramArguments` array, never an index.** `plutil -replace
 ProgramArguments.0` **inserts** at index 0 instead of replacing it: the
@@ -273,6 +274,7 @@ host receiver through the loopback-mapped host address, so a `0.0.0.0` bind is
 an unnecessary widening — keep it loopback unless a measured LAN path requires
 otherwise.
 
+```sh
 cp ai/deploy/com.neomjs.agent-os-host-edge.plist "${NEO_HOST_EDGE_PLIST}"
 plutil -replace ProgramArguments -json "[\"$(command -v node)\", \"ai/daemons/orchestrator/hostEdge.mjs\"]" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace WorkingDirectory -string "${NEO_REPO_ROOT}" "${NEO_HOST_EDGE_PLIST}"
