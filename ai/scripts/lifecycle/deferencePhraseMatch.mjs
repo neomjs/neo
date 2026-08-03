@@ -91,9 +91,33 @@ function isReportedMentionContext(text, startIndex) {
  * Whitespace alone must be able to bridge: a backticked citation is already replaced by a space in
  * `stripMarkdownCode`, so the idiomatic `` per `§critical_gates #1` that's your call `` reaches this
  * predicate with its citation erased.
+ *
+ * Checked token-by-token rather than as one starred alternation. The alternation form
+ * (`/^(?:…|\d+|#\d+|…)*$/`) had AMBIGUOUS alternatives — a run of digits can be partitioned between
+ * `\d+` and `#\d+` in exponentially many ways, so a long numeric run drove catastrophic backtracking.
+ * CodeQL caught it on this very change (alert 119, "many repetitions of '0'"). Splitting first makes each
+ * token match a single anchored pattern with no outer quantifier, which is linear by construction — the
+ * separator set is the same one that used to live inside the alternation.
  * @type {RegExp}
  */
-const CITATION_BRIDGE = /^(?:[\s,;:.()[\]–—-]|§[\w.-]+|#\d+|\d+|gate|rule|that'?s|that\s+is|it'?s|it\s+is)*$/;
+const CITATION_BRIDGE_TOKEN = /^(?:§[\w.-]+|#\d+|\d+|gate|rule|that'?s|that|it'?s|is)$/;
+
+/**
+ * Splits a bridge into tokens. Empty tokens are expected — a bridge of pure separators (`': '`, or the
+ * whitespace left where a backticked citation was) splits to nothing but empties, and must pass.
+ * @type {RegExp}
+ */
+const CITATION_BRIDGE_SEPARATORS = /[\s,;:.()[\]–—-]+/;
+
+/**
+ * @summary Checks whether every token between a citation anchor and the phrase is citation-shaped.
+ * @param {String} bridge Text between the anchor and the phrase.
+ * @returns {Boolean}
+ */
+function isCitationBridge(bridge) {
+    return bridge.split(CITATION_BRIDGE_SEPARATORS)
+        .every(token => token === '' || CITATION_BRIDGE_TOKEN.test(token));
+}
 
 /**
  * Anchors a citation of a prior operator decision. Matched RIGHTMOST — the greedy head pushes the anchor
@@ -118,7 +142,7 @@ function isAttributiveCitationContext(phrase, text, startIndex) {
     const prefix  = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase(),
           anchored = CITATION_ANCHOR.exec(prefix);
 
-    return anchored !== null && CITATION_BRIDGE.test(anchored[1]);
+    return anchored !== null && isCitationBridge(anchored[1]);
 }
 
 /**
