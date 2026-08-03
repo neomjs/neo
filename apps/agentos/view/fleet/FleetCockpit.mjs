@@ -32,6 +32,14 @@ import '../../../../src/tab/Container.mjs'; // registers the `tab-container` nty
  * at the surface that died.
  * @type {Number}
  */
+/**
+ * Brain daemon states the shell lifecycle owner can report. Mirrors `BRAIN_STATES` in
+ * `harness/appLifecycle.mjs` — the hemisphere boundary forbids importing it (apps code stays
+ * shell-agnostic), so the vocabulary is duplicated here and anything outside it is unknown → silent.
+ * @type {String[]}
+ */
+const BRAIN_HEALTH_STATES = Object.freeze(['degraded', 'running', 'stopped']);
+
 const LIVENESS_POLL_INTERVAL = 15000;
 
 /**
@@ -288,6 +296,39 @@ class FleetCockpit extends Container {
      * @protected
      */
     dockPreviewProducer = null
+    /**
+     * In-flight latch for {@link #loadBrainHealth} — one health pull airborne at a time, the same
+     * overlap suppression the liveness tick applies to the surface reads.
+     * @member {Boolean} brainHealthReadInFlight=false
+     * @protected
+     */
+    brainHealthReadInFlight = false
+    /**
+     * The retained diagnosis pointer for the DAEMON surface — the "why" the spine banner names
+     * instead of generic copy. Per-surface like {@link #gridDegradedReason}: a transport sibling
+     * must never be able to supply or silence this cause. Written only by {@link #applyBrainHealth},
+     * from the lifecycle owner's retained cause (its detail, falling back to its source key).
+     * @member {String|null} daemonDegradedReason=null
+     * @protected
+     */
+    daemonDegradedReason = null
+    /**
+     * Brain daemon health for the spine banner's third surface — `'running'|'degraded'|'stopped'`,
+     * mirroring the shell lifecycle owner's state vocabulary.
+     *
+     * **`null` by default, and that silence is deliberate rather than a placeholder.** Defaulting to
+     * `'running'` would have the banner assert "the organism is fine" on the strength of never
+     * having asked — the fabrication this cockpit's render discipline exists to prevent. `null`
+     * renders nothing and claims nothing; `deriveSpineBanner` treats absence as UNKNOWN.
+     *
+     * Fed by {@link #loadBrainHealth}: a pull on the shell's named health capability riding the
+     * liveness cadence — deliberately NOT a main→renderer push channel, and deliberately NOT the
+     * per-agent fleet wire, whose process rows answer "which agents run", never "is the organism
+     * impaired".
+     * @member {String|null} daemonState=null
+     * @protected
+     */
+    daemonState = null
     /**
      * The grid's held `adapterState` — absent-item materialization reads from HERE, so a committed
      * layout change can never reset a live grid back to its sample badge.
@@ -2582,8 +2623,13 @@ class FleetCockpit extends Container {
         // Skipping a tick loses nothing: the next one reads the same live truth, only later.
         me.livenessTimerId = setInterval(() => {
             if (me.streamReadInFlight < me.maxReadsInFlight) me.loadActivity();
-            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster()
-        }, me.livenessPollInterval)
+            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster();
+            me.brainHealthReadInFlight || me.loadBrainHealth()
+        }, me.livenessPollInterval);
+
+        // The daemon surface has no other first read: unlike roster/activity (seeded then wired
+        // elsewhere), waiting a full cadence would leave a boot-time fault invisible for it.
+        me.loadBrainHealth()
     }
 
     /**
@@ -2606,6 +2652,55 @@ class FleetCockpit extends Container {
         if (me.livenessTimerId !== null) {
             clearInterval(me.livenessTimerId);
             me.livenessTimerId = null
+        }
+    }
+
+    /**
+     * @summary Applies one Brain-health wire answer onto the owner-held daemon surface, then re-syncs.
+     *
+     * The vocabulary check keeps the documented member contract honest: anything that is not a
+     * recognized Brain state — a transport envelope (`{ok: false}`), a rejection mapped to `null`,
+     * a malformed payload — lands as `null`/`null`, which renders NOTHING. Transport trouble is the
+     * transport surface's story; this surface only ever speaks with the lifecycle owner's voice.
+     * @param {Object|null} response The lifecycle owner's `{state, cause}` payload, or anything else.
+     * @protected
+     */
+    applyBrainHealth(response) {
+        let me = this;
+
+        if (me.isDestroyed) return;
+
+        let state = BRAIN_HEALTH_STATES.includes(response?.state) ? response.state : null,
+            cause = state ? response.cause : null;
+
+        me.daemonState          = state;
+        me.daemonDegradedReason = cause ? (cause.detail || cause.source || null) : null;
+
+        me.syncSpineBanner()
+    }
+
+    /**
+     * @summary Pulls whole-Brain health from the shell's lifecycle owner — the re-read obligation.
+     *
+     * Pull, never push: rides the liveness cadence for as long as the cockpit renders, so a fault
+     * arriving after mount still surfaces and a recovery still clears. An absent shell (dev-server
+     * mode) or a rejected invoke resolves to the silent surface via {@link #applyBrainHealth} —
+     * absence is unknown, never nominal, and never a fabricated degradation.
+     * @protected
+     */
+    async loadBrainHealth() {
+        let me = this;
+
+        if (me.brainHealthReadInFlight) return;
+
+        me.brainHealthReadInFlight = true;
+
+        try {
+            me.applyBrainHealth(await Neo.Main.brainHealth())
+        } catch (error) {
+            me.applyBrainHealth(null)
+        } finally {
+            me.brainHealthReadInFlight = false
         }
     }
 
@@ -2671,6 +2766,10 @@ class FleetCockpit extends Container {
             // each state travels WITH its own cause: the derivation reports the reason of the
             // surface that decided the verdict, and no sibling can supply or silence it
             let {hidden, kind, text} = deriveSpineBanner({
+                // Daemon health ranks above a stale feed: a dead daemon is usually what MADE the feed
+                // stale, so the transport line alone would name the symptom and drop the diagnosis.
+                // Silent while `daemonState` is null — absence is unknown, never nominal.
+                daemon: {state: me.daemonState,        reason: me.daemonDegradedReason},
                 grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
                 stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
             });

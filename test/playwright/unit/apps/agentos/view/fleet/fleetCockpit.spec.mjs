@@ -12,10 +12,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import {readFileSync}  from 'fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {test, expect}       from '@playwright/test';
+import {EventEmitter}       from 'node:events';
+import {createAppLifecycle} from '../../../../../../../harness/appLifecycle.mjs';
+import {readFileSync}       from 'fs';
+import path                 from 'path';
+import {fileURLToPath}      from 'url';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../../../src/manager/Instance.mjs';
@@ -1252,6 +1254,103 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         gridAdapterState,
         streamAdapterState,
         syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+    });
+
+    // ⭐ The daemon surface reaching the REAL slot. The derivation being correct is a separate suite;
+    // this asserts the cockpit actually FEEDS it, because a derivation nothing feeds is indistinguishable
+    // from an absent feature — and the wiring is the half that makes the shell spec's banner exist.
+    test('⭐ a dead daemon reaches the slot with the diagnosis, outranking a stale feed', () => {
+        const banner = makeBanner(),
+              host   = {
+                  ...makeHost('live', 'stale', banner),
+                  daemonDegradedReason: 'orchestrator exited',
+                  daemonState         : 'stopped'
+              };
+
+        host.syncSpineBanner();
+
+        const {cls, hidden, text} = banner.calls[0];
+
+        expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
+        expect(hidden).toBe(false);
+        expect(text).toContain('stopped');
+        expect(text).toContain('orchestrator exited');
+        // The stale feed is the symptom; it must not be the sentence.
+        expect(text).not.toContain('last-known data')
+    });
+
+    test('⭐ an unfed daemon surface stays SILENT on a live owner — absence claims nothing', () => {
+        // `daemonState` is null until the runtime pull lands. This asserts the default is honest
+        // silence rather than an implicit "the organism is fine", which is what defaulting to
+        // `'running'` would have asserted on the strength of never having asked.
+        const banner = makeBanner();
+
+        makeHost('live', 'live', banner).syncSpineBanner();
+
+        expect(banner.calls[0].hidden).toBe(true);
+        expect(banner.calls[0].text).toBe('')
+    });
+
+    // ⭐ The producer→cockpit→slot witness the predecessor lacked: the SHELL transition drives the
+    // banner. A test that hand-assigns `daemonState` witnesses only a pass-through — that misreading
+    // is what made the closed predecessor PR look delivered while its fields had no writer at all.
+    test('⭐ a SHELL transition drives the banner: lifecycle owner → wire payload → feed → slot', () => {
+        const
+            child     = new EventEmitter(),
+            lifecycle = createAppLifecycle({
+                app          : Object.assign(new EventEmitter(), {exit() {}, quit() {}}),
+                teardownBrain: async () => ({})
+            }),
+            banner    = makeBanner(),
+            cockpit   = {
+                ...makeHost('live', 'live', banner),
+                applyBrainHealth       : FleetCockpit.prototype.applyBrainHealth,
+                brainHealthReadInFlight: false,
+                daemonDegradedReason   : null,
+                daemonState            : null
+            };
+
+        lifecycle.setBrainState('running');
+        lifecycle.watchBrainChild(child, 'orchestrator');
+        child.emit('error', new Error('spawn ENOENT'));
+
+        // The payload is the producer's own wire truth, never test-fabricated consumer state.
+        cockpit.applyBrainHealth(lifecycle.brainHealth);
+
+        expect(cockpit.daemonState).toBe('degraded');
+        expect(banner.calls[0].hidden).toBe(false);
+        expect(banner.calls[0].text).toContain('degraded');
+        expect(banner.calls[0].text).toContain('orchestrator: error spawn ENOENT');
+
+        // Recovery is ALSO the shell's transition, not the test resetting fields.
+        lifecycle.setBrainState('running');
+        cockpit.applyBrainHealth(lifecycle.brainHealth);
+
+        expect(cockpit.daemonState).toBe('running');
+        expect(cockpit.daemonDegradedReason).toBeNull();
+        expect(banner.calls[1].hidden).toBe(true)
+    });
+
+    test('transport truth never becomes daemon truth: envelopes and rejections land silent', () => {
+        const banner  = makeBanner(),
+              cockpit = {
+                  ...makeHost('live', 'live', banner),
+                  applyBrainHealth    : FleetCockpit.prototype.applyBrainHealth,
+                  daemonDegradedReason: 'stale-from-earlier',
+                  daemonState         : 'degraded'
+              };
+
+        // The dev-server envelope (no shell) carries no `state` — the surface goes silent instead of
+        // freezing its last fault or fabricating one from transport trouble.
+        cockpit.applyBrainHealth({error: 'brain: shell health capability unavailable', ok: false});
+
+        expect(cockpit.daemonState).toBeNull();
+        expect(cockpit.daemonDegradedReason).toBeNull();
+        expect(banner.calls[0].hidden).toBe(true);
+
+        // The rejection path maps to `null` before reaching the mapping — same silent landing.
+        cockpit.applyBrainHealth(null);
+        expect(cockpit.daemonState).toBeNull()
     });
 
     test('a cold owner writes the REAL slot: cold class hook, visible, cause + shipped remedy', () => {
