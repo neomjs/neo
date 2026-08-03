@@ -39,8 +39,9 @@ fi
 
 # A real plane is rarely ONE compose file. The canonical local Agent OS runs `docker-compose.yml`
 # plus `docker-compose.local-agent-os.yml`, and a single `-f` silently drops the overlay — so the
-# services come up with the base contract while the operator believes the overlay applied. That is
-# not a hypothetical: it is why this pipeline could not be pointed at our own plane (#16454).
+# services come up with the base contract while the operator believes the overlay applied. Measured
+# on such a plane, the two renderings differ by 80 lines: without the overlay the auth mode is unset,
+# the model provider is empty, and the healthcheck token file is absent.
 #
 # `NEO_DEPLOY_COMPOSE_FILE` therefore accepts a `:`-delimited LIST, matching Docker's own COMPOSE_FILE
 # convention, and expands to repeated `-f` in declaration order (later files override earlier ones,
