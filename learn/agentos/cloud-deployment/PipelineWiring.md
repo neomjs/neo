@@ -148,27 +148,26 @@ A redeploy is not "done" when `docker compose up` returns — it is done when th
 
 A deploy job that does not gate on health reports success while serving a broken stack. See [Deployment Cookbook §8](../DeploymentCookbook.md) for the healthcheck/readiness contract.
 
-## What invokes the pipeline
+## Targeting a real plane: a compose-file list, not a path
 
-The reference script is CI-neutral and, for a long time, uncalled — no npm target and no CI job referenced it, so every real redeploy was hand-typed and took none of its guards. Two entry points exist now.
+The script is CI-neutral and was, for a long time, uncalled — no npm target and no CI job referenced it, so every redeploy was hand-typed and took none of its guards. Part of the reason is that **no correct invocation against a multi-file plane existed.**
 
-**A multi-file plane needs a list, not a path.** `NEO_DEPLOY_COMPOSE_FILE` accepts a `:`-delimited list and expands to repeated `-f` in merge order (later files override earlier ones). A single path behaves exactly as before. This matters because a real plane is rarely one file — the canonical local Agent OS runs `docker-compose.yml` plus `docker-compose.local-agent-os.yml` — and a single `-f` drops the overlay silently: the services come up on the base contract while the operator believes the overlay applied.
+`NEO_DEPLOY_COMPOSE_FILE` accepts a `:`-delimited list (Docker's own `COMPOSE_FILE` convention) and expands to repeated `-f` in merge order — later files override earlier ones, so reordering them changes the result. A single path behaves exactly as before; a value resolving to zero paths aborts before Docker runs.
 
-**Migrating a lagging deployment: plan, then apply.**
+This is not a convenience. A real plane is rarely one file — the canonical local Agent OS runs `docker-compose.yml` plus `docker-compose.local-agent-os.yml` under project `neo-local-agent-os` — and a single `-f` drops the overlay **silently**. Measured read-only on that plane, the two renderings differ by 80 lines: without the overlay, `NEO_AUTH_MODE` is absent, `NEO_MODEL_PROVIDER` is empty rather than `openAiCompatible`, and `NEO_MCP_HEALTHCHECK_TOKEN_FILE` is gone — under a *different* project name, so on fresh volumes.
 
+So a caller must pass three things, and the script infers none of them:
+
+```bash
+NEO_DEPLOY_PROJECT_NAME=<project> \
+NEO_DEPLOY_COMPOSE_FILE="<base>.yml:<overlay>.yml" \
+NEO_REF=$(git ls-remote https://github.com/neomjs/neo.git dev | cut -f1) \
+  ai/examples/cloud-deployment/deploy-pipeline.sh
 ```
-node ai/scripts/maintenance/migrateDeployment.mjs plan  --discover-json <path> [--target dev]
-node ai/scripts/maintenance/migrateDeployment.mjs apply --discover-json <path> --target <sha>
-```
 
-A rebuild at a newer revision does **not** repair a deployment whose configuration no longer satisfies the contract — it produces a refused launch. The orchestrator's authority role is the worked case: its leaf carries no default, so a deployment that never declares `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE` writes no state directory, no PID file and no log. The config delta is what decides whether a migration can work; the revision delta is secondary. So mutation sits behind a plan.
+**Discover those values rather than hardcoding them.** A running plane already records its own identity in `com.docker.compose.project` and `com.docker.compose.project.config_files` on every container, and the deploy home may be a checkout other than the one the caller runs from — so reading the labels is both less brittle and the only way to be certain which plane is being addressed.
 
-- **`plan`** mutates nothing. It consumes the contract delta from the census-derived discover driver — missing required inputs, forbidden/retired keys with their declared replacements, missing secrets — and joins it with two facts only a plane-side reader can supply: the Compose project and file list read off the running containers' labels, and whether the cohort agrees with itself about the revision it is on.
-- **`apply`** refuses unless the plan is clean, then invokes the reference pipeline at the pinned revision with the discovered identity. Afterwards it re-reads `/app/.neo-revision` per service, because a health-gated recreate proves the containers are up, not that they carry the target code.
-
-Three outcomes are reported separately and must not be collapsed: **blockers** refuse the apply, **NOT VERIFIED** items were neither passed nor failed (an overlay the operator did not supply, a stopped container), and **notes** inform. A plan that folded the middle bucket into either of the others would read as complete when it was partial.
-
-The bootstrap carries **no census derivation of its own and no fallback** — with no discover result it refuses. Two resolvers for one contract can disagree, and the disagreement would surface as a migration authorized against the wrong answer.
+Confirming delivery is a separate step from the health gate: `up --wait` proves the containers are up, not that they carry the intended code. Compare each member's `/app/.neo-revision` against the pinned revision for that.
 
 ## Failure signatures
 
