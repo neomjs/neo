@@ -322,6 +322,113 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(createdConfig.menu.items, 'the menu config retains the exact hidden-tab projection')
             .toHaveLength(1);
         expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
+    });
+
+    test('re-arm: a transiently unmounted control re-mounts on the next sync — once, latched, aligned after the mount lands (#16434)', async () => {
+        // A floating control mounts once at create. A transient unmount (a re-projection wave,
+        // a tour reset) previously ratcheted into a permanent wedge: the update branch only
+        // mutated menu items on the unmounted instance, and no path ever re-attempted the
+        // mount. The re-arm makes the surface self-healing; this pins its full lifecycle.
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const hiddenMeta = [{text: 'Agents', iconCls: 'fa fa-users', index: 0}];
+
+        let aligned     = 0,
+            initCalls   = 0,
+            initArg     = null,
+            resolveInit = null;
+
+        plugin.control = {
+            isDestroyed        : false,
+            isVnodeInitializing: false,
+            menuList           : {items: []},
+            mounted            : false,
+            alignTo() {
+                aligned++
+            },
+            initVnode(mount) {
+                initCalls++;
+                initArg = mount;
+                return new Promise(resolve => {
+                    resolveInit = resolve
+                })
+            }
+        };
+
+        plugin.syncControl(hiddenMeta, {activeIndex: 0});
+
+        expect(initCalls, 'the unmounted control gets exactly one re-mount attempt').toBe(1);
+        expect(initArg, 'the re-attempt is a mounting initVnode').toBe(true);
+        expect(plugin.remountArming, 'the latch holds while the attempt is in flight').toBe(true);
+        expect(aligned, 'no align before the mount lands').toBe(0);
+
+        // A second sync during the in-flight attempt must not double-arm.
+        plugin.syncControl(hiddenMeta, {activeIndex: 0});
+        expect(initCalls, 'the latch bounds the re-arm to one in-flight attempt').toBe(1);
+
+        // The mount lands: the chained align fires once, the latch releases.
+        plugin.control.mounted = true;
+        resolveInit();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(aligned, 'the re-mounted control is re-pinned to the owner edge').toBe(1);
+        expect(plugin.remountArming, 'the latch releases after settlement').toBe(false);
+
+        // A mounted control takes the ordinary update path: no re-arm churn, sync-time re-align only.
+        plugin.syncControl(hiddenMeta, {activeIndex: 0});
+        expect(initCalls, 'a mounted control is never re-armed').toBe(1);
+        expect(aligned, 'the ordinary sync-time re-align fires for the mounted control').toBe(2)
+    });
+
+    test('re-arm skips a control whose own initVnode is still in flight (#16434)', async () => {
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let initCalls = 0;
+
+        plugin.control = {
+            isDestroyed        : false,
+            isVnodeInitializing: true,
+            menuList           : {items: []},
+            mounted            : false,
+            alignTo() {},
+            initVnode() {
+                initCalls++;
+                return Promise.resolve()
+            }
+        };
+
+        plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0});
+
+        expect(initCalls, 'a first mount already in flight is never doubled').toBe(0);
+        expect(plugin.remountArming, 'the latch stays untouched').toBe(false)
+    });
+
+    test('re-arm: a rejected re-mount releases the latch without align or unhandled rejection (#16434)', async () => {
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let aligned = 0;
+
+        plugin.control = {
+            isDestroyed        : false,
+            isVnodeInitializing: false,
+            menuList           : {items: []},
+            mounted            : false,
+            alignTo() {
+                aligned++
+            },
+            initVnode() {
+                return Promise.reject(new Error('transient mount failure'))
+            }
+        };
+
+        plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.remountArming, 'a failed attempt releases the latch so the NEXT sync can retry').toBe(false);
+        expect(aligned, 'no align on a failed mount').toBe(0)
     })
 });
 

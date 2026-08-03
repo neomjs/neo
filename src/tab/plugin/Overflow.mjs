@@ -156,6 +156,12 @@ class Overflow extends Plugin {
      * @member {Boolean} queuedRecapture=false
      */
     queuedRecapture = false
+    /**
+     * A re-mount attempt for a transiently unmounted control is in flight — see `syncControl`.
+     * Prevents overlapping re-arms when syncs land faster than the mount round-trip settles.
+     * @member {Boolean} remountArming=false
+     */
+    remountArming = false
 
     /**
      * @param {Object} config
@@ -449,6 +455,29 @@ class Overflow extends Plugin {
                 me.control.menuList.items = menuItems
             } else {
                 me.control.menu = menuConfig
+            }
+
+            // Re-arm a transiently unmounted control. A floating instance mounts once at
+            // create; any later unmount (a re-projection wave, a tour reset) previously
+            // ratcheted into a permanent wedge — every following sync only mutated menu
+            // items on the unmounted instance, and the overflow surface was gone for the
+            // document's lifetime. The mount path itself is starvation-proof (message-driven
+            // vnode create + insert; verified live in a fully hidden document), so
+            // re-attempting here makes the surface self-healing against any transient
+            // un-mounter. The latch bounds it to one in-flight attempt; the align follows
+            // only a successful mount (mirroring the sync-time re-align below).
+            if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
+                me.remountArming = true;
+
+                me.control.initVnode(true)
+                    .then(() => {
+                        const {control} = me;
+                        control && !control.isDestroyed && control.mounted && control.alignTo()
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                        me.remountArming = false
+                    })
             }
         } else {
             // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
