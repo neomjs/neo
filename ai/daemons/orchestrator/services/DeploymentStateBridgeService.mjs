@@ -610,7 +610,10 @@ export class DeploymentStateBridgeService extends Base {
         if (!baseline) return 0;
 
         try {
-            const events = readHealLedger({dir: this.healLedgerDir});
+            // Same injection seam the snapshot fold uses (`healLedgerReader || readHealLedger`),
+            // rather than a second direct reader — one source of ledger truth, and testable.
+            const reader = this.healLedgerReader || readHealLedger,
+                  events = reader({dir: this.healLedgerDir});
 
             return queryHealLedger(events, {collections: [serviceKey]})
                 .filter(event => event?.type === 'restart')

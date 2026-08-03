@@ -6,6 +6,7 @@ import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
 import AiConfig                       from '../../../../../../../ai/config.template.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -1206,5 +1207,108 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(infoLines[1].message).toContain('service-state changed');
 
         try { fs.unlinkSync(snapshotPath); } catch {}
+    });
+});
+
+/**
+ * The composition, not the pieces.
+ *
+ * The producer and the call site were each unit-covered while nothing proved they compose — which is
+ * the exact shape of the defect that started this work: `deploy-pipeline.sh` was correct for a year
+ * and nothing called it. These drive the REAL diagnosis service through the bridge and assert the
+ * diagnosis reaches the record an operator reads.
+ */
+test.describe('restart churn reaches the deployment record', () => {
+    let dir;
+
+    const churningRuntime = (Id, RestartCount) => ({
+        async readObserve({operation}) {
+            if (operation === 'inspect') {
+                return {data: {Id, RestartCount, Name: '/orchestrator', State: {Status: 'running', Health: {Status: 'healthy'}}}, proof: {operation}};
+            }
+            return {data: null, proof: {operation}};
+        }
+    });
+
+    const bridgeFor = (Id, RestartCount, healLedgerReader = null) => createService({
+        diagnosisService    : Neo.create(ContainerHealthDiagnosisService, {}),
+        healLedgerDir       : dir,
+        healLedgerReader,
+        runtimeAccessService: churningRuntime(Id, RestartCount)
+    });
+
+    test.beforeEach(() => {dir = fs.mkdtempSync(path.join(os.tmpdir(), 'churn-bridge-'))});
+    test.afterEach(() => {fs.rmSync(dir, {recursive: true, force: true})});
+
+    test('a churning container is diagnosed and RECORDED in the service record', async () => {
+        // First observation anchors the baseline and must report nothing.
+        const first = await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        expect(first.diagnosis?.diagnosis).toBeFalsy();
+
+        // The baseline must be ON DISK — the orchestrator is the process that churns, so an
+        // in-memory anchor would reset on the very event being counted.
+        const baselineFile = path.join(dir, 'churn-baselines', 'orchestrator.json');
+
+        expect(fs.existsSync(baselineFile)).toBe(true);
+        expect(JSON.parse(fs.readFileSync(baselineFile, 'utf8'))).toMatchObject({containerId: 'c1', restartCount: 0});
+
+        // Second observation, same generation, past the threshold.
+        const second = await bridgeFor('c1', 5).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        // NOTE: the record's `diagnosis` field carries the DECISION; the diagnosis event is nested.
+        expect(second.diagnosis).toBeTruthy();
+        expect(second.diagnosis.status).toBe('diagnosed');
+        expect(second.diagnosis.actionClass).toBe('record');
+        expect(second.diagnosis.actionClass).not.toBe('restart');
+        expect(second.diagnosis.diagnosis.recoveryClass).toBe('ambiguous');
+        expect(second.diagnosis.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
+    });
+
+    test('a recreate re-anchors instead of reporting churn', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const afterRecreate = await bridgeFor('c2', 40).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(afterRecreate.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+        expect(JSON.parse(fs.readFileSync(path.join(dir, 'churn-baselines', 'orchestrator.json'), 'utf8')).containerId).toBe('c2');
+    });
+
+    /**
+     * The AC that is harder than the recreate case: restarts WE caused must not raise the alarm. The
+     * heal-event ledger is the record of what we did, and an alarm that fires on every deploy is
+     * disabled within a week — leaving the blind spot plus a dead alarm.
+     */
+    test('restarts recorded as ours in the heal ledger are subtracted, so a deploy raises nothing', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const ourRestarts = Array.from({length: 5}, () => ({
+            type      : 'restart',
+            collection: 'orchestrator',
+            at        : new Date(OBSERVED_AT + 30000).toISOString()
+        }));
+
+        const withLedger = await bridgeFor('c1', 5, () => ourRestarts)
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(withLedger.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+    });
+
+    /** Unknown provenance must not raise churn: we cannot prove those restarts were not ours. */
+    test('an unreadable ledger suppresses the alarm rather than guessing', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const unreadable = await bridgeFor('c1', 9, () => {throw new Error('ledger unreadable')})
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(unreadable.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+    });
+
+    test('a quiet container produces no churn diagnosis across two observations', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const quiet = await bridgeFor('c1', 1).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(quiet.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
     });
 });
