@@ -27,6 +27,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # test. Any operator who did not set NEO_DEPLOY_COMPOSE_FILE was relying on a broken default.
 COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-$SCRIPT_DIR/../../deploy/docker-compose.yml}"
 
+# A real plane is rarely ONE compose file. The canonical local Agent OS runs `docker-compose.yml`
+# plus `docker-compose.local-agent-os.yml`, and a single `-f` silently drops the overlay — so the
+# services come up with the base contract while the operator believes the overlay applied. That is
+# not a hypothetical: it is why this pipeline could not be pointed at our own plane (#16454).
+#
+# `NEO_DEPLOY_COMPOSE_FILE` therefore accepts a `:`-delimited LIST, matching Docker's own COMPOSE_FILE
+# convention, and expands to repeated `-f` in declaration order (later files override earlier ones,
+# which is Compose's merge order — reordering them changes the result). A single path is unchanged,
+# so every existing caller and every downstream adaptation keeps its exact behaviour.
+# `compose_file_count` is tracked separately because `${#compose_file_args[@]}` counts ARRAY ELEMENTS
+# — each file contributes both a `-f` and a path — so using it as a file count reports double. Caught
+# by the rehearsal witness printing "(4 file(s))" for two files.
+compose_file_args=()
+compose_file_count=0
+while IFS= read -r compose_file_entry; do
+    if [ -n "$compose_file_entry" ]; then
+        compose_file_args+=(-f "$compose_file_entry")
+        compose_file_count=$((compose_file_count + 1))
+    fi
+done <<< "$(printf '%s' "$COMPOSE_FILE" | tr ':' '\n')"
+
+if [ "$compose_file_count" -eq 0 ]; then
+    echo "[deploy] FATAL: NEO_DEPLOY_COMPOSE_FILE resolved to no usable path. Docker was NOT invoked." >&2
+    exit 1
+fi
+
 # A stable project name pins named-volume identity across redeploys. Export the
 # same value consumed by docker-compose.yml for its top-level project name and
 # the orchestrator runtime-access target identity. Ordinary redeploys retain the
@@ -51,7 +77,10 @@ else
     for p in ${NEO_DEPLOY_PROFILES:-cloud ingress}; do profile_args+=(--profile "$p"); done
 fi
 
-compose() { docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"; }
+# `compose_file_args` is guaranteed non-empty by the abort above, so expanding it is safe on bash 3.2
+# where an EMPTY array expansion is an unbound-variable error under `set -u` (see the note at the
+# preflight below — macOS ships 3.2 and hosted CI does not, so that class fails only on maintainer machines).
+compose() { docker compose "${compose_file_args[@]}" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"; }
 
 # Resolve the deployed revision BEFORE Docker runs (#15792). Every run pins:
 # there is deliberately no unpinned path, because this is the reference pipeline
@@ -149,7 +178,7 @@ export NEO_REVISION="$resolved_revision"
 echo "[deploy] selector:     $NEO_SELECTOR"
 echo "[deploy] revision:     $resolved_revision   <- built into the images"
 echo "[deploy] host-checkout: $(git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null || echo unknown)   (this host only; NOT what is deployed)"
-echo "[deploy] compose:  $COMPOSE_FILE"
+echo "[deploy] compose:  ${compose_file_args[*]}   ($compose_file_count file(s), merge order left to right)"
 echo "[deploy] project:  $PROJECT_NAME"
 echo "[deploy] profiles: ${profile_args[*]}"
 
