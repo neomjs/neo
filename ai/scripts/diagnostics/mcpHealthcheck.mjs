@@ -105,7 +105,7 @@ export function parseArgs(argv = [], env = process.env) {
         .option('--identity <identity>', 'Trusted proxy identity header value.', env.NEO_MCP_HEALTHCHECK_IDENTITY || 'neo-container-healthcheck')
         .option('--bearer-token-env <name>', 'Environment variable containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_ENV || 'NEO_MCP_HEALTHCHECK_TOKEN')
         .option('--bearer-token-file <path>', 'File containing an OAuth bearer token.', env.NEO_MCP_HEALTHCHECK_TOKEN_FILE || null)
-        .option('--expected-status <status>', 'Expected healthcheck status value.', env.NEO_MCP_HEALTHCHECK_EXPECTED_STATUS || 'healthy')
+        .option('--expected-status <statuses>', 'Comma-separated healthcheck statuses accepted as passing (e.g. "healthy,degraded").', env.NEO_MCP_HEALTHCHECK_EXPECTED_STATUS || 'healthy')
         .option('--expected-plane-id <id>', 'Plane identity the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_ID || null)
         .option('--expected-plane-data-root <path>', 'Plane data root the served process MUST report.', env.NEO_MCP_HEALTHCHECK_EXPECTED_PLANE_DATA_ROOT || null)
         .option('--client-name <name>', 'MCP client name.', env.NEO_MCP_HEALTHCHECK_CLIENT_NAME || 'neo-container-healthcheck')
@@ -221,12 +221,43 @@ export function readToolJson(result) {
 }
 
 /**
+ * @summary Resolves the set of healthcheck statuses this probe accepts as passing.
+ *
+ * **A liveness expectation is a SET, because "is it alive" and "is it fully well" are different
+ * questions and a container healthcheck asks the first one.** A server can be serving correctly while
+ * one provider-dependent dependency is degraded; expressing that with a single literal is impossible,
+ * since setting the literal to `degraded` would reject `healthy` — the well state failing the check.
+ *
+ * Deliberately strict about what it accepts. An empty or whitespace-only value **throws** rather than
+ * resolving to "accept anything": a healthcheck that cannot fail is not a healthcheck, and the way
+ * that arrives in practice is a misconfigured argument silently widening the gate.
+ *
+ * @param {String} expectedStatus Comma-separated status list; a single value stays a single value.
+ * @returns {String[]} The accepted statuses, de-duplicated and in declaration order.
+ */
+export function parseExpectedStatuses(expectedStatus) {
+    const accepted = String(expectedStatus ?? '')
+        .split(',')
+        .map(status => status.trim())
+        .filter(Boolean);
+
+    if (accepted.length === 0) {
+        throw new Error(
+            `--expected-status resolved to no statuses (got ${JSON.stringify(expectedStatus)}). ` +
+            'An empty expectation would accept every status, which is not a healthcheck.'
+        );
+    }
+
+    return [...new Set(accepted)]
+}
+
+/**
  * @summary Calls the remote MCP `healthcheck` tool and validates the returned status.
  * @param {Object} options
  * @param {String|URL} options.url The MCP server base URL.
  * @param {String|null} [options.identity]
  * @param {String|null} [options.bearerToken]
- * @param {String} [options.expectedStatus='healthy']
+ * @param {String} [options.expectedStatus='healthy'] Comma-separated set; see {@link parseExpectedStatuses}.
  * @param {String} [options.clientName='neo-container-healthcheck']
  * @param {String} [options.mcpPath='/mcp'] MCP endpoint path below `url`.
  * @param {Number} [options.timeoutMs=DEFAULT_TIMEOUT_MS]
@@ -284,10 +315,14 @@ export async function runHealthcheck({
             throw new Error('MCP healthcheck tool returned isError=true.');
         }
 
-        const health = readToolJson(result);
+        const health   = readToolJson(result),
+              accepted = parseExpectedStatuses(expectedStatus);
 
-        if (health.status !== expectedStatus) {
-            throw new Error(`Expected healthcheck status '${expectedStatus}', got '${health.status || '<missing>'}'.`);
+        if (!accepted.includes(health.status)) {
+            throw new Error(
+                `Expected healthcheck status ${accepted.map(status => `'${status}'`).join(' or ')}, ` +
+                `got '${health.status || '<missing>'}'.`
+            );
         }
 
         const plane = assertServedPlane(health, {expectedPlaneId, expectedPlaneDataRoot});
