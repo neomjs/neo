@@ -36,7 +36,8 @@ export function cockpitDockDocument() {
             catchUp     : {componentRef: 'catch-up',          title: 'Catch up',     kind: 'tool',      autoHidden: true},
             // invoked per-agent session-summary recall — the memory complement to catch-up's
             // window digests; team-visible summary corpus, never ambient cockpit density
-            memories    : {componentRef: 'memories',          title: 'Memories',     kind: 'tool',      autoHidden: true},
+            memories  : {componentRef: 'memories',          title: 'Memories',     kind: 'tool',      autoHidden: true},
+            wakeRoutes: {componentRef: 'wakeRoutes',        title: 'Wake routes',  kind: 'tool',      autoHidden: true},
             // the operator's own mailbox + compose surface — a secondary tool pane like
             // perspectives, so it rides the auto-hide rail and never crowds the split
             operator    : {componentRef: 'operator-mailbox',  title: 'Operator',     kind: 'tool',      autoHidden: true}
@@ -49,7 +50,7 @@ export function cockpitDockDocument() {
             'fleet-tabs'   : {type: 'tabs', items: ['fleet'],  activeItemId: 'fleet'},
             'stream-tabs'  : {type: 'tabs', items: ['stream'], activeItemId: 'stream'},
             // Secondary panes collapse to this edge's rail (§2.7): their item records carry `autoHidden`.
-            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'operator'], activeItemId: 'detail'}
+            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator'], activeItemId: 'detail'}
         }
     }
 }

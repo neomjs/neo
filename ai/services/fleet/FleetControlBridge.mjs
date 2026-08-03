@@ -515,6 +515,25 @@ class FleetControlBridge extends Base {
     }
 
     /**
+     * @summary READ-OBSERVE: read the decomposed per-seat wake-route snapshot for the authenticated
+     * viewer — every axis of the wake path answering as itself, never fused. The source envelope
+     * passes through untouched; an unwired source is named as unavailable rather than fabricated
+     * as a silent fleet.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetWakeRoutes(params = {}) {
+        return typeof this.wakeRoutesSource?.readWakeRoutes === 'function'
+            ? this.wakeRoutesSource.readWakeRoutes(params)
+            : {
+                capability: {state: 'unavailable', reason: 'fleet wake-routes source not wired'},
+                viewer    : null,
+                count     : 0,
+                seats     : []
+            };
+    }
+
+    /**
      * @summary RUNTIME-WRITE: explicitly advance the authenticated viewer's process-lifetime
      * catch-up anchor through the exact latest rendered window end. This is not a graph/browser
      * write and carries no caller-supplied identity.

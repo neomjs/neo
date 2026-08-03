@@ -55,7 +55,7 @@ export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
     'getBootIdentity', 'fleetActivity', 'fleetHistory', 'fleetMemories', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
-    'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity'
+    'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity', 'fleetWakeRoutes'
 ]);
 
 /**
