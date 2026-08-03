@@ -31,7 +31,7 @@ export function toEpochMs(isoTimestamp) {
 }
 
 /**
- * Whether the bounded retry window measured from the last success is still open.
+ * Whether the bounded retry window measured from the failure-streak anchor is still open.
  *
  * @summary The single definition of "is the budget spent". Both the trigger
  * ({@link isFailedRunRetryDue}) and the phase reporter ({@link describeBackupRetryState}) route
@@ -40,8 +40,11 @@ export function toEpochMs(isoTimestamp) {
  * precisely the drift that makes a silent failure look supervised.
  * @param {Object} options
  * @param {Number} options.now Current timestamp in milliseconds.
- * @param {Number} options.lastSuccessAtMs Last successful completion, epoch ms; `0` when never.
- * @param {Number} options.retryWindowMs Retry window from the last success; `0` disables retry.
+ * @param {Number} options.streakStartedAtMs Failure-streak anchor, epoch ms; `0` when no streak is
+ *     open. An earlier revision measured from `lastSuccessAt` instead, which is already roughly a
+ *     full `intervalMs` stale when a periodic run fails — so at any `retryWindowMs < intervalMs`
+ *     the budget was spent before the first failure and the feature no-opped at its own defaults.
+ * @param {Number} options.retryWindowMs Retry window from the streak anchor; `0` disables retry.
  * @returns {Boolean}
  */
 export function isRetryWindowOpen({now, streakStartedAtMs, retryWindowMs}) {
@@ -99,9 +102,12 @@ export function countRemainingRetries({now, lastRunAt, streakStartedAtMs, retryD
  * *attempted* from *succeeded*.
  *
  * **The window opens at the FAILED CYCLE and never slides, and both halves of that are load-bearing.**
- * `failureStreakStartedAt` is written by `TaskStateService.markFailed()` with `??=`, so it is set
- * once at the first failure after a success and preserved across every subsequent retry, then
- * cleared by `markCompleted()`.
+ * `failureStreakStartedAt` is written by `TaskStateService.openFailureStreak()` with `??=`, so it is
+ * set once at the first failure after a success and preserved across every subsequent retry, then
+ * cleared by `markCompleted()`. Every terminal-failure writer shares that one transition —
+ * `markFailed()` (exited non-zero), `markSpawnFailed()` (spawn threw), and `readState()`'s
+ * interrupted-run normalization — because this predicate reads the anchor as the SOLE activation
+ * fact, which makes any writer that skips it a silent forfeit of the whole budget.
  *
  * - **Opening it at the failure** is what makes the feature work at all. An earlier revision
  *   anchored on `lastSuccessAt`, which is immovable but roughly one full `intervalMs` stale by the
@@ -114,8 +120,11 @@ export function countRemainingRetries({now, lastRunAt, streakStartedAtMs, retryD
  *   failed retry, so a window measured from it would never close.
  *
  * A run interrupted by a crash also opens a streak: `TaskStateService.readState()` normalizes a
- * persisted `running: true` fail-closed. Without that, an interrupted run recorded no terminal
- * outcome at all and read as healthy — the very incident class this lane exists to catch.
+ * persisted `running: true` fail-closed, and `configure()` COMMITS that normalization to disk before
+ * any consumer can read the lane. Without the normalization, an interrupted run recorded no terminal
+ * outcome at all and read as healthy — the very incident class this lane exists to catch. Without
+ * the commit, the crashed bytes survive and each restart re-derives a fresh anchor, so the bound
+ * slides forward once per outage and a crash loop never exhausts a budget meant to terminate.
  *
  * @param {Object} options
  * @param {Number} options.now Current timestamp in milliseconds.

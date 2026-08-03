@@ -25,6 +25,33 @@ export function createInitialTaskState(taskDefinitions) {
 }
 
 /**
+ * @summary Applies the single failure transition that EVERY terminal-failure writer must share.
+ *
+ * Three producers record a failed cycle: a run that exited non-zero ({@link TaskStateService#markFailed}),
+ * a spawn that threw synchronously ({@link TaskStateService#markSpawnFailed}), and a run interrupted
+ * by a crash ({@link TaskStateService#readState}'s fail-closed normalization). The backup scheduler
+ * treats `failureStreakStartedAt` as the SOLE activation fact for its bounded retry window, which
+ * makes every one of those producers load-bearing — a writer that records `lastErrorAt` without
+ * opening the streak leaves its failure invisible to retry policy and forfeits the entire budget.
+ * That is not hypothetical: `markSpawnFailed` was exactly that writer, so a failed *start* waited a
+ * full interval while the lane reported `healthy`. Centralizing the pair is what stops the next
+ * failure producer from becoming a fourth opinion about what "failed" means.
+ *
+ * `??=` is the other half of the contract. The streak opens once, at the first failure after a
+ * success, and must not move when later attempts also fail — `lastErrorAt` advances with every
+ * attempt, so a budget measured from it would never close, and on a lane that wins its scheduling
+ * pick unconditionally a window that never closes is a lease monopoly rather than a cosmetic bug.
+ *
+ * @param {Object} state A single task's state envelope, mutated in place.
+ * @param {String} timestamp ISO timestamp of the failure.
+ * @returns {void}
+ */
+export function openFailureStreak(state, timestamp) {
+    state.lastErrorAt             = timestamp;
+    state.failureStreakStartedAt ??= timestamp;
+}
+
+/**
  * @summary Manages persistence and runtime state tracking for Daemon child processes.
  *
  * @class Neo.ai.daemons.services.TaskStateService
@@ -43,6 +70,14 @@ export class TaskStateService extends Base {
          * @protected
          */
         singleton: true,
+        /**
+         * Task names whose persisted `running: true` the most recent {@link #readState} normalized
+         * fail-closed. Drives the durability write in {@link #configure}; empty on a clean boot.
+         * @member {String[]|null} interruptedTaskNames_=null
+         * @protected
+         * @reactive
+         */
+        interruptedTaskNames_: null,
         /**
          * @member {String|null} stateFile_=null
          * @protected
@@ -90,22 +125,40 @@ export class TaskStateService extends Base {
         this.taskDefinitions = options.taskDefinitions;
         this.writeLogFn      = options.writeLogFn || (() => {});
         this.taskState       = this.readState();
+
+        // Commit the fail-closed normalization BEFORE any consumer can read the lane. Derived only
+        // in memory, the crashed `running: true` bytes survive untouched on disk, so the NEXT boot
+        // re-derives a FRESH anchor from them — the "bounded" window slides forward by the length of
+        // every outage and a crash loop never exhausts a budget that is supposed to terminate. The
+        // write is what makes the anchor durable, and durability is the whole non-sliding guarantee.
+        if (this.interruptedTaskNames?.length > 0) {
+            this.writeState();
+            this.writeLog('WARN', `[TaskStateService] Interrupted run(s) normalized fail-closed: ${this.interruptedTaskNames.join(', ')}.`);
+        }
     }
 
     /**
      * Reads persisted task state, clearing stale in-process fields on boot.
+     *
+     * @summary Records the tasks it normalized in {@link #interruptedTaskNames} so {@link #configure}
+     * can persist them. The write cannot happen here: {@link #writeState} serializes `this.taskState`,
+     * which `configure()` has not assigned yet at this point.
      * @returns {Object}
      */
     readState() {
         const fallback = createInitialTaskState(this.taskDefinitions);
+
+        this.interruptedTaskNames = [];
 
         if (!fs.existsSync(this.stateFile)) {
             return fallback;
         }
 
         try {
-            const data = JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
-            return Object.keys(fallback).reduce((state, taskName) => {
+            const data        = JSON.parse(fs.readFileSync(this.stateFile, 'utf8')),
+                  interrupted = [];
+
+            const taskState = Object.keys(fallback).reduce((state, taskName) => {
                 state[taskName] = {...fallback[taskName], ...(data[taskName] || {})};
 
                 // A persisted `running: true` means the process died with the task in flight, so no
@@ -117,16 +170,19 @@ export class TaskStateService extends Base {
                 if (data[taskName]?.running === true) {
                     const interruptedAt = new Date().toISOString();
 
-                    state[taskName].interruptedAt          = interruptedAt;
-                    state[taskName].lastErrorAt            = interruptedAt;
-                    state[taskName].lastExitCode           = null;
-                    state[taskName].failureStreakStartedAt ??= interruptedAt
+                    state[taskName].interruptedAt = interruptedAt;
+                    state[taskName].lastExitCode  = null;
+                    openFailureStreak(state[taskName], interruptedAt);
+                    interrupted.push(taskName)
                 }
 
                 state[taskName].running = false;
                 state[taskName].pid     = null;
                 return state;
             }, {});
+
+            this.interruptedTaskNames = interrupted;
+            return taskState;
         } catch (e) {
             this.writeLog('ERROR', `[TaskStateService] Failed to read state file: ${e.message}`);
             return fallback;
@@ -195,9 +251,12 @@ export class TaskStateService extends Base {
      */
     markSpawnFailed(taskName) {
         const state = this.taskState[taskName];
-        state.running      = false;
-        state.pid          = null;
-        state.lastErrorAt  = new Date().toISOString();
+        state.running = false;
+        state.pid     = null;
+        // A failed START is a failed cycle. This writer used to stamp `lastErrorAt` alone, which the
+        // scheduler does not read — so a spawn throw left the lane unanchored and it waited a full
+        // interval while reporting `healthy`. Same transition as every other failure producer.
+        openFailureStreak(state, new Date().toISOString());
         this.writeState();
     }
 
@@ -270,20 +329,14 @@ export class TaskStateService extends Base {
      * @returns {void}
      */
     markFailed(taskName, code, lastCompletion=null) {
-        const state = this.taskState[taskName],
-              now   = new Date().toISOString();
+        const state = this.taskState[taskName];
 
-        state.running      = false;
-        state.pid          = null;
-        state.lastExitCode = code;
-        state.lastErrorAt  = now;
+        state.running        = false;
+        state.pid            = null;
+        state.lastExitCode   = code;
         state.lastCompletion = lastCompletion;
 
-        // The streak opens at the FIRST failure after a success and never moves again until one
-        // lands. `lastErrorAt` advances with every subsequent attempt, so a retry budget measured
-        // from it would slide forever; this anchor is what makes such a budget terminate. `??=`
-        // is the whole contract — a second failure must not re-open the window.
-        state.failureStreakStartedAt ??= now;
+        openFailureStreak(state, new Date().toISOString());
         this.writeState();
     }
 
