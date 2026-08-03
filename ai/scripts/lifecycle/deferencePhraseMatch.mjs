@@ -76,6 +76,58 @@ function isReportedMentionContext(text, startIndex) {
 }
 
 /**
+ * The tokens that may sit between a citation anchor and the phrase it attributes.
+ *
+ * The exemption used to be adjacency-anchored (`/\bper\s+$/`), so it matched only the citation-FREE
+ * `per your call` and fired on the form §critical_gates #1 mandates — naming the gate that makes a merge
+ * the operator's decision. Satisfying that gate and passing this detector were therefore in tension, and
+ * the tension resolved the wrong way: the honest phrasing tripped while the phrasing that passed cited
+ * nothing.
+ *
+ * An allowlist, deliberately not a wildcard. Accepting `per` anywhere in the 80-character window would
+ * exempt real deference that happens to cite something earlier — the genuine slip this detector exists to
+ * catch. Ordinary prose between the anchor and the phrase still fires.
+ *
+ * Whitespace alone must be able to bridge: a backticked citation is already replaced by a space in
+ * `stripMarkdownCode`, so the idiomatic `` per `§critical_gates #1` that's your call `` reaches this
+ * predicate with its citation erased.
+ *
+ * Checked token-by-token rather than as one starred alternation. The alternation form
+ * (`/^(?:…|\d+|#\d+|…)*$/`) had AMBIGUOUS alternatives — a run of digits can be partitioned between
+ * `\d+` and `#\d+` in exponentially many ways, so a long numeric run drove catastrophic backtracking.
+ * CodeQL caught it on this very change (alert 119, "many repetitions of '0'"). Splitting first makes each
+ * token match a single anchored pattern with no outer quantifier, which is linear by construction — the
+ * separator set is the same one that used to live inside the alternation.
+ * @type {RegExp}
+ */
+const CITATION_BRIDGE_TOKEN = /^(?:§[\w.-]+|#\d+|\d+|gate|rule|that'?s|that|it'?s|is)$/;
+
+/**
+ * Splits a bridge into tokens. Empty tokens are expected — a bridge of pure separators (`': '`, or the
+ * whitespace left where a backticked citation was) splits to nothing but empties, and must pass.
+ * @type {RegExp}
+ */
+const CITATION_BRIDGE_SEPARATORS = /[\s,;:.()[\]–—-]+/;
+
+/**
+ * @summary Checks whether every token between a citation anchor and the phrase is citation-shaped.
+ * @param {String} bridge Text between the anchor and the phrase.
+ * @returns {Boolean}
+ */
+function isCitationBridge(bridge) {
+    return bridge.split(CITATION_BRIDGE_SEPARATORS)
+        .every(token => token === '' || CITATION_BRIDGE_TOKEN.test(token));
+}
+
+/**
+ * Anchors a citation of a prior operator decision. Matched RIGHTMOST — the greedy head pushes the anchor
+ * as late as possible, so `per your call, but honestly, your call?` is judged on the nearest anchor and
+ * the trailing deferential use still fires.
+ * @type {RegExp}
+ */
+const CITATION_ANCHOR = /^[\s\S]*\b(?:per|as\s+you\s+(?:said|directed|called))\b([\s\S]*)$/;
+
+/**
  * @summary Checks whether a local "your call" match cites a prior operator decision.
  * @param {String} phrase Matched deference phrase.
  * @param {String} text Searchable assistant final-turn text.
@@ -87,10 +139,10 @@ function isAttributiveCitationContext(phrase, text, startIndex) {
         return false;
     }
 
-    const prefix = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase();
+    const prefix  = text.slice(Math.max(0, startIndex - 80), startIndex).toLowerCase(),
+          anchored = CITATION_ANCHOR.exec(prefix);
 
-    return /\bper\s+$/.test(prefix) ||
-           /\bas\s+you\s+(?:said|directed|called)\W*$/.test(prefix);
+    return anchored !== null && isCitationBridge(anchored[1]);
 }
 
 /**
