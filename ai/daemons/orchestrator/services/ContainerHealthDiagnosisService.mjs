@@ -34,6 +34,7 @@ export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     // chosen to sit above ordinary transients (one restart is noise; two can be a slow dependency
     // coming up) and far below a real loop, which reached 977. The window bounds it to RECENT churn:
     // a container that restarted repeatedly last month and has been stable since is not sick now.
+    restartChurnSeverity : 'critical',
     restartChurnThreshold: 3,
     restartChurnWindowMs : 900000,
     sampleWindowMs       : 30000
@@ -112,6 +113,7 @@ export class ContainerHealthDiagnosisService extends Base {
         ollamaEvalAttribution = null,
         providerResidency = null,
         churnBaseline = null,
+        inspectReadFailed = false,
         plannedRestarts = 0,
         observedAt = this.now()
     } = {}) {
@@ -127,6 +129,17 @@ export class ContainerHealthDiagnosisService extends Base {
         });
 
         const facts = [
+            // A caller that could not READ the runtime says so explicitly. Without this, an absent
+            // inspect produces no facts and the decision reads `healthy` — the failure reported as
+            // health.
+            ...(inspectReadFailed ? [this.createFact({
+                type         : CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed,
+                serviceKey,
+                observedAt,
+                severity     : 'warning',
+                authoritative: false,
+                details      : {operation: 'inspect'}
+            })] : []),
             ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
             ...this.collectLifecycleFacts({serviceKey, inspect, observedAt}),
             ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
@@ -207,7 +220,7 @@ export class ContainerHealthDiagnosisService extends Base {
             type         : CONTAINER_HEALTH_FACT_TYPES.restartChurn,
             serviceKey,
             observedAt,
-            severity     : 'critical',
+            severity     : this.configValues.restartChurnSeverity,
             authoritative: false,
             details      : {
                 unplannedRestarts: churn.unplannedRestarts,

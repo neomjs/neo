@@ -547,6 +547,24 @@ test.describe('restart churn', () => {
         expect(decision.facts.filter(f => f.authoritative).length).toBeLessThan(2);
     });
 
+    test('a failed runtime read is never reported as healthy', () => {
+        const decision = createService().diagnose({
+            serviceKey       : 'orchestrator',
+            inspect          : null,
+            inspectReadFailed: true,
+            observedAt       : OBSERVED_AT
+        });
+
+        expect(decision.status).not.toBe('healthy');
+        expect(decision.facts.some(f => f.type === CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed)).toBe(true);
+    });
+
+    test('an absent inspect with no read failure stays quiet — absence alone is not a fault', () => {
+        const decision = createService().diagnose({serviceKey: 'orchestrator', inspect: null, observedAt: OBSERVED_AT});
+
+        expect(decision.facts.some(f => f.type === CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed)).toBe(false);
+    });
+
     test('a quiet container yields no churn fact and no diagnosis', () => {
         const decision = createService().diagnose({
             serviceKey   : 'orchestrator',

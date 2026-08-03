@@ -392,8 +392,17 @@ export class DeploymentStateBridgeService extends Base {
 
         const churnBaseline = this.readChurnBaseline(serviceKey);
 
+        // A failed runtime read must not reach `diagnose()` as a silent `inspect: null`. Absent
+        // input yields no lifecycle facts, so the decision returns `healthy` — a read FAILURE
+        // reported as health, which is the same shape as every other green-on-an-unmeasured-axis
+        // defect this ticket exists to close. `collectAndDiagnose` already emits
+        // `runtime-read-failed` on this path; the bridge calls `diagnose()` directly and did not.
+        const inspectReadFailed = inspect === null &&
+            errors.some(entry => entry?.operation === 'inspect' || entry?.detail?.operation === 'inspect');
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
+                inspectReadFailed,
                 serviceKey,
                 inspect,
                 stats,
