@@ -2170,3 +2170,124 @@ test.describe.serial('Workstation.view.Workspace', () => {
         }
     })
 });
+
+/**
+ * Builds the minimal host surface `onTourBeat` consumes, with a scripted `executeCue`.
+ * @param {Object} cueResult Receipt the scripted executor resolves.
+ * @returns {Object}
+ */
+function createCueHost(cueResult) {
+    return {
+        captions      : [],
+        cueErrors     : [],
+        cuePromise    : Promise.resolve(),
+        cueReceipts   : [],
+        cueSettlements: new Map(),
+        executeCue() {
+            return Promise.resolve(cueResult)
+        },
+        setTourCaption(text) {
+            this.captions.push(text)
+        }
+    }
+}
+
+test.describe('cue settlement truth-binding (prototype-call)', () => {
+    const beat = {cue: {type: 'cross-zone-showcase'}, sceneIndex: 0, stepIndex: 0};
+
+    test('an un-applied, error-free, non-cancel receipt fails the settlement and retains its forensics', async () => {
+        const host = createCueHost({applied: false, errors: []});
+
+        Workspace.prototype.onTourBeat.call(host, beat);
+        await host.cueSettlements.get('0:0');
+
+        expect(host.cueErrors).toEqual(['cross-zone-showcase: terminal effect did not apply']);
+        expect(host.cueReceipts, 'the forensic receipt is retained alongside the failure')
+            .toHaveLength(1);
+        expect(host.captions.at(-1)).toContain('Surface cue failed')
+    });
+
+    test('a receipt carrying errors fails the settlement with those errors', async () => {
+        const host = createCueHost({applied: true, errors: ['zone unreachable', 'no candidate']});
+
+        Workspace.prototype.onTourBeat.call(host, beat);
+        await host.cueSettlements.get('0:0');
+
+        expect(host.cueErrors).toEqual(['cross-zone-showcase: zone unreachable; no candidate']);
+        expect(host.cueReceipts).toHaveLength(1)
+    });
+
+    test('a cancel terminal settles legitimately un-applied', async () => {
+        const host = createCueHost({applied: false, cancelled: true, errors: []});
+
+        Workspace.prototype.onTourBeat.call(host, beat);
+        await host.cueSettlements.get('0:0');
+
+        expect(host.cueErrors).toEqual([]);
+        expect(host.cueReceipts).toHaveLength(1)
+    });
+
+    test('a healthy applied receipt settles clean', async () => {
+        const host = createCueHost({applied: true, beatLog: [], errors: []});
+
+        Workspace.prototype.onTourBeat.call(host, beat);
+        await host.cueSettlements.get('0:0');
+
+        expect(host.cueErrors).toEqual([]);
+        expect(host.cueReceipts).toHaveLength(1)
+    });
+});
+
+test.describe('replay probe transaction (prototype-call)', () => {
+    test('a rejecting entry projection still restores the displaced document under restoreDocument', async () => {
+        const
+            liveDocument = {nodes: {marker: 'live'}},
+            refreshCalls = [],
+            host         = {
+                dockModel     : liveDocument,
+                id            : 'fake-workspace',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    return refreshCalls.length === 1
+                        ? Promise.reject(new Error('entry projection rejected'))
+                        : Promise.resolve()
+                }
+            };
+
+        await expect(
+            Workspace.prototype.runTourSpec.call(host, null, {restoreDocument: true}),
+            'the transaction error propagates'
+        ).rejects.toThrow('entry projection rejected');
+
+        expect(host.dockModel, 'the exact displaced document is restored').toBe(liveDocument);
+        expect(refreshCalls, 'entry projection + restore projection both ran').toHaveLength(2)
+    });
+
+    test('a rejecting entry projection leaves the driver default without a restore', async () => {
+        const
+            liveDocument = {nodes: {marker: 'live'}},
+            refreshCalls = [],
+            host         = {
+                dockModel     : liveDocument,
+                id            : 'fake-workspace',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    return Promise.reject(new Error('entry projection rejected'))
+                }
+            };
+
+        await expect(
+            Workspace.prototype.runTourSpec.call(host, null)
+        ).rejects.toThrow('entry projection rejected');
+
+        expect(host.dockModel, 'the driver contract keeps the baseline (no silent restore)')
+            .not.toBe(liveDocument);
+        expect(refreshCalls).toHaveLength(1)
+    });
+});

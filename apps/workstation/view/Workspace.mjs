@@ -2307,13 +2307,15 @@ class Workspace extends Container {
         // Two consumer contracts share this front door. As a DRIVER (default), the replay's
         // resulting document stays live — the film pipeline and journey specs continue from it.
         // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
-        // the replay, so a replay can never edit the surface it measures. The baseline swap and
-        // the restore can each change topology, so both projections are full — neither may
-        // declare a geometry-only projection over the transition.
-        me.dockModel = DockZoneModel.clone(initialDocument);
-        await me.refreshDockWorkspace();
-
+        // the replay, so a replay can never edit the surface it measures. The transaction owns
+        // the baseline swap too: a rejecting entry projection must still destroy the runner and
+        // service, and must still restore the probe's displaced document. Both projections are
+        // full — the swap and the restore can each change topology, so neither may declare a
+        // geometry-only projection over the transition.
         try {
+            me.dockModel = DockZoneModel.clone(initialDocument);
+            await me.refreshDockWorkspace();
+
             const result = await runner.start();
 
             await me.refreshPromise;
@@ -2325,7 +2327,9 @@ class Workspace extends Container {
 
             if (restoreDocument && !me.isDestroyed) {
                 me.dockModel = liveDocument;
-                await me.refreshDockWorkspace()
+                // The document assignment IS the restore; a rejecting restore projection must
+                // not mask the original transaction error.
+                await me.refreshDockWorkspace().catch(() => null)
             }
         }
     }
