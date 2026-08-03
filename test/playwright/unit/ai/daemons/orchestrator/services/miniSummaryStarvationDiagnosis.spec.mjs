@@ -22,6 +22,15 @@ const SERVICE_ID  = 'mc-server',
       OBSERVED_AT = 1_785_700_000_000;
 
 /**
+ * A provider target in the vocabulary the CONSUMERS actually use.
+ *
+ * Taken from `ContainerHealthDiagnosisService`/`RecoveryActuatorService` fixtures, where a provider target
+ * is the compose service HOSTING the model (`model` / `local-model`) — there is no `provider` kind in
+ * `RECOVERY_TARGET_IDENTITY_KINDS`. Written as a literal for the same reason as `UPSTREAM` above.
+ */
+const PROVIDER_TARGET = Object.freeze({kind: 'compose-service', id: 'model'});
+
+/**
  * miniSummary generation-starvation detection.
  *
  * The predecessor was closed unmerged for deriving a timeout verdict from control-flow branch counters,
@@ -173,17 +182,135 @@ test.describe('Neo.ai.daemons.orchestrator miniSummaryStarvationDiagnosis', () =
         })).toBeNull();
     });
 
-    test('no-model is provider-role-residency, never contention against this service (@neo-gpt-emmy)', () => {
-        // A missing model is a provider-side fact. `ContainerHealthDiagnosisService` already classifies it
-        // as `provider-role-residency`; flattening it to contention would blame the Memory Core for a
-        // provider's absence purely because the failing operation happens to use a model.
+    test('no-model is never contention against this service (@neo-gpt-emmy)', () => {
+        // A missing model is a provider-side fact. Flattening it to contention would blame the Memory Core
+        // for a provider's absence purely because the failing operation happens to use a model.
         const event = buildMiniSummaryStarvationDiagnosis({
             window: windowOf(starvedPass({[UPSTREAM.noModel]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
         });
 
-        expect(event.recoveryClass).toBe('provider-role-residency');
+        expect(event.recoveryClass).not.toBe('contention');
         expect(event.details.bindingTimeout).toBeUndefined();
+    });
+
+    test('no-model with a provider target is provider-role-residency AIMED AT THE PROVIDER (@neo-gpt-emmy)', () => {
+        // Cycle-2 finding. The class alone was not the contract: `RecoveryActuatorService` derives its
+        // action target from `targetIdentity.id` (RecoveryActuatorService.mjs:428), and
+        // `ContainerHealthDiagnosisService` resolves provider-residency targets from the PROVIDER fact
+        // (ContainerHealthDiagnosisService.mjs:460). Emitting the class against `mc-server` would send a
+        // warm-provider capability call to a container that hosts no provider.
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window        : windowOf(starvedPass({[UPSTREAM.noModel]: 3})),
+            observedAt    : OBSERVED_AT,
+            serviceId     : SERVICE_ID,
+            providerTarget: PROVIDER_TARGET
+        });
+
+        expect(event.recoveryClass).toBe('provider-role-residency');
+        expect(event.targetIdentity).toEqual(PROVIDER_TARGET);
+        // The falsifier that matters: the target is NOT the service that reported the starvation.
+        expect(event.targetIdentity.id).not.toBe(SERVICE_ID);
         expect(event.diagnosisId.startsWith('provider-role-residency:')).toBe(true);
+        expect(event.details.unresolvedProviderTarget).toBeUndefined();
+    });
+
+    test('no-model WITHOUT provider authority degrades to ambiguous and says so (@neo-gpt-emmy)', () => {
+        // `backfillMiniSummaries` returns an aggregate cause tally and no provider identity
+        // (MemoryService.mjs:2182), so this is the shape production actually produces today. The class
+        // must not assert a provider subject it cannot name — and must not swallow the fact that it
+        // WOULD have, or a consumer holding provider authority has to re-derive the majority rule.
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window: windowOf(starvedPass({[UPSTREAM.noModel]: 3})), observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        });
+
+        expect(event.recoveryClass).toBe('ambiguous');
+        expect(event.targetIdentity).toEqual({kind: 'compose-service', id: SERVICE_ID});
+        expect(event.details.unresolvedProviderTarget).toBe(true);
+        // Nothing measured is lost by declining to be precise.
+        expect(event.details.causeTotals.noModel).toBe(9);
+    });
+
+    test('an untrustworthy provider target degrades rather than throwing or passing through (@neo-gpt-emmy)', () => {
+        // Three ways a caller can fail to hold authority. Each must fail CLOSED: a malformed target is a
+        // caller problem and must never suppress a real starvation signal, and must never be forwarded to
+        // an actuator that will treat `targetIdentity.id` as a service key.
+        const candidates = [
+            {label: 'unknown kind',     target: {kind: 'provider', id: 'ollama'}},
+            {label: 'missing id',       target: {kind: 'compose-service'}},
+            // The defect re-entering through the new door: a caller lazily passing its own identity.
+            {label: 'the reporter itself', target: {kind: 'compose-service', id: SERVICE_ID}}
+        ];
+
+        for (const {label, target} of candidates) {
+            const event = buildMiniSummaryStarvationDiagnosis({
+                window        : windowOf(starvedPass({[UPSTREAM.noModel]: 3})),
+                observedAt    : OBSERVED_AT,
+                serviceId     : SERVICE_ID,
+                providerTarget: target
+            });
+
+            expect(event, `${label} must still emit a diagnosis`).toBeTruthy();
+            expect(event.recoveryClass, `${label} must not earn provider-role-residency`).toBe('ambiguous');
+            expect(event.targetIdentity).toEqual({kind: 'compose-service', id: SERVICE_ID});
+            expect(event.details.unresolvedProviderTarget).toBe(true);
+        }
+    });
+
+    test('a minority of timeouts does NOT earn contention (@neo-gpt-emmy)', () => {
+        // Emmy's exact cycle-2 counterexample: `timeout-inner: 1` + `provider-error: 9` per pass emitted
+        // `contention` on window totals of 3:27, because any non-zero timeout won. The reading was TRUE —
+        // there really was a timeout — and one level too coarse to be a window verdict. A class is a claim
+        // about the window, so it takes a majority of the window.
+        const event = buildMiniSummaryStarvationDiagnosis({
+            window    : windowOf(starvedPass({[UPSTREAM.timeoutInner]: 1, [UPSTREAM.providerError]: 9})),
+            observedAt: OBSERVED_AT, serviceId: SERVICE_ID
+        });
+
+        expect(event).toBeTruthy();
+        expect(event.recoveryClass).toBe('ambiguous');
+        expect(event.details.causeTotals).toEqual({inner: 3, outer: 0, noModel: 0, other: 27});
+        // And the second half: a minority timeout may not name a binding window either. Reporting
+        // `bindingTimeout: 'inner'` off 3 of 30 failures is the same defect one field over.
+        expect(event.details.bindingTimeout).toBeUndefined();
+    });
+
+    test('an even cause split stays ambiguous — mixed evidence is not a verdict (@neo-gpt-emmy)', () => {
+        // The strictness control for the majority rule. With `>=` instead of `>`, a 50/50 window resolves
+        // to whichever branch is tested first, which is an ordering artefact masquerading as a diagnosis.
+        for (const rival of [UPSTREAM.providerError, UPSTREAM.noModel]) {
+            const event = buildMiniSummaryStarvationDiagnosis({
+                window    : windowOf(starvedPass({[UPSTREAM.timeoutInner]: 5, [rival]: 5})),
+                observedAt: OBSERVED_AT, serviceId: SERVICE_ID, providerTarget: PROVIDER_TARGET
+            });
+
+            expect(event.recoveryClass, `timeouts tied with ${rival}`).toBe('ambiguous');
+            expect(event.details.bindingTimeout).toBeUndefined();
+        }
+    });
+
+    test('a binding timeout is reported EXACTLY when the class is contention (#16382)', () => {
+        // The invariant behind the two gates above, asserted as a pair so neither can drift alone: a
+        // contention window always names its binding bound, and nothing else ever does.
+        const cases = [
+            {causes: {[UPSTREAM.timeoutInner]: 4},                              expected: 'contention'},
+            {causes: {[UPSTREAM.timeoutInner]: 2, [UPSTREAM.timeoutOuter]: 2},  expected: 'contention'},
+            {causes: {[UPSTREAM.timeoutInner]: 1, [UPSTREAM.providerError]: 9}, expected: 'ambiguous'},
+            {causes: {[UPSTREAM.noModel]: 4},                                   expected: 'provider-role-residency'},
+            {causes: {[UPSTREAM.providerError]: 4},                             expected: 'ambiguous'}
+        ];
+
+        for (const {causes, expected} of cases) {
+            const event = buildMiniSummaryStarvationDiagnosis({
+                window    : windowOf(starvedPass(causes)),
+                observedAt: OBSERVED_AT, serviceId: SERVICE_ID, providerTarget: PROVIDER_TARGET
+            });
+
+            expect(event.recoveryClass, JSON.stringify(causes)).toBe(expected);
+            expect(
+                event.details.bindingTimeout !== undefined,
+                `${JSON.stringify(causes)} → ${expected} must ${expected === 'contention' ? '' : 'not '}name a binding timeout`
+            ).toBe(expected === 'contention');
+        }
     });
 
     test('a generic provider-error proves starvation but not contention — ambiguous (@neo-gpt-emmy)', () => {
