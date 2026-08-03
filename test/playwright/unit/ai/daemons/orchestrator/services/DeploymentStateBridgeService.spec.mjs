@@ -1287,16 +1287,23 @@ test.describe('restart churn reaches the deployment record', () => {
         // ISO-string `at` values; production stamps epoch ms, so the filter dropped every real event
         // and the test passed against a specimen that could not occur. The specimen has to be
         // production-shaped by construction, which means using the production writer.
+        // `status: 'attempt'` is what `recordRun` writes. The outcome row that follows carries the
+        // same type + collection, so both are appended here — counting them as two restarts would
+        // over-subtract and suppress genuine churn.
         for (let i = 0; i < 5; i++) {
             await appendHealEvent(
-                {type: 'restart', collection: 'orchestrator', status: 'recorded', detail: {}},
+                {type: 'restart', collection: 'orchestrator', status: 'attempt', detail: {}},
                 {dir, now: OBSERVED_AT + 30000}
+            );
+            await appendHealEvent(
+                {type: 'restart', collection: 'orchestrator', status: 'healed', detail: {}},
+                {dir, now: OBSERVED_AT + 30001}
             );
         }
 
         const ourRestarts = await readHealLedger({dir});
 
-        expect(ourRestarts.length).toBe(5);
+        expect(ourRestarts.length).toBe(10);
         expect(typeof ourRestarts[0].at).toBe('number');
 
         const withLedger = await bridgeFor('c1', 5, () => ourRestarts)

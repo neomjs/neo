@@ -619,7 +619,12 @@ export class DeploymentStateBridgeService extends Base {
                   events = await reader({dir: this.healLedgerDir});
 
             return queryHealLedger(events, {collections: [serviceKey]})
-                .filter(event => event?.type === 'restart')
+                // Filter on status too, or one recovery action counts TWICE: `recordRun` writes
+                // `status: 'attempt'` and `recordHealOutcome` writes a second row with the SAME
+                // type and collection. Double-counting over-subtracts, which suppresses genuine
+                // churn — a false negative on the whole signal, and one that only became reachable
+                // once the async/epoch defects above were fixed and real events started matching.
+                .filter(event => event?.type === 'restart' && event?.status === 'attempt')
                 .filter(event => {
                     // `appendHealEvent` stamps `at` as EPOCH MS (healEventLedgerStore: `at:
                     // Number.isFinite(entry.at) ? entry.at : now`). An earlier revision ran
