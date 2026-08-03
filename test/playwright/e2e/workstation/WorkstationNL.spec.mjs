@@ -1777,8 +1777,8 @@ test.describe('Workstation — dense living-data composition', () => {
 
         // Two fresh document-tier spec runs remain byte-identical; the real-button receipt above
         // is the separate authority for asynchronous surface cues.
-        const run1 = await app.callMethod(workspaceId, 'runTourSpec', []),
-              run2 = await app.callMethod(workspaceId, 'runTourSpec', []);
+        const run1 = await app.callMethod(workspaceId, 'runTourSpec', [null, {restoreDocument: true}]),
+              run2 = await app.callMethod(workspaceId, 'runTourSpec', [null, {restoreDocument: true}]);
 
         expect(run1.completed, `run 1 errors: ${JSON.stringify(run1.errors)}`).toBe(true);
         expect(run1.errors).toEqual([]);
@@ -1824,8 +1824,19 @@ test.describe('Workstation — dense living-data composition', () => {
                 }
             };
 
+        const
+            postTourDocument = (await app.getDockTopology(workspaceId)).document,
+            postTourReceipt  = await app.callMethod(workspaceId, 'getTourReceipt', []),
+            crossZoneCue     = postTourReceipt?.cueReceipts
+                ?.find(entry => entry.cue?.type === 'cross-zone-showcase')?.receipt;
+
         expect(postTourChrome,
-            'cross-zone + split/return preserve every chrome identity while Audit changes owner')
+            'cross-zone + split/return preserve every chrome identity while Audit changes owner — ' +
+            `document right-top=${JSON.stringify(postTourDocument.nodes['right-top-tabs']?.items)} ` +
+            `right-bottom=${JSON.stringify(postTourDocument.nodes['right-bottom-tabs']?.items)} ` +
+            `cueApplied=${crossZoneCue?.applied} ` +
+            `cueDocAfter right-top=${JSON.stringify(crossZoneCue?.proof?.documentAfter?.nodes?.['right-top-tabs']?.items)} ` +
+            `right-bottom=${JSON.stringify(crossZoneCue?.proof?.documentAfter?.nodes?.['right-bottom-tabs']?.items)}`)
             .toEqual(expectedPostTourChrome);
 
         const indicatorSetup = await page.evaluate(receipt => {

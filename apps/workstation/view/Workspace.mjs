@@ -827,6 +827,17 @@ class Workspace extends Container {
 
                 me.cueReceipts.push({cue: {...cue}, receipt});
 
+                // Settlement is the cue's EFFECT, not its promise: executors report `errors`
+                // and `applied` (a cancel terminal settles legitimately un-applied). The
+                // receipt stays pushed either way, so a failure carries its own forensics.
+                if (receipt.errors?.length) {
+                    throw new Error(receipt.errors.join('; '))
+                }
+
+                if (receipt.applied === false && !receipt.cancelled) {
+                    throw new Error('terminal effect did not apply')
+                }
+
                 return receipt
             }).catch(error => {
                 const message = `${cue.type}: ${error.message}`;
@@ -2269,21 +2280,38 @@ class Workspace extends Container {
     /**
      * Replays one script's document tier from a fresh document in spec mode. Runtime-only
      * cues remain the visible tour's responsibility and are verified through its receipt.
-     * @param {Object} [script=workstationTourScript]
+     * By default the replay result stays live (the driver contract journey specs and the film
+     * pipeline continue from); `restoreDocument: true` turns the replay into a pure probe that
+     * restores the displaced live document afterwards.
+     * @param {Object} [script=workstationTourScript] `null` also resolves to the default script.
+     * @param {Object} [opts]
+     * @param {Boolean} [opts.restoreDocument=false] Restore the pre-replay live document after the run.
      * @returns {Promise<Object>}
      */
-    async runTourSpec(script=workstationTourScript) {
-        let me          = this,
-            dockService = Neo.create(DockService, {}),
-            runner      = Neo.create(TourRunner, {
-                componentId: me.id,
-                dockService,
-                mode       : 'spec',
-                script
-            });
+    async runTourSpec(script=workstationTourScript, {restoreDocument=false}={}) {
+        let me           = this,
+            dockService  = Neo.create(DockService, {}),
+            liveDocument = me.dockModel,
+            runner;
 
+        // Transport callers can only deliver `null` for "use the default script".
+        script ??= workstationTourScript;
+
+        runner = Neo.create(TourRunner, {
+            componentId: me.id,
+            dockService,
+            mode       : 'spec',
+            script
+        });
+
+        // Two consumer contracts share this front door. As a DRIVER (default), the replay's
+        // resulting document stays live — the film pipeline and journey specs continue from it.
+        // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
+        // the replay, so a replay can never edit the surface it measures. The baseline swap and
+        // the restore can each change topology, so both projections are full — neither may
+        // declare a geometry-only projection over the transition.
         me.dockModel = DockZoneModel.clone(initialDocument);
-        await me.refreshDockWorkspace({geometryOnly: true});
+        await me.refreshDockWorkspace();
 
         try {
             const result = await runner.start();
@@ -2293,7 +2321,12 @@ class Workspace extends Container {
             return {...result, document: DockZoneModel.clone(me.dockModel)}
         } finally {
             runner.destroy();
-            dockService.destroy()
+            dockService.destroy();
+
+            if (restoreDocument && !me.isDestroyed) {
+                me.dockModel = liveDocument;
+                await me.refreshDockWorkspace()
+            }
         }
     }
 
