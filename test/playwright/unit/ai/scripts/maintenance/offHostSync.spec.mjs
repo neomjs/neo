@@ -734,7 +734,9 @@ test.describe('wrapper + projection behavioral witnesses', () => {
             // Reported as an explicit zero, never omitted: "no residue" must not read the same as
             // "nothing about residue is reportable" — the failure the durability block exists to end.
             const clean = await collect({receiptPath, stagingResidueRoot: root});
-            expect(clean.stagingResidue).toEqual({bytes: 0, count: 0, oldestMtimeMs: null});
+            expect(clean.stagingResidue).toEqual({
+                bytes: 0, count: 0, errorCode: null, oldestMtimeMs: null, status: 'ok'
+            });
 
             mkdirSync(path.join(root, '.backup-partial-backup-2026-08-03-aaa'), {recursive: true});
             writeFileSync(path.join(root, '.backup-partial-backup-2026-08-03-aaa', 'memories.jsonl'), 'x'.repeat(64));
@@ -744,9 +746,26 @@ test.describe('wrapper + projection behavioral witnesses', () => {
             mkdirSync(path.join(root, 'backup-2026-08-03T00-00-00.000Z'), {recursive: true});
 
             const withResidue = await collect({receiptPath, stagingResidueRoot: root});
+            expect(withResidue.stagingResidue.status).toBe('ok');
             expect(withResidue.stagingResidue.count).toBe(2);
             expect(withResidue.stagingResidue.bytes).toBe(64);
             expect(withResidue.stagingResidue.oldestMtimeMs).toBeGreaterThan(0);
+
+            // An unreadable root must NOT reach the snapshot as a measured zero. The projection
+            // still writes — observability degrades, never blocks — but it says so, and the counts
+            // are null so nothing downstream can sum a measurement that never happened.
+            // The specimen is a regular FILE that exists: an absent path is ENOENT, which is a real
+            // answer and correctly reports `ok`, so it could not discriminate here.
+            const notADirectory = path.join(root, 'not-a-directory');
+            writeFileSync(notADirectory, 'x');
+
+            const unreadable = await collect({receiptPath, stagingResidueRoot: notADirectory});
+            expect(unreadable.stagingResidue).toMatchObject({
+                bytes    : null,
+                count    : null,
+                errorCode: 'ENOTDIR',
+                status   : 'unreadable'
+            });
         } finally {
             rmSync(root, {force: true, recursive: true})
         }

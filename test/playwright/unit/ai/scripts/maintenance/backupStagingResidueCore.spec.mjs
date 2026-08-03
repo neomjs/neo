@@ -3,6 +3,7 @@ import fs             from 'fs-extra';
 import path           from 'path';
 import {
     cleanStagingResidue,
+    createStagingRoot,
     isStagingResidueName,
     listStagingResidue,
     selectStagingResidueForRemoval,
@@ -173,24 +174,83 @@ test.describe('backupStagingResidueCore — the .backup-partial-* lifecycle (#16
 
         const summary = await summarizeStagingResidue(backupRoot);
 
+        expect(summary.status).toBe('ok');
         expect(summary.count).toBe(3);
         expect(summary.bytes).toBe(384);
         expect(summary.oldestMtimeMs).toBeLessThan(Date.now());
     });
 
-    test('a clean root reports zero rather than omitting the block', async () => {
+    test('a clean root reports an OK zero rather than omitting the block', async () => {
         const {backupRoot} = createBackupRoot({bundles: 2});
 
         expect(await summarizeStagingResidue(backupRoot)).toMatchObject({
             bytes        : 0,
             count        : 0,
-            oldestMtimeMs: null
+            errorCode    : null,
+            oldestMtimeMs: null,
+            status       : 'ok'
         });
     });
 
-    test('a missing backup root degrades to empty rather than throwing', async () => {
+    /**
+     * An absent root is an ANSWER — "no backup root" genuinely means "no residue" — so it resolves
+     * `ok`, unlike an unreadable one below. This pair is the discriminator: without both, `ok` could
+     * not be distinguished from "the catch swallowed everything".
+     */
+    test('a missing backup root is an OK zero, not a failed observation', async () => {
         expect(await listStagingResidue('/tmp/does-not-exist-16427')).toEqual([]);
-        expect(await summarizeStagingResidue('/tmp/does-not-exist-16427')).toMatchObject({bytes: 0, count: 0});
+        expect(await summarizeStagingResidue('/tmp/does-not-exist-16427')).toMatchObject({
+            count : 0,
+            status: 'ok'
+        });
+    });
+
+    /**
+     * The namespace-ownership coupling. Sharing a constant is not ownership — an earlier revision
+     * exported `STAGING_PREFIX` as "the one owner" while the writer kept its own `.backup-partial-`
+     * literal, so the two agreed only by coincidence and could diverge silently, blinding the sweep
+     * and the snapshot to newly-created residue with every test still green. This drives the REAL
+     * creator and asserts the round trip: what the producer makes, the consumers must see.
+     */
+    test('what createStagingRoot makes, the enumerator and the predicate both recognize', async () => {
+        const {backupRoot} = createBackupRoot({bundles: 2}),
+              created      = await createStagingRoot(backupRoot, 'backup-2026-08-03T00-00-00.000Z'),
+              basename     = path.basename(created);
+
+        expect(isStagingResidueName(basename)).toBe(true);
+        expect(basename.startsWith('backup-')).toBe(false);
+
+        const seen = await listStagingResidue(backupRoot);
+        expect(seen.map(entry => entry.path)).toContain(created);
+
+        // ...and the in-flight exclusion can address it, which is what `runBackup` relies on.
+        expect(selectStagingResidueForRemoval(seen, {excludePath: created, keepPartials: 0})).toEqual([]);
+    });
+
+    /**
+     * Error truth. `ENOENT` is an answer; every other code is a FAILED OBSERVATION. Returning `[]`
+     * for both would make "I could not look" wear the same shape as "I looked and found nothing" —
+     * the blind `count: 0` this module's own docstring warns about, committed by the module itself.
+     */
+    test('an unreadable root fails loudly instead of reporting a clean zero', async () => {
+        const {backupRoot}  = createBackupRoot({partials: 2}),
+              notADirectory = path.join(backupRoot, 'regular-file');
+
+        fs.writeFileSync(notADirectory, 'x', 'utf8');
+
+        // The enumerator throws rather than inventing an empty answer...
+        await expect(listStagingResidue(notADirectory)).rejects.toThrow();
+
+        // ...the observability surface reports the failure EXPLICITLY, with null counts so no
+        // consumer can sum or threshold a measurement that never happened...
+        const summary = await summarizeStagingResidue(notADirectory);
+        expect(summary.status).toBe('unreadable');
+        expect(summary.count).toBeNull();
+        expect(summary.bytes).toBeNull();
+        expect(summary.errorCode).toBe('ENOTDIR');
+
+        // ...and the sweep propagates, reaching runBackup's warning path instead of silently no-oping.
+        await expect(cleanStagingResidue(notADirectory, {log: () => {}}, {keepPartials: 0})).rejects.toThrow();
     });
 
     test('selectStagingResidueForRemoval is pure and keeps the newest N', () => {

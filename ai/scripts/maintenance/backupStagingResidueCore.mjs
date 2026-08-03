@@ -46,6 +46,26 @@ export function isStagingResidueName(name) {
 }
 
 /**
+ * Creates the unique staging directory a backup assembles into.
+ *
+ * @summary The CREATOR lives here, beside the enumerator and the sweep, so the three cannot hold
+ * different opinions about what the namespace is. An earlier revision exported {@link STAGING_PREFIX}
+ * as "the one owner" while `backup.mjs` kept its own `.backup-partial-` literal — two symbols that
+ * agreed only by coincidence, and whose divergence would have made the sweep and the snapshot blind
+ * to newly-created residue while every test stayed green. Sharing the constant was not enough;
+ * owning the operation is what makes the claim structural rather than aspirational.
+ *
+ * `mkdtemp` supplies the per-run unique suffix and defaults to 0700. Sibling placement under the
+ * bundle's own parent guarantees a same-filesystem rename at publication.
+ * @param {String} parentRoot Absolute directory the bundle publishes into.
+ * @param {String} stagingHint Bounded, filesystem-safe hint of the intended final basename.
+ * @returns {Promise<String>} Absolute path of the created staging directory.
+ */
+export async function createStagingRoot(parentRoot, stagingHint) {
+    return fs.mkdtemp(path.join(parentRoot, `${STAGING_PREFIX}${stagingHint}-`))
+}
+
+/**
  * Recursively sums the byte size of a directory's regular files.
  *
  * @summary Stats only — it never reads file contents, so a multi-GB partial costs one stat per
@@ -98,7 +118,15 @@ export async function listStagingResidue(backupRoot, {withBytes = false} = {}) {
     try {
         entries = await fs.readdir(backupRoot, {withFileTypes: true})
     } catch (error) {
-        return []
+        // ENOENT is an ANSWER: no root, therefore no residue. Every other code — ENOTDIR, EACCES,
+        // EIO — is a FAILED OBSERVATION, and returning `[]` for it would make "I could not look"
+        // wear the same shape as "I looked and found nothing". That is the precise defect this
+        // module's own JSDoc calls out in the Memory Core healthcheck's blind `count: 0`, and it
+        // would silently no-op the sweep on an unreadable root while reporting a clean footprint.
+        if (error.code === 'ENOENT') {
+            return []
+        }
+        throw error
     }
 
     const residue = [];
@@ -132,16 +160,37 @@ export async function listStagingResidue(backupRoot, {withBytes = false} = {}) {
  * @summary Belongs on a surface that holds the backup mount. The Memory Core healthcheck does not
  * and reports `count: 0` from a blind container — a true statement carrying no information, which
  * is indistinguishable from a passing check.
+ *
+ * **`status` exists so this surface cannot commit that same error itself.** A readable root with no
+ * residue reports `{status: 'ok', count: 0}`; a root that could not be read reports
+ * `{status: 'unreadable', count: null}`. The counts are `null` rather than `0` on failure precisely
+ * because a consumer summing or thresholding them must not be handed a measured-looking zero when
+ * no measurement occurred. Absent-root is not a failure: it resolves to `ok` with a count of `0`,
+ * because "there is no backup root" is a real answer to "how much residue is there".
  * @param {String} backupRoot Absolute backup root.
- * @returns {Promise<{count: Number, bytes: Number, oldestMtimeMs: Number|null}>}
+ * @returns {Promise<{status: String, count: Number|null, bytes: Number|null, oldestMtimeMs: Number|null, errorCode: String|null}>}
  */
 export async function summarizeStagingResidue(backupRoot) {
-    const residue = await listStagingResidue(backupRoot, {withBytes: true});
+    let residue;
+
+    try {
+        residue = await listStagingResidue(backupRoot, {withBytes: true})
+    } catch (error) {
+        return {
+            status       : 'unreadable',
+            count        : null,
+            bytes        : null,
+            oldestMtimeMs: null,
+            errorCode    : error.code || null
+        }
+    }
 
     return {
+        status       : 'ok',
         count        : residue.length,
         bytes        : residue.reduce((sum, entry) => sum + entry.bytes, 0),
-        oldestMtimeMs: residue.length > 0 ? residue[residue.length - 1].mtimeMs : null
+        oldestMtimeMs: residue.length > 0 ? residue[residue.length - 1].mtimeMs : null,
+        errorCode    : null
     }
 }
 

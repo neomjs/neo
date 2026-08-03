@@ -28,7 +28,7 @@ import {
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
-import {cleanStagingResidue}            from './backupStagingResidueCore.mjs';
+import {cleanStagingResidue, createStagingRoot} from './backupStagingResidueCore.mjs';
 import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
@@ -343,9 +343,7 @@ export async function runBackup({
     const stagingHint = path.basename(resolvedRoot)
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, 48) || 'bundle';
-    const stagingRoot = await fs.mkdtemp(
-        path.join(parentRoot, `.backup-partial-${stagingHint}-`)
-    );
+    const stagingRoot = await createStagingRoot(parentRoot, stagingHint);
 
     let result;
 
