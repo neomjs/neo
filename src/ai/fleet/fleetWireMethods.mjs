@@ -11,11 +11,12 @@
  * `Object` / `Neo.core.Base` member, so a crafted `{method:'getManager'}` / `{method:'constructor'}`
  * request cannot reach a non-operation.
  *
- * `getBootIdentity`, `fleetActivity`, `fleetHistory`, `fleetMemories`, `fleetRoster`, and `fleetMailboxMirror`
- * are **read-observe** verbs — the advisory boot-identity fact, the bounded fleet activity snapshot,
- * one viewer-bound catch-up window, one page of an agent's session summaries (the team-visible
- * corpus; the wire carries the canonical target and paging only), the assembled roster cockpit
- * DTO, and one agent's mailbox mirror: they carry NO lifecycle-write / restart authority. The
+ * `getBootIdentity`, `fleetActivity`, `fleetHistory`, `fleetMemories`, `fleetRoster`, `fleetMailboxMirror`,
+ * and `fleetWakeRoutes` are **read-observe** verbs — the advisory boot-identity fact, the bounded
+ * fleet activity snapshot, one viewer-bound catch-up window, one page of an agent's session
+ * summaries (the team-visible corpus; the wire carries the canonical target and paging only), the
+ * assembled roster cockpit DTO, one agent's mailbox mirror, and the decomposed per-seat wake-route
+ * envelope: they carry NO lifecycle-write / restart authority. The
  * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
  * client wire — only advisory reads ride it.
  *

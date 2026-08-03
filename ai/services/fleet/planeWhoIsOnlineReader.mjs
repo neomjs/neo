@@ -18,7 +18,9 @@
  */
 export function createPlaneWhoIsOnlineReader(planeClient) {
     return async () => {
-        const payload = await planeClient.callTool('who_is_online', {})
+        // The verbose contract is load-bearing: the terse report omits the per-agent `agents`
+        // rows this reader exists to fetch, so a terse request would throw on every healthy call.
+        const payload = await planeClient.callTool('who_is_online', {verbose: true})
 
         if (!Array.isArray(payload?.agents)) {
             throw new Error('plane who_is_online answer unreadable')

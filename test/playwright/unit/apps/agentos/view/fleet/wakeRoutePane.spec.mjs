@@ -181,6 +181,38 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         pane.destroy()
     });
 
+    test('degraded/none never claims an empty registry — the roster-unreadable vs observed-empty control pair', () => {
+        const {pane} = createPane();
+
+        // An unreadable roster arrives as degraded/none with zero seats. Adopting it would render
+        // "No seats in the registry" for a registry nobody could read — the pane must refuse.
+        pane.snapshot = {
+            capability: {
+                source    : 'fleet:wakeRoutes', state: 'degraded', confidence: 'none',
+                capturedAt: '2026-08-03T20:01:00.000Z', reason: 'fleet roster unreadable'
+            },
+            viewer: null,
+            count : 0,
+            seats : []
+        };
+
+        expect(pane.seatStore.count).toBe(0);
+        expect(pane.getReference('wakeroutes-meta').text).toBe('Wake routes unavailable · fleet roster unreadable');
+        expect(pane.getReference('wakeroutes-rows').items[0].text)
+            .toBe('The wake-routes source did not answer. Nothing here claims reachability.');
+
+        // The control: observed-empty PARTIAL truth claims the empty registry honestly.
+        pane.snapshot = envelope([], {
+            state     : 'degraded',
+            confidence: 'partial',
+            reason    : 'arming axis: seat-side route arming is not exposed to the fleet server yet'
+        });
+
+        expect(pane.getReference('wakeroutes-rows').items[0].text).toBe('No seats in the registry.');
+
+        pane.destroy()
+    });
+
     test('the read is the explicit act: Refresh fires the intent, and destroy releases the Store', () => {
         const {pane, requests} = createPane();
 

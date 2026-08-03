@@ -197,6 +197,23 @@ function readTerminalDeliveryFailures({
 }
 
 /**
+ * @summary Wraps the receipt-file source as an injected-resolver-contract reader, so a sibling
+ * composition can consume the SAME file-backed authority (same parsing, same fail-honest
+ * degradation) without duplicating it. The returned function matches the
+ * `resolveTerminalDeliveryFailures` axis contract exactly.
+ * @param {Object} options={}
+ * @param {String|null} [options.deliveryFailureFilePath]
+ * @param {Function} [options.readDeliveryFailureFile] Test seam, as on the snapshot reader.
+ * @returns {Function} `() => {state, reason, byIdentity}`.
+ */
+export function createTerminalDeliveryFailuresFileReader({deliveryFailureFilePath = null, readDeliveryFailureFile} = {}) {
+    return () => readTerminalDeliveryFailures({
+        deliveryFailureFilePath,
+        ...(readDeliveryFailureFile && {readDeliveryFailureFile})
+    })
+}
+
+/**
  * @summary Default process-identity reader: the probed pid's command line via `ps` (portable across
  * macOS/Linux). Returns `null` when `ps` yields nothing (the identity stays unknown, never guessed).
  * @param {Number} pid

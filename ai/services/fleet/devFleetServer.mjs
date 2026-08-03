@@ -58,7 +58,7 @@ import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
 import {createPlaneWhoIsOnlineReader}         from './planeWhoIsOnlineReader.mjs';
 import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
-import {resolveDaemonLiveness}                from './fleetWakeStateAdapter.mjs';
+import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
@@ -182,7 +182,12 @@ async function boot() {
             (FleetManager.wakeStateOptions.pidFilePath
                 ? () => resolveDaemonLiveness({pidFilePath: FleetManager.wakeStateOptions.pidFilePath})
                 : null),
-        resolveTerminalDeliveryFailures: FleetManager.wakeStateOptions.resolveTerminalDeliveryFailures ?? null,
+        resolveTerminalDeliveryFailures: FleetManager.wakeStateOptions.resolveTerminalDeliveryFailures ??
+            (FleetManager.wakeStateOptions.deliveryFailureFilePath
+                ? createTerminalDeliveryFailuresFileReader({
+                    deliveryFailureFilePath: FleetManager.wakeStateOptions.deliveryFailureFilePath
+                })
+                : null),
         readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
     });
 

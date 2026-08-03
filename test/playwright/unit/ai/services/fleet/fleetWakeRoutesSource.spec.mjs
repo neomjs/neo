@@ -45,12 +45,16 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         expect(() => createFleetWakeRoutesSource({resolveViewerIdentity: () => '@a'})).toThrow(TypeError)
     });
 
-    test('a fully-answered read is wired/observed with every axis speaking for itself', async () => {
+    test('the armed-certification control: every injected axis answering still cannot certify wired while arming is structurally silent', async () => {
         const snapshot = await harness().readWakeRoutes();
 
+        // The conjunction rule: a decomposed envelope certifies EVERY declared axis, and the
+        // arming axis has no read yet — so `wired/observed` is unreachable BY CONSTRUCTION, and
+        // the reason names exactly the one silent axis.
         expect(snapshot.capability).toEqual({
-            source    : 'fleet:wakeRoutes', state: 'wired', confidence: 'observed',
-            capturedAt: '2026-08-03T20:01:00.000Z', reason: null
+            source    : 'fleet:wakeRoutes', state: 'degraded', confidence: 'partial',
+            capturedAt: '2026-08-03T20:01:00.000Z',
+            reason    : 'arming axis: seat-side route arming is not exposed to the fleet server yet'
         });
         expect(snapshot.viewer).toBe('@e2e-operator');
         expect(snapshot.count).toBe(2);
@@ -149,7 +153,8 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
             resolveDeliveryLiveness: () => ({alive: false, reason: 'stale PID file: recorded process is gone'})
         }).readWakeRoutes();
 
-        expect(snapshot.capability.state).toBe('wired');
+        expect(snapshot.capability.state).toBe('degraded');
+        expect(snapshot.capability.reason).not.toContain('delivery axis');
         expect(snapshot.seats[0].delivery).toEqual({
             state : 'down',
             reason: 'stale PID file: recorded process is gone'
@@ -175,7 +180,7 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         const ada  = partial.seats.find(seat => seat.agentIdentity === '@neo-opus-ada'),
               clio = partial.seats.find(seat => seat.agentIdentity === '@neo-fable-clio');
 
-        expect(partial.capability.state).toBe('wired');
+        expect(partial.capability.state).toBe('degraded');
         expect(clio.presence.state).toBe('online');
         expect(ada.presence).toEqual({
             state: 'unknown', lastSeenAt: null, reason: 'seat absent from the presence report'
@@ -220,6 +225,51 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         }).readWakeRoutes();
 
         expect(snapshot.viewer).toBeNull();
-        expect(snapshot.capability.state).toBe('wired')
+        expect(snapshot.capability.state).toBe('degraded')
+    });
+
+    test('a NON-ARRAY roster answer is unreadable, never an empty fleet — the control against observed-empty', async () => {
+        const unreadable = await harness({
+            listAgents: () => ({rows: 'not an array'})
+        }).readWakeRoutes();
+
+        expect(unreadable.capability.state).toBe('degraded');
+        expect(unreadable.capability.confidence).toBe('none');
+        expect(unreadable.capability.reason).toContain('unreadable');
+        expect(unreadable.seats).toEqual([]);
+
+        // The control: a genuinely empty roster READS as observed-empty partial truth (the arming
+        // axis alone degrades it), with zero seats and NO roster complaint in the reason.
+        const observedEmpty = await harness({listAgents: () => []}).readWakeRoutes();
+
+        expect(observedEmpty.capability.confidence).toBe('partial');
+        expect(observedEmpty.capability.reason).not.toContain('roster');
+        expect(observedEmpty.count).toBe(0)
+    });
+
+    test('the file-backed receipt reader feeds the source: a host receipt reaches exactly its seat', async () => {
+        const {createTerminalDeliveryFailuresFileReader} = await import('../../../../../../ai/services/fleet/fleetWakeStateAdapter.mjs');
+
+        const receiptFile = JSON.stringify({
+            'sub-clio': {
+                subscriptionId: 'sub-clio',
+                agentIdentity : '@neo-fable-clio',
+                errorClass    : 'receiver-unreachable',
+                failedAt      : '2026-08-03T19:00:00.000Z'
+            }
+        });
+
+        const snapshot = await harness({
+            resolveTerminalDeliveryFailures: createTerminalDeliveryFailuresFileReader({
+                deliveryFailureFilePath: '/virtual/wake-delivery-failures.json',
+                readDeliveryFailureFile: () => receiptFile
+            })
+        }).readWakeRoutes();
+
+        const clio = snapshot.seats.find(seat => seat.agentIdentity === '@neo-fable-clio'),
+              ada  = snapshot.seats.find(seat => seat.agentIdentity === '@neo-opus-ada');
+
+        expect(clio.lastFailure.receipt).toEqual({errorClass: 'receiver-unreachable', failedAt: '2026-08-03T19:00:00.000Z'});
+        expect(ada.lastFailure).toEqual({state: 'observed', reason: null, receipt: null})
     })
 });

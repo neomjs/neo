@@ -117,6 +117,15 @@ class FleetControlBridge extends Base {
      */
     memoriesSource = null
     /**
+     * Viewer-bound wake-routes source — an injected collaborator exposing `readWakeRoutes(params)`:
+     * the DECOMPOSED per-seat wake-path envelope (subscription, arming, delivery lane, last
+     * terminal failure, presence), every axis answering as itself under the fail-honest contract.
+     * The source resolves the viewer from authenticated request context at each call; this bridge
+     * carries no viewer field and never fuses axes.
+     * @member {Object|null} wakeRoutesSource=null
+     */
+    wakeRoutesSource = null
+    /**
      * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
      * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the

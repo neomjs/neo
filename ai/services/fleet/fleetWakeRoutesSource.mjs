@@ -85,14 +85,20 @@ export function createFleetWakeRoutesSource({
         try {
             agents = await listAgents()
         } catch (error) {
-            // No roster means no rows CAN exist — that is a source-level degrade, not an empty fleet.
+            agents = error
+        }
+
+        if (!Array.isArray(agents)) {
+            // No roster means no rows CAN exist — a throw AND a non-array answer are both a
+            // source-level degrade, never an empty fleet: "we cannot see the registry" must stay
+            // distinguishable from "the registry is empty".
             return {
                 capability: {
                     source    : WAKE_ROUTES_SOURCE_LABEL,
                     state     : 'degraded',
                     confidence: 'none',
                     capturedAt: toIsoString(now()),
-                    reason    : redactReason(error) || 'fleet roster unreadable'
+                    reason    : (agents instanceof Error ? redactReason(agents) : 'fleet roster answer unreadable') || 'fleet roster unreadable'
                 },
                 viewer,
                 count: 0,
@@ -102,7 +108,7 @@ export function createFleetWakeRoutesSource({
 
         const seats = []
 
-        for (const agent of Array.isArray(agents) ? agents : []) {
+        for (const agent of agents) {
             if (!agent?.id) continue
 
             const identity = wakeIdentityFor(agent)
@@ -118,11 +124,14 @@ export function createFleetWakeRoutesSource({
             })
         }
 
-        // Axis availability decides the envelope: every axis answering = wired/observed; some =
-        // degraded/partial (the reason names each silent axis); none = degraded/none. "We cannot
-        // see" stays distinguishable from "the route is down" — per axis AND per envelope.
+        // Axis availability decides the envelope over EVERY declared axis — including the
+        // structurally silent arming axis, because a decomposed diagnostic envelope must certify
+        // the conjunction of all its constituents: `wired/observed` while any declared axis cannot
+        // answer would be the fused over-certification this surface exists to end. Today that
+        // makes `wired` unreachable BY CONSTRUCTION (arming has no read yet) — correct, and the
+        // reason names it. Some axes answering = degraded/partial; none = degraded/none.
         const
-            axisOk   = [subscription.ok, delivery.ok, failures.ok, presence.ok],
+            axisOk   = [subscription.ok, false, delivery.ok, failures.ok, presence.ok],
             fullyOk  = axisOk.every(Boolean),
             anyTruth = axisOk.some(Boolean)
 
@@ -134,6 +143,7 @@ export function createFleetWakeRoutesSource({
                 capturedAt: toIsoString(now()),
                 reason    : fullyOk ? null : [
                     subscription.ok ? null : `subscription axis: ${subscription.reason}`,
+                    `arming axis: ${ARMED_UNOBSERVED.reason}`,
                     delivery.ok     ? null : `delivery axis: ${delivery.reason}`,
                     failures.ok     ? null : `failure axis: ${failures.reason}`,
                     presence.ok     ? null : `presence axis: ${presence.reason}`

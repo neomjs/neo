@@ -142,7 +142,13 @@ class WakeRoutePane extends Container {
             snapshot = me.snapshot,
             metaEl   = me.getReference('wakeroutes-meta'),
             wired    = snapshot?.capability?.state === 'wired',
-            partial  = snapshot?.capability?.state === 'degraded' && Array.isArray(snapshot?.seats)
+            // Rows are adoptable only when the envelope carries PARTIAL truth. `degraded/none`
+            // means the source could observe nothing (an unreadable roster included) — adopting
+            // its empty seat list would render "No seats in the registry" for a registry nobody
+            // could read, the exact fabrication the envelope exists to prevent.
+            partial  = snapshot?.capability?.state === 'degraded' &&
+                snapshot?.capability?.confidence === 'partial' &&
+                Array.isArray(snapshot?.seats)
 
         if (!me.seatStore) return;
 
