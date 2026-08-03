@@ -398,7 +398,7 @@ export class DeploymentStateBridgeService extends Base {
                 statsSamples   : this.getStatsSamples(serviceKey),
                 providerResidency,
                 churnBaseline  : this.readChurnBaseline(serviceKey),
-                plannedRestarts: this.countPlannedRestarts({serviceKey, observedAt}),
+                plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
                 observedAt
             })
             : null;
@@ -604,7 +604,7 @@ export class DeploymentStateBridgeService extends Base {
      * @param {Number} options.observedAt
      * @returns {Number}
      */
-    countPlannedRestarts({serviceKey, observedAt}) {
+    async countPlannedRestarts({serviceKey, observedAt}) {
         const baseline = this.readChurnBaseline(serviceKey);
 
         if (!baseline) return 0;
@@ -612,13 +612,22 @@ export class DeploymentStateBridgeService extends Base {
         try {
             // Same injection seam the snapshot fold uses (`healLedgerReader || readHealLedger`),
             // rather than a second direct reader — one source of ledger truth, and testable.
+            // AWAITED: `readHealLedger` is async, and the snapshot fold awaits it too. An earlier
+            // revision did not, so `queryHealLedger` received a Promise, matched nothing, and planned
+            // restarts counted 0 — every deploy would have raised false churn.
             const reader = this.healLedgerReader || readHealLedger,
-                  events = reader({dir: this.healLedgerDir});
+                  events = await reader({dir: this.healLedgerDir});
 
             return queryHealLedger(events, {collections: [serviceKey]})
                 .filter(event => event?.type === 'restart')
                 .filter(event => {
-                    const at = Date.parse(event.at ?? event.observedAt ?? '');
+                    // `appendHealEvent` stamps `at` as EPOCH MS (healEventLedgerStore: `at:
+                    // Number.isFinite(entry.at) ? entry.at : now`). An earlier revision ran
+                    // `Date.parse(event.at)` — `Date.parse` of a number is NaN, so every REAL event
+                    // was filtered out, planned restarts counted 0, and a deploy would have raised
+                    // false churn. It passed its test only because the test fabricated ISO strings.
+                    const at = typeof event.at === 'number' ? event.at : Date.parse(event.at ?? '');
+
                     return Number.isFinite(at) && at >= baseline.observedAt && at <= observedAt;
                 })
                 .length

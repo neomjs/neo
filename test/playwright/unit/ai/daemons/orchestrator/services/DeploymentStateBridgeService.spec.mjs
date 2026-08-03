@@ -7,6 +7,7 @@ import * as core                      from '../../../../../../../src/core/_expor
 import AiConfig                       from '../../../../../../../ai/config.template.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
+import {appendHealEvent, readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -1282,11 +1283,21 @@ test.describe('restart churn reaches the deployment record', () => {
     test('restarts recorded as ours in the heal ledger are subtracted, so a deploy raises nothing', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 
-        const ourRestarts = Array.from({length: 5}, () => ({
-            type      : 'restart',
-            collection: 'orchestrator',
-            at        : new Date(OBSERVED_AT + 30000).toISOString()
-        }));
+        // Written through the REAL `appendHealEvent`, not hand-shaped. An earlier revision fabricated
+        // ISO-string `at` values; production stamps epoch ms, so the filter dropped every real event
+        // and the test passed against a specimen that could not occur. The specimen has to be
+        // production-shaped by construction, which means using the production writer.
+        for (let i = 0; i < 5; i++) {
+            await appendHealEvent(
+                {type: 'restart', collection: 'orchestrator', status: 'recorded', detail: {}},
+                {dir, now: OBSERVED_AT + 30000}
+            );
+        }
+
+        const ourRestarts = await readHealLedger({dir});
+
+        expect(ourRestarts.length).toBe(5);
+        expect(typeof ourRestarts[0].at).toBe('number');
 
         const withLedger = await bridgeFor('c1', 5, () => ourRestarts)
             .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
