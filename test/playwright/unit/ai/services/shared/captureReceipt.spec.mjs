@@ -5,7 +5,6 @@ import {
     deriveLineage,
     derivesEmpty,
     LINEAGE,
-    READ_COMPLETENESS,
     ROW_STATE
 } from '../../../../../../ai/services/shared/captureReceipt.mjs';
 
@@ -19,13 +18,9 @@ import {
  * identity with nothing lost. These specs pin the axes as orthogonal and `empty` as the one derived
  * claim, so the collapse cannot come back by accident.
  */
-test.describe('ai/services/shared/captureReceipt — three facts, one derived claim', () => {
-    test('`empty` requires zero rows AND a complete read AND a continuous lineage', () => {
-        expect(derivesEmpty({
-            rowState        : ROW_STATE.zero,
-            readCompleteness: READ_COMPLETENESS.complete,
-            lineage         : LINEAGE.same
-        })).toBe(true);
+test.describe('ai/services/shared/captureReceipt — orthogonal facts, one derived claim', () => {
+    test('`empty` requires a measured zero AND a continuous lineage', () => {
+        expect(derivesEmpty({rowState: ROW_STATE.zero, lineage: LINEAGE.same})).toBe(true);
     });
 
     test('a CHANGED lineage never derives `empty` — the falsifier that dropped the predecessor', () => {
@@ -35,7 +30,6 @@ test.describe('ai/services/shared/captureReceipt — three facts, one derived cl
         const promoted = buildSourceReceipt({
             source      : 'neo-knowledge-base',
             rowCount    : 0,
-            readComplete: true,
             collectionId: 'shadow-id-after-promote',
             previousId  : 'canonical-id-before-promote'
         });
@@ -44,14 +38,12 @@ test.describe('ai/services/shared/captureReceipt — three facts, one derived cl
         expect(promoted.empty).toBe(false);
         // The facts survive rather than collapsing: a consumer can still see there were zero rows.
         expect(promoted.rowState).toBe(ROW_STATE.zero);
-        expect(promoted.readCompleteness).toBe(READ_COMPLETENESS.complete);
     });
 
     test('an UNKNOWN lineage never derives `empty` — first run has nothing to compare against', () => {
         const firstRun = buildSourceReceipt({
             source      : 'neo-agent-memory',
             rowCount    : 0,
-            readComplete: true,
             collectionId: 'some-id',
             previousId  : null
         });
@@ -60,25 +52,11 @@ test.describe('ai/services/shared/captureReceipt — three facts, one derived cl
         expect(firstRun.empty).toBe(false);
     });
 
-    test('an INCOMPLETE read never derives `empty` — the zero describes the read, not the store', () => {
-        const unread = buildSourceReceipt({
-            source      : 'neo-agent-memory',
-            rowCount    : 0,
-            readComplete: false,
-            collectionId: 'same-id',
-            previousId  : 'same-id'
-        });
-
-        expect(unread.readCompleteness).toBe(READ_COMPLETENESS.unavailable);
-        expect(unread.empty).toBe(false);
-    });
-
     test('rows are self-evidencing: a populated source is never `empty`, whatever its lineage', () => {
         for (const previousId of ['same-id', 'different-id', null]) {
             const populated = buildSourceReceipt({
                 source      : 'neo-agent-memory',
                 rowCount    : 94325,
-                readComplete: true,
                 collectionId: 'same-id',
                 previousId
             });
@@ -94,7 +72,6 @@ test.describe('ai/services/shared/captureReceipt — three facts, one derived cl
         const receipt = buildSourceReceipt({
             source      : 'neo-agent-sessions',
             rowCount    : 12,
-            readComplete: true,
             collectionId: 'b',
             previousId  : 'a'
         });
@@ -114,17 +91,81 @@ test.describe('ai/services/shared/captureReceipt — three facts, one derived cl
         expect(deriveLineage()).toBe(LINEAGE.unknown);
     });
 
-    test('`partial` is absent from the completeness vocabulary until a producer exists', () => {
-        // Every partial read in this substrate becomes a thrown abort (`PARTIAL_COLLECTION_EXPORT`),
-        // so no published bundle can carry the value. Shipping it would be a promise the contract
-        // cannot keep; this pins its absence so it is re-added deliberately, with a producer.
-        expect(Object.values(READ_COMPLETENESS)).toEqual(['complete', 'unavailable']);
-        expect(Object.values(READ_COMPLETENESS)).not.toContain('partial');
-    });
-
     test('the axis vocabularies are frozen — a consumer cannot widen a verdict at runtime', () => {
         expect(Object.isFrozen(ROW_STATE)).toBe(true);
-        expect(Object.isFrozen(READ_COMPLETENESS)).toBe(true);
         expect(Object.isFrozen(LINEAGE)).toBe(true);
+    });
+
+    test('read-completeness is NOT an axis — the rule that excluded `partial` applied to itself', () => {
+        // An earlier revision carried `readCompleteness: complete | unavailable`, and nothing in the
+        // substrate could emit `unavailable`: a partial read throws `PARTIAL_COLLECTION_EXPORT` and
+        // aborts before any receipt exists. That is the same reason `partial` was excluded, so the
+        // whole axis went with it. This pins the absence so it returns only with a producer.
+        const receipt = buildSourceReceipt({
+            source      : 'neo-knowledge-base',
+            rowCount    : 0,
+            collectionId: 'same-id',
+            previousId  : 'same-id'
+        });
+
+        expect(receipt).not.toHaveProperty('readCompleteness');
+        expect(Object.values(ROW_STATE)).not.toContain('partial');
+    });
+
+    /**
+     * A malformed count is not a small number — it is no number. Coercing it to `0` lets a broken
+     * exporter plus an unchanged identity assemble a POSITIVE claim of emptiness entirely out of the
+     * absence of evidence, which is the module's own conflation reappearing one layer earlier.
+     */
+    test.describe('malformed counts fail honest', () => {
+        // Every case pairs the bad count with MATCHING identities, so lineage is `same` and the only
+        // thing standing between the receipt and `empty: true` is the row-state rule under test.
+        const malformed = [
+            ['absent',    undefined],
+            ['null',      null],
+            ['NaN',       NaN],
+            ['Infinity',  Infinity],
+            ['-Infinity', -Infinity],
+            ['negative',  -1],
+            ['a string',  '0']
+        ];
+
+        for (const [label, rowCount] of malformed) {
+            test(`${label} is \`unestablished\`, never a measured zero`, () => {
+                const receipt = buildSourceReceipt({
+                    source      : 'neo-knowledge-base',
+                    rowCount,
+                    collectionId: 'same-id',
+                    previousId  : 'same-id'
+                });
+
+                expect(receipt.lineage).toBe(LINEAGE.same);
+                expect(receipt.rowState).toBe(ROW_STATE.unestablished);
+                expect(receipt.empty).toBe(false);
+            });
+        }
+
+        test('a non-numeric count is reported as `null`, not repaired into `0`', () => {
+            const absent = buildSourceReceipt({source: 'kb', rowCount: undefined, collectionId: 'a', previousId: 'a'});
+
+            expect(absent.rowCount).toBeNull();
+        });
+
+        test('a negative count is retained verbatim — the operator needs to see what the producer emitted', () => {
+            const negative = buildSourceReceipt({source: 'kb', rowCount: -1, collectionId: 'a', previousId: 'a'});
+
+            expect(negative.rowCount).toBe(-1);
+            expect(negative.rowState).toBe(ROW_STATE.unestablished);
+        });
+
+        test('zero itself is still a MEASURED zero — the guard must not swallow the honest case', () => {
+            // The positive control. If `unestablished` ever widened to cover a real 0, every one of the
+            // specs above would still pass while the module stopped making its only claim.
+            const measured = buildSourceReceipt({source: 'kb', rowCount: 0, collectionId: 'a', previousId: 'a'});
+
+            expect(measured.rowState).toBe(ROW_STATE.zero);
+            expect(measured.rowCount).toBe(0);
+            expect(measured.empty).toBe(true);
+        });
     });
 });

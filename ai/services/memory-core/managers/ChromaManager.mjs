@@ -6,7 +6,6 @@ import ChromaLifecycleService from '../lifecycle/ChromaLifecycleService.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
-    chromaListCollectionNames,
     createDynamicTextEmbeddingFunction,
     createSilentExecutor,
     isChromaCollectionNotFoundError,
@@ -302,26 +301,6 @@ class ChromaManager extends AbstractVectorManager {
 
         this.graphCollection = await this._graphCollectionPromise;
         return this.graphCollection;
-    }
-
-    /**
-     * @summary Non-mutating enumeration of every collection this client can see.
-     *
-     * All four collection getters above are `getOrCreateCollection` — create-on-missing BY
-     * CONSTRUCTION, with no not-found branch to interrogate. So a deleted collection is silently
-     * replaced by an empty one during the very read meant to capture it, and `count()` then reports
-     * `0` honestly. Nothing downstream can recover the distinction, which is why the backup lane asks
-     * this question BEFORE resolving anything.
-     *
-     * Peer-symmetric with `Neo.ai.services.knowledge-base.ChromaManager#listCollectionNames`. Kept
-     * beside the getters rather than inside them: auto-create is required for first-run bootstrap and
-     * shared by every reader in the system, so this reports on the resolvers without altering them.
-     *
-     * @returns {Promise<String[]>} Collection names, having created nothing.
-     * @see https://github.com/neomjs/neo/issues/16348
-     */
-    async listCollectionNames() {
-        return await chromaListCollectionNames({client: this.client})
     }
 
     /**

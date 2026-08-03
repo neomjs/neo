@@ -296,9 +296,15 @@ export async function readPreviousBundleIdentities(backupRoot, logger = console)
 /**
  * @summary Builds the capture block: what each source held, and whether it is the same source.
  *
- * `readComplete` is `true` for every receipt that exists, and that is a fact about this substrate
+ * Every receipt that reaches here describes a complete read, and that is a fact about this substrate
  * rather than an assumption — `#exportCollection` throws `PARTIAL_COLLECTION_EXPORT` when
- * `exported !== expected`, so a partial read aborts the backup and never reaches a receipt.
+ * `exported !== expected`, so a partial read aborts the backup and never reaches a receipt. It is
+ * therefore not recorded as an axis; see {@link module:ai/services/shared/captureReceipt}.
+ *
+ * A receipt carrying no readable count is passed through as-is rather than defaulted to zero. The
+ * classification of that case belongs to `buildSourceReceipt`, which has one rule for it; a `?? 0`
+ * here would have made the malformed case indistinguishable from a measured empty before the rule
+ * ever ran.
  *
  * @param {Object} options
  * @param {Object} options.subsystems Receipt map assembled by `runBackup`.
@@ -317,12 +323,11 @@ export async function buildCaptureBlock({subsystems, backupRoot, logger = consol
 
         const rowCount = typeof receipt === 'number'
             ? receipt
-            : receipt.count ?? receipt.exported ?? 0;
+            : receipt.count ?? receipt.exported;
 
         sources[key] = buildSourceReceipt({
             source        : key,
             rowCount,
-            readComplete  : true,
             collectionId  : receipt.collectionId ?? null,
             previousId    : identities[key] ?? null,
             comparedBundle: bundleName
@@ -626,16 +631,17 @@ async function captureBackup({
         );
     }
 
-    const emptyChecks = integrity.filter(check => check.status === 'empty');
-    if (emptyChecks.length > 0) {
-        // Non-fatal (a fresh environment legitimately backs up empty subsystems), but loud: a zero-row
-        // export from a normally-populated deployment is the gutted-store signature, and a backup of an
-        // empty store is a false recovery source. The 'empty' status is carried in bundle-meta.integrity
-        // for a downstream canary/alert to escalate on.
+    const zeroRowChecks = integrity.filter(check => check.status === 'zero-rows');
+    if (zeroRowChecks.length > 0) {
+        // Non-fatal (a fresh environment legitimately backs up zero-row subsystems), but loud: a
+        // zero-row export from a normally-populated deployment is the gutted-store signature, and a
+        // backup holding no rows is a false recovery source. The 'zero-rows' status is carried in
+        // bundle-meta.integrity for a downstream canary/alert to escalate on. It reports what the
+        // bundle HOLDS; whether the source was genuinely empty is the capture block's question.
         logger.warn?.(
-            `[Backup] ${emptyChecks.length} subsystem(s) exported ZERO rows — empty backup is not a usable ` +
-            `recovery source: ${emptyChecks.map(c => c.subsystem).join(', ')}. Legitimate for a fresh ` +
-            `environment; corruption-suspicious for a populated deployment.`
+            `[Backup] ${zeroRowChecks.length} subsystem(s) exported ZERO rows — a bundle holding no rows is ` +
+            `not a usable recovery source: ${zeroRowChecks.map(c => c.subsystem).join(', ')}. Legitimate for ` +
+            `a fresh environment; corruption-suspicious for a populated deployment.`
         );
     }
 
@@ -700,11 +706,15 @@ export async function countNonEmptyJsonlLines(filePath) {
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
  * files to count non-empty lines (streaming so 1+ GB exports do not exceed V8's max string length)
  * and compares — mismatch indicates a partial/torn write that the
- * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both empty) is
- * reported as `empty`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally because
- * it is not a usable recovery source (a fresh environment is legitimately empty; a populated
- * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `empty`
+ * caller treats as a fail-the-bundle condition. Zero-zero parity (source and bundle both report zero)
+ * is reported as `zero-rows`, not `pass`: a backup of an empty/gutted store is surfaced non-fatally
+ * because it is not a usable recovery source (a fresh environment is legitimately empty; a populated
+ * deployment reporting zero rows is the gutted-store signature). `runBackup` warns on `zero-rows`
  * subsystems and persists the status into `bundle-meta.integrity` for a downstream canary/alert.
+ *
+ * The status answers what the BUNDLE holds, never why. Whether the source was genuinely empty is the
+ * `capture` block's question — see {@link module:ai/services/shared/captureReceipt} — and the two are
+ * kept lexically apart so one artifact cannot publish two meanings of `empty` about the same zero.
  *
  * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
  * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
@@ -712,7 +722,7 @@ export async function countNonEmptyJsonlLines(filePath) {
  *
  * @param {Object} layout     The bundle's per-subsystem destination directory map.
  * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
- * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
+ * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is `pass` (positive row-count parity) / `zero-rows` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
     const verifiable = ['kb', 'mc', 'graph'];
@@ -742,17 +752,22 @@ export async function verifyBundleIntegrity(layout, subsystems) {
         }
 
         if (bundleCount === sourceCount) {
-            // Empty-parity is NOT a healthy pass: a backup whose source AND bundle are both empty is
-            // not a usable recovery source. Legitimate for a fresh environment, but for a normally-
+            // Zero-parity is NOT a healthy pass: a bundle whose source AND files both report zero rows
+            // is not a usable recovery source. Legitimate for a fresh environment, but for a normally-
             // populated deployment a zero-row export is the gutted-store signature (the corruption a
-            // backup is supposed to survive) — surface it as 'empty' (visible, non-fatal) rather than
-            // a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
-            const status = sourceCount === 0 ? 'empty' : 'pass';
+            // backup is supposed to survive) — surface it as 'zero-rows' (visible, non-fatal) rather
+            // than a silent 'pass' so a downstream canary/alert can act on bundle-meta.integrity.
+            //
+            // Named 'zero-rows' and not 'empty' on purpose: this is a statement about what the bundle
+            // HOLDS, which is why it disqualifies a restore no matter what caused the zero. The
+            // capture block answers the separate question of whether the source was genuinely empty,
+            // and one artifact carrying both meanings under one word is how they came to disagree.
+            const status = sourceCount === 0 ? 'zero-rows' : 'pass';
             const entry  = {subsystem, status, sourceCount, bundleCount};
 
-            if (status === 'empty') {
-                entry.reason = 'source and bundle both report zero rows — empty backup is not a usable ' +
-                    'recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
+            if (status === 'zero-rows') {
+                entry.reason = 'source and bundle both report zero rows — a bundle holding no rows is not a ' +
+                    'usable recovery source (fresh-env legitimate; populated-deployment corruption-suspicious)';
             }
 
             checks.push(entry);
@@ -835,24 +850,6 @@ async function buildVersionDescriptor(projectRoot, logger) {
 }
 
 /**
- * Applies retention policy to the backup root.
- *
- * Two-axis policy:
- *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
- *   - `maxDays`     — bundles older than this many days are eligible for deletion
- *
- * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
- * window OR younger than maxDays). Both defaults match the original hardcoded
- * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
- * existing behavior.
- *
- * @param {String} backupRoot
- * @param {Object} logger
- * @param {Object} [retention]
- * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
- * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
- */
-/**
  * @summary Enumerates the PUBLISHED bundles under a backup root, newest first.
  *
  * "Published" is not a synonym for "present". A bundle becomes authoritative only when the
@@ -898,6 +895,28 @@ export async function listPublishedBundles(backupRoot) {
     return backups
 }
 
+/**
+ * Applies retention policy to the backup root.
+ *
+ * Two-axis policy:
+ *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
+ *   - `maxDays`     — bundles older than this many days are eligible for deletion
+ *
+ * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
+ * window OR younger than maxDays). Both defaults match the original hardcoded
+ * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
+ * existing behavior.
+ *
+ * Enumerates through {@link listPublishedBundles}, so a `.backup-partial-*` staging directory is
+ * never a retention candidate and never counts toward `keepMinimum` — an in-flight capture must not
+ * be able to age a real recovery source out of the floor.
+ *
+ * @param {String} backupRoot
+ * @param {Object} logger
+ * @param {Object} [retention]
+ * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
+ * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
+ */
 export async function cleanOldBackups(backupRoot, logger, retention = {}) {
     if (!await fs.pathExists(backupRoot)) return;
 

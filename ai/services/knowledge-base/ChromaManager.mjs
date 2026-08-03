@@ -327,26 +327,6 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @summary Non-mutating enumeration of every collection this client can see.
-     *
-     * `#resolveKnowledgeBaseCollection` answers "does this collection exist?" by making it true — it
-     * catches not-found and creates. A caller that needs the pre-read answer therefore cannot ask any
-     * resolver for it, and must enumerate instead. Deliberately public and deliberately NOT wired into
-     * resolution: the auto-create is load-bearing for first-run bootstrap and shared by every reader in
-     * the system, so the backup lane's reporting need is served beside it, never inside it.
-     *
-     * Returns the whole list rather than a per-name predicate so a caller checking several collections
-     * takes ONE snapshot — N predicates would each observe a different instant, and the verdict they
-     * feed is a statement about a single moment before the export began.
-     *
-     * @returns {Promise<String[]>} Collection names, having created nothing.
-     * @see https://github.com/neomjs/neo/issues/16348
-     */
-    async listCollectionNames() {
-        return await chromaListCollectionNames({client: this.client})
-    }
-
-    /**
      * @returns {Promise<String[]>}
      */
     async #getActiveKnowledgeBaseSwapCollections() {

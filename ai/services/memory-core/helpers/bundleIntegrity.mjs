@@ -16,16 +16,36 @@
  * contain them. Treating missing evidence as a failing verdict would retroactively condemn every
  * historical recovery source — a worse outage than the defect this exists to fix. Absence resolves
  * to `null` (unknown), which is a third answer and not a quiet `false`.
+ *
+ * **This module answers SURVIVABILITY, and deliberately no longer uses the word `empty` for it.** The
+ * question here is "does this bundle carry rows a restore could bring back", and the answer is `no`
+ * for a zero-row subsystem regardless of WHY it is zero — a genuinely empty store and a gutted one are
+ * equally unrecoverable. Provenance — whether there was anything to capture in the first place — is a
+ * different proposition owned by {@link module:ai/services/shared/captureReceipt}, which reserves
+ * `empty` for the claim that the facts actually support. The two blocks previously both said `empty`
+ * about the same zero and could disagree, so this one says `zero-rows` and the disagreement has no
+ * vocabulary left to happen in.
  */
 
 /**
- * @summary Names the subsystems whose export was classified `empty`.
+ * The `bundle-meta.integrity` statuses that mean "no rows survived into the bundle".
+ *
+ * `empty` is retained as an accepted INPUT and never written again. Bundles published before the
+ * rename carry it, they are still live recovery sources, and a reader that matched only the new value
+ * would silently promote every one of them from `restorable: false` to `restorable: true` — turning a
+ * vocabulary correction into the exact false-green this module exists to end.
+ * @type {String[]}
+ */
+const ZERO_ROW_STATUSES = Object.freeze(['zero-rows', 'empty']);
+
+/**
+ * @summary Names the subsystems whose export brought back no rows.
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
  * @returns {String[]} Subsystem names, empty when none or when the block is absent.
  */
-export function emptySubsystems(integrity) {
+export function zeroRowSubsystems(integrity) {
     return Array.isArray(integrity)
-        ? integrity.filter(check => check?.status === 'empty').map(check => check?.subsystem ?? 'unknown')
+        ? integrity.filter(check => ZERO_ROW_STATUSES.includes(check?.status)).map(check => check?.subsystem ?? 'unknown')
         : [];
 }
 
@@ -37,9 +57,15 @@ export function emptySubsystems(integrity) {
  * either choice is a lie — `false` condemns historical bundles, `true` re-creates the false-green
  * this module exists to end.
  *
- * ANY empty subsystem disqualifies the whole bundle. A partial restore is not a restore: recovering
- * memories while the knowledge base comes back empty is a silently incomplete system, which is the
- * failure mode that is hardest to notice afterwards.
+ * ANY zero-row subsystem disqualifies the whole bundle. A partial restore is not a restore: recovering
+ * memories while the knowledge base comes back with nothing is a silently incomplete system, which is
+ * the failure mode that is hardest to notice afterwards.
+ *
+ * **Lineage does not soften this.** A zero-row source whose collection identity CHANGED is not
+ * `empty` in the capture receipt's sense — the facts do not support that claim — and it is still
+ * unrestorable here, because the bundle holds no rows either way. Reading the provenance verdict into
+ * this one would promote the most suspicious bundle in the series, a zero-row capture over a replaced
+ * source, into a usable recovery source.
  *
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
  * @returns {Boolean|null}
@@ -49,17 +75,17 @@ export function isBundleRestorable(integrity) {
         return null;
     }
 
-    return emptySubsystems(integrity).length === 0;
+    return zeroRowSubsystems(integrity).length === 0;
 }
 
 /**
  * @summary Projects the integrity checks into the compact summary receipts and health blocks embed.
  * @param {Array<Object>|undefined|null} integrity `bundle-meta.integrity` checks.
- * @returns {{restorable: Boolean|null, emptySubsystems: String[]}}
+ * @returns {{restorable: Boolean|null, zeroRowSubsystems: String[]}}
  */
 export function summarizeBundleIntegrity(integrity) {
     return {
-        emptySubsystems: emptySubsystems(integrity),
-        restorable     : isBundleRestorable(integrity)
+        zeroRowSubsystems: zeroRowSubsystems(integrity),
+        restorable       : isBundleRestorable(integrity)
     }
 }
