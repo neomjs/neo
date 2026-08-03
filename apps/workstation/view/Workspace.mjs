@@ -2312,6 +2312,8 @@ class Workspace extends Container {
         // service, and must still restore the probe's displaced document. Both projections are
         // full — the swap and the restore can each change topology, so neither may declare a
         // geometry-only projection over the transition.
+        let completed = false;
+
         try {
             me.dockModel = DockZoneModel.clone(initialDocument);
             await me.refreshDockWorkspace();
@@ -2320,16 +2322,25 @@ class Workspace extends Container {
 
             await me.refreshPromise;
 
-            return {...result, document: DockZoneModel.clone(me.dockModel)}
+            const out = {...result, document: DockZoneModel.clone(me.dockModel)};
+
+            completed = true;
+
+            return out
         } finally {
             runner.destroy();
             dockService.destroy();
 
             if (restoreDocument && !me.isDestroyed) {
                 me.dockModel = liveDocument;
-                // The document assignment IS the restore; a rejecting restore projection must
-                // not mask the original transaction error.
-                await me.refreshDockWorkspace().catch(() => null)
+
+                // The document assignment IS the restore. On a clean replay a rejecting restore
+                // projection must surface (a probe may not report success over an un-projected
+                // surface); while an original transaction error is in flight it must not be
+                // masked by the restore's own failure.
+                completed
+                    ? await me.refreshDockWorkspace()
+                    : await me.refreshDockWorkspace().catch(() => null)
             }
         }
     }

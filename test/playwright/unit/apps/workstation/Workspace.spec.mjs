@@ -2266,6 +2266,35 @@ test.describe('replay probe transaction (prototype-call)', () => {
         expect(refreshCalls, 'entry projection + restore projection both ran').toHaveLength(2)
     });
 
+    test('a successful replay surfaces a rejecting restore projection instead of swallowing it', async () => {
+        const
+            liveDocument = {nodes: {marker: 'live'}},
+            refreshCalls = [],
+            host         = {
+                dockModel     : liveDocument,
+                id            : 'fake-workspace',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    // entry projection succeeds; the restore projection rejects
+                    return refreshCalls.length === 1
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('restore projection rejected'))
+                }
+            },
+            script = {schema: 'neo.tour.script.v1', id: 'noop', title: 'noop', scenes: []};
+
+        await expect(
+            Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true}),
+            'a probe may not report success over an un-projected surface'
+        ).rejects.toThrow('restore projection rejected');
+
+        expect(host.dockModel, 'the displaced document is still restored').toBe(liveDocument);
+        expect(refreshCalls).toHaveLength(2)
+    });
+
     test('a rejecting entry projection leaves the driver default without a restore', async () => {
         const
             liveDocument = {nodes: {marker: 'live'}},
