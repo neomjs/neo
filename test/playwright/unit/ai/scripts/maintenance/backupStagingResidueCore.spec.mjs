@@ -253,6 +253,66 @@ test.describe('backupStagingResidueCore — the .backup-partial-* lifecycle (#16
         await expect(cleanStagingResidue(notADirectory, {log: () => {}}, {keepPartials: 0})).rejects.toThrow();
     });
 
+    /**
+     * The error-truth rule applies at EVERY observation site, not just the root `readdir`. The first
+     * repair fixed one of four catch sites; an entry that could be listed but not stat'd was still
+     * dropped silently, which removed it from the count AND from the sweep's work list — unreported
+     * and unreclaimed at once.
+     *
+     * The failure is INJECTED rather than produced with real permissions on purpose: `chmod` does not
+     * stop root, and CI runs as root, so a permission fixture would pass locally and prove nothing
+     * where it counts. The thing under test is the error-code classification, which an injected code
+     * exercises exactly.
+     */
+    test('an entry that can be listed but not stat-ed propagates, never vanishes (#16427)', async () => {
+        const {backupRoot} = createBackupRoot({partials: 2}),
+              eacces       = Object.assign(new Error('permission denied'), {code: 'EACCES'}),
+              fsImpl       = {
+                  readdir: (...args) => fs.readdir(...args),
+                  stat   : () => Promise.reject(eacces)
+              };
+
+        await expect(listStagingResidue(backupRoot, {fsImpl})).rejects.toThrow('permission denied');
+
+        const summary = await summarizeStagingResidue(backupRoot, {fsImpl});
+        expect(summary.status).toBe('unreadable');
+        expect(summary.count).toBeNull();
+        expect(summary.errorCode).toBe('EACCES');
+
+        // The sweep must reach runBackup's warning path rather than reporting a clean no-op.
+        await expect(
+            cleanStagingResidue(backupRoot, {log: () => {}}, {fsImpl, keepPartials: 0})
+        ).rejects.toThrow('permission denied');
+
+        // Positive control: the SAME shape with ENOENT is a genuine race and is still skipped, so
+        // the assertions above are about the error CODE and not merely about stat failing at all.
+        const enoent = Object.assign(new Error('gone'), {code: 'ENOENT'});
+        const raced  = await summarizeStagingResidue(backupRoot, {
+            fsImpl: {readdir: (...args) => fs.readdir(...args), stat: () => Promise.reject(enoent)}
+        });
+        expect(raced).toMatchObject({count: 0, status: 'ok'});
+    });
+
+    test('a partial whose payload cannot be sized propagates instead of reporting zero bytes (#16427)', async () => {
+        const {backupRoot} = createBackupRoot({partials: 1, bytesPerPartial: 64}),
+              eacces       = Object.assign(new Error('payload unreadable'), {code: 'EACCES'}),
+              // The partial itself stats fine; only the recursive size walk fails — the exact shape
+              // that previously produced `{status:'ok', count:1, bytes:0}`.
+              fsImpl       = {
+                  readdir: (target, opts) => target === backupRoot
+                      ? fs.readdir(target, opts)
+                      : Promise.reject(eacces),
+                  stat   : (...args) => fs.stat(...args)
+              };
+
+        const summary = await summarizeStagingResidue(backupRoot, {fsImpl});
+
+        expect(summary.status).toBe('unreadable');
+        expect(summary.bytes).toBeNull();
+        expect(summary.count).toBeNull();
+        expect(summary.errorCode).toBe('EACCES');
+    });
+
     test('selectStagingResidueForRemoval is pure and keeps the newest N', () => {
         const residue = [
             {name: 'c', path: '/r/c', mtimeMs: 300},

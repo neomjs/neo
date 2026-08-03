@@ -66,35 +66,70 @@ export async function createStagingRoot(parentRoot, stagingHint) {
 }
 
 /**
+ * The ONE rule every observation site in this module applies to a filesystem error.
+ *
+ * @summary `ENOENT` is the only skippable code, because it is the only one that carries
+ * information: the entry is genuinely not there, which for this namespace is a real answer (an
+ * absent root) or a benign race (a concurrent sweep removed a partial between `readdir` and
+ * `stat`). Every other code — `ENOTDIR`, `EACCES`, `EPERM`, `EIO` — means *the observation failed*,
+ * and a failed observation must never be reported as a measurement.
+ *
+ * This lives as a named helper rather than as three copies of an `if` because the first repair of
+ * this defect fixed exactly one of the four catch sites and left the other three intact: the root
+ * `readdir` was corrected while the per-entry `stat` and both recursive size reads kept swallowing
+ * everything, so an unreadable child still produced `{status:'ok', count:0}`. Fixing one site of a
+ * shared class is how the next site gets shadowed. One rule, one place, applied at every site.
+ *
+ * @param {Error} error A filesystem error.
+ * @returns {Boolean} True when the error is a genuine absence and may be skipped.
+ */
+export function isSkippableAbsence(error) {
+    return error?.code === 'ENOENT';
+}
+
+/**
  * Recursively sums the byte size of a directory's regular files.
  *
  * @summary Stats only — it never reads file contents, so a multi-GB partial costs one stat per
- * entry rather than any IO proportional to its size. Unreadable entries contribute `0` instead of
- * throwing: a residue sweep that dies on one bad inode leaves the whole namespace unreclaimed, and
- * an approximate size is worth more here than an exact failure.
+ * entry rather than any IO proportional to its size.
+ *
+ * An entry that vanished mid-walk contributes `0` and the walk continues: that is a real race
+ * against the sweep, not a failure. Anything else PROPAGATES — an unreadable payload reporting
+ * `bytes: 0` alongside `status: 'ok'` is a measured-looking zero for a measurement that never
+ * happened, which is the exact defect this module exists to avoid committing.
  * @param {String} targetPath Absolute directory path.
+ * @param {Object} [options]
+ * @param {Object} [options.fsImpl=fs] Filesystem seam. Injected by specs to produce a deterministic
+ *     `EACCES`: real permission fixtures behave differently under root, which CI runs as, so a
+ *     permission-based witness would pass locally and prove nothing where it matters.
  * @returns {Promise<Number>} Total bytes.
+ * @throws {Error} Any non-`ENOENT` filesystem error.
  */
-export async function measureDirectoryBytes(targetPath) {
-    let total = 0;
+export async function measureDirectoryBytes(targetPath, {fsImpl = fs} = {}) {
+    let total = 0,
+        entries;
 
-    let entries;
     try {
-        entries = await fs.readdir(targetPath, {withFileTypes: true})
+        entries = await fsImpl.readdir(targetPath, {withFileTypes: true})
     } catch (error) {
-        return 0
+        if (isSkippableAbsence(error)) {
+            return 0
+        }
+        throw error
     }
 
     for (const entry of entries) {
         const entryPath = path.join(targetPath, entry.name);
 
         if (entry.isDirectory()) {
-            total += await measureDirectoryBytes(entryPath)
+            total += await measureDirectoryBytes(entryPath, {fsImpl})
         } else if (entry.isFile()) {
             try {
-                total += (await fs.stat(entryPath)).size
+                total += (await fsImpl.stat(entryPath)).size
             } catch (error) {
-                // Vanished or unreadable mid-walk; contributes nothing rather than aborting.
+                if (!isSkippableAbsence(error)) {
+                    throw error
+                }
             }
         }
     }
@@ -111,19 +146,17 @@ export async function measureDirectoryBytes(targetPath) {
  * @param {String} backupRoot Absolute backup root.
  * @param {Object} [options]
  * @param {Boolean} [options.withBytes=false] Also measure each directory's total size.
+ * @param {Object} [options.fsImpl=fs] Filesystem seam; see {@link measureDirectoryBytes}.
  * @returns {Promise<Object[]>} `[{name, path, mtimeMs, bytes}]`, newest first.
+ * @throws {Error} Any non-`ENOENT` filesystem error, at the root or at any entry beneath it.
  */
-export async function listStagingResidue(backupRoot, {withBytes = false} = {}) {
+export async function listStagingResidue(backupRoot, {withBytes = false, fsImpl = fs} = {}) {
     let entries;
     try {
-        entries = await fs.readdir(backupRoot, {withFileTypes: true})
+        entries = await fsImpl.readdir(backupRoot, {withFileTypes: true})
     } catch (error) {
-        // ENOENT is an ANSWER: no root, therefore no residue. Every other code — ENOTDIR, EACCES,
-        // EIO — is a FAILED OBSERVATION, and returning `[]` for it would make "I could not look"
-        // wear the same shape as "I looked and found nothing". That is the precise defect this
-        // module's own JSDoc calls out in the Memory Core healthcheck's blind `count: 0`, and it
-        // would silently no-op the sweep on an unreadable root while reporting a clean footprint.
-        if (error.code === 'ENOENT') {
+        // No root, therefore no residue — the one code that is an answer. See isSkippableAbsence.
+        if (isSkippableAbsence(error)) {
             return []
         }
         throw error
@@ -137,16 +170,22 @@ export async function listStagingResidue(backupRoot, {withBytes = false} = {}) {
         const residuePath = path.join(backupRoot, entry.name);
 
         try {
-            const stats = await fs.stat(residuePath);
+            const stats = await fsImpl.stat(residuePath);
 
             residue.push({
                 name   : entry.name,
                 path   : residuePath,
                 mtimeMs: stats.mtimeMs,
-                bytes  : withBytes ? await measureDirectoryBytes(residuePath) : null
+                bytes  : withBytes ? await measureDirectoryBytes(residuePath, {fsImpl}) : null
             })
         } catch (error) {
             // Removed between readdir and stat — a concurrent sweep won the race; nothing to report.
+            // An entry we can SEE but cannot STAT is a different thing entirely: dropping it silently
+            // would delete it from the count AND from the sweep's work list, so the residue would be
+            // both unreported and unreclaimed. That propagates.
+            if (!isSkippableAbsence(error)) {
+                throw error
+            }
         }
     }
 
@@ -167,14 +206,19 @@ export async function listStagingResidue(backupRoot, {withBytes = false} = {}) {
  * because a consumer summing or thresholding them must not be handed a measured-looking zero when
  * no measurement occurred. Absent-root is not a failure: it resolves to `ok` with a count of `0`,
  * because "there is no backup root" is a real answer to "how much residue is there".
+ *
+ * A failure ANYWHERE in the walk lands here — the root, an entry it could see but not stat, or a
+ * payload it could not size. All of them are the same class and all of them report `unreadable`.
  * @param {String} backupRoot Absolute backup root.
+ * @param {Object} [options]
+ * @param {Object} [options.fsImpl] Filesystem seam; see {@link measureDirectoryBytes}.
  * @returns {Promise<{status: String, count: Number|null, bytes: Number|null, oldestMtimeMs: Number|null, errorCode: String|null}>}
  */
-export async function summarizeStagingResidue(backupRoot) {
+export async function summarizeStagingResidue(backupRoot, {fsImpl} = {}) {
     let residue;
 
     try {
-        residue = await listStagingResidue(backupRoot, {withBytes: true})
+        residue = await listStagingResidue(backupRoot, {withBytes: true, ...(fsImpl && {fsImpl})})
     } catch (error) {
         return {
             status       : 'unreadable',
@@ -236,10 +280,13 @@ export function selectStagingResidueForRemoval(residue, {keepPartials, excludePa
  * @param {Number} options.keepPartials How many newest partials to preserve.
  * @param {String} [options.excludePath=null] A staging directory that must never be reclaimed.
  * @param {Number} [options.now=Date.now()] Clock seam for age reporting.
+ * @param {Object} [options.fsImpl=fs] Filesystem seam; see {@link measureDirectoryBytes}.
  * @returns {Promise<{inspected: Number, removed: String[], failed: String[], keptForForensics: Number}>}
+ * @throws {Error} Any non-`ENOENT` enumeration failure, so an unreadable namespace reaches
+ *     `runBackup`'s warning path instead of silently reclaiming nothing.
  */
-export async function cleanStagingResidue(backupRoot, logger, {keepPartials, excludePath = null, now = Date.now()}) {
-    const residue = await listStagingResidue(backupRoot),
+export async function cleanStagingResidue(backupRoot, logger, {keepPartials, excludePath = null, now = Date.now(), fsImpl = fs}) {
+    const residue = await listStagingResidue(backupRoot, {fsImpl}),
           doomed  = selectStagingResidueForRemoval(residue, {keepPartials, excludePath}),
           removed = [],
           failed  = [];

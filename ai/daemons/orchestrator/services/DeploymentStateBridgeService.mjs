@@ -287,7 +287,9 @@ export class DeploymentStateBridgeService extends Base {
         const durability = resolveConfiguredDurabilityPosture();
 
         // `stagingResidue` is projected UNCONDITIONALLY, for the same reason `durability` is: it is a
-        // property of the backup ROOT rather than of any run, so it is exactly knowable at all times.
+        // property of the backup ROOT rather than of any run, so it is always REPORTABLE — which is
+        // not the same as always successfully measured, and `status` carries that difference: an
+        // observation that failed reports `unreadable` with null counts, never a zero.
         // `.backup-partial-*` residue is invisible to every root-level enumerator by construction —
         // that invisibility is the safety property keeping torn bundles unrestorable — so this is the only surface
         // its footprint can be seen from at all. Omitting it when clean would make "no residue"
