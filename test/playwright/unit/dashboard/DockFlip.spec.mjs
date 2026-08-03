@@ -572,6 +572,144 @@ test.describe('Neo.main.addon.DockFlip', () => {
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false)
     });
 
+    test('classifies a zero-area First as entering: no fixed stage, no zero-scale inverse (#16356)', async () => {
+        const
+            markerClass     = 'dock-flip-item-alpha',
+            movingClass     = 'dock-flip-item-beta',
+            marker          = createMarker(markerClass, {bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0}),
+            movingMarker    = createMarker(movingClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            sourceBody      = {parentElement: null},
+            destinationBody = {
+                parentElement: null,
+                style        : {},
+                getBoundingClientRect() {
+                    return {bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100}
+                }
+            },
+            host            = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker, movingMarker]
+                }
+            },
+            visibleStyle = {
+                contain    : 'none',
+                filter     : 'none',
+                overflowX  : 'visible',
+                overflowY  : 'visible',
+                perspective: 'none',
+                transform  : 'none',
+                willChange : 'auto',
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                }
+            };
+
+        sourceBody.parentElement      = host;
+        destinationBody.parentElement = host;
+        marker.parentElement          = sourceBody;
+        movingMarker.parentElement    = sourceBody;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = element => element === destinationBody
+            ? {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
+            : visibleStyle;
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.parentElement       = destinationBody;
+        movingMarker.parentElement = destinationBody;
+        marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+        movingMarker.setRect({bottom: 150, height: 50, left: 210, right: 290, top: 100, width: 80});
+
+        const commitSamples = [];
+
+        globalThis.requestAnimationFrame = callback => {
+            commitSamples.push({
+                opacity  : marker.style.opacity,
+                staged   : marker.classList.contains('neo-dock-flip-fixed-stage'),
+                transform: marker.style.transform
+            });
+            callback()
+        };
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(true);
+
+        expect(commitSamples).toEqual([{
+            opacity  : '0.001',
+            staged   : false,
+            transform: 'scale(0.92)'
+        }]);
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage'),
+            'a never-presented element leaves no stage residue').toBe(false);
+        expect(marker.style.transform ?? '', 'no zero-scale inverse is ever installed').not.toContain('scale(0,');
+        expect(marker.style.opacity ?? '', 'the entering fade releases and restores').not.toBe('0.001')
+    });
+
+    test('skips a zero-area Last: nothing presents at the destination, the committed layout owns it (#16356)', async () => {
+        const
+            markerClass     = 'dock-flip-item-alpha',
+            marker          = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            sourceBody      = {parentElement: null},
+            destinationBody = {parentElement: null, style: {}},
+            host            = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            },
+            visibleStyle = {
+                contain    : 'none',
+                filter     : 'none',
+                overflowX  : 'visible',
+                overflowY  : 'visible',
+                perspective: 'none',
+                transform  : 'none',
+                willChange : 'auto',
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
+                }
+            };
+
+        sourceBody.parentElement      = host;
+        destinationBody.parentElement = host;
+        marker.parentElement          = sourceBody;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle    = () => visibleStyle;
+        globalThis.requestAnimationFrame = callback => callback();
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.parentElement = destinationBody;
+        marker.setRect({bottom: 100, height: 0, left: 200, right: 200, top: 100, width: 0});
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(false);
+
+        expect(marker.style.transform, 'no motion is installed toward a non-presenting destination').toBeUndefined();
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false)
+    });
+
     test('destroy interrupts an active fixed stage and restores its presentation state', async () => {
         const
             markerClass     = 'dock-flip-item-alpha',
