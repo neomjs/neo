@@ -243,13 +243,6 @@ services:
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
-      # State the heap ceiling; do not inherit it. Node sizes its default old-space from the cgroup
-      # limit, so at 1g it capped near 512 MB and died there while the container still had headroom
-      # it was never allowed to use — the failure read as a crash loop rather than as pressure.
-      # Held below the container limit on purpose: V8's heap is not the process's whole footprint,
-      # and a ceiling at parity trades a catchable heap error for an uncatchable kernel OOM kill,
-      # which leaves no diagnostic at all.
-      - NODE_OPTIONS=${NEO_ORCHESTRATOR_NODE_OPTIONS:---max-old-space-size=1536}
       # The role is DECLARED, never inherited (#16229). The leaf carries no default, so this line
       # is what makes the containerized Orchestrator startable at all — and stating it here is the
       # point: before the cut, a host `node ai/daemons/orchestrator/daemon.mjs` resolved the same
@@ -346,16 +339,26 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
+    # Heap ceilings are PER PROCESS, so they are set on the command rather than in `environment`.
+    # `ProcessSupervisorService` spawns supervised tasks with `{...process.env}`, so a service-level
+    # NODE_OPTIONS is inherited by every child and the container budget is silently multiplied by
+    # the number of concurrent Node processes rather than spent once.
+    #
+    # This container is measured at 2 concurrent Node processes: the daemon at pid 1 plus one
+    # supervised task (the heavy-maintenance lease serialises the 11 heavy tasks, so at most one of
+    # those runs at a time). The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-1024} ${SERVER_ENTRYPOINT}"]
     deploy:
       resources:
-        # The control plane supervises every other service and drains both WALs in-process
-        # (NEO_MEMORY_WAL_IN_PROCESS_DRAIN / NEO_MESSAGE_WAL_IN_PROCESS_DRAIN), so its working set
-        # is not comparable to the servers it supervises. At 1g it died of heap exhaustion 949
-        # times on the maintainer plane, each run surviving ~3 minutes; the crash surfaced as an
-        # authority-lease refusal, because a restart inside the 60s lease TTL is refused as a
-        # duplicate of its own dead predecessor.
+        # Budget, stated rather than inherited: parent 1024 + one supervised child 512 = 1536 MB of
+        # V8, leaving ~1.5g for native footprint across the tree and a third process appearing.
+        #
+        # The container limit cannot be raised on its own. Node sizes its DEFAULT old-space from the
+        # cgroup, so a bigger container silently raises the implicit ceiling of every child that has
+        # no explicit one — which is the same leak in a different direction. The limit and both
+        # explicit ceilings only make sense together.
         limits:
-          memory: 2g
+          memory: 3g
           cpus: "1.0"
 
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS

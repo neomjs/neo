@@ -3,7 +3,7 @@ import fs                           from 'fs-extra';
 import path                         from 'path';
 import Neo                          from '../../../../../../../src/Neo.mjs';
 import * as core                    from '../../../../../../../src/core/_export.mjs';
-import { ProcessSupervisorService } from '../../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
+import { buildSupervisedTaskEnv, ProcessSupervisorService } from '../../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 
 function createTestService() {
     const dataDir = `/tmp/process-supervisor-service-test-${Date.now()}-${Math.random()}`;
@@ -1115,5 +1115,74 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
 
         expect(killed).toEqual([]);
+    });
+});
+
+test.describe('#16459 — the parent/child heap boundary', () => {
+    /**
+     * The defect this pins: a container memory limit budgets the whole process tree, but a V8 heap
+     * ceiling is per process. Children are spawned with `{...process.env}`, so a ceiling set once at
+     * the service level is silently re-spent by every concurrent child. Measured on the maintainer
+     * plane: 2 concurrent Node processes in the orchestrator container, the child larger than the
+     * parent.
+     */
+    test('a child never inherits the parent heap ceiling — it receives its own', () => {
+        const env = buildSupervisedTaskEnv({
+            baseEnv: {NODE_OPTIONS: '--max-old-space-size=1024', PATH: '/usr/bin'}
+        });
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=512');
+        expect(env.NODE_OPTIONS).not.toContain('1024');
+        expect(env.PATH).toBe('/usr/bin');
+    });
+
+    /**
+     * The inverse leak, and why sizing the container alone cannot fix this: with no explicit ceiling
+     * Node derives its default old-space from the cgroup, so raising the container limit raises every
+     * unbounded child's implicit ceiling too. An unbounded child must not exist.
+     */
+    test('a child with no inherited ceiling still gets an explicit one', () => {
+        const env = buildSupervisedTaskEnv({baseEnv: {PATH: '/usr/bin'}});
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=512');
+    });
+
+    test('a task that declares its own ceiling keeps it — the definition is not overridden', () => {
+        const env = buildSupervisedTaskEnv({
+            baseEnv: {NODE_OPTIONS: '--max-old-space-size=1024'},
+            taskEnv: {NODE_OPTIONS: '--max-old-space-size=2048'}
+        });
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=2048');
+    });
+
+    test('a call-site ceiling is narrowest and wins over the task definition', () => {
+        const env = buildSupervisedTaskEnv({
+            baseEnv  : {NODE_OPTIONS: '--max-old-space-size=1024'},
+            taskEnv  : {NODE_OPTIONS: '--max-old-space-size=2048'},
+            callerEnv: {NODE_OPTIONS: '--max-old-space-size=256'}
+        });
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=256');
+    });
+
+    test('the child ceiling is deployment-overridable without touching code', () => {
+        const env = buildSupervisedTaskEnv({
+            baseEnv: {NEO_SUPERVISED_TASK_HEAP_MB: '768'}
+        });
+
+        expect(env.NODE_OPTIONS).toBe('--max-old-space-size=768');
+    });
+
+    test('non-NODE_OPTIONS task and caller env still merge normally', () => {
+        const env = buildSupervisedTaskEnv({
+            baseEnv  : {PATH: '/usr/bin', KEEP: 'base'},
+            taskEnv  : {TASK_ONLY: 'yes'},
+            callerEnv: {CALLER_ONLY: 'yes'}
+        });
+
+        expect(env.KEEP).toBe('base');
+        expect(env.TASK_ONLY).toBe('yes');
+        expect(env.CALLER_ONLY).toBe('yes');
     });
 });
