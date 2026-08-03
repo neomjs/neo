@@ -237,16 +237,36 @@ if launchctl print "gui/$(id -u)/com.neomjs.agent-os-host-edge" >/dev/null 2>&1;
 fi
 
 cp ai/deploy/com.neomjs.agent-os-wake.plist "${NEO_WAKE_PLIST}"
-plutil -replace ProgramArguments.0 -string "$(command -v node)" "${NEO_WAKE_PLIST}"
-plutil -replace ProgramArguments.3 -string "${NEO_WAKE_RECEIVER_MANIFEST}" "${NEO_WAKE_PLIST}"
-plutil -replace ProgramArguments.5 -string "${NEO_WAKE_RECEIVER_STATE_DIR}" "${NEO_WAKE_PLIST}"
-plutil -replace ProgramArguments.7 -string "127.0.0.1" "${NEO_WAKE_PLIST}"
-plutil -replace ProgramArguments.9 -string "3199" "${NEO_WAKE_PLIST}"
+plutil -replace ProgramArguments -json "[
+  \"$(command -v node)\", \"ai/daemons/wake/receiver.mjs\",
+  \"--manifest\",  \"${NEO_WAKE_RECEIVER_MANIFEST}\",
+  \"--state-dir\", \"${NEO_WAKE_RECEIVER_STATE_DIR}\",
+  \"--host\",      \"127.0.0.1\",
+  \"--port\",      \"3199\"
+]" "${NEO_WAKE_PLIST}"
 plutil -replace WorkingDirectory -string "${NEO_REPO_ROOT}" "${NEO_WAKE_PLIST}"
 plutil -replace EnvironmentVariables.PATH -string "${PATH}" "${NEO_WAKE_PLIST}"
 plutil -replace StandardOutPath -string "${NEO_WAKE_RECEIVER_STATE_DIR}/launchd.out.log" "${NEO_WAKE_PLIST}"
 plutil -replace StandardErrorPath -string "${NEO_WAKE_RECEIVER_STATE_DIR}/launchd.err.log" "${NEO_WAKE_PLIST}"
 plutil -lint "${NEO_WAKE_PLIST}"
+
+# `lint` is NOT sufficient here — see the note below. Assert no placeholder survived.
+plutil -p "${NEO_WAKE_PLIST}" | grep -q '__' && { echo 'FAIL: placeholder survived in wake plist'; exit 1; }
+
+**Replace the whole `ProgramArguments` array, never an index.** `plutil -replace
+ProgramArguments.0` **inserts** at index 0 instead of replacing it: the
+placeholder survives one slot to the right and becomes `argv[1]`, so `node` is
+handed `__NODE_BIN__` as its script path and the agent never launches. The wake
+plist degrades worst under the per-index form, because each insert shifts every
+later placeholder and the remaining index arithmetic is then wrong.
+
+**`plutil -lint` reports `OK` on the corrupted result** — the shifted array is
+structurally valid — so there is no install-time diagnostic and the failure only
+shows up as an agent that silently never runs. That is why the placeholder
+assertion above exists, and why `lint` alone must not be trusted as the check.
+Dictionary-key replacement (`WorkingDirectory`, `EnvironmentVariables.*`,
+`StandardOutPath`, `StandardErrorPath`, including nested dotted keys) replaces
+correctly and is fine as written; the defect is specific to **array indices**.
 
 The receiver binds `127.0.0.1` deliberately: the container plane reaches the
 host receiver through the loopback-mapped host address, so a `0.0.0.0` bind is
@@ -254,13 +274,14 @@ an unnecessary widening — keep it loopback unless a measured LAN path requires
 otherwise.
 
 cp ai/deploy/com.neomjs.agent-os-host-edge.plist "${NEO_HOST_EDGE_PLIST}"
-plutil -replace ProgramArguments.0 -string "$(command -v node)" "${NEO_HOST_EDGE_PLIST}"
+plutil -replace ProgramArguments -json "[\"$(command -v node)\", \"ai/daemons/orchestrator/hostEdge.mjs\"]" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace WorkingDirectory -string "${NEO_REPO_ROOT}" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace EnvironmentVariables.PATH -string "${PATH}" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace EnvironmentVariables.NEO_AI_ORCHESTRATOR_DIR -string "${NEO_HOST_EDGE_STATE_DIR}" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace StandardOutPath -string "${NEO_HOST_EDGE_STATE_DIR}/launchd.out.log" "${NEO_HOST_EDGE_PLIST}"
 plutil -replace StandardErrorPath -string "${NEO_HOST_EDGE_STATE_DIR}/launchd.err.log" "${NEO_HOST_EDGE_PLIST}"
 plutil -lint "${NEO_HOST_EDGE_PLIST}"
+plutil -p "${NEO_HOST_EDGE_PLIST}" | grep -q '__' && { echo 'FAIL: placeholder survived in host-edge plist'; exit 1; }
 
 launchctl bootstrap "gui/$(id -u)" "${NEO_WAKE_PLIST}"
 launchctl bootstrap "gui/$(id -u)" "${NEO_HOST_EDGE_PLIST}"
