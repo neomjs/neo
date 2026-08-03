@@ -1,9 +1,27 @@
-import fs                from 'fs-extra';
-import path              from 'path';
-import {Command}         from 'commander';
-import {fileURLToPath}   from 'url';
-import {GH_LabelService} from '../../../ai/services.mjs';
-import {sanitizeInput}   from '../../util/sanitizer.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {Command}       from 'commander';
+import {fileURLToPath} from 'url';
+
+// Neo namespace bootstrap (entry-point invariant). `Neo` + `core/_export` populate `globalThis.Neo`,
+// which `Neo.setupClass` needs before LabelService's module body runs — without them the import
+// throws `ReferenceError: Neo is not defined` at `src/core/Compare.mjs`. Both look unused and are
+// not; do not "clean up" either one.
+import Neo       from '../../../src/Neo.mjs';
+import * as core from '../../../src/core/_export.mjs';
+
+// Imported directly rather than through `ai/services.mjs`. That barrel eagerly constructs all 66 of
+// its imports — every MCP server, including the Knowledge Base's ChromaManager and therefore
+// `chromadb`, which lives in the Brain install tier. This script runs in Body-tier CI, so reaching
+// one GitHub label service through the barrel made a docs job require a vector-database client and
+// broke the Data Sync Pipeline outright.
+//
+// The barrel also wraps services in `makeSafe`, which Zod-validates and marshals INPUT arguments.
+// `list_labels` declares no parameters and no requestBody, and `listLabels()` takes none, so the
+// wrapper resolves to `parse({})` → `[]` → `method.call(service)` — a no-op for this call and this
+// call only. A method WITH parameters would also lose object→positional marshalling here.
+import GH_LabelService from '../../../ai/services/github-workflow/LabelService.mjs';
+import {sanitizeInput} from '../../util/sanitizer.mjs';
 
 /**
  * @module buildScripts.createLabelIndex
@@ -33,9 +51,9 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/labels.js
  * @returns {string} - Black or white hex color.
  */
 function getContrastColor(hexcolor) {
-    const r = parseInt(hexcolor.substring(0, 2), 16);
-    const g = parseInt(hexcolor.substring(2, 4), 16);
-    const b = parseInt(hexcolor.substring(4, 6), 16);
+    const r   = parseInt(hexcolor.substring(0, 2), 16);
+    const g   = parseInt(hexcolor.substring(2, 4), 16);
+    const b   = parseInt(hexcolor.substring(4, 6), 16);
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     return (yiq >= 128) ? '#000000' : '#ffffff';
 }
