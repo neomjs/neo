@@ -390,6 +390,23 @@ async function main() {
         unchecked.push(`target revision: ${targetError}`)
     }
 
+    // Overlay staleness is a SEPARATE defect class from a missing env key, and this tool does not
+    // detect it: the target's own `ai/config.mjs` is needed, and a deployment this host does not own
+    // will not surrender it. Reported as NOT VERIFIED rather than omitted, because the two have
+    // different remediations — a stale overlay wants an overlay migration, not an env edit — and a
+    // consumer that saw only "env delta clean" would conclude the wrong repair.
+    //
+    // It matters more than an ordinary gap: the config-freshness guard throws on staleness BEFORE it
+    // reaches its required-input listing, so on a stale target the missing-env report is unreachable
+    // and a start-and-parse-the-failure approach would return a migration instruction where a delta
+    // was expected. This driver reads container env directly and never parses a startup failure, so
+    // it is not exposed to that ordering — but the blind spot is real and stays named.
+    // (@neo-opus-ada's finding on the source ticket; the ordering is verified in `initServerConfigs.mjs`.)
+    unchecked.push(
+        "config-overlay drift: NOT evaluated — needs the target's own ai/config.mjs. A stale overlay is a " +
+        'different repair (overlay migration) from a missing key, and a clean env delta does not rule it out'
+    );
+
     const plan = buildMigrationPlan({
         observedEnv,
         census,
