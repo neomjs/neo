@@ -224,7 +224,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 
         // the placement truth: `addTab` appends by default — the restore must land the item back
         // at its STORED index (0, before the rest of the rail), not at the tail
-        expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'operator']);
+        expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator']);
 
         // same instance re-adopted by the projection; the vessel was closed by name
         expect(cockpit.getReference('agent-detail')).toBe(pane);
@@ -259,7 +259,7 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
 
             // the SAME instance is docked again at its exact home; nothing was closed (nothing opened)
             expect(cockpit.getReference('agent-detail')).toBe(pane);
-            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'operator']);
+            expect(cockpit.getDockZoneDocument().nodes['secondary-rail'].items).toEqual(['detail', 'perspectives', 'defineAgent', 'catchUp', 'memories', 'wakeRoutes', 'operator']);
             expect(vessel.closeCalls).toHaveLength(0)
         } finally {
             console.warn = origWarn

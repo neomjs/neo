@@ -296,6 +296,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
             'defineAgent',
             'catchUp',
             'memories',
+            'wakeRoutes',
             'operator'
         ])
     });
