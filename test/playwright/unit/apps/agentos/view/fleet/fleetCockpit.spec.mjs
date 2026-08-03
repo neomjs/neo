@@ -2151,6 +2151,10 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
             const slow = host.loadBrainHealth(),
                   fast = host.loadBrainHealth();
 
+            // the mock's invoke sits one microtask deep (the sync-throw guard wraps it in a
+            // resolved-promise chain), so the wires materialize only after a flush
+            await expect.poll(() => host.wires.length).toBe(2);
+
             // the NEWER read answers first with current truth
             host.wires[1]({cause: null, state: 'running'});
             await fast;
