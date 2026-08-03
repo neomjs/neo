@@ -405,30 +405,130 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.remountArming, 'the latch stays untouched').toBe(false)
     });
 
-    test('re-arm: a rejected re-mount releases the latch without align or unhandled rejection (#16434)', async () => {
+    test('re-arm vs the REAL producer: a theme-file deferral holds the latch across syncs — no listener stacking (#16434)', async () => {
+        // The deferred initVnode branch settles only when the re-entered attempt settles
+        // (VdomLifecycle chains through the once-listener). The latch therefore spans the
+        // WHOLE deferral: repeated syncs must not register overlapping themeFilesLoaded
+        // callbacks. Pre-repair the wrapper resolved early, the latch released, and every
+        // sync stacked another listener (reviewer falsifier: registrations 1 → 2).
         const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        let aligned = 0;
+        const
+            hiddenMeta       = [{text: 'Agents', iconCls: 'fa fa-users', index: 0}],
+            worker           = Neo.currentWorker,
+            themeCallbacks   = [],
+            originalOn       = worker.on,
+            originalCount    = worker.countLoadingThemeFiles,
+            originalUnitMode = Neo.config.unitTestMode,
+            control          = Neo.create({
+                module  : (await import('../../../../../src/component/Base.mjs')).default,
+                appName : 'test-app',
+                floating: true,
+                parentId: 'document.body',
+                windowId: 1
+            });
 
-        plugin.control = {
-            isDestroyed        : false,
-            isVnodeInitializing: false,
-            menuList           : {items: []},
-            mounted            : false,
-            alignTo() {
-                aligned++
-            },
-            initVnode() {
-                return Promise.reject(new Error('transient mount failure'))
-            }
+        worker.on = (event, callback) => {
+            (event === 'themeFilesLoaded' || event?.themeFilesLoaded) && themeCallbacks.push(
+                typeof event === 'string' ? callback : event.themeFilesLoaded
+            )
         };
+        worker.countLoadingThemeFiles = 1;
 
-        plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0});
+        plugin.control = control;
+
+        try {
+            // The gate check reads config synchronously at call time: expose the real
+            // (non-unit) branch for exactly the arming calls, restore right after.
+            Neo.config.unitTestMode = false;
+            plugin.syncControl(hiddenMeta, {activeIndex: 0});
+
+            expect(themeCallbacks.length, 'the first sync arms exactly one deferral listener').toBe(1);
+            expect(plugin.remountArming, 'the latch holds across the deferral, not just the call').toBe(true);
+
+            plugin.syncControl(hiddenMeta, {activeIndex: 0});
+
+            expect(themeCallbacks.length, 'a second sync during the deferral stacks NO second listener').toBe(1);
+            Neo.config.unitTestMode = originalUnitMode;
+
+            // Theme files land: the deferral re-enters (unit mode early-returns the attempt),
+            // the chained promise settles, the latch releases.
+            worker.countLoadingThemeFiles = 0;
+            themeCallbacks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(plugin.remountArming, 'the latch releases when the REAL attempt settles').toBe(false)
+        } finally {
+            Neo.config.unitTestMode = originalUnitMode;
+            worker.on = originalOn;
+            originalCount === undefined
+                ? delete worker.countLoadingThemeFiles
+                : worker.countLoadingThemeFiles = originalCount;
+            control.destroy()
+        }
+    });
+
+    test('re-arm vs the REAL producer: a rejected attempt releases isVnodeInitializing so the next sync retries (#16434)', async () => {
+        // Pre-repair, a real vnode-creation rejection left isVnodeInitializing=true, so the
+        // guard skipped every later sync and the promised retry never ran (reviewer
+        // falsifier: create calls 1 → 1). The catch now releases the flag; this drives the
+        // REAL initVnode through a rejecting Neo.vdom.Helper.create and proves the retry.
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        expect(plugin.remountArming, 'a failed attempt releases the latch so the NEXT sync can retry').toBe(false);
-        expect(aligned, 'no align on a failed mount').toBe(0)
+        // The Helper registers Neo.vdom.Helper at import time; this spec's own module graph
+        // does not load it otherwise.
+        await import('../../../../../src/vdom/Helper.mjs');
+
+        const
+            hiddenMeta     = [{text: 'Agents', iconCls: 'fa fa-users', index: 0}],
+            originalAllow  = Neo.config.allowVdomUpdatesInTests,
+            originalApp    = Neo.apps?.['test-app'],
+            originalCreate = Neo.vdom.Helper.create,
+            originalError  = console.error,
+            control        = Neo.create({
+                module  : (await import('../../../../../src/component/Base.mjs')).default,
+                appName : 'test-app',
+                floating: true,
+                parentId: 'document.body',
+                windowId: 1
+            });
+
+        let createCalls = 0;
+
+        Neo.apps ??= {};
+        Neo.apps['test-app'] = {fire: () => {}, mounted: true, vnodeInitialized: true};
+        Neo.config.allowVdomUpdatesInTests = true;
+        Neo.vdom.Helper.create = () => {
+            createCalls++;
+            return Promise.reject(new Error('transient vnode-creation failure'))
+        };
+        console.error = () => {}; // initVnode's catch logs the rejection by contract
+
+        plugin.control = control;
+
+        try {
+            plugin.syncControl(hiddenMeta, {activeIndex: 0});
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(createCalls, 'the first sync drives one real create attempt').toBe(1);
+            expect(control.isVnodeInitializing, 'the rejection releases the core initializing flag').toBe(false);
+            expect(plugin.remountArming, 'the rejection releases the plugin latch').toBe(false);
+
+            plugin.syncControl(hiddenMeta, {activeIndex: 0});
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(createCalls, 'the next sync RETRIES with a second real create attempt').toBe(2);
+            expect(control.isVnodeInitializing, 'the retry rejection releases the flag again').toBe(false);
+            expect(plugin.remountArming, 'the latch is reusable across failed attempts').toBe(false)
+        } finally {
+            Neo.config.allowVdomUpdatesInTests = originalAllow;
+            Neo.vdom.Helper.create = originalCreate;
+            console.error = originalError;
+            originalApp === undefined ? delete Neo.apps['test-app'] : Neo.apps['test-app'] = originalApp;
+            control.destroy()
+        }
     })
 });
 

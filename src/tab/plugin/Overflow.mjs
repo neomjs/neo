@@ -464,8 +464,12 @@ class Overflow extends Plugin {
             // document's lifetime. The mount path itself is starvation-proof (message-driven
             // vnode create + insert; verified live in a fully hidden document), so
             // re-attempting here makes the surface self-healing against any transient
-            // un-mounter. The latch bounds it to one in-flight attempt; the align follows
-            // only a successful mount (mirroring the sync-time re-align below).
+            // un-mounter. The latch bounds it to one in-flight attempt — which relies on
+            // initVnode's lifecycle contract: its promise settles only when the REAL attempt
+            // settles (a theme-file deferral chains through the re-entered attempt), and a
+            // rejection releases isVnodeInitializing before rethrowing, so the guard above
+            // re-opens and a later sync retries. The align follows only a successful mount
+            // (mirroring the sync-time re-align below).
             if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
                 me.remountArming = true;
 

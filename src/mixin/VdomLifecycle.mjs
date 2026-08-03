@@ -537,6 +537,11 @@ class VdomLifecycle extends Base {
      * Creates the vnode tree for this component and mounts the component in case
      * - you pass true for the mount param
      * - or the autoMount config is set to true
+     *
+     * Lifecycle contract for awaiting callers: the returned promise settles when the REAL
+     * attempt settles. A theme-file deferral chains through the re-entered attempt instead of
+     * resolving early, and a rejected attempt releases `isVnodeInitializing` (component + app
+     * level) before rethrowing, so a caller-side retry on a later trigger is always possible.
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
@@ -548,13 +553,18 @@ class VdomLifecycle extends Base {
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
 
-        // Verify that the critical rendering path => CSS files for the new tree is in place
+        // Verify that the critical rendering path => CSS files for the new tree is in place.
+        // Deferred is not done: the returned promise settles only when the re-entered attempt
+        // settles (chained recursively across repeated deferrals), so an awaiting caller — and
+        // any caller-side single-flight latch — tracks the REAL mount attempt instead of a
+        // wrapper that resolves before the work begins. Rejections propagate through the chain
+        // for the same reason.
         if (!unitTestMode && autoMount && currentWorker.countLoadingThemeFiles !== 0) {
-            currentWorker.on('themeFilesLoaded', function() {
-                !me.mounted && me.initVnode(mount)
-            }, me, {once: true});
-
-            return
+            return new Promise((resolve, reject) => {
+                currentWorker.on('themeFilesLoaded', function() {
+                    me.mounted ? resolve() : me.initVnode(mount).then(resolve, reject)
+                }, me, {once: true})
+            })
         }
 
         me.isVnodeInitializing = true;
@@ -614,8 +624,17 @@ class VdomLifecycle extends Base {
         } catch (err) {
             // Mirror executeVdomUpdate()'s error contract: the in-flight state MUST be released on
             // failure, or the component wedges permanently (isVdomUpdating never clears and the
-            // registry entry blocks every ancestor update via isChildUpdating).
-            me.isVdomUpdating = false;
+            // registry entry blocks every ancestor update via isChildUpdating). The initializing
+            // flags belong to the same contract: a rejection that left isVnodeInitializing=true
+            // silently blocked every future initVnode consumer gating on it — no retry could
+            // ever run for the component's lifetime.
+            me.isVdomUpdating       = false;
+            me.isVnodeInitializing  = false;
+
+            if (app && !app.vnodeInitialized) {
+                app.isVnodeInitializing = false
+            }
+
             VDomUpdate.unregisterInFlightUpdate(me.id);
 
             console.error('initVnode error', err, me.id);
