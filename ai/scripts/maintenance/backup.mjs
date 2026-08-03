@@ -239,7 +239,72 @@ export function buildEmbeddingContract({subsystems}) {
 }
 
 /**
+ * @summary Rewrites JSON-safe export receipt paths from the private capture root to the final
+ * published root without changing unrelated strings.
+ * @param {*} value Receipt value to clone.
+ * @param {String} stagingRoot Private same-parent capture root.
+ * @param {String} publishedRoot Final caller-visible bundle root.
+ * @returns {*} Cloned receipt value carrying only published bundle paths.
+ */
+function rebaseBundleReceiptPaths(value, stagingRoot, publishedRoot) {
+    if (typeof value === 'string') {
+        if (value === stagingRoot) {
+            return publishedRoot
+        }
+
+        const stagingPrefix = stagingRoot.endsWith(path.sep) ? stagingRoot : `${stagingRoot}${path.sep}`;
+
+        return value.startsWith(stagingPrefix)
+            ? path.join(publishedRoot, value.slice(stagingPrefix.length))
+            : value
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(item => rebaseBundleReceiptPaths(item, stagingRoot, publishedRoot))
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [
+                key,
+                rebaseBundleReceiptPaths(item, stagingRoot, publishedRoot)
+            ])
+        )
+    }
+
+    return value
+}
+
+/**
+ * @summary Fails unless a publication destination is truly absent. `lstat` is intentional:
+ * `pathExists` collapses access failures into false and follows away dangling symlinks, while only
+ * `ENOENT` is evidence that rename will not target an existing filesystem entry.
+ * @param {String} targetPath Final bundle path.
+ * @param {String} message Stable refusal prefix.
+ * @returns {Promise<void>}
+ */
+async function assertBackupDestinationAbsent(targetPath, message) {
+    try {
+        await fs.lstat(targetPath)
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return
+        }
+
+        throw error
+    }
+
+    throw new Error(`${message}: ${targetPath}`)
+}
+
+/**
  * Executes a full-substrate backup.
+ *
+ * Capture is assembled in a unique sibling directory outside the root-level `backup-*`
+ * candidate namespace. The final path is published with a same-filesystem rename only after
+ * every export, the integrity gate, and `bundle-meta.json` have completed. Caught failures remove
+ * only this invocation's staging directory; abrupt process death can leave a self-identifying
+ * `.backup-partial-*` directory that restore and retention discovery ignore by construction.
  *
  * @param {Object}   options
  * @param {String}  [options.bundleRoot=null]            Absolute bundle path. If null, a timestamped dir under the default root is used.
@@ -248,6 +313,7 @@ export function buildEmbeddingContract({subsystems}) {
  * @param {Object}  [options.ledgerSources]              Override for the incident-ledger source paths
  *                                                       (`{healAttemptsFile, healEventsDir, recoveryRunsDir}`).
  *                                                       Omitted in production — resolved from AiConfig at the use site.
+ * @param {Function} [options.cleanOldBackupsImpl]       Retention cleaner seam; defaults to `cleanOldBackups`.
  * @param {Object}  [options.logger=console]             Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, timestamp: String, subsystems: Object}>}
  */
@@ -257,10 +323,130 @@ export async function runBackup({
     trajectoriesSourceFile = DEFAULT_TRAJECTORIES_FILE,
     sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
     ledgerSources,
+    cleanOldBackupsImpl    = cleanOldBackups,
     logger                 = console
 } = {}) {
     const timestamp    = new Date().toISOString().replace(/:/g, '-');
     const resolvedRoot = bundleRoot ?? path.join(AiConfig.backupPath, `backup-${timestamp}`);
+    const parentRoot   = path.dirname(resolvedRoot);
+
+    await fs.ensureDir(parentRoot);
+    await assertBackupDestinationAbsent(resolvedRoot, 'Backup destination already exists');
+
+    // Keep a bounded, filesystem-safe hint of the intended final basename visible for diagnostics
+    // while making the stage impossible to confuse with a root-level restore/retention candidate.
+    // `mkdtemp` adds the per-run unique suffix, and sibling placement guarantees same-filesystem
+    // rename without making a long-but-valid explicit destination exceed NAME_MAX.
+    const stagingHint = path.basename(resolvedRoot)
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .slice(0, 48) || 'bundle';
+    const stagingRoot = await fs.mkdtemp(
+        path.join(parentRoot, `.backup-partial-${stagingHint}-`)
+    );
+
+    let result;
+
+    try {
+        // `mkdtemp` deliberately defaults to 0700. The old directly-created final directory used
+        // mkdir's 0777&umask semantics, so preserve that mode where the backing filesystem supports
+        // POSIX chmod. ACL/SMB-backed mounts may reject chmod even though mkdir + rename are valid.
+        if (process.platform !== 'win32') {
+            try {
+                await fs.chmod(stagingRoot, 0o777 & ~process.umask())
+            } catch (error) {
+                if (!['EPERM', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'].includes(error.code)) {
+                    throw error
+                }
+            }
+        }
+
+        result = await captureBackup({
+            conceptsSourceDir,
+            ledgerSources,
+            logger,
+            publishedRoot: resolvedRoot,
+            resolvedRoot : stagingRoot,
+            sentToCullSourceFile,
+            timestamp,
+            trajectoriesSourceFile
+        });
+
+        // This catches an ordinary destination appearing during capture. Node has no portable
+        // RENAME_NOREPLACE for directories, so the heavy-maintenance lease remains the cooperative
+        // writer guarantee across this final check + rename boundary.
+        await assertBackupDestinationAbsent(resolvedRoot, 'Backup destination appeared during capture');
+
+        await fs.rename(stagingRoot, resolvedRoot)
+    } catch (error) {
+        try {
+            await fs.remove(stagingRoot)
+        } catch (cleanupError) {
+            try {
+                logger.warn?.(`[Backup] failed to remove staging directory after capture failure: ${cleanupError.message}`)
+            } catch {
+                // Preserve the capture failure: cleanup diagnostics are strictly secondary.
+            }
+        }
+
+        throw error
+    }
+
+    const {retention, ...publishedResult} = result;
+
+    // Retention is deliberately post-publication: pruning to the configured floor before the new
+    // bundle is authoritative would leave one fewer recovery source if integrity/meta/rename later
+    // failed. Cleanup failure cannot invalidate an already-complete published bundle.
+    try {
+        logger.log('[8/8] Applying retention sweep...')
+    } catch {
+        // Publication already succeeded; retention still runs when a diagnostic sink is closed.
+    }
+
+    try {
+        await cleanOldBackupsImpl(AiConfig.backupPath, logger, retention)
+    } catch (error) {
+        try {
+            logger.warn?.(`[Backup] retention sweep failed after publication: ${error.message}`)
+        } catch {
+            // A diagnostic sink cannot turn a completed, published bundle into a reported failure.
+        }
+    }
+
+    try {
+        logger.log(`✅ Backup complete: ${resolvedRoot}`)
+    } catch {
+        // Publication already succeeded. A closed terminal or custom diagnostic sink cannot turn
+        // the completed bundle into a reported backup failure and a contradictory failed receipt.
+    }
+
+    return {...publishedResult, bundleRoot: resolvedRoot}
+}
+
+/**
+ * @summary Captures every bundle member and completion receipt into a private staging directory.
+ * Publication is deliberately owned by `runBackup()` so this helper can never return a path that a
+ * restore, retention, receipt, or off-host-sync consumer treats as authoritative.
+ * @param {Object} options
+ * @param {String} options.resolvedRoot Unique non-candidate staging root.
+ * @param {String} options.publishedRoot Final caller-visible bundle root.
+ * @param {String} options.timestamp Final bundle timestamp shared with the publication name.
+ * @param {String} options.conceptsSourceDir Concept Ontology source directory.
+ * @param {String} options.trajectoriesSourceFile RLAIF trajectories source file.
+ * @param {String} options.sentToCullSourceFile Mailbox archive source file.
+ * @param {Object} [options.ledgerSources] Incident-ledger source paths.
+ * @param {Object} options.logger Log sink.
+ * @returns {Promise<{timestamp: String, completedAt: String, subsystems: Object, meta: Object, retention: Object}>}
+ */
+async function captureBackup({
+    resolvedRoot,
+    publishedRoot,
+    timestamp,
+    conceptsSourceDir,
+    trajectoriesSourceFile,
+    sentToCullSourceFile,
+    ledgerSources,
+    logger
+}) {
     // Resolved leaves read HERE rather than captured at module scope: `healAttemptsPath` and
     // `recoveryRunStateDir` are plane members and therefore env-relocatable per deployment, so a
     // module-scope capture would bundle whatever the path was at import time.
@@ -330,13 +516,11 @@ export async function runBackup({
         sources: resolvedLedgerSources
     });
 
-    logger.log('[8/8] Applying retention sweep...');
-    // Retention comes from Tier-1 AI maintenance policy; missing keys fail loud
-    // at the direct resolved-leaf read site. Bundle root, retention sweep, receipt, and
-    // snapshot-root all resolve from the same `AiConfig.backupPath` leaf (the CLI wrapper
-    // loads the gitignored overlay before this call so the local overlay is honored too).
+    // Resolve retention while the bundle is still private so a missing policy fails before
+    // publication. The actual sweep runs after rename: a failed capture must retain the full
+    // previous recovery floor.
     await loadTopLevelAiConfig();
-    await cleanOldBackups(AiConfig.backupPath, logger, resolveBackupRetention());
+    const retention = resolveBackupRetention();
 
     logger.log('Verifying bundle integrity (row-count parity)...');
     const integrity    = await verifyBundleIntegrity(layout, subsystems);
@@ -361,15 +545,16 @@ export async function runBackup({
         );
     }
 
-    const completedAt = new Date().toISOString();
-    const topology    = buildTopologyDescriptor();
-    const versionInfo = await buildVersionDescriptor(PROJECT_ROOT, logger);
-    const embedding   = buildEmbeddingContract({subsystems});
-    const meta        = {
+    const completedAt         = new Date().toISOString();
+    const topology            = buildTopologyDescriptor();
+    const versionInfo         = await buildVersionDescriptor(PROJECT_ROOT, logger);
+    const publishedSubsystems = rebaseBundleReceiptPaths(subsystems, resolvedRoot, publishedRoot);
+    const embedding           = buildEmbeddingContract({subsystems: publishedSubsystems});
+    const meta                = {
         bundleVersion: 1,
         timestamp,
         completedAt,
-        subsystems,
+        subsystems   : publishedSubsystems,
         integrity,
         topology,
         embedding,
@@ -377,8 +562,7 @@ export async function runBackup({
     };
     await fs.writeJson(path.join(resolvedRoot, 'bundle-meta.json'), meta, { spaces: 2 });
 
-    logger.log(`✅ Backup complete: ${resolvedRoot}`);
-    return {bundleRoot: resolvedRoot, timestamp, completedAt, subsystems, meta};
+    return {timestamp, completedAt, subsystems: publishedSubsystems, meta, retention};
 }
 
 /**
