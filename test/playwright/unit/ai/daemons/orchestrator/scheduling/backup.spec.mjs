@@ -2,35 +2,54 @@ import {test, expect} from '@playwright/test';
 import {
     BACKUP_RETRY_PHASE,
     buildBackupTrigger,
+    countRemainingRetries,
     describeBackupRetryState,
     getDueTask,
     isFailedRunRetryDue
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/backup.mjs';
 
 const
-    DAY_MS     = 86400000,
-    DELAY_MS   = 15 * 60 * 1000,
-    WINDOW_MS  = 60 * 60 * 1000,
-    SUCCESS_AT = 1000000,
-    iso        = ms => new Date(ms).toISOString(),
+    // SHIPPED defaults. Fixtures use these rather than locally convenient numbers: an earlier
+    // revision passed every spec with a success-to-failure gap of seconds and still no-opped at the
+    // real 24h/1h ratio, because the window was anchored to the prior success.
+    DAY_MS    = 86400000,
+    DELAY_MS  = 15 * 60 * 1000,
+    WINDOW_MS = 60 * 60 * 1000,
+    T         = 1700000000000,
+    iso       = ms => new Date(ms).toISOString(),
+
+    retryOpts = (overrides = {}) => ({retryDelayMs: DELAY_MS, retryWindowMs: WINDOW_MS, ...overrides}),
 
     /**
-     * A lane whose last run FAILED: succeeded at `SUCCESS_AT`, attempted again at `+1000`, died at
-     * `+2000`. Deliberately built from timestamps rather than a hand-set "failed" flag, so the
-     * specimen is negative on the same axis the assertions read.
+     * The PRODUCTION shape: succeeded at `T`, the periodic sweep fired a full `DAY_MS` later and
+     * failed. `failureStreakStartedAt` is what `TaskStateService.markFailed` writes.
      */
-    failedLane = (overrides = {}) => ({
-        lastErrorAt  : iso(SUCCESS_AT + 2000),
-        lastRunAt    : SUCCESS_AT + 1000,
-        lastSuccessAt: iso(SUCCESS_AT),
+    productionFailure = (overrides = {}) => ({
+        failureStreakStartedAt: iso(T + DAY_MS + 1000),
+        lastErrorAt           : iso(T + DAY_MS + 1000),
+        lastRunAt             : T + DAY_MS,
+        lastSuccessAt         : iso(T),
         ...overrides
     }),
 
-    retryOpts = (overrides = {}) => ({
-        retryDelayMs : DELAY_MS,
-        retryWindowMs: WINDOW_MS,
-        ...overrides
-    });
+    /**
+     * Runs the clock over an always-failing lane and returns how many retries actually fire. Used
+     * instead of restating `floor(window / delay)` — re-deriving the implementation's own formula
+     * asserts nothing.
+     */
+    countActualFirings = ({taskState, from, until, stepMs = 60000}) => {
+        let streak = new Date(taskState.failureStreakStartedAt).getTime(),
+            runAt  = taskState.lastRunAt,
+            fired  = 0;
+
+        for (let now = from; now <= until; now += stepMs) {
+            const trigger = buildBackupTrigger({
+                now, intervalMs: DAY_MS, lastRunAt: runAt, streakStartedAtMs: streak, ...retryOpts()
+            });
+            if (trigger?.source === 'failed-run-retry') { fired += 1; runAt = now }
+        }
+        return fired
+    };
 
 test.describe('orchestrator/scheduling/backup (#11864 / Epic #11831)', () => {
     test('buildBackupTrigger fires when the interval has elapsed', () => {
@@ -72,210 +91,148 @@ test.describe('orchestrator/scheduling/backup (#11864 / Epic #11831)', () => {
 
 test.describe('orchestrator/scheduling/backup — failed-run retry (#16348 AC5)', () => {
     /**
-     * The defect. `markStarted()` stamps `lastRunAt` pre-spawn and `markFailed()` never restores it,
-     * so before this change a run that died 1 second in was not due again for a full DAY_MS — and
-     * `backup`'s priority-0 status could not help, because ranking applies to candidates and a
-     * failed backup was not one.
+     * THE production-cadence witness, and the one an earlier revision could not pass.
+     *
+     * Ordering is deliberately at shipped scale: success at T, the periodic attempt and its failure
+     * a full `backupMs` later, the check one `backupRetryDelayMs` after that. A window anchored on
+     * `lastSuccessAt` is ~24h stale by this point and already closed, so the whole feature no-opped
+     * at its own defaults while every second-scale fixture stayed green.
      */
-    test('a FAILED run becomes due again long before the periodic interval elapses', () => {
-        const now = SUCCESS_AT + 1000 + DELAY_MS;
+    test('a run that fails a FULL INTERVAL after the last success still retries', () => {
+        const failedAt = T + DAY_MS + 1000,
+              now      = failedAt + DELAY_MS;
 
-        // Control: the periodic path alone still says "not due" at this instant. Without this the
-        // test could pass on the ordinary sweep and prove nothing about the retry path.
-        expect(buildBackupTrigger({now, lastRunAt: SUCCESS_AT + 1000, intervalMs: DAY_MS})).toBeNull();
+        // Control: the periodic path alone says "not due" here, so the retry path is what fires.
+        expect(buildBackupTrigger({now, lastRunAt: T + DAY_MS, intervalMs: DAY_MS})).toBeNull();
 
-        expect(buildBackupTrigger({
-            ...retryOpts(),
-            intervalMs     : DAY_MS,
-            lastErrorAtMs  : SUCCESS_AT + 2000,
-            lastRunAt      : SUCCESS_AT + 1000,
-            lastSuccessAtMs: SUCCESS_AT,
-            now
-        })).toEqual({
-            taskName: 'backup',
-            source  : 'failed-run-retry',
-            reason  : `failed-run-retry:${now - SUCCESS_AT}`
-        });
+        expect(getDueTask({
+            state              : {backup: productionFailure()},
+            now,
+            backupIntervalMs   : DAY_MS,
+            backupRetryDelayMs : DELAY_MS,
+            backupRetryWindowMs: WINDOW_MS
+        })).toMatchObject({taskName: 'backup', source: 'failed-run-retry'});
     });
 
-    test('a run whose last outcome SUCCEEDED is never retried', () => {
+    test('the streak anchor does not slide, so a failing lane still terminates', () => {
+        const streakAt = T + DAY_MS + 1000,
+              fired    = countActualFirings({
+                  taskState: productionFailure(), from: streakAt, until: streakAt + WINDOW_MS * 10
+              });
+
+        expect(fired).toBeGreaterThan(0);
+        expect(fired).toBeLessThanOrEqual(Math.floor(WINDOW_MS / DELAY_MS));
+
+        // Ten windows later nothing fires however long we wait — the livelock assertion proper.
         expect(isFailedRunRetryDue({
             ...retryOpts(),
-            // Success is the NEWER of the two — a lane that failed yesterday and succeeded today.
-            lastErrorAtMs  : SUCCESS_AT - 5000,
-            lastRunAt      : SUCCESS_AT,
-            lastSuccessAtMs: SUCCESS_AT,
-            now            : SUCCESS_AT + DELAY_MS
+            lastRunAt        : streakAt + WINDOW_MS * 9,
+            streakStartedAtMs: streakAt,
+            now              : streakAt + WINDOW_MS * 10
+        })).toBe(false);
+    });
+
+    test('a lane with no open streak is never retried', () => {
+        expect(isFailedRunRetryDue({
+            ...retryOpts(), lastRunAt: T, streakStartedAtMs: 0, now: T + DELAY_MS
         })).toBe(false);
     });
 
     test('the retry respects its spacing — it does not fire one millisecond early', () => {
+        const args = {...retryOpts(), lastRunAt: T + DAY_MS, streakStartedAtMs: T + DAY_MS + 1000};
+
+        expect(isFailedRunRetryDue({...args, now: T + DAY_MS + DELAY_MS - 1})).toBe(false);
+        expect(isFailedRunRetryDue({...args, now: T + DAY_MS + DELAY_MS})).toBe(true);
+    });
+
+    test('either retry value at 0 restores the pre-retry behaviour', () => {
         const args = {
-            ...retryOpts(),
-            lastErrorAtMs  : SUCCESS_AT + 2000,
-            lastRunAt      : SUCCESS_AT + 1000,
-            lastSuccessAtMs: SUCCESS_AT
-        };
-
-        expect(isFailedRunRetryDue({...args, now: SUCCESS_AT + 1000 + DELAY_MS - 1})).toBe(false);
-        expect(isFailedRunRetryDue({...args, now: SUCCESS_AT + 1000 + DELAY_MS})).toBe(true);
-    });
-
-    /**
-     * THE livelock guard, and the reason the window anchors where it does. `backup` is the only
-     * priority-0 lane (`PRIORITY_ZERO_TASKS`) and wins the pick unconditionally, so an unbounded
-     * retry would monopolize the heavy-maintenance lease and starve the REM chain — the exact
-     * starvation the scheduling fairness model exists to eliminate, re-created by the repair for it.
-     *
-     * Asserted by RUNNING THE CLOCK over a lane that fails every single time, rather than by
-     * restating `floor(window / delay)`. Re-deriving the formula the implementation uses would
-     * assert nothing; counting actual firings is an independent property. It also caught that the
-     * achievable count is one BELOW the formula, because the first failure consumes part of the
-     * window before the first retry can be spaced.
-     */
-    test('an always-failing backup stops re-firing — the streak terminates', () => {
-        let lastErrorAtMs = SUCCESS_AT + 2000,
-            lastRunAt     = SUCCESS_AT + 1000,
-            fired         = 0,
-            now           = SUCCESS_AT + 2000;
-
-        const limit = SUCCESS_AT + WINDOW_MS * 10;
-
-        while (now <= limit) {
-            const trigger = buildBackupTrigger({
-                ...retryOpts(),
-                intervalMs     : DAY_MS,
-                lastErrorAtMs,
-                lastRunAt,
-                lastSuccessAtMs: SUCCESS_AT,
-                now
-            });
-
-            if (trigger?.source === 'failed-run-retry') {
-                fired        += 1;
-                lastRunAt     = now;
-                lastErrorAtMs = now;   // the retry failed too
-            }
-
-            now += 60000;
-        }
-
-        // Terminates, and every firing happened INSIDE the window.
-        expect(fired).toBe(3);
-        expect(fired).toBeLessThan(Math.floor(WINDOW_MS / DELAY_MS));
-
-        // The livelock assertion proper: ten windows later, nothing more fires however long we wait.
-        expect(isFailedRunRetryDue({
-            ...retryOpts(),
-            lastErrorAtMs,
-            lastRunAt,
-            lastSuccessAtMs: SUCCESS_AT,
-            now            : limit
-        })).toBe(false);
-    });
-
-    /**
-     * The named term. The design's whole claim is that the window anchors on `lastSuccessAt`
-     * BECAUSE that field cannot move during a failure streak, while `lastErrorAt` advances with
-     * every failed retry and would slide the window forever. This fails if the anchor is swapped —
-     * a red-on-old-tree check would not, since any difference satisfies that.
-     */
-    test('the window anchors on lastSuccessAt, which a failure streak cannot move', () => {
-        const streakAgeMs = WINDOW_MS * 4,
-              lastRunAt   = SUCCESS_AT + streakAgeMs,
-              now         = lastRunAt + DELAY_MS;
-
-        // `lastErrorAt` is RECENT — anchoring on it would keep the window permanently open.
-        expect(now - (SUCCESS_AT + streakAgeMs)).toBeLessThan(WINDOW_MS);
-
-        expect(isFailedRunRetryDue({
-            ...retryOpts(),
-            lastErrorAtMs  : SUCCESS_AT + streakAgeMs,
-            lastRunAt,
-            lastSuccessAtMs: SUCCESS_AT,
-            now
-        })).toBe(false);
-    });
-
-    test('a lane that has NEVER succeeded is not retried — no anchor, no boundable window', () => {
-        expect(isFailedRunRetryDue({
-            ...retryOpts(),
-            lastErrorAtMs  : SUCCESS_AT,
-            lastRunAt      : SUCCESS_AT,
-            lastSuccessAtMs: 0,
-            now            : SUCCESS_AT + DELAY_MS * 2
-        })).toBe(false);
-    });
-
-    test('either retry value at 0 restores the exact pre-#16348 behaviour', () => {
-        const args = {
-            intervalMs     : DAY_MS,
-            lastErrorAtMs  : SUCCESS_AT + 2000,
-            lastRunAt      : SUCCESS_AT + 1000,
-            lastSuccessAtMs: SUCCESS_AT,
-            now            : SUCCESS_AT + 1000 + DELAY_MS
+            intervalMs       : DAY_MS,
+            lastRunAt        : T + DAY_MS,
+            streakStartedAtMs: T + DAY_MS + 1000,
+            now              : T + DAY_MS + DELAY_MS
         };
 
         expect(buildBackupTrigger({...args, retryDelayMs: 0, retryWindowMs: WINDOW_MS})).toBeNull();
         expect(buildBackupTrigger({...args, retryDelayMs: DELAY_MS, retryWindowMs: 0})).toBeNull();
-        // Positive control: the same arguments DO fire once both are configured, so the two
-        // assertions above are proving the disable branch rather than a malformed fixture.
+        // Positive control: the same arguments DO fire once both are configured.
         expect(buildBackupTrigger({...args, ...retryOpts()})).not.toBeNull();
     });
 
     test('the periodic sweep still wins when both paths are due', () => {
         expect(buildBackupTrigger({
             ...retryOpts(),
-            intervalMs     : DAY_MS,
-            lastErrorAtMs  : SUCCESS_AT + 2000,
-            lastRunAt      : SUCCESS_AT + 1000,
-            lastSuccessAtMs: SUCCESS_AT,
-            now            : SUCCESS_AT + 1000 + DAY_MS
+            intervalMs       : DAY_MS,
+            lastRunAt        : T,
+            streakStartedAtMs: T + 1000,
+            now              : T + DAY_MS
         }).source).toBe('periodic-sweep');
     });
 
-    test('getDueTask parses the ISO timestamps TaskStateService persists', () => {
+    /**
+     * A first-ever backup that fails is covered, not excluded. It has no `lastSuccessAt`, but it
+     * does open a streak — so the anchor exists and the window is bounded exactly as for any other
+     * failure. The previous last-success anchor could not express this case at all.
+     */
+    test('a first-ever run that fails is retried — the streak is the anchor, not the success', () => {
         expect(getDueTask({
+            state: {backup: {
+                failureStreakStartedAt: iso(T + 1000),
+                lastErrorAt           : iso(T + 1000),
+                lastRunAt             : T,
+                lastSuccessAt         : null
+            }},
+            now                : T + 1000 + DELAY_MS,
             backupIntervalMs   : DAY_MS,
             backupRetryDelayMs : DELAY_MS,
-            backupRetryWindowMs: WINDOW_MS,
-            now                : SUCCESS_AT + 1000 + DELAY_MS,
-            state              : {backup: failedLane()}
-        })?.source).toBe('failed-run-retry');
+            backupRetryWindowMs: WINDOW_MS
+        })).toMatchObject({source: 'failed-run-retry'});
     });
 });
 
 test.describe('orchestrator/scheduling/backup — retry phase reporting (#16348 AC5)', () => {
-    test('reports healthy when the last run succeeded', () => {
+    test('reports healthy when there is no open streak and the lane has succeeded', () => {
         expect(describeBackupRetryState({
             ...retryOpts(),
-            now      : SUCCESS_AT + 5000,
-            taskState: {lastErrorAt: iso(SUCCESS_AT - 5000), lastSuccessAt: iso(SUCCESS_AT)}
+            now      : T + 5000,
+            taskState: {failureStreakStartedAt: null, lastSuccessAt: iso(T)}
         }).phase).toBe(BACKUP_RETRY_PHASE.healthy);
     });
 
-    test('reports retrying with a remaining count while the window is open', () => {
-        const state = describeBackupRetryState({
-            ...retryOpts(),
-            now      : SUCCESS_AT + 3000,
-            taskState: failedLane()
-        });
-
-        expect(state.phase).toBe(BACKUP_RETRY_PHASE.retrying);
-        expect(state.retriesRemaining).toBeGreaterThan(0);
-        expect(state.windowEndsAtMs).toBe(SUCCESS_AT + WINDOW_MS);
+    test('reports unanchored for a lane that has neither succeeded nor opened a streak', () => {
+        expect(describeBackupRetryState({...retryOpts(), now: T, taskState: {}}).phase)
+            .toBe(BACKUP_RETRY_PHASE.unanchored);
     });
 
     /**
-     * Exhaustion must reach a surface. The lane simply stops producing candidates, so without this
-     * the failure is silent — a diagnosis nothing reads. Reported as recomputable STATE rather than
-     * a log edge, so it survives a restart without a flag of its own.
+     * The restart specimen. A crash mid-backup records no terminal outcome; `readState()` normalizes
+     * it fail-closed by opening a streak and stamping `interruptedAt`. Before that, the lane read as
+     * `healthy` — and the orchestrator crash-loop is the incident class the parent ticket was filed
+     * from, so reporting it as healthy was the worst available answer.
      */
+    test('an interrupted run reports retrying with its interruption marker, never healthy', () => {
+        const state = describeBackupRetryState({
+            ...retryOpts(),
+            now      : T + DAY_MS + 2000,
+            taskState: {
+                failureStreakStartedAt: iso(T + DAY_MS + 1000),
+                interruptedAt         : iso(T + DAY_MS + 1000),
+                lastErrorAt           : iso(T + DAY_MS + 1000),
+                lastRunAt             : T + DAY_MS,
+                lastSuccessAt         : iso(T)
+            }
+        });
+
+        expect(state.phase).toBe(BACKUP_RETRY_PHASE.retrying);
+        expect(state.phase).not.toBe(BACKUP_RETRY_PHASE.healthy);
+        expect(state.interruptedAt).toBe(iso(T + DAY_MS + 1000));
+    });
+
     test('reports exhausted once the window has closed, with no retries remaining', () => {
         const state = describeBackupRetryState({
             ...retryOpts(),
-            now      : SUCCESS_AT + WINDOW_MS + 1,
-            taskState: failedLane()
+            now      : T + DAY_MS + 1000 + WINDOW_MS + 1,
+            taskState: productionFailure()
         });
 
         expect(state.phase).toBe(BACKUP_RETRY_PHASE.exhausted);
@@ -283,45 +240,39 @@ test.describe('orchestrator/scheduling/backup — retry phase reporting (#16348 
     });
 
     /**
-     * The reporter and the trigger must never disagree about whether the budget is spent — "the
-     * lane stopped retrying" versus "the lane reports it stopped" is exactly the drift that makes a
-     * silent failure look supervised. Found by a mutation run: deleting the trigger's budget clause
-     * left the `exhausted` phase spec green, because the two sides computed the window separately.
-     * They now route through one predicate, and this sweeps the whole boundary rather than sampling
-     * a point that could sit on the agreeing side of a drift.
+     * `retriesRemaining` must describe actual future firings. The previous
+     * `floor((windowEnd - now) / delay)` ignored `lastRunAt`, so a lane whose retry was already due
+     * under-reported by one — and my own probe missed it by sampling MID-delay, the single offset
+     * where the wrong formula happens to agree. Every offset is swept here for that reason.
      */
-    test('the reported phase never contradicts the trigger across the whole window', () => {
-        for (let offset = 0; offset <= WINDOW_MS * 2; offset += 60000) {
-            const now       = SUCCESS_AT + offset,
-                  taskState = failedLane(),
-                  phase     = describeBackupRetryState({...retryOpts(), now, taskState}).phase,
-                  due       = isFailedRunRetryDue({
-                      ...retryOpts(),
-                      lastErrorAtMs  : SUCCESS_AT + 2000,
-                      lastRunAt      : SUCCESS_AT + 1000,
-                      lastSuccessAtMs: SUCCESS_AT,
-                      now
+    test('retriesRemaining equals the firings that actually occur, at every offset in the delay', () => {
+        const streakAt = T + DAY_MS + 1000;
+
+        for (const offsetMs of [0, DELAY_MS / 4, DELAY_MS / 2, DELAY_MS, DELAY_MS * 2]) {
+            const now       = streakAt + offsetMs,
+                  taskState = productionFailure(),
+                  reported  = describeBackupRetryState({...retryOpts(), now, taskState}).retriesRemaining,
+                  actual    = countActualFirings({
+                      taskState, from: now, until: streakAt + WINDOW_MS * 3, stepMs: 1000
                   });
 
-            if (phase === BACKUP_RETRY_PHASE.exhausted) {
-                expect(due, `exhausted at +${offset}ms must not still be due`).toBe(false);
-            }
+            expect(reported, `offset ${offsetMs}ms into the window`).toBe(actual)
         }
     });
 
-    test('reports unanchored for a lane that has never succeeded', () => {
-        expect(describeBackupRetryState({
-            ...retryOpts(),
-            now      : SUCCESS_AT,
-            taskState: {lastErrorAt: iso(SUCCESS_AT), lastRunAt: SUCCESS_AT}
-        }).phase).toBe(BACKUP_RETRY_PHASE.unanchored);
+    test('countRemainingRetries is zero once either retry value is disabled', () => {
+        const args = {now: T, lastRunAt: T, streakStartedAtMs: T};
+
+        expect(countRemainingRetries({...args, retryDelayMs: 0, retryWindowMs: WINDOW_MS})).toBe(0);
+        expect(countRemainingRetries({...args, retryDelayMs: DELAY_MS, retryWindowMs: 0})).toBe(0);
+        expect(countRemainingRetries({...args, ...retryOpts()})).toBeGreaterThan(0);
     });
 
     test('an unparseable persisted timestamp degrades to unanchored, never to a stray epoch', () => {
         expect(describeBackupRetryState({
             ...retryOpts(),
-            now      : SUCCESS_AT,
-            taskState: {lastErrorAt: 'not-a-date', lastSuccessAt: 'not-a-date'}
+            now      : T,
+            taskState: {failureStreakStartedAt: 'not-a-date', lastSuccessAt: 'not-a-date'}
         }).phase).toBe(BACKUP_RETRY_PHASE.unanchored);
     });
 });

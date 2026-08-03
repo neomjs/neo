@@ -179,4 +179,87 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
         expect(stateData.mockTask.running).toBe(false);
     });
+
+    /**
+     * The failure-streak anchor. `??=` is the whole contract: the streak opens at the FIRST failure
+     * after a success and must not move when later attempts also fail. A retry budget measured from
+     * `lastErrorAt` — which advances every attempt — would never close, and on a lane that wins its
+     * scheduling pick unconditionally that is a lease monopoly rather than a cosmetic bug.
+     */
+    test('failureStreakStartedAt opens at the first failure and never slides (#16348)', async () => {
+        const {service, stateFile} = createTestService();
+
+        service.markFailed('mockTask', 1);
+        const opened = service.getTaskState('mockTask').failureStreakStartedAt;
+        expect(opened).toBeTruthy();
+
+        await new Promise(resolve => setTimeout(resolve, 5));
+        service.markFailed('mockTask', 1);
+
+        const after = service.getTaskState('mockTask');
+        expect(after.failureStreakStartedAt).toBe(opened);
+        // The control that makes the assertion above meaningful: something DID advance, so a stale
+        // anchor is being preserved deliberately rather than nothing having happened at all.
+        expect(after.lastErrorAt).not.toBe(opened);
+
+        expect(JSON.parse(fs.readFileSync(stateFile, 'utf8')).mockTask.failureStreakStartedAt).toBe(opened);
+    });
+
+    test('a success closes the streak and clears the interruption marker (#16348)', () => {
+        const {service} = createTestService();
+
+        service.markFailed('mockTask', 1);
+        expect(service.getTaskState('mockTask').failureStreakStartedAt).toBeTruthy();
+
+        service.markCompleted('mockTask');
+        expect(service.getTaskState('mockTask').failureStreakStartedAt).toBeNull();
+        expect(service.getTaskState('mockTask').interruptedAt).toBeNull();
+    });
+
+    /**
+     * The restart specimen. A process that dies mid-task never reaches `markFailed`, so the persisted
+     * state keeps `running: true` and carries NO terminal outcome. `readState()` used to clear the
+     * flag silently, which projected that run as neither failed nor successful — and every consumer
+     * asking "any error since the last success?" then read it as healthy. Normalize fail-closed.
+     */
+    test('readState normalizes an interrupted run fail-closed rather than silently (#16348)', () => {
+        const {service, stateFile} = createTestService(),
+              taskDefinitions      = service.taskDefinitions;
+
+        // Persist the crash shape directly: running, with a prior success and no terminal outcome.
+        const crashed = createInitialTaskState(taskDefinitions);
+        crashed.mockTask.running       = true;
+        crashed.mockTask.pid           = 4242;
+        crashed.mockTask.lastRunAt     = 1700000000000;
+        crashed.mockTask.lastSuccessAt = new Date(1699999000000).toISOString();
+        fs.writeFileSync(stateFile, JSON.stringify(crashed), 'utf8');
+
+        const recovered = service.readState().mockTask;
+
+        expect(recovered.running).toBe(false);
+        expect(recovered.pid).toBeNull();
+        // The load-bearing half — an interrupted run is NOT a success, and it opens a streak so the
+        // bounded retry policy can see it at all.
+        expect(recovered.interruptedAt).toBeTruthy();
+        expect(recovered.lastErrorAt).toBe(recovered.interruptedAt);
+        expect(recovered.failureStreakStartedAt).toBe(recovered.interruptedAt);
+    });
+
+    test('readState leaves a cleanly-stopped task untouched (#16348)', () => {
+        const {service, stateFile} = createTestService(),
+              taskDefinitions      = service.taskDefinitions;
+
+        const clean = createInitialTaskState(taskDefinitions);
+        clean.mockTask.running       = false;
+        clean.mockTask.lastSuccessAt = new Date(1699999000000).toISOString();
+        fs.writeFileSync(stateFile, JSON.stringify(clean), 'utf8');
+
+        const recovered = service.readState().mockTask;
+
+        // Positive control for the test above: normalization fires on `running: true` specifically,
+        // not on every boot — otherwise the interrupted assertion would pass for the wrong reason.
+        expect(recovered.interruptedAt).toBeNull();
+        expect(recovered.failureStreakStartedAt).toBeNull();
+        expect(recovered.lastErrorAt).toBeNull();
+    });
 });

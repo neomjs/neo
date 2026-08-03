@@ -9,14 +9,16 @@ import Base from '../../../../src/core/Base.mjs';
 export function createInitialTaskState(taskDefinitions) {
     return Object.keys(taskDefinitions).reduce((state, taskName) => {
         state[taskName] = {
-            running       : false,
-            pid           : null,
-            lastRunAt     : 0,
-            lastSuccessAt : null,
-            lastErrorAt   : null,
-            lastExitCode  : null,
-            lastReason    : null,
-            lastCompletion: null
+            running               : false,
+            pid                   : null,
+            lastRunAt             : 0,
+            lastSuccessAt         : null,
+            lastErrorAt           : null,
+            lastExitCode          : null,
+            lastReason            : null,
+            lastCompletion        : null,
+            failureStreakStartedAt: null,
+            interruptedAt         : null
         };
         return state;
     }, {});
@@ -105,6 +107,22 @@ export class TaskStateService extends Base {
             const data = JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
             return Object.keys(fallback).reduce((state, taskName) => {
                 state[taskName] = {...fallback[taskName], ...(data[taskName] || {})};
+
+                // A persisted `running: true` means the process died with the task in flight, so no
+                // terminal outcome was ever recorded. Clearing the flag silently — the previous
+                // behaviour — projected that run as neither failed nor successful, and any consumer
+                // reading "no error since the last success" then reported it as healthy. Normalize
+                // FAIL-CLOSED: an interrupted run is not a success, and the streak it belongs to
+                // opens here so retry policy can see it.
+                if (data[taskName]?.running === true) {
+                    const interruptedAt = new Date().toISOString();
+
+                    state[taskName].interruptedAt          = interruptedAt;
+                    state[taskName].lastErrorAt            = interruptedAt;
+                    state[taskName].lastExitCode           = null;
+                    state[taskName].failureStreakStartedAt ??= interruptedAt
+                }
+
                 state[taskName].running = false;
                 state[taskName].pid     = null;
                 return state;
@@ -196,6 +214,9 @@ export class TaskStateService extends Base {
         state.lastExitCode  = 0;
         state.lastSuccessAt = new Date().toISOString();
         state.lastCompletion = lastCompletion;
+        // Success closes the streak and clears the interruption marker: the lane is known-good again.
+        state.failureStreakStartedAt = null;
+        state.interruptedAt          = null;
         this.writeState();
     }
 
@@ -249,12 +270,20 @@ export class TaskStateService extends Base {
      * @returns {void}
      */
     markFailed(taskName, code, lastCompletion=null) {
-        const state = this.taskState[taskName];
+        const state = this.taskState[taskName],
+              now   = new Date().toISOString();
+
         state.running      = false;
         state.pid          = null;
         state.lastExitCode = code;
-        state.lastErrorAt  = new Date().toISOString();
+        state.lastErrorAt  = now;
         state.lastCompletion = lastCompletion;
+
+        // The streak opens at the FIRST failure after a success and never moves again until one
+        // lands. `lastErrorAt` advances with every subsequent attempt, so a retry budget measured
+        // from it would slide forever; this anchor is what makes such a budget terminate. `??=`
+        // is the whole contract — a second failure must not re-open the window.
+        state.failureStreakStartedAt ??= now;
         this.writeState();
     }
 

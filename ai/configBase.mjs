@@ -266,7 +266,7 @@ class ConfigBase extends ConfigProvider {
                  * @type {number}
                  */
                 tenantProbeTimeoutMs: leaf(30000, 'NEO_FLEET_TENANT_PROBE_TIMEOUT_MS', 'number'),
-                harnessBinaries: {
+                harnessBinaries     : {
                     /**
                      * The antigravity harness binary — the app-bundle MAIN binary (a directly
                      * spawnable, supervisable child), never an `open -n` launcher. macOS default;
@@ -1058,25 +1058,27 @@ class ConfigBase extends ConfigProvider {
                  * @type {Object}
                  */
                 intervals: {
-                    pollMs                 : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
-                    summarySweepMs         : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
-                    kbSyncMs               : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
-                    githubWorkflowSyncMs   : leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
-                    backupMs               : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
+                    pollMs              : leaf(3000, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS', 'number'),
+                    summarySweepMs      : leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'number'),
+                    kbSyncMs            : leaf(30 * 60 * 1000, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS', 'number'),
+                    githubWorkflowSyncMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_INTERVAL_MS', 'number'),
+                    backupMs            : leaf(DAY_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS', 'number'),
                     /**
-                     * Minimum spacing between retries of a FAILED backup run, and how long after the
-                     * last SUCCESSFUL run those retries stay permitted. `0` on either disables retry
-                     * and restores the earlier behaviour, where a run that died seconds after spawn
-                     * forfeited a full `backupMs` because `markStarted` stamps `lastRunAt` pre-spawn.
+                     * Minimum spacing between retries of a FAILED backup run, and how long the retry
+                     * window stays open. `0` on either disables retry and restores the earlier
+                     * behaviour, where a run that died seconds after spawn forfeited a full `backupMs`
+                     * because `markStarted` stamps `lastRunAt` pre-spawn.
                      *
-                     * The effective attempt budget is AT MOST `floor(backupRetryWindowMs /
-                     * backupRetryDelayMs)` — 4 at these defaults, and typically one fewer, since the
-                     * first failure consumes part of the window before the first retry can be spaced.
-                     * The load-bearing property is termination, not the exact count, and the spec
-                     * asserts it by running the clock rather than by restating this formula.
-                     * It is bounded deliberately: `backup` is the only priority-0
-                     * lane and wins the pick unconditionally, so an unbounded retry would monopolize the
-                     * heavy-maintenance lease and starve the REM chain.
+                     * The window is measured from `failureStreakStartedAt` — the FIRST failure after a
+                     * success, written once and never advanced while the streak is open. It must be
+                     * the failure and not the last success: a periodic run fails roughly one
+                     * `backupMs` after the last success, so a window anchored there is already expired
+                     * before the first retry can be spaced, and the whole policy silently no-ops.
+                     *
+                     * The effective attempt budget is `floor(backupRetryWindowMs / backupRetryDelayMs)`
+                     * — 4 at these defaults. It is bounded deliberately: `backup` is the only
+                     * priority-0 lane and wins the pick unconditionally, so an unbounded retry would
+                     * monopolize the heavy-maintenance lease and starve the REM chain.
                      */
                     backupRetryDelayMs     : leaf(15 * 60 * 1000, 'NEO_ORCHESTRATOR_BACKUP_RETRY_DELAY_MS', 'number'),
                     backupRetryWindowMs    : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_BACKUP_RETRY_WINDOW_MS', 'number'),

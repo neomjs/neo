@@ -44,12 +44,47 @@ export function toEpochMs(isoTimestamp) {
  * @param {Number} options.retryWindowMs Retry window from the last success; `0` disables retry.
  * @returns {Boolean}
  */
-export function isRetryWindowOpen({now, lastSuccessAtMs, retryWindowMs}) {
-    if (retryWindowMs <= 0 || lastSuccessAtMs <= 0) {
+export function isRetryWindowOpen({now, streakStartedAtMs, retryWindowMs}) {
+    if (retryWindowMs <= 0 || streakStartedAtMs <= 0) {
         return false;
     }
 
-    return now - lastSuccessAtMs < retryWindowMs;
+    return now - streakStartedAtMs < retryWindowMs;
+}
+
+/**
+ * Counts the retries that can still fire before the window closes.
+ *
+ * @summary Derived from the SAME schedule the trigger uses — next firing at
+ * `max(lastRunAt + retryDelayMs, now)`, then one per delay until the window ends — rather than
+ * from wall-clock division. `floor((windowEnd - now) / delay)` ignores `lastRunAt`, so a lane whose
+ * retry is already due (or overdue) reports one fewer than will actually fire. A count that does
+ * not come from the activation predicate is a second opinion about the same schedule.
+ * @param {Object} options
+ * @param {Number} options.now Current timestamp in milliseconds.
+ * @param {Number} options.lastRunAt Last backup ATTEMPT timestamp.
+ * @param {Number} options.streakStartedAtMs Failure-streak anchor, epoch ms.
+ * @param {Number} options.retryDelayMs Minimum spacing between retries.
+ * @param {Number} options.retryWindowMs Retry window measured from the streak anchor.
+ * @returns {Number}
+ */
+export function countRemainingRetries({now, lastRunAt, streakStartedAtMs, retryDelayMs, retryWindowMs}) {
+    if (retryDelayMs <= 0 || retryWindowMs <= 0 || streakStartedAtMs <= 0) {
+        return 0;
+    }
+
+    const windowEndsAtMs = streakStartedAtMs + retryWindowMs;
+    let   nextFiringAtMs = Math.max(lastRunAt + retryDelayMs, now),
+          remaining      = 0;
+
+    // Strictly `<`, matching `isRetryWindowOpen`. A firing scheduled exactly AT the window end does
+    // not happen — the window is already closed there — and counting it over-reported by one.
+    while (nextFiringAtMs < windowEndsAtMs) {
+        remaining      += 1;
+        nextFiringAtMs += retryDelayMs
+    }
+
+    return remaining;
 }
 
 /**
@@ -60,39 +95,42 @@ export function isRetryWindowOpen({now, lastSuccessAtMs, retryWindowMs}) {
  * `backup` is the system's only priority-0 lane (`PRIORITY_ZERO_TASKS`) — it wins the pick
  * unconditionally when due — and that guarantee is worth nothing against its own failure,
  * because ranking applies to candidates and a failed backup is not one. This predicate reads
- * the finer fields the periodic path ignores (`lastSuccessAt` / `lastErrorAt`) to distinguish
+ * the finer field the periodic path ignores — `failureStreakStartedAt` — to distinguish
  * *attempted* from *succeeded*.
  *
- * **The window anchors on `lastSuccessAt`, and that choice is the livelock guard.** Because
- * `backup` wins unconditionally, an unbounded retry would turn a persistently-failing lane into
- * a heavy-lease monopoly and starve `summary` / `dream` / `memory-summary-backfill` — the exact
- * starvation the scheduling fairness model exists to eliminate, re-created by the repair for it.
- * `lastErrorAt` moves
- * with every failed retry, so anchoring there would slide the window forever; `lastSuccessAt`
- * cannot move during a failure streak, so the window closes deterministically. The effective
- * attempt budget is therefore `floor(retryWindowMs / retryDelayMs)`, bounded by construction
- * rather than by a counter that would have to survive a restart on its own.
+ * **The window opens at the FAILED CYCLE and never slides, and both halves of that are load-bearing.**
+ * `failureStreakStartedAt` is written by `TaskStateService.markFailed()` with `??=`, so it is set
+ * once at the first failure after a success and preserved across every subsequent retry, then
+ * cleared by `markCompleted()`.
  *
- * A lane that has never succeeded is deliberately NOT retried: it has no known-good anchor, so
- * any window would be unbounded. It keeps today's ordinary cadence — this is a bound, not an
- * oversight, and {@link describeBackupRetryState} reports it as `unanchored` so the case is
- * visible rather than silently indistinguishable from healthy.
+ * - **Opening it at the failure** is what makes the feature work at all. An earlier revision
+ *   anchored on `lastSuccessAt`, which is immovable but roughly one full `intervalMs` stale by the
+ *   time a periodic run fails — so with any `retryWindowMs < intervalMs` the window was already
+ *   expired at the first failure and no retry could ever fire at the shipped defaults.
+ * - **Not sliding** is the livelock guard. Because `backup` wins the pick unconditionally, an
+ *   unbounded retry would turn a persistently-failing lane into a heavy-lease monopoly and starve
+ *   `summary` / `dream` / `memory-summary-backfill` — the exact starvation the scheduling fairness
+ *   model exists to eliminate, re-created by the repair for it. `lastErrorAt` advances with every
+ *   failed retry, so a window measured from it would never close.
+ *
+ * A run interrupted by a crash also opens a streak: `TaskStateService.readState()` normalizes a
+ * persisted `running: true` fail-closed. Without that, an interrupted run recorded no terminal
+ * outcome at all and read as healthy — the very incident class this lane exists to catch.
  *
  * @param {Object} options
  * @param {Number} options.now Current timestamp in milliseconds.
  * @param {Number} options.lastRunAt Last backup ATTEMPT timestamp (pre-spawn stamp).
- * @param {Number} options.lastSuccessAtMs Last successful completion, epoch ms; `0` when never.
- * @param {Number} options.lastErrorAtMs Last failure, epoch ms; `0` when never.
+ * @param {Number} options.streakStartedAtMs Failure-streak anchor, epoch ms; `0` when the lane is
+ *     known-good (no open streak).
  * @param {Number} options.retryDelayMs Minimum spacing between retries; `0` disables retry.
- * @param {Number} options.retryWindowMs How long after the last success retries stay permitted;
+ * @param {Number} options.retryWindowMs How long after the streak opened retries stay permitted;
  *     `0` disables retry.
  * @returns {Boolean}
  */
 export function isFailedRunRetryDue({
     now,
     lastRunAt,
-    lastSuccessAtMs,
-    lastErrorAtMs,
+    streakStartedAtMs,
     retryDelayMs,
     retryWindowMs
 }) {
@@ -100,18 +138,13 @@ export function isFailedRunRetryDue({
         return false;
     }
 
-    // No known-good anchor ⇒ no boundable window. Ordinary cadence governs.
-    if (lastSuccessAtMs <= 0) {
+    // No open streak ⇒ the last outcome was a success (or the lane never ran). Nothing to retry.
+    if (streakStartedAtMs <= 0) {
         return false;
     }
 
-    // The last run did not fail — nothing to retry.
-    if (lastErrorAtMs <= lastSuccessAtMs) {
-        return false;
-    }
-
-    // Budget: the window is measured from the IMMOVABLE last success, so it closes.
-    if (!isRetryWindowOpen({now, lastSuccessAtMs, retryWindowMs})) {
+    // Budget: measured from the streak anchor, which does not move while the streak is open.
+    if (!isRetryWindowOpen({now, streakStartedAtMs, retryWindowMs})) {
         return false;
     }
 
@@ -130,29 +163,33 @@ export function isFailedRunRetryDue({
  * @param {Object} [options.taskState={}] Persisted `backup` task state.
  * @param {Number} options.now Current timestamp in milliseconds.
  * @param {Number} [options.retryDelayMs=0] Minimum spacing between retries.
- * @param {Number} [options.retryWindowMs=0] Retry window measured from the last success.
- * @returns {{phase: String, retriesRemaining: Number, windowEndsAtMs: Number|null, lastSuccessAtMs: Number}}
+ * @param {Number} [options.retryWindowMs=0] Retry window measured from the streak anchor.
+ * @returns {{phase: String, retriesRemaining: Number, windowEndsAtMs: Number|null, streakStartedAtMs: Number, interruptedAt: String|null}}
  */
 export function describeBackupRetryState({taskState = {}, now, retryDelayMs = 0, retryWindowMs = 0} = {}) {
-    const lastSuccessAtMs = toEpochMs(taskState.lastSuccessAt),
-          lastErrorAtMs   = toEpochMs(taskState.lastErrorAt);
+    const streakStartedAtMs = toEpochMs(taskState.failureStreakStartedAt),
+          lastSuccessAtMs   = toEpochMs(taskState.lastSuccessAt),
+          interruptedAt     = taskState.interruptedAt || null,
+          base              = {retriesRemaining: 0, windowEndsAtMs: null, streakStartedAtMs, interruptedAt};
 
-    if (lastSuccessAtMs <= 0) {
-        return {phase: BACKUP_RETRY_PHASE.unanchored, retriesRemaining: 0, windowEndsAtMs: null, lastSuccessAtMs};
+    // No open streak: either known-good, or never ran at all. Both are reported, never conflated —
+    // an interrupted run opens a streak (`readState` normalizes fail-closed), so it cannot land here.
+    if (streakStartedAtMs <= 0) {
+        return {...base, phase: lastSuccessAtMs > 0 ? BACKUP_RETRY_PHASE.healthy : BACKUP_RETRY_PHASE.unanchored};
     }
 
-    if (lastErrorAtMs <= lastSuccessAtMs) {
-        return {phase: BACKUP_RETRY_PHASE.healthy, retriesRemaining: 0, windowEndsAtMs: null, lastSuccessAtMs};
-    }
-
-    const windowEndsAtMs = lastSuccessAtMs + retryWindowMs,
-          exhausted      = retryDelayMs <= 0 || !isRetryWindowOpen({now, lastSuccessAtMs, retryWindowMs});
+    const windowEndsAtMs = streakStartedAtMs + retryWindowMs,
+          open           = retryDelayMs > 0 && isRetryWindowOpen({now, streakStartedAtMs, retryWindowMs});
 
     return {
-        phase           : exhausted ? BACKUP_RETRY_PHASE.exhausted : BACKUP_RETRY_PHASE.retrying,
-        retriesRemaining: exhausted ? 0 : Math.floor((windowEndsAtMs - now) / retryDelayMs),
-        windowEndsAtMs,
-        lastSuccessAtMs
+        ...base,
+        phase           : open ? BACKUP_RETRY_PHASE.retrying : BACKUP_RETRY_PHASE.exhausted,
+        retriesRemaining: open
+            ? countRemainingRetries({
+                now, lastRunAt: taskState.lastRunAt || 0, streakStartedAtMs, retryDelayMs, retryWindowMs
+            })
+            : 0,
+        windowEndsAtMs
     };
 }
 
@@ -169,20 +206,18 @@ export function describeBackupRetryState({taskState = {}, now, retryDelayMs = 0,
  * @param {Number} options.now Current timestamp in milliseconds.
  * @param {Number} options.lastRunAt Last backup task start timestamp.
  * @param {Number} options.intervalMs Periodic backup interval; `0` disables it.
- * @param {Number} [options.lastSuccessAtMs=0] Last successful completion, epoch ms.
- * @param {Number} [options.lastErrorAtMs=0] Last failure, epoch ms.
+ * @param {Number} [options.streakStartedAtMs=0] Failure-streak anchor, epoch ms; `0` when known-good.
  * @param {Number} [options.retryDelayMs=0] Minimum spacing between retries; `0` disables retry.
- * @param {Number} [options.retryWindowMs=0] Retry window from the last success; `0` disables retry.
+ * @param {Number} [options.retryWindowMs=0] Retry window from the streak anchor; `0` disables retry.
  * @returns {Object|null} A backup task trigger or null when no work is due.
  */
 export function buildBackupTrigger({
     now,
     lastRunAt,
     intervalMs,
-    lastSuccessAtMs = 0,
-    lastErrorAtMs   = 0,
-    retryDelayMs    = 0,
-    retryWindowMs   = 0
+    streakStartedAtMs = 0,
+    retryDelayMs      = 0,
+    retryWindowMs     = 0
 }) {
     if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
         return {
@@ -192,11 +227,11 @@ export function buildBackupTrigger({
         };
     }
 
-    if (isFailedRunRetryDue({now, lastRunAt, lastSuccessAtMs, lastErrorAtMs, retryDelayMs, retryWindowMs})) {
+    if (isFailedRunRetryDue({now, lastRunAt, streakStartedAtMs, retryDelayMs, retryWindowMs})) {
         return {
             taskName: 'backup',
             source  : 'failed-run-retry',
-            reason  : `failed-run-retry:${now - lastSuccessAtMs}`
+            reason  : `failed-run-retry:${now - streakStartedAtMs}`
         };
     }
 
@@ -211,7 +246,7 @@ export function buildBackupTrigger({
  * @param {Number} options.now Current timestamp in milliseconds.
  * @param {Number} options.backupIntervalMs Periodic backup interval.
  * @param {Number} [options.backupRetryDelayMs=0] Minimum spacing between failed-run retries.
- * @param {Number} [options.backupRetryWindowMs=0] Retry window measured from the last success.
+ * @param {Number} [options.backupRetryWindowMs=0] Retry window measured from the streak anchor.
  * @returns {Object|null}
  */
 export function getDueTask({state, now, backupIntervalMs, backupRetryDelayMs = 0, backupRetryWindowMs = 0}) {
@@ -219,11 +254,10 @@ export function getDueTask({state, now, backupIntervalMs, backupRetryDelayMs = 0
 
     return buildBackupTrigger({
         now,
-        intervalMs     : backupIntervalMs,
-        lastRunAt      : taskState.lastRunAt || 0,
-        lastSuccessAtMs: toEpochMs(taskState.lastSuccessAt),
-        lastErrorAtMs  : toEpochMs(taskState.lastErrorAt),
-        retryDelayMs   : backupRetryDelayMs,
-        retryWindowMs  : backupRetryWindowMs
+        intervalMs       : backupIntervalMs,
+        lastRunAt        : taskState.lastRunAt || 0,
+        streakStartedAtMs: toEpochMs(taskState.failureStreakStartedAt),
+        retryDelayMs     : backupRetryDelayMs,
+        retryWindowMs    : backupRetryWindowMs
     });
 }
