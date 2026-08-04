@@ -26,6 +26,59 @@ const ESCALATING_TASK_OUTCOMES      = Object.freeze(new Set(['backup']));
  */
 const CHILD_LOG_PREFIX = /^(?:\[?\d{4}-\d{2}-\d{2}T[\d:.]+Z\]?\s*)?(?<pid>\[PID:\d+\]\s*)?\[(?<level>LOG|INFO|WARN|ERROR)\]\s*/;
 
+/**
+ * Default V8 old-space ceiling, in MiB, for a supervised child.
+ *
+ * Fallback only, used when no resolved value is injected (e.g. a direct unit construction). The
+ * deployment value resolves through the `orchestrator.supervisedTaskHeapMb` leaf and is injected.
+ * @type {Number}
+ */
+const FALLBACK_SUPERVISED_TASK_HEAP_MB = 384;
+
+/**
+ * @summary Builds a supervised child's environment with an explicit heap ceiling.
+ *
+ * **Why a child needs its own ceiling rather than inheriting.** A container memory limit is a budget
+ * for the whole process tree, but a V8 heap ceiling is per process. Children are spawned with
+ * `{...process.env}`, so anything the parent carries is multiplied by the number of concurrent Node
+ * processes — and a ceiling set once at the service level reads as "the container's budget" while
+ * actually being "the budget, per child, again".
+ *
+ * The inverse is just as bad and is why this cannot be solved by sizing the container alone: with no
+ * explicit ceiling, Node derives its default old-space from the cgroup, so **raising the container
+ * limit silently raises every unbounded child's implicit ceiling too**. Explicit-per-process is the
+ * only arrangement where the container limit and the ceilings can be reasoned about together.
+ *
+ * Precedence, narrowest wins: caller `env` > task `env` > the INJECTED resolved ceiling > inherited
+ * parent env. A task
+ * that genuinely needs a larger heap says so in its own definition, where the reason can be read next
+ * to the task it belongs to.
+ *
+ * @param {Object} options
+ * @param {Object} [options.baseEnv] Parent environment to inherit from.
+ * @param {Object} [options.taskEnv] Task-definition environment.
+ * @param {Object} [options.callerEnv] Call-site environment.
+ * @param {Number} [options.defaultHeapMb] Child ceiling in MiB.
+ * @returns {Object} The child environment.
+ */
+export function buildSupervisedTaskEnv({
+    baseEnv       = process.env,
+    taskEnv       = null,
+    callerEnv     = null,
+    defaultHeapMb = FALLBACK_SUPERVISED_TASK_HEAP_MB
+} = {}) {
+    const merged = {...baseEnv, ...(taskEnv || {}), ...(callerEnv || {})};
+
+    // Only supply the ceiling when neither the task nor the caller stated one. A task that declares
+    // its own NODE_OPTIONS has made a deliberate choice, and overriding it here would make the task
+    // definition a lie.
+    if (!taskEnv?.NODE_OPTIONS && !callerEnv?.NODE_OPTIONS) {
+        merged.NODE_OPTIONS = `--max-old-space-size=${defaultHeapMb}`
+    }
+
+    return merged
+}
+
 export class ProcessSupervisorService extends Base {
     static config = {
         /**
@@ -39,6 +92,17 @@ export class ProcessSupervisorService extends Base {
          * @reactive
          */
         dataDir_: '',
+        /**
+         * Resolved V8 old-space ceiling, in MiB, applied to each supervised child.
+         *
+         * INJECTED by the Orchestrator from `AiConfig.orchestrator.supervisedTaskHeapMb`. This
+         * service never reads the env var — ADR-0019 assigns that resolution to the leaf, and the // ticket-ref-ok: names the decision that forbids reading env here
+         * Orchestrator construction seam is the narrow bootstrap boundary its sanctioned patterns
+         * allow. An earlier revision read it here with `Number(env) || 384`, which is the A1
+         * antipattern and additionally accepted `-1`.
+         * @member {Number} supervisedTaskHeapMb_=0
+         */
+        supervisedTaskHeapMb_: 0,
         /**
          * @member {Object|null} taskDefinitions_=null
          * @protected
@@ -586,9 +650,12 @@ export class ProcessSupervisorService extends Base {
         let child;
         const stdoutCapture = this.createStdoutJsonCapture(task);
         try {
-            const env = task.env || options.env
-                ? {...process.env, ...(task.env || {}), ...(options.env || {})}
-                : process.env;
+            const env = buildSupervisedTaskEnv({
+                baseEnv      : process.env,
+                callerEnv    : options.env,
+                defaultHeapMb: this.supervisedTaskHeapMb || FALLBACK_SUPERVISED_TASK_HEAP_MB,
+                taskEnv      : task.env
+            });
             child = this.spawnFn(task.command, task.args, {stdio: stdoutCapture ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
