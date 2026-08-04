@@ -99,6 +99,80 @@ export function collectRequirednessCensus(data, prefix = '') {
 }
 
 /**
+ * @summary Every leaf path a cohort declares, requirement-bearing or not.
+ *
+ * The requiredness census answers "what could block a boot". This answers "what exists", which is the
+ * other half of a migration: a lagging deployment needs to know which of the inputs it currently sets
+ * have stopped meaning anything.
+ *
+ * @param {Object} data A cohort's `config.data` tree.
+ * @param {String} [prefix='']
+ * @returns {Map<String,{env: String|null}>} Keyed by leaf path.
+ */
+export function collectLeafPaths(data, prefix = '') {
+    const paths = new Map();
+
+    if (!data || typeof data !== 'object') {
+        return paths
+    }
+
+    for (const [key, value] of Object.entries(data)) {
+        const leafPath = prefix ? `${prefix}.${key}` : key;
+
+        if (isLeafDescriptor(value)) {
+            paths.set(leafPath, {env: value.env ?? null});
+            continue
+        }
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            for (const [nested, meta] of collectLeafPaths(value, leafPath)) {
+                paths.set(nested, meta)
+            }
+        }
+    }
+
+    return paths
+}
+
+/**
+ * @summary Which leaves a move INTRODUCES and which it RETIRES.
+ *
+ * Retired keys are not a cosmetic tidy-up. An operator carrying an env var the new cohort no longer
+ * declares has a setting that silently does nothing — and the failure mode is worse than useless,
+ * because the value LOOKS load-bearing in their compose file and will be preserved through future
+ * migrations by anyone reading it as intentional.
+ *
+ * Direction is explicit rather than inferred from argument order alone: `from` is the cohort the
+ * target is ON, `to` is the cohort it would move TO.
+ *
+ * @param {Object} options
+ * @param {Object} options.fromData The cohort the target currently runs.
+ * @param {Object} options.toData The cohort under consideration.
+ * @returns {{introduced: Object[], retired: Object[]}} Each row `{leafPath, env}`.
+ */
+export function diffCohortLeafSets({fromData, toData} = {}) {
+    const from = collectLeafPaths(fromData),
+          to   = collectLeafPaths(toData);
+
+    const introduced = [],
+          retired    = [];
+
+    for (const [leafPath, meta] of to) {
+        if (!from.has(leafPath)) {
+            introduced.push({leafPath, env: meta.env})
+        }
+    }
+
+    for (const [leafPath, meta] of from) {
+        if (!to.has(leafPath)) {
+            retired.push({leafPath, env: meta.env})
+        }
+    }
+
+    return {introduced, retired}
+}
+
+/**
  * @summary Classifies ONE requirement against a target context.
  *
  * Three outcomes rather than two, and the third is the point: a requirement that constrains an axis
@@ -186,11 +260,19 @@ export function providesValue(providedEnv, envVarName) {
  *   with the requirement's own `reason`. `indeterminate` names each leaf whose applicability could
  *   not be decided, with the axes that were unstated. Admissible only when BOTH are empty.
  */
-export function evaluateCohortAdmissibility({cohortData, target = {}} = {}) {
+export function evaluateCohortAdmissibility({cohortData, currentCohortData = null, target = {}} = {}) {
     const census        = collectRequirednessCensus(cohortData),
           providedEnv   = target.providedEnv ?? {},
           blocking      = [],
           indeterminate = [];
+
+    // Retired keys are ADVISORY and deliberately do not affect the verdict: an input the new cohort
+    // no longer declares cannot fail a readiness check, so refusing the move over one would block a
+    // migration for a setting that is merely inert. Reported, never gating.
+    const retired = currentCohortData
+        ? diffCohortLeafSets({fromData: currentCohortData, toData: cohortData}).retired
+            .filter(row => row.env && providesValue(providedEnv, row.env))
+        : [];
 
     for (const entry of census) {
         for (const requirement of entry.requirements) {
@@ -225,6 +307,7 @@ export function evaluateCohortAdmissibility({cohortData, target = {}} = {}) {
         admissible: blocking.length === 0 && indeterminate.length === 0,
         blocking,
         indeterminate,
+        retired,
         evaluated : census.length
     }
 }
@@ -239,8 +322,19 @@ export function evaluateCohortAdmissibility({cohortData, target = {}} = {}) {
  * @returns {String[]}
  */
 export function formatAdmissibilityVerdict(verdict) {
+    // Retired keys are reported on BOTH verdicts. An admissible move still leaves the operator holding
+    // inputs that no longer mean anything, and a verdict that says only "ADMISSIBLE" sends them into
+    // the migration still carrying them.
+    const retiredLines = (verdict.retired ?? []).flatMap(row => [
+        `  RETIRED   ${row.leafPath}${row.env ? ` (${row.env})` : ''}`,
+        '            You set this and the target cohort no longer declares it — inert, not blocking. Remove it, or a future reader preserves it as intentional.'
+    ]);
+
     if (verdict.admissible) {
-        return [`ADMISSIBLE — ${verdict.evaluated} requirement-bearing leaf/leaves evaluated, none blocking.`]
+        return [
+            `ADMISSIBLE — ${verdict.evaluated} requirement-bearing leaf/leaves evaluated, none blocking.`,
+            ...retiredLines
+        ]
     }
 
     const lines = [`NOT ADMISSIBLE — ${verdict.blocking.length} blocking, ${verdict.indeterminate.length} indeterminate.`];
@@ -256,6 +350,8 @@ export function formatAdmissibilityVerdict(verdict) {
         lines.push(`  UNKNOWN   ${row.leafPath}${row.env ? ` (${row.env})` : ''} — target did not state: ${row.unknownAxes.join(', ')}`);
         lines.push('            Unknown is not admissible: the requirement may or may not apply, and guessing favours the case we know least about.')
     }
+
+    lines.push(...retiredLines);
 
     return lines
 }

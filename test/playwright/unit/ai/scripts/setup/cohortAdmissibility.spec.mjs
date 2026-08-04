@@ -4,7 +4,9 @@ import '../../../../../../src/core/_export.mjs';
 import ConfigBase     from '../../../../../../ai/configBase.mjs';
 import {
     classifyRequirement,
+    collectLeafPaths,
     collectRequirednessCensus,
+    diffCohortLeafSets,
     evaluateCohortAdmissibility,
     formatAdmissibilityVerdict,
     isLeafDescriptor,
@@ -204,6 +206,58 @@ test.describe('cohortAdmissibility — may target T take cohort C? (#16453)', ()
         expect(classifyRequirement({entrypoints: '*', modes: ['m']}, {mode: 'm'}).verdict).toBe('applies');
         expect(classifyRequirement({entrypoints: null}, {}).verdict).toBe('applies');
         expect(classifyRequirement({}, {}).verdict).toBe('applies');
+    });
+
+    /**
+     * The other half of a migration. An operator carrying an input the new cohort no longer declares
+     * has a setting that silently does nothing — and it is worse than useless, because it LOOKS
+     * load-bearing in their compose file and the next person preserves it as intentional.
+     */
+    test('a retired key the target still sets is reported — advisory, never gating', () => {
+        const fromData = {a: {kept: leafOf({env: 'NEO_KEPT'}), gone: leafOf({env: 'NEO_GONE'})}},
+              toData   = {a: {kept: leafOf({env: 'NEO_KEPT'}), added: leafOf({env: 'NEO_ADDED'})}};
+
+        const diff = diffCohortLeafSets({fromData, toData});
+
+        expect(diff.retired.map(row => row.leafPath)).toEqual(['a.gone']);
+        expect(diff.introduced.map(row => row.leafPath)).toEqual(['a.added']);
+
+        const verdict = evaluateCohortAdmissibility({
+            cohortData       : toData,
+            currentCohortData: fromData,
+            target           : {providedEnv: {NEO_GONE: 'still-set'}}
+        });
+
+        // Inert, not blocking — refusing a migration over a setting that cannot fail a readiness
+        // check would block the move for no safety gain.
+        expect(verdict.admissible).toBe(true);
+        expect(verdict.retired.map(row => row.env)).toEqual(['NEO_GONE']);
+
+        // …and it is still SAID, on an admissible verdict, or the operator migrates carrying it.
+        expect(formatAdmissibilityVerdict(verdict).join('\n')).toContain('NEO_GONE');
+    });
+
+    test('a retired key the target does NOT set is not reported — it is noise, not a finding', () => {
+        const fromData = {a: {gone: leafOf({env: 'NEO_GONE'})}},
+              toData   = {a: {kept: leafOf({env: 'NEO_KEPT'})}};
+
+        const verdict = evaluateCohortAdmissibility({
+            cohortData       : toData,
+            currentCohortData: fromData,
+            target           : {providedEnv: {}}
+        });
+
+        expect(verdict.retired).toEqual([]);
+    });
+
+    test('without a current cohort, retirement is not guessed', () => {
+        // Absence of a comparison point is not evidence that nothing retired.
+        const verdict = evaluateCohortAdmissibility({
+            cohortData: {a: {x: leafOf({env: 'NEO_X'})}},
+            target    : {providedEnv: {NEO_ANYTHING: '1'}}
+        });
+
+        expect(verdict.retired).toEqual([]);
     });
 
     test('isLeafDescriptor separates leaves from namespace nodes', () => {
