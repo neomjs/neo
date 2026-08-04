@@ -7,12 +7,14 @@ import * as yaml      from 'js-yaml';
 import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
+    acquireAuthorityLeaseSurvivingSelfSuccession,
     enforceSingleton,
     LOCAL_AI_CONFIG_FILE,
     isOrchestratorDaemonCommand,
     loadLocalAiConfig,
     requiresOrchestratorPlane
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
+import {acquireAuthorityLease} from '../../../../../../ai/daemons/orchestrator/authorityLease.mjs';
 import {
     AUTHORITY_LEASE_TTL_MS,
     authorityLeaseFilename
@@ -26,6 +28,71 @@ import {
 
 test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
+
+    test.describe('self-succession: a restarted container waits out its own predecessor (720-restart loop)', () => {
+        function leaseDir() {
+            return fs.mkdtempSync(path.join(os.tmpdir(), 'neo-self-succession-'));
+        }
+
+        test('a DEAD predecessor is waited out and the lease is acquired — not an exit into a restart loop', async () => {
+            // The loop, reproduced. A container entrypoint is always pid 1 and the hostname is the container
+            // id, so a restart meets a lease whose recorded holder is byte-identical to the requester and
+            // still fresh. Before this the boot threw, the process exited, Docker restarted it, and the cycle
+            // repeated — 720 times on the local plane, ExitCode 0 and OOMKilled false, which is why it read
+            // as a mystery rather than a lock.
+            const dir     = leaseDir(),
+                  profile = 'container-plane';
+
+            // The predecessor: same identity this process will present, then it "dies" — nothing pulses it.
+            acquireAuthorityLease({dir, profile});
+
+            let sleptMs = 0;
+
+            const handle = await acquireAuthorityLeaseSurvivingSelfSuccession({
+                dir,
+                profile,
+                // The wait is what corroborates death: a dead predecessor stops pulsing, so its lease goes
+                // stale. Injected rather than real so the test does not sleep a minute — but note it must
+                // actually advance PAST the freshness window for the second claim to succeed, which is why
+                // the assertion below checks the duration and not merely that sleep was called.
+                // Records the requested duration but sleeps a SHORT REAL interval, because the lease's
+                // freshness check reads real time — a zero-wait stub leaves the predecessor fresh and the
+                // retry refuses, which is exactly how the first version of this test failed. The window is
+                // tiny so the real wait stays negligible while genuinely elapsing past it.
+                sleep: async ms => { sleptMs = ms; await new Promise(r => setTimeout(r, 60)); },
+                ttlMs: 40
+            });
+
+            expect(handle, 'a restarted container must acquire after waiting, never exit').toBeTruthy();
+            expect(sleptMs, 'it must wait past the freshness window, not retry immediately').toBeGreaterThan(0);
+
+            handle.release();
+        });
+
+        test('a LIVE holder that keeps pulsing still REFUSES after the wait — fail-closed preserved', async () => {
+            // The control, and the reason waiting is sound rather than a relaxation: the single-owner
+            // invariant is untouched. A genuinely live duplicate keeps its lease fresh, so the second claim
+            // refuses exactly as before. Without this, "wait and retry" would be indistinguishable from
+            // deleting the refusal.
+            const dir     = leaseDir(),
+                  profile = 'container-plane',
+                  holder  = acquireAuthorityLease({dir, profile});
+
+            await expect(acquireAuthorityLeaseSurvivingSelfSuccession({
+                dir,
+                profile,
+                // The wait must ELAPSE past the window and the holder must pulse inside it, so the lease is
+                // fresh at the retry *because of the pulse* — the signature of a live process. An earlier
+                // version pulsed without elapsing, which left the lease fresh at 0ms and would have passed
+                // with the pulse removed entirely: a control that cannot fail proves nothing. The paired
+                // test above is the proof this one discriminates — identical timing, no pulse, acquires.
+                sleep: async () => { await new Promise(r => setTimeout(r, 60)); holder.pulse(); },
+                ttlMs: 40
+            })).rejects.toThrow(/is held by/);
+
+            holder.release();
+        });
+    });
 
     test('builds task commands around existing manual maintenance scripts', () => {
         const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
