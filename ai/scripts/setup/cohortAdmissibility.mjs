@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module ai/scripts/setup/cohortAdmissibility
  * @summary Answers "may target T take cohort C?" — and when the answer is no, names the leaves that
@@ -16,6 +15,20 @@
  * The raw material already exists and is machine-readable — every leaf that can block a boot
  * declares `requiredFor` on its own descriptor. What was missing is a predicate over it. This module
  * is that predicate and nothing more: it reads, it never migrates, and it never relaxes a guard.
+ *
+ * ## Why it lives here, and why it carries no shebang
+ *
+ * Settled rather than left implicit, because a consumed library and a one-shot script want different
+ * homes and this directory holds both. It stays beside `migrateConfigOverlay.mjs`, which covers the
+ * config-overlay half of the same problem while stating it never handles env-resolved values — this
+ * module is the half that was left uncovered, so the pair belongs together. `initServerConfigs.mjs`
+ * and `seedAgentIdentities.mjs` are the precedent that a library is at home in this directory; the
+ * folder is not CLI-only.
+ *
+ * It carried `#!/usr/bin/env node` on the way in, and that was simply wrong: there is no argv
+ * handling, no `import.meta.url` entry guard, and no `main()` — only exports. A shebang announces
+ * "runnable as a program", so on a pure library it misdeclares the file to every reader and to any
+ * census that sorts scripts from libraries. Removed rather than made true.
  *
  * ## Derived, never hand-listed
  *
@@ -369,15 +382,28 @@ export function assessCohortSource(cohortData) {
  * @summary Answers "may target T take cohort C?".
  *
  * @param {Object} options
- * @param {Object} options.cohortData The cohort's `config.data` tree.
+ * @param {*} options.cohortData The cohort's `config.data` tree — typed `{*}` deliberately, NOT
+ *   `{Object}`. This function is specified to accept `undefined`, `null`, a scalar, an array and a
+ *   descriptor-free tree, and to refuse each of them through `sourceError`. Annotating it `{Object}`
+ *   would tell a caller to pre-validate, and the two ways they would do that are both wrong: a
+ *   duplicate upstream guard reimplements this one less carefully, and throwing on a non-object lets
+ *   a single unreadable candidate abort a whole selection pass instead of being skipped and recorded.
  * @param {Object} [options.currentCohortData=null] The cohort the target is ON, for retirement diffing.
  *   Omitted means retirement is not guessed — absence of a comparison point is not evidence.
  * @param {Object} [options.forbiddenEnv=null] `$composeDefaultParity.forbiddenEnv`, key → reason.
  * @param {Object} options.target `{entrypoint, mode, consumerClaims, providedEnv}`.
- * @returns {{admissible: Boolean, blocking: Object[], indeterminate: Object[], retired: Object[], forbidden: Object[], evaluated: Number}}
+ * @returns {{admissible: Boolean, sourceError: Object|null, blocking: Object[], indeterminate: Object[], retired: Object[], forbidden: Object[], evaluated: Number}}
  *   `blocking` names each leaf whose requirement applies and whose input the target does not supply,
  *   with the requirement's own `reason`. `indeterminate` names each leaf whose applicability could
  *   not be decided, with the axes that were unstated. Admissible only when BOTH are empty.
+ *
+ *   `sourceError` is the discriminator between the two ways a verdict can be inadmissible, and a
+ *   consumer that ignores it collapses them back together. It is `{observed, leafCount, reason}` when
+ *   the cohort could not be READ — a failed load, a wrong shape, a tree with no leaf descriptors — and
+ *   **`null` on every successfully-observed evaluation**, including inadmissible ones. So
+ *   `admissible: false` with `sourceError: null` means *this cohort does not fit this target*, while a
+ *   non-null `sourceError` means *we never saw a cohort at all*; the first is a fact about the target,
+ *   the second is a fault upstream of it, and an operator acts on them differently.
  *
  *   `retired` and `forbidden` are ADVISORY and never affect `admissible` — neither can fail a
  *   readiness check, so gating on them would refuse a migration for an input that is merely inert.
