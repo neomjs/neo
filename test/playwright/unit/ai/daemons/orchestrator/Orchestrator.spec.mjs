@@ -1,11 +1,14 @@
-import {test, expect}             from '@playwright/test';
-import fs                         from 'fs-extra';
-import path                       from 'path';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import AiConfig                   from '../../../../../../ai/config.template.mjs';
-import {Orchestrator}             from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
-import {ProcessSupervisorService} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import AiConfig       from '../../../../../../ai/config.template.mjs';
+import {Orchestrator} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {
+    buildSupervisedTaskEnv,
+    ProcessSupervisorService
+} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
@@ -2531,5 +2534,59 @@ test.describe('taskDefinitions — chroma persist dir rides the resolved leaf (#
         const tasks = buildTaskDefinitions({chromaPort: 8000});
 
         expect(tasks.chroma.args).toEqual(['run', '--path', '.neo-ai-data/chroma/unified', '--port', '8000']);
+    });
+});
+
+/**
+ * AC-F2 — the supervised-child heap ceiling actually ARRIVES at the constructed supervisor.
+ *
+ * @neo-gpt-emmy proved this seam by executing the merged heap-ceiling head and approved on that;
+ * her delta challenge recorded that exact-head search finds `NEO_SUPERVISED_TASK_HEAP_MB` only where
+ * the helper proves it IGNORES the env var — which is the opposite property. The env-independence
+ * of `buildSupervisedTaskEnv` was pinned; the injection that gives it a value was not.
+ *
+ * The trap this test is shaped around: `ProcessSupervisorService` carries
+ * `FALLBACK_SUPERVISED_TASK_HEAP_MB = 384`, and the leaf default is ALSO 384. So asserting the
+ * default would pass with the injection line deleted — the supervisor would reach the same number
+ * by falling back, and a test that cannot fail on the deletion is not covering it. The override is
+ * therefore set to a value no fallback can produce.
+ */
+test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling injection (#16463)', () => {
+    const LEAF_PATH = 'orchestrator.supervisedTaskHeapMb',
+          // Deliberately not 384, and not any other constant in the module under test.
+          INJECTED   = 777;
+
+    let saved;
+
+    test.beforeEach(() => {
+        saved = AiConfig.orchestrator.supervisedTaskHeapMb;
+        AiConfig.setData(LEAF_PATH, INJECTED);
+    });
+
+    test.afterEach(() => {
+        AiConfig.setData(LEAF_PATH, saved);
+    });
+
+    test('the resolved leaf reaches the constructed ProcessSupervisorService', () => {
+        // The premise: the injected value is distinguishable from the service's own fallback.
+        expect(INJECTED).not.toBe(384);
+        expect(AiConfig.orchestrator.supervisedTaskHeapMb).toBe(INJECTED);
+
+        const orchestrator = createTestOrchestrator();
+
+        expect(orchestrator.processSupervisorService.supervisedTaskHeapMb).toBe(INJECTED);
+    });
+
+    test('the injected member is what the child env builder consumes, not the module fallback', () => {
+        const orchestrator = createTestOrchestrator(),
+              // The exact expression the spawn path evaluates
+              // (`ProcessSupervisorService.runSupervisedTask`).
+              env          = buildSupervisedTaskEnv({
+                  baseEnv      : {},
+                  defaultHeapMb: orchestrator.processSupervisorService.supervisedTaskHeapMb
+              });
+
+        // The member is only worth injecting if it lands on the child's actual NODE_OPTIONS.
+        expect(env.NODE_OPTIONS).toBe(`--max-old-space-size=${INJECTED}`);
     });
 });

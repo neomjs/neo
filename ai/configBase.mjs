@@ -29,9 +29,17 @@ const DAY_MS  = 24 * HOUR_MS;
  * trades a catchable `FATAL ERROR: heap limit` for an uncatchable kernel OOM kill that leaves no
  * diagnostic at all.
  *
- * @param {String} value Raw env value.
- * @returns {Number}
- * @throws {TypeError} When the override is not a positive integer.
+ * The signature is the reason this JSDoc is worth reading carefully. A `metadata.parse` hook does
+ * NOT receive the value — it receives the env var's NAME and reads the value itself, which is what
+ * lets it distinguish "unset" from "set to something invalid". The first draft of this parser was
+ * written against the value signature and threw on every input including unset, which would have
+ * failed boot for every deployment that never set the override.
+ *
+ * @param {String} envVarName The env var's NAME, not its value.
+ * @param {Object} [options]
+ * @param {Object} [options.env=process.env] Env source; injectable for tests.
+ * @returns {Number|undefined} `undefined` when unset, so the leaf default applies.
+ * @throws {TypeError} When the override is set but is not a positive integer.
  */
 function parseSupervisedTaskHeapMb(envVarName, {env = process.env} = {}) {
     const rawValue = env[envVarName];

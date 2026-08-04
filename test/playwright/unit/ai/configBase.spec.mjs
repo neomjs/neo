@@ -32,6 +32,54 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
         return {cls, instance, proxy: createConfigProxy(instance)};
     }
 
+    /**
+     * AC-F1 — the supervised-child heap ceiling's fail-closed parse, committed.
+     *
+     * @neo-gpt-emmy verified this rejection by hand at the merged heap-ceiling head and approved on
+     * that evidence; nothing in the tree pinned it. Reviewer execution is not regression coverage —
+     * it proves the head she ran, not the next edit.
+     *
+     * The value of failing closed is not tidiness. `-1` does NOT fail on its own: Node reports
+     * `--max-old-space-size=-1` out of bounds, **exits 0**, and continues with a ~4.5 GB heap limit
+     * — above the 3 GiB cgroup. So the invalid override yields a LARGER ceiling than any valid one,
+     * and trades a catchable `FATAL ERROR: heap limit` for an uncatchable kernel OOM kill that
+     * leaves no diagnostic. A permissive parser inverts the property the ceiling exists for.
+     *
+     * All three branches are asserted because the first draft of this parser was written against a
+     * `(value)` signature rather than `(envVarName, {env})` and threw on EVERY input including
+     * unset, which would have failed boot for every deployment that never set the override. Only
+     * probing all of them caught it.
+     */
+    test('#16463 — the supervised-child heap ceiling refuses a non-positive override rather than falling back', () => {
+        const envName  = 'NEO_SUPERVISED_TASK_HEAP_MB',
+              original = process.env[envName];
+
+        const build = className => createOverlayFixture(className, null);
+
+        try {
+            delete process.env[envName];
+            // Unset resolves the leaf default — the branch a value-signature parser would have thrown on.
+            expect(build('Neo.ai.unittest.HeapCeilingUnsetFixture').proxy.orchestrator.supervisedTaskHeapMb).toBe(384);
+
+            process.env[envName] = '512';
+            expect(build('Neo.ai.unittest.HeapCeilingOverrideFixture').proxy.orchestrator.supervisedTaskHeapMb).toBe(512);
+
+            // Refusal, not fallback. Falling back to 384 here would be silent, and the operator would
+            // be running a 4.5 GB child under a 3 GiB cap with nothing saying so.
+            for (const bad of ['-1', '0', '1.5', 'abc']) {
+                process.env[envName] = bad;
+                expect(() => build(`Neo.ai.unittest.HeapCeilingRejects${bad.replace(/\W/g, '')}Fixture`), `${bad} must be refused`)
+                    .toThrow(TypeError);
+            }
+        } finally {
+            if (original === undefined) {
+                delete process.env[envName];
+            } else {
+                process.env[envName] = original;
+            }
+        }
+    });
+
     test('a base leaf NOT named in the delta resolves through the subclass — zero overlay edits (AC-1)', () => {
         // Deltas are leaf() declarations exactly like the base — the data plane's invariant.
         // (A bare primitive merged over a leaf descriptor does not survive construction; the
