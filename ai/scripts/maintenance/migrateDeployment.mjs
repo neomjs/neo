@@ -62,6 +62,13 @@ const execFileAsync = promisify(execFile),
       PIPELINE_REL  = 'ai/examples/cloud-deployment/deploy-pipeline.sh',
       DEFAULT_REPO  = 'https://github.com/neomjs/neo.git',
       /**
+       * The env keys that DEFINE the transaction rather than the config being repaired: the pinned
+       * revision and the discovered plane identity. A repair carrier that could set these would let the
+       * same flag redirect the run to another revision or another project, so they are reserved.
+       * @type {Set<String>}
+       */
+      RESERVED_TRANSACTION_KEYS = new Set(['NEO_REF', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_DEPLOY_COMPOSE_FILE']),
+      /**
        * The cohort whose `/app/.neo-revision` must move for a migration to count as delivered.
        * Overridable with `--services`; every listed service is asserted, so an under-listed cohort
        * narrows the proof rather than widening the pass.
@@ -149,6 +156,17 @@ export function parseArgs(argv) {
 
                 const service = lhs.slice(0, dot),
                       key     = lhs.slice(dot + 1);
+
+                // These three ARE the transaction: the pinned revision and the discovered plane identity.
+                // Accepting them as repair values let a caller redirect the run to another revision or
+                // another project through the same flag that repairs config — so they are refused by name
+                // rather than merely losing a precedence contest.
+                if (RESERVED_TRANSACTION_KEYS.has(key)) {
+                    throw new Error(
+                        `--set may not carry '${key}': it defines the transaction (pinned revision and ` +
+                        'discovered plane identity), not the config being repaired'
+                    )
+                }
 
                 options.desiredEnv[service] ||= {};
                 options.desiredEnv[service][key] = value.slice(separator + 1);
@@ -412,14 +430,19 @@ export function buildPipelineEnv(plan, composeIdentity, desiredEnv = {}) {
 
     Object.values(desiredEnv || {}).forEach(entries => Object.assign(desiredFlat, entries || {}));
 
+    // Spread the repair FIRST so the transaction keys always win. Ordering was the defect: with the
+    // repair spread last, `--set orchestrator.NEO_REF=<other>` emitted the other SHA and the run applied
+    // a revision the operator never selected. `parseArgs` also rejects these keys outright, so this is
+    // the second of two independent guards rather than the only one — a caller constructing desiredEnv
+    // programmatically never reaches the parser.
     return {
         pipelineEnv: {
+            ...desiredFlat,
             NEO_REF                : plan.revisionDelta.to,
             NEO_DEPLOY_PROJECT_NAME: composeIdentity.project,
-            NEO_DEPLOY_COMPOSE_FILE: composeIdentity.configFiles.join(path.delimiter),
-            ...desiredFlat
+            NEO_DEPLOY_COMPOSE_FILE: composeIdentity.configFiles.join(path.delimiter)
         },
-        forwarded  : Object.keys(desiredFlat)
+        forwarded  : Object.keys(desiredFlat).filter(key => !RESERVED_TRANSACTION_KEYS.has(key))
     }
 }
 

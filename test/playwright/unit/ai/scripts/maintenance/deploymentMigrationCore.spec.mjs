@@ -450,13 +450,41 @@ test.describe('the invocation boundary carries the repair into the transaction',
     });
 
     test('the pinned revision and discovered identity survive alongside a forwarded repair', () => {
-        // A desired key must never be able to overwrite the pinning that makes the transaction exact.
         const plan          = buildMigrationPlan(createPlanInput()),
               {pipelineEnv} = buildPipelineEnv(plan, identity, {orchestrator: {NEO_CHROMA_HOST: 'chroma'}});
 
         expect(pipelineEnv.NEO_REF).toBe(TARGET_SHA);
         expect(pipelineEnv.NEO_DEPLOY_PROJECT_NAME).toBe('neo-local-agent-os');
         expect(pipelineEnv.NEO_DEPLOY_COMPOSE_FILE).toContain('/x/overlay.yml')
+    });
+
+    test('a repair value CANNOT shadow a transaction key — adversarially, with the key it would redirect', () => {
+        // The prior version of the test above passed while the defect was live, because its fixture never
+        // contained a transaction key: the control could not fail for the reason the target might, so it
+        // certified nothing. @neo-gpt-emmy found that `--set orchestrator.NEO_REF=<other>` emitted the
+        // other SHA, because the repair spread AFTER the pinning. Named by the key it would have hijacked.
+        const plan = buildMigrationPlan(createPlanInput());
+
+        for (const key of ['NEO_REF', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_DEPLOY_COMPOSE_FILE']) {
+            const {pipelineEnv, forwarded} = buildPipelineEnv(plan, identity, {orchestrator: {[key]: 'HIJACKED'}});
+
+            expect(pipelineEnv[key], key).not.toBe('HIJACKED');
+            expect(forwarded, key).not.toContain(key)
+        }
+
+        expect(buildPipelineEnv(plan, identity, {orchestrator: {NEO_REF: 'HIJACKED'}}).pipelineEnv.NEO_REF).toBe(TARGET_SHA)
+    });
+
+    test('parseArgs refuses a reserved transaction key by NAME, not by losing a precedence contest', () => {
+        // Two independent guards: a caller building desiredEnv programmatically never reaches the parser,
+        // and a parser rejection alone would not protect that path.
+        for (const key of ['NEO_REF', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_DEPLOY_COMPOSE_FILE']) {
+            expect(() => parseArgs(['plan', '--set', `orchestrator.${key}=x`]), key)
+                .toThrow(/may not carry .*: it defines the transaction/)
+        }
+
+        expect(parseArgs(['plan', '--set', 'orchestrator.NEO_CHROMA_HOST=chroma']).desiredEnv)
+            .toEqual({orchestrator: {NEO_CHROMA_HOST: 'chroma'}})
     });
 
     test('no repair declared forwards nothing — apply never carries config the operator did not name', () => {
