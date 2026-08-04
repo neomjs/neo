@@ -2324,7 +2324,9 @@ class Workspace extends Container {
 
             const out = {...result, document: DockZoneModel.clone(me.dockModel)};
 
-            completed = true;
+            // A structured runner failure is a primary outcome the caller must receive intact —
+            // only a genuinely clean replay may let a restore failure replace the return.
+            completed = result?.completed === true && !result?.errors?.length;
 
             return out
         } finally {
@@ -2336,8 +2338,8 @@ class Workspace extends Container {
 
                 // The document assignment IS the restore. On a clean replay a rejecting restore
                 // projection must surface (a probe may not report success over an un-projected
-                // surface); while an original transaction error is in flight it must not be
-                // masked by the restore's own failure.
+                // surface); while a primary outcome is in flight — a thrown transaction error OR
+                // a structured runner failure — it must not be masked by the restore's own failure.
                 completed
                     ? await me.refreshDockWorkspace()
                     : await me.refreshDockWorkspace().catch(() => null)

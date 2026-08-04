@@ -2284,7 +2284,12 @@ test.describe('replay probe transaction (prototype-call)', () => {
                         : Promise.reject(new Error('restore projection rejected'))
                 }
             },
-            script = {schema: 'neo.tour.script.v1', id: 'noop', title: 'noop', scenes: []};
+            script = {
+                schema: 'neo.tour.script.v1',
+                id    : 'clean-pause',
+                title : 'clean pause',
+                scenes: [{id: 's1', title: 'pause', steps: [{type: 'pause', ms: 1}]}]
+            };
 
         await expect(
             Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true}),
@@ -2293,6 +2298,44 @@ test.describe('replay probe transaction (prototype-call)', () => {
 
         expect(host.dockModel, 'the displaced document is still restored').toBe(liveDocument);
         expect(refreshCalls).toHaveLength(2)
+    });
+
+    test('a structured runner failure returns intact — a rejecting restore projection may not replace it', async () => {
+        const
+            liveDocument = {nodes: {marker: 'live'}},
+            refreshCalls = [],
+            host         = {
+                dockModel     : liveDocument,
+                id            : 'fake-workspace-unregistered',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    return refreshCalls.length === 1
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('restore projection rejected'))
+                }
+            },
+            // The unregistered holder id makes every dock-service step fail STRUCTURALLY:
+            // the runner reports {completed:false, errors:[...]} without throwing.
+            script = {
+                schema: 'neo.tour.script.v1',
+                id    : 'structured-failure',
+                title : 'structured failure',
+                scenes: [{
+                    id   : 's1',
+                    title: 'assert',
+                    steps: [{type: 'topology-assert', expect: [{path: 'nodes.missing.items', equals: ['x']}]}]
+                }]
+            };
+
+        const result = await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
+
+        expect(result.completed, 'the structured failure reaches the caller').toBe(false);
+        expect(result.errors.length, 'the runner forensics survive the restore').toBeGreaterThan(0);
+        expect(host.dockModel, 'the displaced document is still restored').toBe(liveDocument);
+        expect(refreshCalls, 'the rejecting restore projection ran and was suppressed').toHaveLength(2)
     });
 
     test('a rejecting entry projection leaves the driver default without a restore', async () => {
