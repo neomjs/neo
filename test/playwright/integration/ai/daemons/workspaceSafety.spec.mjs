@@ -230,9 +230,15 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
 
             // Asserted rather than assumed, and read off the RESULT rather than off the child:
             // a signal-terminated process reports `exitCode === null`, so any check of `exitCode`
-            // alone would fail this healthy path. Removing a workspace whose owner is still writing
-            // is what produced the intermittent ENOTEMPTY, so an unreaped child must stop the
-            // removal below — deterministically here, rather than as a flake on an unrelated PR.
+            // alone would fail this healthy path. `reaped` is true only where terminal state was
+            // observed — a bounded timeout and an undeliverable signal both report false, because
+            // neither establishes that the child is gone.
+            //
+            // What is proven is the ordering defect: the old helper returned while the child was
+            // still alive, 25/25. That it is what produced the intermittent ENOTEMPTY is the
+            // plausible mechanism and NOT established — see the reproduction note below. Either
+            // way an unreaped child must stop the removal, deterministically here rather than as a
+            // flake on an unrelated PR.
             expect(reaped, `daemon not reaped before workspace removal (outcome=${outcome}, signal=${signal})`)
                 .toBe(true);
         }

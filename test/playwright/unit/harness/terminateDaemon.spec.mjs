@@ -29,6 +29,39 @@ function launch(source) {
 }
 
 /**
+ * Asks the OS whether the process still exists, rather than inferring it from the child object.
+ * Signal 0 performs the permission and existence checks without delivering anything.
+ * @param {Number} pid
+ * @returns {Boolean}
+ */
+function isProcessAlive(pid) {
+    try {
+        process.kill(pid, 0);
+        return true
+    } catch {
+        return false
+    }
+}
+
+/**
+ * A double standing in for a ChildProcess. Every method the helper calls is present, so an
+ * incomplete double fails loudly here instead of silently skipping the listener it forgot.
+ * @param {Object} [overrides]
+ * @returns {Object}
+ */
+function stubChild(overrides = {}) {
+    return {
+        exitCode      : null,
+        signalCode    : null,
+        kill          : () => true,
+        on            : () => {},
+        once          : () => {},
+        removeListener: () => {},
+        ...overrides
+    }
+}
+
+/**
  * @summary Reaped, not merely signalled.
  *
  * A caller removes the child's working directory the moment this resolves, so "resolved" has to mean
@@ -102,13 +135,66 @@ test.describe('terminateDaemon — resolves only once the child is reaped', () =
         // A stub that accepts signals and never exits. The caller contract is that `reaped: false`
         // forbids touching the workspace; a timeout that reported success would authorise removing a
         // directory whose owner is still alive, which is the original defect wearing a bound.
-        const neverExits = {exitCode: null, signalCode: null, kill: () => true, once: () => {}};
+        const neverExits = stubChild();
 
         const result = await terminateDaemon(neverExits, {sigtermGraceMs: 20, sigkillReapMs: 40});
 
         expect(result.reaped).toBe(false);
         expect(result.outcome).toBe(REAP_OUTCOME.unreaped);
         expect(result.signal).toBe('SIGKILL-timeout');
+    });
+
+    test('a signal that CANNOT be delivered never reports reaped — the child is provably still alive', async () => {
+        // The second false completion, and the same shape as the first: `kill()` throwing was read
+        // as proof of death. It is not. EPERM against a running process is the ordinary case, so
+        // this branch resolved `reaped: true` for a child that was still writing — the exact
+        // authorisation the whole module exists to withhold.
+        const child      = await spawnStubborn(),
+              nativeKill = child._handle.kill;
+
+        // Force native delivery to fail with EPERM. Node reports an undeliverable signal by emitting
+        // `error` on the child; with no listener, EventEmitter rethrows it out of the `kill()` call.
+        child._handle.kill = () => -1;
+
+        const result = await terminateDaemon(child, {sigtermGraceMs: 40, sigkillReapMs: 80});
+
+        expect(result.reaped).toBe(false);                  // ← the finding, pinned
+        expect(result.outcome).toBe(REAP_OUTCOME.killError);
+        expect(child.exitCode).toBeNull();
+        expect(child.signalCode).toBeNull();
+        // Not merely "death unproven" — the process genuinely exists. Asked of the OS rather than
+        // of the child object, because the child object is what got this wrong.
+        expect(isProcessAlive(child.pid)).toBe(true);
+
+        child._handle && (child._handle.kill = nativeKill);
+        child.kill('SIGKILL');
+        await new Promise(resolve => child.once('exit', resolve));
+    });
+
+    test('a child that dies DURING listener arming is caught by the re-check, not by the timeout', async () => {
+        // The terminal pre-check and the exit-listener arming are two reads of the same fact. A
+        // child that dies between them has already emitted `exit` — nothing re-emits it — so a
+        // listener armed afterwards waits out the entire bound for an event that will never come.
+        // Measured on a real child: 20/20 timeouts at a 50ms gap, and still 7/20 at a 0ms yield.
+        // The helper closes this by arming first and re-reading after, which is why the death is
+        // injected here at exactly the moment the listener is registered.
+        const dyingDuringArm = stubChild({
+            once(event) {
+                if (event === 'exit') {
+                    this.signalCode = 'SIGKILL'
+                }
+            }
+        });
+
+        const startedAt = process.hrtime.bigint(),
+              result    = await terminateDaemon(dyingDuringArm, {sigtermGraceMs: 20, sigkillReapMs: 40}),
+              elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+
+        expect(result.outcome).toBe(REAP_OUTCOME.alreadyExited);
+        expect(result.reaped).toBe(true);
+        expect(result.signal).toBe('SIGKILL');
+        // Below the injected grace, so this asserts the re-check rather than any timer path.
+        expect(elapsedMs).toBeLessThan(20);
     });
 
     test('isProcessTerminated recognises BOTH terminal states, and neither for a live child', async () => {
