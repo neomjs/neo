@@ -250,17 +250,55 @@ export function providesValue(providedEnv, envVarName) {
 }
 
 /**
+ * @summary Which keys the target sets that the parity census forbids — each with its recorded reason.
+ *
+ * `config-leaf-parity.json`'s `forbiddenEnv` is a key→reason map covering three distinct classes that
+ * share one instruction, *stop setting this*: **retired** controls whose owner moved (`NEO_AUTO_DREAM`
+ * — *"the orchestrator owns Dream"*), **derived** values the runtime computes for itself (the
+ * `NEO_AUTH_*` family — *"derived from auth.mode"*), and **posture-fixed** keys a canonical deployment
+ * does not get to choose (`NEO_AI_DEPLOYMENT_MODE`).
+ *
+ * This is the half {@link diffCohortLeafSets} structurally cannot supply. A diff derives THAT a key
+ * stopped being declared; only this map records WHY, and the why is the entire actionable content —
+ * "no longer declared" tells an operator nothing about what replaced it.
+ *
+ * ADVISORY, and that is an evidential claim rather than a cautious one: `lint-config-template-ssot.mjs`
+ * enforces this map against OUR Compose profiles in OUR CI, and nothing measured shows a foreign plane
+ * refusing to boot on one. Gating on it would assert a failure mode we have not observed.
+ *
+ * @param {Object} options
+ * @param {Object} options.providedEnv The target's resolved environment.
+ * @param {Object|null} options.forbiddenEnv `$composeDefaultParity.forbiddenEnv`, key → reason.
+ * @returns {Object[]} Rows `{env, reason}`, only for keys the target actually supplies.
+ */
+export function collectForbiddenKeysInUse({providedEnv = {}, forbiddenEnv = null} = {}) {
+    if (!forbiddenEnv) {
+        return []
+    }
+
+    return Object.entries(forbiddenEnv)
+        .filter(([env]) => providesValue(providedEnv, env))
+        .map(([env, reason]) => ({env, reason: reason ?? null}))
+}
+
+/**
  * @summary Answers "may target T take cohort C?".
  *
  * @param {Object} options
  * @param {Object} options.cohortData The cohort's `config.data` tree.
+ * @param {Object} [options.currentCohortData=null] The cohort the target is ON, for retirement diffing.
+ *   Omitted means retirement is not guessed — absence of a comparison point is not evidence.
+ * @param {Object} [options.forbiddenEnv=null] `$composeDefaultParity.forbiddenEnv`, key → reason.
  * @param {Object} options.target `{entrypoint, mode, consumerClaims, providedEnv}`.
- * @returns {{admissible: Boolean, blocking: Object[], indeterminate: Object[], evaluated: Number}}
+ * @returns {{admissible: Boolean, blocking: Object[], indeterminate: Object[], retired: Object[], forbidden: Object[], evaluated: Number}}
  *   `blocking` names each leaf whose requirement applies and whose input the target does not supply,
  *   with the requirement's own `reason`. `indeterminate` names each leaf whose applicability could
  *   not be decided, with the axes that were unstated. Admissible only when BOTH are empty.
+ *
+ *   `retired` and `forbidden` are ADVISORY and never affect `admissible` — neither can fail a
+ *   readiness check, so gating on them would refuse a migration for an input that is merely inert.
  */
-export function evaluateCohortAdmissibility({cohortData, currentCohortData = null, target = {}} = {}) {
+export function evaluateCohortAdmissibility({cohortData, currentCohortData = null, forbiddenEnv = null, target = {}} = {}) {
     const census        = collectRequirednessCensus(cohortData),
           providedEnv   = target.providedEnv ?? {},
           blocking      = [],
@@ -269,10 +307,19 @@ export function evaluateCohortAdmissibility({cohortData, currentCohortData = nul
     // Retired keys are ADVISORY and deliberately do not affect the verdict: an input the new cohort
     // no longer declares cannot fail a readiness check, so refusing the move over one would block a
     // migration for a setting that is merely inert. Reported, never gating.
+    //
+    // The parity map is consulted for a reason when it has one. A derived retirement can only say "no
+    // longer declared", which names the symptom; `forbiddenEnv` names what took the key's place.
     const retired = currentCohortData
         ? diffCohortLeafSets({fromData: currentCohortData, toData: cohortData}).retired
             .filter(row => row.env && providesValue(providedEnv, row.env))
+            .map(row => ({...row, reason: forbiddenEnv?.[row.env] ?? null}))
         : [];
+
+    // Independent of any diff, and deliberately so: this needs no `currentCohortData`, so a target
+    // that cannot say which cohort it is on still gets an actionable list. That is the common case
+    // for a plane far enough behind that nobody recorded what it was built from.
+    const forbidden = collectForbiddenKeysInUse({providedEnv, forbiddenEnv});
 
     for (const entry of census) {
         for (const requirement of entry.requirements) {
@@ -303,12 +350,17 @@ export function evaluateCohortAdmissibility({cohortData, currentCohortData = nul
         }
     }
 
+    const retiredEnvNames = new Set(retired.map(row => row.env));
+
     return {
         admissible: blocking.length === 0 && indeterminate.length === 0,
         blocking,
         indeterminate,
         retired,
-        evaluated : census.length
+        // A key can be both diff-retired and parity-forbidden. Reporting it twice would read as two
+        // separate problems and cost the operator a reconciliation they gain nothing from.
+        forbidden: forbidden.filter(row => !retiredEnvNames.has(row.env)),
+        evaluated: census.length
     }
 }
 
@@ -327,13 +379,21 @@ export function formatAdmissibilityVerdict(verdict) {
     // the migration still carrying them.
     const retiredLines = (verdict.retired ?? []).flatMap(row => [
         `  RETIRED   ${row.leafPath}${row.env ? ` (${row.env})` : ''}`,
-        '            You set this and the target cohort no longer declares it — inert, not blocking. Remove it, or a future reader preserves it as intentional.'
+        row.reason
+            ? `            ${row.reason}`
+            : '            You set this and the target cohort no longer declares it — inert, not blocking. Remove it, or a future reader preserves it as intentional.'
+    ]);
+
+    const forbiddenLines = (verdict.forbidden ?? []).flatMap(row => [
+        `  FORBIDDEN ${row.env}`,
+        `            ${row.reason ?? 'The parity census forbids this key; it is retired, derived, or fixed by posture.'}`
     ]);
 
     if (verdict.admissible) {
         return [
             `ADMISSIBLE — ${verdict.evaluated} requirement-bearing leaf/leaves evaluated, none blocking.`,
-            ...retiredLines
+            ...retiredLines,
+            ...forbiddenLines
         ]
     }
 
@@ -351,7 +411,7 @@ export function formatAdmissibilityVerdict(verdict) {
         lines.push('            Unknown is not admissible: the requirement may or may not apply, and guessing favours the case we know least about.')
     }
 
-    lines.push(...retiredLines);
+    lines.push(...retiredLines, ...forbiddenLines);
 
     return lines
 }

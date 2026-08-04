@@ -1,9 +1,11 @@
 import {test, expect} from '@playwright/test';
+import {readFileSync} from 'fs';
 import Neo            from '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
-import ConfigBase     from '../../../../../../ai/configBase.mjs';
+import ConfigBase      from '../../../../../../ai/configBase.mjs';
 import {
     classifyRequirement,
+    collectForbiddenKeysInUse,
     collectLeafPaths,
     collectRequirednessCensus,
     diffCohortLeafSets,
@@ -12,6 +14,11 @@ import {
     isLeafDescriptor,
     providesValue
 } from '../../../../../../ai/scripts/setup/cohortAdmissibility.mjs';
+
+const
+    PARITY_PATH   = new URL('../../../../../../ai/scripts/lint/config-leaf-parity.json', import.meta.url),
+    LIVE_PARITY   = JSON.parse(readFileSync(PARITY_PATH, 'utf8')),
+    FORBIDDEN_ENV = LIVE_PARITY.$composeDefaultParity.forbiddenEnv;
 
 /**
  * The predicate behind "may target T take cohort C?".
@@ -258,6 +265,90 @@ test.describe('cohortAdmissibility — may target T take cohort C? (#16453)', ()
         });
 
         expect(verdict.retired).toEqual([]);
+    });
+
+    /**
+     * The parity map supplies what a diff structurally cannot: the REASON. A derived retirement can
+     * only say "no longer declared", which names the symptom; `forbiddenEnv` names what replaced it.
+     */
+    test('a forbidden key the target sets is reported WITH its recorded reason', () => {
+        const rows = collectForbiddenKeysInUse({
+            providedEnv : {NEO_KEPT: 'x', NEO_RETIRED_THING: '1'},
+            forbiddenEnv: {NEO_RETIRED_THING: 'the orchestrator owns this now'}
+        });
+
+        expect(rows).toEqual([{env: 'NEO_RETIRED_THING', reason: 'the orchestrator owns this now'}]);
+    });
+
+    test('a forbidden key the target does not set is not reported, and no map means no claim', () => {
+        expect(collectForbiddenKeysInUse({providedEnv: {}, forbiddenEnv: {NEO_X: 'r'}})).toEqual([]);
+        // An empty value is absent here too, or `NEO_X=` would read as a finding the operator cannot act on.
+        expect(collectForbiddenKeysInUse({providedEnv: {NEO_X: '  '}, forbiddenEnv: {NEO_X: 'r'}})).toEqual([]);
+        expect(collectForbiddenKeysInUse({providedEnv: {NEO_X: '1'}})).toEqual([]);
+    });
+
+    /**
+     * A key can be BOTH diff-retired and parity-forbidden. Two rows for one key reads as two separate
+     * problems and costs the operator a reconciliation that yields nothing — and the merged row must
+     * keep the parity reason rather than the generic diff wording, since the reason is the payload.
+     */
+    test('a key that is both diff-retired and parity-forbidden is reported ONCE, keeping the reason', () => {
+        const fromData = {a: {gone: leafOf({env: 'NEO_GONE'})}},
+              toData   = {a: {kept: leafOf({env: 'NEO_KEPT'})}};
+
+        const verdict = evaluateCohortAdmissibility({
+            cohortData       : toData,
+            currentCohortData: fromData,
+            forbiddenEnv     : {NEO_GONE: 'the orchestrator owns Dream'},
+            target           : {providedEnv: {NEO_GONE: '1'}}
+        });
+
+        expect(verdict.retired).toHaveLength(1);
+        expect(verdict.retired[0].reason).toBe('the orchestrator owns Dream');
+        expect(verdict.forbidden).toEqual([]);
+
+        const rendered = formatAdmissibilityVerdict(verdict).join('\n');
+
+        expect(rendered.match(/NEO_GONE/g)).toHaveLength(1);
+        expect(rendered).toContain('the orchestrator owns Dream');
+    });
+
+    /**
+     * Against the REAL map, because the hand-built fixtures above would pass just as well if the
+     * shipped file had a different shape. This is the path a plane hundreds of commits behind takes:
+     * it cannot say which cohort it is on, so the diff is unavailable and this is the only surface
+     * that can still tell it something actionable.
+     */
+    test('the live parity map names a real retired key, with no currentCohortData available', () => {
+        expect(Object.keys(FORBIDDEN_ENV).length).toBeGreaterThan(0);
+
+        const verdict = evaluateCohortAdmissibility({
+            cohortData  : ConfigBase.config.data,
+            forbiddenEnv: FORBIDDEN_ENV,
+            target      : {
+                entrypoint    : 'orchestrator-daemon',
+                mode          : 'none',
+                consumerClaims: ['readiness'],
+                providedEnv   : {
+                    NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane',
+                    NEO_AUTO_DREAM                       : 'true'
+                }
+            }
+        });
+
+        // Advisory: a forbidden key is inert, so it must not flip an otherwise-clean verdict.
+        expect(verdict.admissible).toBe(true);
+        expect(verdict.retired).toEqual([]);
+
+        const row = verdict.forbidden.find(entry => entry.env === 'NEO_AUTO_DREAM');
+
+        expect(row).toBeTruthy();
+        // The reason is read from the shipped file, never restated here — restating it would let the
+        // two drift apart and this test would keep passing against the stale copy.
+        expect(row.reason).toBe(FORBIDDEN_ENV.NEO_AUTO_DREAM);
+        expect(row.reason).toContain('orchestrator owns Dream');
+
+        expect(formatAdmissibilityVerdict(verdict).join('\n')).toContain('FORBIDDEN NEO_AUTO_DREAM');
     });
 
     test('isLeafDescriptor separates leaves from namespace nodes', () => {
