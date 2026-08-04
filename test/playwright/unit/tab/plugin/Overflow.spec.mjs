@@ -58,6 +58,35 @@ class ThemeOwner extends ThemeAncestor {
 ThemeOwner = Neo.setupClass(ThemeOwner);
 
 /**
+ * @summary Mountable control fixture: a real config-system instance, so the plugin's
+ * `observeConfig('mounted')` render-truth projection edge fires exactly as it would on a
+ * component embodiment, without needing the full button.Base construction unit mode lacks.
+ */
+class MountableControl extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.MountableControl',
+        mounted_ : false
+    }
+
+    isVnodeInitializing = false
+    menuList = null
+
+    /**
+     * Alignment seam consumed by syncControl on mounted controls.
+     */
+    alignTo() {}
+
+    /**
+     * Re-arm seam; unused in these tests but part of the control contract.
+     * @returns {Promise<void>}
+     */
+    initVnode() {
+        return Promise.resolve()
+    }
+}
+MountableControl = Neo.setupClass(MountableControl);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -528,6 +557,177 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             Neo.vdom.Helper.create = originalCreate;
             console.error = originalError;
             originalApp === undefined ? delete Neo.apps['test-app'] : Neo.apps['test-app'] = originalApp;
+            control.destroy()
+        }
+    })
+});
+
+test.describe('Neo.tab.plugin.Overflow (cap ownership + reservation lifecycle)', () => {
+    let Overflow;
+
+    test.beforeAll(async () => {
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+    });
+
+    const
+
+        settle = () => new Promise(resolve => setTimeout(resolve, 10)),
+
+        /** A tab-button stub carrying the public channels the cap contract touches. */
+        makeCapButton = (id, config = {}) => ({
+            cls     : [],
+            hidden  : false,
+            id,
+            maxWidth: null,
+            style   : {},
+            vdom    : {},
+            addCls(value) { !this.cls.includes(value) && this.cls.push(value) },
+            removeCls(value) { this.cls = this.cls.filter(item => item !== value) },
+            setSilent(values) { Object.assign(this, values) },
+            show() {
+                this.hidden = false;
+                delete this.vdom.removeDom
+            },
+            ...config
+        }),
+
+        /** A toolbar-owner stub with the parent seam the active-button resolution needs. */
+        createCapPlugin = ({buttons, getDomRect}) => Neo.create(Overflow, {
+            owner: {
+                id      : 'cap-owner',
+                appName : 'test-app',
+                items   : buttons,
+                mounted : true,
+                parent  : {activeIndex: 0, on() {}},
+                theme   : 'neo-theme-neo-dark',
+                windowId: 1,
+                getDomRect,
+                getTheme() { return this.theme },
+                add            : () => ({}),
+                addDomListeners() {},
+                on() {},
+                un() {},
+                remove() {},
+                promiseUpdate: async () => {},
+                update() {}
+            }
+        });
+
+    test('render-truth edge: the pass that creates the control converges estimate→rendered at mount, no external event needed', async () => {
+        const
+            b1         = makeCapButton('b1'),
+            b2         = makeCapButton('b2'),
+            control    = Neo.create(MountableControl),
+            origCreate = Neo.create;
+
+        let createdConfig = null;
+
+        // The projection's create branch must receive a real config-system instance (the mounted
+        // observer is the contract under test); spy only the single-object component create.
+        Neo.create = (a, b) => a?.module ? (createdConfig = a, control) : origCreate(a, b);
+
+        try {
+            const plugin = createCapPlugin({
+                buttons   : [b1, b2],
+                // extent 236; rendered control 49 — measurable only once mounted. Naturals: the
+                // active b1 (227) alone exceeds usable, staging the degenerate cap.
+                getDomRect: async ids => ids[0] === 'cap-owner'
+                    ? (ids.length === 2 ? [{width: 236}, {width: 49}] : [{width: 236}])
+                    : [{width: 227}, {width: 100}]
+            });
+
+            await settle();
+
+            // The reviewer-falsified state, now pinned as the INTERMEDIATE contract: the single
+            // projection that created the (unmounted) control could only use the estimate…
+            expect(createdConfig, 'the projection created the control').toBeTruthy();
+            expect(plugin.measuredControlWidth, 'no render truth exists before the mount').toBe(null);
+            expect(b1.maxWidth, 'the cap uses the pre-creation estimate').toBe(236 - 40);
+            expect(plugin.projectQueued, 'and no external pass is owed').toBe(false);
+
+            // …and the mount itself is the projection edge: no resize, activation, or tab
+            // mutation occurs past this line.
+            control.mounted = true;
+            await settle();
+
+            expect(plugin.measuredControlWidth, 'the mount edge measured the rendered control').toBe(49);
+            expect(b1.maxWidth, 'the cap converged to the rendered reservation').toBe(236 - 49);
+
+            plugin.destroy()
+        } finally {
+            Neo.create = origCreate;
+            control.destroy()
+        }
+    });
+
+    test('a consumer-configured maxWidth is never plugin residue: ordinary and recapture passes leave it untouched', async () => {
+        const
+            b1     = makeCapButton('b1'),
+            b2     = makeCapButton('b2', {maxWidth: 120, style: {color: 'red', maxWidth: '120px'}}),
+            plugin = createCapPlugin({
+                buttons   : [b1, b2],
+                getDomRect: async ids => ids[0] === 'cap-owner' ? [{width: 1000}] : [{width: 100}, {width: 100}]
+            });
+
+        await settle();
+
+        expect(b2.maxWidth, 'consumer maxWidth config preserved on the ordinary pass').toBe(120);
+        expect(b2.style, 'consumer style object untouched').toEqual({color: 'red', maxWidth: '120px'});
+        expect(b2.cls, 'no plugin cap marker').toEqual([]);
+        expect(plugin.appliedCaps, 'no ownership recorded for consumer values').toBe(null);
+
+        await plugin.project(true);
+
+        expect(b2.maxWidth, 'recapture does not classify the consumer value as residue').toBe(120);
+        expect(b2.style).toEqual({color: 'red', maxWidth: '120px'});
+
+        plugin.destroy()
+    });
+
+    test('cap → recapture → no-overflow restores the exact caller value through the public channel', async () => {
+        const
+            b1         = makeCapButton('b1', {maxWidth: 300}),
+            b2         = makeCapButton('b2'),
+            control    = Neo.create(MountableControl),
+            origCreate = Neo.create;
+
+        let extent = 236;
+
+        Neo.create = (a, b) => a?.module ? control : origCreate(a, b);
+
+        try {
+            const plugin = createCapPlugin({
+                buttons   : [b1, b2],
+                getDomRect: async ids => ids[0] === 'cap-owner'
+                    ? (ids.length === 2 ? [{width: extent}, {width: 49}] : [{width: extent}])
+                    : [{width: 227}, {width: 100}]
+            });
+
+            await settle();
+
+            // Stage 1 — capped: provenance recorded with the caller's own ceiling.
+            expect(plugin.appliedCaps?.get('b1'), 'the caller value is recorded at cap time').toBe(300);
+            expect(b1.maxWidth, 'the cap overrides through the same public channel').toBe(236 - 40);
+            expect(b1.cls, 'the cap marker is present').toContain('neo-tab-overflow-capped');
+
+            // Stage 2 — recapture: the lift restores the caller value for measurement, then the
+            // split re-caps; the recorded provenance survives un-overwritten.
+            await plugin.project(true);
+
+            expect(plugin.appliedCaps?.get('b1'), 'recapture must not re-record the plugin cap as prior').toBe(300);
+            expect(b1.maxWidth, 'the re-applied cap holds after recapture').toBe(236 - 40);
+
+            // Stage 3 — the overflow retires: the exact caller value returns.
+            extent = 1000;
+            await plugin.project(false);
+
+            expect(b1.maxWidth, 'the exact caller value is restored').toBe(300);
+            expect(b1.cls, 'the cap marker is removed').toEqual([]);
+            expect(plugin.appliedCaps?.size ?? 0, 'the ledger empties').toBe(0);
+
+            plugin.destroy()
+        } finally {
+            Neo.create = origCreate;
             control.destroy()
         }
     })
